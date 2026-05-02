@@ -15,12 +15,9 @@ import org.jcodec.codecs.h264.io.model.VUIParameters;
 
 import com.limelight.BuildConfig;
 import com.limelight.LimeLog;
-import com.limelight.R;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.PreferenceConfiguration;
-import com.limelight.utils.DeviceUtils;
-import com.limelight.utils.TrafficStatsHelper;
 
 import android.annotation.TargetApi;
 import android.app.Activity;
@@ -30,14 +27,12 @@ import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodec.CodecException;
-import android.net.TrafficStats;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
-import android.text.TextUtils;
 import android.util.Range;
 import android.view.Choreographer;
 import android.view.Surface;
@@ -122,7 +117,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private int refreshRate;
     private PreferenceConfiguration prefs;
 
-    private long lastNetDataNum;
+    private long firstPerfStatsTimestamp;
     private LinkedBlockingQueue<Integer> outputBufferQueue = new LinkedBlockingQueue<>();
     private static final int OUTPUT_BUFFER_QUEUE_LIMIT = 2;
     private long lastRenderedFrameTimeNanos;
@@ -1473,76 +1468,47 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                     video_format+="???";
                 }
 
-                float decodeTimeMs = (float)lastTwo.decoderTimeMs / lastTwo.totalFramesReceived;
+                float decodeTimeMs = lastTwo.totalFramesReceived > 0
+                        ? (float)lastTwo.decoderTimeMs / lastTwo.totalFramesReceived
+                        : 0f;
                 long rttInfo = MoonBridge.getEstimatedRttInfo();
-                StringBuilder sb = new StringBuilder();
-                if(prefs.enablePerfOverlayLite){
-                    if(TrafficStatsHelper.getPackageRxBytes(Process.myUid())!= TrafficStats.UNSUPPORTED){
-                        long netData=TrafficStatsHelper.getPackageRxBytes(Process.myUid())+TrafficStatsHelper.getPackageTxBytes(Process.myUid());
-                        if(lastNetDataNum!=0){
-                            sb.append("带宽：");
-                            float realtimeNetData=(netData-lastNetDataNum)/1024f;
-                            if(realtimeNetData>=1000){
-                                sb.append(String.format("%.2f", realtimeNetData/1024f) +"M/s\t ");
-                            }else{
-                                sb.append(String.format("%.2f", realtimeNetData) +"K/s\t ");
-                            }
-                        }
-                        lastNetDataNum=netData;
-                    }
-                    //额外参数
-                    if(prefs.enablePerfOverlayLiteExt){
-                        sb.append(initialWidth + "x" + initialHeight);
-                        sb.append("\t");
-                        sb.append(video_format);
-                        sb.append("\t ");
-                    }
-                    sb.append("延迟/解码：");
-                    sb.append(context.getString(R.string.perf_overlay_lite_net,(int)(rttInfo >> 32)));
-                    sb.append(" / ");
-                    sb.append(context.getString(R.string.perf_overlay_lite_dectime,decodeTimeMs));
-                    sb.append("\t 丢包率：");
-                    sb.append(context.getString(R.string.perf_overlay_lite_netdrops,(float)lastTwo.framesLost / lastTwo.totalFrames * 100));
-                    sb.append("\t FPS：");
-                    sb.append(context.getString(R.string.perf_overlay_lite_fps,fps.totalFps));
-//                    sb.append("\n");
-//                    sb.append(context.getString(R.string.perf_overlay_lite_decoder,decoder));
-                }else{
-                    sb.append(context.getString(R.string.perf_overlay_streamdetails, initialWidth + "x" + initialHeight, fps.totalFps)).append('\n');
-                    sb.append(context.getString(R.string.perf_overlay_decoder, decoder)).append('\n');
-                    sb.append(context.getString(R.string.perf_overlay_incomingfps, fps.receivedFps)).append('\n');
-                    sb.append(context.getString(R.string.perf_overlay_renderingfps, fps.renderedFps)).append('\n');
-                    sb.append(context.getString(R.string.perf_overlay_netdrops,
-                            (float)lastTwo.framesLost / lastTwo.totalFrames * 100)).append('\n');
-                    sb.append(context.getString(R.string.perf_overlay_netlatency,
-                            (int)(rttInfo >> 32), (int)rttInfo)).append('\n');
-                    if (lastTwo.framesWithHostProcessingLatency > 0) {
-                        sb.append(context.getString(R.string.perf_overlay_hostprocessinglatency,
-                                (float)lastTwo.minHostProcessingLatency / 10,
-                                (float)lastTwo.maxHostProcessingLatency / 10,
-                                (float)lastTwo.totalHostProcessingLatency / 10 / lastTwo.framesWithHostProcessingLatency)).append('\n');
-                    }
-                    sb.append(context.getString(R.string.perf_overlay_dectime, decodeTimeMs));
-                    if(TrafficStatsHelper.getPackageRxBytes(Process.myUid())!= TrafficStats.UNSUPPORTED){
-                        long netData=TrafficStatsHelper.getPackageRxBytes(Process.myUid())+TrafficStatsHelper.getPackageTxBytes(Process.myUid());
-                        if(lastNetDataNum!=0){
-                            sb.append("\n带宽：");
-                            float realtimeNetData=(netData-lastNetDataNum)/1024f;
-                            if(realtimeNetData>=1000){
-                                sb.append(String.format("%.2f", realtimeNetData/1024f) +"M/s\t ");
-                            }else{
-                                sb.append(String.format("%.2f", realtimeNetData) +"K/s\t ");
-                            }
-                        }
-                        lastNetDataNum=netData;
-                    }
-                    String cpuModel=DeviceUtils.getCpuInfo();
-                    if(!TextUtils.isEmpty(cpuModel)){
-                        sb.append("\nCPU信息："+ cpuModel);
-                    }
+                long now = SystemClock.uptimeMillis();
+                float audioRateKbps = estimateAudioRateKbps();
+                if (firstPerfStatsTimestamp == 0) {
+                    firstPerfStatsTimestamp = now;
                 }
 
-                perfListener.onPerfUpdate(sb.toString());
+                PerfOverlayStats stats = new PerfOverlayStats();
+                stats.width = initialWidth;
+                stats.height = initialHeight;
+                stats.targetBitrateKbps = prefs.bitrate;
+                stats.targetFps = prefs.fps;
+                stats.totalFps = fps.totalFps;
+                stats.receivedFps = fps.receivedFps;
+                stats.renderedFps = fps.renderedFps;
+                stats.packetLossPercent = lastTwo.totalFrames > 0
+                        ? (float)lastTwo.framesLost / lastTwo.totalFrames * 100
+                        : 0f;
+                stats.networkLatencyMs = (int)(rttInfo >> 32);
+                stats.networkLatencyVarianceMs = (int)rttInfo;
+                stats.decodeTimeMs = decodeTimeMs;
+                stats.hostProcessingLatencyMs = lastTwo.framesWithHostProcessingLatency > 0
+                        ? (float)lastTwo.totalHostProcessingLatency / 10 / lastTwo.framesWithHostProcessingLatency
+                        : 0f;
+                stats.audioRateKbps = audioRateKbps;
+                long elapsedMs = Math.max(0, now - firstPerfStatsTimestamp);
+                long videoBytes = globalVideoStats.videoBytes + activeWindowVideoStats.videoBytes;
+                stats.audioBytes = Math.max(0, (long)(audioRateKbps * 1000f / 8f * elapsedMs / 1000f));
+                stats.videoBytes = Math.max(0, videoBytes);
+                stats.totalNetworkBytes = stats.videoBytes + stats.audioBytes;
+                long statsElapsedMs = Math.max(1, now - lastTwo.measurementStartTimestamp);
+                stats.videoRateKbps = lastTwo.videoBytes * 8f / statsElapsedMs;
+                stats.networkRateKbps = stats.videoRateKbps;
+                stats.hdr = (videoFormat & MoonBridge.VIDEO_FORMAT_MASK_10BIT) != 0;
+                stats.codecName = video_format;
+                stats.decoderName = decoder;
+
+                perfListener.onPerfUpdate(stats);
             }
 
             globalVideoStats.add(activeWindowVideoStats);
@@ -1774,6 +1740,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
         activeWindowVideoStats.totalFramesReceived++;
         activeWindowVideoStats.totalFrames++;
+        activeWindowVideoStats.videoBytes += decodeUnitLength;
 
         if (!FRAME_RENDER_TIME_ONLY) {
             // Count time from first packet received to enqueue time as receive time
@@ -1899,6 +1866,19 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             return 0;
         }
         return (int)(globalVideoStats.decoderTimeMs / globalVideoStats.totalFramesReceived);
+    }
+
+    private float estimateAudioRateKbps() {
+        if (prefs == null || prefs.audioConfiguration == null) {
+            return 128f;
+        }
+        if (prefs.audioConfiguration.channelCount >= 8) {
+            return 384f;
+        }
+        if (prefs.audioConfiguration.channelCount >= 6) {
+            return 256f;
+        }
+        return 128f;
     }
 
     static class DecoderHungException extends RuntimeException {

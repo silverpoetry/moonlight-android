@@ -45,6 +45,8 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.limelight.binding.video.PerfOverlayStats;
+
 import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.input.ControllerHandler;
@@ -2363,11 +2365,24 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
     }
 
     @Override
-    public void onPerfUpdate(final String text) {
+    public void onPerfUpdate(final PerfOverlayStats stats) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                performanceOverlayView.setText(text);
+                if (stats == null) {
+                    performanceOverlayView.setText("");
+                    return;
+                }
+                performanceOverlayView.setText(String.format(
+                        Locale.US,
+                        "%dx%d %s  延迟/解码：%d ms / %.2f ms  丢包率：%.2f%%  FPS：%.2f",
+                        stats.width,
+                        stats.height,
+                        stats.codecName != null ? stats.codecName : "--",
+                        stats.networkLatencyMs,
+                        stats.decodeTimeMs,
+                        stats.packetLossPercent,
+                        stats.totalFps));
             }
         });
     }

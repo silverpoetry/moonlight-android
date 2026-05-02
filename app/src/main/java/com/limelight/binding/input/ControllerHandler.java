@@ -3469,6 +3469,41 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         usbDeviceContexts.put(controller.getControllerId(), context);
     }
 
+    public boolean hasActiveUsbController() {
+        return usbDeviceContexts.size() > 0;
+    }
+
+    public String getActiveUsbControllerTypeDisplayName() {
+        if (usbDeviceContexts.size() <= 0) {
+            return "";
+        }
+
+        UsbDeviceContext context = usbDeviceContexts.valueAt(0);
+        if (context == null || context.device == null) {
+            return "";
+        }
+
+        String controllerType;
+        byte type = context.device.getType();
+        if (type == MoonBridge.LI_CTYPE_XBOX) {
+            controllerType = "Xbox";
+        }
+        else if (type == MoonBridge.LI_CTYPE_PS) {
+            controllerType = "DS";
+        }
+        else if (type == MoonBridge.LI_CTYPE_NINTENDO) {
+            controllerType = "NS";
+        }
+        else {
+            controllerType = context.device.getClass().getSimpleName();
+        }
+
+        if (usbDeviceContexts.size() > 1) {
+            return controllerType + " x" + usbDeviceContexts.size();
+        }
+        return controllerType;
+    }
+
     class GenericControllerContext implements GameInputDevice{
         public int id;
         public boolean external;
