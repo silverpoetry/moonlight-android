@@ -403,6 +403,79 @@
             </RadioGroup>
 
             <LinearLayout
+                android:id="@+id/v_game_display_hdr_high_brightness"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_marginTop="10dp"
+                    android:layout_marginLeft="5dp"
+                    android:layout_marginRight="5dp"
+                    android:layout_marginBottom="5dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="HDR满亮度"
+                        android:textStyle="bold"
+                        android:textColor="@android:color/white"
+                        android:textSize="12dp" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginLeft="5dp"
+                        android:singleLine="true"
+                        android:ellipsize="end"
+                        android:text="HDR模式下可拉满窗口亮度，默认关闭。"
+                        android:textStyle="italic|bold"
+                        android:textColor="#FFC107"
+                        android:textSize="8dp" />
+                </LinearLayout>
+
+                <RadioGroup
+                    android:id="@+id/rg_game_display_hdr_high_brightness"
+                    android:layout_width="match_parent"
+                    android:layout_height="27dp"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginRight="5dp"
+                    android:layout_marginLeft="5dp"
+                    android:layout_marginBottom="5dp"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/rbt_game_display_hdr_high_brightness_1"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_marginRight="5dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/ic_game_menu_btn_selector"
+                        android:gravity="center"
+                        android:padding="4dp"
+                        android:button="@null"
+                        android:text="开启"
+                        android:textSize="10dp" />
+
+                    <RadioButton
+                        android:id="@+id/rbt_game_display_hdr_high_brightness_2"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_marginRight="5dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/ic_game_menu_btn_selector"
+                        android:gravity="center"
+                        android:padding="4dp"
+                        android:button="@null"
+                        android:text="关闭"
+                        android:checked="true"
+                        android:textSize="10dp" />
+
+                </RadioGroup>
+
+            </LinearLayout>
+
+            <LinearLayout
                 android:layout_marginTop="10dp"
                 android:layout_marginLeft="5dp"
                 android:layout_marginRight="5dp"

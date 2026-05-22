@@ -66,6 +66,10 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
 
     private RadioGroup rg_game_display_ignore_hdr;
 
+    private View v_game_display_hdr_high_brightness;
+
+    private RadioGroup rg_game_display_hdr_high_brightness;
+
     private RadioGroup rg_game_display_fsr;
 
     private View v_game_display_fsr_details;
@@ -120,6 +124,8 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
         rg_game_display_lowlatency=v.findViewById(R.id.rg_game_display_lowlatency);
 
         rg_game_display_ignore_hdr=v.findViewById(R.id.rg_game_display_ignore_hdr);
+        v_game_display_hdr_high_brightness=v.findViewById(R.id.v_game_display_hdr_high_brightness);
+        rg_game_display_hdr_high_brightness=v.findViewById(R.id.rg_game_display_hdr_high_brightness);
         rg_game_display_fsr=v.findViewById(R.id.rg_game_display_fsr);
         v_game_display_fsr_details=v.findViewById(R.id.v_game_display_fsr_details);
         rg_game_display_fsr_sharpness=v.findViewById(R.id.rg_game_display_fsr_sharpness);
@@ -150,6 +156,7 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
         initAudio();
         initHDR();
         initIgnoreHDR();
+        initHdrHighBrightness();
         initLowLatency();
         initVD();
         initVideoFormat();
@@ -232,10 +239,12 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
             public void onCheckedChanged(RadioGroup group, int checkedId) {
                 if(checkedId==R.id.rbt_game_display_hdr_1){
                     saveHDR(true);
+                    updateHdrHighBrightnessVisibility(true);
                     return;
                 }
                 if(checkedId==R.id.rbt_game_display_hdr_2){
                     saveHDR(false);
+                    updateHdrHighBrightnessVisibility(false);
                     return;
                 }
             }
@@ -335,6 +344,20 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
             }
         });
 
+        rg_game_display_hdr_high_brightness.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(RadioGroup group, int checkedId) {
+                if (checkedId == R.id.rbt_game_display_hdr_high_brightness_1) {
+                    saveHdrHighBrightness(true);
+                    return;
+                }
+                if (checkedId == R.id.rbt_game_display_hdr_high_brightness_2) {
+                    saveHdrHighBrightness(false);
+                    return;
+                }
+            }
+        });
+
         rg_game_display_fsr_hdr_output.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(RadioGroup group, int checkedId) {
@@ -388,6 +411,22 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
     private void initIgnoreHDR(){
         boolean hdrFlag=PreferenceManager.getDefaultSharedPreferences(getActivity()).getBoolean("ignoreCheckHDR",false);
         rg_game_display_ignore_hdr.check(hdrFlag?R.id.rbt_game_display_ignore_hdr_1:R.id.rbt_game_display_ignore_hdr_2);
+    }
+
+    private void initHdrHighBrightness() {
+        updateHdrHighBrightnessVisibility(PreferenceManager.getDefaultSharedPreferences(getActivity())
+                .getBoolean("checkbox_enable_hdr", false));
+        boolean hdrHighBrightness = PreferenceManager.getDefaultSharedPreferences(getActivity())
+                .getBoolean(PreferenceConfiguration.ENABLE_HDR_HIGH_BRIGHTNESS_PREF_STRING, false);
+        rg_game_display_hdr_high_brightness.check(hdrHighBrightness
+                ? R.id.rbt_game_display_hdr_high_brightness_1
+                : R.id.rbt_game_display_hdr_high_brightness_2);
+    }
+
+    private void updateHdrHighBrightnessVisibility(boolean hdrEnabled) {
+        if (v_game_display_hdr_high_brightness != null) {
+            v_game_display_hdr_high_brightness.setVisibility(hdrEnabled ? View.VISIBLE : View.GONE);
+        }
     }
 
 
@@ -538,6 +577,13 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
         PreferenceManager.getDefaultSharedPreferences(getActivity())
                 .edit()
                 .putBoolean("ignoreCheckHDR",value)
+                .commit();
+    }
+
+    private void saveHdrHighBrightness(boolean value) {
+        PreferenceManager.getDefaultSharedPreferences(getActivity())
+                .edit()
+                .putBoolean(PreferenceConfiguration.ENABLE_HDR_HIGH_BRIGHTNESS_PREF_STRING, value)
                 .commit();
     }
 

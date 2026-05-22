@@ -1365,7 +1365,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         super.onDestroy();
 
         instance = null;
-        UiHelper.notifyColorOsHdrStatus(this, false);
+        UiHelper.notifyHdrWindowStatus(this, false);
 
         if(presentation!=null){
             presentation.dismiss();
@@ -2810,7 +2810,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private void stopConnection() {
         if (connecting || connected) {
             connecting = connected = false;
-            UiHelper.notifyColorOsHdrStatus(this, false);
+            UiHelper.notifyHdrWindowStatus(this, false);
             updatePipAutoEnter();
             audioRenderer = null;
 
@@ -3090,7 +3090,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (fsrVideoProcessor != null) {
             fsrVideoProcessor.setHdrToneMappingEnabled(enabled);
         }
-        UiHelper.notifyColorOsHdrStatus(this, enabled);
+        UiHelper.notifyHdrWindowStatus(this, enabled);
     }
 
     @Override

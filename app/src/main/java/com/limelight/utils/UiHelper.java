@@ -87,8 +87,8 @@ public class UiHelper {
                 manufacturer.contains("realme") || brand.contains("realme") || model.contains("realme");
     }
 
-    public static void notifyColorOsHdrStatus(final Activity activity, final boolean hdrEnabled) {
-        if (activity == null || !isColorOS()) {
+    public static void notifyHdrWindowStatus(final Activity activity, final boolean hdrEnabled) {
+        if (activity == null) {
             return;
         }
 
@@ -96,21 +96,26 @@ public class UiHelper {
             @Override
             public void run() {
                 try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    boolean colorOs = isColorOS();
+                    boolean enableHdrHighBrightness = PreferenceConfiguration.readPreferences(activity).enableHdrHighBrightness;
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && colorOs) {
                         activity.getWindow().setColorMode(hdrEnabled
                                 ? ActivityInfo.COLOR_MODE_HDR
                                 : ActivityInfo.COLOR_MODE_DEFAULT);
                     }
 
                     WindowManager.LayoutParams params = activity.getWindow().getAttributes();
-                    params.screenBrightness = hdrEnabled
+                    params.screenBrightness = hdrEnabled && enableHdrHighBrightness
                             ? WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
                             : WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
                     activity.getWindow().setAttributes(params);
 
-                    LimeLog.info("ColorOS HDR status updated: " + (hdrEnabled ? "enabled" : "disabled"));
+                    LimeLog.info("HDR window status updated: enabled=" + hdrEnabled
+                            + ", highBrightness=" + enableHdrHighBrightness
+                            + ", colorOs=" + colorOs);
                 } catch (Throwable t) {
-                    LimeLog.warning("Failed to update ColorOS HDR status: " + t.getMessage());
+                    LimeLog.warning("Failed to update HDR window status: " + t.getMessage());
                 }
             }
         });
