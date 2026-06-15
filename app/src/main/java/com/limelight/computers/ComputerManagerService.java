@@ -3,9 +3,12 @@ package com.limelight.computers;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.StringReader;
+import java.net.InterfaceAddress;
 import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.net.UnknownHostException;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -625,66 +628,99 @@ public class ComputerManagerService extends Service {
         tuple.pollingThread.start();
     }
 
+    private ComputerDetails waitForPollingTuple(ParallelPollTuple tuple) throws InterruptedException {
+        synchronized (tuple) {
+            while (!tuple.complete) {
+                tuple.wait();
+            }
+
+            if (tuple.returnedDetails != null) {
+                tuple.returnedDetails.activeAddress = tuple.address;
+                return tuple.returnedDetails;
+            }
+        }
+
+        return null;
+    }
+
+    private boolean isWrongSubnetSiteLocalAddress(ComputerDetails.AddressTuple address) {
+        if (address == null) {
+            return false;
+        }
+
+        try {
+            InetAddress targetAddress = InetAddress.getByName(address.address);
+            if (!(targetAddress instanceof Inet4Address) || !targetAddress.isSiteLocalAddress()) {
+                return false;
+            }
+
+            for (NetworkInterface iface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                for (InterfaceAddress ifaceAddress : iface.getInterfaceAddresses()) {
+                    if (!(ifaceAddress.getAddress() instanceof Inet4Address) ||
+                            !ifaceAddress.getAddress().isSiteLocalAddress()) {
+                        continue;
+                    }
+
+                    byte[] targetAddrBytes = targetAddress.getAddress();
+                    byte[] ifaceAddrBytes = ifaceAddress.getAddress().getAddress();
+
+                    boolean addressMatches = true;
+                    for (int i = 0; i < ifaceAddress.getNetworkPrefixLength(); i++) {
+                        if ((ifaceAddrBytes[i / 8] & (1 << (i % 8))) !=
+                                (targetAddrBytes[i / 8] & (1 << (i % 8)))) {
+                            addressMatches = false;
+                            break;
+                        }
+                    }
+
+                    if (addressMatches) {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        } catch (Exception e) {
+            // Some Android builds throw unexpected exceptions while enumerating interfaces.
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     private ComputerDetails parallelPollPc(ComputerDetails details) throws InterruptedException {
         ParallelPollTuple localInfo = new ParallelPollTuple(details.localAddress, details);
         ParallelPollTuple manualInfo = new ParallelPollTuple(details.manualAddress, details);
         ParallelPollTuple remoteInfo = new ParallelPollTuple(details.remoteAddress, details);
         ParallelPollTuple ipv6Info = new ParallelPollTuple(details.ipv6Address, details);
 
+        boolean preferExternalAddress =
+                details.manualAddress != null && isWrongSubnetSiteLocalAddress(details.localAddress);
+
         // These must be started in order of precedence for the deduplication algorithm
         // to result in the correct behavior.
         HashSet<ComputerDetails.AddressTuple> uniqueAddresses = new HashSet<>();
-        startParallelPollThread(localInfo, uniqueAddresses);
-        startParallelPollThread(manualInfo, uniqueAddresses);
-        startParallelPollThread(remoteInfo, uniqueAddresses);
-        startParallelPollThread(ipv6Info, uniqueAddresses);
+        if (preferExternalAddress) {
+            startParallelPollThread(manualInfo, uniqueAddresses);
+            startParallelPollThread(remoteInfo, uniqueAddresses);
+            startParallelPollThread(ipv6Info, uniqueAddresses);
+            startParallelPollThread(localInfo, uniqueAddresses);
+        }
+        else {
+            startParallelPollThread(localInfo, uniqueAddresses);
+            startParallelPollThread(manualInfo, uniqueAddresses);
+            startParallelPollThread(remoteInfo, uniqueAddresses);
+            startParallelPollThread(ipv6Info, uniqueAddresses);
+        }
 
         try {
-            // Check local first
-            synchronized (localInfo) {
-                while (!localInfo.complete) {
-                    localInfo.wait();
-                }
+            ParallelPollTuple[] pollOrder = preferExternalAddress
+                    ? new ParallelPollTuple[] { manualInfo, remoteInfo, ipv6Info, localInfo }
+                    : new ParallelPollTuple[] { localInfo, manualInfo, remoteInfo, ipv6Info };
 
-                if (localInfo.returnedDetails != null) {
-                    localInfo.returnedDetails.activeAddress = localInfo.address;
-                    return localInfo.returnedDetails;
-                }
-            }
-
-            // Now manual
-            synchronized (manualInfo) {
-                while (!manualInfo.complete) {
-                    manualInfo.wait();
-                }
-
-                if (manualInfo.returnedDetails != null) {
-                    manualInfo.returnedDetails.activeAddress = manualInfo.address;
-                    return manualInfo.returnedDetails;
-                }
-            }
-
-            // Now remote IPv4
-            synchronized (remoteInfo) {
-                while (!remoteInfo.complete) {
-                    remoteInfo.wait();
-                }
-
-                if (remoteInfo.returnedDetails != null) {
-                    remoteInfo.returnedDetails.activeAddress = remoteInfo.address;
-                    return remoteInfo.returnedDetails;
-                }
-            }
-
-            // Now global IPv6
-            synchronized (ipv6Info) {
-                while (!ipv6Info.complete) {
-                    ipv6Info.wait();
-                }
-
-                if (ipv6Info.returnedDetails != null) {
-                    ipv6Info.returnedDetails.activeAddress = ipv6Info.address;
-                    return ipv6Info.returnedDetails;
+            for (ParallelPollTuple tuple : pollOrder) {
+                ComputerDetails polledDetails = waitForPollingTuple(tuple);
+                if (polledDetails != null) {
+                    return polledDetails;
                 }
             }
         } finally {

@@ -133,6 +133,7 @@ public class KeyBoardController {
         this.prefConfig=prefConfig;
         this.vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
         buttonConfigure=View.inflate(context,R.layout.axi_keyboard_top_right_view,null);
+        buttonConfigure.setAlpha(prefConfig.oscOpacity / 100.0f / 2f);
         lv_left_view=View.inflate(context,R.layout.axi_keyboard_top_left_view,null);
         buttonWidth=UiHelper.dpToPx(context,50);
         buttonHeight=UiHelper.dpToPx(context,50);
