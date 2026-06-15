@@ -753,9 +753,22 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                 (prefConfig.framePacing == PreferenceConfiguration.FRAME_PACING_BALANCED && prefConfig.reduceRefreshRate);
     }
 
+    private boolean shouldLetSystemManageRefreshRate() {
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEVISION) ||
+                getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
+            return false;
+        }
+
+        String deviceBrand = (Build.MANUFACTURER + " " + Build.BRAND).toLowerCase(Locale.ROOT);
+        return deviceBrand.contains("xiaomi") ||
+                deviceBrand.contains("redmi") ||
+                deviceBrand.contains("poco");
+    }
+
     private float prepareDisplayForRendering() {
         Display display = getWindowManager().getDefaultDisplay();
         WindowManager.LayoutParams windowLayoutParams = getWindow().getAttributes();
+        boolean systemManagedRefreshRate = shouldLetSystemManageRefreshRate();
         float displayRefreshRate;
 
         // On M, we can explicitly set the optimal display mode
@@ -846,7 +859,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                     bestMode.getPhysicalHeight() + "x" + bestMode.getRefreshRate());
 
             // Only apply new window layout parameters if we've actually changed the display mode
-            if (display.getMode().getModeId() != bestMode.getModeId()) {
+            if (display.getMode().getModeId() != bestMode.getModeId() && !systemManagedRefreshRate) {
                 // If we only changed refresh rate and we're on an OS that supports Surface.setFrameRate()
                 // use that instead of using preferredDisplayModeId to avoid the possibility of triggering
                 // bugs that can cause the system to switch from 4K60 to 4K24 on Chromecast 4K.
@@ -859,6 +872,8 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                 } else {
                     LimeLog.info("Using setFrameRate() instead of preferredDisplayModeId due to matching resolution");
                 }
+            } else if (systemManagedRefreshRate) {
+                LimeLog.info("Leaving refresh rate selection to the system on this device");
             } else {
                 LimeLog.info("Current display mode is already the best display mode");
             }
@@ -884,11 +899,15 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
             }
 
             LimeLog.info("Selected refresh rate: " + bestRefreshRate);
-            windowLayoutParams.preferredRefreshRate = bestRefreshRate;
+            if (!systemManagedRefreshRate) {
+                windowLayoutParams.preferredRefreshRate = bestRefreshRate;
+            }
             displayRefreshRate = bestRefreshRate;
 
             // Apply the refresh rate change
-            getWindow().setAttributes(windowLayoutParams);
+            if (!systemManagedRefreshRate) {
+                getWindow().setAttributes(windowLayoutParams);
+            }
         } else {
             // Otherwise, the active display refresh rate is just
             // whatever is currently in use.

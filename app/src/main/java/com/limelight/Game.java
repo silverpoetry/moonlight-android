@@ -1108,9 +1108,22 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 (prefConfig.framePacing == PreferenceConfiguration.FRAME_PACING_BALANCED && prefConfig.reduceRefreshRate);
     }
 
+    private boolean shouldLetSystemManageRefreshRate() {
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEVISION) ||
+                getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
+            return false;
+        }
+
+        String deviceBrand = (Build.MANUFACTURER + " " + Build.BRAND).toLowerCase(Locale.ROOT);
+        return deviceBrand.contains("xiaomi") ||
+                deviceBrand.contains("redmi") ||
+                deviceBrand.contains("poco");
+    }
+
     private float prepareDisplayForRendering() {
         Display display = getWindowManager().getDefaultDisplay();
         WindowManager.LayoutParams windowLayoutParams = getWindow().getAttributes();
+        boolean systemManagedRefreshRate = shouldLetSystemManageRefreshRate();
         float displayRefreshRate;
 
         // On M, we can explicitly set the optimal display mode
@@ -1204,7 +1217,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     bestMode.getPhysicalHeight()+"x"+bestMode.getRefreshRate());
 
             // Only apply new window layout parameters if we've actually changed the display mode
-            if (display.getMode().getModeId() != bestMode.getModeId()) {
+            if (display.getMode().getModeId() != bestMode.getModeId() && !systemManagedRefreshRate) {
                 // If we only changed refresh rate and we're on an OS that supports Surface.setFrameRate()
                 // use that instead of using preferredDisplayModeId to avoid the possibility of triggering
                 // bugs that can cause the system to switch from 4K60 to 4K24 on Chromecast 4K.
@@ -1218,6 +1231,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 else {
                     LimeLog.info("Using setFrameRate() instead of preferredDisplayModeId due to matching resolution");
                 }
+            }
+            else if (systemManagedRefreshRate) {
+                LimeLog.info("Leaving refresh rate selection to the system on this device");
             }
             else {
                 LimeLog.info("Current display mode is already the best display mode");
@@ -1244,11 +1260,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             }
 
             LimeLog.info("Selected refresh rate: "+bestRefreshRate);
-            windowLayoutParams.preferredRefreshRate = bestRefreshRate;
+            if (!systemManagedRefreshRate) {
+                windowLayoutParams.preferredRefreshRate = bestRefreshRate;
+            }
             displayRefreshRate = bestRefreshRate;
 
             // Apply the refresh rate change
-            getWindow().setAttributes(windowLayoutParams);
+            if (!systemManagedRefreshRate) {
+                getWindow().setAttributes(windowLayoutParams);
+            }
         }
 
         // Until Marshmallow, we can't ask for a 4K display mode, so we'll
@@ -3163,7 +3183,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         // Tell the OS about our frame rate to allow it to adapt the display refresh rate appropriately
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (shouldLetSystemManageRefreshRate()) {
+            LimeLog.info("Skipping Surface.setFrameRate() and leaving refresh rate to the system");
+        }
+        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // We want to change frame rate even if it's not seamless, since prepareDisplayForRendering()
             // will not set the display mode on S+ if it only differs by the refresh rate. It depends
             // on us to trigger the frame rate switch here.
