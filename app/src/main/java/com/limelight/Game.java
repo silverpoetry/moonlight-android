@@ -137,6 +137,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private int lastButtonState = 0;
     private float externalTouchpadScrollRemainderX = 0f;
     private float externalTouchpadScrollRemainderY = 0f;
+    private float lastX = -1f;
+    private float lastY = -1f;
 
     // Only 2 touches are supported
     private final TouchContext[] touchContextMap = new TouchContext[2];
@@ -2420,8 +2422,38 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     return true;
                 }
                 else if (view != null) {
-                    // Otherwise send absolute position based on the view for SOURCE_CLASS_POINTER
-                    updateMousePosition(view, event);
+                    if (shouldUseAbsoluteTouchpadScroll(event, buttonState)) {
+                        float currentX = event.getX();
+                        float currentY = event.getY();
+
+                        if (lastX != -1f && lastY != -1f) {
+                            float dx = currentX - lastX;
+                            float dy = currentY - lastY;
+
+                            short vScrollAmount = (short)(dy * 4);
+                            short hScrollAmount = (short)(-dx * 4);
+
+                            if (Math.abs(vScrollAmount) > Math.abs(hScrollAmount)) {
+                                conn.sendMouseHighResScroll(vScrollAmount);
+                            }
+                            else if (Math.abs(hScrollAmount) > Math.abs(vScrollAmount)) {
+                                conn.sendMouseHighResHScroll(hScrollAmount);
+                            }
+                        }
+
+                        lastX = currentX;
+                        lastY = currentY;
+                    }
+                    else {
+                        if (event.getActionMasked() == MotionEvent.ACTION_UP ||
+                                event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                            lastX = -1f;
+                            lastY = -1f;
+                        }
+
+                        // Otherwise send absolute position based on the view for SOURCE_CLASS_POINTER
+                        updateMousePosition(view, event);
+                    }
                 }
 
                 if (event.getActionMasked() == MotionEvent.ACTION_SCROLL) {
@@ -2771,6 +2803,26 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         eventY = Math.min(Math.max(eventY, 0), streamView.getHeight());
 
         conn.sendMousePosition((short)eventX, (short)eventY, (short)streamView.getWidth(), (short)streamView.getHeight());
+    }
+
+    private boolean shouldUseAbsoluteTouchpadScroll(MotionEvent event, int buttonState) {
+        if (event.getActionMasked() != MotionEvent.ACTION_MOVE || buttonState != 0 || event.getPointerCount() == 0) {
+            return false;
+        }
+
+        if (event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER) {
+            return true;
+        }
+
+        InputDevice device = event.getDevice();
+        if (device == null || device.getName() == null) {
+            return false;
+        }
+
+        String deviceName = device.getName().toLowerCase(Locale.ROOT);
+        return deviceName.contains("touchpad") ||
+                deviceName.contains("trackpad") ||
+                deviceName.contains("xiaomi");
     }
 
     @Override
