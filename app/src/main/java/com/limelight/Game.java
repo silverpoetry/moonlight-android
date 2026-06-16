@@ -44,6 +44,7 @@ import com.limelight.ui.StreamView;
 import com.limelight.ui.floatingview.AXFloatingMagnetView;
 import com.limelight.ui.floatingview.AXFloatingView;
 import com.limelight.ui.floatingview.AXFloatingViewListener;
+import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.RazerUtils;
 import com.limelight.utils.ServerHelper;
@@ -82,6 +83,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.text.SpannableString;
@@ -1538,8 +1540,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         .apply();
             }
         }
-        if(prefConfig.enableScreenOnAuto!=0){
-            isAutoLink=true;
+        if (prefConfig.enableScreenOnAuto != 0 && !isFinishing()) {
+            PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (powerManager != null && powerManager.isInteractive()) {
+                AutoReconnectHelper.savePendingStream(getIntent());
+            }
+            else {
+                isAutoLink = true;
+            }
             return;
         }
         finish();
