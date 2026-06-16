@@ -74,6 +74,7 @@ import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.sbs.TextureSurfaceRenderer;
 import com.limelight.sbs.VideoTextureRenderer;
 import com.limelight.ui.GameGestures;
+import com.limelight.ui.StreamInputCallbacks;
 import com.limelight.ui.SBSStreamView;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.ServerHelper;
@@ -91,7 +92,7 @@ import java.util.Locale;
 
 public class GameSbs extends Activity implements TextureView.SurfaceTextureListener,
         OnGenericMotionListener, NvConnectionListener, EvdevListener,
-        OnSystemUiVisibilityChangeListener, GameGestures, SBSStreamView.InputCallbacks, TextureSurfaceRenderer.OnGlReadyListener,
+        OnSystemUiVisibilityChangeListener, GameGestures, StreamInputCallbacks, TextureSurfaceRenderer.OnGlReadyListener,
         PerfOverlayListener, UsbDriverService.UsbDriverStateListener, View.OnKeyListener {
     public static GameSbs instance;
 
@@ -1353,6 +1354,36 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         return true;
     }
 
+    @Override
+    public void handleImeText(String text) {
+        if (conn == null || !grabbedInput || text == null || text.isEmpty()) {
+            return;
+        }
+
+        conn.sendUtf8Text(text);
+    }
+
+    @Override
+    public void handleImeBackspace(int count) {
+        sendImeKey((short) KeyboardTranslator.VK_BACK_SPACE, count);
+    }
+
+    @Override
+    public void handleImeForwardDelete(int count) {
+        sendImeKey((short) 0x2e, count);
+    }
+
+    private void sendImeKey(short keyCode, int count) {
+        if (conn == null || !grabbedInput || count <= 0) {
+            return;
+        }
+
+        for (int i = 0; i < count; i++) {
+            conn.sendKeyboardInput(keyCode, KeyboardPacket.KEY_DOWN, getModifierState(), (byte) 0);
+            conn.sendKeyboardInput(keyCode, KeyboardPacket.KEY_UP, getModifierState(), (byte) 0);
+        }
+    }
+
     private TouchContext getTouchContext(int actionIndex) {
         if (actionIndex < touchContextMap.length) {
             return touchContextMap[actionIndex];
@@ -1365,6 +1396,8 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
     public void toggleKeyboard() {
         LimeLog.info("Toggling keyboard overlay");
         InputMethodManager inputManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        streamView.requestFocus();
+        inputManager.restartInput(streamView);
         inputManager.toggleSoftInput(0, 0);
     }
 

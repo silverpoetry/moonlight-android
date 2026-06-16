@@ -9,10 +9,12 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.SurfaceView;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
 
 public class StreamView extends SurfaceView {
     private double desiredAspectRatio;
-    private InputCallbacks inputCallbacks;
+    private StreamInputCallbacks inputCallbacks;
 
 
     private boolean enableZoomAndPan = false;  // 开关变量，控制缩放和平移功能
@@ -30,7 +32,7 @@ public class StreamView extends SurfaceView {
         this.desiredAspectRatio = aspectRatio;
     }
 
-    public void setInputCallbacks(InputCallbacks callbacks) {
+    public void setInputCallbacks(StreamInputCallbacks callbacks) {
         this.inputCallbacks = callbacks;
     }
 
@@ -55,9 +57,25 @@ public class StreamView extends SurfaceView {
     }
 
     private void init(Context context){
+        setFocusable(true);
+        setFocusableInTouchMode(true);
         // 初始化手势检测器
         gestureDetector = new GestureDetector(context, new GestureListener());
         scaleDetector = new ScaleGestureDetector(context, new ScaleListener());
+    }
+
+    @Override
+    public boolean onCheckIsTextEditor() {
+        return true;
+    }
+
+    @Override
+    public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+        outAttrs.inputType = EditorInfo.TYPE_CLASS_TEXT |
+                EditorInfo.TYPE_TEXT_FLAG_AUTO_CORRECT |
+                EditorInfo.TYPE_TEXT_FLAG_MULTI_LINE;
+        outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN;
+        return new StreamImeInputConnection(this, inputCallbacks);
     }
 
     @Override
@@ -102,11 +120,6 @@ public class StreamView extends SurfaceView {
         }
 
         return super.onKeyPreIme(keyCode, event);
-    }
-
-    public interface InputCallbacks {
-        boolean handleKeyUp(KeyEvent event);
-        boolean handleKeyDown(KeyEvent event);
     }
 
     public void setEnableZoomAndPan(boolean enableZoomAndPan) {

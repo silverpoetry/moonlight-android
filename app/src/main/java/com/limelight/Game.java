@@ -40,6 +40,7 @@ import com.limelight.preferences.GlPreferences;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.gamemenu.GameMenuFragment;
 import com.limelight.ui.GameGestures;
+import com.limelight.ui.StreamInputCallbacks;
 import com.limelight.ui.StreamView;
 import com.limelight.ui.floatingview.AXFloatingMagnetView;
 import com.limelight.ui.floatingview.AXFloatingView;
@@ -130,7 +131,7 @@ import java.util.Map;
 
 public class Game extends Activity implements SurfaceHolder.Callback,
         OnGenericMotionListener, OnTouchListener, NvConnectionListener, EvdevListener,
-        OnSystemUiVisibilityChangeListener, GameGestures, StreamView.InputCallbacks,
+        OnSystemUiVisibilityChangeListener, GameGestures, StreamInputCallbacks,
         PerfOverlayListener, UsbDriverService.UsbDriverStateListener, View.OnKeyListener{
     private static final float EXTERNAL_TOUCHPAD_SCROLL_FACTOR = 0.15f;
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 1001;
@@ -1903,6 +1904,36 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         return true;
     }
 
+    @Override
+    public void handleImeText(String text) {
+        if (conn == null || !grabbedInput || text == null || text.isEmpty()) {
+            return;
+        }
+
+        conn.sendUtf8Text(text);
+    }
+
+    @Override
+    public void handleImeBackspace(int count) {
+        sendImeKey((short) KeyboardTranslator.VK_BACK_SPACE, count);
+    }
+
+    @Override
+    public void handleImeForwardDelete(int count) {
+        sendImeKey((short) 0x2e, count);
+    }
+
+    private void sendImeKey(short keyCode, int count) {
+        if (conn == null || !grabbedInput || count <= 0) {
+            return;
+        }
+
+        for (int i = 0; i < count; i++) {
+            conn.sendKeyboardInput(keyCode, KeyboardPacket.KEY_DOWN, getModifierState(), (byte) 0);
+            conn.sendKeyboardInput(keyCode, KeyboardPacket.KEY_UP, getModifierState(), (byte) 0);
+        }
+    }
+
     private TouchContext getTouchContext(int actionIndex)
     {
         if (actionIndex < touchContextMap.length) {
@@ -1917,6 +1948,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public void toggleKeyboard() {
         LimeLog.info("Toggling keyboard overlay");
         InputMethodManager inputManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        streamView.requestFocus();
+        inputManager.restartInput(streamView);
         inputManager.toggleSoftInput(0, 0);
     }
 
