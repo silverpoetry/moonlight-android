@@ -4,30 +4,55 @@ import android.content.Context;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
 import android.view.TextureView;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
 
 
 public class SBSStreamView extends TextureView {
+   private StreamInputCallbacks inputCallbacks;
+
    public SBSStreamView(Context context) {
       super(context);
+      init();
    }
 
    public SBSStreamView(Context context, AttributeSet attrs) {
       super(context, attrs);
+      init();
    }
 
    public SBSStreamView(Context context, AttributeSet attrs, int defStyleAttr) {
       super(context, attrs, defStyleAttr);
+      init();
    }
 
    private double desiredAspectRatio;
-   private SBSStreamView.InputCallbacks inputCallbacks;
 
    public void setDesiredAspectRatio(double aspectRatio) {
       this.desiredAspectRatio = aspectRatio;
    }
 
-   public void setInputCallbacks(SBSStreamView.InputCallbacks callbacks) {
+   public void setInputCallbacks(StreamInputCallbacks callbacks) {
       this.inputCallbacks = callbacks;
+   }
+
+   private void init() {
+      setFocusable(true);
+      setFocusableInTouchMode(true);
+   }
+
+   @Override
+   public boolean onCheckIsTextEditor() {
+      return true;
+   }
+
+   @Override
+   public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+      outAttrs.inputType = EditorInfo.TYPE_CLASS_TEXT |
+              EditorInfo.TYPE_TEXT_FLAG_AUTO_CORRECT |
+              EditorInfo.TYPE_TEXT_FLAG_MULTI_LINE;
+      outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN;
+      return new StreamImeInputConnection(this, inputCallbacks);
    }
 
    @Override
@@ -73,11 +98,5 @@ public class SBSStreamView extends TextureView {
 
       return super.onKeyPreIme(keyCode, event);
    }
-
-   public interface InputCallbacks {
-      boolean handleKeyUp(KeyEvent event);
-      boolean handleKeyDown(KeyEvent event);
-   }
-
 
 }
