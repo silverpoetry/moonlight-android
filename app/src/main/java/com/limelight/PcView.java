@@ -25,6 +25,7 @@ import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.preferences.StreamSettings;
 import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
+import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.DeviceUtils;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.HelpLauncher;
@@ -103,6 +104,12 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
                     // Start updates
                     startComputerUpdates();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            tryAutoReconnect();
+                        }
+                    });
 
                     // Force a keypair to be generated early to avoid discovery delays
                     new AndroidCryptoProvider(PcView.this).getClientCertificate();
@@ -329,6 +336,13 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                         if (details.pairState == PairState.PAIRED) {
                             shortcutHelper.createAppViewShortcutForOnlineHost(details);
                         }
+
+                        PcView.this.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                tryAutoReconnect();
+                            }
+                        });
                     }
                 }
             });
@@ -372,6 +386,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
         inForeground = true;
         startComputerUpdates();
+        tryAutoReconnect();
     }
 
     @Override
@@ -387,6 +402,14 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         super.onStop();
 
         Dialog.closeDialogs();
+    }
+
+    private void tryAutoReconnect() {
+        if (!inForeground || managerBinder == null) {
+            return;
+        }
+
+        AutoReconnectHelper.maybeResumeStream(this, managerBinder, null);
     }
 
     @Override

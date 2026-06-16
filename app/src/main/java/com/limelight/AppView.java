@@ -20,6 +20,7 @@ import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.ui.gamemenu.GameDisplayFragment;
+import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.ServerHelper;
@@ -136,6 +137,12 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
 
                     // Start updates
                     startComputerUpdates();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            tryAutoReconnect();
+                        }
+                    });
 
                     runOnUiThread(new Runnable() {
                         @Override
@@ -239,6 +246,13 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
 
                     return;
                 }
+
+                AppView.this.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        tryAutoReconnect();
+                    }
+                });
 
                 // App list is the same or empty
                 if (details.rawAppList == null || details.rawAppList.equals(lastRawApplist)) {
@@ -442,6 +456,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
 
         inForeground = true;
         startComputerUpdates();
+        tryAutoReconnect();
     }
 
     @Override
@@ -450,6 +465,14 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
 
         inForeground = false;
         stopComputerUpdates();
+    }
+
+    private void tryAutoReconnect() {
+        if (!inForeground || managerBinder == null) {
+            return;
+        }
+
+        AutoReconnectHelper.maybeResumeStream(this, managerBinder, uuidString);
     }
 
     @Override
