@@ -1397,8 +1397,16 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         LimeLog.info("Toggling keyboard overlay");
         InputMethodManager inputManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         streamView.requestFocus();
-        inputManager.restartInput(streamView);
-        inputManager.toggleSoftInput(0, 0);
+        if (streamView.isImeActive()) {
+            streamView.setImeActive(false);
+            inputManager.hideSoftInputFromWindow(streamView.getWindowToken(), 0);
+            inputManager.restartInput(streamView);
+        }
+        else {
+            streamView.setImeActive(true);
+            inputManager.restartInput(streamView);
+            inputManager.showSoftInput(streamView, 0);
+        }
     }
 
     private byte getLiTouchTypeFromEvent(MotionEvent event) {
@@ -2329,6 +2337,12 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
     @Override
     public void setControllerLED(short controllerNumber, byte r, byte g, byte b) {
         controllerHandler.handleSetControllerLED(controllerNumber, r, g, b);
+    }
+
+    @Override
+    public void nativeCursor(boolean visible, boolean shapeChanged, int format, int x, int y,
+                             int width, int height, int hotspotX, int hotspotY,
+                             int shapeId, int scaleX, int scaleY, byte[] imageData) {
     }
 
 

@@ -28,6 +28,7 @@ public class AbsoluteTouchSwitchContext implements TouchContext {
 
             // Switch from a left click to a right click after a long press
             confirmedLongPress = true;
+            updatePosition(lastTouchDownX, lastTouchDownY);
             if (confirmedTap) {
                 conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_RIGHT);
             }

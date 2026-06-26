@@ -10,6 +10,7 @@ import android.view.inputmethod.InputConnection;
 
 public class SBSStreamView extends TextureView {
    private StreamInputCallbacks inputCallbacks;
+   private boolean imeActive;
 
    public SBSStreamView(Context context) {
       super(context);
@@ -36,6 +37,14 @@ public class SBSStreamView extends TextureView {
       this.inputCallbacks = callbacks;
    }
 
+   public void setImeActive(boolean imeActive) {
+      this.imeActive = imeActive;
+   }
+
+   public boolean isImeActive() {
+      return imeActive;
+   }
+
    private void init() {
       setFocusable(true);
       setFocusableInTouchMode(true);
@@ -43,11 +52,15 @@ public class SBSStreamView extends TextureView {
 
    @Override
    public boolean onCheckIsTextEditor() {
-      return true;
+      return imeActive;
    }
 
    @Override
    public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+      if (!imeActive) {
+         return null;
+      }
+
       outAttrs.inputType = EditorInfo.TYPE_CLASS_TEXT |
               EditorInfo.TYPE_TEXT_FLAG_AUTO_CORRECT |
               EditorInfo.TYPE_TEXT_FLAG_MULTI_LINE;
@@ -81,6 +94,10 @@ public class SBSStreamView extends TextureView {
 
    @Override
    public boolean onKeyPreIme(int keyCode, KeyEvent event) {
+      if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
+         imeActive = false;
+      }
+
       // This callbacks allows us to override dumb IME behavior like when
       // Samsung's default keyboard consumes Shift+Space.
       if (inputCallbacks != null) {

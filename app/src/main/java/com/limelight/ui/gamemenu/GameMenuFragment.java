@@ -2,6 +2,7 @@ package com.limelight.ui.gamemenu;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Handler;
@@ -39,6 +40,25 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
     private void refreshMicButton() {
         if (btn_mic != null && game != null) {
             btn_mic.setBackgroundResource(game.micStatus == 0?R.drawable.ic_game_menu_btn_selector:R.drawable.ic_game_menu_btn_green_selector);
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (getDialog() != null) {
+            getDialog().setOnKeyListener(new DialogInterface.OnKeyListener() {
+                @Override
+                public boolean onKey(DialogInterface dialog, int keyCode, KeyEvent event) {
+                    if (keyCode != KeyEvent.KEYCODE_BACK) {
+                        return false;
+                    }
+                    if (event.getAction() == KeyEvent.ACTION_UP && game != null) {
+                        game.handleStreamBackPressed();
+                    }
+                    return true;
+                }
+            });
         }
     }
 

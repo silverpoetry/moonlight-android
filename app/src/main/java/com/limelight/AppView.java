@@ -72,6 +72,9 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
     private boolean inForeground;
     private boolean showHiddenApps;
     private HashSet<Integer> hiddenAppIds = new HashSet<>();
+    private int pendingContextMenuPosition = AdapterView.INVALID_POSITION;
+    private long pendingContextMenuId;
+    private View pendingContextMenuTargetView;
 
     private final static int START_OR_RESUME_ID = 1;
     private final static int QUIT_ID = 2;
@@ -479,7 +482,10 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo) {
         super.onCreateContextMenu(menu, v, menuInfo);
 
-        AdapterContextMenuInfo info = (AdapterContextMenuInfo) menuInfo;
+        AdapterContextMenuInfo info = getAdapterContextMenuInfo(menuInfo);
+        if (info == null) {
+            return;
+        }
         AppObject selectedApp = (AppObject) appGridAdapter.getItem(info.position);
 
         menu.setHeaderTitle(selectedApp.app.getAppName());
@@ -534,7 +540,10 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
 
     @Override
     public boolean onContextItemSelected(MenuItem item) {
-        AdapterContextMenuInfo info = (AdapterContextMenuInfo) item.getMenuInfo();
+        AdapterContextMenuInfo info = getAdapterContextMenuInfo(item.getMenuInfo());
+        if (info == null) {
+            return super.onContextItemSelected(item);
+        }
         final AppObject app = (AppObject) appGridAdapter.getItem(info.position);
         switch (item.getItemId()) {
             case START_WITH_QUIT:
@@ -611,6 +620,19 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
             default:
                 return super.onContextItemSelected(item);
         }
+    }
+
+    private AdapterContextMenuInfo getAdapterContextMenuInfo(ContextMenuInfo menuInfo) {
+        if (menuInfo instanceof AdapterContextMenuInfo) {
+            return (AdapterContextMenuInfo) menuInfo;
+        }
+
+        if (pendingContextMenuPosition != AdapterView.INVALID_POSITION) {
+            return new AdapterContextMenuInfo(pendingContextMenuTargetView,
+                    pendingContextMenuPosition, pendingContextMenuId);
+        }
+
+        return null;
     }
 
     private void updateUiWithServerinfo(final ComputerDetails details) {
@@ -740,13 +762,16 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
             public void onItemClick(AdapterView<?> arg0, View arg1, int pos,
                                     long id) {
                 AppObject app = (AppObject) appGridAdapter.getItem(pos);
-
-                // Only open the context menu if something is running, otherwise start it
-                if (lastRunningAppId != 0&&!pref.passAppMenu) {
-                    openContextMenu(arg1);
-                } else {
-                    ServerHelper.doStart(AppView.this, app.app, computer, managerBinder);
-                }
+                ServerHelper.doStart(AppView.this, app.app, computer, managerBinder);
+            }
+        });
+        listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+                pendingContextMenuPosition = position;
+                pendingContextMenuId = id;
+                pendingContextMenuTargetView = view;
+                return false;
             }
         });
         UiHelper.applyStatusBarPadding(listView);

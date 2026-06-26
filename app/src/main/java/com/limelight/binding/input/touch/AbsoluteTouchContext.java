@@ -28,6 +28,7 @@ public class AbsoluteTouchContext implements TouchContext {
                 return;
             }
 
+            updatePosition(lastTouchDownX, lastTouchDownY);
             conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_RIGHT);
             handler.postDelayed(new Runnable() {
                 @Override
