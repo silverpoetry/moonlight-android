@@ -328,6 +328,18 @@ public class MoonBridge {
         }
     }
 
+    public static void bridgeClNativeCursor(boolean visible, boolean shapeChanged,
+                                            int format, int x, int y,
+                                            int width, int height,
+                                            int hotspotX, int hotspotY,
+                                            int shapeId, int scaleX, int scaleY,
+                                            byte[] imageData) {
+        if (connectionListener != null) {
+            connectionListener.nativeCursor(visible, shapeChanged, format, x, y,
+                    width, height, hotspotX, hotspotY, shapeId, scaleX, scaleY, imageData);
+        }
+    }
+
     public static void setupBridge(VideoDecoderRenderer videoRenderer, AudioRenderer audioRenderer, NvConnectionListener connectionListener) {
         MoonBridge.videoRenderer = videoRenderer;
         MoonBridge.audioRenderer = audioRenderer;
@@ -348,7 +360,8 @@ public class MoonBridge {
                                               int clientRefreshRateX100,
                                               byte[] riAesKey, byte[] riAesIv,
                                               int videoCapabilities,
-                                              int colorSpace, int colorRange);
+                                              int colorSpace, int colorRange,
+                                              boolean enableNativeCursor);
 
     public static native void stopConnection();
 

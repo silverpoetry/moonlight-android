@@ -264,6 +264,7 @@ public class PreferenceConfiguration {
     public MoonBridge.AudioConfiguration audioConfiguration;
     public int framePacing;
     public boolean absoluteMouseMode;
+    public boolean enableNativeCursor;
     public boolean enableAudioFx;
     public boolean enableAudioHaptics;
     public String audioHapticsOutputTarget;
@@ -977,6 +978,7 @@ public class PreferenceConfiguration {
 
         config.enforceDisplayMode=prefs.getBoolean("checkbox_enforce_display_mode",false);
         config.absoluteMouseMode = prefs.getBoolean(ABSOLUTE_MOUSE_MODE_PREF_STRING, DEFAULT_ABSOLUTE_MOUSE_MODE);
+        config.enableNativeCursor = config.absoluteMouseMode;
         config.enableAudioFx = prefs.getBoolean(ENABLE_AUDIO_FX_PREF_STRING, DEFAULT_ENABLE_AUDIO_FX);
         config.enableAudioHaptics = prefs.getBoolean(ENABLE_AUDIO_HAPTICS_PREF_STRING, DEFAULT_ENABLE_AUDIO_HAPTICS);
         config.audioHapticsOutputTarget = prefs.getString(AUDIO_HAPTICS_OUTPUT_TARGET_PREF_STRING, DEFAULT_AUDIO_HAPTICS_OUTPUT_TARGET);

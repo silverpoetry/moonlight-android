@@ -40,6 +40,7 @@ import com.limelight.preferences.GlPreferences;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.gamemenu.GameMenuFragment;
 import com.limelight.ui.GameGestures;
+import com.limelight.ui.NativeCursorOverlayView;
 import com.limelight.ui.StreamInputCallbacks;
 import com.limelight.ui.StreamView;
 import com.limelight.ui.floatingview.AXFloatingMagnetView;
@@ -84,6 +85,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
@@ -193,6 +195,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private boolean waitingForAllModifiersUp = false;
     private int specialKeyCode = KeyEvent.KEYCODE_UNKNOWN;
     private StreamView streamView;
+    private NativeCursorOverlayView nativeCursorOverlayView;
+    private float nativeCursorVideoX;
+    private float nativeCursorVideoY;
+    private boolean nativeCursorPositionKnown;
     private VideoProcessingGLSurfaceView fsrView;
     private FsrVideoProcessor fsrVideoProcessor;
     private long lastAbsTouchUpTime = 0;
@@ -417,6 +423,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         backgroundTouchView.setOnTouchListener(this);
 
         rootView=streamView.getParent();
+        if (prefConfig.enableNativeCursor && rootView instanceof FrameLayout) {
+            nativeCursorOverlayView = new NativeCursorOverlayView(this);
+            FrameLayout.LayoutParams cursorLayoutParams = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT);
+            ((FrameLayout) rootView).addView(nativeCursorOverlayView, cursorLayoutParams);
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // Request unbuffered input event dispatching for all input classes we handle here.
@@ -676,6 +689,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .setPPI(RazerUtils.getPPI(this))
                 .setRazerVD(prefConfig.razerVD)
                 .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
+                .enableNativeCursor(prefConfig.enableNativeCursor)
                 .build();
 
         streamReqBean=new StreamReqBean();
@@ -690,6 +704,25 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 new ComputerDetails.AddressTuple(host, port),
                 httpsPort, uniqueId, config,
                 PlatformBinding.getCryptoProvider(this), serverCert);
+        if (prefConfig.enableNativeCursor) {
+            conn.setMouseCursorListener(new NvConnection.MouseCursorListener() {
+                @Override
+                public void onMouseMove(short deltaX, short deltaY) {
+                    moveNativeCursorOverlay(deltaX, deltaY);
+                }
+
+                @Override
+                public void onMousePosition(short x, short y, short referenceWidth, short referenceHeight) {
+                    setNativeCursorOverlayFromReference(x, y, referenceWidth, referenceHeight);
+                }
+
+                @Override
+                public void onMouseMoveAsMousePosition(short deltaX, short deltaY,
+                                                       short referenceWidth, short referenceHeight) {
+                    moveNativeCursorOverlayFromReference(deltaX, deltaY, referenceWidth, referenceHeight);
+                }
+            });
+        }
         startConnectionIfReady();
         controllerHandler = new ControllerHandler(this, conn, this, prefConfig);
         keyboardTranslator = new KeyboardTranslator();
@@ -2821,6 +2854,77 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     }
 
+    private void runNativeCursorOverlayUpdate(Runnable runnable) {
+        if (nativeCursorOverlayView == null) {
+            return;
+        }
+
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            runnable.run();
+        }
+        else {
+            runOnUiThread(runnable);
+        }
+    }
+
+    private void updateNativeCursorOverlayPosition(float videoX, float videoY) {
+        if (nativeCursorOverlayView == null) {
+            return;
+        }
+
+        nativeCursorVideoX = Math.min(Math.max(videoX, 0), streamView.getWidth());
+        nativeCursorVideoY = Math.min(Math.max(videoY, 0), streamView.getHeight());
+        nativeCursorPositionKnown = true;
+        nativeCursorOverlayView.setCursorPosition(streamView.getX() + nativeCursorVideoX,
+                streamView.getY() + nativeCursorVideoY);
+    }
+
+    private void setNativeCursorOverlayFromReference(short x, short y, short referenceWidth, short referenceHeight) {
+        if (referenceWidth <= 0 || referenceHeight <= 0) {
+            return;
+        }
+
+        runNativeCursorOverlayUpdate(new Runnable() {
+            @Override
+            public void run() {
+                updateNativeCursorOverlayPosition(
+                        x * streamView.getWidth() / (float)referenceWidth,
+                        y * streamView.getHeight() / (float)referenceHeight);
+            }
+        });
+    }
+
+    private void moveNativeCursorOverlay(short deltaX, short deltaY) {
+        runNativeCursorOverlayUpdate(new Runnable() {
+            @Override
+            public void run() {
+                if (!nativeCursorPositionKnown) {
+                    updateNativeCursorOverlayPosition(streamView.getWidth() / 2f, streamView.getHeight() / 2f);
+                }
+                updateNativeCursorOverlayPosition(nativeCursorVideoX + deltaX, nativeCursorVideoY + deltaY);
+            }
+        });
+    }
+
+    private void moveNativeCursorOverlayFromReference(short deltaX, short deltaY,
+                                                      short referenceWidth, short referenceHeight) {
+        if (referenceWidth <= 0 || referenceHeight <= 0) {
+            return;
+        }
+
+        runNativeCursorOverlayUpdate(new Runnable() {
+            @Override
+            public void run() {
+                if (!nativeCursorPositionKnown) {
+                    updateNativeCursorOverlayPosition(streamView.getWidth() / 2f, streamView.getHeight() / 2f);
+                }
+                updateNativeCursorOverlayPosition(
+                        nativeCursorVideoX + deltaX * streamView.getWidth() / (float)referenceWidth,
+                        nativeCursorVideoY + deltaY * streamView.getHeight() / (float)referenceHeight);
+            }
+        });
+    }
+
     private void updateMousePosition(View touchedView, MotionEvent event) {
         // X and Y are already relative to the provided view object
         float eventX, eventY;
@@ -3223,6 +3327,35 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     public void setControllerLED(short controllerNumber, byte r, byte g, byte b) {
         controllerHandler.handleSetControllerLED(controllerNumber, r, g, b);
+    }
+
+    @Override
+    public void nativeCursor(boolean visible, boolean shapeChanged, int format, int x, int y,
+                             int width, int height, int hotspotX, int hotspotY,
+                             int shapeId, int scaleX, int scaleY, byte[] imageData) {
+        if (nativeCursorOverlayView == null) {
+            return;
+        }
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                float encodedToViewX = prefConfig.width > 0
+                        ? streamView.getWidth() / (float)prefConfig.width
+                        : 1f;
+                float encodedToViewY = prefConfig.height > 0
+                        ? streamView.getHeight() / (float)prefConfig.height
+                        : 1f;
+                float captureToEncodedX = scaleX > 0 ? scaleX / 65536f : 1f;
+                float captureToEncodedY = scaleY > 0 ? scaleY / 65536f : 1f;
+
+                nativeCursorOverlayView.setCursorScale(
+                        captureToEncodedX * encodedToViewX,
+                        captureToEncodedY * encodedToViewY);
+                nativeCursorOverlayView.updateCursor(visible, shapeChanged, format,
+                        width, height, hotspotX, hotspotY, shapeId, imageData);
+            }
+        });
     }
 
     @Override

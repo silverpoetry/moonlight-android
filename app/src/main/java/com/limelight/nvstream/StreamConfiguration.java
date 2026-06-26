@@ -9,7 +9,7 @@ public class StreamConfiguration {
     public static final int STREAM_CFG_LOCAL = 0;
     public static final int STREAM_CFG_REMOTE = 1;
     public static final int STREAM_CFG_AUTO = 2;
-    
+
     private NvApp app;
     private int width, height;
     private int refreshRate;
@@ -28,29 +28,30 @@ public class StreamConfiguration {
     private int colorRange;
     private int colorSpace;
     private boolean persistGamepadsAfterDisconnect;
+    private boolean enableNativeCursor;
     private int ppi;
     //雷蛇虚拟显示器
     private int razerVD;
 
     public static class Builder {
         private StreamConfiguration config = new StreamConfiguration();
-        
+
         public StreamConfiguration.Builder setApp(NvApp app) {
             config.app = app;
             return this;
         }
-        
+
         public StreamConfiguration.Builder setRemoteConfiguration(int remote) {
             config.remote = remote;
             return this;
         }
-        
+
         public StreamConfiguration.Builder setResolution(int width, int height) {
             config.width = width;
             config.height = height;
             return this;
         }
-        
+
         public StreamConfiguration.Builder setRefreshRate(int refreshRate) {
             config.refreshRate = refreshRate;
             return this;
@@ -60,27 +61,27 @@ public class StreamConfiguration {
             config.launchRefreshRate = refreshRate;
             return this;
         }
-        
+
         public StreamConfiguration.Builder setBitrate(int bitrate) {
             config.bitrate = bitrate;
             return this;
         }
-        
+
         public StreamConfiguration.Builder setEnableSops(boolean enable) {
             config.sops = enable;
             return this;
         }
-        
+
         public StreamConfiguration.Builder enableAdaptiveResolution(boolean enable) {
             config.enableAdaptiveResolution = enable;
             return this;
         }
-        
+
         public StreamConfiguration.Builder enableLocalAudioPlayback(boolean enable) {
             config.playLocalAudio = enable;
             return this;
         }
-        
+
         public StreamConfiguration.Builder setMaxPacketSize(int maxPacketSize) {
             config.maxPacketSize = maxPacketSize;
             return this;
@@ -106,6 +107,11 @@ public class StreamConfiguration {
             return this;
         }
 
+        public StreamConfiguration.Builder enableNativeCursor(boolean enable) {
+            config.enableNativeCursor = enable;
+            return this;
+        }
+
         public StreamConfiguration.Builder setClientRefreshRateX100(int refreshRateX100) {
             config.clientRefreshRateX100 = refreshRateX100;
             return this;
@@ -115,7 +121,7 @@ public class StreamConfiguration {
             config.audioConfiguration = audioConfig;
             return this;
         }
-        
+
         public StreamConfiguration.Builder setSupportedVideoFormats(int supportedVideoFormats) {
             config.supportedVideoFormats = supportedVideoFormats;
             return this;
@@ -144,7 +150,7 @@ public class StreamConfiguration {
             return config;
         }
     }
-    
+
     private StreamConfiguration() {
         // Set default attributes
         this.app = new NvApp("Steam");
@@ -162,15 +168,15 @@ public class StreamConfiguration {
         this.attachedGamepadMask = 0;
         this.ppi = 350;
     }
-    
+
     public int getWidth() {
         return width;
     }
-    
+
     public int getHeight() {
         return height;
     }
-    
+
     public int getRefreshRate() {
         return refreshRate;
     }
@@ -178,11 +184,11 @@ public class StreamConfiguration {
     public int getLaunchRefreshRate() {
         return launchRefreshRate;
     }
-    
+
     public int getBitrate() {
         return bitrate;
     }
-    
+
     public int getMaxPacketSize() {
         return maxPacketSize;
     }
@@ -190,19 +196,19 @@ public class StreamConfiguration {
     public NvApp getApp() {
         return app;
     }
-    
+
     public boolean getSops() {
         return sops;
     }
-    
+
     public boolean getAdaptiveResolutionEnabled() {
         return enableAdaptiveResolution;
     }
-    
+
     public boolean getPlayLocalAudio() {
         return playLocalAudio;
     }
-    
+
     public int getRemote() {
         return remote;
     }
@@ -210,7 +216,7 @@ public class StreamConfiguration {
     public MoonBridge.AudioConfiguration getAudioConfiguration() {
         return audioConfiguration;
     }
-    
+
     public int getSupportedVideoFormats() {
         return supportedVideoFormats;
     }
@@ -221,6 +227,10 @@ public class StreamConfiguration {
 
     public boolean getPersistGamepadsAfterDisconnect() {
         return persistGamepadsAfterDisconnect;
+    }
+
+    public boolean getNativeCursorEnabled() {
+        return enableNativeCursor;
     }
 
     public int getClientRefreshRateX100() {

@@ -38,6 +38,7 @@ static jmethodID BridgeClSetHdrModeMethod;
 static jmethodID BridgeClRumbleTriggersMethod;
 static jmethodID BridgeClSetMotionEventStateMethod;
 static jmethodID BridgeClSetControllerLEDMethod;
+static jmethodID BridgeClNativeCursorMethod;
 static jbyteArray DecodedFrameBuffer;
 static jshortArray DecodedAudioBuffer;
 
@@ -102,6 +103,7 @@ Java_com_limelight_nvstream_jni_MoonBridge_init(JNIEnv *env, jclass clazz) {
     BridgeClRumbleTriggersMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClRumbleTriggers", "(SSS)V");
     BridgeClSetMotionEventStateMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClSetMotionEventState", "(SBS)V");
     BridgeClSetControllerLEDMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClSetControllerLED", "(SBBB)V");
+    BridgeClNativeCursorMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClNativeCursor", "(ZZIIIIIIIIII[B)V");
 }
 
 int BridgeDrSetup(int videoFormat, int width, int height, int redrawRate, void* context, int drFlags) {
@@ -389,6 +391,41 @@ void BridgeClSetControllerLED(uint16_t controllerNumber, uint8_t r, uint8_t g, u
     }
 }
 
+void BridgeClNativeCursor(PSS_NATIVE_CURSOR_UPDATE cursorUpdate) {
+    JNIEnv* env = GetThreadEnv();
+    jbyteArray imageData = NULL;
+    bool shapeChanged = (cursorUpdate->flags & LI_NATIVE_CURSOR_FLAG_SHAPE) != 0;
+
+    if (shapeChanged && cursorUpdate->imageData != NULL && cursorUpdate->imageSize > 0) {
+        imageData = (*env)->NewByteArray(env, cursorUpdate->imageSize);
+        if (imageData != NULL) {
+            (*env)->SetByteArrayRegion(env, imageData, 0, cursorUpdate->imageSize, (const jbyte*)cursorUpdate->imageData);
+        }
+    }
+
+    (*env)->CallStaticVoidMethod(env, GlobalBridgeClass, BridgeClNativeCursorMethod,
+                                 (cursorUpdate->flags & LI_NATIVE_CURSOR_FLAG_VISIBLE) != 0,
+                                 shapeChanged,
+                                 (jint)cursorUpdate->format,
+                                 (jint)cursorUpdate->x,
+                                 (jint)cursorUpdate->y,
+                                 (jint)cursorUpdate->width,
+                                 (jint)cursorUpdate->height,
+                                 (jint)cursorUpdate->hotspotX,
+                                 (jint)cursorUpdate->hotspotY,
+                                 (jint)cursorUpdate->shapeId,
+                                 (jint)cursorUpdate->scaleX,
+                                 (jint)cursorUpdate->scaleY,
+                                 imageData);
+    if (imageData != NULL) {
+        (*env)->DeleteLocalRef(env, imageData);
+    }
+    if ((*env)->ExceptionCheck(env)) {
+        // We will crash here
+        (*JVM)->DetachCurrentThread(JVM);
+    }
+}
+
 void BridgeClLogMessage(const char* format, ...) {
     va_list va;
     va_start(va, format);
@@ -426,6 +463,7 @@ static CONNECTION_LISTENER_CALLBACKS BridgeConnListenerCallbacks = {
         .rumbleTriggers = BridgeClRumbleTriggers,
         .setMotionEventState = BridgeClSetMotionEventState,
         .setControllerLED = BridgeClSetControllerLED,
+        .nativeCursor = BridgeClNativeCursor,
 };
 
 static bool
@@ -461,7 +499,8 @@ Java_com_limelight_nvstream_jni_MoonBridge_startConnection(JNIEnv *env, jclass c
                                                            jint clientRefreshRateX100,
                                                            jbyteArray riAesKey, jbyteArray riAesIv,
                                                            jint videoCapabilities,
-                                                           jint colorSpace, jint colorRange) {
+                                                           jint colorSpace, jint colorRange,
+                                                           jboolean enableNativeCursor) {
     SERVER_INFORMATION serverInfo = {
             .address = (*env)->GetStringUTFChars(env, address, 0),
             .serverInfoAppVersion = (*env)->GetStringUTFChars(env, appVersion, 0),
@@ -481,7 +520,8 @@ Java_com_limelight_nvstream_jni_MoonBridge_startConnection(JNIEnv *env, jclass c
             .clientRefreshRateX100 = clientRefreshRateX100,
             .encryptionFlags = ENCFLG_AUDIO,
             .colorSpace = colorSpace,
-            .colorRange = colorRange
+            .colorRange = colorRange,
+            .enableNativeCursor = enableNativeCursor
     };
 
     jbyte* riAesKeyBuf = (*env)->GetByteArrayElements(env, riAesKey, NULL);

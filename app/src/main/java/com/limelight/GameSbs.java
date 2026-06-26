@@ -2339,6 +2339,12 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         controllerHandler.handleSetControllerLED(controllerNumber, r, g, b);
     }
 
+    @Override
+    public void nativeCursor(boolean visible, boolean shapeChanged, int format, int x, int y,
+                             int width, int height, int hotspotX, int hotspotY,
+                             int shapeId, int scaleX, int scaleY, byte[] imageData) {
+    }
+
 
     @Override
     public void mouseMove(int deltaX, int deltaY) {

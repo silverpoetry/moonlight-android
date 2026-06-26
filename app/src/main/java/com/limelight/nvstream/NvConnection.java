@@ -41,6 +41,12 @@ import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 
 public class NvConnection {
+    public interface MouseCursorListener {
+        void onMouseMove(short deltaX, short deltaY);
+        void onMousePosition(short x, short y, short referenceWidth, short referenceHeight);
+        void onMouseMoveAsMousePosition(short deltaX, short deltaY, short referenceWidth, short referenceHeight);
+    }
+
     // Context parameters
     private LimelightCryptoProvider cryptoProvider;
     private String uniqueId;
@@ -50,6 +56,7 @@ public class NvConnection {
     private final Context appContext;
     private MicUplinkConnection micUplinkConnection;
     private String lastMicUplinkMessage;
+    private volatile MouseCursorListener mouseCursorListener;
 
     public NvConnection(Context appContext, ComputerDetails.AddressTuple host, int httpsPort, String uniqueId, StreamConfiguration config, LimelightCryptoProvider cryptoProvider, X509Certificate serverCert)
     {
@@ -69,7 +76,11 @@ public class NvConnection {
 
         this.isMonkey = ActivityManager.isUserAMonkey();
     }
-    
+
+    public void setMouseCursorListener(MouseCursorListener mouseCursorListener) {
+        this.mouseCursorListener = mouseCursorListener;
+    }
+
     private static SecretKey generateRiAesKey() {
         try {
             KeyGenerator keyGen = KeyGenerator.getInstance("AES");
@@ -83,7 +94,7 @@ public class NvConnection {
             throw new RuntimeException(e);
         }
     }
-    
+
     private static int generateRiKeyId() {
         return new SecureRandom().nextInt();
     }
@@ -318,13 +329,13 @@ public class NvConnection {
         // If we can't determine the connection type, let moonlight-common-c decide.
         return StreamConfiguration.STREAM_CFG_AUTO;
     }
-    
+
     private boolean startApp() throws XmlPullParserException, IOException
     {
         NvHTTP h = new NvHTTP(context.serverAddress, context.httpsPort, uniqueId, context.serverCert, cryptoProvider);
 
         String serverInfo = h.getServerInfo(true);
-        
+
         context.serverAppVersion = h.getServerVersion(serverInfo);
         if (context.serverAppVersion == null) {
             context.connListener.displayMessage("Server version malformed");
@@ -336,7 +347,7 @@ public class NvConnection {
 
         // May be missing for older servers
         context.serverGfeVersion = h.getGfeVersion(serverInfo);
-                
+
         if (h.getPairState(serverInfo) != PairingManager.PairState.PAIRED) {
             context.connListener.displayMessage("Device not paired with computer");
             return false;
@@ -349,11 +360,11 @@ public class NvConnection {
             context.connListener.displayTransientMessage("Your PC GPU does not support streaming HDR. The stream will be SDR.");
             context.negotiatedHdr = false;
         }
-        
+
         //
         // Decide on negotiated stream parameters now
         //
-        
+
         // Check for a supported stream resolution
         if ((context.streamConfig.getWidth() > 4096 || context.streamConfig.getHeight() > 4096) &&
                 (h.getServerCodecModeSupport(serverInfo) & 0x200) == 0 && context.isNvidiaServerSoftware) {
@@ -368,7 +379,7 @@ public class NvConnection {
         else if (context.streamConfig.getHeight() >= 2160 && !h.supports4K(serverInfo)) {
             // Client wants 4K but the server can't do it
             context.connListener.displayTransientMessage("You must update GeForce Experience to stream in 4K. The stream will be 1080p.");
-            
+
             // Lower resolution to 1080p
             context.negotiatedWidth = 1920;
             context.negotiatedHeight = 1080;
@@ -390,13 +401,13 @@ public class NvConnection {
             context.negotiatedRemoteStreaming = context.streamConfig.getRemote();
             context.negotiatedPacketSize = context.streamConfig.getMaxPacketSize();
         }
-        
+
         //
         // Video stream format will be decided during the RTSP handshake
         //
-        
+
         NvApp app = context.streamConfig.getApp();
-        
+
         // If the client did not provide an exact app ID, do a lookup with the applist
         if (!context.streamConfig.getApp().isInitialized()) {
             LimeLog.info("Using deprecated app lookup method - Please specify an app ID in your StreamConfiguration instead");
@@ -406,7 +417,7 @@ public class NvConnection {
                 return false;
             }
         }
-        
+
         // If there's a game running, resume it
         if (h.getCurrentGame(serverInfo) != 0) {
             try {
@@ -435,7 +446,7 @@ public class NvConnection {
                     throw e;
                 }
             }
-            
+
             LimeLog.info("Resumed existing game session");
             return true;
         }
@@ -450,7 +461,7 @@ public class NvConnection {
             if (!h.quitApp()) {
                 context.connListener.displayMessage("Failed to quit previous session! You must quit it manually");
                 return false;
-            } 
+            }
         } catch (HostHttpResponseException e) {
             if (e.getErrorCode() == 599) {
                 context.connListener.displayMessage("This session wasn't started by this device," +
@@ -465,7 +476,7 @@ public class NvConnection {
 
         return launchNotRunningApp(h, context);
     }
-    
+
     private boolean launchNotRunningApp(NvHTTP h, ConnectionContext context)
             throws IOException, XmlPullParserException {
         // Launch the app since it's not running
@@ -473,9 +484,9 @@ public class NvConnection {
             context.connListener.displayMessage("Failed to launch application");
             return false;
         }
-        
+
         LimeLog.info("Launched new game session");
-        
+
         return true;
     }
 
@@ -537,7 +548,8 @@ public class NvConnection {
                             context.riKey.getEncoded(), ib.array(),
                             context.videoCapabilities,
                             context.streamConfig.getColorSpace(),
-                            context.streamConfig.getColorRange());
+                            context.streamConfig.getColorRange(),
+                            context.streamConfig.getNativeCursorEnabled());
                     if (ret != 0) {
                         // LiStartConnection() failed, so the caller is not expected
                         // to stop the connection themselves. We need to release their
@@ -550,49 +562,54 @@ public class NvConnection {
             }
         }).start();
     }
-    
+
     public void sendMouseMove(final short deltaX, final short deltaY)
     {
-        LimeLog.info("sendMousePosition==1-"+deltaX+","+deltaY);
-
         if (!isMonkey) {
+            MouseCursorListener listener = mouseCursorListener;
+            if (listener != null) {
+                listener.onMouseMove(deltaX, deltaY);
+            }
             MoonBridge.sendMouseMove(deltaX, deltaY);
         }
     }
 
     public void sendMousePosition(short x, short y, short referenceWidth, short referenceHeight)
     {
-        LimeLog.info("sendMousePosition==2");
         if (!isMonkey) {
+            MouseCursorListener listener = mouseCursorListener;
+            if (listener != null) {
+                listener.onMousePosition(x, y, referenceWidth, referenceHeight);
+            }
             MoonBridge.sendMousePosition(x, y, referenceWidth, referenceHeight);
         }
     }
 
     public void sendMouseMoveAsMousePosition(short deltaX, short deltaY, short referenceWidth, short referenceHeight)
     {
-        LimeLog.info("sendMousePosition==3-"+deltaX);
-
         if (!isMonkey) {
+            MouseCursorListener listener = mouseCursorListener;
+            if (listener != null) {
+                listener.onMouseMoveAsMousePosition(deltaX, deltaY, referenceWidth, referenceHeight);
+            }
             MoonBridge.sendMouseMoveAsMousePosition(deltaX, deltaY, referenceWidth, referenceHeight);
         }
     }
 
     public void sendMouseButtonDown(final byte mouseButton)
     {
-        LimeLog.info("sendMousePosition==4");
         if (!isMonkey) {
             MoonBridge.sendMouseButton(MouseButtonPacket.PRESS_EVENT, mouseButton);
         }
     }
-    
+
     public void sendMouseButtonUp(final byte mouseButton)
     {
-        LimeLog.info("sendMousePosition==5");
         if (!isMonkey) {
             MoonBridge.sendMouseButton(MouseButtonPacket.RELEASE_EVENT, mouseButton);
         }
     }
-    
+
     public void sendControllerInput(final short controllerNumber,
             final short activeGamepadMask, final int buttonFlags,
             final byte leftTrigger, final byte rightTrigger,
@@ -610,7 +627,7 @@ public class NvConnection {
             MoonBridge.sendKeyboardInput(keyMap, keyDirection, modifier, flags);
         }
     }
-    
+
     public void sendMouseScroll(final byte scrollClicks) {
         if (!isMonkey) {
             MoonBridge.sendMouseHighResScroll((short)(scrollClicks * 120)); // WHEEL_DELTA
