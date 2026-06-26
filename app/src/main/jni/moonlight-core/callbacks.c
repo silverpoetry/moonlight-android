@@ -39,6 +39,8 @@ static jmethodID BridgeClRumbleTriggersMethod;
 static jmethodID BridgeClSetMotionEventStateMethod;
 static jmethodID BridgeClSetControllerLEDMethod;
 static jmethodID BridgeClNativeCursorMethod;
+static jmethodID BridgeClClipboardTextMethod;
+static jmethodID BridgeClClipboardReadyMethod;
 static jbyteArray DecodedFrameBuffer;
 static jshortArray DecodedAudioBuffer;
 
@@ -104,6 +106,8 @@ Java_com_limelight_nvstream_jni_MoonBridge_init(JNIEnv *env, jclass clazz) {
     BridgeClSetMotionEventStateMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClSetMotionEventState", "(SBS)V");
     BridgeClSetControllerLEDMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClSetControllerLED", "(SBBB)V");
     BridgeClNativeCursorMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClNativeCursor", "(ZZIIIIIIIIII[B)V");
+    BridgeClClipboardTextMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClClipboardText", "([B)V");
+    BridgeClClipboardReadyMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClClipboardReady", "()V");
 }
 
 int BridgeDrSetup(int videoFormat, int width, int height, int redrawRate, void* context, int drFlags) {
@@ -426,6 +430,35 @@ void BridgeClNativeCursor(PSS_NATIVE_CURSOR_UPDATE cursorUpdate) {
     }
 }
 
+void BridgeClClipboardText(const uint8_t* text, uint32_t length) {
+    JNIEnv* env = GetThreadEnv();
+    jbyteArray textData = (*env)->NewByteArray(env, length);
+    if (textData == NULL) {
+        return;
+    }
+
+    if (length != 0) {
+        (*env)->SetByteArrayRegion(env, textData, 0, length, (const jbyte*)text);
+    }
+
+    (*env)->CallStaticVoidMethod(env, GlobalBridgeClass, BridgeClClipboardTextMethod, textData);
+    (*env)->DeleteLocalRef(env, textData);
+    if ((*env)->ExceptionCheck(env)) {
+        // We will crash here
+        (*JVM)->DetachCurrentThread(JVM);
+    }
+}
+
+void BridgeClClipboardReady(void) {
+    JNIEnv* env = GetThreadEnv();
+
+    (*env)->CallStaticVoidMethod(env, GlobalBridgeClass, BridgeClClipboardReadyMethod);
+    if ((*env)->ExceptionCheck(env)) {
+        // We will crash here
+        (*JVM)->DetachCurrentThread(JVM);
+    }
+}
+
 void BridgeClLogMessage(const char* format, ...) {
     va_list va;
     va_start(va, format);
@@ -464,6 +497,8 @@ static CONNECTION_LISTENER_CALLBACKS BridgeConnListenerCallbacks = {
         .setMotionEventState = BridgeClSetMotionEventState,
         .setControllerLED = BridgeClSetControllerLED,
         .nativeCursor = BridgeClNativeCursor,
+        .clipboardText = BridgeClClipboardText,
+        .clipboardReady = BridgeClClipboardReady,
 };
 
 static bool
@@ -500,7 +535,8 @@ Java_com_limelight_nvstream_jni_MoonBridge_startConnection(JNIEnv *env, jclass c
                                                            jbyteArray riAesKey, jbyteArray riAesIv,
                                                            jint videoCapabilities,
                                                            jint colorSpace, jint colorRange,
-                                                           jboolean enableNativeCursor) {
+                                                           jboolean enableNativeCursor,
+                                                           jboolean enableClipboardSync) {
     SERVER_INFORMATION serverInfo = {
             .address = (*env)->GetStringUTFChars(env, address, 0),
             .serverInfoAppVersion = (*env)->GetStringUTFChars(env, appVersion, 0),
@@ -521,7 +557,8 @@ Java_com_limelight_nvstream_jni_MoonBridge_startConnection(JNIEnv *env, jclass c
             .encryptionFlags = ENCFLG_AUDIO,
             .colorSpace = colorSpace,
             .colorRange = colorRange,
-            .enableNativeCursor = enableNativeCursor
+            .enableNativeCursor = enableNativeCursor,
+            .enableClipboardSync = enableClipboardSync
     };
 
     jbyte* riAesKeyBuf = (*env)->GetByteArrayElements(env, riAesKey, NULL);

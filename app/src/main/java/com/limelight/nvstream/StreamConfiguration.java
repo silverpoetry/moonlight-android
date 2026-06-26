@@ -29,6 +29,7 @@ public class StreamConfiguration {
     private int colorSpace;
     private boolean persistGamepadsAfterDisconnect;
     private boolean enableNativeCursor;
+    private boolean enableClipboardSync;
     private int ppi;
     //雷蛇虚拟显示器
     private int razerVD;
@@ -109,6 +110,11 @@ public class StreamConfiguration {
 
         public StreamConfiguration.Builder enableNativeCursor(boolean enable) {
             config.enableNativeCursor = enable;
+            return this;
+        }
+
+        public StreamConfiguration.Builder enableClipboardSync(boolean enable) {
+            config.enableClipboardSync = enable;
             return this;
         }
 
@@ -231,6 +237,10 @@ public class StreamConfiguration {
 
     public boolean getNativeCursorEnabled() {
         return enableNativeCursor;
+    }
+
+    public boolean getClipboardSyncEnabled() {
+        return enableClipboardSync;
     }
 
     public int getClientRefreshRateX100() {

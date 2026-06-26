@@ -127,6 +127,7 @@ public class MoonBridge {
     private static AudioRenderer audioRenderer;
     private static VideoDecoderRenderer videoRenderer;
     private static NvConnectionListener connectionListener;
+    private static ClipboardTextListener clipboardTextListener;
 
     static {
         System.loadLibrary("moonlight-core");
@@ -186,6 +187,11 @@ public class MoonBridge {
         public int toInt() {
             return ((channelMask) << 16) | (channelCount << 8) | 0xCA;
         }
+    }
+
+    public interface ClipboardTextListener {
+        void onClipboardText(byte[] text);
+        void onClipboardReady();
     }
 
     public static int bridgeDrSetup(int videoFormat, int width, int height, int redrawRate) {
@@ -340,6 +346,18 @@ public class MoonBridge {
         }
     }
 
+    public static void bridgeClClipboardText(byte[] text) {
+        if (clipboardTextListener != null) {
+            clipboardTextListener.onClipboardText(text);
+        }
+    }
+
+    public static void bridgeClClipboardReady() {
+        if (clipboardTextListener != null) {
+            clipboardTextListener.onClipboardReady();
+        }
+    }
+
     public static void setupBridge(VideoDecoderRenderer videoRenderer, AudioRenderer audioRenderer, NvConnectionListener connectionListener) {
         MoonBridge.videoRenderer = videoRenderer;
         MoonBridge.audioRenderer = audioRenderer;
@@ -350,6 +368,11 @@ public class MoonBridge {
         MoonBridge.videoRenderer = null;
         MoonBridge.audioRenderer = null;
         MoonBridge.connectionListener = null;
+        MoonBridge.clipboardTextListener = null;
+    }
+
+    public static void setClipboardTextListener(ClipboardTextListener listener) {
+        MoonBridge.clipboardTextListener = listener;
     }
 
     public static native int startConnection(String address, String appVersion, String gfeVersion,
@@ -361,7 +384,8 @@ public class MoonBridge {
                                               byte[] riAesKey, byte[] riAesIv,
                                               int videoCapabilities,
                                               int colorSpace, int colorRange,
-                                              boolean enableNativeCursor);
+                                              boolean enableNativeCursor,
+                                              boolean enableClipboardSync);
 
     public static native void stopConnection();
 
@@ -403,6 +427,8 @@ public class MoonBridge {
     public static native void sendMouseHighResHScroll(short scrollAmount);
 
     public static native void sendUtf8Text(String text);
+
+    public static native int sendClipboardText(byte[] text);
 
     public static native String getStageName(int stage);
 

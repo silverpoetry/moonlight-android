@@ -481,6 +481,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                 .setColorSpace(decoderRenderer.getPreferredColorSpace())
                 .setColorRange(decoderRenderer.getPreferredColorRange())
                 .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
+                .enableClipboardSync(prefConfig.enableClipboardSync)
                 .build();
 
         // Initialize the connection

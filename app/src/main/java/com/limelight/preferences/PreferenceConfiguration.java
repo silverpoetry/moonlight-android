@@ -63,6 +63,7 @@ public class PreferenceConfiguration {
     private static final String LATENCY_TOAST_PREF_STRING = "checkbox_enable_post_stream_toast";
     private static final String FRAME_PACING_PREF_STRING = "frame_pacing";
     private static final String ABSOLUTE_MOUSE_MODE_PREF_STRING = "checkbox_absolute_mouse_mode";
+    public static final String CLIPBOARD_SYNC_PREF_STRING = "checkbox_clipboard_sync";
     private static final String ENABLE_AUDIO_FX_PREF_STRING = "checkbox_enable_audiofx";
     private static final String ENABLE_AUDIO_HAPTICS_PREF_STRING = "checkbox_enable_audio_haptics";
     private static final String AUDIO_HAPTICS_OUTPUT_TARGET_PREF_STRING = "list_audio_haptics_output_target";
@@ -128,6 +129,7 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_LATENCY_TOAST = false;
     private static final String DEFAULT_FRAME_PACING = "latency";
     private static final boolean DEFAULT_ABSOLUTE_MOUSE_MODE = false;
+    private static final boolean DEFAULT_CLIPBOARD_SYNC = false;
     private static final boolean DEFAULT_ENABLE_AUDIO_FX = false;
     private static final boolean DEFAULT_ENABLE_AUDIO_HAPTICS = false;
     private static final String DEFAULT_AUDIO_HAPTICS_OUTPUT_TARGET = "phone";
@@ -265,6 +267,7 @@ public class PreferenceConfiguration {
     public int framePacing;
     public boolean absoluteMouseMode;
     public boolean enableNativeCursor;
+    public boolean enableClipboardSync;
     public boolean enableAudioFx;
     public boolean enableAudioHaptics;
     public String audioHapticsOutputTarget;
@@ -979,6 +982,7 @@ public class PreferenceConfiguration {
         config.enforceDisplayMode=prefs.getBoolean("checkbox_enforce_display_mode",false);
         config.absoluteMouseMode = prefs.getBoolean(ABSOLUTE_MOUSE_MODE_PREF_STRING, DEFAULT_ABSOLUTE_MOUSE_MODE);
         config.enableNativeCursor = config.absoluteMouseMode;
+        config.enableClipboardSync = prefs.getBoolean(CLIPBOARD_SYNC_PREF_STRING, DEFAULT_CLIPBOARD_SYNC);
         config.enableAudioFx = prefs.getBoolean(ENABLE_AUDIO_FX_PREF_STRING, DEFAULT_ENABLE_AUDIO_FX);
         config.enableAudioHaptics = prefs.getBoolean(ENABLE_AUDIO_HAPTICS_PREF_STRING, DEFAULT_ENABLE_AUDIO_HAPTICS);
         config.audioHapticsOutputTarget = prefs.getString(AUDIO_HAPTICS_OUTPUT_TARGET_PREF_STRING, DEFAULT_AUDIO_HAPTICS_OUTPUT_TARGET);

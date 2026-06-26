@@ -57,6 +57,7 @@ public class NvConnection {
     private MicUplinkConnection micUplinkConnection;
     private String lastMicUplinkMessage;
     private volatile MouseCursorListener mouseCursorListener;
+    private ClipboardSyncController clipboardSyncController;
 
     public NvConnection(Context appContext, ComputerDetails.AddressTuple host, int httpsPort, String uniqueId, StreamConfiguration config, LimelightCryptoProvider cryptoProvider, X509Certificate serverCert)
     {
@@ -100,6 +101,11 @@ public class NvConnection {
     }
 
     public void stop() {
+        if (clipboardSyncController != null) {
+            clipboardSyncController.stop();
+            clipboardSyncController = null;
+        }
+
         if (micUplinkConnection != null) {
             micUplinkConnection.stop();
             micUplinkConnection = null;
@@ -536,6 +542,10 @@ public class NvConnection {
                 // we must not invoke that functionality in parallel.
                 synchronized (MoonBridge.class) {
                     MoonBridge.setupBridge(videoDecoderRenderer, audioRenderer, connectionListener);
+                    if (context.streamConfig.getClipboardSyncEnabled()) {
+                        clipboardSyncController = new ClipboardSyncController(appContext);
+                        clipboardSyncController.start();
+                    }
                     int ret = MoonBridge.startConnection(context.serverAddress.address,
                             context.serverAppVersion, context.serverGfeVersion, context.rtspSessionUrl,
                             context.serverCodecModeSupport,
@@ -549,8 +559,13 @@ public class NvConnection {
                             context.videoCapabilities,
                             context.streamConfig.getColorSpace(),
                             context.streamConfig.getColorRange(),
-                            context.streamConfig.getNativeCursorEnabled());
+                            context.streamConfig.getNativeCursorEnabled(),
+                            context.streamConfig.getClipboardSyncEnabled());
                     if (ret != 0) {
+                        if (clipboardSyncController != null) {
+                            clipboardSyncController.stop();
+                            clipboardSyncController = null;
+                        }
                         // LiStartConnection() failed, so the caller is not expected
                         // to stop the connection themselves. We need to release their
                         // semaphore count for them.

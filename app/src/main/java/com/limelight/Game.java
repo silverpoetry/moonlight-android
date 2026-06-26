@@ -690,6 +690,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .setRazerVD(prefConfig.razerVD)
                 .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
                 .enableNativeCursor(prefConfig.enableNativeCursor)
+                .enableClipboardSync(prefConfig.enableClipboardSync)
                 .build();
 
         streamReqBean=new StreamReqBean();
