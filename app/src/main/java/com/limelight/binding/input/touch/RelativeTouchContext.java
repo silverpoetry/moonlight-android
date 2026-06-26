@@ -271,15 +271,18 @@ public class RelativeTouchContext implements TouchContext {
                         conn.sendMouseHighResScroll((short)(deltaY * SCROLL_SPEED_FACTOR));
                     }
                 } else {
+                    short scaledDeltaX = (short) (deltaX * prefConfig.mouseTouchPadSensitityX * 0.01f);
+                    short scaledDeltaY = (short) (deltaY * prefConfig.mouseTouchPadSensitityY * 0.01f);
+
                     if (prefConfig.absoluteMouseMode) {
                         conn.sendMouseMoveAsMousePosition(
-                                (short) deltaX,
-                                (short) deltaY,
+                                scaledDeltaX,
+                                scaledDeltaY,
                                 (short) targetView.getWidth(),
                                 (short) targetView.getHeight());
                     }
                     else {
-                        conn.sendMouseMove((short) (deltaX*prefConfig.mouseTouchPadSensitityX*0.01f), (short) (deltaY*prefConfig.mouseTouchPadSensitityY*0.01f));
+                        conn.sendMouseMove(scaledDeltaX, scaledDeltaY);
                     }
                 }
 

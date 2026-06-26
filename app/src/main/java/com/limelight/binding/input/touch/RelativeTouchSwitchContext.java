@@ -101,15 +101,14 @@ public class RelativeTouchSwitchContext implements TouchContext {
             int deltaY = (int) Math.round((eventY - lastTouchY) * yFactor);
 
             if (deltaX != 0 || deltaY != 0) {
+                short scaledDeltaX = (short) (deltaX * prefConfig.mouseTouchPadSensitityX * 0.01f);
+                short scaledDeltaY = (short) (deltaY * prefConfig.mouseTouchPadSensitityY * 0.01f);
+
                 if (prefConfig.absoluteMouseMode) {
-                    conn.sendMouseMoveAsMousePosition((short) deltaX, (short) deltaY,
+                    conn.sendMouseMoveAsMousePosition(scaledDeltaX, scaledDeltaY,
                             (short) targetView.getWidth(), (short) targetView.getHeight());
                 } else {
-                    // 应用你提供的灵敏度配置
-                    conn.sendMouseMove(
-                            (short) (deltaX * prefConfig.mouseTouchPadSensitityX * 0.01f),
-                            (short) (deltaY * prefConfig.mouseTouchPadSensitityY * 0.01f)
-                    );
+                    conn.sendMouseMove(scaledDeltaX, scaledDeltaY);
                 }
                 if (deltaX != 0) {
                     lastTouchX = eventX;
