@@ -418,7 +418,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
         // Call superclass
         super.onCreateContextMenu(menu, v, menuInfo);
-                
+
         AdapterContextMenuInfo info = (AdapterContextMenuInfo) menuInfo;
         ComputerObject computer = (ComputerObject) pcGridAdapter.getItem(info.position);
 
@@ -689,6 +689,34 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         startActivity(i);
     }
 
+    private void doRecentSession(ComputerDetails computer) {
+        if (computer.state == ComputerDetails.State.OFFLINE || computer.state == ComputerDetails.State.UNKNOWN) {
+            Toast.makeText(PcView.this, getResources().getString(R.string.error_pc_offline), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (computer.pairState != PairState.PAIRED) {
+            doPair(computer);
+            return;
+        }
+        if (managerBinder == null) {
+            Toast.makeText(PcView.this, getResources().getString(R.string.error_manager_not_running), Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        if (computer.runningGameId != 0) {
+            ServerHelper.doStart(this, new NvApp("app", computer.runningGameId, false), computer, managerBinder);
+            return;
+        }
+
+        NvApp recentApp = ServerHelper.getRecentSession(this, computer);
+        if (recentApp != null) {
+            ServerHelper.doStart(this, recentApp, computer, managerBinder);
+        }
+        else {
+            doAppList(computer, false, false);
+        }
+    }
+
     @Override
     public boolean onContextItemSelected(MenuItem item) {
         AdapterContextMenuInfo info = (AdapterContextMenuInfo) item.getMenuInfo();
@@ -768,7 +796,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 return super.onContextItemSelected(item);
         }
     }
-    
+
     private void removeComputer(ComputerDetails details) {
         managerBinder.removeComputer(details);
 
@@ -800,7 +828,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             }
         }
     }
-    
+
     private void updateComputer(ComputerDetails details) {
         ComputerObject existingEntry = null;
 
@@ -853,6 +881,14 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 } else {
                     doAppList(computer.details, false, false);
                 }
+            }
+        });
+        listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+                ComputerObject computer = (ComputerObject) pcGridAdapter.getItem(position);
+                doRecentSession(computer.details);
+                return true;
             }
         });
         UiHelper.applyStatusBarPadding(listView);

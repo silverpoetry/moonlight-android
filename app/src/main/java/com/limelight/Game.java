@@ -3756,13 +3756,30 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
+    private static final long BACK_EXIT_INTERVAL_MS = 2000;
+    private long lastBackPressedElapsedMs;
+
     @Override
     public void onBackPressed() {
-        if(prefConfig.enableQtDialog){
-            showGameMenu(null);
+        handleStreamBackPressed();
+    }
+
+    public void handleStreamBackPressed() {
+        long now = SystemClock.elapsedRealtime();
+        if (now - lastBackPressedElapsedMs <= BACK_EXIT_INTERVAL_MS) {
+            if (dialogGameMenu != null && dialogGameMenu.isVisible()) {
+                dialogGameMenu.dismiss();
+            }
+            finish();
             return;
         }
-        super.onBackPressed();
+
+        lastBackPressedElapsedMs = now;
+        Toast.makeText(this, "再按一次返回退出串流", Toast.LENGTH_SHORT).show();
+
+        if (prefConfig.enableQtDialog && (dialogGameMenu == null || !dialogGameMenu.isVisible())) {
+            showGameMenu(null);
+        }
     }
 
     //禁用鼠标
