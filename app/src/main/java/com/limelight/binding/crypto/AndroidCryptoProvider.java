@@ -47,19 +47,39 @@ public class AndroidCryptoProvider implements LimelightCryptoProvider {
     private final File certFile;
     private final File keyFile;
 
-    private X509Certificate cert;
-    private PrivateKey key;
-    private byte[] pemCertBytes;
-
     private static final Object globalCryptoLock = new Object();
 
-    private static final Provider bcProvider = new BouncyCastleProvider();
+    private static Provider bcProvider;
+
+    private static X509Certificate cachedCert;
+    private static PrivateKey cachedKey;
+    private static byte[] cachedPemCertBytes;
+    private static FileState cachedCertFileState;
+    private static FileState cachedKeyFileState;
 
     public AndroidCryptoProvider(Context c) {
         String dataPath = c.getFilesDir().getAbsolutePath();
 
         certFile = new File(dataPath + File.separator + "client.crt");
         keyFile = new File(dataPath + File.separator + "client.key");
+    }
+
+    private static class FileState {
+        public final String path;
+        public final long lastModified;
+        public final long length;
+
+        public FileState(File file) {
+            path = file.getAbsolutePath();
+            lastModified = file.exists() ? file.lastModified() : -1;
+            length = file.exists() ? file.length() : -1;
+        }
+
+        public boolean matches(File file) {
+            return path.equals(file.getAbsolutePath()) &&
+                    lastModified == (file.exists() ? file.lastModified() : -1) &&
+                    length == (file.exists() ? file.length() : -1);
+        }
     }
 
     private byte[] loadFileToBytes(File f) {
@@ -79,6 +99,16 @@ public class AndroidCryptoProvider implements LimelightCryptoProvider {
         }
     }
 
+    private static Provider getBouncyCastleProvider() {
+        synchronized (globalCryptoLock) {
+            if (bcProvider == null) {
+                bcProvider = new BouncyCastleProvider();
+            }
+
+            return bcProvider;
+        }
+    }
+
     private boolean loadCertKeyPair() {
         byte[] certBytes = loadFileToBytes(certFile);
         byte[] keyBytes = loadFileToBytes(keyFile);
@@ -90,18 +120,23 @@ public class AndroidCryptoProvider implements LimelightCryptoProvider {
         }
 
         try {
-            CertificateFactory certFactory = CertificateFactory.getInstance("X.509", bcProvider);
-            cert = (X509Certificate) certFactory.generateCertificate(new ByteArrayInputStream(certBytes));
-            pemCertBytes = certBytes;
-            KeyFactory keyFactory = KeyFactory.getInstance("RSA", bcProvider);
-            key = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(keyBytes));
+            CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
+            cachedCert = (X509Certificate) certFactory.generateCertificate(new ByteArrayInputStream(certBytes));
+            cachedPemCertBytes = certBytes;
+
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            cachedKey = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(keyBytes));
+            cachedCertFileState = new FileState(certFile);
+            cachedKeyFileState = new FileState(keyFile);
         } catch (CertificateException e) {
+            clearCachedCertKeyPair();
             // May happen if the cert is corrupt
             LimeLog.warning("Corrupted certificate");
             return false;
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         } catch (InvalidKeySpecException e) {
+            clearCachedCertKeyPair();
             // May happen if the key is corrupt
             LimeLog.warning("Corrupted key");
             return false;
@@ -117,7 +152,8 @@ public class AndroidCryptoProvider implements LimelightCryptoProvider {
 
         KeyPair keyPair;
         try {
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA", bcProvider);
+            Provider provider = getBouncyCastleProvider();
+            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA", provider);
             keyPairGenerator.initialize(2048);
             keyPair = keyPairGenerator.generateKeyPair();
         } catch (NoSuchAlgorithmException e) {
@@ -142,9 +178,11 @@ public class AndroidCryptoProvider implements LimelightCryptoProvider {
             SubjectPublicKeyInfo.getInstance(keyPair.getPublic().getEncoded()));
 
         try {
-            ContentSigner sigGen = new JcaContentSignerBuilder("SHA256withRSA").setProvider(bcProvider).build(keyPair.getPrivate());
-            cert = new JcaX509CertificateConverter().setProvider(bcProvider).getCertificate(certBuilder.build(sigGen));
-            key = keyPair.getPrivate();
+            Provider provider = getBouncyCastleProvider();
+            ContentSigner sigGen = new JcaContentSignerBuilder("SHA256withRSA").setProvider(provider).build(keyPair.getPrivate());
+            cachedCert = new JcaX509CertificateConverter().setProvider(provider).getCertificate(certBuilder.build(sigGen));
+            cachedKey = keyPair.getPrivate();
+            cachedPemCertBytes = null;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -164,7 +202,7 @@ public class AndroidCryptoProvider implements LimelightCryptoProvider {
             // Write the certificate in OpenSSL PEM format (important for the server)
             StringWriter strWriter = new StringWriter();
             try (final JcaPEMWriter pemWriter = new JcaPEMWriter(strWriter)) {
-                pemWriter.writeObject(cert);
+                pemWriter.writeObject(cachedCert);
             }
 
             // Line endings MUST be UNIX for the PC to accept the cert properly
@@ -178,7 +216,9 @@ public class AndroidCryptoProvider implements LimelightCryptoProvider {
             }
 
             // Write the private out in PKCS8 format
-            keyOut.write(key.getEncoded());
+            keyOut.write(cachedKey.getEncoded());
+            cachedCertFileState = new FileState(certFile);
+            cachedKeyFileState = new FileState(keyFile);
 
             LimeLog.info("Saved generated key pair to disk");
         } catch (IOException e) {
@@ -188,19 +228,33 @@ public class AndroidCryptoProvider implements LimelightCryptoProvider {
         }
     }
 
+    private boolean isCachedCertKeyPairCurrent() {
+        return cachedCert != null && cachedKey != null &&
+                cachedCertFileState != null && cachedCertFileState.matches(certFile) &&
+                cachedKeyFileState != null && cachedKeyFileState.matches(keyFile);
+    }
+
+    private static void clearCachedCertKeyPair() {
+        cachedCert = null;
+        cachedKey = null;
+        cachedPemCertBytes = null;
+        cachedCertFileState = null;
+        cachedKeyFileState = null;
+    }
+
     public X509Certificate getClientCertificate() {
         // Use a lock here to ensure only one guy will be generating or loading
         // the certificate and key at a time
         synchronized (globalCryptoLock) {
             // Return a loaded cert if we have one
-            if (cert != null) {
-                return cert;
+            if (isCachedCertKeyPairCurrent()) {
+                return cachedCert;
             }
 
             // No loaded cert yet, let's see if we have one on disk
             if (loadCertKeyPair()) {
                 // Got one
-                return cert;
+                return cachedCert;
             }
 
             // Try to generate a new key pair
@@ -211,7 +265,7 @@ public class AndroidCryptoProvider implements LimelightCryptoProvider {
 
             // Load the generated pair
             loadCertKeyPair();
-            return cert;
+            return cachedCert;
         }
     }
 
@@ -220,14 +274,14 @@ public class AndroidCryptoProvider implements LimelightCryptoProvider {
         // the certificate and key at a time
         synchronized (globalCryptoLock) {
             // Return a loaded key if we have one
-            if (key != null) {
-                return key;
+            if (isCachedCertKeyPairCurrent()) {
+                return cachedKey;
             }
 
             // No loaded key yet, let's see if we have one on disk
             if (loadCertKeyPair()) {
                 // Got one
-                return key;
+                return cachedKey;
             }
 
             // Try to generate a new key pair
@@ -238,7 +292,7 @@ public class AndroidCryptoProvider implements LimelightCryptoProvider {
 
             // Load the generated pair
             loadCertKeyPair();
-            return key;
+            return cachedKey;
         }
     }
 
@@ -248,7 +302,7 @@ public class AndroidCryptoProvider implements LimelightCryptoProvider {
             getClientCertificate();
 
             // Return a cached value if we have it
-            return pemCertBytes;
+            return cachedPemCertBytes;
         }
     }
 

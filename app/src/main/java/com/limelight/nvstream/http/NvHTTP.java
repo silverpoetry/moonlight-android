@@ -66,6 +66,7 @@ import okhttp3.ResponseBody;
 public class NvHTTP {
     private String uniqueId;
     private PairingManager pm;
+    private LimelightCryptoProvider cryptoProvider;
 
     private static final int DEFAULT_HTTPS_PORT = 47984;
     public static final int DEFAULT_HTTP_PORT = 47989;
@@ -184,6 +185,7 @@ public class NvHTTP {
         httpClientLongConnectTimeout = new OkHttpClient.Builder()
                 .connectionPool(new ConnectionPool(0, 1, TimeUnit.MILLISECONDS))
                 .hostnameVerifier(hv)
+                .sslSocketFactory(createSslSocketFactory(), trustManager)
                 .readTimeout(READ_TIMEOUT, TimeUnit.MILLISECONDS)
                 .connectTimeout(LONG_CONNECTION_TIMEOUT, TimeUnit.MILLISECONDS)
                 .proxy(Proxy.NO_PROXY)
@@ -196,6 +198,16 @@ public class NvHTTP {
         httpClientLongConnectNoReadTimeout = httpClientLongConnectTimeout.newBuilder()
                 .readTimeout(0, TimeUnit.MILLISECONDS)
                 .build();
+    }
+
+    private SSLSocketFactory createSslSocketFactory() {
+        try {
+            SSLContext sc = SSLContext.getInstance("TLS");
+            sc.init(new KeyManager[] { keyManager }, new TrustManager[] { trustManager }, new SecureRandom());
+            return sc.getSocketFactory();
+        } catch (NoSuchAlgorithmException | KeyManagementException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public HttpUrl getHttpsUrl(boolean likelyOnline) throws IOException {
@@ -214,6 +226,7 @@ public class NvHTTP {
         this.uniqueId = "0123456789ABCDEF";
 
         this.serverCert = serverCert;
+        this.cryptoProvider = cryptoProvider;
 
         initializeHttpState(cryptoProvider);
 
@@ -241,8 +254,6 @@ public class NvHTTP {
             // Encapsulate IllegalArgumentException into IOException for callers to handle more easily
             throw new IOException(e);
         }
-
-        this.pm = new PairingManager(this, cryptoProvider);
     }
 
     static String getXmlString(Reader r, String tagname, boolean throwIfMissing) throws XmlPullParserException, IOException {
@@ -399,23 +410,9 @@ public class NvHTTP {
 
         return details;
     }
-    
+
     public ComputerDetails getComputerDetails(boolean likelyOnline) throws IOException, XmlPullParserException {
         return getComputerDetails(getServerInfo(likelyOnline));
-    }
-
-    // This hack is Android-specific but we do it on all platforms
-    // because it doesn't really matter
-    private OkHttpClient performAndroidTlsHack(OkHttpClient client) {
-        // Doing this each time we create a socket is required
-        // to avoid the SSLv3 fallback that causes connection failures
-        try {
-            SSLContext sc = SSLContext.getInstance("TLS");
-            sc.init(new KeyManager[] { keyManager }, new TrustManager[] { trustManager }, new SecureRandom());
-            return client.newBuilder().sslSocketFactory(sc.getSocketFactory(), trustManager).build();
-        } catch (NoSuchAlgorithmException | KeyManagementException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private HttpUrl getCompleteUrl(HttpUrl baseUrl, String path, String query) {
@@ -448,7 +445,7 @@ public class NvHTTP {
     private ResponseBody openHttpConnection(OkHttpClient client, HttpUrl baseUrl, String path, String query) throws IOException {
         HttpUrl completeUrl = getCompleteUrl(baseUrl, path, query);
         Request request = new Request.Builder().url(completeUrl).get().build();
-        Response response = performAndroidTlsHack(client).newCall(request).execute();
+        Response response = client.newCall(request).execute();
 
         ResponseBody body = response.body();
         
@@ -641,6 +638,9 @@ public class NvHTTP {
     }
 
     public PairingManager getPairingManager() {
+        if (pm == null) {
+            pm = new PairingManager(this, cryptoProvider);
+        }
         return pm;
     }
     

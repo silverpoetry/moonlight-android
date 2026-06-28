@@ -8,7 +8,14 @@ import com.limelight.nvstream.av.audio.AudioRenderer;
 import com.limelight.nvstream.http.LimelightCryptoProvider;
 
 public class PlatformBinding {
+    private static LimelightCryptoProvider cryptoProvider;
+
     public static LimelightCryptoProvider getCryptoProvider(Context c) {
-        return new AndroidCryptoProvider(c);
+        synchronized (PlatformBinding.class) {
+            if (cryptoProvider == null) {
+                cryptoProvider = new AndroidCryptoProvider(c.getApplicationContext());
+            }
+            return cryptoProvider;
+        }
     }
 }
