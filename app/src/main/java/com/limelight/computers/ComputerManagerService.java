@@ -54,6 +54,7 @@ public class ComputerManagerService extends Service {
     private static final int INITIAL_POLL_TRIES = 2;
     private static final int EMPTY_LIST_THRESHOLD = 3;
     private static final int POLL_DATA_TTL_MS = 30000;
+    private static final int ADDRESS_UPGRADE_GRACE_MS = 200;
 
     private final ComputerManagerBinder binder = new ComputerManagerBinder();
 
@@ -586,9 +587,9 @@ public class ComputerManagerService extends Service {
         public ComputerDetails.AddressTuple address;
         public ComputerDetails existingDetails;
 
-        public boolean complete;
+        public volatile boolean complete;
         public Thread pollingThread;
-        public ComputerDetails returnedDetails;
+        public volatile ComputerDetails returnedDetails;
 
         public ParallelPollTuple(ComputerDetails.AddressTuple address, ComputerDetails existingDetails) {
             this.address = address;
@@ -602,12 +603,16 @@ public class ComputerManagerService extends Service {
         }
     }
 
-    private void startParallelPollThread(ParallelPollTuple tuple, HashSet<ComputerDetails.AddressTuple> uniqueAddresses) {
+    private void startParallelPollThread(ParallelPollTuple tuple, HashSet<ComputerDetails.AddressTuple> uniqueAddresses,
+                                         final Object completionLock) {
         // Don't bother starting a polling thread for an address that doesn't exist
         // or if the address has already been polled with an earlier tuple
         if (tuple.address == null || !uniqueAddresses.add(tuple.address)) {
             tuple.complete = true;
             tuple.returnedDetails = null;
+            synchronized (completionLock) {
+                completionLock.notifyAll();
+            }
             return;
         }
 
@@ -619,8 +624,10 @@ public class ComputerManagerService extends Service {
                 synchronized (tuple) {
                     tuple.complete = true; // Done
                     tuple.returnedDetails = details; // Polling result
+                }
 
-                    tuple.notify();
+                synchronized (completionLock) {
+                    completionLock.notifyAll();
                 }
             }
         };
@@ -628,19 +635,30 @@ public class ComputerManagerService extends Service {
         tuple.pollingThread.start();
     }
 
-    private ComputerDetails waitForPollingTuple(ParallelPollTuple tuple) throws InterruptedException {
-        synchronized (tuple) {
-            while (!tuple.complete) {
-                tuple.wait();
-            }
+    private static ComputerDetails getReturnedDetails(ParallelPollTuple tuple) {
+        ComputerDetails details = tuple.returnedDetails;
+        if (details != null) {
+            details.activeAddress = tuple.address;
+        }
+        return details;
+    }
 
-            if (tuple.returnedDetails != null) {
-                tuple.returnedDetails.activeAddress = tuple.address;
-                return tuple.returnedDetails;
+    private static boolean hasIncompleteHigherPriorityPoll(ParallelPollTuple[] pollOrder, int bestIndex) {
+        for (int i = 0; i < bestIndex; i++) {
+            if (!pollOrder[i].complete) {
+                return true;
             }
         }
+        return false;
+    }
 
-        return null;
+    private static boolean areAllPollsComplete(ParallelPollTuple[] pollOrder) {
+        for (ParallelPollTuple tuple : pollOrder) {
+            if (!tuple.complete) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean isWrongSubnetSiteLocalAddress(ComputerDetails.AddressTuple address) {
@@ -696,31 +714,59 @@ public class ComputerManagerService extends Service {
         boolean preferExternalAddress =
                 details.manualAddress != null && isWrongSubnetSiteLocalAddress(details.localAddress);
 
+        Object completionLock = new Object();
+
+        ParallelPollTuple[] pollOrder = preferExternalAddress
+                ? new ParallelPollTuple[] { manualInfo, remoteInfo, ipv6Info, localInfo }
+                : new ParallelPollTuple[] { localInfo, manualInfo, remoteInfo, ipv6Info };
+
         // These must be started in order of precedence for the deduplication algorithm
         // to result in the correct behavior.
         HashSet<ComputerDetails.AddressTuple> uniqueAddresses = new HashSet<>();
-        if (preferExternalAddress) {
-            startParallelPollThread(manualInfo, uniqueAddresses);
-            startParallelPollThread(remoteInfo, uniqueAddresses);
-            startParallelPollThread(ipv6Info, uniqueAddresses);
-            startParallelPollThread(localInfo, uniqueAddresses);
-        }
-        else {
-            startParallelPollThread(localInfo, uniqueAddresses);
-            startParallelPollThread(manualInfo, uniqueAddresses);
-            startParallelPollThread(remoteInfo, uniqueAddresses);
-            startParallelPollThread(ipv6Info, uniqueAddresses);
+        for (ParallelPollTuple tuple : pollOrder) {
+            startParallelPollThread(tuple, uniqueAddresses, completionLock);
         }
 
         try {
-            ParallelPollTuple[] pollOrder = preferExternalAddress
-                    ? new ParallelPollTuple[] { manualInfo, remoteInfo, ipv6Info, localInfo }
-                    : new ParallelPollTuple[] { localInfo, manualInfo, remoteInfo, ipv6Info };
+            ComputerDetails bestDetails = null;
+            int bestIndex = Integer.MAX_VALUE;
+            long upgradeDeadlineMs = 0;
 
-            for (ParallelPollTuple tuple : pollOrder) {
-                ComputerDetails polledDetails = waitForPollingTuple(tuple);
-                if (polledDetails != null) {
-                    return polledDetails;
+            synchronized (completionLock) {
+                while (true) {
+                    for (int i = 0; i < pollOrder.length; i++) {
+                        if (pollOrder[i].complete && pollOrder[i].returnedDetails != null && i < bestIndex) {
+                            bestDetails = getReturnedDetails(pollOrder[i]);
+                            bestIndex = i;
+
+                            if (bestIndex == 0) {
+                                return bestDetails;
+                            }
+                            if (upgradeDeadlineMs == 0) {
+                                upgradeDeadlineMs = SystemClock.elapsedRealtime() + ADDRESS_UPGRADE_GRACE_MS;
+                            }
+                        }
+                    }
+
+                    if (bestDetails != null) {
+                        if (!hasIncompleteHigherPriorityPoll(pollOrder, bestIndex)) {
+                            return bestDetails;
+                        }
+
+                        long remainingMs = upgradeDeadlineMs - SystemClock.elapsedRealtime();
+                        if (remainingMs <= 0) {
+                            return bestDetails;
+                        }
+
+                        completionLock.wait(remainingMs);
+                    }
+                    else {
+                        if (areAllPollsComplete(pollOrder)) {
+                            return null;
+                        }
+
+                        completionLock.wait();
+                    }
                 }
             }
         } finally {
@@ -731,15 +777,14 @@ public class ComputerManagerService extends Service {
             remoteInfo.interrupt();
             ipv6Info.interrupt();
         }
-
-        return null;
     }
 
     private boolean pollComputer(ComputerDetails details) throws InterruptedException {
         // Poll all addresses in parallel to speed up the process
         LimeLog.info("Starting parallel poll for "+details.name+" ("+details.localAddress +", "+details.remoteAddress +", "+details.manualAddress+", "+details.ipv6Address+")");
         ComputerDetails polledDetails = parallelPollPc(details);
-        LimeLog.info("Parallel poll for "+details.name+" returned address: "+details.activeAddress);
+        LimeLog.info("Parallel poll for "+details.name+" returned address: "+
+                (polledDetails != null ? polledDetails.activeAddress : null));
 
         if (polledDetails != null) {
             details.update(polledDetails);
