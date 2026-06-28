@@ -294,6 +294,12 @@ public class ComputerManagerService extends Service {
             return null;
         }
 
+        public int getComputerCount() {
+            synchronized (pollingTuples) {
+                return pollingTuples.size();
+            }
+        }
+
         public void invalidateStateForComputer(String uuid) {
             synchronized (pollingTuples) {
                 for (PollingTuple tuple : pollingTuples) {

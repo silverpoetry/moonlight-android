@@ -4,8 +4,10 @@ import java.util.ArrayList;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.DialogInterface;
-import android.widget.Button;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.Window;
+import android.widget.TextView;
 
 import com.limelight.R;
 
@@ -63,25 +65,37 @@ public class Dialog implements Runnable {
         if (activity.isFinishing())
             return;
 
-        alert = new AlertDialog.Builder(activity).create();
+        View dialogView = LayoutInflater.from(activity).inflate(R.layout.dialog_message_prompt, null, false);
+        TextView titleView = dialogView.findViewById(R.id.tv_dialog_title);
+        TextView messageView = dialogView.findViewById(R.id.tv_dialog_message);
+        TextView okButton = dialogView.findViewById(R.id.btn_dialog_ok);
+        TextView helpButton = dialogView.findViewById(R.id.btn_dialog_help);
 
-        alert.setTitle(title);
-        alert.setMessage(message);
+        titleView.setText(title);
+        messageView.setText(message);
+        okButton.setText(activity.getResources().getText(android.R.string.ok));
+        helpButton.setText(activity.getResources().getText(R.string.help));
+
+        alert = new AlertDialog.Builder(activity)
+                .setView(dialogView)
+                .create();
         alert.setCancelable(false);
         alert.setCanceledOnTouchOutside(false);
- 
-        alert.setButton(AlertDialog.BUTTON_POSITIVE, activity.getResources().getText(android.R.string.ok), new DialogInterface.OnClickListener() {
-              public void onClick(DialogInterface dialog, int which) {
-                  synchronized (rundownDialogs) {
-                      rundownDialogs.remove(Dialog.this);
-                      alert.dismiss();
-                  }
 
-                  runOnDismiss.run();
-              }
+        okButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                synchronized (rundownDialogs) {
+                    rundownDialogs.remove(Dialog.this);
+                    alert.dismiss();
+                }
+
+                runOnDismiss.run();
+            }
         });
-        alert.setButton(AlertDialog.BUTTON_NEUTRAL, activity.getResources().getText(R.string.help), new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int which) {
+        helpButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
                 synchronized (rundownDialogs) {
                     rundownDialogs.remove(Dialog.this);
                     alert.dismiss();
@@ -92,21 +106,17 @@ public class Dialog implements Runnable {
                 HelpLauncher.launchTroubleshooting(activity);
             }
         });
-        alert.setOnShowListener(new DialogInterface.OnShowListener(){
-
-            @Override
-            public void onShow(DialogInterface dialog) {
-                // Set focus to the OK button by default
-                Button button = alert.getButton(AlertDialog.BUTTON_POSITIVE);
-                button.setFocusable(true);
-                button.setFocusableInTouchMode(true);
-                button.requestFocus();
-            }
-        });
 
         synchronized (rundownDialogs) {
             rundownDialogs.add(this);
             alert.show();
+            Window window = alert.getWindow();
+            if (window != null) {
+                window.setBackgroundDrawableResource(android.R.color.transparent);
+            }
+            okButton.setFocusable(true);
+            okButton.setFocusableInTouchMode(true);
+            okButton.requestFocus();
         }
     }
 
