@@ -185,7 +185,6 @@ public class NvHTTP {
         httpClientLongConnectTimeout = new OkHttpClient.Builder()
                 .connectionPool(new ConnectionPool(0, 1, TimeUnit.MILLISECONDS))
                 .hostnameVerifier(hv)
-                .sslSocketFactory(createSslSocketFactory(), trustManager)
                 .readTimeout(READ_TIMEOUT, TimeUnit.MILLISECONDS)
                 .connectTimeout(LONG_CONNECTION_TIMEOUT, TimeUnit.MILLISECONDS)
                 .proxy(Proxy.NO_PROXY)
@@ -198,16 +197,6 @@ public class NvHTTP {
         httpClientLongConnectNoReadTimeout = httpClientLongConnectTimeout.newBuilder()
                 .readTimeout(0, TimeUnit.MILLISECONDS)
                 .build();
-    }
-
-    private SSLSocketFactory createSslSocketFactory() {
-        try {
-            SSLContext sc = SSLContext.getInstance("TLS");
-            sc.init(new KeyManager[] { keyManager }, new TrustManager[] { trustManager }, new SecureRandom());
-            return sc.getSocketFactory();
-        } catch (NoSuchAlgorithmException | KeyManagementException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     public HttpUrl getHttpsUrl(boolean likelyOnline) throws IOException {
@@ -415,6 +404,20 @@ public class NvHTTP {
         return getComputerDetails(getServerInfo(likelyOnline));
     }
 
+    // This hack is Android-specific but we do it on all platforms
+    // because it doesn't really matter
+    private OkHttpClient performAndroidTlsHack(OkHttpClient client) {
+        // Doing this each time we create a socket is required
+        // to avoid the SSLv3 fallback that causes connection failures
+        try {
+            SSLContext sc = SSLContext.getInstance("TLS");
+            sc.init(new KeyManager[] { keyManager }, new TrustManager[] { trustManager }, new SecureRandom());
+            return client.newBuilder().sslSocketFactory(sc.getSocketFactory(), trustManager).build();
+        } catch (NoSuchAlgorithmException | KeyManagementException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private HttpUrl getCompleteUrl(HttpUrl baseUrl, String path, String query) {
 
         if(TextUtils.isEmpty(clientName)){
@@ -445,7 +448,7 @@ public class NvHTTP {
     private ResponseBody openHttpConnection(OkHttpClient client, HttpUrl baseUrl, String path, String query) throws IOException {
         HttpUrl completeUrl = getCompleteUrl(baseUrl, path, query);
         Request request = new Request.Builder().url(completeUrl).get().build();
-        Response response = client.newCall(request).execute();
+        Response response = performAndroidTlsHack(client).newCall(request).execute();
 
         ResponseBody body = response.body();
         
