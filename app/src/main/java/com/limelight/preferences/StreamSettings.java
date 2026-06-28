@@ -1,27 +1,27 @@
 package com.limelight.preferences;
 
+import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.content.res.ColorStateList;
+import android.content.res.Resources;
+import android.content.res.XmlResourceParser;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
+import android.graphics.drawable.ColorDrawable;
 import android.media.MediaCodecInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.app.Activity;
 import android.os.Handler;
 import android.os.Vibrator;
-import android.preference.CheckBoxPreference;
-import android.preference.EditTextPreference;
-import android.preference.ListPreference;
-import android.preference.Preference;
-import android.preference.PreferenceCategory;
-import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
-import android.preference.PreferenceScreen;
+import android.provider.Settings;
 import android.support.v4.content.FileProvider;
 import android.text.InputFilter;
 import android.text.InputType;
@@ -30,14 +30,26 @@ import android.util.DisplayMetrics;
 import android.util.Range;
 import android.view.Display;
 import android.view.DisplayCutout;
-import android.view.LayoutInflater;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.view.WindowInsets;
+import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.SeekBar;
+import android.widget.Switch;
+import android.widget.TextView;
 import android.widget.Toast;
-import com.google.gson.Gson;
-import com.limelight.BuildConfig;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
+
+import com.limelight.AboutActivity;
 import com.limelight.LimeLog;
 import com.limelight.PcView;
 import com.limelight.R;
@@ -47,15 +59,63 @@ import com.limelight.computers.ComputerDatabaseManager;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.FileUriUtils;
+import com.limelight.utils.HelpLauncher;
 import com.limelight.utils.UiHelper;
+
+import org.xmlpull.v1.XmlPullParser;
+
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
+
+import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
+import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
+import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
 
 public class StreamSettings extends Activity {
+    private static final String ANDROID_NS = "http://schemas.android.com/apk/res/android";
+    private static final String SEEKBAR_NS = "http://schemas.moonlight-stream.com/apk/res/seekbar";
+
+    private static final int READ_REQUEST_CODE = 1001;
+    private static final int GAMEPAD_READ_REQUEST_CODE = 1002;
+    private static final int READ_DATABASE_REQUEST_CODE = 1003;
+    private static final int READ_DATA_CRT_REQUEST_CODE = 1004;
+    private static final int READ_DATA_KEY_REQUEST_CODE = 1005;
+    private static final int READ_REQUEST_SWITCH_BUTTON_CODE = 1007;
+    private static final int READ_REQUEST_SCREEN_IMAGE_CODE = 1008;
+    private static final int MAX_BITRATE_KBPS = 50000;
+    private static final int FEATURED_SECTION_INDEX = -1;
+    private static final String EXTRA_SECTION_INDEX = "com.limelight.preferences.StreamSettings.SECTION_INDEX";
+    private static final String[] ROOT_FEATURED_SETTING_KEYS = new String[] {
+            PreferenceConfiguration.RESOLUTION_PREF_STRING,
+            PreferenceConfiguration.RESOLUTION_ASPECT_RATIO_PREF_STRING,
+            PreferenceConfiguration.FPS_PREF_STRING,
+            PreferenceConfiguration.BITRATE_PREF_STRING,
+            "list_fsr_target",
+            "list_fsr_sharpness",
+            "mouse_model_list_axi",
+            PreferenceConfiguration.CLIPBOARD_SYNC_PREF_STRING,
+    };
+
     private PreferenceConfiguration previousPrefs;
     private int previousDisplayPixelCount;
+    private SettingsStore store;
+    private ArrayList<SettingsSection> sections = new ArrayList<>();
+    private FrameLayout mainContainer;
+    private LinearLayout outerContainer;
+    private LinearLayout wideSectionList;
+    private FrameLayout wideItemContainer;
+    private TextView titleView;
+    private TextView subtitleView;
+    private ImageButton backButton;
+    private int selectedSectionIndex = -1;
+    private int nativeResolutionStartIndex = Integer.MAX_VALUE;
+    private boolean nativeFramerateShown;
+    private boolean wideLayout;
+    private boolean sectionActivity;
+    private OnBackInvokedCallback backInvokedCallback;
 
     // HACK for Android 9
     static DisplayCutout displayCutoutP;
@@ -65,9 +125,16 @@ public class StreamSettings extends Activity {
             Display.Mode mode = getWindowManager().getDefaultDisplay().getMode();
             previousDisplayPixelCount = mode.getPhysicalWidth() * mode.getPhysicalHeight();
         }
-        getFragmentManager().beginTransaction().replace(
-                R.id.stream_settings, new SettingsFragment()
-        ).commitAllowingStateLoss();
+
+        sections = SettingsRegistry.load(this);
+        store = new SettingsStore(this);
+        linkDependencyDefaults();
+        nativeResolutionStartIndex = Integer.MAX_VALUE;
+        nativeFramerateShown = false;
+        initializeRuntimeSettings();
+        removeEmptySections();
+        selectedSectionIndex = clampSelectedSection(selectedSectionIndex);
+        render();
     }
 
     @Override
@@ -78,27 +145,26 @@ public class StreamSettings extends Activity {
         super.onCreate(savedInstanceState);
 
         previousPrefs = PreferenceConfiguration.readPreferences(this);
-
         UiHelper.setLocale(this);
+        store = new SettingsStore(this);
+        sectionActivity = getIntent().hasExtra(EXTRA_SECTION_INDEX);
+        selectedSectionIndex = getIntent().getIntExtra(EXTRA_SECTION_INDEX, -1);
 
-        setContentView(R.layout.activity_stream_settings);
-
-        UiHelper.notifyNewRootView(this);
+        setContentView(createRootView());
+        configureImmersiveSettingsWindow();
 
         if (previousPrefs.uiThemeColorWhite) {
-            UiHelper.setStatusBarLightMode(getWindow(),true);
+            UiHelper.setStatusBarLightMode(getWindow(), true);
         }
+
+        registerBackCallback();
     }
 
     @Override
     public void onAttachedToWindow() {
         super.onAttachedToWindow();
 
-        // We have to use this hack on Android 9 because we don't have Display.getCutout()
-        // which was added in Android 10.
         if (Build.VERSION.SDK_INT == Build.VERSION_CODES.P) {
-            // Insets can be null when the activity is recreated on screen rotation
-            // https://stackoverflow.com/questions/61241255/windowinsets-getdisplaycutout-is-null-everywhere-except-within-onattachedtowindo
             WindowInsets insets = getWindow().getDecorView().getRootWindowInsets();
             if (insets != null) {
                 displayCutoutP = insets.getDisplayCutout();
@@ -109,34 +175,67 @@ public class StreamSettings extends Activity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (mainContainer != null && sections != null && !sections.isEmpty()) {
+            reloadSettings();
+        }
+    }
+
+    @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Display.Mode mode = getWindowManager().getDefaultDisplay().getMode();
-
-            // If the display's physical pixel count has changed, we consider that it's a new display
-            // and we should reload our settings (which include display-dependent values).
-            //
-            // NB: We aren't using displayId here because that stays the same (DEFAULT_DISPLAY) when
-            // switching between screens on a foldable device.
             if (mode.getPhysicalWidth() * mode.getPhysicalHeight() != previousDisplayPixelCount) {
                 reloadSettings();
+                return;
             }
         }
+
+        render();
     }
 
     @Override
-    // NOTE: This will NOT be called on Android 13+ with android:enableOnBackInvokedCallback="true"
     public void onBackPressed() {
+        handleBackNavigation();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && backInvokedCallback != null) {
+            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backInvokedCallback);
+            backInvokedCallback = null;
+        }
+        super.onDestroy();
+    }
+
+    private void registerBackCallback() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return;
+        }
+
+        backInvokedCallback = new OnBackInvokedCallback() {
+            @Override
+            public void onBackInvoked() {
+                handleBackNavigation();
+            }
+        };
+        getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                OnBackInvokedDispatcher.PRIORITY_DEFAULT, backInvokedCallback);
+    }
+
+    private void handleBackNavigation() {
+        finishAndApplyLanguage();
+    }
+
+    private void finishAndApplyLanguage() {
         finish();
 
-        // Language changes are handled via configuration changes in Android 13+,
-        // so manual activity relaunching is no longer required.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             PreferenceConfiguration newPrefs = PreferenceConfiguration.readPreferences(this);
             if (!newPrefs.language.equals(previousPrefs.language)) {
-                // Restart the PC view to apply UI changes
                 Intent intent = new Intent(this, PcView.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent, null);
@@ -144,896 +243,1902 @@ public class StreamSettings extends Activity {
         }
     }
 
-    public static class SettingsFragment extends PreferenceFragment {
-        private int nativeResolutionStartIndex = Integer.MAX_VALUE;
-        private boolean nativeFramerateShown = false;
+    private View createRootView() {
+        FrameLayout root = new FrameLayout(this);
+        root.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        root.setBackgroundResource(R.drawable.bg_gradient_axi_main);
 
-        private void setValue(String preferenceKey, String value) {
-            ListPreference pref = (ListPreference) findPreference(preferenceKey);
+        outerContainer = new LinearLayout(this);
+        outerContainer.setOrientation(LinearLayout.VERTICAL);
+        applySettingsWindowPadding();
+        root.addView(outerContainer, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
 
-            pref.setValue(value);
+        LinearLayout header = new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        outerContainer.addView(header, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        backButton = new ImageButton(this);
+        backButton.setImageResource(R.drawable.ic_axi_back);
+        backButton.setBackgroundResource(R.drawable.ic_game_menu_btn_transparent);
+        backButton.setPadding(dp(9), dp(9), dp(9), dp(9));
+        header.addView(backButton, new LinearLayout.LayoutParams(dp(44), dp(44)));
+        backButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                onBackPressed();
+            }
+        });
+
+        LinearLayout titleBlock = new LinearLayout(this);
+        titleBlock.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+        titleParams.leftMargin = dp(10);
+        header.addView(titleBlock, titleParams);
+
+        titleView = new TextView(this);
+        titleView.setTextColor(Color.WHITE);
+        titleView.setTextSize(24);
+        titleView.setTypeface(null, 1);
+        titleBlock.addView(titleView);
+
+        subtitleView = new TextView(this);
+        subtitleView.setTextColor(0xCCFFFFFF);
+        subtitleView.setTextSize(12);
+        subtitleView.setSingleLine(true);
+        subtitleView.setEllipsize(TextUtils.TruncateAt.END);
+        titleBlock.addView(subtitleView);
+
+        mainContainer = new FrameLayout(this);
+        LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1);
+        contentParams.topMargin = dp(14);
+        outerContainer.addView(mainContainer, contentParams);
+        return root;
+    }
+
+    private void configureImmersiveSettingsWindow() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            getWindow().getAttributes().layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            getWindow().setStatusBarColor(Color.TRANSPARENT);
+            getWindow().setNavigationBarColor(Color.TRANSPARENT);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getWindow().setNavigationBarDividerColor(Color.TRANSPARENT);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
+        getWindow().getDecorView().setSystemUiVisibility(
+                SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                        SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                        SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+        applySettingsWindowPadding();
+    }
+
+    private void render() {
+        if (mainContainer == null || sections == null) {
+            return;
         }
 
-        private void setResolutionValue(String value) {
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(SettingsFragment.this.getActivity());
-            prefs.edit()
-                    .putString(PreferenceConfiguration.RESOLUTION_SELECTION_PREF_STRING,
-                            PreferenceConfiguration.isStandardResolutionPreset(value) ?
-                                    PreferenceConfiguration.RESOLUTION_SELECTION_PRESET :
-                                    PreferenceConfiguration.RESOLUTION_SELECTION_CUSTOM_OR_NATIVE)
-                    .commit();
+        wideLayout = getAvailableWidthDp() >= 720;
+        LinearLayout page = createPageContainer();
 
-            setValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, value);
+        if (wideLayout) {
+            renderWide(page);
+        }
+        else if (sectionActivity && selectedSectionIndex >= 0) {
+            renderSectionDetail(page, selectedSectionIndex);
+        }
+        else {
+            renderSectionList(page);
         }
 
-        private void appendPreferenceEntry(ListPreference pref, String newEntryName, String newEntryValue) {
-            CharSequence[] newEntries = Arrays.copyOf(pref.getEntries(), pref.getEntries().length + 1);
-            CharSequence[] newValues = Arrays.copyOf(pref.getEntryValues(), pref.getEntryValues().length + 1);
+        mainContainer.removeAllViews();
+        mainContainer.addView(page, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+    }
 
-            // Add the new option
-            newEntries[newEntries.length - 1] = newEntryName;
-            newValues[newValues.length - 1] = newEntryValue;
+    private LinearLayout createPageContainer() {
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setAlpha(1f);
+        page.setTranslationX(0f);
+        page.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        return page;
+    }
 
-            pref.setEntries(newEntries);
-            pref.setEntryValues(newValues);
+    private void renderWide(LinearLayout page) {
+        titleView.setText(R.string.settings_title);
+        subtitleView.setText(getCurrentProfileSummary());
+        backButton.setVisibility(View.VISIBLE);
+
+        LinearLayout columns = new LinearLayout(this);
+        columns.setOrientation(LinearLayout.HORIZONTAL);
+        page.addView(columns, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+
+        ScrollView sectionScroll = createScrollView();
+        LinearLayout sectionList = createVerticalList();
+        wideSectionList = sectionList;
+        sectionScroll.addView(sectionList);
+        LinearLayout.LayoutParams sectionParams = new LinearLayout.LayoutParams(dp(300), ViewGroup.LayoutParams.MATCH_PARENT);
+        columns.addView(sectionScroll, sectionParams);
+
+        sectionList.addView(createFeaturedSectionRow(selectedSectionIndex == FEATURED_SECTION_INDEX));
+        for (int i = 0; i < sections.size(); i++) {
+            sectionList.addView(createSectionRow(sections.get(i), i, i == selectedSectionIndex));
         }
 
-        private void addNativeResolutionEntry(int nativeWidth, int nativeHeight, boolean insetsRemoved, boolean portrait) {
-            ListPreference pref = (ListPreference) findPreference(PreferenceConfiguration.RESOLUTION_PREF_STRING);
+        wideItemContainer = new FrameLayout(this);
+        LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1);
+        itemParams.leftMargin = dp(14);
+        columns.addView(wideItemContainer, itemParams);
 
-            String newName;
+        renderWideItemContent(false);
+    }
 
-            if (insetsRemoved) {
-                newName = getResources().getString(R.string.resolution_prefix_native_fullscreen);
-            }
-            else {
-                newName = getResources().getString(R.string.resolution_prefix_native);
-            }
-
-            if (PreferenceConfiguration.isSquarishScreen(nativeWidth, nativeHeight)) {
-                if (portrait) {
-                    newName += " " + getResources().getString(R.string.resolution_prefix_native_portrait);
-                }
-                else {
-                    newName += " " + getResources().getString(R.string.resolution_prefix_native_landscape);
-                }
-            }
-
-            newName += " ("+nativeWidth+"x"+nativeHeight+")";
-
-            String newValue = nativeWidth+"x"+nativeHeight;
-
-            // Check if the native resolution is already present
-            for (CharSequence value : pref.getEntryValues()) {
-                if (newValue.equals(value.toString())) {
-                    // It is present in the default list, so don't add it again
-                    return;
-                }
-            }
-
-            if (pref.getEntryValues().length < nativeResolutionStartIndex) {
-                nativeResolutionStartIndex = pref.getEntryValues().length;
-            }
-            appendPreferenceEntry(pref, newName, newValue);
+    private void renderWideItemContent(boolean animate) {
+        if (wideItemContainer == null) {
+            return;
         }
 
-        private void addNativeResolutionEntries(int nativeWidth, int nativeHeight, boolean insetsRemoved) {
-            if (PreferenceConfiguration.isSquarishScreen(nativeWidth, nativeHeight)) {
-                addNativeResolutionEntry(nativeHeight, nativeWidth, insetsRemoved, true);
-            }
-            addNativeResolutionEntry(nativeWidth, nativeHeight, insetsRemoved, false);
+        LinearLayout page = createPageContainer();
+        if (selectedSectionIndex == FEATURED_SECTION_INDEX) {
+            renderFeaturedSettings(page);
+        }
+        else {
+            renderSectionDetail(page, selectedSectionIndex);
         }
 
-        private void addNativeFrameRateEntry(float framerate) {
-            int frameRateRounded = Math.round(framerate);
-            if (frameRateRounded == 0) {
-                return;
-            }
-
-            ListPreference pref = (ListPreference) findPreference(PreferenceConfiguration.FPS_PREF_STRING);
-            String fpsValue = Integer.toString(frameRateRounded);
-            String fpsName = getResources().getString(R.string.resolution_prefix_native) +
-                    " (" + fpsValue + " " + getResources().getString(R.string.fps_suffix_fps) + ")";
-
-            // Check if the native frame rate is already present
-            for (CharSequence value : pref.getEntryValues()) {
-                if (fpsValue.equals(value.toString())) {
-                    // It is present in the default list, so don't add it again
-                    nativeFramerateShown = false;
-                    return;
-                }
-            }
-
-            appendPreferenceEntry(pref, fpsName, fpsValue);
-            nativeFramerateShown = true;
-        }
-
-        private void removeValue(String preferenceKey, String value, Runnable onMatched) {
-            int matchingCount = 0;
-
-            ListPreference pref = (ListPreference) findPreference(preferenceKey);
-
-            // Count the number of matching entries we'll be removing
-            for (CharSequence seq : pref.getEntryValues()) {
-                if (seq.toString().equalsIgnoreCase(value)) {
-                    matchingCount++;
-                }
-            }
-
-            // Create the new arrays
-            CharSequence[] entries = new CharSequence[pref.getEntries().length-matchingCount];
-            CharSequence[] entryValues = new CharSequence[pref.getEntryValues().length-matchingCount];
-            int outIndex = 0;
-            for (int i = 0; i < pref.getEntryValues().length; i++) {
-                if (pref.getEntryValues()[i].toString().equalsIgnoreCase(value)) {
-                    // Skip matching values
-                    continue;
-                }
-
-                entries[outIndex] = pref.getEntries()[i];
-                entryValues[outIndex] = pref.getEntryValues()[i];
-                outIndex++;
-            }
-
-            if (pref.getValue().equalsIgnoreCase(value)) {
-                onMatched.run();
-            }
-
-            // Update the preference with the new list
-            pref.setEntries(entries);
-            pref.setEntryValues(entryValues);
-        }
-
-        @Override
-        public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-            View view = super.onCreateView(inflater, container, savedInstanceState);
-            UiHelper.applyStatusBarPadding(view);
-            return view;
-        }
-
-
-        @Override
-        public void onCreate(Bundle savedInstanceState) {
-            super.onCreate(savedInstanceState);
-
-            addPreferencesFromResource(R.xml.preferences);
-            PreferenceScreen screen = getPreferenceScreen();
-
-            // hide on-screen controls category on non touch screen devices
-            if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
-                PreferenceCategory category =
-                        (PreferenceCategory) findPreference("category_onscreen_controls");
-                screen.removePreference(category);
-            }
-
-            // Hide remote desktop mouse mode on pre-Oreo (which doesn't have pointer capture)
-            // and NVIDIA SHIELD devices (which support raw mouse input in pointer capture mode)
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
-                    getActivity().getPackageManager().hasSystemFeature("com.nvidia.feature.shield")) {
-                PreferenceCategory category =
-                        (PreferenceCategory) findPreference("category_input_settings");
-                category.removePreference(findPreference("checkbox_absolute_mouse_mode"));
-            }
-
-            // Hide gamepad motion sensor option when running on OSes before Android 12.
-            // Support for motion, LED, battery, and other extensions were introduced in S.
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                PreferenceCategory category =
-                        (PreferenceCategory) findPreference("category_gamepad_settings");
-                category.removePreference(findPreference("checkbox_gamepad_motion_sensors"));
-            }
-
-            // Hide gamepad motion sensor fallback option if the device has no gyro or accelerometer
-            if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_SENSOR_ACCELEROMETER) &&
-                    !getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_SENSOR_GYROSCOPE)) {
-                PreferenceCategory category =
-                        (PreferenceCategory) findPreference("category_gamepad_settings");
-                category.removePreference(findPreference("checkbox_gamepad_motion_fallback"));
-            }
-
-            // Hide USB driver options on devices without USB host support
-            if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_USB_HOST)) {
-                PreferenceCategory category =
-                        (PreferenceCategory) findPreference("category_gamepad_settings");
-                category.removePreference(findPreference("checkbox_usb_bind_all"));
-                category.removePreference(findPreference("checkbox_usb_driver"));
-            }
-
-            // Remove PiP mode on devices pre-Oreo, where the feature is not available (some low RAM devices),
-            // and on Fire OS where it violates the Amazon App Store guidelines for some reason.
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
-                    !getActivity().getPackageManager().hasSystemFeature("android.software.picture_in_picture") ||
-                    getActivity().getPackageManager().hasSystemFeature("com.amazon.software.fireos")) {
-                PreferenceCategory category =
-                        (PreferenceCategory) findPreference("category_ui_settings");
-                category.removePreference(findPreference("checkbox_enable_pip"));
-            }
-
-            // Fire TV apps are not allowed to use WebViews or browsers, so hide the Help category
-            /*if (getActivity().getPackageManager().hasSystemFeature("amazon.hardware.fire_tv")) {
-                PreferenceCategory category =
-                        (PreferenceCategory) findPreference("category_help");
-                screen.removePreference(category);
-            }*/
-            PreferenceCategory category_gamepad_settings =
-                    (PreferenceCategory) findPreference("category_gamepad_settings");
-            PreferenceCategory category_audio_settings =
-                    (PreferenceCategory) findPreference("category_audio_settings");
-            // Remove the vibration options if the device can't vibrate
-            if (!((Vibrator)getActivity().getSystemService(Context.VIBRATOR_SERVICE)).hasVibrator()) {
-                category_gamepad_settings.removePreference(findPreference("checkbox_vibrate_fallback"));
-                category_gamepad_settings.removePreference(findPreference("seekbar_vibrate_fallback_strength"));
-                category_audio_settings.removePreference(findPreference("checkbox_enable_audio_haptics"));
-                category_audio_settings.removePreference(findPreference("seekbar_audio_haptics_strength"));
-                category_audio_settings.removePreference(findPreference("list_audio_haptics_voice_filter"));
-                // The entire OSC category may have already been removed by the touchscreen check above
-                PreferenceCategory category = (PreferenceCategory) findPreference("category_onscreen_controls");
-                if (category != null) {
-                    category.removePreference(findPreference("checkbox_vibrate_osc"));
-                }
-            }
-            else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
-                    !((Vibrator)getActivity().getSystemService(Context.VIBRATOR_SERVICE)).hasAmplitudeControl() ) {
-                // Remove the vibration strength selector of the device doesn't have amplitude control
-                category_gamepad_settings.removePreference(findPreference("seekbar_vibrate_fallback_strength"));
-            }
-
-            String diy=PreferenceManager.getDefaultSharedPreferences(this.getActivity()).getString("edit_diy_w_h","");
-            if(!TextUtils.isEmpty(diy)){
-                String[] diys=diy.split("x");
-                if(diys.length==2){
-                    try{
-                        addNativeResolutionEntries(Integer.parseInt(diys[0]), Integer.parseInt(diys[1]), false);
-                    }catch (Exception e){
-                        e.printStackTrace();
-                    }
-                }
-            }
-
-            Display display = getActivity().getWindowManager().getDefaultDisplay();
-            float maxSupportedFps = display.getRefreshRate();
-
-            // Hide non-supported resolution/FPS combinations
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                int maxSupportedResW = 0;
-
-                // Add a native resolution with any insets included for users that don't want content
-                // behind the notch of their display
-                boolean hasInsets = false;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    DisplayCutout cutout;
-
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        // Use the much nicer Display.getCutout() API on Android 10+
-                        cutout = display.getCutout();
-                    }
-                    else {
-                        // Android 9 only
-                        cutout = displayCutoutP;
-                    }
-
-                    if (cutout != null) {
-                        int widthInsets = cutout.getSafeInsetLeft() + cutout.getSafeInsetRight();
-                        int heightInsets = cutout.getSafeInsetBottom() + cutout.getSafeInsetTop();
-
-                        if (widthInsets != 0 || heightInsets != 0) {
-                            DisplayMetrics metrics = new DisplayMetrics();
-                            display.getRealMetrics(metrics);
-
-                            int width = Math.max(metrics.widthPixels - widthInsets, metrics.heightPixels - heightInsets);
-                            int height = Math.min(metrics.widthPixels - widthInsets, metrics.heightPixels - heightInsets);
-
-                            addNativeResolutionEntries(width, height, false);
-                            hasInsets = true;
-                        }
-                    }
-                }
-
-                // Always allow resolutions that are smaller or equal to the active
-                // display resolution because decoders can report total non-sense to us.
-                // For example, a p201 device reports:
-                // AVC Decoder: OMX.amlogic.avc.decoder.awesome
-                // HEVC Decoder: OMX.amlogic.hevc.decoder.awesome
-                // AVC supported width range: 64 - 384
-                // HEVC supported width range: 64 - 544
-                for (Display.Mode candidate : display.getSupportedModes()) {
-                    // Some devices report their dimensions in the portrait orientation
-                    // where height > width. Normalize these to the conventional width > height
-                    // arrangement before we process them.
-
-                    int width = Math.max(candidate.getPhysicalWidth(), candidate.getPhysicalHeight());
-                    int height = Math.min(candidate.getPhysicalWidth(), candidate.getPhysicalHeight());
-
-                    // Some TVs report strange values here, so let's avoid native resolutions on a TV
-                    // unless they report greater than 4K resolutions.
-                    if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEVISION) ||
-                            (width > 3840 || height > 2160)) {
-                        addNativeResolutionEntries(width, height, hasInsets);
-                    }
-
-                    if ((width >= 3840 || height >= 2160) && maxSupportedResW < 3840) {
-                        maxSupportedResW = 3840;
-                    }
-                    else if ((width >= 2560 || height >= 1440) && maxSupportedResW < 2560) {
-                        maxSupportedResW = 2560;
-                    }
-                    else if ((width >= 1920 || height >= 1080) && maxSupportedResW < 1920) {
-                        maxSupportedResW = 1920;
-                    }
-
-                    if (candidate.getRefreshRate() > maxSupportedFps) {
-                        maxSupportedFps = candidate.getRefreshRate();
-                    }
-                }
-
-                // This must be called to do runtime initialization before calling functions that evaluate
-                // decoder lists.
-                MediaCodecHelper.initialize(getContext(), GlPreferences.readPreferences(getContext()).glRenderer);
-
-                MediaCodecInfo avcDecoder = MediaCodecHelper.findProbableSafeDecoder("video/avc", -1);
-                MediaCodecInfo hevcDecoder = MediaCodecHelper.findProbableSafeDecoder("video/hevc", -1);
-
-                if (avcDecoder != null) {
-                    Range<Integer> avcWidthRange = avcDecoder.getCapabilitiesForType("video/avc").getVideoCapabilities().getSupportedWidths();
-
-                    LimeLog.info("AVC supported width range: "+avcWidthRange.getLower()+" - "+avcWidthRange.getUpper());
-
-                    // If 720p is not reported as supported, ignore all results from this API
-                    if (avcWidthRange.contains(1280)) {
-                        if (avcWidthRange.contains(3840) && maxSupportedResW < 3840) {
-                            maxSupportedResW = 3840;
-                        }
-                        else if (avcWidthRange.contains(1920) && maxSupportedResW < 1920) {
-                            maxSupportedResW = 1920;
-                        }
-                        else if (maxSupportedResW < 1280) {
-                            maxSupportedResW = 1280;
-                        }
-                    }
-                }
-
-                if (hevcDecoder != null) {
-                    Range<Integer> hevcWidthRange = hevcDecoder.getCapabilitiesForType("video/hevc").getVideoCapabilities().getSupportedWidths();
-
-                    LimeLog.info("HEVC supported width range: "+hevcWidthRange.getLower()+" - "+hevcWidthRange.getUpper());
-
-                    // If 720p is not reported as supported, ignore all results from this API
-                    if (hevcWidthRange.contains(1280)) {
-                        if (hevcWidthRange.contains(3840) && maxSupportedResW < 3840) {
-                            maxSupportedResW = 3840;
-                        }
-                        else if (hevcWidthRange.contains(1920) && maxSupportedResW < 1920) {
-                            maxSupportedResW = 1920;
-                        }
-                        else if (maxSupportedResW < 1280) {
-                            maxSupportedResW = 1280;
-                        }
-                    }
-                }
-
-                LimeLog.info("Maximum resolution slot: "+maxSupportedResW);
-
-                if (maxSupportedResW != 0) {
-                    if (maxSupportedResW < 3840) {
-                        // 4K is unsupported
-                        removeValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.RES_4K, new Runnable() {
-                            @Override
-                            public void run() {
-                                setResolutionValue(PreferenceConfiguration.RES_1440P);
-                            }
-                        });
-                    }
-                    if (maxSupportedResW < 2560) {
-                        // 1440p is unsupported
-                        removeValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.RES_1440P, new Runnable() {
-                            @Override
-                            public void run() {
-                                setResolutionValue(PreferenceConfiguration.RES_1080P);
-                            }
-                        });
-                    }
-                    if (maxSupportedResW < 1920) {
-                        // 1080p is unsupported
-                        removeValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.RES_1080P, new Runnable() {
-                            @Override
-                            public void run() {
-                                setResolutionValue(PreferenceConfiguration.RES_720P);
-                            }
-                        });
-                    }
-                    // Never remove 720p
-                }
-            }
-            else {
-                // We can get the true metrics via the getRealMetrics() function (unlike the lies
-                // that getWidth() and getHeight() tell to us).
-                DisplayMetrics metrics = new DisplayMetrics();
-                display.getRealMetrics(metrics);
-                int width = Math.max(metrics.widthPixels, metrics.heightPixels);
-                int height = Math.min(metrics.widthPixels, metrics.heightPixels);
-                addNativeResolutionEntries(width, height, false);
-            }
-
-            if (!PreferenceConfiguration.readPreferences(this.getActivity()).unlockFps) {
-                // We give some extra room in case the FPS is rounded down
-                if (maxSupportedFps < 118) {
-                    removeValue(PreferenceConfiguration.FPS_PREF_STRING, "120", new Runnable() {
-                        @Override
-                        public void run() {
-                            setValue(PreferenceConfiguration.FPS_PREF_STRING, "90");
-                        }
-                    });
-                }
-                if (maxSupportedFps < 88) {
-                    // 1080p is unsupported
-                    removeValue(PreferenceConfiguration.FPS_PREF_STRING, "90", new Runnable() {
-                        @Override
-                        public void run() {
-                            setValue(PreferenceConfiguration.FPS_PREF_STRING, "60");
-                        }
-                    });
-                }
-                // Never remove 30 FPS or 60 FPS
-            }
-            addNativeFrameRateEntry(maxSupportedFps);
-
-            // Android L introduces the drop duplicate behavior of releaseOutputBuffer()
-            // that the unlock FPS option relies on to not massively increase latency.
-            findPreference(PreferenceConfiguration.UNLOCK_FPS_STRING).setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
-                @Override
-                public boolean onPreferenceChange(Preference preference, Object newValue) {
-                    // HACK: We need to let the preference change succeed before reinitializing to ensure
-                    // it's reflected in the new layout.
-                    final Handler h = new Handler();
-                    h.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            // Ensure the activity is still open when this timeout expires
-                            StreamSettings settingsActivity = (StreamSettings) SettingsFragment.this.getActivity();
-                            if (settingsActivity != null) {
-                                settingsActivity.reloadSettings();
-                            }
-                        }
-                    }, 500);
-
-                    // Allow the original preference change to take place
-                    return true;
-                }
-            });
-
-            // Remove HDR preference for devices below Nougat
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-                LimeLog.info("Excluding HDR toggle based on OS");
-                PreferenceCategory category =
-                        (PreferenceCategory) findPreference("category_advanced_settings");
-                category.removePreference(findPreference("checkbox_enable_hdr"));
-            }
-            else {
-                Display.HdrCapabilities hdrCaps = display.getHdrCapabilities();
-
-                // We must now ensure our display is compatible with HDR10
-                boolean foundHdr10 = false;
-                if (hdrCaps != null) {
-                    // getHdrCapabilities() returns null on Lenovo Lenovo Mirage Solo (vega), Android 8.0
-                    for (int hdrType : hdrCaps.getSupportedHdrTypes()) {
-                        if (hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10) {
-                            foundHdr10 = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!foundHdr10) {
-                    LimeLog.info("Excluding HDR toggle based on display capabilities");
-                    PreferenceCategory category =
-                            (PreferenceCategory) findPreference("category_advanced_settings");
-                    category.removePreference(findPreference("checkbox_enable_hdr"));
-                }
-                else if (PreferenceConfiguration.isShieldAtvFirmwareWithBrokenHdr()) {
-                    LimeLog.info("Disabling HDR toggle on old broken SHIELD TV firmware");
-                    PreferenceCategory category =
-                            (PreferenceCategory) findPreference("category_advanced_settings");
-                    CheckBoxPreference hdrPref = (CheckBoxPreference) category.findPreference("checkbox_enable_hdr");
-                    hdrPref.setEnabled(false);
-                    hdrPref.setChecked(false);
-                    hdrPref.setSummary("Update the firmware on your NVIDIA SHIELD Android TV to enable HDR");
-                }
-            }
-
-            // Keep the resolution selection metadata in sync without overriding the user's bitrate.
-            findPreference(PreferenceConfiguration.RESOLUTION_PREF_STRING).setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
-                @Override
-                public boolean onPreferenceChange(Preference preference, Object newValue) {
-                    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(SettingsFragment.this.getActivity());
-                    String valueStr = (String) newValue;
-
-                    // Detect if this value is the native resolution option
-                    CharSequence[] values = ((ListPreference)preference).getEntryValues();
-                    boolean isNativeRes = true;
-                    for (int i = 0; i < values.length; i++) {
-                        // Look for a match prior to the start of the native resolution entries
-                        if (valueStr.equals(values[i].toString()) && i < nativeResolutionStartIndex) {
-                            isNativeRes = false;
-                            break;
-                        }
-                    }
-
-                    prefs.edit()
-                            .putString(PreferenceConfiguration.RESOLUTION_SELECTION_PREF_STRING,
-                                    isNativeRes ?
-                                            PreferenceConfiguration.RESOLUTION_SELECTION_CUSTOM_OR_NATIVE :
-                                            PreferenceConfiguration.RESOLUTION_SELECTION_PRESET)
-                            .commit();
-
-                    // Allow the original preference change to take place
-                    return true;
-                }
-            });
-            findPreference(PreferenceConfiguration.RESOLUTION_ASPECT_RATIO_PREF_STRING).setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
-                @Override
-                public boolean onPreferenceChange(Preference preference, Object newValue) {
-                    return true;
-                }
-            });
-            findPreference(PreferenceConfiguration.FPS_PREF_STRING).setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
-                @Override
-                public boolean onPreferenceChange(Preference preference, Object newValue) {
-                    // If this is native frame rate, show the warning dialog
-                    CharSequence[] values = ((ListPreference)preference).getEntryValues();
-                    if (nativeFramerateShown && values[values.length - 1].toString().equals(newValue.toString())) {
-                        Dialog.displayDialog(getActivity(),
-                                getResources().getString(R.string.title_native_fps_dialog),
-                                getResources().getString(R.string.text_native_res_dialog),
-                                false);
-                    }
-
-                    // Allow the original preference change to take place
-                    return true;
-                }
-            });
-
-            findPreference("import_keyboard_file").setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
-                @Override
-                public boolean onPreferenceClick(Preference preference) {
-                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                    intent.addCategory(Intent.CATEGORY_OPENABLE);
-                    intent.setType("text/plain");
-                    startActivityForResult(intent, READ_REQUEST_CODE);
-                    return false;
-                }
-            });
-            Preference gamepad_import =findPreference("import_gamepad_file");
-            if(gamepad_import!=null){
-                gamepad_import.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
-                    @Override
-                    public boolean onPreferenceClick(Preference preference) {
-                        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                        intent.addCategory(Intent.CATEGORY_OPENABLE);
-                        intent.setType("text/plain");
-                        startActivityForResult(intent, GAMEPAD_READ_REQUEST_CODE);
-                        return false;
-                    }
-                });
-            }
-            findPreference("import_computers_data_file").setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
-                @Override
-                public boolean onPreferenceClick(Preference preference) {
-                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                    intent.addCategory(Intent.CATEGORY_OPENABLE);
-                    intent.setType("*/*");
-                    startActivityForResult(intent, READ_DATABASE_REQUEST_CODE);
-                    return false;
-                }
-            });
-
-            findPreference("import_https_data_crt_file").setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
-                @Override
-                public boolean onPreferenceClick(Preference preference) {
-                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                    intent.addCategory(Intent.CATEGORY_OPENABLE);
-                    intent.setType("*/*");
-                    startActivityForResult(intent, READ_DATA_CRT_REQUEST_CODE);
-                    return false;
-                }
-            });
-
-            findPreference("import_https_data_key_file").setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
-                @Override
-                public boolean onPreferenceClick(Preference preference) {
-                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                    intent.addCategory(Intent.CATEGORY_OPENABLE);
-                    intent.setType("*/*");
-                    startActivityForResult(intent, READ_DATA_KEY_REQUEST_CODE);
-                    return false;
-                }
-            });
-
-            findPreference("import_switch_button_file").setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
-                @Override
-                public boolean onPreferenceClick(Preference preference) {
-                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                    intent.addCategory(Intent.CATEGORY_OPENABLE);
-                    intent.setType("application/json");
-                    startActivityForResult(intent, READ_REQUEST_SWITCH_BUTTON_CODE);
-                    return false;
-                }
-            });
-            findPreference("import_image_file_key").setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
-                @Override
-                public boolean onPreferenceClick(Preference preference) {
-                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                    intent.addCategory(Intent.CATEGORY_OPENABLE);
-                    intent.setType("image/*");
-                    startActivityForResult(intent, READ_REQUEST_SCREEN_IMAGE_CODE);
-                    return false;
-                }
-            });
-
-            findPreference("export_keyboard_file").setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
-                @Override
-                public boolean onPreferenceClick(Preference preference) {
-                    String name = PreferenceManager.getDefaultSharedPreferences(getActivity()).getString(KeyBoardControllerConfigurationLoader.OSC_PREFERENCE, KeyBoardControllerConfigurationLoader.OSC_PREFERENCE_VALUE);
-                    Uri uri=FileUriUtils.getKeyBoardFile(getActivity(),"axi_"+name+".txt");
-                    if(uri==null){
-                        return false;
-                    }
-                    Intent intent = new Intent(Intent.ACTION_SEND);
-                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    intent.putExtra(Intent.EXTRA_STREAM, uri);
-                    intent.setType("text/plain");
-                    startActivity(Intent.createChooser(intent,"保存配置文件"));
-                    return false;
-                }
-            });
-
-            Preference gamepad_export =findPreference("export_gamepad_file");
-            if(gamepad_export!=null){
-                gamepad_export.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
-                    @Override
-                    public boolean onPreferenceClick(Preference preference) {
-                        String name = PreferenceManager.getDefaultSharedPreferences(getActivity()).getString(KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE, KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE_VALUE);
-                        Uri uri=FileUriUtils.getKeyBoardFile(getActivity(),"axi_"+name+".txt");
-                        if(uri==null){
-                            return false;
-                        }
-                        Intent intent = new Intent(Intent.ACTION_SEND);
-                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                        intent.putExtra(Intent.EXTRA_STREAM, uri);
-                        intent.setType("text/plain");
-                        startActivity(Intent.createChooser(intent,"保存配置文件"));
-                        return false;
-                    }
-                });
-            }
-
-            findPreference("export_computers_data_file").setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
-                @Override
-                public boolean onPreferenceClick(Preference preference) {
-                    File dataFile=new File(getActivity().getDatabasePath(ComputerDatabaseManager.COMPUTER_DB_NAME).getPath());
-                    if(!dataFile.exists()){
-                        return false;
-                    }
-                    Uri uri;
-                    Intent intent = new Intent(Intent.ACTION_SEND);
-                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    String authority= getActivity().getPackageName()+".fileprovider";
-                    uri= FileProvider.getUriForFile(getActivity(),authority,dataFile);
-                    intent.putExtra(Intent.EXTRA_STREAM, uri);
-                    intent.setType("*/*");
-                    startActivity(Intent.createChooser(intent,"保存数据文件"));
-                    return false;
-                }
-            });
-
-            findPreference("export_https_data_crt_file").setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
-                @Override
-                public boolean onPreferenceClick(Preference preference) {
-                    File dataFile=new File(getActivity().getFilesDir().getAbsolutePath()+ File.separator + "client.crt");
-                    if(!dataFile.exists()){
-                        return false;
-                    }
-                    Uri uri;
-                    Intent intent = new Intent(Intent.ACTION_SEND);
-                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    String authority= getActivity().getPackageName()+".fileprovider";
-                    uri= FileProvider.getUriForFile(getActivity(),authority,dataFile);
-                    intent.putExtra(Intent.EXTRA_STREAM, uri);
-                    intent.setType("*/*");
-                    startActivity(Intent.createChooser(intent,"保存数据文件"));
-                    return false;
-                }
-            });
-
-            findPreference("export_https_data_key_file").setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
-                @Override
-                public boolean onPreferenceClick(Preference preference) {
-                    File dataFile=new File(getActivity().getFilesDir().getAbsolutePath()+ File.separator + "client.key");
-                    if(!dataFile.exists()){
-                        return false;
-                    }
-                    Uri uri;
-                    Intent intent = new Intent(Intent.ACTION_SEND);
-                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    String authority= getActivity().getPackageName()+".fileprovider";
-                    uri= FileProvider.getUriForFile(getActivity(),authority,dataFile);
-                    intent.putExtra(Intent.EXTRA_STREAM, uri);
-                    intent.setType("*/*");
-                    startActivity(Intent.createChooser(intent,"保存数据文件"));
-                    return false;
-                }
-            });
-
-            EditTextPreference bitrateEditPre= (EditTextPreference) findPreference("edit_diy_bitrate");
-            EditText editText=bitrateEditPre.getEditText();
-
-            editText.setInputType(InputType.TYPE_NUMBER_FLAG_DECIMAL);
-
-//            editText.setKeyListener(new NumberKeyListener() {
-//                @Override
-//                public int getInputType() {
-//                    return InputType.TYPE_MASK_VARIATION;
-//                }
-//                @Override
-//                protected char[] getAcceptedChars() {/*这里实现字符串过滤，把你允许输入的字母添加到下面的数组即可！*/
-//                    return new char[]{'0', '1', '2', '3', '4', '5','6','7', '8', '9', '.'};
-//                }
-//            });
-            editText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(5)/*这里限制输入的长度为5个字母*/});
-
-            bitrateEditPre.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
-                @Override
-                public boolean onPreferenceChange(Preference preference, Object newValue) {
-                    String value= (String) newValue;
-                    if(TextUtils.isEmpty(value)){
-                        Toast.makeText(getActivity(),"请输入0-9999的数值。",Toast.LENGTH_SHORT).show();
-                        return false;
-                    }
-                    float bitrateValue=Float.valueOf(value)*1000;
-                    LimeLog.info("axi-bitrateValue:"+bitrateValue);
-                    int bitrate= (int) bitrateValue;
-                    LimeLog.info("axi-bitrate:"+bitrate);
-                    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(SettingsFragment.this.getActivity());
-                    prefs.edit().putInt(PreferenceConfiguration.BITRATE_PREF_STRING,bitrate).apply();
-                    Toast.makeText(getActivity(),"设置成功！",Toast.LENGTH_SHORT).show();
-                    return true;
-                }
-            });
-        }
-        int READ_REQUEST_CODE=1001;
-
-        int GAMEPAD_READ_REQUEST_CODE=1002;
-
-        int READ_DATABASE_REQUEST_CODE=1003;
-
-        int READ_DATA_CRT_REQUEST_CODE=1004;
-
-        int READ_DATA_KEY_REQUEST_CODE=1005;
-
-        int READ_REQUEST_SWITCH_BUTTON_CODE=1007;
-
-        int READ_REQUEST_SCREEN_IMAGE_CODE=1008;
-
-        @Override
-        public void onActivityResult(int requestCode, int resultCode, Intent data) {
-            super.onActivityResult(requestCode, resultCode, data);
-            if ((requestCode == READ_REQUEST_CODE || requestCode == GAMEPAD_READ_REQUEST_CODE) && resultCode == Activity.RESULT_OK &&data.getData()!=null) {
-                try {
-                    Uri uri = data.getData();
-                    String json=FileUriUtils.openUriForRead(getActivity(),uri);
-                    if(TextUtils.isEmpty(json)){
-                        Toast.makeText(getActivity(),"空文件~",Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    String name = PreferenceManager.getDefaultSharedPreferences(getActivity()).getString(KeyBoardControllerConfigurationLoader.OSC_PREFERENCE, KeyBoardControllerConfigurationLoader.OSC_PREFERENCE_VALUE);
-                    if(requestCode == GAMEPAD_READ_REQUEST_CODE){
-                        name = PreferenceManager.getDefaultSharedPreferences(getActivity()).getString(KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE, KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE_VALUE);
-                    }
-                    boolean result=FileUriUtils.saveKeyBoardJson(getActivity(),"axi_"+name+".txt",json);
-                    if(result){
-                        Toast.makeText(getActivity(),"导入成功！",Toast.LENGTH_SHORT).show();
-                    }else{
-                        Toast.makeText(getActivity(),"导入失败！",Toast.LENGTH_SHORT).show();
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Toast.makeText(getActivity(),"出错啦~"+e.getMessage(),Toast.LENGTH_SHORT).show();
-                }
-                return;
-            }
-
-            if (requestCode == READ_DATABASE_REQUEST_CODE && resultCode == Activity.RESULT_OK &&data.getData()!=null) {
-                try {
-                    Uri uri = data.getData();
-                    File dataBaseFile= null;
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                        dataBaseFile = FileUriUtils.uriToFileApiQ(uri,getActivity());
-                    }else{
-                        String displayName = System.currentTimeMillis() + Math.round((Math.random() + 1) * 1000)+".db";
-                        dataBaseFile=new File(getActivity().getCacheDir().getAbsolutePath(), displayName);
-                        FileUriUtils.copyUriToInternalStorage(getActivity(),uri,dataBaseFile);
-                    }
-                    ComputerDatabaseManager importManager=new ComputerDatabaseManager(getActivity(),dataBaseFile);
-                    List<ComputerDetails> importComputers=importManager.getAllComputers();
-                    ComputerDatabaseManager manager=new ComputerDatabaseManager(getActivity());
-                    for (ComputerDetails computer : importComputers) {
-                        manager.updateComputer(computer);
-                    }
-                    Toast.makeText(getActivity(),"导入成功,重新打开APP生效！",Toast.LENGTH_SHORT).show();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Toast.makeText(getActivity(),"出错啦~"+e.getMessage(),Toast.LENGTH_SHORT).show();
-                }
-                return;
-            }
-
-            if (requestCode == READ_DATA_CRT_REQUEST_CODE && resultCode == Activity.RESULT_OK &&data.getData()!=null) {
-                try {
-                    Uri uri = data.getData();
-                    File dataBaseFile= null;
-                    String displayName = "client.crt";
-                    dataBaseFile=new File(getActivity().getFilesDir().getAbsolutePath(), displayName);
-                    FileUriUtils.copyUriToInternalStorage(getActivity(),uri,dataBaseFile);
-                    Toast.makeText(getActivity(),"导入成功!",Toast.LENGTH_SHORT).show();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Toast.makeText(getActivity(),"出错啦~"+e.getMessage(),Toast.LENGTH_SHORT).show();
-                }
-                return;
-
-            }
-
-            if (requestCode == READ_DATA_KEY_REQUEST_CODE && resultCode == Activity.RESULT_OK &&data.getData()!=null) {
-                try {
-                    Uri uri = data.getData();
-                    File dataBaseFile= null;
-                    String displayName = "client.key";
-                    dataBaseFile=new File(getActivity().getFilesDir().getAbsolutePath(), displayName);
-                    FileUriUtils.copyUriToInternalStorage(getActivity(),uri,dataBaseFile);
-                    Toast.makeText(getActivity(),"导入成功!",Toast.LENGTH_SHORT).show();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Toast.makeText(getActivity(),"出错啦~"+e.getMessage(),Toast.LENGTH_SHORT).show();
-                }
-                return;
-            }
-
-            if (requestCode == READ_REQUEST_SWITCH_BUTTON_CODE && resultCode == Activity.RESULT_OK &&data.getData()!=null) {
-                try {
-                    Uri uri = data.getData();
-                    File dataBaseFile= null;
-                    String displayName = "axi_switch_keyboard.json";
-                    dataBaseFile=new File(getActivity().getFilesDir().getAbsolutePath(), displayName);
-                    FileUriUtils.copyUriToInternalStorage(getActivity(),uri,dataBaseFile);
-                    Toast.makeText(getActivity(),"导入成功!",Toast.LENGTH_SHORT).show();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Toast.makeText(getActivity(),"出错啦~"+e.getMessage(),Toast.LENGTH_SHORT).show();
-                }
-                return;
-
-            }
-            if (requestCode == READ_REQUEST_SCREEN_IMAGE_CODE && resultCode == Activity.RESULT_OK &&data.getData()!=null) {
-                try {
-                    Uri uri = data.getData();
-                    File dataBaseFile= null;
-                    String displayName = "axi_screen_bg_"+System.currentTimeMillis()+".png";
-                    dataBaseFile=new File(getActivity().getFilesDir().getAbsolutePath(), displayName);
-                    FileUriUtils.copyUriToInternalStorage(getActivity(),uri,dataBaseFile);
-                    PreferenceManager.getDefaultSharedPreferences(getActivity())
-                            .edit()
-                            .putString("screen_bg_file_name",displayName)
-                            .apply();
-                    Toast.makeText(getActivity(),"设置成功!",Toast.LENGTH_SHORT).show();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Toast.makeText(getActivity(),"出错啦~"+e.getMessage(),Toast.LENGTH_SHORT).show();
-                }
-                return;
-
-            }
-
-
+        wideItemContainer.removeAllViews();
+        wideItemContainer.addView(page, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        if (animate) {
+            page.setAlpha(0f);
+            page.animate().alpha(1f).setDuration(100).start();
         }
     }
 
+    private void refreshWideSectionSelection() {
+        if (wideSectionList == null) {
+            return;
+        }
+
+        for (int i = 0; i < wideSectionList.getChildCount(); i++) {
+            View child = wideSectionList.getChildAt(i);
+            Object tag = child.getTag();
+            if (tag instanceof Integer) {
+                int sectionIndex = (Integer) tag;
+                child.setBackgroundResource(sectionIndex == selectedSectionIndex ?
+                        R.drawable.bg_settings_selected_card :
+                        R.drawable.ic_game_menu_btn_selector);
+            }
+        }
+    }
+
+    private void renderSectionList(LinearLayout page) {
+        titleView.setText(R.string.settings_title);
+        subtitleView.setText(getCurrentProfileSummary());
+        backButton.setVisibility(View.VISIBLE);
+
+        ScrollView scroll = createScrollView();
+        LinearLayout list = createVerticalList();
+        scroll.addView(list);
+        page.addView(scroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+
+        addRootFeaturedItems(list);
+        addListHeader(list, R.string.settings_more_settings);
+        for (int i = 0; i < sections.size(); i++) {
+            list.addView(createSectionRow(sections.get(i), i, false));
+        }
+    }
+
+    private void renderFeaturedSettings(LinearLayout page) {
+        titleView.setText(R.string.settings_featured_settings);
+        subtitleView.setText(getCurrentProfileSummary());
+        backButton.setVisibility(View.VISIBLE);
+
+        ScrollView scroll = createScrollView();
+        LinearLayout list = createVerticalList();
+        scroll.addView(list);
+        page.addView(scroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        addRootFeaturedItems(list);
+    }
+
+    private void addRootFeaturedItems(LinearLayout list) {
+        boolean hasFeaturedItems = false;
+        for (String key : ROOT_FEATURED_SETTING_KEYS) {
+            SettingsItem item = findItem(key);
+            if (item == null || !item.visible) {
+                continue;
+            }
+            if (!hasFeaturedItems) {
+                addListHeader(list, R.string.settings_featured_settings);
+                hasFeaturedItems = true;
+            }
+            list.addView(createItemRow(item));
+        }
+    }
+
+    private void addListHeader(LinearLayout list, int titleResId) {
+        TextView header = new TextView(this);
+        header.setText(titleResId);
+        header.setTextColor(0xBFFFFFFF);
+        header.setTextSize(13);
+        header.setTypeface(null, 1);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(4), dp(10), dp(4), dp(8));
+        list.addView(header, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
+
+    private void renderSectionDetail(LinearLayout page, int sectionIndex) {
+        SettingsSection section = sections.get(sectionIndex);
+        titleView.setText(section.title);
+        subtitleView.setText(getResources().getQuantityString(
+                R.plurals.settings_item_count, section.visibleItems().size(), section.visibleItems().size()));
+        backButton.setVisibility(View.VISIBLE);
+
+        ScrollView scroll = createScrollView();
+        LinearLayout list = createVerticalList();
+        scroll.addView(list);
+        page.addView(scroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        addSectionItems(list, section);
+    }
+
+    private void applySettingsWindowPadding() {
+        if (outerContainer == null) {
+            return;
+        }
+
+        final int horizontalPadding = dp(18);
+        final int topPadding = dp(12);
+        final int bottomPadding = dp(12);
+
+        outerContainer.setPadding(horizontalPadding, topPadding + getStatusBarHeight(),
+                horizontalPadding, bottomPadding);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+            outerContainer.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+                @Override
+                public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
+                    int statusInset = Math.max(insets.getSystemWindowInsetTop(), getStatusBarHeight());
+                    int bottomInset = 0;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        bottomInset = insets.getTappableElementInsets().bottom;
+                    }
+                    v.setPadding(horizontalPadding, topPadding + statusInset,
+                            horizontalPadding, bottomPadding + bottomInset);
+                    return insets;
+                }
+            });
+            outerContainer.requestApplyInsets();
+        }
+    }
+
+    private int getStatusBarHeight() {
+        int resourceId = getResources().getIdentifier("status_bar_height", "dimen", "android");
+        if (resourceId == 0) {
+            return 0;
+        }
+        return getResources().getDimensionPixelSize(resourceId);
+    }
+
+    private ScrollView createScrollView() {
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setFillViewport(true);
+        scrollView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        scrollView.setVerticalScrollBarEnabled(false);
+        scrollView.setHorizontalScrollBarEnabled(false);
+        return scrollView;
+    }
+
+    private LinearLayout createVerticalList() {
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(0, 0, 0, dp(12));
+        return list;
+    }
+
+    private View createSectionRow(final SettingsSection section, final int index, boolean selected) {
+        LinearLayout row = new LinearLayout(this);
+        row.setTag(index);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setBackgroundResource(selected ? R.drawable.bg_settings_selected_card : R.drawable.ic_game_menu_btn_selector);
+        row.setPadding(dp(14), dp(12), dp(14), dp(12));
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(section.iconRes);
+        icon.setAlpha(0.88f);
+        row.addView(icon, new LinearLayout.LayoutParams(dp(24), dp(24)));
+
+        LinearLayout textBlock = new LinearLayout(this);
+        textBlock.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+        textParams.leftMargin = dp(12);
+        row.addView(textBlock, textParams);
+
+        TextView title = new TextView(this);
+        title.setText(section.title);
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(16);
+        title.setTypeface(null, 1);
+        textBlock.addView(title);
+
+        TextView summary = new TextView(this);
+        summary.setText(getResources().getQuantityString(
+                R.plurals.settings_item_count, section.visibleItems().size(), section.visibleItems().size()));
+        summary.setTextColor(0xBFFFFFFF);
+        summary.setTextSize(12);
+        textBlock.addView(summary);
+
+        TextView arrow = new TextView(this);
+        arrow.setText(">");
+        arrow.setTextColor(0xCCFFFFFF);
+        arrow.setTextSize(20);
+        row.addView(arrow);
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.bottomMargin = dp(8);
+        row.setLayoutParams(params);
+        row.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (wideLayout) {
+                    selectedSectionIndex = index;
+                    refreshWideSectionSelection();
+                    renderWideItemContent(true);
+                    return;
+                }
+                Intent intent = new Intent(StreamSettings.this, StreamSettings.class);
+                intent.putExtra(EXTRA_SECTION_INDEX, index);
+                startActivity(intent);
+            }
+        });
+        return row;
+    }
+
+    private View createFeaturedSectionRow(boolean selected) {
+        final SettingsSection section = new SettingsSection(
+                "featured_settings",
+                getText(R.string.settings_featured_settings),
+                R.drawable.ic_axi_quick);
+        LinearLayout row = (LinearLayout) createSectionRow(section, FEATURED_SECTION_INDEX, selected);
+        row.setTag(FEATURED_SECTION_INDEX);
+        return row;
+    }
+
+    private void addSectionItems(LinearLayout list, SettingsSection section) {
+        ArrayList<SettingsItem> items = section.visibleItems();
+        if (items.isEmpty()) {
+            TextView empty = new TextView(this);
+            empty.setText(R.string.settings_no_items);
+            empty.setTextColor(0xCCFFFFFF);
+            empty.setGravity(Gravity.CENTER);
+            empty.setPadding(dp(18), dp(28), dp(18), dp(28));
+            list.addView(empty);
+            return;
+        }
+
+        for (SettingsItem item : items) {
+            list.addView(createItemRow(item));
+        }
+    }
+
+    private View createItemRow(final SettingsItem item) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(dp(58));
+        row.setPadding(dp(14), dp(9), dp(14), dp(9));
+        row.setBackgroundResource(R.drawable.ic_game_menu_btn_selector);
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(item.iconRes);
+        icon.setAlpha(item.isEnabled(store) ? 0.86f : 0.35f);
+        row.addView(icon, new LinearLayout.LayoutParams(dp(22), dp(22)));
+
+        LinearLayout textBlock = new LinearLayout(this);
+        textBlock.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+        textParams.leftMargin = dp(12);
+        row.addView(textBlock, textParams);
+
+        TextView title = new TextView(this);
+        title.setText(item.title);
+        title.setTextColor(item.isEnabled(store) ? Color.WHITE : 0x80FFFFFF);
+        title.setTextSize(16);
+        title.setTypeface(null, 1);
+        title.setSingleLine(true);
+        title.setEllipsize(TextUtils.TruncateAt.END);
+        textBlock.addView(title);
+
+        if (!TextUtils.isEmpty(item.summary)) {
+            TextView summary = new TextView(this);
+            summary.setText(item.summary);
+            summary.setTextColor(item.isEnabled(store) ? 0xBFFFFFFF : 0x66FFFFFF);
+            summary.setTextSize(12);
+            summary.setMaxLines(2);
+            summary.setEllipsize(TextUtils.TruncateAt.END);
+            textBlock.addView(summary);
+        }
+
+        final View control = createControlView(item);
+        if (control != null) {
+            LinearLayout.LayoutParams controlParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+            controlParams.leftMargin = dp(10);
+            row.addView(control, controlParams);
+        }
+
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        rowParams.bottomMargin = dp(7);
+        row.setLayoutParams(rowParams);
+        row.setEnabled(item.isEnabled(store));
+        row.setAlpha(item.isEnabled(store) ? 1.0f : 0.55f);
+        row.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!item.isEnabled(store)) {
+                    return;
+                }
+                if (item.type == SettingsItem.Type.SWITCH && control instanceof Switch) {
+                    control.performClick();
+                    return;
+                }
+                handleItemClick(item);
+            }
+        });
+        return row;
+    }
+
+    private View createControlView(final SettingsItem item) {
+        if (item.type == SettingsItem.Type.SWITCH) {
+            Switch switchView = new Switch(this);
+            switchView.setChecked(store.getBoolean(item));
+            switchView.setEnabled(item.isEnabled(store));
+            tintSwitch(switchView);
+            switchView.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                    store.putBoolean(item.key, isChecked);
+                    afterItemChanged(item, isChecked, true);
+                }
+            });
+            return switchView;
+        }
+
+        TextView value = new TextView(this);
+        value.setTextColor(0xE6FFFFFF);
+        value.setTextSize(13);
+        value.setGravity(Gravity.CENTER_VERTICAL | Gravity.RIGHT);
+        value.setMaxWidth(dp(180));
+        value.setSingleLine(true);
+        value.setEllipsize(TextUtils.TruncateAt.END);
+
+        switch (item.type) {
+            case LIST:
+                value.setText(item.getSelectedEntry(store));
+                break;
+            case SLIDER:
+                value.setText(item.formatSliderValue(item.round(store.getInt(item))));
+                break;
+            case TEXT:
+                value.setText(store.getString(item));
+                break;
+            case ACTION:
+            case WEB:
+                value.setText(R.string.settings_action_open);
+                break;
+            default:
+                return null;
+        }
+        return value;
+    }
+
+    private void handleItemClick(SettingsItem item) {
+        switch (item.type) {
+            case SWITCH:
+                store.putBoolean(item.key, !store.getBoolean(item));
+                afterItemChanged(item, store.getBoolean(item), true);
+                break;
+            case LIST:
+                if ("list_languages".equals(item.key) &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    launchNativeLanguageSettings();
+                }
+                else {
+                    showListDialog(item);
+                }
+                break;
+            case SLIDER:
+                showSliderDialog(item);
+                break;
+            case TEXT:
+                showTextDialog(item);
+                break;
+            case ACTION:
+                performAction(item.key);
+                break;
+            case WEB:
+                if ("about".equals(item.url)) {
+                    startActivity(new Intent(this, AboutActivity.class));
+                }
+                else {
+                    HelpLauncher.launchUrl(this, item.url);
+                }
+                break;
+        }
+    }
+
+    private void showListDialog(final SettingsItem item) {
+        final AlertDialog dialog = new AlertDialog.Builder(this).create();
+        LinearLayout panel = createDialogPanel(item.title);
+        String current = store.getString(item);
+
+        for (int i = 0; i < item.entryValues.length; i++) {
+            final String value = item.entryValues[i].toString();
+            TextView row = createDialogRow(item.entries[i], value.equals(current));
+            row.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (beforeListValueChanged(item, value)) {
+                        store.putString(item.key, value);
+                        afterItemChanged(item, value, false);
+                    }
+                    dialog.dismiss();
+                }
+            });
+            panel.addView(row);
+        }
+
+        addDialogCancel(panel, dialog);
+        showCustomDialog(dialog, panel);
+    }
+
+    private void showSliderDialog(final SettingsItem item) {
+        final AlertDialog dialog = new AlertDialog.Builder(this).create();
+        LinearLayout panel = createDialogPanel(item.title);
+
+        if (!TextUtils.isEmpty(item.dialogMessage)) {
+            TextView message = new TextView(this);
+            message.setText(item.dialogMessage);
+            message.setTextColor(0xCCFFFFFF);
+            message.setTextSize(13);
+            message.setPadding(0, 0, 0, dp(10));
+            panel.addView(message);
+        }
+
+        final TextView valueText = new TextView(this);
+        valueText.setGravity(Gravity.CENTER);
+        valueText.setTextColor(Color.WHITE);
+        valueText.setTextSize(28);
+        valueText.setTypeface(null, 1);
+        panel.addView(valueText);
+
+        final SeekBar seekBar = new SeekBar(this);
+        seekBar.setMax(item.max);
+        if (item.keyStep > 0) {
+            seekBar.setKeyProgressIncrement(item.keyStep);
+        }
+        seekBar.setProgress(item.round(store.getInt(item)));
+        panel.addView(seekBar, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                int rounded = item.round(progress);
+                if (rounded != progress) {
+                    seekBar.setProgress(rounded);
+                    return;
+                }
+                valueText.setText(item.formatSliderValue(rounded));
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
+        valueText.setText(item.formatSliderValue(seekBar.getProgress()));
+
+        LinearLayout buttons = createDialogButtonRow();
+        TextView cancel = createDialogButton(getString(R.string.settings_cancel));
+        TextView ok = createDialogButton(getString(R.string.settings_ok));
+        buttons.addView(cancel);
+        buttons.addView(ok);
+        panel.addView(buttons);
+
+        cancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+            }
+        });
+        ok.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                int progress = item.round(seekBar.getProgress());
+                store.putInt(item.key, progress);
+                afterItemChanged(item, progress, false);
+                dialog.dismiss();
+            }
+        });
+
+        showCustomDialog(dialog, panel);
+    }
+
+    private void showTextDialog(final SettingsItem item) {
+        final AlertDialog dialog = new AlertDialog.Builder(this).create();
+        LinearLayout panel = createDialogPanel(item.title);
+
+        if (!TextUtils.isEmpty(item.dialogMessage)) {
+            TextView message = new TextView(this);
+            message.setText(item.dialogMessage);
+            message.setTextColor(0xCCFFFFFF);
+            message.setTextSize(13);
+            message.setPadding(0, 0, 0, dp(10));
+            panel.addView(message);
+        }
+
+        final EditText input = new EditText(this);
+        input.setText(store.getString(item));
+        input.setSingleLine(true);
+        input.setTextColor(Color.WHITE);
+        input.setHintTextColor(0x88FFFFFF);
+        input.setSelectAllOnFocus(true);
+        input.setPadding(dp(12), dp(8), dp(12), dp(8));
+        if ("edit_diy_bitrate".equals(item.key)) {
+            input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+            input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(5)});
+        }
+        panel.addView(input, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        LinearLayout buttons = createDialogButtonRow();
+        TextView cancel = createDialogButton(getString(R.string.settings_cancel));
+        TextView ok = createDialogButton(getString(R.string.settings_ok));
+        buttons.addView(cancel);
+        buttons.addView(ok);
+        panel.addView(buttons);
+
+        cancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+            }
+        });
+        ok.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String value = input.getText().toString();
+                if (beforeTextValueChanged(item, value)) {
+                    store.putString(item.key, value);
+                    afterItemChanged(item, value, false);
+                    dialog.dismiss();
+                }
+            }
+        });
+
+        showCustomDialog(dialog, panel);
+        input.requestFocus();
+    }
+
+    private LinearLayout createDialogPanel(CharSequence title) {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setBackgroundResource(R.drawable.bg_update_dialog_panel);
+        panel.setPadding(dp(18), dp(16), dp(18), dp(14));
+
+        TextView titleView = new TextView(this);
+        titleView.setText(title);
+        titleView.setTextColor(Color.WHITE);
+        titleView.setTextSize(19);
+        titleView.setTypeface(null, 1);
+        titleView.setPadding(0, 0, 0, dp(12));
+        panel.addView(titleView);
+        return panel;
+    }
+
+    private TextView createDialogRow(CharSequence text, boolean selected) {
+        TextView row = new TextView(this);
+        row.setText(selected ? "✓  " + text : "    " + text);
+        row.setTextColor(Color.WHITE);
+        row.setTextSize(15);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setSingleLine(false);
+        row.setBackgroundResource(selected ? R.drawable.bg_settings_selected_card : R.drawable.ic_game_menu_btn_selector);
+        row.setPadding(dp(12), dp(11), dp(12), dp(11));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.bottomMargin = dp(7);
+        row.setLayoutParams(params);
+        return row;
+    }
+
+    private LinearLayout createDialogButtonRow() {
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setGravity(Gravity.RIGHT);
+        buttons.setPadding(0, dp(14), 0, 0);
+        return buttons;
+    }
+
+    private TextView createDialogButton(String text) {
+        TextView button = new TextView(this);
+        button.setText(text);
+        button.setTextColor(Color.WHITE);
+        button.setTextSize(14);
+        button.setTypeface(null, 1);
+        button.setGravity(Gravity.CENTER);
+        button.setBackgroundResource(R.drawable.ic_game_menu_btn_selector);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(92), dp(40));
+        params.leftMargin = dp(10);
+        button.setLayoutParams(params);
+        return button;
+    }
+
+    private void addDialogCancel(LinearLayout panel, final AlertDialog dialog) {
+        LinearLayout buttons = createDialogButtonRow();
+        TextView cancel = createDialogButton(getString(R.string.settings_cancel));
+        buttons.addView(cancel);
+        panel.addView(buttons);
+        cancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+            }
+        });
+    }
+
+    private void showCustomDialog(AlertDialog dialog, View panel) {
+        dialog.setView(panel);
+        dialog.show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+    }
+
+    private boolean beforeListValueChanged(SettingsItem item, String value) {
+        if (PreferenceConfiguration.RESOLUTION_PREF_STRING.equals(item.key)) {
+            boolean isNativeRes = true;
+            for (int i = 0; i < item.entryValues.length; i++) {
+                if (value.equals(item.entryValues[i].toString()) && i < nativeResolutionStartIndex) {
+                    isNativeRes = false;
+                    break;
+                }
+            }
+            store.putString(PreferenceConfiguration.RESOLUTION_SELECTION_PREF_STRING,
+                    isNativeRes ?
+                            PreferenceConfiguration.RESOLUTION_SELECTION_CUSTOM_OR_NATIVE :
+                            PreferenceConfiguration.RESOLUTION_SELECTION_PRESET);
+        }
+
+        if (PreferenceConfiguration.FPS_PREF_STRING.equals(item.key) &&
+                nativeFramerateShown &&
+                item.entryValues.length > 0 &&
+                item.entryValues[item.entryValues.length - 1].toString().equals(value)) {
+            Dialog.displayDialog(this,
+                    getResources().getString(R.string.title_native_fps_dialog),
+                    getResources().getString(R.string.text_native_res_dialog),
+                    false);
+        }
+        return true;
+    }
+
+    private boolean beforeTextValueChanged(SettingsItem item, String value) {
+        if ("edit_diy_bitrate".equals(item.key)) {
+            if (TextUtils.isEmpty(value)) {
+                Toast.makeText(this, "请输入0-9999的数值。", Toast.LENGTH_SHORT).show();
+                return false;
+            }
+            try {
+                float bitrateValue = Float.valueOf(value) * 1000;
+                store.putInt(PreferenceConfiguration.BITRATE_PREF_STRING, (int) bitrateValue);
+                Toast.makeText(this, "设置成功！", Toast.LENGTH_SHORT).show();
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "请输入0-9999的数值。", Toast.LENGTH_SHORT).show();
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void afterItemChanged(SettingsItem item, Object value, boolean allowSwitchAnimation) {
+        if (PreferenceConfiguration.UNLOCK_FPS_STRING.equals(item.key)) {
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (!isFinishing()) {
+                        reloadSettings();
+                    }
+                }
+            }, 500);
+            return;
+        }
+
+        if (allowSwitchAnimation) {
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (!isFinishing()) {
+                        refreshAfterItemChanged();
+                    }
+                }
+            }, 180);
+        }
+        else {
+            refreshAfterItemChanged();
+        }
+    }
+
+    private void refreshAfterItemChanged() {
+        if (wideLayout && wideItemContainer != null) {
+            renderWideItemContent(false);
+        }
+        else {
+            render();
+        }
+    }
+
+    private void tintSwitch(Switch switchView) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            return;
+        }
+
+        int[][] states = new int[][]{
+                new int[]{android.R.attr.state_checked},
+                new int[]{-android.R.attr.state_checked}
+        };
+        switchView.setThumbTintList(new ColorStateList(states, new int[]{
+                0xFFFFFFFF,
+                0xFFE8E3F2
+        }));
+        switchView.setTrackTintList(new ColorStateList(states, new int[]{
+                0xFF24C46B,
+                0xFF37324D
+        }));
+    }
+
+    private void performAction(String key) {
+        if ("import_keyboard_file".equals(key)) {
+            openDocument("text/plain", READ_REQUEST_CODE);
+        }
+        else if ("import_gamepad_file".equals(key)) {
+            openDocument("text/plain", GAMEPAD_READ_REQUEST_CODE);
+        }
+        else if ("import_computers_data_file".equals(key)) {
+            openDocument("*/*", READ_DATABASE_REQUEST_CODE);
+        }
+        else if ("import_https_data_crt_file".equals(key)) {
+            openDocument("*/*", READ_DATA_CRT_REQUEST_CODE);
+        }
+        else if ("import_https_data_key_file".equals(key)) {
+            openDocument("*/*", READ_DATA_KEY_REQUEST_CODE);
+        }
+        else if ("import_switch_button_file".equals(key)) {
+            openDocument("application/json", READ_REQUEST_SWITCH_BUTTON_CODE);
+        }
+        else if ("import_image_file_key".equals(key)) {
+            openDocument("image/*", READ_REQUEST_SCREEN_IMAGE_CODE);
+        }
+        else if ("export_keyboard_file".equals(key)) {
+            exportKeyboard(false);
+        }
+        else if ("export_gamepad_file".equals(key)) {
+            exportKeyboard(true);
+        }
+        else if ("export_computers_data_file".equals(key)) {
+            exportFile(getDatabasePath(ComputerDatabaseManager.COMPUTER_DB_NAME), "*/*");
+        }
+        else if ("export_https_data_crt_file".equals(key)) {
+            exportFile(new File(getFilesDir(), "client.crt"), "*/*");
+        }
+        else if ("export_https_data_key_file".equals(key)) {
+            exportFile(new File(getFilesDir(), "client.key"), "*/*");
+        }
+    }
+
+    private void openDocument(String type, int requestCode) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType(type);
+        startActivityForResult(intent, requestCode);
+    }
+
+    private void exportKeyboard(boolean gamepad) {
+        String key = gamepad ? KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE :
+                KeyBoardControllerConfigurationLoader.OSC_PREFERENCE;
+        String defaultValue = gamepad ? KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE_VALUE :
+                KeyBoardControllerConfigurationLoader.OSC_PREFERENCE_VALUE;
+        String name = store.prefs.getString(key, defaultValue);
+        Uri uri = FileUriUtils.getKeyBoardFile(this, "axi_" + name + ".txt");
+        if (uri == null) {
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_SEND);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        intent.putExtra(Intent.EXTRA_STREAM, uri);
+        intent.setType("text/plain");
+        startActivity(Intent.createChooser(intent, "保存配置文件"));
+    }
+
+    private void exportFile(File file, String type) {
+        if (!file.exists()) {
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_SEND);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", file);
+        intent.putExtra(Intent.EXTRA_STREAM, uri);
+        intent.setType(type);
+        startActivity(Intent.createChooser(intent, "保存数据文件"));
+    }
+
+    private void launchNativeLanguageSettings() {
+        try {
+            Intent intent = new Intent(Settings.ACTION_APP_LOCALE_SETTINGS);
+            intent.addCategory(Intent.CATEGORY_DEFAULT);
+            intent.setData(Uri.parse("package:" + getPackageName()));
+            startActivity(intent, null);
+        } catch (ActivityNotFoundException e) {
+            SettingsItem item = findItem("list_languages");
+            if (item != null) {
+                showListDialog(item);
+            }
+        }
+    }
+
+    private void initializeRuntimeSettings() {
+        initializeBitrateSetting();
+        applyDeviceVisibility();
+        addCustomResolution();
+        initializeDisplayCapabilities();
+    }
+
+    private void initializeBitrateSetting() {
+        SettingsItem bitrate = findItem(PreferenceConfiguration.BITRATE_PREF_STRING);
+        if (bitrate == null) {
+            return;
+        }
+
+        bitrate.defaultInt = PreferenceConfiguration.getDefaultBitrate(this);
+        bitrate.max = MAX_BITRATE_KBPS;
+        if (bitrate.keyStep <= 0) {
+            bitrate.keyStep = 1000;
+        }
+    }
+
+    private void applyDeviceVisibility() {
+        PackageManager pm = getPackageManager();
+
+        if (!pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
+            hideSection("category_onscreen_controls");
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+                pm.hasSystemFeature("com.nvidia.feature.shield")) {
+            hideItem("checkbox_absolute_mouse_mode");
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            hideItem("checkbox_gamepad_motion_sensors");
+        }
+
+        if (!pm.hasSystemFeature(PackageManager.FEATURE_SENSOR_ACCELEROMETER) &&
+                !pm.hasSystemFeature(PackageManager.FEATURE_SENSOR_GYROSCOPE)) {
+            hideItem("checkbox_gamepad_motion_fallback");
+        }
+
+        if (!pm.hasSystemFeature(PackageManager.FEATURE_USB_HOST)) {
+            hideItem("checkbox_usb_bind_all");
+            hideItem("checkbox_usb_driver");
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+                !pm.hasSystemFeature("android.software.picture_in_picture") ||
+                pm.hasSystemFeature("com.amazon.software.fireos")) {
+            hideItem("checkbox_enable_pip");
+        }
+
+        Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        if (vibrator == null || !vibrator.hasVibrator()) {
+            hideItem("checkbox_vibrate_fallback");
+            hideItem("seekbar_vibrate_fallback_strength");
+            hideItem("checkbox_enable_audio_haptics");
+            hideItem("seekbar_audio_haptics_strength");
+            hideItem("list_audio_haptics_voice_filter");
+            hideItem("checkbox_vibrate_osc");
+        }
+        else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || !vibrator.hasAmplitudeControl()) {
+            hideItem("seekbar_vibrate_fallback_strength");
+        }
+    }
+
+    private void addCustomResolution() {
+        String diy = store.prefs.getString("edit_diy_w_h", "");
+        if (!TextUtils.isEmpty(diy)) {
+            String[] diys = diy.split("x");
+            if (diys.length == 2) {
+                try {
+                    addNativeResolutionEntries(Integer.parseInt(diys[0]), Integer.parseInt(diys[1]), false);
+                } catch (Exception e) {
+                    LimeLog.warning("Invalid custom resolution: " + diy);
+                }
+            }
+        }
+    }
+
+    private void initializeDisplayCapabilities() {
+        Display display = getWindowManager().getDefaultDisplay();
+        float maxSupportedFps = display.getRefreshRate();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            int maxSupportedResW = 0;
+            boolean hasInsets = false;
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                DisplayCutout cutout = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ?
+                        display.getCutout() : displayCutoutP;
+
+                if (cutout != null) {
+                    int widthInsets = cutout.getSafeInsetLeft() + cutout.getSafeInsetRight();
+                    int heightInsets = cutout.getSafeInsetBottom() + cutout.getSafeInsetTop();
+
+                    if (widthInsets != 0 || heightInsets != 0) {
+                        DisplayMetrics metrics = new DisplayMetrics();
+                        display.getRealMetrics(metrics);
+
+                        int width = Math.max(metrics.widthPixels - widthInsets, metrics.heightPixels - heightInsets);
+                        int height = Math.min(metrics.widthPixels - widthInsets, metrics.heightPixels - heightInsets);
+
+                        addNativeResolutionEntries(width, height, false);
+                        hasInsets = true;
+                    }
+                }
+            }
+
+            for (Display.Mode candidate : display.getSupportedModes()) {
+                int width = Math.max(candidate.getPhysicalWidth(), candidate.getPhysicalHeight());
+                int height = Math.min(candidate.getPhysicalWidth(), candidate.getPhysicalHeight());
+
+                if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEVISION) ||
+                        (width > 3840 || height > 2160)) {
+                    addNativeResolutionEntries(width, height, hasInsets);
+                }
+
+                if ((width >= 3840 || height >= 2160) && maxSupportedResW < 3840) {
+                    maxSupportedResW = 3840;
+                }
+                else if ((width >= 2560 || height >= 1440) && maxSupportedResW < 2560) {
+                    maxSupportedResW = 2560;
+                }
+                else if ((width >= 1920 || height >= 1080) && maxSupportedResW < 1920) {
+                    maxSupportedResW = 1920;
+                }
+
+                if (candidate.getRefreshRate() > maxSupportedFps) {
+                    maxSupportedFps = candidate.getRefreshRate();
+                }
+            }
+
+            MediaCodecHelper.initialize(this, GlPreferences.readPreferences(this).glRenderer);
+            maxSupportedResW = updateMaxResolutionFromDecoder(maxSupportedResW, "video/avc");
+            maxSupportedResW = updateMaxResolutionFromDecoder(maxSupportedResW, "video/hevc");
+
+            if (maxSupportedResW != 0) {
+                if (maxSupportedResW < 3840) {
+                    removeValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.RES_4K,
+                            PreferenceConfiguration.RES_1440P);
+                }
+                if (maxSupportedResW < 2560) {
+                    removeValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.RES_1440P,
+                            PreferenceConfiguration.RES_1080P);
+                }
+                if (maxSupportedResW < 1920) {
+                    removeValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.RES_1080P,
+                            PreferenceConfiguration.RES_720P);
+                }
+            }
+        }
+        else {
+            DisplayMetrics metrics = new DisplayMetrics();
+            display.getRealMetrics(metrics);
+            int width = Math.max(metrics.widthPixels, metrics.heightPixels);
+            int height = Math.min(metrics.widthPixels, metrics.heightPixels);
+            addNativeResolutionEntries(width, height, false);
+        }
+
+        if (!PreferenceConfiguration.readPreferences(this).unlockFps) {
+            if (maxSupportedFps < 118) {
+                removeValue(PreferenceConfiguration.FPS_PREF_STRING, "120", "90");
+            }
+            if (maxSupportedFps < 88) {
+                removeValue(PreferenceConfiguration.FPS_PREF_STRING, "90", "60");
+            }
+        }
+        addNativeFrameRateEntry(maxSupportedFps);
+        initializeHdrVisibility(display);
+    }
+
+    private int updateMaxResolutionFromDecoder(int maxSupportedResW, String mimeType) {
+        MediaCodecInfo decoder = MediaCodecHelper.findProbableSafeDecoder(mimeType, -1);
+        if (decoder == null) {
+            return maxSupportedResW;
+        }
+
+        Range<Integer> widthRange = decoder.getCapabilitiesForType(mimeType)
+                .getVideoCapabilities().getSupportedWidths();
+        LimeLog.info(mimeType + " supported width range: " + widthRange.getLower() + " - " + widthRange.getUpper());
+        if (widthRange.contains(1280)) {
+            if (widthRange.contains(3840) && maxSupportedResW < 3840) {
+                return 3840;
+            }
+            else if (widthRange.contains(1920) && maxSupportedResW < 1920) {
+                return 1920;
+            }
+            else if (maxSupportedResW < 1280) {
+                return 1280;
+            }
+        }
+        return maxSupportedResW;
+    }
+
+    private void initializeHdrVisibility(Display display) {
+        SettingsItem hdrItem = findItem("checkbox_enable_hdr");
+        if (hdrItem == null) {
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            hideItem("checkbox_enable_hdr");
+            return;
+        }
+
+        Display.HdrCapabilities hdrCaps = display.getHdrCapabilities();
+        boolean foundHdr10 = false;
+        if (hdrCaps != null) {
+            for (int hdrType : hdrCaps.getSupportedHdrTypes()) {
+                if (hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10) {
+                    foundHdr10 = true;
+                    break;
+                }
+            }
+        }
+
+        if (!foundHdr10) {
+            hideItem("checkbox_enable_hdr");
+        }
+        else if (PreferenceConfiguration.isShieldAtvFirmwareWithBrokenHdr()) {
+            hdrItem.enabled = false;
+            store.putBoolean("checkbox_enable_hdr", false);
+            hdrItem.summary = "Update the firmware on your NVIDIA SHIELD Android TV to enable HDR";
+        }
+    }
+
+    private void addNativeResolutionEntries(int nativeWidth, int nativeHeight, boolean insetsRemoved) {
+        if (PreferenceConfiguration.isSquarishScreen(nativeWidth, nativeHeight)) {
+            addNativeResolutionEntry(nativeHeight, nativeWidth, insetsRemoved, true);
+        }
+        addNativeResolutionEntry(nativeWidth, nativeHeight, insetsRemoved, false);
+    }
+
+    private void addNativeResolutionEntry(int nativeWidth, int nativeHeight, boolean insetsRemoved, boolean portrait) {
+        SettingsItem item = findItem(PreferenceConfiguration.RESOLUTION_PREF_STRING);
+        if (item == null) {
+            return;
+        }
+
+        String newName = getResources().getString(insetsRemoved ?
+                R.string.resolution_prefix_native_fullscreen :
+                R.string.resolution_prefix_native);
+
+        if (PreferenceConfiguration.isSquarishScreen(nativeWidth, nativeHeight)) {
+            newName += " " + getResources().getString(portrait ?
+                    R.string.resolution_prefix_native_portrait :
+                    R.string.resolution_prefix_native_landscape);
+        }
+
+        newName += " (" + nativeWidth + "x" + nativeHeight + ")";
+        String newValue = nativeWidth + "x" + nativeHeight;
+
+        for (CharSequence value : item.entryValues) {
+            if (newValue.equals(value.toString())) {
+                return;
+            }
+        }
+
+        if (item.entryValues.length < nativeResolutionStartIndex) {
+            nativeResolutionStartIndex = item.entryValues.length;
+        }
+        item.appendEntry(newName, newValue);
+    }
+
+    private void addNativeFrameRateEntry(float framerate) {
+        int frameRateRounded = Math.round(framerate);
+        if (frameRateRounded == 0) {
+            return;
+        }
+
+        SettingsItem item = findItem(PreferenceConfiguration.FPS_PREF_STRING);
+        if (item == null) {
+            return;
+        }
+
+        String fpsValue = Integer.toString(frameRateRounded);
+        for (CharSequence value : item.entryValues) {
+            if (fpsValue.equals(value.toString())) {
+                nativeFramerateShown = false;
+                return;
+            }
+        }
+
+        String fpsName = getResources().getString(R.string.resolution_prefix_native) +
+                " (" + fpsValue + " " + getResources().getString(R.string.fps_suffix_fps) + ")";
+        item.appendEntry(fpsName, fpsValue);
+        nativeFramerateShown = true;
+    }
+
+    private void removeValue(String preferenceKey, String value, String fallbackValue) {
+        SettingsItem item = findItem(preferenceKey);
+        if (item == null || item.entryValues.length == 0) {
+            return;
+        }
+
+        ArrayList<CharSequence> entries = new ArrayList<>();
+        ArrayList<CharSequence> values = new ArrayList<>();
+        for (int i = 0; i < item.entryValues.length; i++) {
+            if (!value.equalsIgnoreCase(item.entryValues[i].toString())) {
+                entries.add(item.entries[i]);
+                values.add(item.entryValues[i]);
+            }
+        }
+        item.entries = entries.toArray(new CharSequence[0]);
+        item.entryValues = values.toArray(new CharSequence[0]);
+
+        if (value.equalsIgnoreCase(store.getString(item))) {
+            if (PreferenceConfiguration.RESOLUTION_PREF_STRING.equals(preferenceKey)) {
+                store.putString(PreferenceConfiguration.RESOLUTION_SELECTION_PREF_STRING,
+                        PreferenceConfiguration.isStandardResolutionPreset(fallbackValue) ?
+                                PreferenceConfiguration.RESOLUTION_SELECTION_PRESET :
+                                PreferenceConfiguration.RESOLUTION_SELECTION_CUSTOM_OR_NATIVE);
+            }
+            store.putString(preferenceKey, fallbackValue);
+        }
+    }
+
+    private SettingsItem findItem(String key) {
+        if (key == null) {
+            return null;
+        }
+        for (SettingsSection section : sections) {
+            for (SettingsItem item : section.items) {
+                if (key.equals(item.key)) {
+                    return item;
+                }
+            }
+        }
+        return null;
+    }
+
+    private void hideItem(String key) {
+        SettingsItem item = findItem(key);
+        if (item != null) {
+            item.visible = false;
+        }
+    }
+
+    private void hideSection(String key) {
+        for (SettingsSection section : sections) {
+            if (key != null && key.equals(section.key)) {
+                section.visible = false;
+            }
+        }
+    }
+
+    private void removeEmptySections() {
+        ArrayList<SettingsSection> filtered = new ArrayList<>();
+        for (SettingsSection section : sections) {
+            if (section.visible && !section.visibleItems().isEmpty()) {
+                filtered.add(section);
+            }
+        }
+        sections = filtered;
+    }
+
+    private void linkDependencyDefaults() {
+        for (SettingsSection section : sections) {
+            for (SettingsItem item : section.items) {
+                if (!TextUtils.isEmpty(item.dependency)) {
+                    SettingsItem dependency = findItem(item.dependency);
+                    if (dependency != null) {
+                        item.dependencyDefault = dependency.defaultBoolean;
+                        item.dependencyItemRef = dependency;
+                    }
+                }
+            }
+        }
+    }
+
+    private int clampSelectedSection(int selected) {
+        if (sections.isEmpty()) {
+            return -1;
+        }
+        if (selected < 0) {
+            return -1;
+        }
+        return Math.min(selected, sections.size() - 1);
+    }
+
+    private String getCurrentProfileSummary() {
+        SettingsItem resolution = findItem(PreferenceConfiguration.RESOLUTION_PREF_STRING);
+        SettingsItem fps = findItem(PreferenceConfiguration.FPS_PREF_STRING);
+        SettingsItem bitrate = findItem(PreferenceConfiguration.BITRATE_PREF_STRING);
+
+        String resolutionText = resolution == null ? "" : resolution.getSelectedEntry(store).toString();
+        String fpsText = fps == null ? "" : fps.getSelectedEntry(store).toString();
+        String bitrateText = bitrate == null ? "" : bitrate.formatSliderValue(bitrate.round(store.getInt(bitrate)));
+        return getString(R.string.settings_current_profile, resolutionText, fpsText, bitrateText);
+    }
+
+    private int getAvailableWidthDp() {
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        return (int) (metrics.widthPixels / metrics.density);
+    }
+
+    private int dp(float value) {
+        return UiHelper.dpToPx(this, value);
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if ((requestCode == READ_REQUEST_CODE || requestCode == GAMEPAD_READ_REQUEST_CODE) && resultCode == Activity.RESULT_OK && data.getData() != null) {
+            try {
+                Uri uri = data.getData();
+                String json = FileUriUtils.openUriForRead(this, uri);
+                if (TextUtils.isEmpty(json)) {
+                    Toast.makeText(this, "空文件~", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String name = store.prefs.getString(KeyBoardControllerConfigurationLoader.OSC_PREFERENCE, KeyBoardControllerConfigurationLoader.OSC_PREFERENCE_VALUE);
+                if (requestCode == GAMEPAD_READ_REQUEST_CODE) {
+                    name = store.prefs.getString(KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE, KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE_VALUE);
+                }
+                boolean result = FileUriUtils.saveKeyBoardJson(this, "axi_" + name + ".txt", json);
+                Toast.makeText(this, result ? "导入成功！" : "导入失败！", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(this, "出错啦~" + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
+
+        if (requestCode == READ_DATABASE_REQUEST_CODE && resultCode == Activity.RESULT_OK && data.getData() != null) {
+            try {
+                Uri uri = data.getData();
+                File dataBaseFile;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    dataBaseFile = FileUriUtils.uriToFileApiQ(uri, this);
+                }
+                else {
+                    String displayName = System.currentTimeMillis() + Math.round((Math.random() + 1) * 1000) + ".db";
+                    dataBaseFile = new File(getCacheDir(), displayName);
+                    FileUriUtils.copyUriToInternalStorage(this, uri, dataBaseFile);
+                }
+                ComputerDatabaseManager importManager = new ComputerDatabaseManager(this, dataBaseFile);
+                List<ComputerDetails> importComputers = importManager.getAllComputers();
+                ComputerDatabaseManager manager = new ComputerDatabaseManager(this);
+                for (ComputerDetails computer : importComputers) {
+                    manager.updateComputer(computer);
+                }
+                Toast.makeText(this, "导入成功,重新打开APP生效！", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(this, "出错啦~" + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
+
+        if (requestCode == READ_DATA_CRT_REQUEST_CODE && resultCode == Activity.RESULT_OK && data.getData() != null) {
+            importFile(data.getData(), "client.crt");
+            return;
+        }
+
+        if (requestCode == READ_DATA_KEY_REQUEST_CODE && resultCode == Activity.RESULT_OK && data.getData() != null) {
+            importFile(data.getData(), "client.key");
+            return;
+        }
+
+        if (requestCode == READ_REQUEST_SWITCH_BUTTON_CODE && resultCode == Activity.RESULT_OK && data.getData() != null) {
+            importFile(data.getData(), "axi_switch_keyboard.json");
+            return;
+        }
+
+        if (requestCode == READ_REQUEST_SCREEN_IMAGE_CODE && resultCode == Activity.RESULT_OK && data.getData() != null) {
+            try {
+                String displayName = "axi_screen_bg_" + System.currentTimeMillis() + ".png";
+                File imageFile = new File(getFilesDir(), displayName);
+                FileUriUtils.copyUriToInternalStorage(this, data.getData(), imageFile);
+                store.prefs.edit().putString("screen_bg_file_name", displayName).apply();
+                Toast.makeText(this, "设置成功!", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(this, "出错啦~" + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private void importFile(Uri uri, String displayName) {
+        try {
+            File file = new File(getFilesDir(), displayName);
+            FileUriUtils.copyUriToInternalStorage(this, uri, file);
+            Toast.makeText(this, "导入成功!", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "出错啦~" + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private static final class SettingsStore {
+        final SharedPreferences prefs;
+
+        SettingsStore(Context context) {
+            prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        }
+
+        boolean getBoolean(SettingsItem item) {
+            try {
+                return prefs.getBoolean(item.key, item.defaultBoolean);
+            } catch (ClassCastException e) {
+                return Boolean.parseBoolean(prefs.getString(item.key, Boolean.toString(item.defaultBoolean)));
+            }
+        }
+
+        boolean getBoolean(String key, boolean defaultValue) {
+            try {
+                return prefs.getBoolean(key, defaultValue);
+            } catch (ClassCastException e) {
+                return Boolean.parseBoolean(prefs.getString(key, Boolean.toString(defaultValue)));
+            }
+        }
+
+        int getInt(SettingsItem item) {
+            try {
+                return prefs.getInt(item.key, item.defaultInt);
+            } catch (ClassCastException e) {
+                try {
+                    return Integer.parseInt(prefs.getString(item.key, Integer.toString(item.defaultInt)));
+                } catch (NumberFormatException ignored) {
+                    return item.defaultInt;
+                }
+            }
+        }
+
+        String getString(SettingsItem item) {
+            try {
+                return prefs.getString(item.key, item.defaultString);
+            } catch (ClassCastException e) {
+                try {
+                    return Integer.toString(prefs.getInt(item.key, item.defaultInt));
+                } catch (ClassCastException ignored) {
+                    return Boolean.toString(prefs.getBoolean(item.key, item.defaultBoolean));
+                }
+            }
+        }
+
+        void putBoolean(String key, boolean value) {
+            prefs.edit().putBoolean(key, value).apply();
+        }
+
+        void putInt(String key, int value) {
+            prefs.edit().putInt(key, value).apply();
+        }
+
+        void putString(String key, String value) {
+            prefs.edit().putString(key, value).apply();
+        }
+    }
+
+    private static final class SettingsSection {
+        final String key;
+        final CharSequence title;
+        final int iconRes;
+        final ArrayList<SettingsItem> items = new ArrayList<>();
+        boolean visible = true;
+
+        SettingsSection(String key, CharSequence title, int iconRes) {
+            this.key = key;
+            this.title = title;
+            this.iconRes = iconRes;
+        }
+
+        ArrayList<SettingsItem> visibleItems() {
+            ArrayList<SettingsItem> visibleItems = new ArrayList<>();
+            for (SettingsItem item : items) {
+                if (item.visible) {
+                    visibleItems.add(item);
+                }
+            }
+            return visibleItems;
+        }
+    }
+
+    private static final class SettingsItem {
+        enum Type {
+            SWITCH,
+            LIST,
+            SLIDER,
+            TEXT,
+            ACTION,
+            WEB
+        }
+
+        String key;
+        Type type;
+        CharSequence title;
+        CharSequence summary;
+        String dependency;
+        boolean dependencyDefault;
+        SettingsItem dependencyItemRef;
+        String url;
+        boolean visible = true;
+        boolean enabled = true;
+        boolean defaultBoolean;
+        int defaultInt;
+        String defaultString;
+        int min;
+        int max;
+        int step;
+        int keyStep;
+        int divisor;
+        CharSequence suffix;
+        CharSequence dialogMessage;
+        CharSequence[] entries = new CharSequence[0];
+        CharSequence[] entryValues = new CharSequence[0];
+        int iconRes = R.drawable.ic_axi_opt;
+
+        boolean isEnabled(SettingsStore store) {
+            if (!enabled) {
+                return false;
+            }
+            if (TextUtils.isEmpty(dependency)) {
+                return true;
+            }
+            if (dependencyItemRef != null && dependencyItemRef.type == Type.LIST) {
+                String value = store.getString(dependencyItemRef);
+                return !TextUtils.isEmpty(value) && !"off".equals(value) && !"false".equals(value) && !"0".equals(value);
+            }
+            return store.getBoolean(dependency, dependencyDefault);
+        }
+
+        CharSequence getSelectedEntry(SettingsStore store) {
+            String selected = store.getString(this);
+            for (int i = 0; i < entryValues.length; i++) {
+                if (selected.equals(entryValues[i].toString())) {
+                    return entries[i];
+                }
+            }
+            return selected;
+        }
+
+        String formatSliderValue(int value) {
+            String text;
+            if (divisor != 1) {
+                text = String.format((Locale) null, "%.1f", value / (float) divisor);
+            }
+            else {
+                text = Integer.toString(value);
+            }
+            return TextUtils.isEmpty(suffix) ? text : text + (suffix.length() > 1 ? " " : "") + suffix;
+        }
+
+        int round(int value) {
+            if (value < min) {
+                return min;
+            }
+            if (value > max) {
+                return max;
+            }
+            if (step <= 1) {
+                return value;
+            }
+            return ((value + (step - 1)) / step) * step;
+        }
+
+        void appendEntry(CharSequence entry, CharSequence value) {
+            entries = Arrays.copyOf(entries, entries.length + 1);
+            entryValues = Arrays.copyOf(entryValues, entryValues.length + 1);
+            entries[entries.length - 1] = entry;
+            entryValues[entryValues.length - 1] = value;
+        }
+    }
+
+    private static final class SettingsRegistry {
+        static ArrayList<SettingsSection> load(Context context) {
+            ArrayList<SettingsSection> sections = new ArrayList<>();
+            SettingsSection currentSection = null;
+            Resources res = context.getResources();
+            XmlResourceParser parser = res.getXml(R.xml.preferences);
+
+            try {
+                int event;
+                while ((event = parser.next()) != XmlPullParser.END_DOCUMENT) {
+                    if (event != XmlPullParser.START_TAG) {
+                        continue;
+                    }
+
+                    String tag = parser.getName();
+                    if ("PreferenceCategory".equals(tag)) {
+                        String key = attrString(context, parser, "key");
+                        CharSequence title = attrText(context, parser, "title");
+                        if (TextUtils.isEmpty(key)) {
+                            key = "category_" + sections.size();
+                        }
+                        currentSection = new SettingsSection(key, title, iconForSection(key, title, sections.size()));
+                        sections.add(currentSection);
+                    }
+                    else if (currentSection != null) {
+                        SettingsItem item = parseItem(context, parser, tag);
+                        if (item != null && !TextUtils.isEmpty(item.key)) {
+                            currentSection.items.add(item);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                throw new IllegalStateException("Unable to load settings", e);
+            } finally {
+                parser.close();
+            }
+            return sections;
+        }
+
+        private static SettingsItem parseItem(Context context, XmlResourceParser parser, String tag) {
+            SettingsItem item = new SettingsItem();
+            item.key = attrString(context, parser, "key");
+            item.title = attrText(context, parser, "title");
+            item.summary = attrText(context, parser, "summary");
+            item.dependency = attrString(context, parser, "dependency");
+            item.defaultString = attrString(context, parser, "defaultValue");
+            item.defaultBoolean = Boolean.parseBoolean(item.defaultString);
+            item.defaultInt = parseInt(item.defaultString, 0);
+            item.url = parser.getAttributeValue(null, "url");
+            item.iconRes = iconForItem(item.key);
+
+            if (tag.endsWith("SmallIconCheckboxPreference")) {
+                item.type = SettingsItem.Type.SWITCH;
+                item.defaultBoolean = PreferenceConfiguration.getDefaultSmallMode(context);
+            }
+            else if (tag.endsWith("CheckBoxPreference")) {
+                item.type = SettingsItem.Type.SWITCH;
+            }
+            else if (tag.endsWith("LanguagePreference") || tag.endsWith("ListPreference")) {
+                item.type = SettingsItem.Type.LIST;
+                int entriesId = parser.getAttributeResourceValue(ANDROID_NS, "entries", 0);
+                int valuesId = parser.getAttributeResourceValue(ANDROID_NS, "entryValues", 0);
+                if (entriesId != 0) {
+                    item.entries = context.getResources().getTextArray(entriesId);
+                }
+                if (valuesId != 0) {
+                    item.entryValues = context.getResources().getTextArray(valuesId);
+                }
+            }
+            else if (tag.endsWith("SeekBarPreference")) {
+                item.type = SettingsItem.Type.SLIDER;
+                item.min = parser.getAttributeIntValue(SEEKBAR_NS, "min", 0);
+                item.max = parser.getAttributeIntValue(ANDROID_NS, "max", 100);
+                item.step = parser.getAttributeIntValue(SEEKBAR_NS, "step", 1);
+                item.keyStep = parser.getAttributeIntValue(SEEKBAR_NS, "keyStep", 0);
+                item.divisor = parser.getAttributeIntValue(SEEKBAR_NS, "divisor", 1);
+                item.suffix = attrText(context, parser, "text");
+                item.dialogMessage = attrText(context, parser, "dialogMessage");
+            }
+            else if (tag.endsWith("EditTextPreference")) {
+                item.type = SettingsItem.Type.TEXT;
+                item.dialogMessage = attrText(context, parser, "dialogMessage");
+            }
+            else if (tag.endsWith("WebLauncherPreference")) {
+                item.type = SettingsItem.Type.WEB;
+            }
+            else if ("Preference".equals(tag)) {
+                item.type = SettingsItem.Type.ACTION;
+            }
+            else {
+                return null;
+            }
+            return item;
+        }
+
+        private static CharSequence attrText(Context context, XmlResourceParser parser, String name) {
+            int resId = parser.getAttributeResourceValue(ANDROID_NS, name, 0);
+            if (resId != 0) {
+                return context.getText(resId);
+            }
+            return parser.getAttributeValue(ANDROID_NS, name);
+        }
+
+        private static String attrString(Context context, XmlResourceParser parser, String name) {
+            CharSequence text = attrText(context, parser, name);
+            return text == null ? null : text.toString();
+        }
+
+        private static int parseInt(String value, int fallback) {
+            if (TextUtils.isEmpty(value)) {
+                return fallback;
+            }
+            try {
+                return Integer.parseInt(value);
+            } catch (NumberFormatException e) {
+                return fallback;
+            }
+        }
+
+        private static int iconForSection(String key, CharSequence title, int index) {
+            String titleText = title == null ? "" : title.toString();
+            if (key.contains("basic")) return R.drawable.ic_axi_screen;
+            if (key.contains("audio")) return R.drawable.ic_axi_mic;
+            if (key.contains("gamepad")) return R.drawable.ic_axi_game_pad;
+            if (key.contains("input")) return R.drawable.ic_axi_mouse_left;
+            if (key.contains("onscreen")) return R.drawable.ic_axi_game_control_dpad;
+            if (titleText.contains("虚拟按键")) return R.drawable.ic_axi_vkeyboard;
+            if (key.contains("keyboard")) return R.drawable.ic_axi_keyboard;
+            if (key.contains("host")) return R.drawable.ic_axi_computer;
+            if (key.contains("ui")) return R.drawable.ic_axi_app_setting;
+            if (key.contains("screen")) return R.drawable.ic_axi_desktop;
+            if (key.contains("advanced")) return R.drawable.ic_axi_other_setting;
+            if (key.contains("back")) return R.drawable.ic_axi_clipboard_send;
+            if (key.contains("about")) return R.drawable.ic_axi_app_about;
+            if (key.contains("axixi")) return R.drawable.ic_axi_quick;
+            return index % 2 == 0 ? R.drawable.ic_axi_opt : R.drawable.ic_axi_menu;
+        }
+
+        private static int iconForItem(String key) {
+            if (key == null) return R.drawable.ic_axi_opt;
+            int exactIcon = exactIconForItem(key);
+            if (exactIcon != 0) return exactIcon;
+            if (key.contains("resolution")) return R.drawable.ic_axi_game_pad_display;
+            if (key.contains("fps")) return R.drawable.ic_axi_game_pad_fps;
+            if (key.contains("bitrate")) return R.drawable.ic_axi_game_pad_bitrate;
+            if (key.contains("hdr")) return R.drawable.ic_axi_hdr;
+            if (key.contains("fsr") || key.contains("sharpness")) return R.drawable.ic_axi_zoom;
+            if (key.contains("audio") || key.contains("haptics")) return R.drawable.ic_axi_mic;
+            if (key.contains("rumble") || key.contains("vibrate")) return R.drawable.ic_axi_vibrate;
+            if (key.contains("gamepad") || key.contains("controller")) return R.drawable.ic_axi_game_pad;
+            if (key.contains("mouse")) return R.drawable.ic_axi_mouse_left;
+            if (key.contains("touch")) return R.drawable.ic_axi_touch;
+            if (key.contains("keyboard")) return R.drawable.ic_axi_keyboard;
+            if (key.contains("import")) return R.drawable.ic_axi_down;
+            if (key.contains("export")) return R.drawable.ic_axi_clipboard_send;
+            if (key.contains("language")) return R.drawable.ic_axi_app_setting;
+            if (key.contains("delete") || key.contains("disable")) return R.drawable.ic_axi_delete;
+            if (key.contains("clipboard")) return R.drawable.ic_axi_clipboard_send;
+            if (key.contains("pip") || key.contains("window")) return R.drawable.ic_axi_window;
+            if (key.contains("host") || key.contains("computer")) return R.drawable.ic_axi_computer;
+            if (key.contains("screen")) return R.drawable.ic_axi_desktop;
+            return R.drawable.ic_axi_opt;
+        }
+
+        private static int exactIconForItem(String key) {
+            if ("list_resolution".equals(key)) return R.drawable.ic_axi_game_pad_display;
+            if ("list_resolution_aspect_ratio".equals(key)) return R.drawable.ic_axi_game_pad_zoom;
+            if ("list_fps".equals(key)) return R.drawable.ic_axi_game_pad_fps;
+            if (PreferenceConfiguration.BITRATE_PREF_STRING.equals(key) || "edit_diy_bitrate".equals(key)) {
+                return R.drawable.ic_axi_game_pad_bitrate;
+            }
+            if ("frame_pacing".equals(key) || "enable_lowLatency_experiment".equals(key)) return R.drawable.ic_axi_performance;
+            if ("list_fsr_target".equals(key) || "list_fsr_sharpness".equals(key)) return R.drawable.ic_axi_zoom;
+            if ("list_fsr_hdr_output".equals(key) || "checkbox_enable_hdr".equals(key)) return R.drawable.ic_axi_hdr;
+            if ("checkbox_stretch_video".equals(key) || "screen_gravity_list".equals(key)) return R.drawable.ic_axi_win_center;
+            if ("checkbox_cutout_mode_video".equals(key)) return R.drawable.ic_axi_win_p;
+            if ("checkbox_auto_screen_orientation".equals(key)) return R.drawable.ic_axi_switch_screen;
+            if ("checkbox_ui_theme_white".equals(key) || "list_languages".equals(key)) return R.drawable.ic_axi_app_setting;
+
+            if ("list_audio_config".equals(key) || "checkbox_enable_audiofx".equals(key)) return R.drawable.ic_axi_mic;
+            if ("seekbar_deadzone".equals(key) || "checkbox_disable_trigger_deadzone".equals(key)) return R.drawable.ic_axi_joystick;
+            if ("checkbox_multi_controller".equals(key)) return R.drawable.ic_axi_app_game_pad;
+            if ("checkbox_usb_driver".equals(key) || "checkbox_usb_bind_all".equals(key)) return R.drawable.ic_axi_game_pad_xbox;
+            if ("checkbox_mouse_emulation".equals(key)) return R.drawable.ic_axi_mouse_left;
+            if ("analog_scrolling".equals(key)) return R.drawable.ic_axi_mouse_down;
+            if ("checkbox_vibrate_fallback".equals(key) || "seekbar_vibrate_fallback_strength".equals(key)) return R.drawable.ic_axi_vibrate;
+            if ("checkbox_flip_face_buttons".equals(key)) return R.drawable.ic_axi_game_pad_move;
+            if ("checkbox_flip_rumble_ff".equals(key)) return R.drawable.ic_axi_virtual_gamepad_rumble;
+            if ("checkbox_gamepad_touchpad_as_mouse".equals(key)) return R.drawable.ic_axi_touch;
+            if ("checkbox_gamepad_motion_sensors".equals(key) || "checkbox_gamepad_motion_fallback".equals(key)) return R.drawable.ic_axi_game_pad_senser;
+
+            if ("mouse_model_list_axi".equals(key)) return R.drawable.ic_axi_touch_all;
+            if ("checkbox_mouse_local_cursor".equals(key)) return R.drawable.ic_axi_mouse_left_s;
+            if ("checkbox_mouse_nav_buttons".equals(key)) return R.drawable.ic_axi_mouse_right;
+            if ("checkbox_absolute_mouse_mode".equals(key)) return R.drawable.ic_axi_touch_center;
+            if ("checkbox_clipboard_sync".equals(key)) return R.drawable.ic_axi_clipboard_send;
+
+            if ("checkbox_show_onscreen_controls".equals(key)) return R.drawable.ic_axi_game_control_dpad;
+            if ("gamepad_axi_list".equals(key)) return R.drawable.ic_axi_game_pad_active;
+            if ("checkbox_vibrate_osc".equals(key) || "checkbox_vibrate_keyboard".equals(key)) return R.drawable.ic_axi_vibrate;
+            if ("seekbar_osc_opacity".equals(key)) return R.drawable.ic_axi_touch_sensitivity;
+            if ("checkbox_rocker_click_L3R3".equals(key)) return R.drawable.ic_axi_free_rocker;
+            if ("import_gamepad_file".equals(key)) return R.drawable.ic_axi_down;
+            if ("export_gamepad_file".equals(key)) return R.drawable.ic_axi_clipboard_send;
+
+            if ("checkbox_enable_sops".equals(key)) return R.drawable.ic_axi_performance;
+            if ("checkbox_host_audio".equals(key)) return R.drawable.ic_axi_mic;
+            if ("checkbox_enable_pip".equals(key)) return R.drawable.ic_axi_window;
+            if ("checkbox_small_icon_mode".equals(key)) return R.drawable.ic_axi_app_setting;
+            if ("checkbox_unlock_fps".equals(key) || "checkbox_reduce_refresh_rate".equals(key)) return R.drawable.ic_axi_game_pad_fps;
+            if ("checkbox_disable_warnings".equals(key)) return R.drawable.ic_axi_delete;
+            if ("video_format".equals(key) || "checkbox_full_range".equals(key)) return R.drawable.ic_axi_screen;
+            if ("checkbox_enable_perf_overlay".equals(key) || "checkbox_enable_perf_overlay_lite".equals(key) ||
+                    "checkbox_enable_perf_overlay_lite_dialog".equals(key) || "checkbox_enable_perf_overlay_lite_ext".equals(key) ||
+                    "performance_overlayLite_magin_top".equals(key)) return R.drawable.ic_axi_performance;
+            if ("checkbox_enable_post_stream_toast".equals(key)) return R.drawable.ic_axi_app_about;
+
+            if ("checkbox_enable_quit_dialog".equals(key) || "checkbox_enable_game_menu_new".equals(key)) return R.drawable.ic_axi_menu;
+            if ("checkbox_enable_sbs".equals(key)) return R.drawable.ic_axi_win_p;
+            if ("edit_diy_w_h".equals(key)) return R.drawable.ic_axi_game_pad_display;
+            if ("checkbox_enable_portrait".equals(key)) return R.drawable.ic_axi_switch_screen;
+            if ("checkbox_enable_joyconfix".equals(key)) return R.drawable.ic_axi_ns;
+            if ("checkbox_gamepad_enable_battery_report".equals(key)) return R.drawable.ic_axi_game_pad_battery;
+            if ("checkbox_enable_ax_floating".equals(key)) return R.drawable.ic_axi_quick;
+            if ("seekbar_keyboard_axi_opacity".equals(key)) return R.drawable.ic_axi_touch_sensitivity;
+            if ("seekbar_keyboard_axi_height".equals(key)) return R.drawable.ic_axi_keyboard;
+            if ("checkbox_enable_keyboard_axi_combination".equals(key)) return R.drawable.ic_axi_keyboard_list;
+            if ("checkbox_enable_exdisplay".equals(key)) return R.drawable.ic_axi_desktop;
+            if ("checkbox_enable_device_rumble".equals(key)) return R.drawable.ic_axi_vibrate;
+            if ("checkbox_enable_virtual_motion".equals(key)) return R.drawable.ic_axi_game_pad_senser;
+            if ("checkbox_enable_clear_default_special_button".equals(key)) return R.drawable.ic_axi_delete;
+            if ("checkbox_enable_game_manager_quest".equals(key)) return R.drawable.ic_axi_game_pad_disable;
+            if ("import_switch_button_file".equals(key)) return R.drawable.ic_axi_down;
+            if ("checkbox_enable_accessibility_show_log".equals(key)) return R.drawable.ic_axi_keyboard_list;
+
+            if ("checkbox_enable_keyboard".equals(key)) return R.drawable.ic_axi_vkeyboard;
+            if ("keyboard_axi_list".equals(key)) return R.drawable.ic_axi_keyboard_list;
+            if ("import_keyboard_file".equals(key)) return R.drawable.ic_axi_down;
+            if ("export_keyboard_file".equals(key)) return R.drawable.ic_axi_clipboard_send;
+
+            if ("checkbox_enable_audio_haptics".equals(key) || "seekbar_audio_haptics_strength".equals(key)) return R.drawable.ic_axi_vibrate;
+            if ("list_audio_haptics_output_target".equals(key)) return R.drawable.ic_axi_game_pad_device;
+            if ("list_audio_haptics_voice_filter".equals(key)) return R.drawable.ic_axi_mic;
+            if ("checkbox_audio_haptics_keep_controller_rumble".equals(key)) return R.drawable.ic_axi_virtual_gamepad_rumble;
+
+            if ("export_computers_data_file".equals(key) || "import_computers_data_file".equals(key)) return R.drawable.ic_axi_computer;
+            if ("export_https_data_crt_file".equals(key) || "import_https_data_crt_file".equals(key) ||
+                    "export_https_data_key_file".equals(key) || "import_https_data_key_file".equals(key)) return R.drawable.ic_axi_lock_screen;
+            if ("checkbox_enable_screen_bg".equals(key) || "import_image_file_key".equals(key)) return R.drawable.ic_axi_desktop;
+            if ("checkbox_enable_screen_obscure".equals(key)) return R.drawable.ic_axi_zoom;
+            if ("change_screen_label_key".equals(key)) return R.drawable.ic_axi_keyboard;
+            if ("checkbox_enable_pass_menu".equals(key)) return R.drawable.ic_axi_game_pad_pass;
+            return 0;
+        }
+    }
 }

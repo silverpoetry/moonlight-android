@@ -243,6 +243,18 @@
     <string name="mic_uplink_permission_denied">Microphone permission was denied. Streaming will continue without microphone uplink.</string>
 
     <string name="category_advanced_settings">Advanced Settings</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_action_open">Open</string>
+    <string name="settings_cancel">Cancel</string>
+    <string name="settings_ok">OK</string>
+    <string name="settings_no_items">No available settings</string>
+    <string name="settings_current_profile">%1$s · %2$s · %3$s</string>
+    <string name="settings_featured_settings">Common settings</string>
+    <string name="settings_more_settings">More settings</string>
+    <plurals name="settings_item_count">
+        <item quantity="one">%d option</item>
+        <item quantity="other">%d options</item>
+    </plurals>
     <string name="title_unlock_fps">Unlock all possible frame rates</string>
     <string name="summary_unlock_fps">Streaming at 90 or 120 FPS may reduce latency on high-end devices but can cause lag or instability on devices that can\'t support it</string>
     <string name="title_checkbox_reduce_refresh_rate">Allow refresh rate reduction</string>
