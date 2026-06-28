@@ -154,6 +154,18 @@ public class StreamSettings extends Activity {
             pref.setValue(value);
         }
 
+        private void setResolutionValue(String value) {
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(SettingsFragment.this.getActivity());
+            prefs.edit()
+                    .putString(PreferenceConfiguration.RESOLUTION_SELECTION_PREF_STRING,
+                            PreferenceConfiguration.isStandardResolutionPreset(value) ?
+                                    PreferenceConfiguration.RESOLUTION_SELECTION_PRESET :
+                                    PreferenceConfiguration.RESOLUTION_SELECTION_CUSTOM_OR_NATIVE)
+                    .commit();
+
+            setValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, value);
+        }
+
         private void appendPreferenceEntry(ListPreference pref, String newEntryName, String newEntryValue) {
             CharSequence[] newEntries = Arrays.copyOf(pref.getEntries(), pref.getEntries().length + 1);
             CharSequence[] newValues = Arrays.copyOf(pref.getEntryValues(), pref.getEntryValues().length + 1);
@@ -270,20 +282,6 @@ public class StreamSettings extends Activity {
             // Update the preference with the new list
             pref.setEntries(entries);
             pref.setEntryValues(entryValues);
-        }
-
-        private void resetBitrateToDefault(SharedPreferences prefs, String res, String fps) {
-            if (res == null) {
-                res = prefs.getString(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.DEFAULT_RESOLUTION);
-            }
-            if (fps == null) {
-                fps = prefs.getString(PreferenceConfiguration.FPS_PREF_STRING, PreferenceConfiguration.DEFAULT_FPS);
-            }
-
-            prefs.edit()
-                    .putInt(PreferenceConfiguration.BITRATE_PREF_STRING,
-                            PreferenceConfiguration.getDefaultBitrate(res, fps))
-                    .apply();
         }
 
         @Override
@@ -521,9 +519,7 @@ public class StreamSettings extends Activity {
                         removeValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.RES_4K, new Runnable() {
                             @Override
                             public void run() {
-                                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(SettingsFragment.this.getActivity());
-                                setValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.RES_1440P);
-                                resetBitrateToDefault(prefs, null, null);
+                                setResolutionValue(PreferenceConfiguration.RES_1440P);
                             }
                         });
                     }
@@ -532,9 +528,7 @@ public class StreamSettings extends Activity {
                         removeValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.RES_1440P, new Runnable() {
                             @Override
                             public void run() {
-                                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(SettingsFragment.this.getActivity());
-                                setValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.RES_1080P);
-                                resetBitrateToDefault(prefs, null, null);
+                                setResolutionValue(PreferenceConfiguration.RES_1080P);
                             }
                         });
                     }
@@ -543,9 +537,7 @@ public class StreamSettings extends Activity {
                         removeValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.RES_1080P, new Runnable() {
                             @Override
                             public void run() {
-                                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(SettingsFragment.this.getActivity());
-                                setValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.RES_720P);
-                                resetBitrateToDefault(prefs, null, null);
+                                setResolutionValue(PreferenceConfiguration.RES_720P);
                             }
                         });
                     }
@@ -568,9 +560,7 @@ public class StreamSettings extends Activity {
                     removeValue(PreferenceConfiguration.FPS_PREF_STRING, "120", new Runnable() {
                         @Override
                         public void run() {
-                            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(SettingsFragment.this.getActivity());
                             setValue(PreferenceConfiguration.FPS_PREF_STRING, "90");
-                            resetBitrateToDefault(prefs, null, null);
                         }
                     });
                 }
@@ -579,9 +569,7 @@ public class StreamSettings extends Activity {
                     removeValue(PreferenceConfiguration.FPS_PREF_STRING, "90", new Runnable() {
                         @Override
                         public void run() {
-                            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(SettingsFragment.this.getActivity());
                             setValue(PreferenceConfiguration.FPS_PREF_STRING, "60");
-                            resetBitrateToDefault(prefs, null, null);
                         }
                     });
                 }
@@ -652,8 +640,7 @@ public class StreamSettings extends Activity {
                 }
             }
 
-            // Add a listener to the FPS and resolution preference
-            // so the bitrate can be auto-adjusted
+            // Keep the resolution selection metadata in sync without overriding the user's bitrate.
             findPreference(PreferenceConfiguration.RESOLUTION_PREF_STRING).setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
                 @Override
                 public boolean onPreferenceChange(Preference preference, Object newValue) {
@@ -671,27 +658,26 @@ public class StreamSettings extends Activity {
                         }
                     }
 
-                    // If this is native resolution, show the warning dialog
-                    if (isNativeRes) {
-                        Dialog.displayDialog(getActivity(),
-                                getResources().getString(R.string.title_native_res_dialog),
-                                getResources().getString(R.string.text_native_res_dialog),
-                                false);
-                    }
-
-                    // Write the new bitrate value
-                    resetBitrateToDefault(prefs, valueStr, null);
+                    prefs.edit()
+                            .putString(PreferenceConfiguration.RESOLUTION_SELECTION_PREF_STRING,
+                                    isNativeRes ?
+                                            PreferenceConfiguration.RESOLUTION_SELECTION_CUSTOM_OR_NATIVE :
+                                            PreferenceConfiguration.RESOLUTION_SELECTION_PRESET)
+                            .commit();
 
                     // Allow the original preference change to take place
+                    return true;
+                }
+            });
+            findPreference(PreferenceConfiguration.RESOLUTION_ASPECT_RATIO_PREF_STRING).setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
+                @Override
+                public boolean onPreferenceChange(Preference preference, Object newValue) {
                     return true;
                 }
             });
             findPreference(PreferenceConfiguration.FPS_PREF_STRING).setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
                 @Override
                 public boolean onPreferenceChange(Preference preference, Object newValue) {
-                    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(SettingsFragment.this.getActivity());
-                    String valueStr = (String) newValue;
-
                     // If this is native frame rate, show the warning dialog
                     CharSequence[] values = ((ListPreference)preference).getEntryValues();
                     if (nativeFramerateShown && values[values.length - 1].toString().equals(newValue.toString())) {
@@ -700,9 +686,6 @@ public class StreamSettings extends Activity {
                                 getResources().getString(R.string.text_native_res_dialog),
                                 false);
                     }
-
-                    // Write the new bitrate value
-                    resetBitrateToDefault(prefs, null, valueStr);
 
                     // Allow the original preference change to take place
                     return true;

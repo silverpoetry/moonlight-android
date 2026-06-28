@@ -21,6 +21,21 @@
             android:layout_width="20dp"
             android:layout_height="20dp"/>
 
+        <ImageView
+            android:id="@+id/pc_item_menu_button"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentRight="true"
+            android:background="@drawable/ic_game_menu_btn_normal"
+            android:clickable="false"
+            android:contentDescription="@string/pcview_menu_options"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
+            android:padding="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_axi_menu" />
+
         <TextView
             tools:text="192.168.31.115"
             android:layout_marginLeft="10dp"

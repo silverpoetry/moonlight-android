@@ -55,6 +55,7 @@ import android.text.TextUtils;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.View.OnClickListener;
@@ -87,6 +88,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     private ComputerManagerService.ComputerManagerBinder managerBinder;
     private boolean freezeUpdates, runningPolling, inForeground, completeOnCreateCalled;
     private boolean autoUpdateCheckStarted;
+    private int pendingContextMenuPosition = AdapterView.INVALID_POSITION;
+    private long pendingContextMenuId;
+    private View pendingContextMenuTargetView;
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder binder) {
             final ComputerManagerService.ComputerManagerBinder localBinder =
@@ -419,7 +423,10 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         // Call superclass
         super.onCreateContextMenu(menu, v, menuInfo);
 
-        AdapterContextMenuInfo info = (AdapterContextMenuInfo) menuInfo;
+        AdapterContextMenuInfo info = getAdapterContextMenuInfo(menuInfo);
+        if (info == null) {
+            return;
+        }
         ComputerObject computer = (ComputerObject) pcGridAdapter.getItem(info.position);
 
         // Add a header with PC status details
@@ -719,7 +726,10 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
     @Override
     public boolean onContextItemSelected(MenuItem item) {
-        AdapterContextMenuInfo info = (AdapterContextMenuInfo) item.getMenuInfo();
+        AdapterContextMenuInfo info = getAdapterContextMenuInfo(item.getMenuInfo());
+        if (info == null) {
+            return super.onContextItemSelected(item);
+        }
         final ComputerObject computer = (ComputerObject) pcGridAdapter.getItem(info.position);
         switch (item.getItemId()) {
             case PAIR_ID:
@@ -797,6 +807,41 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         }
     }
 
+    private AdapterContextMenuInfo getAdapterContextMenuInfo(ContextMenuInfo menuInfo) {
+        if (menuInfo instanceof AdapterContextMenuInfo) {
+            return (AdapterContextMenuInfo) menuInfo;
+        }
+
+        if (pendingContextMenuPosition != AdapterView.INVALID_POSITION) {
+            return new AdapterContextMenuInfo(pendingContextMenuTargetView,
+                    pendingContextMenuPosition, pendingContextMenuId);
+        }
+
+        return null;
+    }
+
+    private void setPendingContextMenu(int position, long id, View targetView) {
+        pendingContextMenuPosition = position;
+        pendingContextMenuId = id;
+        pendingContextMenuTargetView = targetView;
+    }
+
+    private void openPcContextMenu(AbsListView listView, View targetView, int position, long id) {
+        setPendingContextMenu(position, id, targetView);
+        openContextMenu(listView);
+    }
+
+    private void performPcDefaultAction(AbsListView listView, View targetView, int position, long id, ComputerDetails computer) {
+        if (computer.state == ComputerDetails.State.UNKNOWN ||
+            computer.state == ComputerDetails.State.OFFLINE) {
+            openPcContextMenu(listView, targetView, position, id);
+        } else if (computer.pairState != PairState.PAIRED) {
+            doPair(computer);
+        } else {
+            doAppList(computer, false, false);
+        }
+    }
+
     private void removeComputer(ComputerDetails details) {
         managerBinder.removeComputer(details);
 
@@ -871,16 +916,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             public void onItemClick(AdapterView<?> arg0, View arg1, int pos,
                                     long id) {
                 ComputerObject computer = (ComputerObject) pcGridAdapter.getItem(pos);
-                if (computer.details.state == ComputerDetails.State.UNKNOWN ||
-                    computer.details.state == ComputerDetails.State.OFFLINE) {
-                    // Open the context menu if a PC is offline or refreshing
-                    openContextMenu(arg1);
-                } else if (computer.details.pairState != PairState.PAIRED) {
-                    // Pair an unpaired machine by default
-                    doPair(computer.details);
-                } else {
-                    doAppList(computer.details, false, false);
-                }
+                performPcDefaultAction(listView, arg1, pos, id, computer.details);
             }
         });
         listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
@@ -891,8 +927,59 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 return true;
             }
         });
+        listView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                return handlePcItemMenuTouch(listView, event);
+            }
+        });
         UiHelper.applyStatusBarPadding(listView);
         registerForContextMenu(listView);
+    }
+
+    private boolean handlePcItemMenuTouch(AbsListView listView, MotionEvent event) {
+        int action = event.getActionMasked();
+        if (action != MotionEvent.ACTION_DOWN && action != MotionEvent.ACTION_UP && action != MotionEvent.ACTION_CANCEL) {
+            return false;
+        }
+
+        int position = listView.pointToPosition((int) event.getX(), (int) event.getY());
+        if (position == AdapterView.INVALID_POSITION) {
+            return false;
+        }
+
+        View itemView = listView.getChildAt(position - listView.getFirstVisiblePosition());
+        if (itemView == null) {
+            return false;
+        }
+
+        View menuButton = itemView.findViewById(R.id.pc_item_menu_button);
+        if (menuButton == null || !isTouchInsideChild(listView, menuButton, event)) {
+            return false;
+        }
+
+        if (action == MotionEvent.ACTION_DOWN) {
+            menuButton.setAlpha(0.65f);
+            return true;
+        }
+
+        menuButton.setAlpha(1.0f);
+        if (action == MotionEvent.ACTION_UP) {
+            openPcContextMenu(listView, itemView, position, pcGridAdapter.getItemId(position));
+        }
+        return true;
+    }
+
+    private static boolean isTouchInsideChild(AbsListView listView, View child, MotionEvent event) {
+        int[] listLocation = new int[2];
+        int[] childLocation = new int[2];
+        listView.getLocationOnScreen(listLocation);
+        child.getLocationOnScreen(childLocation);
+
+        float rawX = listLocation[0] + event.getX();
+        float rawY = listLocation[1] + event.getY();
+        return rawX >= childLocation[0] && rawX < childLocation[0] + child.getWidth() &&
+                rawY >= childLocation[1] && rawY < childLocation[1] + child.getHeight();
     }
 
     public static class ComputerObject {

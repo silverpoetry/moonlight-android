@@ -615,6 +615,19 @@
                     android:text="4K"
                     android:textSize="10dp" />
 
+                <RadioButton
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_marginRight="5dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/ic_game_menu_btn_selector"
+                    android:gravity="center"
+                    android:padding="4dp"
+                    android:id="@+id/rbt_game_display_fsr_4"
+                    android:button="@null"
+                    android:text="@string/fsr_target_native_height"
+                    android:textSize="10dp" />
+
             </RadioGroup>
 
             <LinearLayout

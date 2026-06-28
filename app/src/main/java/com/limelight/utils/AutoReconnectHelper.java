@@ -33,6 +33,10 @@ public final class AutoReconnectHelper {
                 intent.getBooleanExtra(Game.EXTRA_APP_HDR, false));
     }
 
+    public static synchronized void clearPendingStream() {
+        pendingStream = null;
+    }
+
     public static synchronized boolean maybeResumeStream(Activity activity,
                                                          ComputerManagerService.ComputerManagerBinder managerBinder,
                                                          String currentPcUuid) {

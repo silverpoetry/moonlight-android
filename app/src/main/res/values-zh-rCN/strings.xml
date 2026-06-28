@@ -107,6 +107,8 @@
     <string name="category_basic_settings"> 基本设置 </string>
     <string name="title_resolution_list"> 视频分辨率 </string>
     <string name="summary_resolution_list">高分辨率提升图像清晰度。低分辨率提升在低端设备和较慢网络中的串流体验。</string>
+    <string name="title_resolution_aspect_ratio">预设纵横比</string>
+    <string name="summary_resolution_aspect_ratio">选择预设分辨率如何计算高度。16:9 使用标准预设高度；原生按本设备屏幕比例计算。</string>
     <string name="title_fps_list"> 视频帧数 </string>
     <string name="summary_fps_list">高帧数提升视频流流畅度。低帧数提升在低端设备中的串流体验。</string>
     <string name="title_seekbar_bitrate"> 视频码率 </string>
@@ -194,6 +196,7 @@
     <string name="pcview_menu_header_unknown">刷新中</string>
     <string name="pcview_menu_header_offline">离线</string>
     <string name="pcview_menu_header_online">在线</string>
+    <string name="pcview_menu_options">主机选项</string>
     <string name="resolution_prefix_native">本地</string>
     <string name="suffix_seekbar_bitrate_mbps">Mbps</string>
     <string name="text_native_res_dialog">流媒体服务器可能不支持原始分辨率或者 FPS。您可能需要手动为主机配置匹配的自定义显示模式。
@@ -227,6 +230,10 @@
     <string name="resolution_480p">480p</string>
     <string name="resolution_1440p">1440p</string>
     <string name="resolution_4k">4K</string>
+    <string name="resolution_aspect_ratio_16_9">16:9</string>
+    <string name="resolution_aspect_ratio_native">原生</string>
+    <string name="fsr_target_off">关闭</string>
+    <string name="fsr_target_native_height">原生高度</string>
     <string name="fps_30">30 FPS</string>
     <string name="fps_60">60 FPS</string>
     <string name="fps_90">90 FPS</string>

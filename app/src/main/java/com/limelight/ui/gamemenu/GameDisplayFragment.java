@@ -322,6 +322,9 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
                 else if (checkedId == R.id.rbt_game_display_fsr_3) {
                     fsrTargetPending = "4k";
                 }
+                else if (checkedId == R.id.rbt_game_display_fsr_4) {
+                    fsrTargetPending = "native_height";
+                }
                 updateFsrDetailState();
             }
         });
@@ -476,6 +479,9 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
         else if ("4k".equalsIgnoreCase(fsrTargetPending)) {
             rg_game_display_fsr.check(R.id.rbt_game_display_fsr_3);
         }
+        else if ("native_height".equalsIgnoreCase(fsrTargetPending)) {
+            rg_game_display_fsr.check(R.id.rbt_game_display_fsr_4);
+        }
         else {
             rg_game_display_fsr.check(R.id.rbt_game_display_fsr_1);
         }
@@ -605,6 +611,8 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
             PreferenceManager.getDefaultSharedPreferences(getActivity())
                     .edit()
                     .putString(PreferenceConfiguration.RESOLUTION_PREF_STRING,width+"x"+height)
+                    .putString(PreferenceConfiguration.RESOLUTION_SELECTION_PREF_STRING,
+                            PreferenceConfiguration.RESOLUTION_SELECTION_CUSTOM_OR_NATIVE)
                     .putString(PreferenceConfiguration.FPS_PREF_STRING,String.valueOf(fps))
                     .putInt(PreferenceConfiguration.BITRATE_PREF_STRING,bitrate)
                     .putString("edit_diy_w_h",width+"x"+height)
@@ -619,6 +627,7 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
                 prefConfig.height=height;
                 prefConfig.bitrate=bitrate;
                 prefConfig.fps=fps;
+                prefConfig.resolutionSelection = PreferenceConfiguration.ResolutionSelection.CUSTOM_OR_NATIVE;
                 prefConfig.enablePortrait=direction;
                 prefConfig.enableExDisplay=exDiaplay;
             }

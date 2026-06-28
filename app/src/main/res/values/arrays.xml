@@ -19,6 +19,15 @@
         <item>3840x2160</item>
     </string-array>
 
+    <string-array name="resolution_aspect_ratio_names">
+        <item>@string/resolution_aspect_ratio_16_9</item>
+        <item>@string/resolution_aspect_ratio_native</item>
+    </string-array>
+    <string-array name="resolution_aspect_ratio_values" translatable="false">
+        <item>16_9</item>
+        <item>native</item>
+    </string-array>
+
     <string-array name="fps_names">
         <item>@string/fps_30</item>
         <item>@string/fps_60</item>
@@ -33,14 +42,16 @@
     </string-array>
 
     <string-array name="fsr_target_names">
-        <item>关闭</item>
+        <item>@string/fsr_target_off</item>
         <item>2K</item>
         <item>4K</item>
+        <item>@string/fsr_target_native_height</item>
     </string-array>
     <string-array name="fsr_target_values" translatable="false">
         <item>off</item>
         <item>2k</item>
         <item>4k</item>
+        <item>native_height</item>
     </string-array>
 
     <string-array name="fsr_sharpness_names">

@@ -411,8 +411,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             streamView.setZOrderMediaOverlay(true);
             fsrView.getHolder().addCallback(this);
             fsrView.setFrameInputSize(prefConfig.width, prefConfig.height);
-            int[] fsrOutputSize = getFsrOutputSize();
-            fsrView.setFixedSurfacePixelSize(fsrOutputSize[0], fsrOutputSize[1]);
+            if (isFsrNativeHeightTarget()) {
+                fsrView.setFixedSurfacePixelSize(0, 0);
+            }
+            else {
+                int[] fsrOutputSize = getFsrOutputSize();
+                fsrView.setFixedSurfacePixelSize(fsrOutputSize[0], fsrOutputSize[1]);
+            }
         }
 
         // Listen for touch events on the background touch view to enable trackpad mode
@@ -880,7 +885,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             }
 
             // For native resolution, we will lock the orientation to the one that matches the specified resolution
-            if (PreferenceConfiguration.isNativeResolution(prefConfig.width, prefConfig.height)) {
+            if (prefConfig.isNativeResolution()) {
                 if (prefConfig.width > prefConfig.height) {
                     desiredOrientation = Configuration.ORIENTATION_LANDSCAPE;
                 }
@@ -1123,7 +1128,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private boolean shouldIgnoreInsetsForResolution(int width, int height) {
         // Never ignore insets for non-native resolutions
-        if (!PreferenceConfiguration.isNativeResolution(width, height)) {
+        if (!prefConfig.isNativeResolution()) {
             return false;
         }
 
@@ -1168,7 +1173,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // On M, we can explicitly set the optimal display mode
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Display.Mode bestMode = display.getMode();
-            boolean isNativeResolutionStream = PreferenceConfiguration.isNativeResolution(prefConfig.width, prefConfig.height);
+            boolean isNativeResolutionStream = prefConfig.isNativeResolution();
             boolean refreshRateIsGood = isRefreshRateGoodMatch(bestMode.getRefreshRate());
             boolean refreshRateIsEqual = isRefreshRateEqualMatch(bestMode.getRefreshRate());
 
@@ -1590,6 +1595,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void finish() {
+        AutoReconnectHelper.clearPendingStream();
         super.finish();
         if(prefConfig.enableScreenOnAuto==1){
             PreferenceManager.getDefaultSharedPreferences(this)
@@ -4218,15 +4224,19 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         int targetWidth = Math.round(targetHeight * aspect);
         if ("4k".equalsIgnoreCase(target)) {
             targetWidth = Math.max(targetWidth, 3840);
-        } else {
+        } else if ("2k".equalsIgnoreCase(target)) {
             targetWidth = Math.max(targetWidth, 2560);
         }
-        return new int[] {targetWidth, targetHeight};
+        return new int[] {targetWidth & ~1, targetHeight & ~1};
     }
 
     private String getFsrTarget() {
         return PreferenceManager.getDefaultSharedPreferences(this)
                 .getString("list_fsr_target", "off");
+    }
+
+    private boolean isFsrNativeHeightTarget() {
+        return "native_height".equalsIgnoreCase(getFsrTarget());
     }
 
     private String getFsrTargetDisplayName() {
@@ -4236,6 +4246,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
         if ("2k".equalsIgnoreCase(target)) {
             return "2K";
+        }
+        if ("native_height".equalsIgnoreCase(target)) {
+            return getString(R.string.fsr_target_native_height);
         }
         return "关闭";
     }

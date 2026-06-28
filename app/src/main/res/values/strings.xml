@@ -23,6 +23,7 @@
     <string name="pcview_menu_test_network">Test Network Connection</string>
     <string name="pcview_menu_details">View Details</string>
     <string name="pcview_menu_eol">NVIDIA GameStream End-of-Service</string>
+    <string name="pcview_menu_options">Host options</string>
 
     <!-- Network test strings -->
     <string name="nettest_title_waiting">Testing Network Connection</string>
@@ -147,6 +148,8 @@
     <string name="category_basic_settings">Basic Settings</string>
     <string name="title_resolution_list">Video resolution</string>
     <string name="summary_resolution_list">Increase to improve image clarity. Decrease for better performance on lower end devices and slower networks.</string>
+    <string name="title_resolution_aspect_ratio">Preset aspect ratio</string>
+    <string name="summary_resolution_aspect_ratio">Choose how preset resolutions calculate height. 16:9 keeps the standard preset height; Native matches this device\'s display aspect ratio.</string>
     <string name="title_native_res_dialog">Native Resolution Warning</string>
     <string name="text_native_res_dialog">Native resolution and/or FPS may not be supported by the streaming server. You will probably need to configure a matching custom display mode for the host PC manually.\n\nIf you choose to create a custom resolution in NVIDIA Control Panel to match your screen settings, please ensure you have read and understood NVIDIA\'s warning regarding possible monitor damage, PC instability, and other potential problems.\n\nWe are not responsible for any problems resulting from creating a custom resolution on your PC.\n\nIt may be that your monitor does not support a necessary display configuration. If so, you may try to set up a virtual monitor. Finally, if your device or host PC does not support streaming at a specific resolution or refresh rate, you\'re out of luck unfortunately.</string>
     <string name="title_fps_list">Video frame rate</string>
@@ -277,6 +280,10 @@
     <string name="resolution_1080p">1080p</string>
     <string name="resolution_1440p">1440p</string>
     <string name="resolution_4k">4K</string>
+    <string name="resolution_aspect_ratio_16_9">16:9</string>
+    <string name="resolution_aspect_ratio_native">Native</string>
+    <string name="fsr_target_off">Off</string>
+    <string name="fsr_target_native_height">Native height</string>
 
     <string name="fps_30">30 FPS</string>
     <string name="fps_60">60 FPS</string>

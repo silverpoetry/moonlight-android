@@ -16,7 +16,6 @@ import java.util.Collections;
 import java.util.Comparator;
 
 public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
-
     public PcGridAdapter(Context context, PreferenceConfiguration prefs) {
         super(context, getLayoutIdForPreferences(prefs));
     }

@@ -635,6 +635,12 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         return null;
     }
 
+    private void setPendingContextMenu(int position, long id, View targetView) {
+        pendingContextMenuPosition = position;
+        pendingContextMenuId = id;
+        pendingContextMenuTargetView = targetView;
+    }
+
     private void updateUiWithServerinfo(final ComputerDetails details) {
         AppView.this.runOnUiThread(new Runnable() {
             @Override
@@ -768,9 +774,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
-                pendingContextMenuPosition = position;
-                pendingContextMenuId = id;
-                pendingContextMenuTargetView = view;
+                setPendingContextMenu(position, id, view);
                 return false;
             }
         });

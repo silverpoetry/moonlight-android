@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.preference.PreferenceManager;
 import android.view.Display;
+import android.view.WindowManager;
 
 import com.limelight.nvstream.jni.MoonBridge;
 
@@ -27,6 +28,8 @@ public class PreferenceConfiguration {
     private static final String LEGACY_ENABLE_51_SURROUND_PREF_STRING = "checkbox_51_surround";
 
     public static final String RESOLUTION_PREF_STRING = "list_resolution";
+    public static final String RESOLUTION_SELECTION_PREF_STRING = "list_resolution_selection";
+    public static final String RESOLUTION_ASPECT_RATIO_PREF_STRING = "list_resolution_aspect_ratio";
     public static final String FPS_PREF_STRING = "list_fps";
     public static final String BITRATE_PREF_STRING = "seekbar_bitrate_kbps";
     public static final String BITRATE_PREF_OLD_STRING = "seekbar_bitrate";
@@ -155,6 +158,18 @@ public class PreferenceConfiguration {
     public static final String RES_4K = "3840x2160";
     public static final String RES_NATIVE = "Native";
 
+    public enum ResolutionSelection {
+        PRESET,
+        CUSTOM_OR_NATIVE
+    }
+
+    public static final String RESOLUTION_SELECTION_PRESET = "preset";
+    public static final String RESOLUTION_SELECTION_CUSTOM_OR_NATIVE = "custom_or_native";
+    public static final String RESOLUTION_ASPECT_RATIO_16_9 = "16_9";
+    public static final String RESOLUTION_ASPECT_RATIO_NATIVE = "native";
+
+    public ResolutionSelection resolutionSelection;
+    public String resolutionAspectRatio;
     public int width, height, fps;
     public int bitrate;
     public FormatOption videoFormat;
@@ -413,8 +428,34 @@ public class PreferenceConfiguration {
     //解锁屏幕方向锁定
     public boolean autoScreenOrientation;
 
+    public boolean isNativeResolution() {
+        return resolutionSelection != ResolutionSelection.PRESET && isNativeResolution(width, height);
+    }
+
     //记住全键盘 组合键模式
     public boolean keyboard_axi_combination;
+
+    public static boolean isStandardResolutionPreset(String resString) {
+        return RES_360P.equals(resString) ||
+                RES_480P.equals(resString) ||
+                RES_720P.equals(resString) ||
+                RES_1080P.equals(resString) ||
+                RES_1440P.equals(resString) ||
+                RES_4K.equals(resString);
+    }
+
+    public static ResolutionSelection getResolutionSelectionFromString(String value) {
+        if (RESOLUTION_SELECTION_PRESET.equals(value)) {
+            return ResolutionSelection.PRESET;
+        }
+
+        return ResolutionSelection.CUSTOM_OR_NATIVE;
+    }
+
+    public static String getResolutionSelectionString(ResolutionSelection selection) {
+        return selection == ResolutionSelection.PRESET ?
+                RESOLUTION_SELECTION_PRESET : RESOLUTION_SELECTION_CUSTOM_OR_NATIVE;
+    }
 
     public static boolean isNativeResolution(int width, int height) {
         // It's not a native resolution if it matches an existing resolution option
@@ -498,27 +539,79 @@ public class PreferenceConfiguration {
         return Integer.parseInt(resString.split("x")[1]);
     }
 
+    private static int roundToEven(int value) {
+        return value & ~1;
+    }
+
+    private static int getDisplayAspectPresetHeight(Context context, int fixedWidth) {
+        int displayWidth = 16;
+        int displayHeight = 9;
+
+        WindowManager windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+        if (windowManager != null) {
+            Display display = windowManager.getDefaultDisplay();
+            if (display != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    Display.Mode mode = display.getMode();
+                    displayWidth = mode.getPhysicalWidth();
+                    displayHeight = mode.getPhysicalHeight();
+                }
+                else {
+                    displayWidth = display.getWidth();
+                    displayHeight = display.getHeight();
+                }
+            }
+        }
+
+        int longSide = Math.max(displayWidth, displayHeight);
+        int shortSide = Math.min(displayWidth, displayHeight);
+        return roundToEven(Math.round((float) fixedWidth * shortSide / longSide));
+    }
+
+    private static int getPresetHeight(Context context, String resString) {
+        return getPresetHeight(context, resString, RESOLUTION_ASPECT_RATIO_16_9);
+    }
+
+    private static int getPresetHeight(Context context, String resString, String aspectRatio) {
+        if (RESOLUTION_ASPECT_RATIO_NATIVE.equals(aspectRatio)) {
+            return getDisplayAspectPresetHeight(context, getWidthFromResolutionString(resString));
+        }
+
+        return getHeightFromResolutionString(resString);
+    }
+
+    private static int getResolvedHeightFromResolutionString(Context context, String resString,
+                                                            ResolutionSelection selection,
+                                                            String aspectRatio) {
+        if (selection == ResolutionSelection.PRESET && isStandardResolutionPreset(resString)) {
+            return getPresetHeight(context, resString, aspectRatio);
+        }
+
+        return getHeightFromResolutionString(resString);
+    }
+
     private static String getResolutionString(int width, int height) {
-        switch (height) {
-            case 360:
+        switch (width) {
+            case 640:
                 return RES_360P;
-            case 480:
+            case 854:
                 return RES_480P;
             default:
-            case 720:
+            case 1280:
                 return RES_720P;
-            case 1080:
+            case 1920:
                 return RES_1080P;
-            case 1440:
+            case 2560:
                 return RES_1440P;
-            case 2160:
+            case 3840:
                 return RES_4K;
         }
     }
 
-    public static int getDefaultBitrate(String resString, String fpsString) {
+    public static int getDefaultBitrate(Context context, String resString, String fpsString,
+                                        ResolutionSelection selection, String aspectRatio) {
         int width = getWidthFromResolutionString(resString);
-        int height = getHeightFromResolutionString(resString);
+        int height = getResolvedHeightFromResolutionString(context, resString, selection, aspectRatio);
         int fps = Integer.parseInt(fpsString);
 
         // This logic is shamelessly stolen from Moonlight Qt:
@@ -579,6 +672,16 @@ public class PreferenceConfiguration {
         return (int)Math.round(resolutionFactor * frameRateFactor) * 1000;
     }
 
+    public static int getDefaultBitrate(Context context, String resString, String fpsString) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        ResolutionSelection selection = getResolutionSelectionFromString(
+                prefs.getString(RESOLUTION_SELECTION_PREF_STRING,
+                        isStandardResolutionPreset(resString) ?
+                                RESOLUTION_SELECTION_PRESET : RESOLUTION_SELECTION_CUSTOM_OR_NATIVE));
+        String aspectRatio = prefs.getString(RESOLUTION_ASPECT_RATIO_PREF_STRING, RESOLUTION_ASPECT_RATIO_16_9);
+        return getDefaultBitrate(context, resString, fpsString, selection, aspectRatio);
+    }
+
     public static boolean getDefaultSmallMode(Context context) {
         PackageManager manager = context.getPackageManager();
         if (manager != null) {
@@ -602,6 +705,7 @@ public class PreferenceConfiguration {
     public static int getDefaultBitrate(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         return getDefaultBitrate(
+                context,
                 prefs.getString(RESOLUTION_PREF_STRING, DEFAULT_RESOLUTION),
                 prefs.getString(FPS_PREF_STRING, DEFAULT_FPS));
     }
@@ -766,9 +870,14 @@ public class PreferenceConfiguration {
                 config.fps = 60;
             }
 
+            config.resolutionSelection = ResolutionSelection.PRESET;
+            config.resolutionAspectRatio = RESOLUTION_ASPECT_RATIO_16_9;
+
             prefs.edit()
                     .remove(LEGACY_RES_FPS_PREF_STRING)
                     .putString(RESOLUTION_PREF_STRING, getResolutionString(config.width, config.height))
+                    .putString(RESOLUTION_SELECTION_PREF_STRING, RESOLUTION_SELECTION_PRESET)
+                    .putString(RESOLUTION_ASPECT_RATIO_PREF_STRING, RESOLUTION_ASPECT_RATIO_16_9)
                     .putString(FPS_PREF_STRING, ""+config.fps)
                     .apply();
         }
@@ -779,11 +888,24 @@ public class PreferenceConfiguration {
             // Convert legacy resolution strings to the new style
             if (!resStr.contains("x")) {
                 resStr = PreferenceConfiguration.convertFromLegacyResolutionString(resStr);
-                prefs.edit().putString(RESOLUTION_PREF_STRING, resStr).apply();
+                prefs.edit()
+                        .putString(RESOLUTION_PREF_STRING, resStr)
+                        .putString(RESOLUTION_SELECTION_PREF_STRING, RESOLUTION_SELECTION_PRESET)
+                        .putString(RESOLUTION_ASPECT_RATIO_PREF_STRING, RESOLUTION_ASPECT_RATIO_16_9)
+                        .apply();
             }
 
+            ResolutionSelection resolutionSelection = getResolutionSelectionFromString(
+                    prefs.getString(RESOLUTION_SELECTION_PREF_STRING,
+                            isStandardResolutionPreset(resStr) ?
+                                    RESOLUTION_SELECTION_PRESET : RESOLUTION_SELECTION_CUSTOM_OR_NATIVE));
+            String aspectRatio = prefs.getString(RESOLUTION_ASPECT_RATIO_PREF_STRING, RESOLUTION_ASPECT_RATIO_16_9);
+
             config.width = PreferenceConfiguration.getWidthFromResolutionString(resStr);
-            config.height = PreferenceConfiguration.getHeightFromResolutionString(resStr);
+            config.height = PreferenceConfiguration.getResolvedHeightFromResolutionString(context, resStr,
+                    resolutionSelection, aspectRatio);
+            config.resolutionSelection = resolutionSelection;
+            config.resolutionAspectRatio = aspectRatio;
             config.fps = Integer.parseInt(prefs.getString(FPS_PREF_STRING, PreferenceConfiguration.DEFAULT_FPS));
         }
 

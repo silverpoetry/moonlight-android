@@ -731,7 +731,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
 
     private boolean shouldIgnoreInsetsForResolution(int width, int height) {
         // Never ignore insets for non-native resolutions
-        if (!PreferenceConfiguration.isNativeResolution(width, height)) {
+        if (!prefConfig.isNativeResolution()) {
             return false;
         }
 
@@ -776,7 +776,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         // On M, we can explicitly set the optimal display mode
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Display.Mode bestMode = display.getMode();
-            boolean isNativeResolutionStream = PreferenceConfiguration.isNativeResolution(prefConfig.width, prefConfig.height);
+            boolean isNativeResolutionStream = prefConfig.isNativeResolution();
             boolean refreshRateIsGood = isRefreshRateGoodMatch(bestMode.getRefreshRate());
             boolean refreshRateIsEqual = isRefreshRateEqualMatch(bestMode.getRefreshRate());
 
