@@ -55,6 +55,7 @@ import com.limelight.binding.input.driver.UsbDriverService;
 import com.limelight.binding.input.evdev.EvdevListener;
 import com.limelight.binding.input.touch.AbsoluteTouchContext;
 import com.limelight.binding.input.touch.RelativeTouchContext;
+import com.limelight.binding.input.touch.SoftKeyboardGestureDetector;
 import com.limelight.binding.input.touch.TouchContext;
 import com.limelight.binding.video.CrashListener;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
@@ -100,7 +101,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
 
     // Only 2 touches are supported
     private final TouchContext[] touchContextMap = new TouchContext[2];
-    private long threeFingerDownTime = 0;
+    private final SoftKeyboardGestureDetector softKeyboardGestureDetector = new SoftKeyboardGestureDetector();
 
     private static final int REFERENCE_HORIZ_RES = 1280;
     private static final int REFERENCE_VERT_RES = 720;
@@ -111,7 +112,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
     private static final int STYLUS_UP_DEAD_ZONE_DELAY = 150;
     private static final int STYLUS_UP_DEAD_ZONE_RADIUS = 50;
 
-    private static final int THREE_FINGER_TAP_THRESHOLD = 300;
+    private static final int SOFT_KEYBOARD_SHOW_RETRY_MS = 50;
 
     private ControllerHandler controllerHandler;
     private KeyboardTranslator keyboardTranslator;
@@ -1396,18 +1397,61 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
     @Override
     public void toggleKeyboard() {
         LimeLog.info("Toggling keyboard overlay");
-        InputMethodManager inputManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-        streamView.requestFocus();
         if (streamView.isImeActive()) {
-            streamView.setImeActive(false);
-            inputManager.hideSoftInputFromWindow(streamView.getWindowToken(), 0);
-            inputManager.restartInput(streamView);
+            hideKeyboard();
         }
         else {
-            streamView.setImeActive(true);
-            inputManager.restartInput(streamView);
-            inputManager.showSoftInput(streamView, 0);
+            showKeyboard();
         }
+    }
+
+    public void showKeyboard() {
+        LimeLog.info("Showing keyboard overlay");
+        final InputMethodManager inputManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        streamView.requestFocus();
+        streamView.setImeActive(true);
+        inputManager.restartInput(streamView);
+        if (!inputManager.showSoftInput(streamView, InputMethodManager.SHOW_IMPLICIT)) {
+            streamView.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (streamView.isImeActive()) {
+                        streamView.requestFocus();
+                        inputManager.showSoftInput(streamView, InputMethodManager.SHOW_IMPLICIT);
+                    }
+                }
+            }, SOFT_KEYBOARD_SHOW_RETRY_MS);
+        }
+    }
+
+    private void hideKeyboard() {
+        InputMethodManager inputManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        streamView.setImeActive(false);
+        inputManager.hideSoftInputFromWindow(streamView.getWindowToken(), 0);
+        inputManager.restartInput(streamView);
+    }
+
+    private int getSoftKeyboardGestureFingerCount() {
+        return prefConfig.quickSoftKeyboardFingers;
+    }
+
+    private boolean handleSoftKeyboardGesture(MotionEvent event) {
+        SoftKeyboardGestureDetector.Result result =
+                softKeyboardGestureDetector.onTouchEvent(event, getSoftKeyboardGestureFingerCount());
+
+        if (result == SoftKeyboardGestureDetector.Result.STARTED) {
+            for (TouchContext aTouchContext : touchContextMap) {
+                aTouchContext.cancelTouch();
+            }
+            return true;
+        }
+
+        if (result == SoftKeyboardGestureDetector.Result.TRIGGERED) {
+            showKeyboard();
+            return true;
+        }
+
+        return result == SoftKeyboardGestureDetector.Result.CONSUMED;
     }
 
     private byte getLiTouchTypeFromEvent(MotionEvent event) {
@@ -1914,18 +1958,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                 int eventX = (int) (event.getX(actionIndex) + xOffset);
                 int eventY = (int) (event.getY(actionIndex) + yOffset);
 
-                // Special handling for 3 finger gesture
-                if (event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN &&
-                        event.getPointerCount() == 3) {
-                    // Three fingers down
-                    threeFingerDownTime = event.getEventTime();
-
-                    // Cancel the first and second touches to avoid
-                    // erroneous events
-                    for (TouchContext aTouchContext : touchContextMap) {
-                        aTouchContext.cancelTouch();
-                    }
-
+                if (handleSoftKeyboardGesture(event)) {
                     return true;
                 }
 
@@ -1952,18 +1985,6 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                         break;
                     case MotionEvent.ACTION_POINTER_UP:
                     case MotionEvent.ACTION_UP:
-                        //是触控板模式 三点呼出软键盘
-                        if (prefConfig.touchscreenTrackpad) {
-                            if (event.getPointerCount() == 1 &&
-                                    (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || (event.getFlags() & MotionEvent.FLAG_CANCELED) == 0)) {
-                                // All fingers up
-                                if (event.getEventTime() - threeFingerDownTime < THREE_FINGER_TAP_THRESHOLD) {
-                                    // This is a 3 finger tap to bring up the keyboard
-                                    toggleKeyboard();
-                                    return true;
-                                }
-                            }
-                        }
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && (event.getFlags() & MotionEvent.FLAG_CANCELED) != 0) {
                             context.cancelTouch();
                         } else {

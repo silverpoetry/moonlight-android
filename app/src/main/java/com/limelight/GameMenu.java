@@ -166,7 +166,9 @@ public class GameMenu {
             }
         });
 
-        builder.show();
+        AlertDialog dialog = builder.create();
+        dialog.setOnDismissListener(ignored -> game.cancelPendingStreamBackExit());
+        dialog.show();
     }
 
     private void showSpecialKeysMenu() {
@@ -274,7 +276,7 @@ public class GameMenu {
         options.add(new MenuOption(getString(R.string.game_menu_disconnect), () -> game.disconnect()));
 
         options.add(new MenuOption(getString(R.string.game_menu_toggle_keyboard), true,
-                () -> game.toggleKeyboard()));
+                () -> game.showKeyboard()));
 
         options.add(new MenuOption(getString(R.string.game_menu_switch_mouse_model), true,
                 () -> game.switchMouseModel()));

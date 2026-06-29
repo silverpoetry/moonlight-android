@@ -63,6 +63,14 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
     }
 
     @Override
+    public void onDismiss(DialogInterface dialog) {
+        super.onDismiss(dialog);
+        if (game != null) {
+            game.cancelPendingStreamBackExit();
+        }
+    }
+
+    @Override
     public int getLayoutRes() {
         return R.layout.dialog_game_menu;
     }
@@ -159,6 +167,10 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
 
     @Override
     public void onClick(View v) {
+        if (game != null) {
+            game.cancelPendingStreamBackExit();
+        }
+
         //操作 或 显示器
         if(v.getId()==R.id.btn_soft_function || v.getId()==R.id.btn_display_1){
             GameFunctionFragment fragment=new GameFunctionFragment();
@@ -287,7 +299,7 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
         if(v.getId()==R.id.btn_soft_keyboard){
             dismiss();
             if(game!=null){
-                toggleKeyboard();
+                showKeyboard();
             }
             return;
         }
@@ -546,12 +558,12 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
 
     }
 
-    private void toggleKeyboard(){
+    private void showKeyboard(){
         if (!game.hasWindowFocus()) {
-            new Handler().postDelayed(() -> toggleKeyboard(),10);
+            new Handler().postDelayed(() -> showKeyboard(),10);
             return;
         }
-        game.toggleKeyboard();
+        game.showKeyboard();
     }
 
     public void setGame(Game game) {
