@@ -118,6 +118,7 @@
     <!-- AppList activity -->
     <string name="applist_connect_msg">Connecting to PC…</string>
     <string name="applist_menu_resume">Resume Session</string>
+    <string name="applist_menu_restart">Restart Stream</string>
     <string name="applist_menu_quit">Quit Session</string>
     <string name="applist_menu_quit_and_start">Quit Current Game and Start</string>
     <string name="applist_menu_cancel">Cancel</string>
@@ -125,6 +126,9 @@
     <string name="applist_menu_scut">Create Shortcut</string>
     <string name="applist_menu_tv_channel">Add to Channel</string>
     <string name="applist_menu_hide_app">Hide App</string>
+    <string name="applist_menu_show_app">Show App</string>
+    <string name="applist_menu_status_running">Streaming now</string>
+    <string name="applist_menu_status_available">Ready to stream</string>
     <string name="applist_refresh_title">App List</string>
     <string name="applist_refresh_msg">Refreshing apps…</string>
     <string name="applist_refresh_error_title">Error</string>

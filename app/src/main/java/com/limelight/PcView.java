@@ -760,13 +760,30 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         }
         else {
             if (computer.details.runningGameId != 0) {
+                final NvApp runningApp = new NvApp("app", computer.details.runningGameId, false);
                 actions.add(new MenuAction(R.string.applist_menu_resume, R.drawable.ic_play, new Runnable() {
                     @Override
                     public void run() {
                         if (managerBinder != null) {
-                            ServerHelper.doStart(PcView.this,
-                                    new NvApp("app", computer.details.runningGameId, false),
-                                    computer.details, managerBinder);
+                            ServerHelper.doStart(PcView.this, runningApp, computer.details, managerBinder);
+                        }
+                    }
+                }));
+                actions.add(new MenuAction(R.string.applist_menu_restart, R.drawable.ic_axi_reboot, new Runnable() {
+                    @Override
+                    public void run() {
+                        if (managerBinder != null) {
+                            ServerHelper.doQuit(PcView.this, computer.details, runningApp, managerBinder, new Runnable() {
+                                @Override
+                                public void run() {
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            ServerHelper.doStart(PcView.this, runningApp, computer.details, managerBinder);
+                                        }
+                                    });
+                                }
+                            });
                         }
                     }
                 }));
@@ -774,13 +791,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     @Override
                     public void run() {
                         if (managerBinder != null) {
-                            UiHelper.displayQuitConfirmationDialog(PcView.this, new Runnable() {
-                                @Override
-                                public void run() {
-                                    ServerHelper.doQuit(PcView.this, computer.details,
-                                            new NvApp("app", 0, false), managerBinder, null);
-                                }
-                            }, null);
+                            ServerHelper.doQuit(PcView.this, computer.details, runningApp, managerBinder, null);
                         }
                     }
                 }));

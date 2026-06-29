@@ -3,6 +3,7 @@ package com.limelight;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
@@ -43,18 +44,14 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
-import android.view.ContextMenu;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
-import android.view.ContextMenu.ContextMenuInfo;
 import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.AdapterView.AdapterContextMenuInfo;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -72,16 +69,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
     private boolean inForeground;
     private boolean showHiddenApps;
     private HashSet<Integer> hiddenAppIds = new HashSet<>();
-    private int pendingContextMenuPosition = AdapterView.INVALID_POSITION;
-    private long pendingContextMenuId;
-    private View pendingContextMenuTargetView;
-
-    private final static int START_OR_RESUME_ID = 1;
-    private final static int QUIT_ID = 2;
-    private final static int START_WITH_QUIT = 4;
-    private final static int VIEW_DETAILS_ID = 5;
-    private final static int CREATE_SHORTCUT_ID = 6;
-    private final static int HIDE_APP_ID = 7;
+    private android.app.AlertDialog pendingAppMenuDialog;
 
     public final static String HIDDEN_APPS_PREF_FILENAME = "HiddenApps";
 
@@ -478,167 +466,212 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         AutoReconnectHelper.maybeResumeStream(this, managerBinder, uuidString);
     }
 
-    @Override
-    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo) {
-        super.onCreateContextMenu(menu, v, menuInfo);
-
-        AdapterContextMenuInfo info = getAdapterContextMenuInfo(menuInfo);
-        if (info == null) {
+    private void showAppOptionsDialog(final AppObject app, final View targetView) {
+        if (app == null) {
             return;
         }
-        AppObject selectedApp = (AppObject) appGridAdapter.getItem(info.position);
 
-        menu.setHeaderTitle(selectedApp.app.getAppName());
+        final View dialogView = getLayoutInflater().inflate(R.layout.dialog_host_options, null, false);
+        final TextView titleView = dialogView.findViewById(R.id.tv_host_menu_title);
+        final TextView statusView = dialogView.findViewById(R.id.tv_host_menu_status);
+        final LinearLayout actionList = dialogView.findViewById(R.id.layout_host_menu_actions);
+        final TextView cancelButton = dialogView.findViewById(R.id.btn_host_menu_cancel);
+
+        titleView.setText(app.app.getAppName());
+        statusView.setText(getResources().getString(app.isRunning
+                ? R.string.applist_menu_status_running
+                : R.string.applist_menu_status_available));
+
+        final ArrayList<MenuAction> actions = buildAppMenuActions(app, targetView);
+        for (int i = 0; i < actions.size(); i++) {
+            View item = createAppOptionView(actions.get(i));
+            LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            if (i > 0) {
+                itemParams.topMargin = UiHelper.dpToPx(this, 6);
+            }
+            actionList.addView(item, itemParams);
+        }
+
+        pendingAppMenuDialog = new android.app.AlertDialog.Builder(this)
+                .setView(dialogView)
+                .create();
+        pendingAppMenuDialog.setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
+            @Override
+            public void onDismiss(android.content.DialogInterface dialog) {
+                pendingAppMenuDialog = null;
+            }
+        });
+        cancelButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (pendingAppMenuDialog != null) {
+                    pendingAppMenuDialog.dismiss();
+                }
+            }
+        });
+        pendingAppMenuDialog.show();
+        if (pendingAppMenuDialog.getWindow() != null) {
+            pendingAppMenuDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+    }
+
+    private View createAppOptionView(final MenuAction action) {
+        View item = getLayoutInflater().inflate(R.layout.item_host_option, null, false);
+        TextView label = item.findViewById(R.id.tv_host_option);
+        ImageView icon = item.findViewById(R.id.iv_host_option_icon);
+
+        label.setText(action.labelResId);
+        if (action.iconResId != 0) {
+            icon.setImageResource(action.iconResId);
+        }
+        else {
+            icon.setVisibility(View.GONE);
+        }
+        item.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (pendingAppMenuDialog != null) {
+                    pendingAppMenuDialog.dismiss();
+                }
+                if (action.runnable != null) {
+                    action.runnable.run();
+                }
+            }
+        });
+        return item;
+    }
+
+    private ArrayList<MenuAction> buildAppMenuActions(final AppObject app, final View targetView) {
+        ArrayList<MenuAction> actions = new ArrayList<>();
 
         if (lastRunningAppId != 0) {
-            if (lastRunningAppId == selectedApp.app.getAppId()) {
-                menu.add(Menu.NONE, START_OR_RESUME_ID, 1, getResources().getString(R.string.applist_menu_resume));
-                menu.add(Menu.NONE, QUIT_ID, 2, getResources().getString(R.string.applist_menu_quit));
-            }
-            else {
-                menu.add(Menu.NONE, START_WITH_QUIT, 1, getResources().getString(R.string.applist_menu_quit_and_start));
-            }
-        }
-
-        // Only show the hide checkbox if this is not the currently running app or it's already hidden
-        if (lastRunningAppId != selectedApp.app.getAppId() || selectedApp.isHidden) {
-            MenuItem hideAppItem = menu.add(Menu.NONE, HIDE_APP_ID, 3, getResources().getString(R.string.applist_menu_hide_app));
-            hideAppItem.setCheckable(true);
-            hideAppItem.setChecked(selectedApp.isHidden);
-        }
-
-        menu.add(Menu.NONE, VIEW_DETAILS_ID, 4, getResources().getString(R.string.applist_menu_details));
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Only add an option to create shortcut if box art is loaded
-            // and when we're in grid-mode (not list-mode).
-            ImageView appImageView = info.targetView.findViewById(R.id.grid_image);
-            if (appImageView != null) {
-                // We have a grid ImageView, so we must be in grid-mode
-//                com.bumptech.glide.load.resource.bitmap.GlideBitmapDrawable cannot be cast to android.graphics.drawable.BitmapDrawable
-                if(appImageView.getDrawable() instanceof BitmapDrawable){
-                    BitmapDrawable drawable = (BitmapDrawable)appImageView.getDrawable();
-                    if (drawable != null && drawable.getBitmap() != null) {
-                        // We have a bitmap loaded too
-                        menu.add(Menu.NONE, CREATE_SHORTCUT_ID, 5, getResources().getString(R.string.applist_menu_scut));
-                    }
-                } else if(appImageView.getDrawable() instanceof GlideBitmapDrawable){
-                    GlideBitmapDrawable drawable = (GlideBitmapDrawable)appImageView.getDrawable();
-                    if (drawable != null && drawable.getBitmap() != null) {
-                        // We have a bitmap loaded too
-                        menu.add(Menu.NONE, CREATE_SHORTCUT_ID, 5, getResources().getString(R.string.applist_menu_scut));
-                    }
-                }
-
-            }
-        }
-    }
-
-    @Override
-    public void onContextMenuClosed(Menu menu) {
-    }
-
-    @Override
-    public boolean onContextItemSelected(MenuItem item) {
-        AdapterContextMenuInfo info = getAdapterContextMenuInfo(item.getMenuInfo());
-        if (info == null) {
-            return super.onContextItemSelected(item);
-        }
-        final AppObject app = (AppObject) appGridAdapter.getItem(info.position);
-        switch (item.getItemId()) {
-            case START_WITH_QUIT:
-                // Display a confirmation dialog first
-                UiHelper.displayQuitConfirmationDialog(this, new Runnable() {
+            if (lastRunningAppId == app.app.getAppId()) {
+                actions.add(new MenuAction(R.string.applist_menu_resume, R.drawable.ic_play, new Runnable() {
                     @Override
                     public void run() {
                         ServerHelper.doStart(AppView.this, app.app, computer, managerBinder);
                     }
-                }, null);
-                return true;
-
-            case START_OR_RESUME_ID:
-                // Resume is the same as start for us
-                ServerHelper.doStart(AppView.this, app.app, computer, managerBinder);
-                return true;
-
-            case QUIT_ID:
-                // Display a confirmation dialog first
-                UiHelper.displayQuitConfirmationDialog(this, new Runnable() {
+                }));
+                actions.add(new MenuAction(R.string.applist_menu_restart, R.drawable.ic_axi_reboot, new Runnable() {
                     @Override
                     public void run() {
-                        suspendGridUpdates = true;
-                        ServerHelper.doQuit(AppView.this, computer,
-                                app.app, managerBinder, new Runnable() {
-                            @Override
-                            public void run() {
-                                // Trigger a poll immediately
-                                suspendGridUpdates = false;
-                                if (poller != null) {
-                                    poller.pollNow();
-                                }
-                            }
-                        });
+                        restartCurrentApp(app);
                     }
-                }, null);
-                return true;
-
-            case VIEW_DETAILS_ID:
-                Dialog.displayDialog(AppView.this, getResources().getString(R.string.title_details), app.app.toString(), false);
-                return true;
-
-            case HIDE_APP_ID:
-                if (item.isChecked()) {
-                    // Transitioning hidden to shown
-                    hiddenAppIds.remove(app.app.getAppId());
-                }
-                else {
-                    // Transitioning shown to hidden
-                    hiddenAppIds.add(app.app.getAppId());
-                }
-                updateHiddenApps(false);
-                return true;
-
-            case CREATE_SHORTCUT_ID:
-                ImageView appImageView = info.targetView.findViewById(R.id.grid_image);
-                Bitmap appBits = null;
-                if(appImageView.getDrawable() instanceof BitmapDrawable){
-                    BitmapDrawable drawable = (BitmapDrawable)appImageView.getDrawable();
-                    appBits=drawable.getBitmap();
-                } else if(appImageView.getDrawable() instanceof GlideBitmapDrawable){
-                    GlideBitmapDrawable drawable = (GlideBitmapDrawable)appImageView.getDrawable();
-                    appBits=drawable.getBitmap();
-                }
-                if(app==null){
-                    Toast.makeText(AppView.this, getResources().getString(R.string.unable_to_pin_shortcut), Toast.LENGTH_LONG).show();
-                    return true;
-                }
-                if (!shortcutHelper.createPinnedGameShortcut(computer, app.app, appBits)) {
-                    Toast.makeText(AppView.this, getResources().getString(R.string.unable_to_pin_shortcut), Toast.LENGTH_LONG).show();
-                }
-                return true;
-
-            default:
-                return super.onContextItemSelected(item);
+                }));
+                actions.add(new MenuAction(R.string.applist_menu_quit, R.drawable.ic_axi_exit, new Runnable() {
+                    @Override
+                    public void run() {
+                        quitCurrentApp(app, null);
+                    }
+                }));
+            }
+            else {
+                actions.add(new MenuAction(R.string.applist_menu_quit_and_start, R.drawable.ic_axi_reboot, new Runnable() {
+                    @Override
+                    public void run() {
+                        ServerHelper.doStart(AppView.this, app.app, computer, managerBinder);
+                    }
+                }));
+            }
         }
+
+        if (lastRunningAppId != app.app.getAppId() || app.isHidden) {
+            actions.add(new MenuAction(app.isHidden ? R.string.applist_menu_show_app : R.string.applist_menu_hide_app,
+                    app.isHidden ? R.drawable.ic_axi_desktop : R.drawable.ic_axi_unlink,
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            if (app.isHidden) {
+                                hiddenAppIds.remove(app.app.getAppId());
+                            }
+                            else {
+                                hiddenAppIds.add(app.app.getAppId());
+                            }
+                            updateHiddenApps(false);
+                        }
+                    }));
+        }
+
+        actions.add(new MenuAction(R.string.applist_menu_details, R.drawable.ic_axi_app_about, new Runnable() {
+            @Override
+            public void run() {
+                Dialog.displayDialog(AppView.this, getResources().getString(R.string.title_details),
+                        app.app.toString(), false);
+            }
+        }));
+
+        if (canCreatePinnedShortcut(targetView)) {
+            actions.add(new MenuAction(R.string.applist_menu_scut, R.drawable.ic_axi_app_add, new Runnable() {
+                @Override
+                public void run() {
+                    Bitmap appBits = getAppBitmap(targetView);
+                    if (!shortcutHelper.createPinnedGameShortcut(computer, app.app, appBits)) {
+                        Toast.makeText(AppView.this, getResources().getString(R.string.unable_to_pin_shortcut),
+                                Toast.LENGTH_LONG).show();
+                    }
+                }
+            }));
+        }
+
+        return actions;
     }
 
-    private AdapterContextMenuInfo getAdapterContextMenuInfo(ContextMenuInfo menuInfo) {
-        if (menuInfo instanceof AdapterContextMenuInfo) {
-            return (AdapterContextMenuInfo) menuInfo;
+    private void quitCurrentApp(final AppObject app, final Runnable onComplete) {
+        suspendGridUpdates = true;
+        ServerHelper.doQuit(AppView.this, computer, app.app, managerBinder, new Runnable() {
+            @Override
+            public void run() {
+                suspendGridUpdates = false;
+                if (poller != null) {
+                    poller.pollNow();
+                }
+                if (onComplete != null) {
+                    onComplete.run();
+                }
+            }
+        });
+    }
+
+    private void restartCurrentApp(final AppObject app) {
+        quitCurrentApp(app, new Runnable() {
+            @Override
+            public void run() {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        ServerHelper.doStart(AppView.this, app.app, computer, managerBinder);
+                    }
+                });
+            }
+        });
+    }
+
+    private boolean canCreatePinnedShortcut(View targetView) {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && getAppBitmap(targetView) != null;
+    }
+
+    private Bitmap getAppBitmap(View targetView) {
+        if (targetView == null) {
+            return null;
         }
 
-        if (pendingContextMenuPosition != AdapterView.INVALID_POSITION) {
-            return new AdapterContextMenuInfo(pendingContextMenuTargetView,
-                    pendingContextMenuPosition, pendingContextMenuId);
+        ImageView appImageView = targetView.findViewById(R.id.grid_image);
+        if (appImageView == null) {
+            return null;
+        }
+
+        if (appImageView.getDrawable() instanceof BitmapDrawable) {
+            BitmapDrawable drawable = (BitmapDrawable) appImageView.getDrawable();
+            return drawable.getBitmap();
+        }
+        else if (appImageView.getDrawable() instanceof GlideBitmapDrawable) {
+            GlideBitmapDrawable drawable = (GlideBitmapDrawable) appImageView.getDrawable();
+            return drawable.getBitmap();
         }
 
         return null;
-    }
-
-    private void setPendingContextMenu(int position, long id, View targetView) {
-        pendingContextMenuPosition = position;
-        pendingContextMenuId = id;
-        pendingContextMenuTargetView = targetView;
     }
 
     private void updateUiWithServerinfo(final ComputerDetails details) {
@@ -774,13 +807,25 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
-                setPendingContextMenu(position, id, view);
-                return false;
+                AppObject app = (AppObject) appGridAdapter.getItem(position);
+                showAppOptionsDialog(app, view);
+                return true;
             }
         });
         UiHelper.applyStatusBarPadding(listView);
-        registerForContextMenu(listView);
         listView.requestFocus();
+    }
+
+    private static final class MenuAction {
+        final int labelResId;
+        final int iconResId;
+        final Runnable runnable;
+
+        MenuAction(int labelResId, int iconResId, Runnable runnable) {
+            this.labelResId = labelResId;
+            this.iconResId = iconResId;
+            this.runnable = runnable;
+        }
     }
 
     public static class AppObject {

@@ -80,6 +80,7 @@
     <!-- AppList activity -->
     <string name="applist_connect_msg"> 正在连接电脑…… </string>
     <string name="applist_menu_resume"> 恢复串流 </string>
+    <string name="applist_menu_restart"> 重启串流 </string>
     <string name="applist_menu_quit"> 退出串流 </string>
     <string name="applist_menu_quit_and_start"> 退出当前游戏并开始这个游戏 </string>
     <string name="applist_menu_cancel"> 取消 </string>
@@ -219,6 +220,9 @@
 \n您的显示器可能不支持必要的显示配置。如果是这样，您可以尝试设置虚拟显示器。最后，如果您的设备或主机不支持以特定分辨率或刷新率进行流式传输，那就很不幸了。</string>
     <string name="title_native_res_dialog">本地分辨率警告</string>
     <string name="applist_menu_hide_app">隐藏游戏</string>
+    <string name="applist_menu_show_app">显示游戏</string>
+    <string name="applist_menu_status_running">正在串流</string>
+    <string name="applist_menu_status_available">可开始串流</string>
     <string name="check_ports_msg">请检查您的防火墙和端口转发规则中的端口：</string>
     <string name="early_termination_error">开始串流时您的主机电脑出了点问题。
 \n
