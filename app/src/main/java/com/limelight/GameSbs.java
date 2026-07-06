@@ -23,6 +23,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.util.Log;
 import android.util.Rational;
 import android.view.Display;
 import android.view.InputDevice;
@@ -57,6 +58,7 @@ import com.limelight.binding.input.touch.AbsoluteTouchContext;
 import com.limelight.binding.input.touch.RelativeTouchContext;
 import com.limelight.binding.input.touch.SoftKeyboardGestureDetector;
 import com.limelight.binding.input.touch.TouchContext;
+import com.limelight.binding.input.touch.TouchpadGestureState;
 import com.limelight.binding.video.CrashListener;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
@@ -498,13 +500,14 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         inputManager.registerInputDeviceListener(keyboardTranslator, null);
 
         // Initialize touch contexts
+        TouchpadGestureState touchpadGestureState = new TouchpadGestureState();
         for (int i = 0; i < touchContextMap.length; i++) {
             if (!prefConfig.touchscreenTrackpad) {
                 touchContextMap[i] = new AbsoluteTouchContext(conn, i, streamView);
             } else {
                 touchContextMap[i] = new RelativeTouchContext(conn, i,
                         REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
-                        streamView, prefConfig);
+                        streamView, prefConfig, touchpadGestureState);
             }
         }
 
@@ -2037,6 +2040,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                     default:
                         return false;
                 }
+
             }
 
             // Handled a known source

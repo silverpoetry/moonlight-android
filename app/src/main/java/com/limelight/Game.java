@@ -17,6 +17,7 @@ import com.limelight.binding.input.evdev.EvdevListener;
 import com.limelight.binding.input.touch.RelativeTouchSwitchContext;
 import com.limelight.binding.input.touch.SoftKeyboardGestureDetector;
 import com.limelight.binding.input.touch.TouchContext;
+import com.limelight.binding.input.touch.TouchpadGestureState;
 import com.limelight.binding.input.virtual_controller.VirtualController;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardLayoutController;
@@ -2848,6 +2849,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 default:
                     return false;
                 }
+
             }
 
             // Handled a known source
@@ -4005,6 +4007,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             prefConfig.touchscreenTrackpad=true;
         }
 
+        TouchpadGestureState touchpadGestureState = new TouchpadGestureState();
         for (int i = 0; i < touchContextMap.length; i++) {
             if (!prefConfig.touchscreenTrackpad) {
                 if(which==4){
@@ -4017,11 +4020,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 if(which==5||which==6){
                     touchContextMap[i] = new RelativeTouchSwitchContext(conn, i,
                             REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
-                            streamView, prefConfig, which != 5);
+                            streamView, prefConfig, which != 5, touchpadGestureState);
                 }else{
                     touchContextMap[i] = new RelativeTouchContext(conn, i,
                             REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
-                            streamView, prefConfig);
+                            streamView, prefConfig, touchpadGestureState);
                 }
             }
         }
