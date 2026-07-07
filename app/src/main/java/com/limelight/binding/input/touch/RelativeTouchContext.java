@@ -21,6 +21,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     private boolean primaryPressActive;
     private boolean primaryClickHoldElapsed;
     private boolean primaryMoveActive;
+    private boolean primaryLongPressActive;
     private boolean waitingForSecondTap;
     private boolean doubleTapCandidate;
     private boolean doubleTapDragActive;
@@ -37,6 +38,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     private final TouchpadMotionSender motionSender;
     private final TouchpadDragPrimer dragPrimer;
     private final TouchpadButtonController buttonController;
+    private final TouchpadHapticFeedback hapticFeedback;
 
     private final Runnable primaryClickHoldRunnable = new Runnable() {
         @Override
@@ -48,7 +50,12 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
             }
 
             if (primaryPressActive) {
-                beginPrimaryMove();
+                if (!confirmedMove && pointerCount == 1) {
+                    beginPrimaryLongPress();
+                }
+                else {
+                    beginPrimaryMove();
+                }
             }
             else if (waitingForSecondTap) {
                 buttonController.releasePrimaryButton();
@@ -95,6 +102,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
                 view, prefConfig);
         this.dragPrimer = new TouchpadDragPrimer(handler, motionSender, this);
         this.buttonController = new TouchpadButtonController(conn, handler, this);
+        this.hapticFeedback = new TouchpadHapticFeedback(view);
     }
 
     @Override
@@ -168,6 +176,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         primaryPressActive = false;
         primaryClickHoldElapsed = false;
         primaryMoveActive = false;
+        primaryLongPressActive = false;
         waitingForSecondTap = false;
         doubleTapCandidate = false;
         doubleTapDragActive = false;
@@ -192,6 +201,18 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         primaryClickHoldElapsed = true;
         primaryMoveActive = true;
         waitingForSecondTap = false;
+    }
+
+    private void beginPrimaryLongPress() {
+        handler.removeCallbacks(primaryClickHoldRunnable);
+        primaryClickHoldElapsed = true;
+        primaryLongPressActive = true;
+        primaryMoveActive = false;
+        waitingForSecondTap = false;
+
+        buttonController.pressPrimaryButton();
+        gestureState.setPrimaryDragActive(true);
+        hapticFeedback.performPhysicalClick();
     }
 
     private void beginSecondPrimaryPress(int eventX, int eventY, long eventTime) {
@@ -279,6 +300,13 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         buttonController.scheduleSecondPrimaryClick();
     }
 
+    private void finishPrimaryLongPress(int eventX, int eventY) {
+        sendPrimaryMoveTo(eventX, eventY);
+        buttonController.releasePrimaryButton();
+        gestureState.setPrimaryDragActive(false);
+        clearPrimaryClickState();
+    }
+
     private void resetPrimaryGestureTracking() {
         cancelPrimaryClickTimers();
         cancelDoubleTapDragPrimerMove();
@@ -350,6 +378,11 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         if (doubleTapDragActive || confirmedDrag) {
             sendDragMoveTo(eventX, eventY);
             finishDoubleTapDrag();
+            return;
+        }
+
+        if (primaryLongPressActive) {
+            finishPrimaryLongPress(eventX, eventY);
             return;
         }
 
