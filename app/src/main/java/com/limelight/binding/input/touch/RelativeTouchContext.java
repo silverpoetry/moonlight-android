@@ -95,7 +95,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     private static final int TAP_DISTANCE_THRESHOLD = 45;
     private static final int TAP_TIME_THRESHOLD = 250;
     // Keep the legacy click-release window independent from physical long-press detection.
-    private static final int PRIMARY_CLICK_HOLD_MS = 200;
+    private static final int PRIMARY_CLICK_RELEASE_MS = 100;
     private static final int PHYSICAL_LONG_PRESS_MS = 300;
     private static final int DOUBLE_TAP_DRAG_HOLD_MS = 300;
     private static final int DOUBLE_TAP_DRAG_DISTANCE_THRESHOLD = 8;
@@ -222,7 +222,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         clearPrimaryClickState();
 
         primaryPressActive = true;
-        handler.postDelayed(primaryClickHoldRunnable, PRIMARY_CLICK_HOLD_MS);
+        handler.postDelayed(primaryClickHoldRunnable, PRIMARY_CLICK_RELEASE_MS);
         handler.postDelayed(primaryLongPressRunnable, PHYSICAL_LONG_PRESS_MS);
     }
 
