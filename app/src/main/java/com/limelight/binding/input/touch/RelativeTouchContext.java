@@ -50,16 +50,23 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
             }
 
             if (primaryPressActive) {
-                if (!confirmedMove && pointerCount == 1) {
-                    beginPrimaryLongPress();
-                }
-                else {
+                if (confirmedMove || pointerCount != 1) {
                     beginPrimaryMove();
                 }
             }
             else if (waitingForSecondTap) {
                 buttonController.releasePrimaryButton();
                 clearPrimaryClickState();
+            }
+        }
+    };
+
+    private final Runnable primaryLongPressRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!cancelled && primaryPressActive && !confirmedMove &&
+                    pointerCount == 1 && !doubleTapCandidate) {
+                beginPrimaryLongPress();
             }
         }
     };
@@ -87,7 +94,9 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     private static final int TAP_MOVEMENT_THRESHOLD = 35;
     private static final int TAP_DISTANCE_THRESHOLD = 45;
     private static final int TAP_TIME_THRESHOLD = 250;
+    // Keep the legacy click-release window independent from physical long-press detection.
     private static final int PRIMARY_CLICK_HOLD_MS = 200;
+    private static final int PHYSICAL_LONG_PRESS_MS = 300;
     private static final int DOUBLE_TAP_DRAG_HOLD_MS = 300;
     private static final int DOUBLE_TAP_DRAG_DISTANCE_THRESHOLD = 8;
 
@@ -177,7 +186,12 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
 
     private void cancelPrimaryClickTimers() {
         handler.removeCallbacks(primaryClickHoldRunnable);
+        handler.removeCallbacks(primaryLongPressRunnable);
         handler.removeCallbacks(doubleTapDragRunnable);
+    }
+
+    private void cancelPrimaryLongPressTimer() {
+        handler.removeCallbacks(primaryLongPressRunnable);
     }
 
     private void cancelSecondaryButtonHoldTimer() {
@@ -209,10 +223,12 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
 
         primaryPressActive = true;
         handler.postDelayed(primaryClickHoldRunnable, PRIMARY_CLICK_HOLD_MS);
+        handler.postDelayed(primaryLongPressRunnable, PHYSICAL_LONG_PRESS_MS);
     }
 
     private void beginPrimaryMove() {
         handler.removeCallbacks(primaryClickHoldRunnable);
+        cancelPrimaryLongPressTimer();
         buttonController.releasePrimaryButton();
         primaryClickHoldElapsed = true;
         primaryMoveActive = true;
@@ -221,6 +237,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
 
     private void beginPrimaryLongPress() {
         handler.removeCallbacks(primaryClickHoldRunnable);
+        cancelPrimaryLongPressTimer();
         primaryClickHoldElapsed = true;
         primaryLongPressActive = true;
         primaryMoveActive = false;
@@ -233,6 +250,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
 
     private void beginSecondPrimaryPress(int eventX, int eventY, long eventTime) {
         handler.removeCallbacks(primaryClickHoldRunnable);
+        cancelPrimaryLongPressTimer();
         buttonController.cancelSecondClick();
 
         primaryPressActive = true;
@@ -342,7 +360,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     private void beginSecondaryButtonHoldCandidate() {
         cancelSecondaryButtonHoldTimer();
         if (actionIndex == 0 && pointerCount == 2) {
-            handler.postDelayed(secondaryButtonHoldRunnable, PRIMARY_CLICK_HOLD_MS);
+            handler.postDelayed(secondaryButtonHoldRunnable, PHYSICAL_LONG_PRESS_MS);
         }
     }
 
@@ -397,6 +415,10 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     }
 
     private void finishPrimaryTouch(int eventX, int eventY, long eventTime) {
+        if (!primaryLongPressActive) {
+            cancelPrimaryLongPressTimer();
+        }
+
         if (doubleTapCandidate) {
             if (eventTime - doubleTapStartTime >= DOUBLE_TAP_DRAG_HOLD_MS) {
                 beginDoubleTapDrag();
