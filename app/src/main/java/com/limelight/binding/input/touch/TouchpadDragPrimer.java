@@ -1,0 +1,157 @@
+package com.limelight.binding.input.touch;
+
+import android.os.Handler;
+
+// Sends the first few pixels of a double-tap drag as tiny delayed steps before
+// completing to the latest target. This avoids the first real drag packet being
+// interpreted as a cursor jump by the host side.
+final class TouchpadDragPrimer {
+    interface Listener {
+        boolean isDragStillActive();
+        void onDragPrimerFinished(int touchX, int touchY);
+    }
+
+    private static final int STEP_INTERVAL_MS = 2;
+    private static final int[] STEP_SEQUENCE = new int[] { 1, 3, 5, 7 };
+
+    private final Handler handler;
+    private final TouchpadMotionSender motionSender;
+    private final Listener listener;
+    private final Runnable stepRunnable = new Runnable() {
+        @Override
+        public void run() {
+            runStep();
+        }
+    };
+
+    private boolean active;
+    private int baseTouchX;
+    private int baseTouchY;
+    private int sentDeltaX;
+    private int sentDeltaY;
+    private int stepIndex;
+    private int pendingTouchX;
+    private int pendingTouchY;
+
+    TouchpadDragPrimer(Handler handler, TouchpadMotionSender motionSender, Listener listener) {
+        this.handler = handler;
+        this.motionSender = motionSender;
+        this.listener = listener;
+    }
+
+    boolean isActive() {
+        return active;
+    }
+
+    void begin(int baseTouchX, int baseTouchY, int targetTouchX, int targetTouchY) {
+        this.baseTouchX = baseTouchX;
+        this.baseTouchY = baseTouchY;
+        sentDeltaX = 0;
+        sentDeltaY = 0;
+        stepIndex = 0;
+        pendingTouchX = targetTouchX;
+        pendingTouchY = targetTouchY;
+        active = true;
+
+        handler.removeCallbacks(stepRunnable);
+        runStep();
+    }
+
+    void updateTarget(int targetTouchX, int targetTouchY) {
+        pendingTouchX = targetTouchX;
+        pendingTouchY = targetTouchY;
+    }
+
+    void cancel() {
+        handler.removeCallbacks(stepRunnable);
+        clear();
+    }
+
+    private void runStep() {
+        if (!active) {
+            return;
+        }
+
+        if (!listener.isDragStillActive()) {
+            cancel();
+            return;
+        }
+
+        int targetDeltaX = getTargetDeltaX();
+        int targetDeltaY = getTargetDeltaY();
+
+        if (stepIndex >= STEP_SEQUENCE.length) {
+            finish(true);
+            return;
+        }
+
+        int stepSize = STEP_SEQUENCE[stepIndex++];
+        int stepX = getStepTowards(targetDeltaX - sentDeltaX, stepSize);
+        int stepY = getStepTowards(targetDeltaY - sentDeltaY, stepSize);
+
+        if (stepX == 0 && stepY == 0) {
+            finish(false);
+            return;
+        }
+
+        motionSender.sendMouseMovePacket((short) stepX, (short) stepY);
+        sentDeltaX += stepX;
+        sentDeltaY += stepY;
+
+        targetDeltaX = getTargetDeltaX();
+        targetDeltaY = getTargetDeltaY();
+        if (sentDeltaX == targetDeltaX && sentDeltaY == targetDeltaY) {
+            finish(false);
+        }
+        else if (stepIndex >= STEP_SEQUENCE.length) {
+            finish(true);
+        }
+        else {
+            handler.postDelayed(stepRunnable, STEP_INTERVAL_MS);
+        }
+    }
+
+    private int getTargetDeltaX() {
+        return motionSender.scaleMouseDeltaX(pendingTouchX - baseTouchX);
+    }
+
+    private int getTargetDeltaY() {
+        return motionSender.scaleMouseDeltaY(pendingTouchY - baseTouchY);
+    }
+
+    private void finish(boolean completeToTarget) {
+        handler.removeCallbacks(stepRunnable);
+
+        if (completeToTarget) {
+            int remainingX = getTargetDeltaX() - sentDeltaX;
+            int remainingY = getTargetDeltaY() - sentDeltaY;
+            if (remainingX != 0 || remainingY != 0) {
+                motionSender.sendMouseMovePacket((short) remainingX, (short) remainingY);
+            }
+        }
+
+        int completedTouchX = pendingTouchX;
+        int completedTouchY = pendingTouchY;
+        clear();
+        listener.onDragPrimerFinished(completedTouchX, completedTouchY);
+    }
+
+    private void clear() {
+        active = false;
+        baseTouchX = 0;
+        baseTouchY = 0;
+        sentDeltaX = 0;
+        sentDeltaY = 0;
+        stepIndex = 0;
+        pendingTouchX = 0;
+        pendingTouchY = 0;
+    }
+
+    private static int getStepTowards(int remainingDelta, int maxStep) {
+        if (remainingDelta == 0) {
+            return 0;
+        }
+
+        return Integer.signum(remainingDelta) * Math.min(Math.abs(remainingDelta), maxStep);
+    }
+}
