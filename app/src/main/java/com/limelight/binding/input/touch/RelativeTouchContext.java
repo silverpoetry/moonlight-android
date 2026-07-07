@@ -2,6 +2,7 @@ package com.limelight.binding.input.touch;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.view.View;
 
 import com.limelight.nvstream.NvConnection;
@@ -13,20 +14,36 @@ public class RelativeTouchContext implements TouchContext {
     private int lastTouchY = 0;
     private int originalTouchX = 0;
     private int originalTouchY = 0;
-    private long originalTouchTime = 0;
     private boolean cancelled;
     private boolean confirmedMove;
     private boolean confirmedDrag;
     private boolean confirmedScroll;
-    private boolean pendingTapDrag;
-    private boolean pendingTapDragButtonDown;
-    private boolean pendingTapDragUsingHeldTap;
+    private boolean primaryButtonDown;
+    private boolean primaryPressActive;
+    private boolean primaryClickHoldElapsed;
+    private boolean primaryMoveActive;
+    private boolean waitingForSecondTap;
+    private boolean doubleTapCandidate;
+    private boolean doubleTapDragActive;
+    private boolean doubleTapDragNeedsPrimerMove;
+    private boolean doubleTapDragPrimerMoveActive;
+    private boolean secondClickButtonDown;
+    private int doubleTapStartX;
+    private int doubleTapStartY;
+    private int doubleTapDragPrimerBaseX;
+    private int doubleTapDragPrimerBaseY;
+    private int doubleTapDragPrimerSentX;
+    private int doubleTapDragPrimerSentY;
+    private int doubleTapDragPrimerStepIndex;
+    private int pendingDoubleTapDragMoveX;
+    private int pendingDoubleTapDragMoveY;
+    private long firstTapStartTime;
+    private long doubleTapStartTime;
+    private long currentEventTime;
     private double distanceMoved;
     private double xFactor, yFactor;
     private int pointerCount;
-    private int maxPointerCountInGesture;
     private final boolean[] pendingButtonUp = new boolean[MouseButtonPacket.BUTTON_X2];
-    private final TouchpadTapDragTracker tapDragTracker;
 
     private final NvConnection conn;
     private final int actionIndex;
@@ -37,21 +54,57 @@ public class RelativeTouchContext implements TouchContext {
     private final Handler handler;
     private final TouchpadGestureState gestureState;
 
-    private final Runnable dragTimerRunnable = new Runnable() {
+    private final Runnable primaryClickHoldRunnable = new Runnable() {
         @Override
         public void run() {
-            // Check if someone already set move
-            if (confirmedMove) {
+            currentEventTime = SystemClock.uptimeMillis();
+            primaryClickHoldElapsed = true;
+
+            if (doubleTapCandidate) {
                 return;
             }
 
-            // The drag should only be processed for the primary finger
-            if (actionIndex != maxPointerCountInGesture - 1) {
-                return;
+            if (primaryPressActive) {
+                beginPrimaryMove();
             }
+            else if (waitingForSecondTap) {
+                releasePrimaryButton();
+                clearPrimaryClickState();
+            }
+        }
+    };
 
-            // We haven't been cancelled before the timer expired so begin dragging
-            beginConfirmedDrag(getMouseButtonIndex());
+    private final Runnable doubleTapDragRunnable = new Runnable() {
+        @Override
+        public void run() {
+            currentEventTime = SystemClock.uptimeMillis();
+            if (doubleTapCandidate && primaryPressActive && !cancelled) {
+                beginDoubleTapDrag();
+            }
+        }
+    };
+
+    private final Runnable secondClickDownRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!cancelled && !secondClickButtonDown) {
+                conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_LEFT);
+                secondClickButtonDown = true;
+            }
+        }
+    };
+
+    private final Runnable secondClickUpRunnable = new Runnable() {
+        @Override
+        public void run() {
+            releaseSecondClickButton();
+        }
+    };
+
+    private final Runnable doubleTapDragPrimerMoveRunnable = new Runnable() {
+        @Override
+        public void run() {
+            runDoubleTapDragPrimerMoveStep();
         }
     };
 
@@ -92,8 +145,14 @@ public class RelativeTouchContext implements TouchContext {
     private static final int TAP_MOVEMENT_THRESHOLD = 35;
     private static final int TAP_DISTANCE_THRESHOLD = 45;
     private static final int TAP_TIME_THRESHOLD = 250;
-    private static final int DRAG_TIME_THRESHOLD = 650;
-    private static final int TAP_CLICK_BUTTON_UP_DELAY = 160;
+    private static final int PRIMARY_CLICK_HOLD_MS = 200;
+    private static final int DOUBLE_TAP_DRAG_HOLD_MS = 300;
+    private static final int DOUBLE_TAP_DRAG_DISTANCE_THRESHOLD = 8;
+    private static final int DOUBLE_TAP_DRAG_PRIMER_INTERVAL_MS = 2;
+    private static final int[] DOUBLE_TAP_DRAG_PRIMER_STEPS = new int[] { 1, 3, 5, 7 };
+    private static final int SECOND_CLICK_DOWN_DELAY_MS = 30;
+    private static final int SECOND_CLICK_UP_DELAY_MS = 80;
+    private static final int TAP_CLICK_BUTTON_UP_DELAY = 100;
 
     private static final int SCROLL_SPEED_FACTOR = 5;
 
@@ -117,7 +176,6 @@ public class RelativeTouchContext implements TouchContext {
         this.targetView = view;
         this.prefConfig = prefConfig;
         this.handler = new Handler(Looper.getMainLooper());
-        this.tapDragTracker = new TouchpadTapDragTracker();
         this.gestureState = gestureState;
     }
 
@@ -133,37 +191,6 @@ public class RelativeTouchContext implements TouchContext {
         int yDelta = Math.abs(touchY - originalTouchY);
         return xDelta <= TAP_MOVEMENT_THRESHOLD &&
                 yDelta <= TAP_MOVEMENT_THRESHOLD;
-    }
-
-    private boolean isTap(long eventTime)
-    {
-        if (confirmedDrag || confirmedMove || confirmedScroll) {
-            return false;
-        }
-
-        if (actionIndex != 0 && gestureState.isPrimaryDragActive()) {
-            return false;
-        }
-
-        // If this input wasn't the last finger down, do not report
-        // a tap. This ensures we don't report duplicate taps for each
-        // finger on a multi-finger tap gesture
-        if (actionIndex + 1 != maxPointerCountInGesture) {
-            return false;
-        }
-
-        long timeDelta = eventTime - originalTouchTime;
-        return isWithinTapBounds(lastTouchX, lastTouchY) && timeDelta <= TAP_TIME_THRESHOLD;
-    }
-
-    private byte getMouseButtonIndex()
-    {
-        if (actionIndex == 1) {
-            return MouseButtonPacket.BUTTON_RIGHT;
-        }
-        else {
-            return MouseButtonPacket.BUTTON_LEFT;
-        }
     }
 
     private int getPendingButtonIndex(byte buttonIndex) {
@@ -183,6 +210,172 @@ public class RelativeTouchContext implements TouchContext {
         }
     }
 
+    private int scaleTouchDelta(int delta, double factor, int sensitivity) {
+        int scaledDelta = (int) Math.round((double) Math.abs(delta) * factor);
+        if (delta < 0) {
+            scaledDelta = -scaledDelta;
+        }
+
+        return (short) (scaledDelta * sensitivity * 0.01f);
+    }
+
+    private static int getStepTowards(int remainingDelta, int maxStep) {
+        if (remainingDelta == 0) {
+            return 0;
+        }
+
+        return Integer.signum(remainingDelta) * Math.min(Math.abs(remainingDelta), maxStep);
+    }
+
+    private void beginDoubleTapDragPrimerMove(int eventX, int eventY) {
+        doubleTapDragPrimerBaseX = lastTouchX;
+        doubleTapDragPrimerBaseY = lastTouchY;
+        doubleTapDragPrimerSentX = 0;
+        doubleTapDragPrimerSentY = 0;
+        doubleTapDragPrimerStepIndex = 0;
+        pendingDoubleTapDragMoveX = eventX;
+        pendingDoubleTapDragMoveY = eventY;
+        doubleTapDragPrimerMoveActive = true;
+
+        handler.removeCallbacks(doubleTapDragPrimerMoveRunnable);
+        runDoubleTapDragPrimerMoveStep();
+    }
+
+    private void runDoubleTapDragPrimerMoveStep() {
+        if (!doubleTapDragPrimerMoveActive) {
+            return;
+        }
+
+        if (cancelled || !(doubleTapDragActive || confirmedDrag)) {
+            cancelDoubleTapDragPrimerMove();
+            return;
+        }
+
+        int targetDeltaX = scaleTouchDelta(
+                pendingDoubleTapDragMoveX - doubleTapDragPrimerBaseX,
+                xFactor,
+                prefConfig.mouseTouchPadSensitityX);
+        int targetDeltaY = scaleTouchDelta(
+                pendingDoubleTapDragMoveY - doubleTapDragPrimerBaseY,
+                yFactor,
+                prefConfig.mouseTouchPadSensitityY);
+
+        if (doubleTapDragPrimerStepIndex >= DOUBLE_TAP_DRAG_PRIMER_STEPS.length) {
+            finishDoubleTapDragPrimerMove(true);
+            return;
+        }
+
+        int stepSize = DOUBLE_TAP_DRAG_PRIMER_STEPS[doubleTapDragPrimerStepIndex++];
+        int stepX = getStepTowards(targetDeltaX - doubleTapDragPrimerSentX, stepSize);
+        int stepY = getStepTowards(targetDeltaY - doubleTapDragPrimerSentY, stepSize);
+
+        if (stepX == 0 && stepY == 0) {
+            finishDoubleTapDragPrimerMove(false);
+            return;
+        }
+
+        sendMouseMovePacket((short) stepX, (short) stepY);
+        doubleTapDragPrimerSentX += stepX;
+        doubleTapDragPrimerSentY += stepY;
+
+        targetDeltaX = scaleTouchDelta(
+                pendingDoubleTapDragMoveX - doubleTapDragPrimerBaseX,
+                xFactor,
+                prefConfig.mouseTouchPadSensitityX);
+        targetDeltaY = scaleTouchDelta(
+                pendingDoubleTapDragMoveY - doubleTapDragPrimerBaseY,
+                yFactor,
+                prefConfig.mouseTouchPadSensitityY);
+
+        if (doubleTapDragPrimerSentX == targetDeltaX &&
+                doubleTapDragPrimerSentY == targetDeltaY) {
+            finishDoubleTapDragPrimerMove(false);
+        }
+        else if (doubleTapDragPrimerStepIndex >= DOUBLE_TAP_DRAG_PRIMER_STEPS.length) {
+            finishDoubleTapDragPrimerMove(true);
+        }
+        else {
+            handler.postDelayed(doubleTapDragPrimerMoveRunnable,
+                    DOUBLE_TAP_DRAG_PRIMER_INTERVAL_MS);
+        }
+    }
+
+    private void finishDoubleTapDragPrimerMove(boolean completeToTarget) {
+        handler.removeCallbacks(doubleTapDragPrimerMoveRunnable);
+
+        if (completeToTarget) {
+            int targetDeltaX = scaleTouchDelta(
+                    pendingDoubleTapDragMoveX - doubleTapDragPrimerBaseX,
+                    xFactor,
+                    prefConfig.mouseTouchPadSensitityX);
+            int targetDeltaY = scaleTouchDelta(
+                    pendingDoubleTapDragMoveY - doubleTapDragPrimerBaseY,
+                    yFactor,
+                    prefConfig.mouseTouchPadSensitityY);
+
+            int remainingX = targetDeltaX - doubleTapDragPrimerSentX;
+            int remainingY = targetDeltaY - doubleTapDragPrimerSentY;
+            if (remainingX != 0 || remainingY != 0) {
+                sendMouseMovePacket((short) remainingX, (short) remainingY);
+            }
+        }
+
+        doubleTapDragPrimerMoveActive = false;
+        lastTouchX = pendingDoubleTapDragMoveX;
+        lastTouchY = pendingDoubleTapDragMoveY;
+        doubleTapDragPrimerBaseX = 0;
+        doubleTapDragPrimerBaseY = 0;
+        doubleTapDragPrimerSentX = 0;
+        doubleTapDragPrimerSentY = 0;
+        doubleTapDragPrimerStepIndex = 0;
+        pendingDoubleTapDragMoveX = 0;
+        pendingDoubleTapDragMoveY = 0;
+    }
+
+    private void sendPrimaryMoveTo(int eventX, int eventY) {
+        if (eventX == lastTouchX && eventY == lastTouchY) {
+            return;
+        }
+
+        int previousTouchX = lastTouchX;
+        int previousTouchY = lastTouchY;
+        int deltaX = eventX - previousTouchX;
+        int deltaY = eventY - previousTouchY;
+
+        // Scale the deltas based on the factors passed to our constructor
+        deltaX = (int) Math.round((double) Math.abs(deltaX) * xFactor);
+        deltaY = (int) Math.round((double) Math.abs(deltaY) * yFactor);
+
+        // Fix up the signs
+        if (eventX < previousTouchX) {
+            deltaX = -deltaX;
+        }
+        if (eventY < previousTouchY) {
+            deltaY = -deltaY;
+        }
+
+        if (pointerCount == 2 && !confirmedDrag) {
+            if (confirmedScroll) {
+                conn.sendMouseHighResScroll((short)(deltaY * SCROLL_SPEED_FACTOR));
+            }
+        } else {
+            short scaledDeltaX = (short) (deltaX * prefConfig.mouseTouchPadSensitityX * 0.01f);
+            short scaledDeltaY = (short) (deltaY * prefConfig.mouseTouchPadSensitityY * 0.01f);
+
+            sendMouseMovePacket(scaledDeltaX, scaledDeltaY);
+        }
+
+        // If the scaling factor ended up rounding deltas to zero, wait until they are
+        // non-zero to update lastTouch that way devices that report small touch events often
+        // will work correctly
+        if (deltaX != 0) {
+            lastTouchX = eventX;
+        }
+        if (deltaY != 0) {
+            lastTouchY = eventY;
+        }
+    }
+
     private boolean releasePendingButtonUp(byte buttonIndex) {
         int index = getPendingButtonIndex(buttonIndex);
         if (!pendingButtonUp[index]) {
@@ -199,56 +392,14 @@ public class RelativeTouchContext implements TouchContext {
         return releasePendingButtonUp(buttonIndex);
     }
 
-    private boolean promotePendingTapToDrag(byte buttonIndex) {
-        int index = getPendingButtonIndex(buttonIndex);
-        if (!pendingButtonUp[index]) {
-            return false;
+    private void cancelPendingTapClicks() {
+        for (int i = 0; i < buttonUpRunnables.length; i++) {
+            handler.removeCallbacks(buttonUpRunnables[i]);
+            if (pendingButtonUp[i]) {
+                pendingButtonUp[i] = false;
+                conn.sendMouseButtonUp((byte) (i + 1));
+            }
         }
-
-        handler.removeCallbacks(buttonUpRunnables[index]);
-        pendingButtonUp[index] = false;
-        return true;
-    }
-
-    private void beginPendingTapDrag(byte buttonIndex) {
-        pendingTapDrag = true;
-        pendingTapDragUsingHeldTap = promotePendingTapToDrag(buttonIndex);
-        pendingTapDragButtonDown = true;
-
-        if (!pendingTapDragUsingHeldTap) {
-            conn.sendMouseButtonDown(buttonIndex);
-        }
-    }
-
-    private void clearPendingTapDragState() {
-        pendingTapDrag = false;
-        pendingTapDragButtonDown = false;
-        pendingTapDragUsingHeldTap = false;
-    }
-
-    private void finishPendingTapDragAsTap(byte buttonIndex, int eventX, int eventY,
-                                           long eventTime) {
-        if (!pendingTapDragButtonDown) {
-            clearPendingTapDragState();
-            return;
-        }
-
-        boolean usingHeldTap = pendingTapDragUsingHeldTap;
-        clearPendingTapDragState();
-
-        conn.sendMouseButtonUp(buttonIndex);
-
-        if (usingHeldTap) {
-            sendTapClick(buttonIndex);
-        }
-    }
-
-    private void cancelPendingTapDrag(byte buttonIndex) {
-        if (pendingTapDragButtonDown) {
-            conn.sendMouseButtonUp(buttonIndex);
-        }
-
-        clearPendingTapDragState();
     }
 
     private void sendTapClick(byte buttonIndex) {
@@ -258,128 +409,190 @@ public class RelativeTouchContext implements TouchContext {
 
         int index = getPendingButtonIndex(buttonIndex);
         pendingButtonUp[index] = true;
-        handler.postDelayed(buttonUpRunnables[index], getTapClickButtonUpDelay(buttonIndex));
+        handler.postDelayed(buttonUpRunnables[index], TAP_CLICK_BUTTON_UP_DELAY);
     }
 
-    private int getTapClickButtonUpDelay(byte buttonIndex) {
-        return buttonIndex == MouseButtonPacket.BUTTON_LEFT ?
-                TAP_CLICK_BUTTON_UP_DELAY : 100;
+    private void pressPrimaryButton() {
+        if (!primaryButtonDown) {
+            conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_LEFT);
+            primaryButtonDown = true;
+        }
     }
 
-    private void beginConfirmedDrag(byte buttonIndex) {
-        boolean alreadyDown = pendingTapDragButtonDown || promotePendingTapToDrag(buttonIndex);
-        cancelDragTimer();
+    private void releasePrimaryButton() {
+        if (primaryButtonDown) {
+            conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
+            primaryButtonDown = false;
+        }
+    }
 
-        clearPendingTapDragState();
+    private void releaseSecondClickButton() {
+        if (secondClickButtonDown) {
+            conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
+            secondClickButtonDown = false;
+        }
+    }
+
+    private void cancelSecondClick() {
+        handler.removeCallbacks(secondClickDownRunnable);
+        handler.removeCallbacks(secondClickUpRunnable);
+        releaseSecondClickButton();
+    }
+
+    private void cancelPrimaryClickTimers() {
+        handler.removeCallbacks(primaryClickHoldRunnable);
+        handler.removeCallbacks(doubleTapDragRunnable);
+        handler.removeCallbacks(doubleTapDragPrimerMoveRunnable);
+    }
+
+    private void cancelDoubleTapDragPrimerMove() {
+        handler.removeCallbacks(doubleTapDragPrimerMoveRunnable);
+        doubleTapDragPrimerMoveActive = false;
+        doubleTapDragPrimerBaseX = 0;
+        doubleTapDragPrimerBaseY = 0;
+        doubleTapDragPrimerSentX = 0;
+        doubleTapDragPrimerSentY = 0;
+        doubleTapDragPrimerStepIndex = 0;
+        pendingDoubleTapDragMoveX = 0;
+        pendingDoubleTapDragMoveY = 0;
+    }
+
+    private void clearPrimaryClickState() {
+        primaryPressActive = false;
+        primaryClickHoldElapsed = false;
+        primaryMoveActive = false;
+        waitingForSecondTap = false;
+        doubleTapCandidate = false;
+        doubleTapDragActive = false;
+        doubleTapDragNeedsPrimerMove = false;
+        doubleTapDragPrimerMoveActive = false;
+        doubleTapDragPrimerBaseX = 0;
+        doubleTapDragPrimerBaseY = 0;
+        doubleTapDragPrimerSentX = 0;
+        doubleTapDragPrimerSentY = 0;
+        doubleTapDragPrimerStepIndex = 0;
+        doubleTapStartX = 0;
+        doubleTapStartY = 0;
+        pendingDoubleTapDragMoveX = 0;
+        pendingDoubleTapDragMoveY = 0;
+        firstTapStartTime = 0;
+        doubleTapStartTime = 0;
+    }
+
+    private void beginFirstPrimaryPress(int eventX, int eventY) {
+        cancelPrimaryClickTimers();
+        cancelSecondClick();
+        clearPrimaryClickState();
+
+        firstTapStartTime = currentEventTime;
+        primaryPressActive = true;
+        handler.postDelayed(primaryClickHoldRunnable, PRIMARY_CLICK_HOLD_MS);
+    }
+
+    private void beginPrimaryMove() {
+        handler.removeCallbacks(primaryClickHoldRunnable);
+        releasePrimaryButton();
+        primaryClickHoldElapsed = true;
+        primaryMoveActive = true;
+        waitingForSecondTap = false;
+    }
+
+    private void beginSecondPrimaryPress(int eventX, int eventY, long eventTime) {
+        handler.removeCallbacks(primaryClickHoldRunnable);
+        cancelSecondClick();
+
+        primaryPressActive = true;
+        primaryClickHoldElapsed = false;
+        waitingForSecondTap = false;
+        doubleTapCandidate = true;
+        doubleTapDragActive = false;
+        doubleTapDragNeedsPrimerMove = false;
+        doubleTapDragPrimerMoveActive = false;
+        // The left button is already held from the first tap. Track movement from
+        // the second contact so the gap between taps is not injected as cursor motion.
+        doubleTapStartX = eventX;
+        doubleTapStartY = eventY;
+        doubleTapStartTime = eventTime;
+        originalTouchX = eventX;
+        originalTouchY = eventY;
+        lastTouchX = eventX;
+        lastTouchY = eventY;
+
+        pressPrimaryButton();
+        handler.postDelayed(doubleTapDragRunnable, DOUBLE_TAP_DRAG_HOLD_MS);
+    }
+
+    private double getDoubleTapDragDistance(int eventX, int eventY) {
+        int xDelta = eventX - doubleTapStartX;
+        int yDelta = eventY - doubleTapStartY;
+        return Math.sqrt((xDelta * xDelta) + (yDelta * yDelta));
+    }
+
+    private boolean hasDoubleTapDragDistance(int eventX, int eventY) {
+        return getDoubleTapDragDistance(eventX, eventY) >= DOUBLE_TAP_DRAG_DISTANCE_THRESHOLD;
+    }
+
+    private void beginDoubleTapDrag() {
+        if (!doubleTapCandidate) {
+            return;
+        }
+
+        handler.removeCallbacks(doubleTapDragRunnable);
+        doubleTapCandidate = false;
+        doubleTapDragActive = true;
         confirmedDrag = true;
-        if (actionIndex == 0 && buttonIndex == MouseButtonPacket.BUTTON_LEFT) {
-            gestureState.setPrimaryDragActive(true);
-        }
-        if (!alreadyDown) {
-            conn.sendMouseButtonDown(buttonIndex);
-        }
+        confirmedMove = false;
+        confirmedScroll = false;
+        doubleTapDragNeedsPrimerMove = true;
+
+        pressPrimaryButton();
+        gestureState.setPrimaryDragActive(true);
     }
 
-    @Override
-    public boolean touchDownEvent(int eventX, int eventY, long eventTime, boolean isNewFinger)
-    {
-        // Get the view dimensions to scale inputs on this touch
-        xFactor = referenceWidth / (double)targetView.getWidth();
-        yFactor = referenceHeight / (double)targetView.getHeight();
-
-        originalTouchX = lastTouchX = eventX;
-        originalTouchY = lastTouchY = eventY;
-
-        if (isNewFinger) {
-            maxPointerCountInGesture = pointerCount;
-            originalTouchTime = eventTime;
-            cancelled = confirmedDrag = confirmedMove = confirmedScroll = false;
-            clearPendingTapDragState();
-            distanceMoved = 0;
-
-            if (pointerCount <= 1) {
-                gestureState.resetTwoFingerTap();
-            }
-            else if (pointerCount == 2) {
-                gestureState.beginTwoFingerTap(eventTime);
-            }
-            else {
-                gestureState.cancelTwoFingerTap();
-            }
-
-            if (actionIndex == 0) {
-                if (tapDragTracker.isTapDragStart(eventX, eventY, eventTime)) {
-                    tapDragTracker.clear();
-                    beginPendingTapDrag(MouseButtonPacket.BUTTON_LEFT);
-                    startDragTimer();
-                }
-                else {
-                    // Start the timer for engaging a drag
-                    startDragTimer();
-                }
-            }
-        }
-
-        return true;
-    }
-
-    @Override
-    public void touchUpEvent(int eventX, int eventY, long eventTime)
-    {
-        if (cancelled) {
+    private void sendDragMoveTo(int eventX, int eventY) {
+        if (doubleTapDragNeedsPrimerMove) {
+            doubleTapDragNeedsPrimerMove = false;
+            beginDoubleTapDragPrimerMove(eventX, eventY);
             return;
         }
 
-        // Cancel the drag timer
-        cancelDragTimer();
-
-        byte buttonIndex = getMouseButtonIndex();
-        int twoFingerTapResult = gestureState.updateTwoFingerTapOnPointerUp(pointerCount,
-                eventTime, TAP_TIME_THRESHOLD);
-        if (twoFingerTapResult == TouchpadGestureState.TWO_FINGER_TAP_COMPLETE) {
-            sendTapClick(MouseButtonPacket.BUTTON_RIGHT);
-            return;
-        }
-        else if (twoFingerTapResult == TouchpadGestureState.TWO_FINGER_TAP_SUPPRESS) {
+        if (doubleTapDragPrimerMoveActive) {
+            pendingDoubleTapDragMoveX = eventX;
+            pendingDoubleTapDragMoveY = eventY;
             return;
         }
 
-        if (confirmedDrag) {
-            // Raise the button after a drag
-            conn.sendMouseButtonUp(buttonIndex);
-            confirmedDrag = false;
-            if (actionIndex == 0 && buttonIndex == MouseButtonPacket.BUTTON_LEFT) {
-                gestureState.setPrimaryDragActive(false);
-            }
-        }
-        else if (pendingTapDrag) {
-            if (isTap(eventTime)) {
-                if (buttonIndex == MouseButtonPacket.BUTTON_LEFT) {
-                    tapDragTracker.recordTap(eventX, eventY, eventTime);
-                }
-                finishPendingTapDragAsTap(buttonIndex, eventX, eventY, eventTime);
-            }
-            else {
-                cancelPendingTapDrag(buttonIndex);
-            }
-        }
-        else if (isTap(eventTime))
-        {
-            if (buttonIndex == MouseButtonPacket.BUTTON_LEFT) {
-                tapDragTracker.recordTap(eventX, eventY, eventTime);
-            }
-
-            sendTapClick(buttonIndex);
-        }
+        sendPrimaryMoveTo(eventX, eventY);
     }
 
-    private void startDragTimer() {
-        cancelDragTimer();
-        handler.postDelayed(dragTimerRunnable, DRAG_TIME_THRESHOLD);
+    private void finishDoubleTapDrag() {
+        handler.removeCallbacks(doubleTapDragRunnable);
+        cancelDoubleTapDragPrimerMove();
+        releasePrimaryButton();
+        confirmedDrag = false;
+        gestureState.setPrimaryDragActive(false);
+        clearPrimaryClickState();
     }
 
-    private void cancelDragTimer() {
-        handler.removeCallbacks(dragTimerRunnable);
+    private void finishDoubleClick() {
+        handler.removeCallbacks(doubleTapDragRunnable);
+        cancelDoubleTapDragPrimerMove();
+
+        releasePrimaryButton();
+        clearPrimaryClickState();
+
+        handler.postDelayed(secondClickDownRunnable, SECOND_CLICK_DOWN_DELAY_MS);
+        handler.postDelayed(secondClickUpRunnable, SECOND_CLICK_UP_DELAY_MS);
+    }
+
+    private void cancelPrimaryClickForMultiTouch() {
+        cancelPrimaryClickTimers();
+        cancelDoubleTapDragPrimerMove();
+        cancelSecondClick();
+        releasePrimaryButton();
+        confirmedDrag = false;
+        gestureState.setPrimaryDragActive(false);
+        clearPrimaryClickState();
     }
 
     private void checkForConfirmedMove(int eventX, int eventY) {
@@ -388,21 +601,19 @@ public class RelativeTouchContext implements TouchContext {
             return;
         }
 
-        // If it leaves the tap bounds before the drag time expires, it's a move.
+        // If it leaves the tap bounds, it's a move.
         if (!isWithinTapBounds(eventX, eventY)) {
             confirmedMove = true;
             gestureState.cancelTwoFingerTap();
-            cancelDragTimer();
             return;
         }
 
         // Check if we've exceeded the maximum distance moved
-        distanceMoved += Math.sqrt(Math.pow(eventX - lastTouchX, 2) + Math.pow(eventY - lastTouchY, 2));
+        distanceMoved += Math.sqrt(Math.pow(eventX - lastTouchX, 2) +
+                Math.pow(eventY - lastTouchY, 2));
         if (distanceMoved >= TAP_DISTANCE_THRESHOLD) {
             confirmedMove = true;
             gestureState.cancelTwoFingerTap();
-            cancelDragTimer();
-            return;
         }
     }
 
@@ -414,58 +625,161 @@ public class RelativeTouchContext implements TouchContext {
                 !gestureState.isPrimaryDragActive());
     }
 
+    private void finishPrimaryTouch(int eventX, int eventY, long eventTime) {
+        if (doubleTapCandidate) {
+            if (eventTime - doubleTapStartTime >= DOUBLE_TAP_DRAG_HOLD_MS) {
+                beginDoubleTapDrag();
+            }
+
+            if (doubleTapDragActive) {
+                sendDragMoveTo(eventX, eventY);
+                finishDoubleTapDrag();
+            }
+            else {
+                finishDoubleClick();
+            }
+            return;
+        }
+
+        if (doubleTapDragActive || confirmedDrag) {
+            sendDragMoveTo(eventX, eventY);
+            finishDoubleTapDrag();
+            return;
+        }
+
+        if (primaryMoveActive) {
+            sendPrimaryMoveTo(eventX, eventY);
+            clearPrimaryClickState();
+            return;
+        }
+
+        if (!primaryButtonDown) {
+            primaryPressActive = false;
+            if (primaryClickHoldElapsed) {
+                clearPrimaryClickState();
+            }
+            else {
+                pressPrimaryButton();
+                waitingForSecondTap = true;
+            }
+            return;
+        }
+
+        primaryPressActive = false;
+        if (primaryClickHoldElapsed) {
+            releasePrimaryButton();
+            clearPrimaryClickState();
+        }
+        else {
+            waitingForSecondTap = true;
+        }
+    }
+
+    @Override
+    public boolean touchDownEvent(int eventX, int eventY, long eventTime, boolean isNewFinger)
+    {
+        currentEventTime = eventTime;
+
+        // Get the view dimensions to scale inputs on this touch
+        xFactor = referenceWidth / (double)targetView.getWidth();
+        yFactor = referenceHeight / (double)targetView.getHeight();
+
+        originalTouchX = lastTouchX = eventX;
+        originalTouchY = lastTouchY = eventY;
+
+        if (isNewFinger) {
+            cancelled = confirmedDrag = confirmedMove = confirmedScroll = false;
+            distanceMoved = 0;
+
+            if (pointerCount == 1) {
+                gestureState.resetTouchGesture();
+            }
+            else if (pointerCount == 2) {
+                gestureState.beginTwoFingerTap(eventTime);
+            }
+            else {
+                gestureState.cancelTwoFingerTap();
+            }
+
+            if (actionIndex == 0) {
+                if (pointerCount == 1) {
+                    if (waitingForSecondTap && primaryButtonDown) {
+                        beginSecondPrimaryPress(eventX, eventY, eventTime);
+                    }
+                    else {
+                        beginFirstPrimaryPress(eventX, eventY);
+                    }
+                }
+                else {
+                    cancelPrimaryClickForMultiTouch();
+                }
+            }
+        }
+
+        return true;
+    }
+
+    @Override
+    public void touchUpEvent(int eventX, int eventY, long eventTime)
+    {
+        currentEventTime = eventTime;
+
+        if (cancelled) {
+            return;
+        }
+
+        int twoFingerTapResult = gestureState.onPointerUp(pointerCount, eventTime,
+                TAP_TIME_THRESHOLD);
+        if (twoFingerTapResult == TouchpadGestureState.TWO_FINGER_TAP_SUPPRESS) {
+            return;
+        }
+        else if (twoFingerTapResult == TouchpadGestureState.TWO_FINGER_TAP_COMPLETE) {
+            sendTapClick(MouseButtonPacket.BUTTON_RIGHT);
+            return;
+        }
+
+        if (actionIndex == 0) {
+            finishPrimaryTouch(eventX, eventY, eventTime);
+        }
+    }
+
     @Override
     public boolean touchMoveEvent(int eventX, int eventY, long eventTime)
     {
+        currentEventTime = eventTime;
+
         if (cancelled) {
             return true;
         }
 
         if (eventX != lastTouchX || eventY != lastTouchY)
         {
-            if (pendingTapDrag && actionIndex == 0) {
-                beginConfirmedDrag(MouseButtonPacket.BUTTON_LEFT);
+            if (actionIndex == 0 && doubleTapCandidate) {
+                if (hasDoubleTapDragDistance(eventX, eventY)) {
+                    beginDoubleTapDrag();
+                }
+                else {
+                    return true;
+                }
             }
 
             checkForConfirmedMove(eventX, eventY);
+
+            if (actionIndex == 0 && primaryPressActive && !primaryButtonDown &&
+                    !doubleTapCandidate && !doubleTapDragActive && !waitingForSecondTap &&
+                    confirmedMove) {
+                beginPrimaryMove();
+            }
+
             checkForConfirmedScroll();
 
             // We only send moves and drags for the primary touch point
             if (actionIndex == 0) {
-                int deltaX = eventX - lastTouchX;
-                int deltaY = eventY - lastTouchY;
-
-                // Scale the deltas based on the factors passed to our constructor
-                deltaX = (int) Math.round((double) Math.abs(deltaX) * xFactor);
-                deltaY = (int) Math.round((double) Math.abs(deltaY) * yFactor);
-
-                // Fix up the signs
-                if (eventX < lastTouchX) {
-                    deltaX = -deltaX;
+                if (confirmedDrag) {
+                    sendDragMoveTo(eventX, eventY);
                 }
-                if (eventY < lastTouchY) {
-                    deltaY = -deltaY;
-                }
-
-                if (pointerCount == 2 && !confirmedDrag) {
-                    if (confirmedScroll) {
-                        conn.sendMouseHighResScroll((short)(deltaY * SCROLL_SPEED_FACTOR));
-                    }
-                } else {
-                    short scaledDeltaX = (short) (deltaX * prefConfig.mouseTouchPadSensitityX * 0.01f);
-                    short scaledDeltaY = (short) (deltaY * prefConfig.mouseTouchPadSensitityY * 0.01f);
-
-                    sendMouseMovePacket(scaledDeltaX, scaledDeltaY);
-                }
-
-                // If the scaling factor ended up rounding deltas to zero, wait until they are
-                // non-zero to update lastTouch that way devices that report small touch events often
-                // will work correctly
-                if (deltaX != 0) {
-                    lastTouchX = eventX;
-                }
-                if (deltaY != 0) {
-                    lastTouchY = eventY;
+                else {
+                    sendPrimaryMoveTo(eventX, eventY);
                 }
             }
             else {
@@ -480,16 +794,17 @@ public class RelativeTouchContext implements TouchContext {
     @Override
     public void cancelTouch() {
         cancelled = true;
+        currentEventTime = SystemClock.uptimeMillis();
 
-        // Cancel the drag timer
-        cancelDragTimer();
-        cancelPendingTapDrag(MouseButtonPacket.BUTTON_LEFT);
+        cancelPrimaryClickTimers();
+        cancelSecondClick();
+        cancelPendingTapClicks();
+        releasePrimaryButton();
+        clearPrimaryClickState();
 
-        // If it was a confirmed drag, we'll need to raise the button now
         if (confirmedDrag) {
-            conn.sendMouseButtonUp(getMouseButtonIndex());
             confirmedDrag = false;
-            if (actionIndex == 0 && getMouseButtonIndex() == MouseButtonPacket.BUTTON_LEFT) {
+            if (actionIndex == 0) {
                 gestureState.setPrimaryDragActive(false);
             }
         }
@@ -502,10 +817,11 @@ public class RelativeTouchContext implements TouchContext {
 
     @Override
     public void setPointerCount(int pointerCount) {
+        int oldPointerCount = this.pointerCount;
         this.pointerCount = pointerCount;
 
-        if (pointerCount > maxPointerCountInGesture) {
-            maxPointerCountInGesture = pointerCount;
+        if (actionIndex == 0 && oldPointerCount < 2 && pointerCount >= 2) {
+            cancelPrimaryClickForMultiTouch();
         }
     }
 }

@@ -2,12 +2,11 @@ package com.limelight.binding.input.touch;
 
 public final class TouchpadGestureState {
     public static final int TWO_FINGER_TAP_NONE = 0;
-    public static final int TWO_FINGER_TAP_COMPLETE = 1;
-    public static final int TWO_FINGER_TAP_SUPPRESS = 2;
+    public static final int TWO_FINGER_TAP_SUPPRESS = 1;
+    public static final int TWO_FINGER_TAP_COMPLETE = 2;
 
     private boolean primaryDragActive;
     private boolean twoFingerTapCandidate;
-    private boolean twoFingerTapConsumed;
     private long twoFingerTapStartTime;
 
     public boolean isPrimaryDragActive() {
@@ -18,43 +17,36 @@ public final class TouchpadGestureState {
         this.primaryDragActive = primaryDragActive;
     }
 
-    public void resetTwoFingerTap() {
+    public void resetTouchGesture() {
         twoFingerTapCandidate = false;
-        twoFingerTapConsumed = false;
         twoFingerTapStartTime = 0;
     }
 
     public void beginTwoFingerTap(long eventTime) {
         twoFingerTapCandidate = true;
-        twoFingerTapConsumed = false;
         twoFingerTapStartTime = eventTime;
     }
 
     public void cancelTwoFingerTap() {
         twoFingerTapCandidate = false;
+        twoFingerTapStartTime = 0;
     }
 
-    public boolean isTwoFingerTapCandidate() {
-        return twoFingerTapCandidate && !twoFingerTapConsumed;
-    }
-
-    public int updateTwoFingerTapOnPointerUp(int pointerCountBeforeUp, long eventTime,
-                                             int tapTimeThreshold) {
-        if (!isTwoFingerTapCandidate()) {
+    public int onPointerUp(int pointerCountBeforeUp, long eventTime, int tapTimeThreshold) {
+        if (!twoFingerTapCandidate) {
             return TWO_FINGER_TAP_NONE;
         }
 
         if (eventTime - twoFingerTapStartTime > tapTimeThreshold) {
-            resetTwoFingerTap();
-            return TWO_FINGER_TAP_SUPPRESS;
+            cancelTwoFingerTap();
+            return TWO_FINGER_TAP_NONE;
         }
 
         if (pointerCountBeforeUp > 1) {
             return TWO_FINGER_TAP_SUPPRESS;
         }
 
-        twoFingerTapCandidate = false;
-        twoFingerTapConsumed = true;
+        cancelTwoFingerTap();
         return TWO_FINGER_TAP_COMPLETE;
     }
 }
