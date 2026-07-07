@@ -9,22 +9,24 @@ public final class TouchpadGestureState {
     public static final int TWO_FINGER_TAP_SUPPRESS = 1;
     public static final int TWO_FINGER_TAP_COMPLETE = 2;
 
-    private boolean primaryDragActive;
+    private boolean mouseButtonActive;
     private boolean multiTouchSessionActive;
+    private boolean secondaryButtonHoldActive;
     private boolean twoFingerTapCandidate;
     private long twoFingerTapStartTime;
 
-    public boolean isPrimaryDragActive() {
-        return primaryDragActive;
+    public boolean isMouseButtonActive() {
+        return mouseButtonActive;
     }
 
-    public void setPrimaryDragActive(boolean primaryDragActive) {
-        this.primaryDragActive = primaryDragActive;
+    public void setMouseButtonActive(boolean mouseButtonActive) {
+        this.mouseButtonActive = mouseButtonActive;
     }
 
     public void beginSingleTouchSession() {
         multiTouchSessionActive = false;
-        primaryDragActive = false;
+        secondaryButtonHoldActive = false;
+        mouseButtonActive = false;
         resetTwoFingerTap();
     }
 
@@ -46,7 +48,8 @@ public final class TouchpadGestureState {
 
     public void finishTouchSession() {
         multiTouchSessionActive = false;
-        primaryDragActive = false;
+        secondaryButtonHoldActive = false;
+        mouseButtonActive = false;
         resetTwoFingerTap();
     }
 
@@ -57,12 +60,39 @@ public final class TouchpadGestureState {
 
     public void beginTwoFingerTap(long eventTime) {
         beginMultiTouchSession();
+        secondaryButtonHoldActive = false;
         twoFingerTapCandidate = true;
         twoFingerTapStartTime = eventTime;
     }
 
     public void cancelTwoFingerTap() {
         resetTwoFingerTap();
+    }
+
+    public boolean beginSecondaryButtonHold() {
+        if (!multiTouchSessionActive || !twoFingerTapCandidate || secondaryButtonHoldActive) {
+            return false;
+        }
+
+        resetTwoFingerTap();
+        secondaryButtonHoldActive = true;
+        mouseButtonActive = true;
+        return true;
+    }
+
+    public boolean isSecondaryButtonHoldActive() {
+        return secondaryButtonHoldActive;
+    }
+
+    public boolean finishSecondaryButtonHold() {
+        if (!secondaryButtonHoldActive) {
+            return false;
+        }
+
+        secondaryButtonHoldActive = false;
+        mouseButtonActive = false;
+        resetTwoFingerTap();
+        return true;
     }
 
     public int onPointerUp(int pointerCountBeforeUp, long eventTime, int tapTimeThreshold) {

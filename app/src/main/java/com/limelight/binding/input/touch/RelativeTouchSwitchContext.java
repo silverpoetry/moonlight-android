@@ -176,7 +176,7 @@ public class RelativeTouchSwitchContext implements TouchContext {
         clearPendingTapDragState();
         confirmedDrag = true;
         if (actionIndex == 0) {
-            gestureState.setPrimaryDragActive(true);
+            gestureState.setMouseButtonActive(true);
         }
         if (!alreadyDown) {
             conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_LEFT);
@@ -212,7 +212,7 @@ public class RelativeTouchSwitchContext implements TouchContext {
         if (confirmedDrag) {
             conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
             confirmedDrag = false;
-            gestureState.setPrimaryDragActive(false);
+            gestureState.setMouseButtonActive(false);
             return;
         }
 
@@ -278,7 +278,7 @@ public class RelativeTouchSwitchContext implements TouchContext {
         if (confirmedDrag) {
             conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
             confirmedDrag = false;
-            gestureState.setPrimaryDragActive(false);
+            gestureState.setMouseButtonActive(false);
         }
     }
 

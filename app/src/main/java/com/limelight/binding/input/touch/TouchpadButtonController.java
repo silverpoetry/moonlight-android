@@ -20,15 +20,16 @@ final class TouchpadButtonController {
     private final Handler handler;
     private final CancellationProvider cancellationProvider;
     private final boolean[] pendingButtonUp = new boolean[MouseButtonPacket.BUTTON_X2];
+    private final boolean[] heldButtonDown = new boolean[MouseButtonPacket.BUTTON_X2];
 
-    private boolean primaryButtonDown;
     private boolean secondClickButtonDown;
 
     private final Runnable secondClickDownRunnable = new Runnable() {
         @Override
         public void run() {
-            if (!cancellationProvider.isCancelled() && !secondClickButtonDown) {
-                conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_LEFT);
+            if (!cancellationProvider.isCancelled() && !secondClickButtonDown &&
+                    !isButtonDown(MouseButtonPacket.BUTTON_LEFT)) {
+                pressButton(MouseButtonPacket.BUTTON_LEFT);
                 secondClickButtonDown = true;
             }
         }
@@ -82,27 +83,41 @@ final class TouchpadButtonController {
     }
 
     boolean isPrimaryButtonDown() {
-        return primaryButtonDown;
+        return isButtonDown(MouseButtonPacket.BUTTON_LEFT);
     }
 
     void pressPrimaryButton() {
-        if (!primaryButtonDown) {
-            conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_LEFT);
-            primaryButtonDown = true;
-        }
+        pressButton(MouseButtonPacket.BUTTON_LEFT);
     }
 
     void releasePrimaryButton() {
-        if (primaryButtonDown) {
-            conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
-            primaryButtonDown = false;
+        releaseButton(MouseButtonPacket.BUTTON_LEFT);
+    }
+
+    boolean isButtonDown(byte buttonIndex) {
+        return heldButtonDown[getPendingButtonIndex(buttonIndex)];
+    }
+
+    void pressButton(byte buttonIndex) {
+        int index = getPendingButtonIndex(buttonIndex);
+        if (!heldButtonDown[index]) {
+            conn.sendMouseButtonDown(buttonIndex);
+            heldButtonDown[index] = true;
+        }
+    }
+
+    void releaseButton(byte buttonIndex) {
+        int index = getPendingButtonIndex(buttonIndex);
+        if (heldButtonDown[index]) {
+            conn.sendMouseButtonUp(buttonIndex);
+            heldButtonDown[index] = false;
         }
     }
 
     void sendTapClick(byte buttonIndex) {
         completePendingTapClick(buttonIndex);
 
-        conn.sendMouseButtonDown(buttonIndex);
+        pressButton(buttonIndex);
 
         int index = getPendingButtonIndex(buttonIndex);
         pendingButtonUp[index] = true;
@@ -133,7 +148,9 @@ final class TouchpadButtonController {
     void releaseAllButtons() {
         cancelSecondClick();
         cancelPendingTapClicks();
-        releasePrimaryButton();
+        for (int i = 0; i < heldButtonDown.length; i++) {
+            releaseButton((byte) (i + 1));
+        }
     }
 
     private void completePendingTapClick(byte buttonIndex) {
@@ -148,13 +165,13 @@ final class TouchpadButtonController {
         }
 
         pendingButtonUp[index] = false;
-        conn.sendMouseButtonUp(buttonIndex);
+        releaseButton(buttonIndex);
         return true;
     }
 
     private void releaseSecondClickButton() {
         if (secondClickButtonDown) {
-            conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
+            releaseButton(MouseButtonPacket.BUTTON_LEFT);
             secondClickButtonDown = false;
         }
     }

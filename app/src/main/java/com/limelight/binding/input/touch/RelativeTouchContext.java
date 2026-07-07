@@ -73,6 +73,17 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         }
     };
 
+    private final Runnable secondaryButtonHoldRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!cancelled && actionIndex == 0 && pointerCount == 2 &&
+                    gestureState.beginSecondaryButtonHold()) {
+                buttonController.pressButton(MouseButtonPacket.BUTTON_RIGHT);
+                hapticFeedback.performPhysicalClick();
+            }
+        }
+    };
+
     private static final int TAP_MOVEMENT_THRESHOLD = 35;
     private static final int TAP_DISTANCE_THRESHOLD = 45;
     private static final int TAP_TIME_THRESHOLD = 250;
@@ -143,7 +154,8 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         int scaledTouchDeltaX = motionSender.scaleTouchDeltaX(touchDeltaX);
         int scaledTouchDeltaY = motionSender.scaleTouchDeltaY(touchDeltaY);
 
-        if (pointerCount == 2 && !confirmedDrag) {
+        if (pointerCount == 2 && !confirmedDrag &&
+                !gestureState.isSecondaryButtonHoldActive()) {
             if (confirmedScroll) {
                 motionSender.sendHighResScroll((short)(scaledTouchDeltaY * SCROLL_SPEED_FACTOR));
             }
@@ -166,6 +178,10 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     private void cancelPrimaryClickTimers() {
         handler.removeCallbacks(primaryClickHoldRunnable);
         handler.removeCallbacks(doubleTapDragRunnable);
+    }
+
+    private void cancelSecondaryButtonHoldTimer() {
+        handler.removeCallbacks(secondaryButtonHoldRunnable);
     }
 
     private void cancelDoubleTapDragPrimerMove() {
@@ -211,7 +227,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         waitingForSecondTap = false;
 
         buttonController.pressPrimaryButton();
-        gestureState.setPrimaryDragActive(true);
+        gestureState.setMouseButtonActive(true);
         hapticFeedback.performPhysicalClick();
     }
 
@@ -263,7 +279,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         doubleTapDragNeedsPrimerMove = true;
 
         buttonController.pressPrimaryButton();
-        gestureState.setPrimaryDragActive(true);
+        gestureState.setMouseButtonActive(true);
     }
 
     private void sendDragMoveTo(int eventX, int eventY) {
@@ -286,7 +302,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         cancelDoubleTapDragPrimerMove();
         buttonController.releasePrimaryButton();
         confirmedDrag = false;
-        gestureState.setPrimaryDragActive(false);
+        gestureState.setMouseButtonActive(false);
         clearPrimaryClickState();
     }
 
@@ -303,22 +319,41 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     private void finishPrimaryLongPress(int eventX, int eventY) {
         sendPrimaryMoveTo(eventX, eventY);
         buttonController.releasePrimaryButton();
-        gestureState.setPrimaryDragActive(false);
+        gestureState.setMouseButtonActive(false);
         clearPrimaryClickState();
     }
 
     private void resetPrimaryGestureTracking() {
         cancelPrimaryClickTimers();
+        cancelSecondaryButtonHoldTimer();
         cancelDoubleTapDragPrimerMove();
         buttonController.releaseAllButtons();
         confirmedDrag = false;
-        gestureState.setPrimaryDragActive(false);
+        gestureState.setMouseButtonActive(false);
         clearPrimaryClickState();
     }
 
     private void enterMultiTouchSession() {
         gestureState.beginMultiTouchSession();
         resetPrimaryGestureTracking();
+        beginSecondaryButtonHoldCandidate();
+    }
+
+    private void beginSecondaryButtonHoldCandidate() {
+        cancelSecondaryButtonHoldTimer();
+        if (actionIndex == 0 && pointerCount == 2) {
+            handler.postDelayed(secondaryButtonHoldRunnable, PRIMARY_CLICK_HOLD_MS);
+        }
+    }
+
+    private boolean finishSecondaryButtonHold() {
+        cancelSecondaryButtonHoldTimer();
+        if (!gestureState.finishSecondaryButtonHold()) {
+            return false;
+        }
+
+        buttonController.releaseButton(MouseButtonPacket.BUTTON_RIGHT);
+        return true;
     }
 
     private boolean consumePrimaryReleaseFromMultiTouch() {
@@ -339,6 +374,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         if (!isWithinTapBounds(eventX, eventY)) {
             confirmedMove = true;
             gestureState.cancelTwoFingerTap();
+            cancelSecondaryButtonHoldTimer();
             return;
         }
 
@@ -348,6 +384,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         if (distanceMoved >= TAP_DISTANCE_THRESHOLD) {
             confirmedMove = true;
             gestureState.cancelTwoFingerTap();
+            cancelSecondaryButtonHoldTimer();
         }
     }
 
@@ -356,7 +393,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         // and we have 2 fingers on screen. Leave scroll mode if
         // we no longer have 2 fingers on screen
         confirmedScroll = (actionIndex == 0 && pointerCount == 2 && confirmedMove &&
-                !gestureState.isPrimaryDragActive());
+                !gestureState.isMouseButtonActive());
     }
 
     private void finishPrimaryTouch(int eventX, int eventY, long eventTime) {
@@ -473,6 +510,10 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         }
 
         if (actionIndex == 0) {
+            if (finishSecondaryButtonHold()) {
+                return;
+            }
+
             if (consumePrimaryReleaseFromMultiTouch()) {
                 return;
             }
@@ -489,6 +530,11 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
 
         if (eventX != lastTouchX || eventY != lastTouchY)
         {
+            if (actionIndex == 0 && gestureState.isSecondaryButtonHoldActive()) {
+                sendPrimaryMoveTo(eventX, eventY);
+                return true;
+            }
+
             if (actionIndex == 0 && doubleTapCandidate) {
                 if (hasDoubleTapDragDistance(eventX, eventY)) {
                     beginDoubleTapDrag();
@@ -530,6 +576,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     public void cancelTouch() {
         cancelled = true;
 
+        cancelSecondaryButtonHoldTimer();
         resetPrimaryGestureTracking();
         gestureState.finishTouchSession();
     }
@@ -546,6 +593,10 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
 
         if (actionIndex == 0 && oldPointerCount < 2 && pointerCount >= 2) {
             enterMultiTouchSession();
+        }
+        else if (actionIndex == 0 && oldPointerCount >= 2 && pointerCount < 2) {
+            finishSecondaryButtonHold();
+            cancelSecondaryButtonHoldTimer();
         }
     }
 }
