@@ -130,6 +130,12 @@ final class TouchpadButtonController {
         }
     }
 
+    void releaseAllButtons() {
+        cancelSecondClick();
+        cancelPendingTapClicks();
+        releasePrimaryButton();
+    }
+
     private void completePendingTapClick(byte buttonIndex) {
         handler.removeCallbacks(buttonUpRunnables[getPendingButtonIndex(buttonIndex)]);
         releasePendingButtonUp(buttonIndex);
