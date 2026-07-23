@@ -2,9 +2,9 @@ package com.limelight.binding.input.touch;
 
 import android.os.Handler;
 
-// Sends the first few pixels of a double-tap drag as tiny delayed steps before
-// completing to the latest target. This avoids the first real drag packet being
-// interpreted as a cursor jump by the host side.
+// Sends the first pixel of a double-tap drag before completing to the latest
+// target. This avoids the first real drag packet being interpreted as a cursor
+// jump by the host side.
 final class TouchpadDragPrimer {
     interface Listener {
         boolean isDragStillActive();
@@ -12,7 +12,7 @@ final class TouchpadDragPrimer {
     }
 
     private static final int STEP_INTERVAL_MS = 2;
-    private static final int[] STEP_SEQUENCE = new int[] { 1, 3, 5, 7 };
+    private static final int[] STEP_SEQUENCE = new int[] { 1 };
 
     private final Handler handler;
     private final TouchpadMotionSender motionSender;

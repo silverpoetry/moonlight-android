@@ -98,7 +98,6 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     private static final int PRIMARY_CLICK_RELEASE_MS = 200;
     private static final int PHYSICAL_LONG_PRESS_MS = 300;
     private static final int DOUBLE_TAP_DRAG_HOLD_MS = 300;
-    private static final int DOUBLE_TAP_DRAG_DISTANCE_THRESHOLD = 8;
 
     private static final int SCROLL_SPEED_FACTOR = 5;
 
@@ -273,14 +272,8 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         handler.postDelayed(doubleTapDragRunnable, DOUBLE_TAP_DRAG_HOLD_MS);
     }
 
-    private double getDoubleTapDragDistance(int eventX, int eventY) {
-        int xDelta = eventX - doubleTapStartX;
-        int yDelta = eventY - doubleTapStartY;
-        return Math.sqrt((xDelta * xDelta) + (yDelta * yDelta));
-    }
-
-    private boolean hasDoubleTapDragDistance(int eventX, int eventY) {
-        return getDoubleTapDragDistance(eventX, eventY) >= DOUBLE_TAP_DRAG_DISTANCE_THRESHOLD;
+    private boolean hasDoubleTapDragMovement(int eventX, int eventY) {
+        return eventX != doubleTapStartX || eventY != doubleTapStartY;
     }
 
     private void beginDoubleTapDrag() {
@@ -558,7 +551,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
             }
 
             if (actionIndex == 0 && doubleTapCandidate) {
-                if (hasDoubleTapDragDistance(eventX, eventY)) {
+                if (hasDoubleTapDragMovement(eventX, eventY)) {
                     beginDoubleTapDrag();
                 }
                 else {
