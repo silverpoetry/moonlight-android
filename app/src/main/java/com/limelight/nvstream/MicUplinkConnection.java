@@ -118,11 +118,11 @@ public final class MicUplinkConnection {
             }
 
             audioRecord = createStartedAudioRecord(
-                    MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                    MediaRecorder.AudioSource.MIC,
                     Math.max(minBufferSize, FRAME_SAMPLES * 2 * 4));
             if (audioRecord == null) {
                 audioRecord = createStartedAudioRecord(
-                        MediaRecorder.AudioSource.MIC,
+                        MediaRecorder.AudioSource.VOICE_COMMUNICATION,
                         Math.max(minBufferSize, FRAME_SAMPLES * 2 * 4));
             }
             if (audioRecord == null) {
