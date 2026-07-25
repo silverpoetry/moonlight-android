@@ -405,8 +405,8 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
                         return;
                     }
                     if(index==8){
-                        game.prefConfig.absoluteMouseMode=!game.prefConfig.absoluteMouseMode;
-                        Toast.makeText(getActivity(),"远程桌面鼠标模式"+(game.prefConfig.absoluteMouseMode?"已启用！":"已禁用！"),Toast.LENGTH_SHORT).show();
+                        boolean enabled = game.toggleAbsoluteMouseMode();
+                        Toast.makeText(getActivity(),"远程桌面鼠标模式"+(enabled?"已启用！":"已禁用！"),Toast.LENGTH_SHORT).show();
                         return;
                     }
                     if(index==9){

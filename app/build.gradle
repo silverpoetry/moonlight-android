@@ -11,9 +11,9 @@ android {
         minSdk 21
         targetSdk 34
 
-        versionName "12.1-260522"
+        versionName "12.1-260725"
         versionCode = 314
-        buildConfigField "int", "AXI_CODE", "8"
+        buildConfigField "int", "AXI_CODE", "10"
         // Generate native debug symbols to allow Google Play to symbolicate our native crashes
         ndk.debugSymbolLevel = 'FULL'
     }
@@ -92,6 +92,10 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
         release {
+            // Preserve upgrade compatibility with existing axixi releases, which were signed
+            // with this workspace's long-lived debug keystore.
+            signingConfig signingConfigs.debug
+
             // To whomever is releasing/using an APK in release mode with
             // Moonlight's official application ID, please stop. I see every
             // single one of your crashes in my Play Console and it makes

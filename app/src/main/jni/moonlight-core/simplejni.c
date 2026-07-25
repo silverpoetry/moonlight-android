@@ -10,6 +10,10 @@
 #include "controller_type.h"
 #include "controller_list.h"
 
+_Static_assert(sizeof(jbyte) == sizeof(uint8_t), "JNI byte must be 8-bit");
+_Static_assert(sizeof(jint) == sizeof(uint32_t), "JNI int must be 32-bit");
+_Static_assert(sizeof(jfloat) == sizeof(float), "JNI float must match native float");
+
 JNIEXPORT void JNICALL
 Java_com_limelight_nvstream_jni_MoonBridge_sendMouseMove(JNIEnv *env, jclass clazz, jshort deltaX, jshort deltaY) {
     LiSendMouseMoveEvent(deltaX, deltaY);
@@ -19,12 +23,6 @@ JNIEXPORT void JNICALL
 Java_com_limelight_nvstream_jni_MoonBridge_sendMousePosition(JNIEnv *env, jclass clazz,
         jshort x, jshort y, jshort referenceWidth, jshort referenceHeight) {
     LiSendMousePositionEvent(x, y, referenceWidth, referenceHeight);
-}
-
-JNIEXPORT void JNICALL
-Java_com_limelight_nvstream_jni_MoonBridge_sendMouseMoveAsMousePosition(JNIEnv *env, jclass clazz,
-        jshort deltaX, jshort deltaY, jshort referenceWidth, jshort referenceHeight) {
-    LiSendMouseMoveAsMousePositionEvent(deltaX, deltaY, referenceWidth, referenceHeight);
 }
 
 JNIEXPORT void JNICALL
@@ -50,6 +48,91 @@ Java_com_limelight_nvstream_jni_MoonBridge_sendTouchEvent(JNIEnv *env, jclass cl
                                                           jshort rotation) {
     return LiSendTouchEvent(eventType, pointerId, x, y, pressureOrDistance,
                             contactAreaMajor, contactAreaMinor, rotation);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_limelight_nvstream_jni_MoonBridge_sendTouchpadEvent(JNIEnv *env, jclass clazz,
+                                                             jbyte eventType, jint pointerId,
+                                                             jfloat x, jfloat y, jfloat pressure,
+                                                             jfloat contactAreaMajor, jfloat contactAreaMinor,
+                                                             jshort rotation, jshort deviceWidthMm,
+                                                             jshort deviceHeightMm, jbyte buttonState) {
+    return LiSendTouchpadEvent(eventType, pointerId, x, y, pressure,
+                               contactAreaMajor, contactAreaMinor, rotation,
+                               deviceWidthMm, deviceHeightMm, buttonState);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_limelight_nvstream_jni_MoonBridge_sendTouchpadFrameEvent(JNIEnv *env, jclass clazz,
+                                                                  jbyte contactCount,
+                                                                  jbyteArray eventTypesArray,
+                                                                  jintArray pointerIdsArray,
+                                                                  jfloatArray xArray,
+                                                                  jfloatArray yArray,
+                                                                  jfloatArray pressureArray,
+                                                                  jshort rotation,
+                                                                  jshort deviceWidthMm,
+                                                                  jshort deviceHeightMm,
+                                                                  jbyte buttonState) {
+    if (contactCount < 0) {
+        return -3;
+    }
+
+    uint8_t count = (uint8_t) contactCount;
+    if (count == 0) {
+        return LiSendTouchpadFrameEvent(0, NULL, NULL, NULL, NULL, NULL,
+                                        rotation, deviceWidthMm, deviceHeightMm, buttonState);
+    }
+
+    if (eventTypesArray == NULL || pointerIdsArray == NULL || xArray == NULL ||
+        yArray == NULL || pressureArray == NULL ||
+        (*env)->GetArrayLength(env, eventTypesArray) < count ||
+        (*env)->GetArrayLength(env, pointerIdsArray) < count ||
+        (*env)->GetArrayLength(env, xArray) < count ||
+        (*env)->GetArrayLength(env, yArray) < count ||
+        (*env)->GetArrayLength(env, pressureArray) < count) {
+        return -3;
+    }
+
+    jbyte* eventTypes = (*env)->GetByteArrayElements(env, eventTypesArray, NULL);
+    jint* pointerIds = (*env)->GetIntArrayElements(env, pointerIdsArray, NULL);
+    jfloat* x = (*env)->GetFloatArrayElements(env, xArray, NULL);
+    jfloat* y = (*env)->GetFloatArrayElements(env, yArray, NULL);
+    jfloat* pressure = (*env)->GetFloatArrayElements(env, pressureArray, NULL);
+
+    if (eventTypes == NULL || pointerIds == NULL || x == NULL || y == NULL || pressure == NULL) {
+        if (eventTypes != NULL) {
+            (*env)->ReleaseByteArrayElements(env, eventTypesArray, eventTypes, JNI_ABORT);
+        }
+        if (pointerIds != NULL) {
+            (*env)->ReleaseIntArrayElements(env, pointerIdsArray, pointerIds, JNI_ABORT);
+        }
+        if (x != NULL) {
+            (*env)->ReleaseFloatArrayElements(env, xArray, x, JNI_ABORT);
+        }
+        if (y != NULL) {
+            (*env)->ReleaseFloatArrayElements(env, yArray, y, JNI_ABORT);
+        }
+        if (pressure != NULL) {
+            (*env)->ReleaseFloatArrayElements(env, pressureArray, pressure, JNI_ABORT);
+        }
+        return -1;
+    }
+
+    int result = LiSendTouchpadFrameEvent(count,
+                                           (const uint8_t*) eventTypes,
+                                           (const uint32_t*) pointerIds,
+                                           (const float*) x,
+                                           (const float*) y,
+                                           (const float*) pressure,
+                                           rotation, deviceWidthMm, deviceHeightMm, buttonState);
+
+    (*env)->ReleaseByteArrayElements(env, eventTypesArray, eventTypes, JNI_ABORT);
+    (*env)->ReleaseIntArrayElements(env, pointerIdsArray, pointerIds, JNI_ABORT);
+    (*env)->ReleaseFloatArrayElements(env, xArray, x, JNI_ABORT);
+    (*env)->ReleaseFloatArrayElements(env, yArray, y, JNI_ABORT);
+    (*env)->ReleaseFloatArrayElements(env, pressureArray, pressure, JNI_ABORT);
+    return result;
 }
 
 JNIEXPORT jint JNICALL

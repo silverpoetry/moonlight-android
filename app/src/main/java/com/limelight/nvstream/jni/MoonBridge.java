@@ -87,6 +87,9 @@ public class MoonBridge {
     public static final byte LI_TOUCH_EVENT_HOVER_LEAVE = 0x06;
     public static final byte LI_TOUCH_EVENT_CANCEL_ALL  = 0x07;
 
+    public static final int LI_TOUCHPAD_MAX_CONTACTS = 5;
+    public static final byte LI_TOUCHPAD_BUTTON_PRIMARY = 0x01;
+
     public static final byte LI_TOOL_TYPE_UNKNOWN = 0x00;
     public static final byte LI_TOOL_TYPE_PEN = 0x01;
     public static final byte LI_TOOL_TYPE_ERASER = 0x02;
@@ -385,7 +388,8 @@ public class MoonBridge {
                                               int videoCapabilities,
                                               int colorSpace, int colorRange,
                                               boolean enableNativeCursor,
-                                              boolean enableClipboardSync);
+                                              boolean enableClipboardSync,
+                                              boolean disableAdaptiveInputThrottling);
 
     public static native void stopConnection();
 
@@ -394,8 +398,6 @@ public class MoonBridge {
     public static native void sendMouseMove(short deltaX, short deltaY);
 
     public static native void sendMousePosition(short x, short y, short referenceWidth, short referenceHeight);
-
-    public static native void sendMouseMoveAsMousePosition(short deltaX, short deltaY, short referenceWidth, short referenceHeight);
 
     public static native void sendMouseButton(byte buttonEvent, byte mouseButton);
 
@@ -407,6 +409,18 @@ public class MoonBridge {
 
     public static native int sendTouchEvent(byte eventType, int pointerId, float x, float y, float pressure,
                                             float contactAreaMajor, float contactAreaMinor, short rotation);
+
+    public static native int sendTouchpadEvent(byte eventType, int pointerId, float x, float y,
+                                               float pressure, float contactAreaMajor,
+                                               float contactAreaMinor, short rotation,
+                                               short deviceWidthMm, short deviceHeightMm,
+                                               byte buttonState);
+
+    public static native int sendTouchpadFrameEvent(byte contactCount, byte[] eventTypes,
+                                                    int[] pointerIds, float[] x, float[] y,
+                                                    float[] pressure, short rotation,
+                                                    short deviceWidthMm, short deviceHeightMm,
+                                                    byte buttonState);
 
     public static native int sendPenEvent(byte eventType, byte toolType, byte penButtons, float x, float y,
                                           float pressure, float contactAreaMajor, float contactAreaMinor,

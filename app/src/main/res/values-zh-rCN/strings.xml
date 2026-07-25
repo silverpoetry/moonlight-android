@@ -272,6 +272,8 @@
     <string name="summary_checkbox_absolute_mouse_mode">这可以使鼠标加速在远程桌面使用中表现得更自然。主机支持时，Moonlight 会在本地绘制主机光标以降低光标延迟；不支持时会自动使用视频内光标。它与许多游戏不兼容。</string>
     <string name="title_checkbox_clipboard_sync">同步剪贴板文本</string>
     <string name="summary_checkbox_clipboard_sync">串流时与支持的 Sunshine 主机同步 UTF-8 文本剪贴板内容。</string>
+    <string name="title_checkbox_disable_adaptive_input_throttling">关闭自适应输入节流</string>
+    <string name="summary_checkbox_disable_adaptive_input_throttling">防止 ENet 在网络延迟波动时主动丢弃实时输入事件。数据包仍不会重传，但上行流量可能略微增加。</string>
     <string name="resolution_prefix_native_landscape">（横向）</string>
     <string name="resolution_prefix_native_portrait">（纵向）</string>
     <string name="title_checkbox_enable_audiofx">启用对系统均衡器的支持</string>

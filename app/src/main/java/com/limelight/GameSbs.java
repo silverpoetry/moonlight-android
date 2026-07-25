@@ -59,6 +59,7 @@ import com.limelight.binding.input.touch.RelativeTouchContext;
 import com.limelight.binding.input.touch.SoftKeyboardGestureDetector;
 import com.limelight.binding.input.touch.TouchContext;
 import com.limelight.binding.input.touch.TouchpadGestureState;
+import com.limelight.binding.input.touch.TouchscreenTouchpadHandler;
 import com.limelight.binding.video.CrashListener;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
@@ -104,6 +105,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
     // Only 2 touches are supported
     private final TouchContext[] touchContextMap = new TouchContext[2];
     private final SoftKeyboardGestureDetector softKeyboardGestureDetector = new SoftKeyboardGestureDetector();
+    private TouchscreenTouchpadHandler touchscreenTouchpadHandler;
 
     private static final int REFERENCE_HORIZ_RES = 1280;
     private static final int REFERENCE_VERT_RES = 720;
@@ -485,6 +487,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                 .setColorRange(decoderRenderer.getPreferredColorRange())
                 .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
                 .enableClipboardSync(prefConfig.enableClipboardSync)
+                .disableAdaptiveInputThrottling(prefConfig.disableAdaptiveInputThrottling)
                 .build();
 
         // Initialize the connection
@@ -492,6 +495,8 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                 new ComputerDetails.AddressTuple(host, port),
                 httpsPort, uniqueId, config,
                 PlatformBinding.getCryptoProvider(this), serverCert);
+        touchscreenTouchpadHandler = new TouchscreenTouchpadHandler(
+                conn, streamView, REFERENCE_HORIZ_RES, REFERENCE_VERT_RES, prefConfig);
 
         controllerHandler = new ControllerHandler(this, conn, this, prefConfig);
         keyboardTranslator = new KeyboardTranslator();
@@ -1443,6 +1448,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                 softKeyboardGestureDetector.onTouchEvent(event, getSoftKeyboardGestureFingerCount());
 
         if (result == SoftKeyboardGestureDetector.Result.STARTED) {
+            cancelNativeTouchpadInput();
             for (TouchContext aTouchContext : touchContextMap) {
                 aTouchContext.cancelTouch();
             }
@@ -1965,6 +1971,10 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                     return true;
                 }
 
+                if (tryHandleNativeTouchpadInput(view, event)) {
+                    return true;
+                }
+
                 // TODO: Re-enable native touch when have a better solution for handling
                 // cancelled touches from Android gestures and 3 finger taps to activate the software keyboard.
                 if (!prefConfig.touchscreenTrackpad && trySendTouchEvent(view, event)) {
@@ -2131,6 +2141,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
     }
 
     private void stopConnection() {
+        cancelNativeTouchpadInput();
 
         if (connecting || connected) {
             connecting = connected = false;
@@ -2151,6 +2162,29 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                 }
             }.start();
         }
+    }
+
+    private void cancelNativeTouchpadInput() {
+        if (touchscreenTouchpadHandler != null) {
+            touchscreenTouchpadHandler.cancel();
+        }
+    }
+
+    private boolean tryHandleNativeTouchpadInput(View view, MotionEvent event) {
+        if (!prefConfig.touchscreenTrackpad || touchscreenTouchpadHandler == null) {
+            return false;
+        }
+
+        boolean wasHandlingGesture = touchscreenTouchpadHandler.isHandlingGesture();
+        boolean handled = touchscreenTouchpadHandler.handleMotionEvent(view, event);
+        if (!wasHandlingGesture && handled &&
+                touchscreenTouchpadHandler.isHandlingGesture()) {
+            for (TouchContext touchContext : touchContextMap) {
+                touchContext.cancelTouch();
+                touchContext.setPointerCount(0);
+            }
+        }
+        return handled;
     }
 
     @Override

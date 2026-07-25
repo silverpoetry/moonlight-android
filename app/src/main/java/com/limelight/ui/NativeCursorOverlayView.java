@@ -42,6 +42,10 @@ public class NativeCursorOverlayView extends View {
         if (scaleX <= 0 || scaleY <= 0) {
             return;
         }
+        if (Float.compare(this.scaleX, scaleX) == 0 &&
+                Float.compare(this.scaleY, scaleY) == 0) {
+            return;
+        }
 
         invalidateCursorBounds();
         this.scaleX = scaleX;

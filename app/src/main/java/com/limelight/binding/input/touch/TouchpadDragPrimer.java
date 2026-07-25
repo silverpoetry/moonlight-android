@@ -17,6 +17,8 @@ final class TouchpadDragPrimer {
     private final Handler handler;
     private final TouchpadMotionSender motionSender;
     private final Listener listener;
+    private final TouchpadMotionSender.MotionDelta transformedDelta =
+            new TouchpadMotionSender.MotionDelta();
     private final Runnable stepRunnable = new Runnable() {
         @Override
         public void run() {
@@ -25,13 +27,13 @@ final class TouchpadDragPrimer {
     };
 
     private boolean active;
-    private int baseTouchX;
-    private int baseTouchY;
     private int sentDeltaX;
     private int sentDeltaY;
     private int stepIndex;
     private int pendingTouchX;
     private int pendingTouchY;
+    private int targetDeltaX;
+    private int targetDeltaY;
 
     TouchpadDragPrimer(Handler handler, TouchpadMotionSender motionSender, Listener listener) {
         this.handler = handler;
@@ -43,21 +45,28 @@ final class TouchpadDragPrimer {
         return active;
     }
 
-    void begin(int baseTouchX, int baseTouchY, int targetTouchX, int targetTouchY) {
-        this.baseTouchX = baseTouchX;
-        this.baseTouchY = baseTouchY;
+    void begin(int baseTouchX, int baseTouchY, int targetTouchX, int targetTouchY,
+               long eventTime) {
         sentDeltaX = 0;
         sentDeltaY = 0;
         stepIndex = 0;
         pendingTouchX = targetTouchX;
         pendingTouchY = targetTouchY;
+        motionSender.transformTouchpadMove(targetTouchX - baseTouchX,
+                targetTouchY - baseTouchY, eventTime, transformedDelta);
+        targetDeltaX = transformedDelta.x;
+        targetDeltaY = transformedDelta.y;
         active = true;
 
         handler.removeCallbacks(stepRunnable);
         runStep();
     }
 
-    void updateTarget(int targetTouchX, int targetTouchY) {
+    void updateTarget(int targetTouchX, int targetTouchY, long eventTime) {
+        motionSender.transformTouchpadMove(targetTouchX - pendingTouchX,
+                targetTouchY - pendingTouchY, eventTime, transformedDelta);
+        targetDeltaX += transformedDelta.x;
+        targetDeltaY += transformedDelta.y;
         pendingTouchX = targetTouchX;
         pendingTouchY = targetTouchY;
     }
@@ -94,7 +103,7 @@ final class TouchpadDragPrimer {
             return;
         }
 
-        motionSender.sendMouseMovePacket((short) stepX, (short) stepY);
+        motionSender.sendMouseMovePacket(stepX, stepY);
         sentDeltaX += stepX;
         sentDeltaY += stepY;
 
@@ -112,11 +121,11 @@ final class TouchpadDragPrimer {
     }
 
     private int getTargetDeltaX() {
-        return motionSender.scaleMouseDeltaX(pendingTouchX - baseTouchX);
+        return targetDeltaX;
     }
 
     private int getTargetDeltaY() {
-        return motionSender.scaleMouseDeltaY(pendingTouchY - baseTouchY);
+        return targetDeltaY;
     }
 
     private void finish(boolean completeToTarget) {
@@ -126,7 +135,7 @@ final class TouchpadDragPrimer {
             int remainingX = getTargetDeltaX() - sentDeltaX;
             int remainingY = getTargetDeltaY() - sentDeltaY;
             if (remainingX != 0 || remainingY != 0) {
-                motionSender.sendMouseMovePacket((short) remainingX, (short) remainingY);
+                motionSender.sendMouseMovePacket(remainingX, remainingY);
             }
         }
 
@@ -138,13 +147,13 @@ final class TouchpadDragPrimer {
 
     private void clear() {
         active = false;
-        baseTouchX = 0;
-        baseTouchY = 0;
         sentDeltaX = 0;
         sentDeltaY = 0;
         stepIndex = 0;
         pendingTouchX = 0;
         pendingTouchY = 0;
+        targetDeltaX = 0;
+        targetDeltaY = 0;
     }
 
     private static int getStepTowards(int remainingDelta, int maxStep) {

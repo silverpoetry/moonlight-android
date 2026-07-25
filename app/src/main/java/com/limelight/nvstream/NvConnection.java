@@ -41,10 +41,8 @@ import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 
 public class NvConnection {
-    public interface MouseCursorListener {
-        void onMouseMove(short deltaX, short deltaY);
+    public interface MousePositionListener {
         void onMousePosition(short x, short y, short referenceWidth, short referenceHeight);
-        void onMouseMoveAsMousePosition(short deltaX, short deltaY, short referenceWidth, short referenceHeight);
     }
 
     // Context parameters
@@ -54,10 +52,16 @@ public class NvConnection {
     private static Semaphore connectionAllowed = new Semaphore(1);
     private final boolean isMonkey;
     private final Context appContext;
+    private final Object mousePositionLock = new Object();
+    private volatile boolean useAbsoluteMousePosition;
     private MicUplinkConnection micUplinkConnection;
     private String lastMicUplinkMessage;
-    private volatile MouseCursorListener mouseCursorListener;
+    private volatile MousePositionListener mousePositionListener;
     private ClipboardSyncController clipboardSyncController;
+    private double normalizedMouseX = 0.5;
+    private double normalizedMouseY = 0.5;
+    private int mouseReferenceWidth;
+    private int mouseReferenceHeight;
 
     public NvConnection(Context appContext, ComputerDetails.AddressTuple host, int httpsPort, String uniqueId, StreamConfiguration config, LimelightCryptoProvider cryptoProvider, X509Certificate serverCert)
     {
@@ -70,6 +74,11 @@ public class NvConnection {
         this.context.httpsPort = httpsPort;
         this.context.streamConfig = config;
         this.context.serverCert = serverCert;
+        this.useAbsoluteMousePosition = config.getNativeCursorEnabled();
+        if (isValidMouseReference(config.getWidth(), config.getHeight())) {
+            this.mouseReferenceWidth = config.getWidth();
+            this.mouseReferenceHeight = config.getHeight();
+        }
 
         // This is unique per connection
         this.context.riKey = generateRiAesKey();
@@ -78,8 +87,12 @@ public class NvConnection {
         this.isMonkey = ActivityManager.isUserAMonkey();
     }
 
-    public void setMouseCursorListener(MouseCursorListener mouseCursorListener) {
-        this.mouseCursorListener = mouseCursorListener;
+    public void setMousePositionListener(MousePositionListener mousePositionListener) {
+        this.mousePositionListener = mousePositionListener;
+    }
+
+    public void setAbsoluteMousePositionMode(boolean enabled) {
+        useAbsoluteMousePosition = enabled;
     }
 
     private static SecretKey generateRiAesKey() {
@@ -560,7 +573,8 @@ public class NvConnection {
                             context.streamConfig.getColorSpace(),
                             context.streamConfig.getColorRange(),
                             context.streamConfig.getNativeCursorEnabled(),
-                            context.streamConfig.getClipboardSyncEnabled());
+                            context.streamConfig.getClipboardSyncEnabled(),
+                            context.streamConfig.getAdaptiveInputThrottlingDisabled());
                     if (ret != 0) {
                         if (clipboardSyncController != null) {
                             clipboardSyncController.stop();
@@ -581,34 +595,80 @@ public class NvConnection {
     public void sendMouseMove(final short deltaX, final short deltaY)
     {
         if (!isMonkey) {
-            MouseCursorListener listener = mouseCursorListener;
-            if (listener != null) {
-                listener.onMouseMove(deltaX, deltaY);
+            if (useAbsoluteMousePosition) {
+                synchronized (mousePositionLock) {
+                    if (isValidMouseReference(mouseReferenceWidth, mouseReferenceHeight)) {
+                        sendAbsoluteMouseDeltaLocked(deltaX, deltaY,
+                                mouseReferenceWidth, mouseReferenceHeight);
+                        return;
+                    }
+                }
             }
+
             MoonBridge.sendMouseMove(deltaX, deltaY);
         }
     }
 
     public void sendMousePosition(short x, short y, short referenceWidth, short referenceHeight)
     {
-        if (!isMonkey) {
-            MouseCursorListener listener = mouseCursorListener;
-            if (listener != null) {
-                listener.onMousePosition(x, y, referenceWidth, referenceHeight);
+        if (!isMonkey && isValidMouseReference(referenceWidth, referenceHeight)) {
+            synchronized (mousePositionLock) {
+                sendAbsoluteMousePositionLocked(x, y, referenceWidth, referenceHeight);
             }
-            MoonBridge.sendMousePosition(x, y, referenceWidth, referenceHeight);
         }
     }
 
     public void sendMouseMoveAsMousePosition(short deltaX, short deltaY, short referenceWidth, short referenceHeight)
     {
-        if (!isMonkey) {
-            MouseCursorListener listener = mouseCursorListener;
-            if (listener != null) {
-                listener.onMouseMoveAsMousePosition(deltaX, deltaY, referenceWidth, referenceHeight);
+        if (!isMonkey && isValidMouseReference(referenceWidth, referenceHeight)) {
+            synchronized (mousePositionLock) {
+                sendAbsoluteMouseDeltaLocked(deltaX, deltaY,
+                        referenceWidth, referenceHeight);
             }
-            MoonBridge.sendMouseMoveAsMousePosition(deltaX, deltaY, referenceWidth, referenceHeight);
         }
+    }
+
+    private void sendAbsoluteMouseDeltaLocked(short deltaX, short deltaY,
+                                              int referenceWidth, int referenceHeight) {
+        int currentX = (int) Math.round(normalizedMouseX * (referenceWidth - 1));
+        int currentY = (int) Math.round(normalizedMouseY * (referenceHeight - 1));
+        sendAbsoluteMousePositionLocked(currentX + deltaX, currentY + deltaY,
+                referenceWidth, referenceHeight);
+    }
+
+    private void sendAbsoluteMousePositionLocked(int x, int y,
+                                                 int referenceWidth, int referenceHeight) {
+        // This is the sole mutable cursor position for absolute mouse input. The listener and
+        // common-c receive the exact same clamped coordinates while this lock preserves ordering.
+        int clampedX = clampMouseCoordinate(x, referenceWidth);
+        int clampedY = clampMouseCoordinate(y, referenceHeight);
+
+        normalizedMouseX = clampedX / (double) (referenceWidth - 1);
+        normalizedMouseY = clampedY / (double) (referenceHeight - 1);
+        mouseReferenceWidth = referenceWidth;
+        mouseReferenceHeight = referenceHeight;
+
+        short packetX = (short) clampedX;
+        short packetY = (short) clampedY;
+        short packetReferenceWidth = (short) referenceWidth;
+        short packetReferenceHeight = (short) referenceHeight;
+
+        MousePositionListener listener = mousePositionListener;
+        if (listener != null) {
+            listener.onMousePosition(packetX, packetY,
+                    packetReferenceWidth, packetReferenceHeight);
+        }
+        MoonBridge.sendMousePosition(packetX, packetY,
+                packetReferenceWidth, packetReferenceHeight);
+    }
+
+    private static boolean isValidMouseReference(int referenceWidth, int referenceHeight) {
+        return referenceWidth > 1 && referenceWidth <= Short.MAX_VALUE &&
+                referenceHeight > 1 && referenceHeight <= Short.MAX_VALUE;
+    }
+
+    private static int clampMouseCoordinate(int coordinate, int referenceDimension) {
+        return Math.max(0, Math.min(referenceDimension - 1, coordinate));
     }
 
     public void sendMouseButtonDown(final byte mouseButton)
@@ -672,6 +732,31 @@ public class NvConnection {
         if (!isMonkey) {
             return MoonBridge.sendTouchEvent(eventType, pointerId, x, y, pressureOrDistance,
                     contactAreaMajor, contactAreaMinor, rotation);
+        }
+        else {
+            return MoonBridge.LI_ERR_UNSUPPORTED;
+        }
+    }
+
+    public int sendTouchpadEvent(byte eventType, int pointerId, float x, float y, float pressure,
+                                 float contactAreaMajor, float contactAreaMinor, short rotation,
+                                 short deviceWidthMm, short deviceHeightMm, byte buttonState) {
+        if (!isMonkey) {
+            return MoonBridge.sendTouchpadEvent(eventType, pointerId, x, y, pressure,
+                    contactAreaMajor, contactAreaMinor, rotation,
+                    deviceWidthMm, deviceHeightMm, buttonState);
+        }
+        else {
+            return MoonBridge.LI_ERR_UNSUPPORTED;
+        }
+    }
+
+    public int sendTouchpadFrameEvent(byte contactCount, byte[] eventTypes, int[] pointerIds,
+                                      float[] x, float[] y, float[] pressure, short rotation,
+                                      short deviceWidthMm, short deviceHeightMm, byte buttonState) {
+        if (!isMonkey) {
+            return MoonBridge.sendTouchpadFrameEvent(contactCount, eventTypes, pointerIds,
+                    x, y, pressure, rotation, deviceWidthMm, deviceHeightMm, buttonState);
         }
         else {
             return MoonBridge.LI_ERR_UNSUPPORTED;

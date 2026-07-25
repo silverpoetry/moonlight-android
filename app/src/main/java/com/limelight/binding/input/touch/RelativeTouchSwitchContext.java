@@ -19,18 +19,14 @@ public class RelativeTouchSwitchContext implements TouchContext {
     private boolean pendingTapDrag;
     private boolean pendingTapDragButtonDown;
     private boolean pendingTapDragUsingHeldTap;
-    private double xFactor, yFactor;
 
     private final NvConnection conn;
     private final int actionIndex;
-    private final int referenceWidth;
-    private final int referenceHeight;
-    private final View targetView;
-    private final PreferenceConfiguration prefConfig;
     private final boolean clickEnabled; // 新增：是否启用点击
     private final TouchpadTapDragTracker tapDragTracker;
     private final Handler handler;
     private final TouchpadGestureState gestureState;
+    private final TouchpadMotionSender motionSender;
     private boolean pendingLeftButtonUp;
 
     private final Runnable leftButtonUpRunnable = new Runnable() {
@@ -61,37 +57,16 @@ public class RelativeTouchSwitchContext implements TouchContext {
     {
         this.conn = conn;
         this.actionIndex = actionIndex;
-        this.referenceWidth = referenceWidth;
-        this.referenceHeight = referenceHeight;
-        this.targetView = view;
-        this.prefConfig = prefConfig;
         this.clickEnabled = clickEnabled;
         this.tapDragTracker = new TouchpadTapDragTracker();
         this.handler = new Handler(Looper.getMainLooper());
         this.gestureState = gestureState;
+        this.motionSender = new TouchpadMotionSender(conn, referenceWidth, referenceHeight,
+                view, prefConfig);
     }
 
     @Override
     public int getActionIndex() { return actionIndex; }
-
-    private void sendMouseMovePacket(short scaledDeltaX, short scaledDeltaY) {
-        if (prefConfig.absoluteMouseMode) {
-            conn.sendMouseMoveAsMousePosition(scaledDeltaX, scaledDeltaY,
-                    (short) targetView.getWidth(), (short) targetView.getHeight());
-        } else {
-            conn.sendMouseMove(scaledDeltaX, scaledDeltaY);
-        }
-    }
-
-    private void updateScaleFactors() {
-        int viewWidth = targetView.getWidth();
-        int viewHeight = targetView.getHeight();
-
-        if (viewWidth > 0 && viewHeight > 0) {
-            xFactor = (double) referenceWidth / viewWidth;
-            yFactor = (double) referenceHeight / viewHeight;
-        }
-    }
 
     private boolean isWithinTapBounds(int touchX, int touchY) {
         return Math.abs(touchX - originalTouchX) <= TAP_MOVEMENT_THRESHOLD &&
@@ -187,7 +162,8 @@ public class RelativeTouchSwitchContext implements TouchContext {
     public boolean touchDownEvent(int eventX, int eventY, long eventTime, boolean isNewFinger) {
         if (actionIndex != 0) return true;
 
-        updateScaleFactors();
+        motionSender.updateScaleFactors();
+        motionSender.beginPointerMotion(eventTime);
 
         originalTouchX = lastTouchX = eventX;
         originalTouchY = lastTouchY = eventY;
@@ -240,7 +216,7 @@ public class RelativeTouchSwitchContext implements TouchContext {
         if (cancelled || actionIndex != 0) return true;
 
         if (eventX != lastTouchX || eventY != lastTouchY) {
-            updateScaleFactors();
+            motionSender.updateScaleFactors();
 
             if (pendingTapDrag) {
                 beginConfirmedDrag();
@@ -250,21 +226,9 @@ public class RelativeTouchSwitchContext implements TouchContext {
                 confirmedMove = true;
             }
 
-            int deltaX = (int) Math.round((eventX - lastTouchX) * xFactor);
-            int deltaY = (int) Math.round((eventY - lastTouchY) * yFactor);
-
-            if (deltaX != 0 || deltaY != 0) {
-                short scaledDeltaX = (short) (deltaX * prefConfig.mouseTouchPadSensitityX * 0.01f);
-                short scaledDeltaY = (short) (deltaY * prefConfig.mouseTouchPadSensitityY * 0.01f);
-
-                sendMouseMovePacket(scaledDeltaX, scaledDeltaY);
-                if (deltaX != 0) {
-                    lastTouchX = eventX;
-                }
-                if (deltaY != 0) {
-                    lastTouchY = eventY;
-                }
-            }
+            motionSender.sendTouchpadMove(eventX - lastTouchX, eventY - lastTouchY, eventTime);
+            lastTouchX = eventX;
+            lastTouchY = eventY;
         }
         return true;
     }

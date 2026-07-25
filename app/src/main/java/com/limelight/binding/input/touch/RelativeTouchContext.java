@@ -149,7 +149,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
                 yDelta <= TAP_MOVEMENT_THRESHOLD;
     }
 
-    private void sendPrimaryMoveTo(int eventX, int eventY) {
+    private void sendPrimaryMoveTo(int eventX, int eventY, long eventTime) {
         if (eventX == lastTouchX && eventY == lastTouchY) {
             return;
         }
@@ -167,18 +167,19 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
             if (confirmedScroll) {
                 motionSender.sendHighResScroll((short)(scaledTouchDeltaY * SCROLL_SPEED_FACTOR));
             }
-        } else {
-            motionSender.sendMouseMovePacket(
-                    (short) motionSender.scaleMouseDeltaX(touchDeltaX),
-                    (short) motionSender.scaleMouseDeltaY(touchDeltaY));
-        }
 
-        // If reference scaling rounds a delta to zero, keep accumulating raw touch
-        // movement until there is enough motion to produce a packet.
-        if (scaledTouchDeltaX != 0) {
+            // Preserve legacy scroll accumulation independently from pointer acceleration.
+            if (scaledTouchDeltaX != 0) {
+                lastTouchX = eventX;
+            }
+            if (scaledTouchDeltaY != 0) {
+                lastTouchY = eventY;
+            }
+        } else {
+            motionSender.sendTouchpadMove(touchDeltaX, touchDeltaY, eventTime);
+            // Mouse sub-pixels are retained by TouchpadMotionSender, so touch coordinates
+            // always advance and velocity remains based on the actual hardware samples.
             lastTouchX = eventX;
-        }
-        if (scaledTouchDeltaY != 0) {
             lastTouchY = eventY;
         }
     }
@@ -293,19 +294,19 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         gestureState.setMouseButtonActive(true);
     }
 
-    private void sendDragMoveTo(int eventX, int eventY) {
+    private void sendDragMoveTo(int eventX, int eventY, long eventTime) {
         if (doubleTapDragNeedsPrimerMove) {
             doubleTapDragNeedsPrimerMove = false;
-            dragPrimer.begin(lastTouchX, lastTouchY, eventX, eventY);
+            dragPrimer.begin(lastTouchX, lastTouchY, eventX, eventY, eventTime);
             return;
         }
 
         if (dragPrimer.isActive()) {
-            dragPrimer.updateTarget(eventX, eventY);
+            dragPrimer.updateTarget(eventX, eventY, eventTime);
             return;
         }
 
-        sendPrimaryMoveTo(eventX, eventY);
+        sendPrimaryMoveTo(eventX, eventY, eventTime);
     }
 
     private void finishDoubleTapDrag() {
@@ -327,8 +328,8 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         buttonController.scheduleSecondPrimaryClick();
     }
 
-    private void finishPrimaryLongPress(int eventX, int eventY) {
-        sendPrimaryMoveTo(eventX, eventY);
+    private void finishPrimaryLongPress(int eventX, int eventY, long eventTime) {
+        sendPrimaryMoveTo(eventX, eventY, eventTime);
         buttonController.releasePrimaryButton();
         gestureState.setMouseButtonActive(false);
         clearPrimaryClickState();
@@ -418,7 +419,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
             }
 
             if (doubleTapDragActive) {
-                sendDragMoveTo(eventX, eventY);
+                sendDragMoveTo(eventX, eventY, eventTime);
                 finishDoubleTapDrag();
             }
             else {
@@ -428,18 +429,18 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         }
 
         if (doubleTapDragActive || confirmedDrag) {
-            sendDragMoveTo(eventX, eventY);
+            sendDragMoveTo(eventX, eventY, eventTime);
             finishDoubleTapDrag();
             return;
         }
 
         if (primaryLongPressActive) {
-            finishPrimaryLongPress(eventX, eventY);
+            finishPrimaryLongPress(eventX, eventY, eventTime);
             return;
         }
 
         if (primaryMoveActive) {
-            sendPrimaryMoveTo(eventX, eventY);
+            sendPrimaryMoveTo(eventX, eventY, eventTime);
             clearPrimaryClickState();
             return;
         }
@@ -470,6 +471,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     public boolean touchDownEvent(int eventX, int eventY, long eventTime, boolean isNewFinger)
     {
         motionSender.updateScaleFactors();
+        motionSender.beginPointerMotion(eventTime);
 
         originalTouchX = lastTouchX = eventX;
         originalTouchY = lastTouchY = eventY;
@@ -546,7 +548,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         if (eventX != lastTouchX || eventY != lastTouchY)
         {
             if (actionIndex == 0 && gestureState.isSecondaryButtonHoldActive()) {
-                sendPrimaryMoveTo(eventX, eventY);
+                sendPrimaryMoveTo(eventX, eventY, eventTime);
                 return true;
             }
 
@@ -572,10 +574,10 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
             // We only send moves and drags for the primary touch point
             if (actionIndex == 0) {
                 if (confirmedDrag) {
-                    sendDragMoveTo(eventX, eventY);
+                    sendDragMoveTo(eventX, eventY, eventTime);
                 }
                 else {
-                    sendPrimaryMoveTo(eventX, eventY);
+                    sendPrimaryMoveTo(eventX, eventY, eventTime);
                 }
             }
             else {

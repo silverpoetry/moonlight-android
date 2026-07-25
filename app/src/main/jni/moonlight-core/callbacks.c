@@ -538,7 +538,8 @@ Java_com_limelight_nvstream_jni_MoonBridge_startConnection(JNIEnv *env, jclass c
                                                            jint videoCapabilities,
                                                            jint colorSpace, jint colorRange,
                                                            jboolean enableNativeCursor,
-                                                           jboolean enableClipboardSync) {
+                                                           jboolean enableClipboardSync,
+                                                           jboolean disableAdaptiveInputThrottling) {
     SERVER_INFORMATION serverInfo = {
             .address = (*env)->GetStringUTFChars(env, address, 0),
             .serverInfoAppVersion = (*env)->GetStringUTFChars(env, appVersion, 0),
@@ -560,7 +561,8 @@ Java_com_limelight_nvstream_jni_MoonBridge_startConnection(JNIEnv *env, jclass c
             .colorSpace = colorSpace,
             .colorRange = colorRange,
             .enableNativeCursor = enableNativeCursor,
-            .enableClipboardSync = enableClipboardSync
+            .enableClipboardSync = enableClipboardSync,
+            .disableAdaptiveInputThrottling = disableAdaptiveInputThrottling
     };
 
     jbyte* riAesKeyBuf = (*env)->GetByteArrayElements(env, riAesKey, NULL);

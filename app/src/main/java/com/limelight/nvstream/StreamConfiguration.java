@@ -30,6 +30,7 @@ public class StreamConfiguration {
     private boolean persistGamepadsAfterDisconnect;
     private boolean enableNativeCursor;
     private boolean enableClipboardSync;
+    private boolean disableAdaptiveInputThrottling;
     private int ppi;
     //雷蛇虚拟显示器
     private int razerVD;
@@ -115,6 +116,11 @@ public class StreamConfiguration {
 
         public StreamConfiguration.Builder enableClipboardSync(boolean enable) {
             config.enableClipboardSync = enable;
+            return this;
+        }
+
+        public StreamConfiguration.Builder disableAdaptiveInputThrottling(boolean disable) {
+            config.disableAdaptiveInputThrottling = disable;
             return this;
         }
 
@@ -241,6 +247,10 @@ public class StreamConfiguration {
 
     public boolean getClipboardSyncEnabled() {
         return enableClipboardSync;
+    }
+
+    public boolean getAdaptiveInputThrottlingDisabled() {
+        return disableAdaptiveInputThrottling;
     }
 
     public int getClientRefreshRateX100() {

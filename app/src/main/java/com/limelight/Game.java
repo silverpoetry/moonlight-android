@@ -18,6 +18,7 @@ import com.limelight.binding.input.touch.RelativeTouchSwitchContext;
 import com.limelight.binding.input.touch.SoftKeyboardGestureDetector;
 import com.limelight.binding.input.touch.TouchContext;
 import com.limelight.binding.input.touch.TouchpadGestureState;
+import com.limelight.binding.input.touch.TouchscreenTouchpadHandler;
 import com.limelight.binding.input.virtual_controller.VirtualController;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardLayoutController;
@@ -150,6 +151,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     // Only 2 touches are supported
     private final TouchContext[] touchContextMap = new TouchContext[2];
     private final SoftKeyboardGestureDetector softKeyboardGestureDetector = new SoftKeyboardGestureDetector();
+    private TouchscreenTouchpadHandler touchscreenTouchpadHandler;
+    private boolean nativeTouchpadInputMode;
 
     private static final int REFERENCE_HORIZ_RES = 1280;
     private static final int REFERENCE_VERT_RES = 720;
@@ -198,9 +201,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private int specialKeyCode = KeyEvent.KEYCODE_UNKNOWN;
     private StreamView streamView;
     private NativeCursorOverlayView nativeCursorOverlayView;
-    private float nativeCursorVideoX;
-    private float nativeCursorVideoY;
-    private boolean nativeCursorPositionKnown;
     private VideoProcessingGLSurfaceView fsrView;
     private FsrVideoProcessor fsrVideoProcessor;
     private long lastAbsTouchUpTime = 0;
@@ -698,6 +698,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
                 .enableNativeCursor(prefConfig.enableNativeCursor)
                 .enableClipboardSync(prefConfig.enableClipboardSync)
+                .disableAdaptiveInputThrottling(prefConfig.disableAdaptiveInputThrottling)
                 .build();
 
         streamReqBean=new StreamReqBean();
@@ -712,22 +713,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 new ComputerDetails.AddressTuple(host, port),
                 httpsPort, uniqueId, config,
                 PlatformBinding.getCryptoProvider(this), serverCert);
+        touchscreenTouchpadHandler = new TouchscreenTouchpadHandler(
+                conn, streamView, REFERENCE_HORIZ_RES, REFERENCE_VERT_RES, prefConfig);
         if (prefConfig.enableNativeCursor) {
-            conn.setMouseCursorListener(new NvConnection.MouseCursorListener() {
-                @Override
-                public void onMouseMove(short deltaX, short deltaY) {
-                    moveNativeCursorOverlay(deltaX, deltaY);
-                }
-
+            conn.setMousePositionListener(new NvConnection.MousePositionListener() {
                 @Override
                 public void onMousePosition(short x, short y, short referenceWidth, short referenceHeight) {
                     setNativeCursorOverlayFromReference(x, y, referenceWidth, referenceHeight);
-                }
-
-                @Override
-                public void onMouseMoveAsMousePosition(short deltaX, short deltaY,
-                                                       short referenceWidth, short referenceHeight) {
-                    moveNativeCursorOverlayFromReference(deltaX, deltaY, referenceWidth, referenceHeight);
                 }
             });
         }
@@ -2037,6 +2029,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 softKeyboardGestureDetector.onTouchEvent(event, getSoftKeyboardGestureFingerCount());
 
         if (result == SoftKeyboardGestureDetector.Result.STARTED) {
+            cancelNativeTouchpadInput();
             for (TouchContext aTouchContext : touchContextMap) {
                 aTouchContext.cancelTouch();
             }
@@ -2763,6 +2756,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     return true;
                 }
 
+                if (tryHandleNativeTouchpadInput(view, event)) {
+                    return true;
+                }
+
                 // TODO: Re-enable native touch when have a better solution for handling
                 // cancelled touches from Android gestures and 3 finger taps to activate the software keyboard.
                 if(prefConfig.enableMultiTouchScreen){
@@ -2884,15 +2881,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             return;
         }
 
-        nativeCursorVideoX = Math.min(Math.max(videoX, 0), streamView.getWidth());
-        nativeCursorVideoY = Math.min(Math.max(videoY, 0), streamView.getHeight());
-        nativeCursorPositionKnown = true;
-        nativeCursorOverlayView.setCursorPosition(streamView.getX() + nativeCursorVideoX,
-                streamView.getY() + nativeCursorVideoY);
+        float clampedVideoX = Math.min(Math.max(videoX, 0), streamView.getWidth());
+        float clampedVideoY = Math.min(Math.max(videoY, 0), streamView.getHeight());
+        nativeCursorOverlayView.setCursorPosition(streamView.getX() + clampedVideoX,
+                streamView.getY() + clampedVideoY);
     }
 
     private void setNativeCursorOverlayFromReference(short x, short y, short referenceWidth, short referenceHeight) {
-        if (referenceWidth <= 0 || referenceHeight <= 0) {
+        if (referenceWidth <= 1 || referenceHeight <= 1) {
             return;
         }
 
@@ -2900,39 +2896,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             @Override
             public void run() {
                 updateNativeCursorOverlayPosition(
-                        x * streamView.getWidth() / (float)referenceWidth,
-                        y * streamView.getHeight() / (float)referenceHeight);
-            }
-        });
-    }
-
-    private void moveNativeCursorOverlay(short deltaX, short deltaY) {
-        runNativeCursorOverlayUpdate(new Runnable() {
-            @Override
-            public void run() {
-                if (!nativeCursorPositionKnown) {
-                    updateNativeCursorOverlayPosition(streamView.getWidth() / 2f, streamView.getHeight() / 2f);
-                }
-                updateNativeCursorOverlayPosition(nativeCursorVideoX + deltaX, nativeCursorVideoY + deltaY);
-            }
-        });
-    }
-
-    private void moveNativeCursorOverlayFromReference(short deltaX, short deltaY,
-                                                      short referenceWidth, short referenceHeight) {
-        if (referenceWidth <= 0 || referenceHeight <= 0) {
-            return;
-        }
-
-        runNativeCursorOverlayUpdate(new Runnable() {
-            @Override
-            public void run() {
-                if (!nativeCursorPositionKnown) {
-                    updateNativeCursorOverlayPosition(streamView.getWidth() / 2f, streamView.getHeight() / 2f);
-                }
-                updateNativeCursorOverlayPosition(
-                        nativeCursorVideoX + deltaX * streamView.getWidth() / (float)referenceWidth,
-                        nativeCursorVideoY + deltaY * streamView.getHeight() / (float)referenceHeight);
+                        x * streamView.getWidth() / (float) (referenceWidth - 1),
+                        y * streamView.getHeight() / (float) (referenceHeight - 1));
             }
         });
     }
@@ -3047,6 +3012,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void stopConnection() {
+        cancelNativeTouchpadInput();
         if (connecting || connected) {
             connecting = connected = false;
             UiHelper.notifyHdrWindowStatus(this, false);
@@ -3362,7 +3328,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         : 1f;
                 float captureToEncodedX = scaleX > 0 ? scaleX / 65536f : 1f;
                 float captureToEncodedY = scaleY > 0 ? scaleY / 65536f : 1f;
-
                 nativeCursorOverlayView.setCursorScale(
                         captureToEncodedX * encodedToViewX,
                         captureToEncodedY * encodedToViewY);
@@ -3968,7 +3933,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     public void switchMouseModel(int which){
+        cancelNativeTouchpadInput();
         disableMouseModel=false;
+        nativeTouchpadInputMode=false;
         //多点触控
         if(which==0){
             prefConfig.enableMultiTouchScreen=true;
@@ -3983,6 +3950,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if(which==2){
             prefConfig.enableMultiTouchScreen=false;
             prefConfig.touchscreenTrackpad=true;
+            nativeTouchpadInputMode=true;
         }
         //禁用鼠标
         if(which==3){
@@ -4028,6 +3996,39 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 }
             }
         }
+    }
+
+    public boolean toggleAbsoluteMouseMode() {
+        prefConfig.absoluteMouseMode = !prefConfig.absoluteMouseMode;
+        if (conn != null) {
+            conn.setAbsoluteMousePositionMode(prefConfig.absoluteMouseMode);
+        }
+        return prefConfig.absoluteMouseMode;
+    }
+
+    private void cancelNativeTouchpadInput() {
+        if (touchscreenTouchpadHandler != null) {
+            touchscreenTouchpadHandler.cancel();
+        }
+    }
+
+    private boolean tryHandleNativeTouchpadInput(View view, MotionEvent event) {
+        if (!nativeTouchpadInputMode || touchscreenTouchpadHandler == null) {
+            return false;
+        }
+
+        boolean wasHandlingGesture = touchscreenTouchpadHandler.isHandlingGesture();
+        boolean handled = touchscreenTouchpadHandler.handleMotionEvent(view, event);
+        if (!wasHandlingGesture && handled &&
+                touchscreenTouchpadHandler.isHandlingGesture()) {
+            // The second finger moved this gesture from the original mouse path to the native
+            // touchpad path. Cancel legacy timers and button state exactly once at handoff.
+            for (TouchContext touchContext : touchContextMap) {
+                touchContext.cancelTouch();
+                touchContext.setPointerCount(0);
+            }
+        }
+        return handled;
     }
 
     public void showHUD(){
