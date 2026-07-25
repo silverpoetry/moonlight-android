@@ -2,101 +2,49 @@ package com.limelight.nvstream;
 
 import android.media.AudioFormat;
 import android.media.AudioRecord;
-import android.media.MediaCodec;
-import android.media.MediaCodecList;
-import android.media.MediaFormat;
+import android.media.AudioTimestamp;
 import android.media.MediaRecorder;
 import android.os.Build;
+import android.os.Process;
 
 import com.limelight.LimeLog;
+import com.limelight.nvstream.jni.MoonBridge;
 
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.concurrent.CountDownLatch;
 
-public class MicUplinkConnection {
-    private static final int AXI_MIC_PAYLOAD_OPUS = 1;
-    private static final int OPUS_BITRATE = 32000;
-
-    private final String hostAddress;
-    private final int hostPort;
-    private final int sessionId;
-    private final byte[] token;
-    private final String codec;
-    private final int sampleRate;
-    private final int channels;
-    private final int frameMs;
-    private final int frameBytes;
+/**
+ * Captures 48 kHz mono PCM and forwards it to moonlight-common-c. Opus
+ * encoding, SRTP protection, queueing, and transport all live in the native
+ * protocol layer so microphone audio shares the established audio UDP socket.
+ */
+public final class MicUplinkConnection {
+    private static final int SAMPLE_RATE = 48000;
+    private static final int FRAME_SAMPLES = 960;
+    private static final int OPUS_BITRATE = 40000;
 
     private volatile boolean running;
+    private volatile boolean stopRequested;
     private volatile String lastErrorMessage;
     private Thread workerThread;
-    private AudioRecord audioRecord;
-    private MediaCodec encoder;
-    private DatagramSocket socket;
-    private long nextPresentationTimeUs;
-    private int sequenceNumber;
-    private int timestamp;
-    private long packetCount;
-
-    private static String tokenPrefixHex(byte[] token, int byteCount) {
-        if (token == null) {
-            return "null";
-        }
-
-        int count = Math.min(byteCount, token.length);
-        final char[] lut = "0123456789ABCDEF".toCharArray();
-        char[] chars = new char[count * 2];
-        for (int i = 0; i < count; i++) {
-            int value = token[i] & 0xFF;
-            chars[i * 2] = lut[value >>> 4];
-            chars[i * 2 + 1] = lut[value & 0x0F];
-        }
-        return new String(chars);
-    }
-
-    public MicUplinkConnection(String hostAddress, int hostPort, int sessionId, byte[] token,
-                               String codec, int sampleRate, int channels, int frameMs) {
-        this.hostAddress = hostAddress;
-        this.hostPort = hostPort;
-        this.sessionId = sessionId;
-        this.token = token;
-        this.codec = codec;
-        this.sampleRate = sampleRate;
-        this.channels = channels;
-        this.frameMs = frameMs;
-        this.frameBytes = (sampleRate * frameMs / 1000) * channels * 2;
-    }
+    private volatile AudioRecord audioRecord;
+    private final AudioTimestamp captureTimestamp = new AudioTimestamp();
+    private long capturedFramePosition;
 
     public static boolean isSupported() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            return false;
-        }
-
-        try {
-            MediaFormat format = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_OPUS, 48000, 1);
-            format.setInteger(MediaFormat.KEY_BIT_RATE, OPUS_BITRATE);
-            return new MediaCodecList(MediaCodecList.REGULAR_CODECS).findEncoderForFormat(format) != null;
-        }
-        catch (Exception e) {
-            LimeLog.warning("Unable to query Opus encoder support: " + e.getMessage());
-            return false;
-        }
+        return MoonBridge.isMicrophoneUplinkSupported();
     }
 
     public boolean start() {
-        if (!isConfigurationSupported()) {
-            LimeLog.warning("mic-uplink configuration rejected: " + getLastErrorMessage());
+        if (!isSupported()) {
+            lastErrorMessage = "主机不支持麦克风上行";
             return false;
         }
 
         CountDownLatch startupLatch = new CountDownLatch(1);
+        capturedFramePosition = 0;
+        stopRequested = false;
         running = true;
-        workerThread = new Thread(() -> runWorker(startupLatch), "MicUplinkConnection");
+        workerThread = new Thread(() -> runWorker(startupLatch), "MicUplinkCapture");
         workerThread.start();
 
         try {
@@ -104,126 +52,108 @@ public class MicUplinkConnection {
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            lastErrorMessage = "Interrupted while starting microphone uplink";
-            running = false;
+            lastErrorMessage = "启动麦克风时被中断";
+            stop();
             return false;
         }
 
-        return running;
+        return running && !stopRequested;
     }
 
-    public void stop() {
-        running = false;
+    public boolean stop() {
+        stopRequested = true;
 
-        if (audioRecord != null) {
+        AudioRecord recorder = audioRecord;
+        if (recorder != null) {
             try {
-                audioRecord.stop();
+                recorder.stop();
             }
             catch (IllegalStateException ignored) {
             }
         }
 
-        if (socket != null) {
-            socket.close();
-        }
-
-        if (workerThread != null) {
-            workerThread.interrupt();
+        Thread thread = workerThread;
+        if (thread != null && thread != Thread.currentThread()) {
+            thread.interrupt();
             try {
-                workerThread.join(2000);
+                thread.join(2000);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                lastErrorMessage = "停止麦克风时被中断";
+                return false;
             }
-            workerThread = null;
         }
-    }
 
-    public String getLastErrorMessage() {
-        return lastErrorMessage != null ? lastErrorMessage : "mic-uplink failed";
-    }
+        if (thread != null && thread.isAlive()) {
+            lastErrorMessage = "麦克风采集线程未能及时停止";
+            return false;
+        }
 
-    private boolean isConfigurationSupported() {
-        if (!"opus".equalsIgnoreCase(codec)) {
-            lastErrorMessage = "mic-uplink codec is unsupported";
-            return false;
-        }
-        if (sampleRate != 48000 || channels != 1 || frameMs != 20) {
-            lastErrorMessage = "mic-uplink parameters are unsupported";
-            return false;
-        }
-        if (token == null || token.length != 16) {
-            lastErrorMessage = "mic-uplink token is invalid";
-            return false;
-        }
-        if (!isSupported()) {
-            lastErrorMessage = "mic-uplink requires Android 10 or a device with an Opus encoder";
-            return false;
-        }
+        workerThread = null;
+        running = false;
         return true;
     }
 
+    public String getLastErrorMessage() {
+        return lastErrorMessage != null ? lastErrorMessage : "麦克风上行失败";
+    }
+
+    public boolean isRunning() {
+        return running;
+    }
+
     private void runWorker(CountDownLatch startupLatch) {
-        byte[] pcmFrame = new byte[frameBytes];
-        MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+        short[] pcmFrame = new short[FRAME_SAMPLES];
 
         try {
-            LimeLog.info("Starting mic-uplink to " + hostAddress + ":" + hostPort +
-                    " session=" + Integer.toUnsignedString(sessionId) +
-                    " codec=" + codec +
-                    " rate=" + sampleRate +
-                    " channels=" + channels +
-                    " frameMs=" + frameMs +
-                    " tokenPrefix=" + tokenPrefixHex(token, 4));
-            InetAddress serverAddress = InetAddress.getByName(hostAddress);
-            socket = new DatagramSocket();
-            socket.connect(new InetSocketAddress(serverAddress, hostPort));
-
-            encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_OPUS);
-            MediaFormat format = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_OPUS, sampleRate, channels);
-            format.setInteger(MediaFormat.KEY_BIT_RATE, OPUS_BITRATE);
-            format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, frameBytes);
-            encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-            encoder.start();
+            Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
 
             int minBufferSize = AudioRecord.getMinBufferSize(
-                    sampleRate,
+                    SAMPLE_RATE,
                     AudioFormat.CHANNEL_IN_MONO,
                     AudioFormat.ENCODING_PCM_16BIT);
             if (minBufferSize <= 0) {
-                throw new IllegalStateException("Unable to determine microphone buffer size");
+                throw new IllegalStateException("无法确定麦克风缓冲区大小");
             }
 
-            audioRecord = new AudioRecord(
-                    MediaRecorder.AudioSource.MIC,
-                    sampleRate,
-                    AudioFormat.CHANNEL_IN_MONO,
-                    AudioFormat.ENCODING_PCM_16BIT,
-                    Math.max(minBufferSize, frameBytes * 4));
-            if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
-                throw new IllegalStateException("Unable to initialize microphone capture");
+            audioRecord = createStartedAudioRecord(
+                    MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                    Math.max(minBufferSize, FRAME_SAMPLES * 2 * 4));
+            if (audioRecord == null) {
+                audioRecord = createStartedAudioRecord(
+                        MediaRecorder.AudioSource.MIC,
+                        Math.max(minBufferSize, FRAME_SAMPLES * 2 * 4));
+            }
+            if (audioRecord == null) {
+                throw new IllegalStateException("无法初始化麦克风采集");
             }
 
-            audioRecord.startRecording();
-            LimeLog.info("mic-uplink capture and encoder initialized");
+            int result = MoonBridge.startMicrophoneUplink(OPUS_BITRATE);
+            if (result != 0) {
+                throw new IllegalStateException("协议启动失败 (" + result + ")");
+            }
+
+            LimeLog.info("Microphone uplink capture started: Opus 48 kHz mono, 20 ms, 40 kbps");
             startupLatch.countDown();
 
-            while (running) {
-                if (!readFully(pcmFrame)) {
+            while (!stopRequested) {
+                if (!readFrame(pcmFrame)) {
                     break;
                 }
 
-                long presentationTimeUs = nextPresentationTimeUs;
-                queueInputFrame(pcmFrame, presentationTimeUs);
-                nextPresentationTimeUs += frameMs * 1000L;
-                drainEncoder(bufferInfo);
+                capturedFramePosition += FRAME_SAMPLES;
+                long captureTimeUs = getCaptureTimeUs();
+                result = MoonBridge.sendMicrophonePcm(pcmFrame, captureTimeUs);
+                if (result != 0) {
+                    throw new IllegalStateException("发送麦克风帧失败 (" + result + ")");
+                }
             }
         }
         catch (Exception e) {
-            lastErrorMessage = "mic-uplink unavailable: " + e.getMessage();
+            lastErrorMessage = "麦克风不可用：" + e.getMessage();
             LimeLog.warning(lastErrorMessage);
-            running = false;
-            startupLatch.countDown();
+            stopRequested = true;
         }
         finally {
             startupLatch.countDown();
@@ -231,117 +161,82 @@ public class MicUplinkConnection {
         }
     }
 
-    private boolean readFully(byte[] buffer) {
+    private long getCaptureTimeUs() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            if (audioRecord.getTimestamp(captureTimestamp, AudioTimestamp.TIMEBASE_MONOTONIC) ==
+                    AudioRecord.SUCCESS) {
+                // Project the device's monotonic timestamp to the end of the
+                // frame just read. This preserves real capture gaps without
+                // turning Java thread scheduling stalls into artificial gaps.
+                long frameDelta = capturedFramePosition - captureTimestamp.framePosition;
+                long deltaNanos = (frameDelta / SAMPLE_RATE) * 1_000_000_000L +
+                        (frameDelta % SAMPLE_RATE) * 1_000_000_000L / SAMPLE_RATE;
+                return (captureTimestamp.nanoTime + deltaNanos) / 1000L;
+            }
+        }
+        return System.nanoTime() / 1000L;
+    }
+
+    private AudioRecord createStartedAudioRecord(int source, int bufferSize) {
+        AudioRecord recorder = null;
+        try {
+            recorder = new AudioRecord(
+                    source,
+                    SAMPLE_RATE,
+                    AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    bufferSize);
+            if (recorder.getState() == AudioRecord.STATE_INITIALIZED) {
+                recorder.startRecording();
+                if (recorder.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+                    return recorder;
+                }
+            }
+        }
+        catch (IllegalArgumentException | IllegalStateException | SecurityException e) {
+            LimeLog.warning("Unable to start audio source " + source + ": " + e.getMessage());
+        }
+
+        if (recorder != null) {
+            try {
+                recorder.stop();
+            }
+            catch (IllegalStateException ignored) {
+            }
+            recorder.release();
+        }
+        return null;
+    }
+
+    private boolean readFrame(short[] frame) {
         int offset = 0;
-        while (running && offset < buffer.length) {
-            int bytesRead = audioRecord.read(buffer, offset, buffer.length - offset);
-            if (bytesRead <= 0) {
-                if (running) {
-                    lastErrorMessage = "Failed to capture microphone audio";
-                    LimeLog.warning(lastErrorMessage + ": " + bytesRead);
+        while (!stopRequested && offset < frame.length) {
+            int samplesRead = audioRecord.read(frame, offset, frame.length - offset);
+            if (samplesRead <= 0) {
+                if (!stopRequested) {
+                    lastErrorMessage = "麦克风采集失败 (" + samplesRead + ")";
                 }
                 return false;
             }
-            offset += bytesRead;
+            offset += samplesRead;
         }
-        return running;
-    }
-
-    private void queueInputFrame(byte[] pcmFrame, long presentationTimeUs) {
-        int inputBufferIndex = encoder.dequeueInputBuffer(10000);
-        if (inputBufferIndex < 0) {
-            return;
-        }
-
-        ByteBuffer inputBuffer = encoder.getInputBuffer(inputBufferIndex);
-        if (inputBuffer == null) {
-            encoder.queueInputBuffer(inputBufferIndex, 0, 0, presentationTimeUs, 0);
-            return;
-        }
-
-        inputBuffer.clear();
-        inputBuffer.put(pcmFrame);
-        encoder.queueInputBuffer(inputBufferIndex, 0, pcmFrame.length, presentationTimeUs, 0);
-    }
-
-    private void drainEncoder(MediaCodec.BufferInfo bufferInfo) throws Exception {
-        while (running) {
-            int outputBufferIndex = encoder.dequeueOutputBuffer(bufferInfo, 0);
-            if (outputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
-                return;
-            }
-            if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                continue;
-            }
-            if (outputBufferIndex < 0) {
-                continue;
-            }
-
-            ByteBuffer outputBuffer = encoder.getOutputBuffer(outputBufferIndex);
-            if (outputBuffer != null && bufferInfo.size > 0 &&
-                    (bufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0) {
-                ByteBuffer payload = outputBuffer.duplicate();
-                payload.position(bufferInfo.offset);
-                payload.limit(bufferInfo.offset + bufferInfo.size);
-                sendPacket(payload, bufferInfo.presentationTimeUs);
-            }
-
-            encoder.releaseOutputBuffer(outputBufferIndex, false);
-        }
-    }
-
-    private void sendPacket(ByteBuffer payload, long presentationTimeUs) throws Exception {
-        int payloadSize = payload.remaining();
-        ByteBuffer packet = ByteBuffer.allocate(32 + payloadSize).order(ByteOrder.BIG_ENDIAN);
-        packet.putInt(sessionId);
-        packet.putInt(sequenceNumber++);
-        packet.putInt(timestamp);
-        packet.put(token);
-        packet.put((byte) AXI_MIC_PAYLOAD_OPUS);
-        packet.put((byte) 0);
-        packet.putShort((short) payloadSize);
-        packet.put(payload);
-
-        timestamp += (sampleRate * frameMs) / 1000;
-
-        DatagramPacket datagramPacket = new DatagramPacket(packet.array(), packet.position());
-        socket.send(datagramPacket);
-        if (packetCount == 0) {
-            LimeLog.info("Sent first mic-uplink packet: bytes=" + payloadSize +
-                    " ptsUs=" + presentationTimeUs +
-                    " seq=" + sequenceNumber +
-                    " ts=" + timestamp +
-                    " tokenPrefix=" + tokenPrefixHex(token, 4));
-        }
-        packetCount++;
+        return !stopRequested;
     }
 
     private void cleanup() {
+        AudioRecord recorder = audioRecord;
+        audioRecord = null;
+        if (recorder != null) {
+            try {
+                recorder.stop();
+            }
+            catch (IllegalStateException ignored) {
+            }
+            recorder.release();
+        }
+
+        MoonBridge.stopMicrophoneUplink();
         running = false;
-
-        if (audioRecord != null) {
-            try {
-                audioRecord.stop();
-            }
-            catch (IllegalStateException ignored) {
-            }
-            audioRecord.release();
-            audioRecord = null;
-        }
-
-        if (encoder != null) {
-            try {
-                encoder.stop();
-            }
-            catch (IllegalStateException ignored) {
-            }
-            encoder.release();
-            encoder = null;
-        }
-
-        if (socket != null) {
-            socket.close();
-            socket = null;
-        }
+        LimeLog.info("Microphone uplink capture stopped");
     }
 }

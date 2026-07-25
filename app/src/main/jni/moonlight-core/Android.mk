@@ -17,6 +17,7 @@ LOCAL_SRC_FILES := moonlight-common-c/src/AudioStream.c \
                    moonlight-common-c/src/InputStream.c \
                    moonlight-common-c/src/LinkedBlockingQueue.c \
                    moonlight-common-c/src/Misc.c \
+                   moonlight-common-c/src/MicrophoneStream.c \
                    moonlight-common-c/src/Platform.c \
                    moonlight-common-c/src/PlatformCrypto.c \
                    moonlight-common-c/src/PlatformSockets.c \
@@ -26,6 +27,7 @@ LOCAL_SRC_FILES := moonlight-common-c/src/AudioStream.c \
                    moonlight-common-c/src/RtspParser.c \
                    moonlight-common-c/src/SdpGenerator.c \
                    moonlight-common-c/src/SimpleStun.c \
+                   moonlight-common-c/src/Srtp.c \
                    moonlight-common-c/src/VideoDepacketizer.c \
                    moonlight-common-c/src/VideoStream.c \
                    moonlight-common-c/nanors/rs.c \
@@ -41,6 +43,7 @@ LOCAL_SRC_FILES := moonlight-common-c/src/AudioStream.c \
                    moonlight-common-c/enet/unix.c \
                    moonlight-common-c/enet/win32.c \
                    haptic_native.c \
+                   microphonejni.c \
                    simplejni.c \
                    callbacks.c \
                    minisdl.c \

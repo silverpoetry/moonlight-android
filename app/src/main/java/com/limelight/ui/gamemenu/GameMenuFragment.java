@@ -39,7 +39,7 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
 
     private void refreshMicButton() {
         if (btn_mic != null && game != null) {
-            btn_mic.setBackgroundResource(game.micStatus == 0?R.drawable.ic_game_menu_btn_selector:R.drawable.ic_game_menu_btn_green_selector);
+            btn_mic.setBackgroundResource(game.isMicUplinkActive() ? R.drawable.ic_game_menu_btn_green_selector : R.drawable.ic_game_menu_btn_selector);
         }
     }
 

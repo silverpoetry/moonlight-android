@@ -3589,7 +3589,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         builder.append(stats.decodeTimeMs > 0 ? String.format(Locale.US, "%.2f ms", stats.decodeTimeMs) : "--");
         builder.append("  丢包率：").append(String.format(Locale.US, "%.2f%%", stats.packetLossPercent));
         builder.append("  FPS：").append(String.format(Locale.US, "%.2f", stats.totalFps));
-        if (micStatus == 1) {
+        if (conn != null && conn.isMicUplinkActive()) {
             builder.append(" Mic");
         }
         return builder.toString();
@@ -3636,7 +3636,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         addPerfRow("丢包率", String.format(Locale.US, "%.2f%%", stats.packetLossPercent));
         addPerfRow("解码延迟", stats.decodeTimeMs > 0 ? String.format(Locale.US, "%.2f ms", stats.decodeTimeMs) : "--");
         addPerfRow("主机延迟", stats.hostProcessingLatencyMs > 0 ? String.format(Locale.US, "%.1f ms", stats.hostProcessingLatencyMs) : "--");
-        addPerfRow("麦克风", micStatus == 1 ? "开启" : "关闭");
+        addPerfRow("麦克风", conn != null && conn.isMicUplinkActive() ? "开启" : "关闭");
         addPerfRow("音频震动", buildAudioHapticsStatusText());
         addPerfRow("USB手柄", buildUsbControllerStatusText());
     }
@@ -4320,6 +4320,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
     }
 
+    public boolean isMicUplinkActive() {
+        return conn != null && conn.isMicUplinkActive();
+    }
+
     //是否退出串流
     public boolean isQuitSteamingFlag;
 
@@ -4445,19 +4449,31 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
-    //麦克风状态 0 关闭 1开启
-    public int micStatus=0;
-
     //开启关闭 麦克风
     public void switchMic(){
         if (conn == null || micToggleInFlight) {
             return;
         }
 
-        if (micStatus == 1) {
-            conn.stopMicUplink();
-            micStatus = 0;
-            Toast.makeText(this, "麦克风已关闭", Toast.LENGTH_SHORT).show();
+        NvConnection.MicUplinkState state = conn.getMicUplinkState();
+        if (state == NvConnection.MicUplinkState.STARTING ||
+                state == NvConnection.MicUplinkState.STOPPING) {
+            return;
+        }
+
+        if (state == NvConnection.MicUplinkState.ON) {
+            micToggleInFlight = true;
+            final NvConnection currentConn = conn;
+            new Thread(() -> {
+                currentConn.stopMicUplink();
+                String message = currentConn.getLastMicUplinkMessage();
+                runOnUiThread(() -> {
+                    micToggleInFlight = false;
+                    if (message != null && !message.isEmpty()) {
+                        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }, "MicToggle").start();
             return;
         }
 
@@ -4480,15 +4496,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         micToggleInFlight = true;
         final NvConnection currentConn = conn;
         new Thread(() -> {
-            boolean started = currentConn.startMicUplink();
+            currentConn.startMicUplink();
             String message = currentConn.getLastMicUplinkMessage();
             runOnUiThread(() -> {
                 micToggleInFlight = false;
-                if (started) {
-                    micStatus = 1;
-                } else {
-                    micStatus = 0;
-                }
 
                 if (message != null && !message.isEmpty()) {
                     Toast.makeText(this, message, Toast.LENGTH_SHORT).show();

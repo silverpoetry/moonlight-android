@@ -311,6 +311,6 @@
     <string name="summary_seekbar_vibrate_fallback_strength">增强或减弱设备的震动强度</string>
     <string name="analogscroll_none">默认 (两个摇杆都控制鼠标)</string>
 
-    <string name="mic_uplink_not_supported">麦克风上行需要Android 10或带有Opus编码器的设备。</string>
+    <string name="mic_uplink_not_supported">主机未启用麦克风上行，或未检测到兼容的虚拟麦克风设备。</string>
     <string name="mic_uplink_permission_denied">麦克风许可被拒绝了。</string>
 </resources>

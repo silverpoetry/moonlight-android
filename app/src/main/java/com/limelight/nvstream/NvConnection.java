@@ -41,6 +41,15 @@ import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 
 public class NvConnection {
+    public enum MicUplinkState {
+        UNAVAILABLE,
+        OFF,
+        STARTING,
+        ON,
+        STOPPING,
+        ERROR
+    }
+
     public interface MousePositionListener {
         void onMousePosition(short x, short y, short referenceWidth, short referenceHeight);
     }
@@ -55,7 +64,8 @@ public class NvConnection {
     private final Object mousePositionLock = new Object();
     private volatile boolean useAbsoluteMousePosition;
     private MicUplinkConnection micUplinkConnection;
-    private String lastMicUplinkMessage;
+    private volatile MicUplinkState micUplinkState = MicUplinkState.OFF;
+    private volatile String lastMicUplinkMessage;
     private volatile MousePositionListener mousePositionListener;
     private ClipboardSyncController clipboardSyncController;
     private double normalizedMouseX = 0.5;
@@ -119,10 +129,7 @@ public class NvConnection {
             clipboardSyncController = null;
         }
 
-        if (micUplinkConnection != null) {
-            micUplinkConnection.stop();
-            micUplinkConnection = null;
-        }
+        stopMicUplink();
 
         // Interrupt any pending connection. This is thread-safe.
         MoonBridge.interruptConnection();
@@ -143,92 +150,96 @@ public class NvConnection {
     }
 
     public synchronized boolean isMicUplinkActive() {
-        return micUplinkConnection != null;
+        refreshMicUplinkState();
+        return micUplinkState == MicUplinkState.ON;
+    }
+
+    public synchronized MicUplinkState getMicUplinkState() {
+        refreshMicUplinkState();
+        return micUplinkState;
+    }
+
+    private void refreshMicUplinkState() {
+        if (micUplinkState == MicUplinkState.ON &&
+                (micUplinkConnection == null || !micUplinkConnection.isRunning())) {
+            if (micUplinkConnection != null) {
+                lastMicUplinkMessage = micUplinkConnection.getLastErrorMessage();
+            }
+            micUplinkConnection = null;
+            micUplinkState = MicUplinkState.ERROR;
+        }
     }
 
     public synchronized void stopMicUplink() {
+        if ((micUplinkState == MicUplinkState.OFF ||
+                micUplinkState == MicUplinkState.UNAVAILABLE) &&
+                micUplinkConnection == null) {
+            return;
+        }
+
+        micUplinkState = MicUplinkState.STOPPING;
+        if (micUplinkConnection != null && !micUplinkConnection.stop()) {
+            lastMicUplinkMessage = micUplinkConnection.getLastErrorMessage();
+            micUplinkState = MicUplinkState.ERROR;
+            return;
+        }
         if (micUplinkConnection != null) {
-            micUplinkConnection.stop();
             micUplinkConnection = null;
         }
-        context.negotiatedMicUplinkEnabled = false;
-        context.negotiatedMicPort = 0;
-        context.negotiatedMicSessionId = 0;
-        context.negotiatedMicCodec = null;
-        context.negotiatedMicSampleRate = 0;
-        context.negotiatedMicChannels = 0;
-        context.negotiatedMicFrameMs = 0;
-        context.negotiatedMicToken = null;
-        lastMicUplinkMessage = "mic-uplink stopped";
+        micUplinkState = MicUplinkConnection.isSupported() ?
+                MicUplinkState.OFF : MicUplinkState.UNAVAILABLE;
+        lastMicUplinkMessage = "麦克风已关闭";
     }
 
     public synchronized boolean startMicUplink() {
-        if (micUplinkConnection != null) {
-            lastMicUplinkMessage = "mic-uplink is already active";
+        refreshMicUplinkState();
+        if (micUplinkState == MicUplinkState.ON && micUplinkConnection != null) {
+            lastMicUplinkMessage = "麦克风已开启";
             return true;
         }
+        if (micUplinkState == MicUplinkState.STARTING ||
+                micUplinkState == MicUplinkState.STOPPING) {
+            lastMicUplinkMessage = "麦克风状态正在切换";
+            return false;
+        }
 
+        if (micUplinkConnection != null) {
+            lastMicUplinkMessage = "上一次麦克风采集仍在停止";
+            return false;
+        }
+
+        if (!MicUplinkConnection.isSupported()) {
+            micUplinkState = MicUplinkState.UNAVAILABLE;
+            lastMicUplinkMessage = "主机不支持麦克风上行";
+            return false;
+        }
+
+        micUplinkState = MicUplinkState.STARTING;
         try {
-            NvHTTP h = new NvHTTP(context.serverAddress, context.httpsPort, uniqueId, context.serverCert, cryptoProvider);
-            if (!h.requestMicUplink(context)) {
-                lastMicUplinkMessage = "Host did not enable mic-uplink";
-                return false;
-            }
-
-            LimeLog.info("Starting mic-uplink with host=" + context.serverAddress.address +
-                    " port=" + context.negotiatedMicPort +
-                    " sessionId=" + Integer.toUnsignedString(context.negotiatedMicSessionId) +
-                    " codec=" + context.negotiatedMicCodec +
-                    " sampleRate=" + context.negotiatedMicSampleRate +
-                    " channels=" + context.negotiatedMicChannels +
-                    " frameMs=" + context.negotiatedMicFrameMs +
-                    " tokenPrefix=" + tokenPrefixHex(context.negotiatedMicToken, 4));
-
-            micUplinkConnection = new MicUplinkConnection(
-                    context.serverAddress.address,
-                    context.negotiatedMicPort,
-                    context.negotiatedMicSessionId,
-                    context.negotiatedMicToken,
-                    context.negotiatedMicCodec,
-                    context.negotiatedMicSampleRate,
-                    context.negotiatedMicChannels,
-                    context.negotiatedMicFrameMs);
+            micUplinkConnection = new MicUplinkConnection();
             if (!micUplinkConnection.start()) {
                 lastMicUplinkMessage = micUplinkConnection.getLastErrorMessage();
-                LimeLog.warning("Failed to start mic-uplink: " + lastMicUplinkMessage);
+                LimeLog.warning("Failed to start microphone uplink: " + lastMicUplinkMessage);
                 micUplinkConnection.stop();
                 micUplinkConnection = null;
+                micUplinkState = MicUplinkState.ERROR;
                 return false;
             }
 
-            lastMicUplinkMessage = "mic-uplink started";
+            micUplinkState = MicUplinkState.ON;
+            lastMicUplinkMessage = "麦克风已开启";
             return true;
         }
         catch (Exception e) {
-            lastMicUplinkMessage = "mic-uplink unavailable: " + e.getMessage();
+            lastMicUplinkMessage = "麦克风不可用：" + e.getMessage();
             LimeLog.warning(lastMicUplinkMessage);
             if (micUplinkConnection != null) {
                 micUplinkConnection.stop();
                 micUplinkConnection = null;
             }
+            micUplinkState = MicUplinkState.ERROR;
             return false;
         }
-    }
-
-    private static String tokenPrefixHex(byte[] token, int byteCount) {
-        if (token == null) {
-            return "null";
-        }
-
-        int count = Math.min(byteCount, token.length);
-        final char[] lut = "0123456789ABCDEF".toCharArray();
-        char[] chars = new char[count * 2];
-        for (int i = 0; i < count; i++) {
-            int value = token[i] & 0xFF;
-            chars[i * 2] = lut[value >>> 4];
-            chars[i * 2 + 1] = lut[value & 0x0F];
-        }
-        return new String(chars);
     }
 
     private InetAddress resolveServerAddress() throws IOException {

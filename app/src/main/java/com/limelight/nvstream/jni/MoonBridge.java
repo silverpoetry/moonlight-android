@@ -444,6 +444,14 @@ public class MoonBridge {
 
     public static native int sendClipboardText(byte[] text);
 
+    public static native boolean isMicrophoneUplinkSupported();
+
+    public static native int startMicrophoneUplink(int bitrate);
+
+    public static native int sendMicrophonePcm(short[] pcm, long captureTimeUs);
+
+    public static native void stopMicrophoneUplink();
+
     public static native String getStageName(int stage);
 
     public static native String findExternalAddressIP4(String stunHostName, int stunPort);
