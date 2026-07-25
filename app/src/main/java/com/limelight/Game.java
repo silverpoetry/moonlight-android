@@ -698,6 +698,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
                 .enableNativeCursor(prefConfig.enableNativeCursor)
                 .enableClipboardSync(prefConfig.enableClipboardSync)
+                .enableClipboardImageSync(prefConfig.enableClipboardImageSync)
                 .disableAdaptiveInputThrottling(prefConfig.disableAdaptiveInputThrottling)
                 .build();
 
@@ -1108,6 +1109,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // With Android native pointer capture, capture is lost when focus is lost,
         // so it must be requested again when focus is regained.
         inputCaptureProvider.onWindowFocusChanged(hasFocus);
+        if (conn != null) {
+            conn.onWindowFocusChanged(hasFocus);
+        }
     }
 
     private boolean isRefreshRateEqualMatch(float refreshRate) {

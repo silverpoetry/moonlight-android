@@ -265,6 +265,11 @@
             android:title="@string/title_checkbox_clipboard_sync"
             android:summary="@string/summary_checkbox_clipboard_sync"
             android:defaultValue="false" />
+        <CheckBoxPreference
+            android:key="checkbox_clipboard_image_sync"
+            android:title="@string/title_checkbox_clipboard_image_sync"
+            android:summary="@string/summary_checkbox_clipboard_image_sync"
+            android:defaultValue="false" />
 
         <CheckBoxPreference
             android:key="checkbox_disable_adaptive_input_throttling"

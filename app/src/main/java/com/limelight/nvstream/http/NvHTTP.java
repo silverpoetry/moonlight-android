@@ -4,6 +4,8 @@ import android.os.Build;
 import android.text.TextUtils;
 
 import java.io.FileNotFoundException;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -17,6 +19,7 @@ import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.MessageDigest;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
@@ -46,6 +49,8 @@ import javax.net.ssl.X509TrustManager;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import com.limelight.BuildConfig;
 import com.limelight.LimeLog;
@@ -58,6 +63,8 @@ import okhttp3.ConnectionPool;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.MediaType;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 
@@ -839,6 +846,149 @@ public class NvHTTP {
         }
 
         return true;
+    }
+
+    public static final class ClipboardBlobUploadResult {
+        public final String id;
+        public final long size;
+        public final byte[] sha256;
+
+        ClipboardBlobUploadResult(String id, long size, byte[] sha256) {
+            this.id = id;
+            this.size = size;
+            this.sha256 = sha256;
+        }
+    }
+
+    public ClipboardBlobUploadResult uploadClipboardBlob(String mime, File source,
+                                                         long originId,
+                                                         String idempotencyKey) throws IOException {
+        if (source == null || !source.isFile() || source.length() <= 0 ||
+                source.length() > 32L * 1024L * 1024L) {
+            throw new IOException("Invalid clipboard blob file");
+        }
+
+        HttpUrl url = getHttpsUrl(true).newBuilder()
+                .addPathSegments("api/v2/clipboard/blobs")
+                .build();
+        RequestBody body = RequestBody.create(MediaType.parse(mime), source);
+        Request request = new Request.Builder()
+                .url(url)
+                .post(body)
+                .header("X-Clipboard-Mime", mime)
+                .header("X-Clipboard-Origin", Long.toUnsignedString(originId))
+                .header("X-Clipboard-Idempotency-Key", idempotencyKey)
+                .build();
+
+        OkHttpClient client = httpClientLongConnectTimeout.newBuilder()
+                .readTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .build();
+        try (Response response = performAndroidTlsHack(client).newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new HostHttpResponseException(response.code(), response.message());
+            }
+            ResponseBody responseBody = response.body();
+            if (responseBody == null) {
+                throw new IOException("Clipboard blob upload returned no body");
+            }
+
+            try {
+                JSONObject json = new JSONObject(responseBody.string());
+                String id = json.optString("id", "").trim();
+                long size = json.optLong("size", -1);
+                byte[] sha256 = decodeHex(json.optString("sha256", ""));
+                if (!id.matches("[0-9a-f\\-]{36}") ||
+                        size != source.length() ||
+                        sha256.length != 32) {
+                    throw new IOException("Malformed clipboard blob upload response");
+                }
+                return new ClipboardBlobUploadResult(id, size, sha256);
+            } catch (JSONException e) {
+                throw new IOException("Malformed clipboard blob upload response", e);
+            }
+        }
+    }
+
+    public File downloadClipboardBlob(String id, long originId, long expectedSize,
+                                      byte[] expectedSha256, File destination) throws IOException {
+        if (id == null || !id.matches("[0-9a-f\\-]{36}") ||
+                expectedSize <= 0 || expectedSize > 32L * 1024L * 1024L ||
+                expectedSha256 == null || expectedSha256.length != 32) {
+            throw new IOException("Invalid clipboard blob reference");
+        }
+
+        HttpUrl url = getHttpsUrl(true).newBuilder()
+                .addPathSegments("api/v2/clipboard/blobs")
+                .addPathSegment(id)
+                .build();
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .header("X-Clipboard-Origin", Long.toUnsignedString(originId))
+                .build();
+        OkHttpClient client = httpClientLongConnectTimeout.newBuilder()
+                .readTimeout(30, TimeUnit.SECONDS)
+                .build();
+
+        try (Response response = performAndroidTlsHack(client).newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new HostHttpResponseException(response.code(), response.message());
+            }
+            ResponseBody responseBody = response.body();
+            if (responseBody == null ||
+                    (responseBody.contentLength() >= 0 && responseBody.contentLength() != expectedSize)) {
+                throw new IOException("Clipboard blob size mismatch");
+            }
+
+            MessageDigest digest;
+            try {
+                digest = MessageDigest.getInstance("SHA-256");
+            } catch (NoSuchAlgorithmException e) {
+                throw new IOException("SHA-256 unavailable", e);
+            }
+
+            long total = 0;
+            byte[] buffer = new byte[32 * 1024];
+            try (InputStream input = responseBody.byteStream();
+                 FileOutputStream output = new FileOutputStream(destination)) {
+                int read;
+                while ((read = input.read(buffer)) != -1) {
+                    total += read;
+                    if (total > expectedSize) {
+                        throw new IOException("Clipboard blob exceeds advertised size");
+                    }
+                    digest.update(buffer, 0, read);
+                    output.write(buffer, 0, read);
+                }
+            } catch (IOException e) {
+                destination.delete();
+                throw e;
+            }
+
+            if (total != expectedSize ||
+                    !MessageDigest.isEqual(digest.digest(), expectedSha256)) {
+                destination.delete();
+                throw new IOException("Clipboard blob integrity check failed");
+            }
+            return destination;
+        }
+    }
+
+    private static byte[] decodeHex(String value) {
+        if (value == null || (value.length() & 1) != 0) {
+            return new byte[0];
+        }
+        byte[] decoded = new byte[value.length() / 2];
+        for (int i = 0; i < decoded.length; i++) {
+            int high = Character.digit(value.charAt(i * 2), 16);
+            int low = Character.digit(value.charAt(i * 2 + 1), 16);
+            if (high < 0 || low < 0) {
+                return new byte[0];
+            }
+            decoded[i] = (byte)((high << 4) | low);
+        }
+        return decoded;
     }
 
 }

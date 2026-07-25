@@ -68,6 +68,7 @@ public class NvConnection {
     private volatile String lastMicUplinkMessage;
     private volatile MousePositionListener mousePositionListener;
     private ClipboardSyncController clipboardSyncController;
+    private volatile NvHTTP clipboardHttp;
     private double normalizedMouseX = 0.5;
     private double normalizedMouseY = 0.5;
     private int mouseReferenceWidth;
@@ -103,6 +104,13 @@ public class NvConnection {
 
     public void setAbsoluteMousePositionMode(boolean enabled) {
         useAbsoluteMousePosition = enabled;
+    }
+
+    public void onWindowFocusChanged(boolean hasFocus) {
+        ClipboardSyncController controller = clipboardSyncController;
+        if (hasFocus && controller != null) {
+            controller.onFocusGained();
+        }
     }
 
     private static SecretKey generateRiAesKey() {
@@ -168,6 +176,7 @@ public class NvConnection {
             micUplinkConnection = null;
             micUplinkState = MicUplinkState.ERROR;
         }
+        clipboardHttp = null;
     }
 
     public synchronized void stopMicUplink() {
@@ -363,6 +372,7 @@ public class NvConnection {
     private boolean startApp() throws XmlPullParserException, IOException
     {
         NvHTTP h = new NvHTTP(context.serverAddress, context.httpsPort, uniqueId, context.serverCert, cryptoProvider);
+        clipboardHttp = h;
 
         String serverInfo = h.getServerInfo(true);
 
@@ -566,8 +576,13 @@ public class NvConnection {
                 // we must not invoke that functionality in parallel.
                 synchronized (MoonBridge.class) {
                     MoonBridge.setupBridge(videoDecoderRenderer, audioRenderer, connectionListener);
-                    if (context.streamConfig.getClipboardSyncEnabled()) {
-                        clipboardSyncController = new ClipboardSyncController(appContext);
+                    if (context.streamConfig.getClipboardSyncEnabled() ||
+                            context.streamConfig.getClipboardImageSyncEnabled()) {
+                        clipboardSyncController = new ClipboardSyncController(
+                                appContext,
+                                clipboardHttp,
+                                context.streamConfig.getClipboardSyncEnabled(),
+                                context.streamConfig.getClipboardImageSyncEnabled());
                         clipboardSyncController.start();
                     }
                     int ret = MoonBridge.startConnection(context.serverAddress.address,
@@ -584,7 +599,9 @@ public class NvConnection {
                             context.streamConfig.getColorSpace(),
                             context.streamConfig.getColorRange(),
                             context.streamConfig.getNativeCursorEnabled(),
-                            context.streamConfig.getClipboardSyncEnabled(),
+                            context.streamConfig.getClipboardSyncEnabled() ||
+                                    context.streamConfig.getClipboardImageSyncEnabled(),
+                            context.streamConfig.getClipboardCapabilities(),
                             context.streamConfig.getAdaptiveInputThrottlingDisabled());
                     if (ret != 0) {
                         if (clipboardSyncController != null) {

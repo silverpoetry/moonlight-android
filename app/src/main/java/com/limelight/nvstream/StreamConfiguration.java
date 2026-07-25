@@ -30,6 +30,7 @@ public class StreamConfiguration {
     private boolean persistGamepadsAfterDisconnect;
     private boolean enableNativeCursor;
     private boolean enableClipboardSync;
+    private boolean enableClipboardImageSync;
     private boolean disableAdaptiveInputThrottling;
     private int ppi;
     //雷蛇虚拟显示器
@@ -116,6 +117,11 @@ public class StreamConfiguration {
 
         public StreamConfiguration.Builder enableClipboardSync(boolean enable) {
             config.enableClipboardSync = enable;
+            return this;
+        }
+
+        public StreamConfiguration.Builder enableClipboardImageSync(boolean enable) {
+            config.enableClipboardImageSync = enable;
             return this;
         }
 
@@ -247,6 +253,26 @@ public class StreamConfiguration {
 
     public boolean getClipboardSyncEnabled() {
         return enableClipboardSync;
+    }
+
+    public boolean getClipboardImageSyncEnabled() {
+        return enableClipboardImageSync;
+    }
+
+    public int getClipboardCapabilities() {
+        int capabilities = 0;
+        if (enableClipboardSync || enableClipboardImageSync) {
+            capabilities |= MoonBridge.LI_CLIPBOARD_CAP_CAN_SEND |
+                    MoonBridge.LI_CLIPBOARD_CAP_CAN_RECEIVE;
+        }
+        if (enableClipboardSync) {
+            capabilities |= MoonBridge.LI_CLIPBOARD_CAP_TEXT;
+        }
+        if (enableClipboardImageSync) {
+            capabilities |= MoonBridge.LI_CLIPBOARD_CAP_PNG |
+                    MoonBridge.LI_CLIPBOARD_CAP_BLOB;
+        }
+        return capabilities;
     }
 
     public boolean getAdaptiveInputThrottlingDisabled() {

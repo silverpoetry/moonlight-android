@@ -487,6 +487,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                 .setColorRange(decoderRenderer.getPreferredColorRange())
                 .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
                 .enableClipboardSync(prefConfig.enableClipboardSync)
+                .enableClipboardImageSync(prefConfig.enableClipboardImageSync)
                 .disableAdaptiveInputThrottling(prefConfig.disableAdaptiveInputThrottling)
                 .build();
 
@@ -726,6 +727,9 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         // With Android native pointer capture, capture is lost when focus is lost,
         // so it must be requested again when focus is regained.
 //        inputCaptureProvider.onWindowFocusChanged(hasFocus);
+        if (conn != null) {
+            conn.onWindowFocusChanged(hasFocus);
+        }
     }
 
     private boolean isRefreshRateEqualMatch(float refreshRate) {

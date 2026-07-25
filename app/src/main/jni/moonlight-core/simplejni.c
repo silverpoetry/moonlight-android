@@ -211,6 +211,60 @@ Java_com_limelight_nvstream_jni_MoonBridge_sendClipboardText(JNIEnv *env, jclass
     return ret;
 }
 
+JNIEXPORT jint JNICALL
+Java_com_limelight_nvstream_jni_MoonBridge_sendClipboardContent(JNIEnv *env, jclass clazz,
+                                                                jbyte mimeType, jbyteArray data) {
+    if (data == NULL) {
+        return -1;
+    }
+
+    jsize length = (*env)->GetArrayLength(env, data);
+    jbyte* dataBuf = (*env)->GetByteArrayElements(env, data, NULL);
+    if (dataBuf == NULL) {
+        return -1;
+    }
+    int ret = LiSendClipboardContent((uint8_t)mimeType,
+                                     (const uint8_t*)dataBuf,
+                                     (uint32_t)length);
+    (*env)->ReleaseByteArrayElements(env, data, dataBuf, JNI_ABORT);
+    return ret;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_limelight_nvstream_jni_MoonBridge_sendClipboardBlobReference(
+        JNIEnv *env, jclass clazz, jbyte targetMimeType, jstring id,
+        jint size, jbyteArray sha256) {
+    if (id == NULL || sha256 == NULL || size <= 0 ||
+            (*env)->GetArrayLength(env, sha256) != LI_CLIPBOARD_SHA256_BYTES) {
+        return -1;
+    }
+
+    const char* idChars = (*env)->GetStringUTFChars(env, id, NULL);
+    jbyte* digest = (*env)->GetByteArrayElements(env, sha256, NULL);
+    if (idChars == NULL || digest == NULL) {
+        if (idChars != NULL) {
+            (*env)->ReleaseStringUTFChars(env, id, idChars);
+        }
+        if (digest != NULL) {
+            (*env)->ReleaseByteArrayElements(env, sha256, digest, JNI_ABORT);
+        }
+        return -1;
+    }
+
+    int ret = LiSendClipboardBlobReference((uint8_t)targetMimeType,
+                                           idChars,
+                                           (uint32_t)size,
+                                           (const uint8_t*)digest);
+    (*env)->ReleaseByteArrayElements(env, sha256, digest, JNI_ABORT);
+    (*env)->ReleaseStringUTFChars(env, id, idChars);
+    return ret;
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_limelight_nvstream_jni_MoonBridge_getClipboardOriginId(JNIEnv *env, jclass clazz) {
+    return (jlong)LiGetClipboardOriginId();
+}
+
 JNIEXPORT void JNICALL
 Java_com_limelight_nvstream_jni_MoonBridge_stopConnection(JNIEnv *env, jclass clazz) {
     LiStopConnection();

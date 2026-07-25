@@ -127,6 +127,16 @@ public class MoonBridge {
 
     public static final byte LI_BATTERY_PERCENTAGE_UNKNOWN = (byte)0xFF;
 
+    public static final byte LI_CLIPBOARD_MIME_TEXT_UTF8 = 0x01;
+    public static final byte LI_CLIPBOARD_MIME_PNG = 0x02;
+    public static final byte LI_CLIPBOARD_MIME_BLOB_REFERENCE = 0x03;
+
+    public static final int LI_CLIPBOARD_CAP_CAN_SEND = 0x01;
+    public static final int LI_CLIPBOARD_CAP_CAN_RECEIVE = 0x02;
+    public static final int LI_CLIPBOARD_CAP_TEXT = 0x04;
+    public static final int LI_CLIPBOARD_CAP_PNG = 0x08;
+    public static final int LI_CLIPBOARD_CAP_BLOB = 0x10;
+
     private static AudioRenderer audioRenderer;
     private static VideoDecoderRenderer videoRenderer;
     private static NvConnectionListener connectionListener;
@@ -195,6 +205,8 @@ public class MoonBridge {
     public interface ClipboardTextListener {
         void onClipboardText(byte[] text);
         void onClipboardReady();
+        void onClipboardContent(byte mimeType, long originId, long itemId, byte[] data);
+        void onClipboardReady(int version, int capabilities);
     }
 
     public static int bridgeDrSetup(int videoFormat, int width, int height, int redrawRate) {
@@ -361,6 +373,19 @@ public class MoonBridge {
         }
     }
 
+    public static void bridgeClClipboardContent(byte mimeType, long originId,
+                                                long itemId, byte[] data) {
+        if (clipboardTextListener != null) {
+            clipboardTextListener.onClipboardContent(mimeType, originId, itemId, data);
+        }
+    }
+
+    public static void bridgeClClipboardReady2(int version, int capabilities) {
+        if (clipboardTextListener != null) {
+            clipboardTextListener.onClipboardReady(version, capabilities);
+        }
+    }
+
     public static void setupBridge(VideoDecoderRenderer videoRenderer, AudioRenderer audioRenderer, NvConnectionListener connectionListener) {
         MoonBridge.videoRenderer = videoRenderer;
         MoonBridge.audioRenderer = audioRenderer;
@@ -389,6 +414,7 @@ public class MoonBridge {
                                               int colorSpace, int colorRange,
                                               boolean enableNativeCursor,
                                               boolean enableClipboardSync,
+                                              int clipboardCapabilities,
                                               boolean disableAdaptiveInputThrottling);
 
     public static native void stopConnection();
@@ -443,6 +469,13 @@ public class MoonBridge {
     public static native void sendUtf8Text(String text);
 
     public static native int sendClipboardText(byte[] text);
+
+    public static native int sendClipboardContent(byte mimeType, byte[] data);
+
+    public static native int sendClipboardBlobReference(byte targetMimeType, String id,
+                                                        int size, byte[] sha256);
+
+    public static native long getClipboardOriginId();
 
     public static native boolean isMicrophoneUplinkSupported();
 
