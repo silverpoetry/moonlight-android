@@ -139,9 +139,11 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         hostCapabilities = capabilities;
         ready = true;
 
-        // Establish a baseline only. Clipboard contents that existed before
-        // negotiation are intentionally not transmitted.
-        mainHandler.post(() -> inspectLocalClipboard(false));
+        // Preserve the established Android client behavior: once clipboard
+        // negotiation completes, publish the current clipboard. This is
+        // required when Android suspends or disconnects the stream while the
+        // user switches apps to copy content.
+        mainHandler.post(() -> inspectLocalClipboard(true));
     }
 
     @Override
