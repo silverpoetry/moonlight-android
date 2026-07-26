@@ -3,6 +3,7 @@ package com.limelight.nvstream.filetransfer;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
 import android.support.v4.provider.DocumentFile;
@@ -79,8 +80,8 @@ public final class DesktopFileUploader {
         http.completeDesktopFileUpload(transfer.id, token);
     }
 
-    private static List<FileManifest.Entry> enumerate(Context context,
-                                                       List<Uri> sourceUris)
+    static List<FileManifest.Entry> enumerate(Context context,
+                                              List<Uri> sourceUris)
             throws IOException {
         if (sourceUris == null || sourceUris.isEmpty()) {
             throw new IOException("No files were shared");
@@ -92,33 +93,148 @@ public final class DesktopFileUploader {
             if (uri == null) {
                 continue;
             }
-            DocumentFile document;
             if ("file".equalsIgnoreCase(uri.getScheme()) && uri.getPath() != null) {
-                document = DocumentFile.fromFile(new File(uri.getPath()));
+                appendTopLevelDocument(
+                        context,
+                        DocumentFile.fromFile(new File(uri.getPath())),
+                        topLevelNames,
+                        entries);
+            }
+            else if ("content".equalsIgnoreCase(uri.getScheme()) &&
+                    (isTreeUri(uri) ||
+                            DocumentsContract.isDocumentUri(context, uri))) {
+                appendTopLevelDocument(
+                        context,
+                        isTreeUri(uri) ?
+                                DocumentFile.fromTreeUri(context, uri) :
+                                DocumentFile.fromSingleUri(context, uri),
+                        topLevelNames,
+                        entries);
+            }
+            else if ("content".equalsIgnoreCase(uri.getScheme())) {
+                appendContentUri(context, uri, topLevelNames, entries);
             }
             else {
-                document = DocumentsContract.isTreeUri(uri) ?
-                        DocumentFile.fromTreeUri(context, uri) :
-                        DocumentFile.fromSingleUri(context, uri);
+                throw new IOException("Unsupported shared item URI");
             }
-            if (document == null || !document.exists() ||
-                    (!document.isFile() && !document.isDirectory())) {
-                throw new IOException("A shared item is unavailable");
-            }
-
-            String original = FileManifest.sanitizeName(document.getName());
-            String rootName = original;
-            int suffix = 2;
-            while (!topLevelNames.add(rootName.toLowerCase(java.util.Locale.ROOT))) {
-                rootName = FileManifest.appendCollisionSuffix(
-                        original, suffix++, document.isDirectory());
-            }
-            appendDocument(context, document, rootName, entries);
         }
         if (entries.isEmpty()) {
             throw new IOException("No files were shared");
         }
         return entries;
+    }
+
+    private static boolean isTreeUri(Uri uri) {
+        List<String> segments = uri.getPathSegments();
+        return segments.size() >= 2 && "tree".equals(segments.get(0));
+    }
+
+    private static void appendTopLevelDocument(
+            Context context, DocumentFile document, Set<String> topLevelNames,
+            List<FileManifest.Entry> entries) throws IOException {
+        if (document == null || !document.exists() ||
+                (!document.isFile() && !document.isDirectory())) {
+            throw new IOException("A shared item is unavailable");
+        }
+
+        String original = FileManifest.sanitizeName(document.getName());
+        String rootName = uniqueName(
+                original, document.isDirectory(), topLevelNames);
+        appendDocument(context, document, rootName, entries);
+    }
+
+    private static void appendContentUri(
+            Context context, Uri uri, Set<String> topLevelNames,
+            List<FileManifest.Entry> entries) throws IOException {
+        if (entries.size() >= FileManifest.MAX_ENTRIES) {
+            throw new IOException("Too many shared files");
+        }
+        SharedContentInfo content = querySharedContent(context, uri);
+        String rootName = uniqueName(content.name, false, topLevelNames);
+        entries.add(new FileManifest.Entry(
+                FileManifest.TYPE_REGULAR,
+                rootName,
+                content.size,
+                0,
+                uri));
+    }
+
+    private static String uniqueName(
+            String original, boolean directory, Set<String> names) {
+        String name = original;
+        int suffix = 2;
+        while (!names.add(name.toLowerCase(java.util.Locale.ROOT))) {
+            name = FileManifest.appendCollisionSuffix(
+                    original, suffix++, directory);
+        }
+        return name;
+    }
+
+    private static SharedContentInfo querySharedContent(
+            Context context, Uri uri) throws IOException {
+        String name = null;
+        long size = -1;
+        try (Cursor cursor = context.getContentResolver().query(
+                uri,
+                new String[] {
+                        OpenableColumns.DISPLAY_NAME,
+                        OpenableColumns.SIZE
+                },
+                null,
+                null,
+                null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int nameColumn = cursor.getColumnIndex(
+                        OpenableColumns.DISPLAY_NAME);
+                int sizeColumn = cursor.getColumnIndex(OpenableColumns.SIZE);
+                if (nameColumn >= 0 && !cursor.isNull(nameColumn)) {
+                    name = cursor.getString(nameColumn);
+                }
+                if (sizeColumn >= 0 && !cursor.isNull(sizeColumn)) {
+                    size = cursor.getLong(sizeColumn);
+                }
+            }
+        } catch (SecurityException error) {
+            throw new IOException("Shared item permission was not granted", error);
+        } catch (RuntimeException ignored) {
+            // Some content providers support opening streams but not metadata
+            // queries. Fall back to the URI name and descriptor size below.
+        }
+
+        if (name == null || name.isEmpty()) {
+            name = uri.getLastPathSegment();
+        }
+        if (name == null || name.isEmpty()) {
+            throw new IOException("Unable to determine shared file name");
+        }
+        if (size < 0) {
+            try (ParcelFileDescriptor descriptor =
+                         context.getContentResolver().openFileDescriptor(uri, "r")) {
+                if (descriptor != null) {
+                    size = descriptor.getStatSize();
+                }
+            } catch (SecurityException error) {
+                throw new IOException(
+                        "Shared item permission was not granted", error);
+            } catch (RuntimeException error) {
+                throw new IOException("Unable to inspect shared item", error);
+            }
+        }
+        if (size < 0 || size > FileManifest.MAX_FILE_BYTES) {
+            throw new IOException("Unable to determine shared file size");
+        }
+        return new SharedContentInfo(
+                FileManifest.sanitizeName(name), size);
+    }
+
+    private static final class SharedContentInfo {
+        final String name;
+        final long size;
+
+        SharedContentInfo(String name, long size) {
+            this.name = name;
+            this.size = size;
+        }
     }
 
     private static void appendDocument(Context context, DocumentFile document,
