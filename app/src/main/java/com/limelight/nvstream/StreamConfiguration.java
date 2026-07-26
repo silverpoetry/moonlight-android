@@ -259,17 +259,18 @@ public class StreamConfiguration {
         return enableClipboardImageSync;
     }
 
+    public boolean getClipboardProtocolEnabled() {
+        return true;
+    }
+
     public int getClipboardCapabilities() {
-        int capabilities = 0;
-        if (enableClipboardSync || enableClipboardImageSync) {
-            capabilities |= MoonBridge.LI_CLIPBOARD_CAP_CAN_SEND |
-                    MoonBridge.LI_CLIPBOARD_CAP_CAN_RECEIVE;
-        }
+        int capabilities = MoonBridge.LI_CLIPBOARD_CAP_CAN_SEND |
+                MoonBridge.LI_CLIPBOARD_CAP_CAN_RECEIVE |
+                MoonBridge.LI_CLIPBOARD_CAP_BLOB |
+                MoonBridge.LI_CLIPBOARD_CAP_FILES |
+                MoonBridge.LI_CLIPBOARD_CAP_FILE_STREAMS;
         if (enableClipboardSync) {
-            capabilities |= MoonBridge.LI_CLIPBOARD_CAP_TEXT |
-                    MoonBridge.LI_CLIPBOARD_CAP_BLOB |
-                    MoonBridge.LI_CLIPBOARD_CAP_FILES |
-                    MoonBridge.LI_CLIPBOARD_CAP_FILE_STREAMS;
+            capabilities |= MoonBridge.LI_CLIPBOARD_CAP_TEXT;
         }
         if (enableClipboardImageSync) {
             capabilities |= MoonBridge.LI_CLIPBOARD_CAP_PNG |

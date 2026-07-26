@@ -23,6 +23,7 @@ import com.limelight.nvstream.jni.MoonBridge;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -68,7 +69,6 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     private volatile String pendingLocalKey;
     private volatile String pendingRemoteKey;
     private volatile long pendingRemoteKeyExpiresAt;
-    private volatile BlobReference remoteFileReference;
 
     ClipboardSyncController(Context context, NvHTTP nvHttp, boolean syncText, boolean syncImages) {
         this.context = context.getApplicationContext();
@@ -79,7 +79,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     }
 
     synchronized void start() {
-        if (started || clipboardManager == null || (!syncText && !syncImages)) {
+        if (started || clipboardManager == null) {
             return;
         }
 
@@ -111,7 +111,6 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         pendingLocalKey = null;
         pendingRemoteKey = null;
         pendingRemoteKeyExpiresAt = 0;
-        remoteFileReference = null;
     }
 
     void onFocusGained() {
@@ -149,7 +148,6 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 syncText &&
                 canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_TEXT) &&
                 isValidUtf8Text(data)) {
-            remoteFileReference = null;
             long generation = remoteGeneration.incrementAndGet();
             applyInboundText(data, generation);
         }
@@ -157,7 +155,6 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 syncImages &&
                 canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_PNG) &&
                 isValidPngHeader(data, MAX_INLINE_PNG_BYTES)) {
-            remoteFileReference = null;
             long generation = remoteGeneration.incrementAndGet();
             ioExecutor.execute(() ->
                     applyInboundPng(originId, itemId, data, generation));
@@ -170,7 +167,6 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                     canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_FILES) &&
                     canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_FILE_STREAMS)) {
                 remoteGeneration.incrementAndGet();
-                remoteFileReference = reference;
             }
             else if (reference != null &&
                     canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_BLOB) &&
@@ -180,31 +176,18 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                             MoonBridge.LI_CLIPBOARD_CAP_TEXT) &&
                     ((reference.targetMime == MoonBridge.LI_CLIPBOARD_MIME_TEXT_UTF8 && syncText) ||
                             (reference.targetMime == MoonBridge.LI_CLIPBOARD_MIME_PNG && syncImages))) {
-                remoteFileReference = null;
                 long generation = remoteGeneration.incrementAndGet();
                 ioExecutor.execute(() ->
                         applyInboundBlob(originId, itemId, reference, generation));
             }
-            else {
-                remoteFileReference = null;
-            }
         }
-        else {
-            remoteFileReference = null;
-        }
-    }
-
-    boolean hasRemoteFiles() {
-        return started && remoteFileReference != null;
     }
 
     void downloadRemoteFiles(Uri destinationTree,
                              NvConnection.ClipboardFileDownloadListener listener) {
-        BlobReference reference = remoteFileReference;
-        if (!started || reference == null || destinationTree == null ||
-                nvHttp == null) {
+        if (!started || !ready || destinationTree == null || nvHttp == null) {
             mainHandler.post(() -> listener.onError(
-                    "远端剪贴板中没有可拉取的文件"));
+                    "剪贴板同步尚未连接"));
             return;
         }
 
@@ -214,6 +197,15 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 if (originId == 0) {
                     throw new IOException("Clipboard session is unavailable");
                 }
+                NvHTTP.ClipboardFileReference pulled =
+                        nvHttp.pullClipboardFiles(originId);
+                LimeLog.info("Remote clipboard file pull prepared manifest " +
+                        pulled.id + " (" + pulled.manifestSize + " bytes)");
+                BlobReference reference = new BlobReference(
+                        MoonBridge.LI_CLIPBOARD_MIME_FILE_MANIFEST,
+                        pulled.manifestSize,
+                        pulled.manifestSha256,
+                        pulled.id);
                 int topLevelCount = ClipboardFileDownloader.download(
                         context,
                         nvHttp,
@@ -225,6 +217,9 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                         (transferred, total) -> mainHandler.post(() ->
                                 listener.onProgress(transferred, total)));
                 mainHandler.post(() -> listener.onComplete(topLevelCount));
+            } catch (FileNotFoundException error) {
+                mainHandler.post(() -> listener.onError(
+                        "远端剪贴板中没有文件或文件夹"));
             } catch (Throwable error) {
                 LimeLog.warning("Clipboard file download failed: " +
                         error.getMessage());

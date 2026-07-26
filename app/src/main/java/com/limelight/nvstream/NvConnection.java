@@ -75,11 +75,6 @@ public class NvConnection {
     private ClipboardSyncController clipboardSyncController;
     private volatile NvHTTP clipboardHttp;
 
-    public boolean hasRemoteClipboardFiles() {
-        ClipboardSyncController controller = clipboardSyncController;
-        return controller != null && controller.hasRemoteFiles();
-    }
-
     public void downloadRemoteClipboardFiles(android.net.Uri destinationTree,
                                              ClipboardFileDownloadListener listener) {
         ClipboardSyncController controller = clipboardSyncController;
@@ -596,8 +591,7 @@ public class NvConnection {
                 // we must not invoke that functionality in parallel.
                 synchronized (MoonBridge.class) {
                     MoonBridge.setupBridge(videoDecoderRenderer, audioRenderer, connectionListener);
-                    if (context.streamConfig.getClipboardSyncEnabled() ||
-                            context.streamConfig.getClipboardImageSyncEnabled()) {
+                    if (context.streamConfig.getClipboardProtocolEnabled()) {
                         clipboardSyncController = new ClipboardSyncController(
                                 appContext,
                                 clipboardHttp,
@@ -619,8 +613,7 @@ public class NvConnection {
                             context.streamConfig.getColorSpace(),
                             context.streamConfig.getColorRange(),
                             context.streamConfig.getNativeCursorEnabled(),
-                            context.streamConfig.getClipboardSyncEnabled() ||
-                                    context.streamConfig.getClipboardImageSyncEnabled(),
+                            context.streamConfig.getClipboardProtocolEnabled(),
                             context.streamConfig.getClipboardCapabilities(),
                             context.streamConfig.getAdaptiveInputThrottlingDisabled());
                     if (ret != 0) {

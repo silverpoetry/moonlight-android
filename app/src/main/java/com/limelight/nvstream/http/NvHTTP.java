@@ -1003,6 +1003,76 @@ public class NvHTTP {
         }
     }
 
+    public static final class ClipboardFileReference {
+        public final String id;
+        public final long manifestSize;
+        public final byte[] manifestSha256;
+
+        ClipboardFileReference(String id, long manifestSize,
+                               byte[] manifestSha256) {
+            this.id = id;
+            this.manifestSize = manifestSize;
+            this.manifestSha256 = manifestSha256;
+        }
+    }
+
+    public ClipboardFileReference pullClipboardFiles(long originId)
+            throws IOException {
+        if (originId == 0) {
+            throw new IOException("Clipboard session is unavailable");
+        }
+
+        HttpUrl url = getHttpsUrl(true).newBuilder()
+                .addPathSegments("api/v2/clipboard/files/pull")
+                .build();
+        Request request = new Request.Builder()
+                .url(url)
+                .post(RequestBody.create(null, new byte[0]))
+                .header("X-Clipboard-Origin", Long.toUnsignedString(originId))
+                .build();
+        OkHttpClient client = httpClientLongConnectTimeout.newBuilder()
+                .readTimeout(30, TimeUnit.SECONDS)
+                .build();
+
+        try (Response response =
+                     performAndroidTlsHack(client).newCall(request).execute()) {
+            if (response.code() == 404) {
+                throw new FileNotFoundException(
+                        "Host clipboard does not contain files");
+            }
+            if (!response.isSuccessful()) {
+                throw new HostHttpResponseException(
+                        response.code(), response.message());
+            }
+            ResponseBody responseBody = response.body();
+            if (responseBody == null) {
+                throw new IOException(
+                        "Clipboard file pull returned no body");
+            }
+
+            try {
+                JSONObject json = new JSONObject(
+                        readUtf8ResponseBody(responseBody, 64 * 1024));
+                String id = json.optString("id", "").trim();
+                long manifestSize = json.optLong("size", -1);
+                byte[] manifestSha256 =
+                        decodeHex(json.optString("sha256", ""));
+                if (!isCanonicalUuid(id) ||
+                        manifestSize <= 0 ||
+                        manifestSize > FileManifest.MAX_MANIFEST_BYTES ||
+                        manifestSha256.length != 32) {
+                    throw new IOException(
+                            "Malformed clipboard file pull response");
+                }
+                return new ClipboardFileReference(
+                        id, manifestSize, manifestSha256);
+            } catch (JSONException error) {
+                throw new IOException(
+                        "Malformed clipboard file pull response", error);
+            }
+        }
+    }
+
     public byte[] downloadClipboardFileManifest(String id, long originId,
                                                 long expectedSize,
                                                 byte[] expectedSha256) throws IOException {

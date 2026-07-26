@@ -186,6 +186,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private boolean connecting = false;
     public boolean connected = false;
     private boolean awaitingRecordAudioPermission = false;
+    private boolean selectingClipboardFileDirectory = false;
     private boolean autoEnterPip = false;
     private boolean surfaceCreated = false;
     private boolean attemptedConnection = false;
@@ -1516,6 +1517,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         if(dialogGameMenu!=null&&dialogGameMenu.isVisible()){
             dialogGameMenu.dismiss();
+        }
+
+        if (selectingClipboardFileDirectory) {
+            return;
         }
 
         if (conn != null) {
@@ -4405,8 +4410,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     public void pullRemoteClipboardFiles() {
-        if (conn == null || !conn.hasRemoteClipboardFiles()) {
-            Toast.makeText(this, "远端剪贴板中没有文件或文件夹",
+        if (conn == null) {
+            Toast.makeText(this, "剪贴板同步尚未连接",
                     Toast.LENGTH_SHORT).show();
             return;
         }
@@ -4435,7 +4440,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
                 Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION |
                 Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
-        startActivityForResult(intent, REQUEST_CLIPBOARD_FILE_DIRECTORY);
+        selectingClipboardFileDirectory = true;
+        try {
+            startActivityForResult(intent, REQUEST_CLIPBOARD_FILE_DIRECTORY);
+        } catch (RuntimeException error) {
+            selectingClipboardFileDirectory = false;
+            Toast.makeText(this, "无法打开目录选择器",
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
     private void downloadRemoteClipboardFiles(Uri directory) {
@@ -4507,8 +4519,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != REQUEST_CLIPBOARD_FILE_DIRECTORY ||
-                resultCode != Activity.RESULT_OK || data == null ||
+        if (requestCode != REQUEST_CLIPBOARD_FILE_DIRECTORY) {
+            return;
+        }
+
+        selectingClipboardFileDirectory = false;
+        if (resultCode != Activity.RESULT_OK || data == null ||
                 data.getData() == null) {
             return;
         }
