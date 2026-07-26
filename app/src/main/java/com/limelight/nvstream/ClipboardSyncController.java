@@ -4,6 +4,7 @@ import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -46,9 +47,12 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     private static final long CACHE_RETENTION_MS = 24L * 60L * 60L * 1000L;
     private static final long REMOTE_WRITE_SUPPRESSION_MS = 1500;
     private static final String SENSITIVE_EXTRA = "android.content.extra.IS_SENSITIVE";
+    private static final String STATE_PREFERENCES = "clipboard_sync_state";
+    private static final String LAST_HANDLED_KEY = "last_handled_key";
 
     private final Context context;
     private final ClipboardManager clipboardManager;
+    private final SharedPreferences statePreferences;
     private final NvHTTP nvHttp;
     private final boolean syncText;
     private final boolean syncImages;
@@ -65,6 +69,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     private volatile boolean started;
     private volatile boolean ready;
     private volatile int hostCapabilities;
+    private volatile boolean hasPersistentClipboardState;
     private volatile String lastObservedKey;
     private volatile String pendingLocalKey;
     private volatile String pendingRemoteKey;
@@ -76,6 +81,12 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         this.syncText = syncText;
         this.syncImages = syncImages;
         clipboardManager = (ClipboardManager) this.context.getSystemService(Context.CLIPBOARD_SERVICE);
+        statePreferences = this.context.getSharedPreferences(
+                STATE_PREFERENCES, Context.MODE_PRIVATE);
+        hasPersistentClipboardState =
+                statePreferences.contains(LAST_HANDLED_KEY);
+        lastObservedKey = statePreferences.getString(
+                LAST_HANDLED_KEY, null);
     }
 
     synchronized void start() {
@@ -129,12 +140,21 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         hostCapabilities = capabilities;
         ready = true;
 
-        // Preserve the established Android client behavior: once clipboard
-        // negotiation completes, publish the current clipboard. This is
-        // required when Android suspends or disconnects the stream while the
-        // user switches apps to copy content.
+        // Publish on reconnect only when Android's clipboard changed while the
+        // stream was disconnected. On the first run, establish a baseline so
+        // stale local content cannot overwrite the host clipboard.
         if (firstReady) {
-            mainHandler.post(() -> inspectLocalClipboard(true));
+            mainHandler.post(() -> {
+                if (hasPersistentClipboardState) {
+                    inspectLocalClipboard(true);
+                }
+                else {
+                    inspectLocalClipboard(false);
+                    if (!hasPersistentClipboardState) {
+                        rememberHandledKey("");
+                    }
+                }
+            });
         }
     }
 
@@ -260,11 +280,11 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             String key = "uri:" + imageUri + ':' + clipTimestamp(description);
             if (consumeRemoteWrite(key)) {
                 localGeneration.incrementAndGet();
-                lastObservedKey = key;
+                rememberHandledKey(key);
                 return;
             }
             if (!dispatchChanges || isAlreadyHandled(key)) {
-                lastObservedKey = key;
+                rememberHandledKey(key);
                 return;
             }
             dispatchLocalImage(imageUri, key);
@@ -288,11 +308,11 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             String key = "text:" + hexSha256(bytes) + ':' + clipTimestamp(description);
             if (consumeRemoteWrite(key)) {
                 localGeneration.incrementAndGet();
-                lastObservedKey = key;
+                rememberHandledKey(key);
                 return;
             }
             if (!dispatchChanges || isAlreadyHandled(key)) {
-                lastObservedKey = key;
+                rememberHandledKey(key);
                 return;
             }
 
@@ -301,7 +321,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             int result = MoonBridge.sendClipboardContent(
                     MoonBridge.LI_CLIPBOARD_MIME_TEXT_UTF8, bytes);
             if (result == 0) {
-                lastObservedKey = key;
+                rememberHandledKey(key);
             }
             else {
                 LimeLog.warning("Failed to announce clipboard text");
@@ -345,7 +365,21 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     }
 
     private boolean isAlreadyHandled(String key) {
-        return key.equals(lastObservedKey) || key.equals(pendingLocalKey);
+        return fingerprintKey(key).equals(lastObservedKey) ||
+                key.equals(pendingLocalKey);
+    }
+
+    private void rememberHandledKey(String key) {
+        String fingerprint = fingerprintKey(key);
+        lastObservedKey = fingerprint;
+        hasPersistentClipboardState = true;
+        statePreferences.edit()
+                .putString(LAST_HANDLED_KEY, fingerprint)
+                .apply();
+    }
+
+    private String fingerprintKey(String key) {
+        return hexSha256(key.getBytes(StandardCharsets.UTF_8));
     }
 
     private void dispatchLocalImage(Uri uri, String key) {
@@ -386,7 +420,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 }
 
                 if (result == 0) {
-                    lastObservedKey = key;
+                    rememberHandledKey(key);
                 }
                 else {
                     LimeLog.warning("Failed to announce clipboard PNG");
@@ -426,7 +460,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 ClipDescription appliedDescription =
                         appliedClip == null ? null : appliedClip.getDescription();
                 String appliedKey = keyPrefix + ':' + clipTimestamp(appliedDescription);
-                lastObservedKey = appliedKey;
+                rememberHandledKey(appliedKey);
             } catch (Throwable error) {
                 pendingRemoteKey = null;
                 pendingRemoteKeyExpiresAt = 0;
@@ -532,7 +566,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 ClipDescription appliedDescription =
                         appliedClip == null ? null : appliedClip.getDescription();
                 String appliedKey = keyPrefix + ':' + clipTimestamp(appliedDescription);
-                lastObservedKey = appliedKey;
+                rememberHandledKey(appliedKey);
             } catch (Throwable error) {
                 pendingRemoteKey = null;
                 pendingRemoteKeyExpiresAt = 0;
