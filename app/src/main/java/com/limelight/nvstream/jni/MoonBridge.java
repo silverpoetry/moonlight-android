@@ -444,8 +444,7 @@ public class MoonBridge {
 
     public static native int sendTouchpadFrameEvent(byte contactCount, byte[] eventTypes,
                                                     int[] pointerIds, float[] x, float[] y,
-                                                    float[] pressure, long eventTimeMs,
-                                                    short rotation,
+                                                    float[] pressure, short rotation,
                                                     short deviceWidthMm, short deviceHeightMm,
                                                     byte buttonState);
 

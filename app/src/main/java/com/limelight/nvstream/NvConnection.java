@@ -780,13 +780,11 @@ public class NvConnection {
     }
 
     public int sendTouchpadFrameEvent(byte contactCount, byte[] eventTypes, int[] pointerIds,
-                                      float[] x, float[] y, float[] pressure, long eventTimeMs,
-                                      short rotation,
+                                      float[] x, float[] y, float[] pressure, short rotation,
                                       short deviceWidthMm, short deviceHeightMm, byte buttonState) {
         if (!isMonkey) {
             return MoonBridge.sendTouchpadFrameEvent(contactCount, eventTypes, pointerIds,
-                    x, y, pressure, eventTimeMs, rotation,
-                    deviceWidthMm, deviceHeightMm, buttonState);
+                    x, y, pressure, rotation, deviceWidthMm, deviceHeightMm, buttonState);
         }
         else {
             return MoonBridge.LI_ERR_UNSUPPORTED;
