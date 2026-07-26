@@ -70,6 +70,7 @@ Java_com_limelight_nvstream_jni_MoonBridge_sendTouchpadFrameEvent(JNIEnv *env, j
                                                                   jfloatArray xArray,
                                                                   jfloatArray yArray,
                                                                   jfloatArray pressureArray,
+                                                                  jlong eventTimeMs,
                                                                   jshort rotation,
                                                                   jshort deviceWidthMm,
                                                                   jshort deviceHeightMm,
@@ -80,8 +81,9 @@ Java_com_limelight_nvstream_jni_MoonBridge_sendTouchpadFrameEvent(JNIEnv *env, j
 
     uint8_t count = (uint8_t) contactCount;
     if (count == 0) {
-        return LiSendTouchpadFrameEvent(0, NULL, NULL, NULL, NULL, NULL,
-                                        rotation, deviceWidthMm, deviceHeightMm, buttonState);
+        return LiSendTouchpadFrameEventWithTimestamp(0, NULL, NULL, NULL, NULL, NULL,
+                                                     (uint32_t) eventTimeMs, rotation,
+                                                     deviceWidthMm, deviceHeightMm, buttonState);
     }
 
     if (eventTypesArray == NULL || pointerIdsArray == NULL || xArray == NULL ||
@@ -119,13 +121,15 @@ Java_com_limelight_nvstream_jni_MoonBridge_sendTouchpadFrameEvent(JNIEnv *env, j
         return -1;
     }
 
-    int result = LiSendTouchpadFrameEvent(count,
-                                           (const uint8_t*) eventTypes,
-                                           (const uint32_t*) pointerIds,
-                                           (const float*) x,
-                                           (const float*) y,
-                                           (const float*) pressure,
-                                           rotation, deviceWidthMm, deviceHeightMm, buttonState);
+    int result = LiSendTouchpadFrameEventWithTimestamp(count,
+                                                        (const uint8_t*) eventTypes,
+                                                        (const uint32_t*) pointerIds,
+                                                        (const float*) x,
+                                                        (const float*) y,
+                                                        (const float*) pressure,
+                                                        (uint32_t) eventTimeMs,
+                                                        rotation, deviceWidthMm,
+                                                        deviceHeightMm, buttonState);
 
     (*env)->ReleaseByteArrayElements(env, eventTypesArray, eventTypes, JNI_ABORT);
     (*env)->ReleaseIntArrayElements(env, pointerIdsArray, pointerIds, JNI_ABORT);

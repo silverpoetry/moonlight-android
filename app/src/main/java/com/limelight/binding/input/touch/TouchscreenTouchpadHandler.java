@@ -1,6 +1,7 @@
 package com.limelight.binding.input.touch;
 
 import android.os.Build;
+import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.util.SparseArray;
 import android.view.MotionEvent;
@@ -9,6 +10,7 @@ import android.view.View;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.LimeLog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +35,7 @@ public final class TouchscreenTouchpadHandler {
     private static final float MILLIMETERS_PER_INCH = 25.4f;
     private static final int MIN_TOUCHPAD_SIZE_MM = 40;
     private static final int MAX_TOUCHPAD_SIZE_MM = 200;
+    private static final long TRACE_WINDOW_MS = 500;
 
     private final NativeTouchpadSender nativeSender;
     private final TouchpadMotionSender mouseMotionSender;
@@ -45,6 +48,22 @@ public final class TouchscreenTouchpadHandler {
     private int mousePointerId;
     private int mouseX;
     private int mouseY;
+    private int traceGestureId;
+    private boolean traceGestureActive;
+    private long traceWindowStartMs;
+    private long traceLastCallbackMs;
+    private long traceLastSampleTimeMs;
+    private long traceSourceGapTotalMs;
+    private long traceSourceGapMaxMs;
+    private long traceCallbackGapMaxMs;
+    private long traceDeliveryLagTotalMs;
+    private long traceDeliveryLagMaxMs;
+    private int traceCallbackCount;
+    private int traceSampleCount;
+    private int traceSourceIntervalCount;
+    private int traceHistoricalSampleCount;
+    private int traceMaxHistorySize;
+    private int traceSendFailures;
 
     public TouchscreenTouchpadHandler(NvConnection connection, View targetView,
                                      int referenceWidth, int referenceHeight,
@@ -124,14 +143,18 @@ public final class TouchscreenTouchpadHandler {
     }
 
     private boolean beginNativeGesture(View eventView, MotionEvent event) {
+        beginTraceGesture(event);
         frameContacts.clear();
         for (int pointerIndex = 0; pointerIndex < event.getPointerCount(); pointerIndex++) {
             frameContacts.add(createContact(eventView, event, pointerIndex, CURRENT_SAMPLE,
                     MoonBridge.LI_TOUCH_EVENT_DOWN));
         }
 
-        if (!nativeSender.sendContacts(frameContacts, (byte) 0,
-                deviceWidthMm, deviceHeightMm)) {
+        boolean sent = nativeSender.sendContacts(frameContacts, (byte) 0,
+                deviceWidthMm, deviceHeightMm, event.getEventTime());
+        recordTraceSample(event.getEventTime(), false, sent);
+        if (!sent) {
+            finishTraceGesture("unsupported");
             return false;
         }
 
@@ -143,6 +166,7 @@ public final class TouchscreenTouchpadHandler {
     }
 
     private void handleNativeGesture(View eventView, MotionEvent event) {
+        recordTraceCallback(event);
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_POINTER_DOWN:
                 sendAdditionalContactDown(eventView, event);
@@ -188,19 +212,26 @@ public final class TouchscreenTouchpadHandler {
                     eventType));
         }
 
-        nativeSender.sendContacts(frameContacts, (byte) 0, deviceWidthMm, deviceHeightMm);
+        boolean sent = nativeSender.sendContacts(frameContacts, (byte) 0,
+                deviceWidthMm, deviceHeightMm, event.getEventTime());
+        recordTraceSample(event.getEventTime(), false, sent);
         syncActiveContacts(frameContacts);
     }
 
     private void sendNativeMoves(View eventView, MotionEvent event) {
         for (int historyIndex = 0; historyIndex < event.getHistorySize(); historyIndex++) {
             List<Contact> contacts = createMoveFrame(eventView, event, historyIndex);
-            nativeSender.sendContacts(contacts, (byte) 0, deviceWidthMm, deviceHeightMm);
+            long sampleTimeMs = event.getHistoricalEventTime(historyIndex);
+            boolean sent = nativeSender.sendContacts(contacts, (byte) 0,
+                    deviceWidthMm, deviceHeightMm, sampleTimeMs);
+            recordTraceSample(sampleTimeMs, true, sent);
             syncActiveContacts(contacts);
         }
 
         List<Contact> contacts = createMoveFrame(eventView, event, CURRENT_SAMPLE);
-        nativeSender.sendContacts(contacts, (byte) 0, deviceWidthMm, deviceHeightMm);
+        boolean sent = nativeSender.sendContacts(contacts, (byte) 0,
+                deviceWidthMm, deviceHeightMm, event.getEventTime());
+        recordTraceSample(event.getEventTime(), false, sent);
         syncActiveContacts(contacts);
     }
 
@@ -224,7 +255,9 @@ public final class TouchscreenTouchpadHandler {
                     eventType));
         }
 
-        nativeSender.sendContacts(frameContacts, (byte) 0, deviceWidthMm, deviceHeightMm);
+        boolean sent = nativeSender.sendContacts(frameContacts, (byte) 0,
+                deviceWidthMm, deviceHeightMm, event.getEventTime());
+        recordTraceSample(event.getEventTime(), false, sent);
         syncActiveContacts(frameContacts);
         activeContacts.remove(actionPointerId);
     }
@@ -246,8 +279,11 @@ public final class TouchscreenTouchpadHandler {
             frameContacts.add(createContact(eventView, event, pointerIndex, CURRENT_SAMPLE,
                     eventType));
         }
-        nativeSender.sendContacts(frameContacts, (byte) 0, deviceWidthMm, deviceHeightMm);
+        boolean sent = nativeSender.sendContacts(frameContacts, (byte) 0,
+                deviceWidthMm, deviceHeightMm, event.getEventTime());
+        recordTraceSample(event.getEventTime(), false, sent);
         mouseMotionSender.resendAbsoluteMousePosition();
+        finishTraceGesture("native-end");
 
         activeContacts.clear();
         beginMouseRemainder(event, remainingIndex);
@@ -382,6 +418,7 @@ public final class TouchscreenTouchpadHandler {
     }
 
     private void resetState() {
+        finishTraceGesture("end");
         activeContacts.clear();
         clearMouseRemainder();
         gestureState = GestureState.IDLE;
@@ -428,6 +465,117 @@ public final class TouchscreenTouchpadHandler {
         return !Float.isNaN(value) && !Float.isInfinite(value);
     }
 
+    private void beginTraceGesture(MotionEvent event) {
+        traceGestureActive = true;
+        traceGestureId++;
+        traceWindowStartMs = SystemClock.elapsedRealtime();
+        traceLastCallbackMs = traceWindowStartMs;
+        traceLastSampleTimeMs = 0;
+        resetTraceWindow();
+        traceCallbackCount = 1;
+        traceMaxHistorySize = event.getHistorySize();
+        LimeLog.info("TPTRACE_ANDROID_GESTURE phase=begin gesture=" + traceGestureId +
+                " t_ms=" + traceWindowStartMs + " event_ms=" + event.getEventTime() +
+                " pointers=" + event.getPointerCount());
+    }
+
+    private void recordTraceCallback(MotionEvent event) {
+        if (!traceGestureActive) {
+            return;
+        }
+
+        long now = SystemClock.elapsedRealtime();
+        long callbackGap = now - traceLastCallbackMs;
+        traceCallbackGapMaxMs = Math.max(traceCallbackGapMaxMs, callbackGap);
+        traceLastCallbackMs = now;
+        traceCallbackCount++;
+        traceMaxHistorySize = Math.max(traceMaxHistorySize, event.getHistorySize());
+    }
+
+    private void recordTraceSample(long sampleTimeMs, boolean historical, boolean sent) {
+        if (!traceGestureActive) {
+            return;
+        }
+
+        long now = SystemClock.elapsedRealtime();
+        if (traceLastSampleTimeMs != 0) {
+            long sourceGap = sampleTimeMs - traceLastSampleTimeMs;
+            if (sourceGap >= 0) {
+                traceSourceGapTotalMs += sourceGap;
+                traceSourceGapMaxMs = Math.max(traceSourceGapMaxMs, sourceGap);
+                traceSourceIntervalCount++;
+            }
+        }
+        traceLastSampleTimeMs = sampleTimeMs;
+        traceSampleCount++;
+        if (historical) {
+            traceHistoricalSampleCount++;
+        }
+        if (!sent) {
+            traceSendFailures++;
+        }
+
+        long deliveryLag = Math.max(0, now - sampleTimeMs);
+        traceDeliveryLagTotalMs += deliveryLag;
+        traceDeliveryLagMaxMs = Math.max(traceDeliveryLagMaxMs, deliveryLag);
+
+        if (now - traceWindowStartMs >= TRACE_WINDOW_MS) {
+            logTraceWindow(now, false);
+        }
+    }
+
+    private void finishTraceGesture(String reason) {
+        if (!traceGestureActive) {
+            return;
+        }
+
+        long now = SystemClock.elapsedRealtime();
+        logTraceWindow(now, true);
+        LimeLog.info("TPTRACE_ANDROID_GESTURE phase=end gesture=" + traceGestureId +
+                " t_ms=" + now + " reason=" + reason);
+        traceGestureActive = false;
+    }
+
+    private void logTraceWindow(long now, boolean finalWindow) {
+        long elapsedMs = Math.max(1, now - traceWindowStartMs);
+        if (traceSampleCount != 0 || finalWindow) {
+            double rateHz = traceSampleCount * 1000.0 / elapsedMs;
+            double sourceGapAverage = traceSourceIntervalCount == 0 ? 0 :
+                    traceSourceGapTotalMs / (double) traceSourceIntervalCount;
+            double deliveryLagAverage = traceSampleCount == 0 ? 0 :
+                    traceDeliveryLagTotalMs / (double) traceSampleCount;
+            LimeLog.info("TPTRACE_ANDROID_SOURCE t_ms=" + now +
+                    " window_ms=" + elapsedMs + " gesture=" + traceGestureId +
+                    " samples=" + traceSampleCount + " rate_hz=" + rateHz +
+                    " callbacks=" + traceCallbackCount +
+                    " historical=" + traceHistoricalSampleCount +
+                    " history_max=" + traceMaxHistorySize +
+                    " source_gap_avg_ms=" + sourceGapAverage +
+                    " source_gap_max_ms=" + traceSourceGapMaxMs +
+                    " callback_gap_max_ms=" + traceCallbackGapMaxMs +
+                    " delivery_lag_avg_ms=" + deliveryLagAverage +
+                    " delivery_lag_max_ms=" + traceDeliveryLagMaxMs +
+                    " send_failures=" + traceSendFailures +
+                    " final=" + finalWindow);
+        }
+        traceWindowStartMs = now;
+        resetTraceWindow();
+    }
+
+    private void resetTraceWindow() {
+        traceSourceGapTotalMs = 0;
+        traceSourceGapMaxMs = 0;
+        traceCallbackGapMaxMs = 0;
+        traceDeliveryLagTotalMs = 0;
+        traceDeliveryLagMaxMs = 0;
+        traceCallbackCount = 0;
+        traceSampleCount = 0;
+        traceSourceIntervalCount = 0;
+        traceHistoricalSampleCount = 0;
+        traceMaxHistorySize = 0;
+        traceSendFailures = 0;
+    }
+
     private static final class Contact {
         final byte eventType;
         final int pointerId;
@@ -464,7 +612,7 @@ public final class TouchscreenTouchpadHandler {
         }
 
         boolean sendContacts(List<Contact> contacts, byte buttonState,
-                             short deviceWidthMm, short deviceHeightMm) {
+                             short deviceWidthMm, short deviceHeightMm, long eventTimeMs) {
             if (contacts.isEmpty()) {
                 return false;
             }
@@ -480,7 +628,8 @@ public final class TouchscreenTouchpadHandler {
                 }
 
                 int result = connection.sendTouchpadFrameEvent((byte) contacts.size(),
-                        eventTypes, pointerIds, x, y, pressure, MoonBridge.LI_ROT_UNKNOWN,
+                        eventTypes, pointerIds, x, y, pressure, eventTimeMs,
+                        MoonBridge.LI_ROT_UNKNOWN,
                         deviceWidthMm, deviceHeightMm, buttonState);
                 if (result == 0) {
                     return true;
