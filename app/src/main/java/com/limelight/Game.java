@@ -83,6 +83,7 @@ import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -119,8 +120,10 @@ import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.support.v4.provider.DocumentFile;
 
 import java.io.ByteArrayInputStream;
 import java.lang.reflect.InvocationTargetException;
@@ -140,6 +143,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         PerfOverlayListener, UsbDriverService.UsbDriverStateListener, View.OnKeyListener{
     private static final float EXTERNAL_TOUCHPAD_SCROLL_FACTOR = 0.15f;
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 1001;
+    private static final int REQUEST_CLIPBOARD_FILE_DIRECTORY = 1107;
     public static Game instance;
 
     private int lastButtonState = 0;
@@ -4397,6 +4401,134 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (clip != null && clip.getItemCount() > 0) {
             String text=clip.getItemAt(0).coerceToText(this).toString();
             conn.sendUtf8Text(text);
+        }
+    }
+
+    public void pullRemoteClipboardFiles() {
+        if (conn == null || !conn.hasRemoteClipboardFiles()) {
+            Toast.makeText(this, "远端剪贴板中没有文件或文件夹",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        SharedPreferences preferences =
+                PreferenceManager.getDefaultSharedPreferences(this);
+        String configured = preferences.getString(
+                PreferenceConfiguration.CLIPBOARD_FILE_DIRECTORY_PREF_STRING, "");
+        if (configured != null && !configured.isEmpty()) {
+            try {
+                Uri directory = Uri.parse(configured);
+                DocumentFile document = DocumentFile.fromTreeUri(this, directory);
+                if (document != null && document.isDirectory() && document.canWrite()) {
+                    downloadRemoteClipboardFiles(directory);
+                    return;
+                }
+            } catch (Throwable ignored) {
+            }
+            preferences.edit()
+                    .remove(PreferenceConfiguration.CLIPBOARD_FILE_DIRECTORY_PREF_STRING)
+                    .apply();
+        }
+
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
+                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION |
+                Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+        startActivityForResult(intent, REQUEST_CLIPBOARD_FILE_DIRECTORY);
+    }
+
+    private void downloadRemoteClipboardFiles(Uri directory) {
+        final ProgressBar progress = new ProgressBar(
+                this, null, android.R.attr.progressBarStyleHorizontal);
+        progress.setMax(1000);
+        final TextView status = new TextView(this);
+        status.setText("正在准备文件…");
+        status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        int padding = UiHelper.dpToPx(this, 24);
+        content.setPadding(padding, padding, padding, padding);
+        content.addView(status, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        progressParams.topMargin = UiHelper.dpToPx(this, 16);
+        content.addView(progress, progressParams);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("拉取远端剪贴板文件")
+                .setView(content)
+                .setCancelable(false)
+                .create();
+        dialog.show();
+
+        conn.downloadRemoteClipboardFiles(directory,
+                new NvConnection.ClipboardFileDownloadListener() {
+                    @Override
+                    public void onProgress(long transferredBytes, long totalBytes) {
+                        if (isFinishing() || isDestroyed()) {
+                            return;
+                        }
+                        int value = totalBytes == 0 ? 1000 :
+                                (int)Math.min(1000,
+                                        transferredBytes * 1000 / totalBytes);
+                        progress.setProgress(value);
+                        status.setText(Formatter.formatFileSize(
+                                Game.this, transferredBytes) + " / " +
+                                Formatter.formatFileSize(Game.this, totalBytes));
+                    }
+
+                    @Override
+                    public void onComplete(int topLevelItemCount) {
+                        if (dialog.isShowing()) {
+                            dialog.dismiss();
+                        }
+                        Toast.makeText(Game.this,
+                                "已保存 " + topLevelItemCount + " 个项目",
+                                Toast.LENGTH_LONG).show();
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        if (dialog.isShowing()) {
+                            dialog.dismiss();
+                        }
+                        Toast.makeText(Game.this,
+                                "拉取失败：" + message,
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_CLIPBOARD_FILE_DIRECTORY ||
+                resultCode != Activity.RESULT_OK || data == null ||
+                data.getData() == null) {
+            return;
+        }
+
+        Uri directory = data.getData();
+        int flags = data.getFlags() &
+                (Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        try {
+            getContentResolver().takePersistableUriPermission(directory, flags);
+            PreferenceManager.getDefaultSharedPreferences(this)
+                    .edit()
+                    .putString(
+                            PreferenceConfiguration.CLIPBOARD_FILE_DIRECTORY_PREF_STRING,
+                            directory.toString())
+                    .apply();
+            downloadRemoteClipboardFiles(directory);
+        } catch (SecurityException error) {
+            Toast.makeText(this, "无法保留该目录的访问权限",
+                    Toast.LENGTH_LONG).show();
         }
     }
 

@@ -41,6 +41,11 @@ import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 
 public class NvConnection {
+    public interface ClipboardFileDownloadListener {
+        void onProgress(long transferredBytes, long totalBytes);
+        void onComplete(int topLevelItemCount);
+        void onError(String message);
+    }
     public enum MicUplinkState {
         UNAVAILABLE,
         OFF,
@@ -69,6 +74,21 @@ public class NvConnection {
     private volatile MousePositionListener mousePositionListener;
     private ClipboardSyncController clipboardSyncController;
     private volatile NvHTTP clipboardHttp;
+
+    public boolean hasRemoteClipboardFiles() {
+        ClipboardSyncController controller = clipboardSyncController;
+        return controller != null && controller.hasRemoteFiles();
+    }
+
+    public void downloadRemoteClipboardFiles(android.net.Uri destinationTree,
+                                             ClipboardFileDownloadListener listener) {
+        ClipboardSyncController controller = clipboardSyncController;
+        if (controller == null) {
+            listener.onError("剪贴板同步尚未连接");
+            return;
+        }
+        controller.downloadRemoteFiles(destinationTree, listener);
+    }
     private double normalizedMouseX = 0.5;
     private double normalizedMouseY = 0.5;
     private int mouseReferenceWidth;

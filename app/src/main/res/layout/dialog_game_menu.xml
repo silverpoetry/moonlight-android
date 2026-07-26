@@ -341,6 +341,19 @@
 
         </LinearLayout>
 
+        <Button
+            android:id="@+id/btn_pull_clipboard_files"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_margin="5dp"
+            android:background="@drawable/ic_game_menu_btn_selector"
+            android:drawableLeft="@drawable/ic_axi_clipboard_send"
+            android:drawablePadding="8dp"
+            android:gravity="center"
+            android:padding="6dp"
+            android:text="@string/clipboard_file_pull"
+            android:textSize="11dp" />
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

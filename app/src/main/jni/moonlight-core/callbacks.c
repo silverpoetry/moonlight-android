@@ -39,10 +39,8 @@ static jmethodID BridgeClRumbleTriggersMethod;
 static jmethodID BridgeClSetMotionEventStateMethod;
 static jmethodID BridgeClSetControllerLEDMethod;
 static jmethodID BridgeClNativeCursorMethod;
-static jmethodID BridgeClClipboardTextMethod;
 static jmethodID BridgeClClipboardReadyMethod;
 static jmethodID BridgeClClipboardContentMethod;
-static jmethodID BridgeClClipboardReady2Method;
 static jbyteArray DecodedFrameBuffer;
 static jshortArray DecodedAudioBuffer;
 
@@ -108,10 +106,8 @@ Java_com_limelight_nvstream_jni_MoonBridge_init(JNIEnv *env, jclass clazz) {
     BridgeClSetMotionEventStateMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClSetMotionEventState", "(SBS)V");
     BridgeClSetControllerLEDMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClSetControllerLED", "(SBBB)V");
     BridgeClNativeCursorMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClNativeCursor", "(ZZIIIIIIIIII[B)V");
-    BridgeClClipboardTextMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClClipboardText", "([B)V");
-    BridgeClClipboardReadyMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClClipboardReady", "()V");
     BridgeClClipboardContentMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClClipboardContent", "(BJJ[B)V");
-    BridgeClClipboardReady2Method = (*env)->GetStaticMethodID(env, clazz, "bridgeClClipboardReady2", "(II)V");
+    BridgeClClipboardReadyMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClClipboardReady", "(I)V");
 }
 
 int BridgeDrSetup(int videoFormat, int width, int height, int redrawRate, void* context, int drFlags) {
@@ -436,35 +432,6 @@ void BridgeClNativeCursor(PSS_NATIVE_CURSOR_UPDATE cursorUpdate) {
     }
 }
 
-void BridgeClClipboardText(const uint8_t* text, uint32_t length) {
-    JNIEnv* env = GetThreadEnv();
-    jbyteArray textData = (*env)->NewByteArray(env, length);
-    if (textData == NULL) {
-        return;
-    }
-
-    if (length != 0) {
-        (*env)->SetByteArrayRegion(env, textData, 0, length, (const jbyte*)text);
-    }
-
-    (*env)->CallStaticVoidMethod(env, GlobalBridgeClass, BridgeClClipboardTextMethod, textData);
-    (*env)->DeleteLocalRef(env, textData);
-    if ((*env)->ExceptionCheck(env)) {
-        // We will crash here
-        (*JVM)->DetachCurrentThread(JVM);
-    }
-}
-
-void BridgeClClipboardReady(void) {
-    JNIEnv* env = GetThreadEnv();
-
-    (*env)->CallStaticVoidMethod(env, GlobalBridgeClass, BridgeClClipboardReadyMethod);
-    if ((*env)->ExceptionCheck(env)) {
-        // We will crash here
-        (*JVM)->DetachCurrentThread(JVM);
-    }
-}
-
 void BridgeClClipboardContent(PSS_CLIPBOARD_CONTENT content) {
     JNIEnv* env = GetThreadEnv();
     jbyteArray data = (*env)->NewByteArray(env, content->length);
@@ -487,11 +454,11 @@ void BridgeClClipboardContent(PSS_CLIPBOARD_CONTENT content) {
     }
 }
 
-void BridgeClClipboardReady2(uint8_t version, uint8_t capabilities) {
+void BridgeClClipboardReady(uint8_t capabilities) {
     JNIEnv* env = GetThreadEnv();
 
-    (*env)->CallStaticVoidMethod(env, GlobalBridgeClass, BridgeClClipboardReady2Method,
-                                 (jint)version, (jint)capabilities);
+    (*env)->CallStaticVoidMethod(env, GlobalBridgeClass, BridgeClClipboardReadyMethod,
+                                 (jint)capabilities);
     if ((*env)->ExceptionCheck(env)) {
         (*JVM)->DetachCurrentThread(JVM);
     }
@@ -535,10 +502,8 @@ static CONNECTION_LISTENER_CALLBACKS BridgeConnListenerCallbacks = {
         .setMotionEventState = BridgeClSetMotionEventState,
         .setControllerLED = BridgeClSetControllerLED,
         .nativeCursor = BridgeClNativeCursor,
-        .clipboardText = BridgeClClipboardText,
-        .clipboardReady = BridgeClClipboardReady,
         .clipboardContent = BridgeClClipboardContent,
-        .clipboardReady2 = BridgeClClipboardReady2,
+        .clipboardReady = BridgeClClipboardReady,
 };
 
 static bool

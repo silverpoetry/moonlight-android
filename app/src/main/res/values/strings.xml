@@ -210,6 +210,11 @@
     <string name="summary_checkbox_clipboard_sync">Synchronize UTF-8 text clipboard contents with supported Sunshine hosts while streaming.</string>
     <string name="title_checkbox_clipboard_image_sync">Sync clipboard images</string>
     <string name="summary_checkbox_clipboard_image_sync">Synchronize PNG images with supported Sunshine hosts while streaming. Large images use the existing encrypted host connection.</string>
+    <string name="title_clipboard_file_save_directory">剪贴板文件保存目录</string>
+    <string name="summary_clipboard_file_save_directory">首次拉取时选择，应用仅访问你授权的目录</string>
+    <string name="clipboard_file_save_directory_selected">当前目录：%1$s</string>
+    <string name="clipboard_file_pull">拉取远端剪贴板文件</string>
+    <string name="desktop_file_share_target">推送至桌面</string>
     <string name="title_checkbox_disable_adaptive_input_throttling">Disable adaptive input throttling</string>
     <string name="summary_checkbox_disable_adaptive_input_throttling">Prevent ENet from intentionally dropping real-time input events when network latency varies. Packets remain non-retransmitted, but upstream traffic may increase slightly.</string>
     <string name="title_checkbox_mouse_nav_buttons">Enable back and forward mouse buttons</string>

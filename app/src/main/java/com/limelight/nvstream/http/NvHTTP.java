@@ -58,6 +58,7 @@ import org.json.JSONObject;
 import com.limelight.BuildConfig;
 import com.limelight.LimeLog;
 import com.limelight.nvstream.ConnectionContext;
+import com.limelight.nvstream.filetransfer.FileManifest;
 import com.limelight.nvstream.http.PairingManager.PairState;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.utils.RazerUtils;
@@ -1002,6 +1003,227 @@ public class NvHTTP {
         }
     }
 
+    public byte[] downloadClipboardFileManifest(String id, long originId,
+                                                long expectedSize,
+                                                byte[] expectedSha256) throws IOException {
+        if (!isCanonicalUuid(id) || originId == 0 ||
+                expectedSize <= 0 || expectedSize > FileManifest.MAX_MANIFEST_BYTES ||
+                expectedSha256 == null || expectedSha256.length != 32) {
+            throw new IOException("Invalid clipboard file reference");
+        }
+
+        HttpUrl url = getHttpsUrl(true).newBuilder()
+                .addPathSegments("api/v2/clipboard/files")
+                .addPathSegment(id)
+                .addPathSegment("manifest")
+                .build();
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .header("X-Clipboard-Origin", Long.toUnsignedString(originId))
+                .build();
+        OkHttpClient client = httpClientLongConnectTimeout.newBuilder()
+                .readTimeout(90, TimeUnit.SECONDS)
+                .build();
+
+        try (Response response = performAndroidTlsHack(client).newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new HostHttpResponseException(response.code(), response.message());
+            }
+            ResponseBody responseBody = response.body();
+            MediaType contentType = responseBody == null ? null : responseBody.contentType();
+            byte[] responseSha256 = decodeHex(response.header("X-Clipboard-SHA256", ""));
+            if (responseBody == null ||
+                    responseBody.contentLength() != expectedSize ||
+                    contentType == null ||
+                    !"application/vnd.moonlight.file-manifest".equals(
+                            contentType.type() + "/" + contentType.subtype()) ||
+                    !MessageDigest.isEqual(responseSha256, expectedSha256)) {
+                throw new IOException("Clipboard file manifest metadata mismatch");
+            }
+            byte[] manifest = readResponseBodyBytes(responseBody,
+                    FileManifest.MAX_MANIFEST_BYTES);
+            if (manifest.length != expectedSize ||
+                    !MessageDigest.isEqual(sha256(manifest), expectedSha256)) {
+                throw new IOException("Clipboard file manifest integrity check failed");
+            }
+            return manifest;
+        }
+    }
+
+    public byte[] downloadClipboardFileChunk(String id, long originId,
+                                             int fileIndex, long offset,
+                                             int length) throws IOException {
+        if (!isCanonicalUuid(id) || originId == 0 || fileIndex < 0 ||
+                offset < 0 || length <= 0 ||
+                length > FileManifest.MAX_CHUNK_BYTES) {
+            throw new IOException("Invalid clipboard file range");
+        }
+
+        HttpUrl url = getHttpsUrl(true).newBuilder()
+                .addPathSegments("api/v2/clipboard/files")
+                .addPathSegment(id)
+                .addPathSegment(Integer.toString(fileIndex))
+                .addQueryParameter("offset", Long.toString(offset))
+                .addQueryParameter("length", Integer.toString(length))
+                .build();
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .header("X-Clipboard-Origin", Long.toUnsignedString(originId))
+                .build();
+        OkHttpClient client = httpClientLongConnectTimeout.newBuilder()
+                .readTimeout(90, TimeUnit.SECONDS)
+                .build();
+
+        try (Response response = performAndroidTlsHack(client).newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new HostHttpResponseException(response.code(), response.message());
+            }
+            ResponseBody responseBody = response.body();
+            byte[] responseSha256 = decodeHex(response.header("X-Clipboard-SHA256", ""));
+            long responseOffset;
+            try {
+                responseOffset = Long.parseLong(response.header("X-Clipboard-Offset", "-1"));
+            } catch (NumberFormatException error) {
+                responseOffset = -1;
+            }
+            if (responseBody == null ||
+                    responseBody.contentLength() != length ||
+                    responseOffset != offset ||
+                    responseSha256.length != 32) {
+                throw new IOException("Clipboard file chunk metadata mismatch");
+            }
+            byte[] bytes = readResponseBodyBytes(responseBody,
+                    FileManifest.MAX_CHUNK_BYTES);
+            if (bytes.length != length ||
+                    !MessageDigest.isEqual(sha256(bytes), responseSha256)) {
+                throw new IOException("Clipboard file chunk integrity check failed");
+            }
+            return bytes;
+        }
+    }
+
+    public static final class DesktopFileUploadResult {
+        public final String id;
+        public final long manifestSize;
+        public final byte[] manifestSha256;
+
+        DesktopFileUploadResult(String id, long manifestSize,
+                                byte[] manifestSha256) {
+            this.id = id;
+            this.manifestSize = manifestSize;
+            this.manifestSha256 = manifestSha256;
+        }
+    }
+
+    public DesktopFileUploadResult beginDesktopFileUpload(byte[] manifest,
+                                                           String token,
+                                                           String idempotencyKey)
+            throws IOException {
+        if (manifest == null || manifest.length == 0 ||
+                manifest.length > FileManifest.MAX_MANIFEST_BYTES ||
+                !isTransferToken(token) ||
+                !isCanonicalUuid(idempotencyKey)) {
+            throw new IOException("Invalid desktop file transfer request");
+        }
+        byte[] manifestSha256 = sha256(manifest);
+        HttpUrl url = getHttpsUrl(true).newBuilder()
+                .addPathSegments("api/files/desktop")
+                .build();
+        Request request = new Request.Builder()
+                .url(url)
+                .post(RequestBody.create(
+                        MediaType.parse("application/vnd.moonlight.file-manifest"),
+                        manifest))
+                .header("X-Moonlight-Transfer-Token", token)
+                .header("X-Moonlight-Idempotency-Key", idempotencyKey)
+                .build();
+        OkHttpClient client = httpClientLongConnectTimeout.newBuilder()
+                .readTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .build();
+
+        try (Response response = performAndroidTlsHack(client).newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new HostHttpResponseException(response.code(), response.message());
+            }
+            ResponseBody body = response.body();
+            if (body == null) {
+                throw new IOException("Desktop transfer returned no body");
+            }
+            try {
+                JSONObject json = new JSONObject(readUtf8ResponseBody(body, 64 * 1024));
+                String id = json.optString("id", "");
+                long size = json.optLong("size", -1);
+                byte[] digest = decodeHex(json.optString("sha256", ""));
+                if (!isCanonicalUuid(id) || size != manifest.length ||
+                        !MessageDigest.isEqual(digest, manifestSha256)) {
+                    throw new IOException("Malformed desktop transfer response");
+                }
+                return new DesktopFileUploadResult(id, size, digest);
+            } catch (JSONException error) {
+                throw new IOException("Malformed desktop transfer response", error);
+            }
+        }
+    }
+
+    public void uploadDesktopFileChunk(String id, String token, int fileIndex,
+                                       long offset, byte[] bytes)
+            throws IOException {
+        if (!isCanonicalUuid(id) || !isTransferToken(token) ||
+                fileIndex < 0 || offset < 0 || bytes == null ||
+                bytes.length == 0 || bytes.length > FileManifest.MAX_CHUNK_BYTES) {
+            throw new IOException("Invalid desktop file chunk");
+        }
+        HttpUrl url = getHttpsUrl(true).newBuilder()
+                .addPathSegments("api/files/desktop")
+                .addPathSegment(id)
+                .addPathSegment(Integer.toString(fileIndex))
+                .addQueryParameter("offset", Long.toString(offset))
+                .build();
+        Request request = new Request.Builder()
+                .url(url)
+                .put(RequestBody.create(MediaType.parse("application/octet-stream"), bytes))
+                .header("X-Moonlight-Transfer-Token", token)
+                .header("X-Moonlight-Chunk-SHA256", encodeHex(sha256(bytes)))
+                .build();
+        OkHttpClient client = httpClientLongConnectTimeout.newBuilder()
+                .readTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .build();
+        try (Response response = performAndroidTlsHack(client).newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new HostHttpResponseException(response.code(), response.message());
+            }
+        }
+    }
+
+    public void completeDesktopFileUpload(String id, String token)
+            throws IOException {
+        if (!isCanonicalUuid(id) || !isTransferToken(token)) {
+            throw new IOException("Invalid desktop file transfer");
+        }
+        HttpUrl url = getHttpsUrl(true).newBuilder()
+                .addPathSegments("api/files/desktop")
+                .addPathSegment(id)
+                .addPathSegment("complete")
+                .build();
+        Request request = new Request.Builder()
+                .url(url)
+                .post(RequestBody.create(null, new byte[0]))
+                .header("X-Moonlight-Transfer-Token", token)
+                .build();
+        OkHttpClient client = httpClientLongConnectTimeout.newBuilder()
+                .readTimeout(60, TimeUnit.SECONDS)
+                .build();
+        try (Response response = performAndroidTlsHack(client).newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new HostHttpResponseException(response.code(), response.message());
+            }
+        }
+    }
+
     private static byte[] decodeHex(String value) {
         if (value == null || (value.length() & 1) != 0) {
             return new byte[0];
@@ -1016,6 +1238,61 @@ public class NvHTTP {
             decoded[i] = (byte)((high << 4) | low);
         }
         return decoded;
+    }
+
+    private static String encodeHex(byte[] value) {
+        final char[] alphabet = "0123456789abcdef".toCharArray();
+        char[] encoded = new char[value.length * 2];
+        for (int index = 0; index < value.length; index++) {
+            encoded[index * 2] = alphabet[(value[index] >>> 4) & 0xF];
+            encoded[index * 2 + 1] = alphabet[value[index] & 0xF];
+        }
+        return new String(encoded);
+    }
+
+    private static boolean isTransferToken(String token) {
+        if (token == null || token.length() != 64) {
+            return false;
+        }
+        for (int index = 0; index < token.length(); index++) {
+            char character = token.charAt(index);
+            if ((character < '0' || character > '9') &&
+                    (character < 'a' || character > 'f')) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static byte[] readResponseBodyBytes(ResponseBody responseBody,
+                                                int maximumBytes) throws IOException {
+        long contentLength = responseBody.contentLength();
+        if (contentLength > maximumBytes) {
+            throw new IOException("HTTP response exceeded the size limit");
+        }
+        ByteArrayOutputStream output = new ByteArrayOutputStream(
+                contentLength > 0 ? (int)contentLength : Math.min(maximumBytes, 4096));
+        byte[] buffer = new byte[32 * 1024];
+        int total = 0;
+        try (InputStream input = responseBody.byteStream()) {
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                total += read;
+                if (total > maximumBytes) {
+                    throw new IOException("HTTP response exceeded the size limit");
+                }
+                output.write(buffer, 0, read);
+            }
+        }
+        return output.toByteArray();
+    }
+
+    private static byte[] sha256(byte[] value) throws IOException {
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(value);
+        } catch (NoSuchAlgorithmException error) {
+            throw new IOException("SHA-256 unavailable", error);
+        }
     }
 
     private static String readUtf8ResponseBody(ResponseBody responseBody,

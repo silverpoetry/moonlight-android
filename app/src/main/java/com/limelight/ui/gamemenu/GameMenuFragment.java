@@ -135,6 +135,7 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
         v.findViewById(R.id.bt_device).setOnClickListener(this);
         v.findViewById(R.id.bt_other_setting).setOnClickListener(this);
         v.findViewById(R.id.btn_soft_function).setOnClickListener(this);
+        v.findViewById(R.id.btn_pull_clipboard_files).setOnClickListener(this);
 
         v.findViewById(R.id.btn_performance).setOnLongClickListener(new View.OnLongClickListener() {
             @Override
@@ -556,6 +557,12 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
             return;
         }
 
+        if (v.getId() == R.id.btn_pull_clipboard_files) {
+            dismiss();
+            if (game != null) {
+                game.pullRemoteClipboardFiles();
+            }
+        }
     }
 
     private void showKeyboard(){

@@ -68,6 +68,7 @@ public class PreferenceConfiguration {
     private static final String ABSOLUTE_MOUSE_MODE_PREF_STRING = "checkbox_absolute_mouse_mode";
     public static final String CLIPBOARD_SYNC_PREF_STRING = "checkbox_clipboard_sync";
     public static final String CLIPBOARD_IMAGE_SYNC_PREF_STRING = "checkbox_clipboard_image_sync";
+    public static final String CLIPBOARD_FILE_DIRECTORY_PREF_STRING = "clipboard_file_save_directory";
     private static final String DISABLE_ADAPTIVE_INPUT_THROTTLING_PREF_STRING = "checkbox_disable_adaptive_input_throttling";
     private static final String ENABLE_AUDIO_FX_PREF_STRING = "checkbox_enable_audiofx";
     private static final String ENABLE_AUDIO_HAPTICS_PREF_STRING = "checkbox_enable_audio_haptics";

@@ -16,6 +16,8 @@ import android.os.SystemClock;
 import android.support.v4.content.FileProvider;
 
 import com.limelight.LimeLog;
+import com.limelight.nvstream.filetransfer.ClipboardFileDownloader;
+import com.limelight.nvstream.filetransfer.FileManifest;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.jni.MoonBridge;
 
@@ -35,9 +37,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
 class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedListener,
-        MoonBridge.ClipboardTextListener {
-    private static final int PROTOCOL_V1 = 1;
-    private static final int PROTOCOL_V2 = 2;
+        MoonBridge.ClipboardListener {
     private static final int MAX_TEXT_BYTES = 1024 * 1024;
     private static final int MAX_INLINE_PNG_BYTES = 1024 * 1024;
     private static final long MAX_BLOB_BYTES = 32L * 1024L * 1024L;
@@ -63,12 +63,12 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
 
     private volatile boolean started;
     private volatile boolean ready;
-    private volatile int protocolVersion;
     private volatile int hostCapabilities;
     private volatile String lastObservedKey;
     private volatile String pendingLocalKey;
     private volatile String pendingRemoteKey;
     private volatile long pendingRemoteKeyExpiresAt;
+    private volatile BlobReference remoteFileReference;
 
     ClipboardSyncController(Context context, NvHTTP nvHttp, boolean syncText, boolean syncImages) {
         this.context = context.getApplicationContext();
@@ -85,9 +85,8 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
 
         started = true;
         ready = false;
-        protocolVersion = 0;
         hostCapabilities = 0;
-        MoonBridge.setClipboardTextListener(this);
+        MoonBridge.setClipboardListener(this);
         mainHandler.post(() -> {
             if (!started) {
                 return;
@@ -106,12 +105,13 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         ready = false;
         localGeneration.incrementAndGet();
         remoteGeneration.incrementAndGet();
-        MoonBridge.setClipboardTextListener(null);
+        MoonBridge.setClipboardListener(null);
         mainHandler.post(() -> clipboardManager.removePrimaryClipChangedListener(this));
         ioExecutor.shutdownNow();
         pendingLocalKey = null;
         pendingRemoteKey = null;
         pendingRemoteKeyExpiresAt = 0;
+        remoteFileReference = null;
     }
 
     void onFocusGained() {
@@ -125,20 +125,8 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     }
 
     @Override
-    public void onClipboardReady() {
-        if (protocolVersion == PROTOCOL_V2) {
-            return;
-        }
-        onClipboardReady(PROTOCOL_V1,
-                MoonBridge.LI_CLIPBOARD_CAP_CAN_SEND |
-                        MoonBridge.LI_CLIPBOARD_CAP_CAN_RECEIVE |
-                        MoonBridge.LI_CLIPBOARD_CAP_TEXT);
-    }
-
-    @Override
-    public void onClipboardReady(int version, int capabilities) {
+    public void onClipboardReady(int capabilities) {
         boolean firstReady = !ready;
-        protocolVersion = version;
         hostCapabilities = capabilities;
         ready = true;
 
@@ -152,11 +140,6 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     }
 
     @Override
-    public void onClipboardText(byte[] text) {
-        onClipboardContent(MoonBridge.LI_CLIPBOARD_MIME_TEXT_UTF8, 0, 0, text);
-    }
-
-    @Override
     public void onClipboardContent(byte mimeType, long originId, long itemId, byte[] data) {
         if (!started || data == null) {
             return;
@@ -166,6 +149,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 syncText &&
                 canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_TEXT) &&
                 isValidUtf8Text(data)) {
+            remoteFileReference = null;
             long generation = remoteGeneration.incrementAndGet();
             applyInboundText(data, generation);
         }
@@ -173,6 +157,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 syncImages &&
                 canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_PNG) &&
                 isValidPngHeader(data, MAX_INLINE_PNG_BYTES)) {
+            remoteFileReference = null;
             long generation = remoteGeneration.incrementAndGet();
             ioExecutor.execute(() ->
                     applyInboundPng(originId, itemId, data, generation));
@@ -180,7 +165,14 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         else if (mimeType == MoonBridge.LI_CLIPBOARD_MIME_BLOB_REFERENCE) {
             BlobReference reference = decodeBlobReference(data);
             if (reference != null &&
-                    protocolVersion == PROTOCOL_V2 &&
+                    reference.targetMime == MoonBridge.LI_CLIPBOARD_MIME_FILE_MANIFEST &&
+                    canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_BLOB) &&
+                    canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_FILES) &&
+                    canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_FILE_STREAMS)) {
+                remoteGeneration.incrementAndGet();
+                remoteFileReference = reference;
+            }
+            else if (reference != null &&
                     canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_BLOB) &&
                     canReceiveFromHost(reference.targetMime ==
                             MoonBridge.LI_CLIPBOARD_MIME_PNG ?
@@ -188,11 +180,60 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                             MoonBridge.LI_CLIPBOARD_CAP_TEXT) &&
                     ((reference.targetMime == MoonBridge.LI_CLIPBOARD_MIME_TEXT_UTF8 && syncText) ||
                             (reference.targetMime == MoonBridge.LI_CLIPBOARD_MIME_PNG && syncImages))) {
+                remoteFileReference = null;
                 long generation = remoteGeneration.incrementAndGet();
                 ioExecutor.execute(() ->
                         applyInboundBlob(originId, itemId, reference, generation));
             }
+            else {
+                remoteFileReference = null;
+            }
         }
+        else {
+            remoteFileReference = null;
+        }
+    }
+
+    boolean hasRemoteFiles() {
+        return started && remoteFileReference != null;
+    }
+
+    void downloadRemoteFiles(Uri destinationTree,
+                             NvConnection.ClipboardFileDownloadListener listener) {
+        BlobReference reference = remoteFileReference;
+        if (!started || reference == null || destinationTree == null ||
+                nvHttp == null) {
+            mainHandler.post(() -> listener.onError(
+                    "远端剪贴板中没有可拉取的文件"));
+            return;
+        }
+
+        ioExecutor.execute(() -> {
+            try {
+                long originId = MoonBridge.getClipboardOriginId();
+                if (originId == 0) {
+                    throw new IOException("Clipboard session is unavailable");
+                }
+                int topLevelCount = ClipboardFileDownloader.download(
+                        context,
+                        nvHttp,
+                        destinationTree,
+                        reference.id,
+                        originId,
+                        reference.size,
+                        reference.sha256,
+                        (transferred, total) -> mainHandler.post(() ->
+                                listener.onProgress(transferred, total)));
+                mainHandler.post(() -> listener.onComplete(topLevelCount));
+            } catch (Throwable error) {
+                LimeLog.warning("Clipboard file download failed: " +
+                        error.getMessage());
+                mainHandler.post(() -> listener.onError(
+                        error.getMessage() == null ?
+                                "文件拉取失败" :
+                                error.getMessage()));
+            }
+        });
     }
 
     private void inspectLocalClipboard(boolean dispatchChanges) {
@@ -262,9 +303,8 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
 
             localGeneration.incrementAndGet();
             pendingLocalKey = key;
-            int result = protocolVersion == PROTOCOL_V2 ?
-                    MoonBridge.sendClipboardContent(MoonBridge.LI_CLIPBOARD_MIME_TEXT_UTF8, bytes) :
-                    MoonBridge.sendClipboardText(bytes);
+            int result = MoonBridge.sendClipboardContent(
+                    MoonBridge.LI_CLIPBOARD_MIME_TEXT_UTF8, bytes);
             if (result == 0) {
                 lastObservedKey = key;
             }
@@ -329,8 +369,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                     byte[] png = readFileBounded(pngFile, MAX_INLINE_PNG_BYTES);
                     result = MoonBridge.sendClipboardContent(MoonBridge.LI_CLIPBOARD_MIME_PNG, png);
                 }
-                else if (protocolVersion == PROTOCOL_V2 &&
-                        (hostCapabilities & MoonBridge.LI_CLIPBOARD_CAP_BLOB) != 0 &&
+                else if ((hostCapabilities & MoonBridge.LI_CLIPBOARD_CAP_BLOB) != 0 &&
                         nvHttp != null) {
                     NvHTTP.ClipboardBlobUploadResult upload = nvHttp.uploadClipboardBlob(
                             "image/png",
@@ -648,7 +687,8 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         byte targetMime = data[1];
         int idLength = data[2] & 0xFF;
         if ((targetMime != MoonBridge.LI_CLIPBOARD_MIME_TEXT_UTF8 &&
-                targetMime != MoonBridge.LI_CLIPBOARD_MIME_PNG) ||
+                targetMime != MoonBridge.LI_CLIPBOARD_MIME_PNG &&
+                targetMime != MoonBridge.LI_CLIPBOARD_MIME_FILE_MANIFEST) ||
                 idLength == 0 || idLength > 64 || data.length != 40 + idLength) {
             return null;
         }
@@ -659,7 +699,10 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 (((long)data[7] & 0xFF) << 24);
         byte[] sha256 = Arrays.copyOfRange(data, 8, 40);
         String id = new String(data, 40, idLength, StandardCharsets.US_ASCII);
-        if (size <= 0 || size > MAX_BLOB_BYTES || !isCanonicalUuid(id)) {
+        long maximumSize = targetMime == MoonBridge.LI_CLIPBOARD_MIME_FILE_MANIFEST ?
+                FileManifest.MAX_MANIFEST_BYTES :
+                MAX_BLOB_BYTES;
+        if (size <= 0 || size > maximumSize || !isCanonicalUuid(id)) {
             return null;
         }
         return new BlobReference(targetMime, size, sha256, id);

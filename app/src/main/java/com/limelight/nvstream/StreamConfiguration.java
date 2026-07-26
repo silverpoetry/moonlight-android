@@ -266,7 +266,10 @@ public class StreamConfiguration {
                     MoonBridge.LI_CLIPBOARD_CAP_CAN_RECEIVE;
         }
         if (enableClipboardSync) {
-            capabilities |= MoonBridge.LI_CLIPBOARD_CAP_TEXT;
+            capabilities |= MoonBridge.LI_CLIPBOARD_CAP_TEXT |
+                    MoonBridge.LI_CLIPBOARD_CAP_BLOB |
+                    MoonBridge.LI_CLIPBOARD_CAP_FILES |
+                    MoonBridge.LI_CLIPBOARD_CAP_FILE_STREAMS;
         }
         if (enableClipboardImageSync) {
             capabilities |= MoonBridge.LI_CLIPBOARD_CAP_PNG |

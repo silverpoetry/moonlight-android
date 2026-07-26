@@ -23,6 +23,7 @@ import android.os.Vibrator;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.support.v4.content.FileProvider;
+import android.support.v4.provider.DocumentFile;
 import android.text.InputFilter;
 import android.text.InputType;
 import android.text.TextUtils;
@@ -85,6 +86,7 @@ public class StreamSettings extends Activity {
     private static final int READ_DATA_KEY_REQUEST_CODE = 1005;
     private static final int READ_REQUEST_SWITCH_BUTTON_CODE = 1007;
     private static final int READ_REQUEST_SCREEN_IMAGE_CODE = 1008;
+    private static final int CLIPBOARD_DIRECTORY_REQUEST_CODE = 1009;
     private static final int MAX_BITRATE_KBPS = 50000;
     private static final int FEATURED_SECTION_INDEX = -1;
     private static final String EXTRA_SECTION_INDEX = "com.limelight.preferences.StreamSettings.SECTION_INDEX";
@@ -1154,6 +1156,14 @@ public class StreamSettings extends Activity {
         else if ("import_image_file_key".equals(key)) {
             openDocument("image/*", READ_REQUEST_SCREEN_IMAGE_CODE);
         }
+        else if (PreferenceConfiguration.CLIPBOARD_FILE_DIRECTORY_PREF_STRING.equals(key)) {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
+                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION |
+                    Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+            startActivityForResult(intent, CLIPBOARD_DIRECTORY_REQUEST_CODE);
+        }
         else if ("export_keyboard_file".equals(key)) {
             exportKeyboard(false);
         }
@@ -1226,6 +1236,27 @@ public class StreamSettings extends Activity {
         applyDeviceVisibility();
         addCustomResolution();
         initializeDisplayCapabilities();
+        initializeClipboardDirectory();
+    }
+
+    private void initializeClipboardDirectory() {
+        SettingsItem item = findItem(
+                PreferenceConfiguration.CLIPBOARD_FILE_DIRECTORY_PREF_STRING);
+        if (item == null) {
+            return;
+        }
+        String value = store.prefs.getString(
+                PreferenceConfiguration.CLIPBOARD_FILE_DIRECTORY_PREF_STRING, "");
+        if (TextUtils.isEmpty(value)) {
+            return;
+        }
+        try {
+            DocumentFile directory = DocumentFile.fromTreeUri(this, Uri.parse(value));
+            String name = directory == null ? null : directory.getName();
+            item.summary = getString(R.string.clipboard_file_save_directory_selected,
+                    TextUtils.isEmpty(name) ? value : name);
+        } catch (Throwable ignored) {
+        }
     }
 
     private void initializeBitrateSetting() {
@@ -1625,6 +1656,27 @@ public class StreamSettings extends Activity {
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == CLIPBOARD_DIRECTORY_REQUEST_CODE &&
+                resultCode == Activity.RESULT_OK && data != null &&
+                data.getData() != null) {
+            Uri directory = data.getData();
+            int flags = data.getFlags() &
+                    (Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            try {
+                getContentResolver().takePersistableUriPermission(directory, flags);
+                store.prefs.edit()
+                        .putString(
+                                PreferenceConfiguration.CLIPBOARD_FILE_DIRECTORY_PREF_STRING,
+                                directory.toString())
+                        .apply();
+                reloadSettings();
+            } catch (SecurityException error) {
+                Toast.makeText(this, "无法保留该目录的访问权限",
+                        Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
         if ((requestCode == READ_REQUEST_CODE || requestCode == GAMEPAD_READ_REQUEST_CODE) && resultCode == Activity.RESULT_OK && data.getData() != null) {
             try {
                 Uri uri = data.getData();
