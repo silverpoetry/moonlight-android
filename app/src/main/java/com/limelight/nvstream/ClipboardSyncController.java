@@ -58,6 +58,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         return thread;
     });
     private final AtomicLong localGeneration = new AtomicLong();
+    private final AtomicLong remoteGeneration = new AtomicLong();
     private final AtomicLong clipboardChangeSequence = new AtomicLong();
 
     private volatile boolean started;
@@ -104,6 +105,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         started = false;
         ready = false;
         localGeneration.incrementAndGet();
+        remoteGeneration.incrementAndGet();
         MoonBridge.setClipboardTextListener(null);
         mainHandler.post(() -> clipboardManager.removePrimaryClipChangedListener(this));
         ioExecutor.shutdownNow();
@@ -135,6 +137,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
 
     @Override
     public void onClipboardReady(int version, int capabilities) {
+        boolean firstReady = !ready;
         protocolVersion = version;
         hostCapabilities = capabilities;
         ready = true;
@@ -143,7 +146,9 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         // negotiation completes, publish the current clipboard. This is
         // required when Android suspends or disconnects the stream while the
         // user switches apps to copy content.
-        mainHandler.post(() -> inspectLocalClipboard(true));
+        if (firstReady) {
+            mainHandler.post(() -> inspectLocalClipboard(true));
+        }
     }
 
     @Override
@@ -157,33 +162,59 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             return;
         }
 
-        if (mimeType == MoonBridge.LI_CLIPBOARD_MIME_TEXT_UTF8 && syncText) {
-            applyInboundText(data);
+        if (mimeType == MoonBridge.LI_CLIPBOARD_MIME_TEXT_UTF8 &&
+                syncText &&
+                canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_TEXT) &&
+                isValidUtf8Text(data)) {
+            long generation = remoteGeneration.incrementAndGet();
+            applyInboundText(data, generation);
         }
-        else if (mimeType == MoonBridge.LI_CLIPBOARD_MIME_PNG && syncImages) {
-            ioExecutor.execute(() -> applyInboundPng(originId, itemId, data));
+        else if (mimeType == MoonBridge.LI_CLIPBOARD_MIME_PNG &&
+                syncImages &&
+                canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_PNG) &&
+                isValidPngHeader(data, MAX_INLINE_PNG_BYTES)) {
+            long generation = remoteGeneration.incrementAndGet();
+            ioExecutor.execute(() ->
+                    applyInboundPng(originId, itemId, data, generation));
         }
         else if (mimeType == MoonBridge.LI_CLIPBOARD_MIME_BLOB_REFERENCE) {
             BlobReference reference = decodeBlobReference(data);
             if (reference != null &&
+                    protocolVersion == PROTOCOL_V2 &&
+                    canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_BLOB) &&
+                    canReceiveFromHost(reference.targetMime ==
+                            MoonBridge.LI_CLIPBOARD_MIME_PNG ?
+                            MoonBridge.LI_CLIPBOARD_CAP_PNG :
+                            MoonBridge.LI_CLIPBOARD_CAP_TEXT) &&
                     ((reference.targetMime == MoonBridge.LI_CLIPBOARD_MIME_TEXT_UTF8 && syncText) ||
                             (reference.targetMime == MoonBridge.LI_CLIPBOARD_MIME_PNG && syncImages))) {
-                ioExecutor.execute(() -> applyInboundBlob(originId, itemId, reference));
+                long generation = remoteGeneration.incrementAndGet();
+                ioExecutor.execute(() ->
+                        applyInboundBlob(originId, itemId, reference, generation));
             }
         }
     }
 
     private void inspectLocalClipboard(boolean dispatchChanges) {
         if (!started || clipboardManager == null || !clipboardManager.hasPrimaryClip()) {
+            if (dispatchChanges) {
+                localGeneration.incrementAndGet();
+            }
             return;
         }
 
         ClipData clipData = clipboardManager.getPrimaryClip();
         if (clipData == null || clipData.getItemCount() == 0) {
+            if (dispatchChanges) {
+                localGeneration.incrementAndGet();
+            }
             return;
         }
         ClipDescription description = clipData.getDescription();
         if (description == null || isSensitive(description)) {
+            if (dispatchChanges) {
+                localGeneration.incrementAndGet();
+            }
             return;
         }
 
@@ -191,7 +222,12 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         Uri imageUri = findImageUri(description, item);
         if (imageUri != null && syncImages && canUse(MoonBridge.LI_CLIPBOARD_CAP_PNG)) {
             String key = "uri:" + imageUri + ':' + clipTimestamp(description);
-            if (consumeRemoteWrite(key) || !dispatchChanges || isAlreadyHandled(key)) {
+            if (consumeRemoteWrite(key)) {
+                localGeneration.incrementAndGet();
+                lastObservedKey = key;
+                return;
+            }
+            if (!dispatchChanges || isAlreadyHandled(key)) {
                 lastObservedKey = key;
                 return;
             }
@@ -214,11 +250,17 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 return;
             }
             String key = "text:" + hexSha256(bytes) + ':' + clipTimestamp(description);
-            if (consumeRemoteWrite(key) || !dispatchChanges || isAlreadyHandled(key)) {
+            if (consumeRemoteWrite(key)) {
+                localGeneration.incrementAndGet();
+                lastObservedKey = key;
+                return;
+            }
+            if (!dispatchChanges || isAlreadyHandled(key)) {
                 lastObservedKey = key;
                 return;
             }
 
+            localGeneration.incrementAndGet();
             pendingLocalKey = key;
             int result = protocolVersion == PROTOCOL_V2 ?
                     MoonBridge.sendClipboardContent(MoonBridge.LI_CLIPBOARD_MIME_TEXT_UTF8, bytes) :
@@ -230,11 +272,22 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 LimeLog.warning("Failed to announce clipboard text");
             }
             pendingLocalKey = null;
+            return;
+        }
+
+        if (dispatchChanges) {
+            localGeneration.incrementAndGet();
         }
     }
 
     private boolean canUse(int capability) {
         return ready && (hostCapabilities & MoonBridge.LI_CLIPBOARD_CAP_CAN_RECEIVE) != 0 &&
+                (hostCapabilities & capability) != 0;
+    }
+
+    private boolean canReceiveFromHost(int capability) {
+        return ready &&
+                (hostCapabilities & MoonBridge.LI_CLIPBOARD_CAP_CAN_SEND) != 0 &&
                 (hostCapabilities & capability) != 0;
     }
 
@@ -317,18 +370,15 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         });
     }
 
-    private void applyInboundText(byte[] data) {
-        if (data.length > MAX_TEXT_BYTES || containsNull(data)) {
+    private void applyInboundText(byte[] data, long generation) {
+        if (!isValidUtf8Text(data)) {
             return;
         }
         String value = new String(data, StandardCharsets.UTF_8);
-        if (!Arrays.equals(value.getBytes(StandardCharsets.UTF_8), data)) {
-            return;
-        }
 
         String keyPrefix = "text:" + hexSha256(data);
         mainHandler.post(() -> {
-            if (!started) {
+            if (!isCurrentRemoteGeneration(generation)) {
                 return;
             }
             pendingRemoteKey = keyPrefix;
@@ -351,8 +401,10 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         });
     }
 
-    private void applyInboundPng(long originId, long itemId, byte[] data) {
-        if (data.length > MAX_INLINE_PNG_BYTES || !hasPngSignature(data)) {
+    private void applyInboundPng(long originId, long itemId, byte[] data,
+                                 long generation) {
+        if (!isCurrentRemoteGeneration(generation) ||
+                !isValidPngHeader(data, MAX_INLINE_PNG_BYTES)) {
             return;
         }
         File target = inboundCacheFile(originId, itemId, data);
@@ -367,11 +419,15 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             target.delete();
             return;
         }
-        applyInboundImageUri(target);
+        applyInboundImageUri(target, generation);
     }
 
-    private void applyInboundBlob(long originId, long itemId, BlobReference reference) {
-        if (reference.size <= 0 || reference.size > MAX_BLOB_BYTES || nvHttp == null) {
+    private void applyInboundBlob(long originId, long itemId,
+                                  BlobReference reference, long generation) {
+        if (!isCurrentRemoteGeneration(generation) ||
+                reference.size <= 0 ||
+                reference.size > MAX_BLOB_BYTES ||
+                nvHttp == null) {
             return;
         }
 
@@ -380,11 +436,14 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                         Long.toUnsignedString(itemId) + '-' + reference.id + ".tmp");
         try {
             nvHttp.downloadClipboardBlob(reference.id,
+                    reference.targetMime == MoonBridge.LI_CLIPBOARD_MIME_PNG ?
+                            "image/png" :
+                            "text/plain",
                     MoonBridge.getClipboardOriginId(),
                     reference.size,
                     reference.sha256,
                     target);
-            if (!started) {
+            if (!isCurrentRemoteGeneration(generation)) {
                 target.delete();
                 return;
             }
@@ -392,7 +451,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             if (reference.targetMime == MoonBridge.LI_CLIPBOARD_MIME_TEXT_UTF8) {
                 byte[] text = readFileBounded(target, MAX_TEXT_BYTES);
                 target.delete();
-                applyInboundText(text);
+                applyInboundText(text, generation);
             }
             else if (reference.targetMime == MoonBridge.LI_CLIPBOARD_MIME_PNG) {
                 if (!isValidPngFile(target)) {
@@ -404,7 +463,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                     copyFile(target, immutable, MAX_BLOB_BYTES);
                     target.delete();
                 }
-                applyInboundImageUri(immutable);
+                applyInboundImageUri(immutable, generation);
             }
         } catch (Throwable error) {
             target.delete();
@@ -412,7 +471,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         }
     }
 
-    private void applyInboundImageUri(File file) {
+    private void applyInboundImageUri(File file, long generation) {
         Uri uri;
         try {
             uri = FileProvider.getUriForFile(context,
@@ -424,7 +483,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         }
 
         mainHandler.post(() -> {
-            if (!started) {
+            if (!isCurrentRemoteGeneration(generation)) {
                 return;
             }
             try {
@@ -466,6 +525,10 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             return uri;
         }
         return null;
+    }
+
+    private boolean isCurrentRemoteGeneration(long generation) {
+        return started && generation == remoteGeneration.get();
     }
 
     private boolean isSensitive(ClipDescription description) {
@@ -563,7 +626,8 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         }
         try (FileInputStream input = new FileInputStream(file)) {
             byte[] header = new byte[24];
-            if (input.read(header) != header.length || !hasPngSignature(header)) {
+            if (input.read(header) != header.length ||
+                    !isValidPngHeader(header, MAX_BLOB_BYTES)) {
                 return false;
             }
         } catch (IOException error) {
@@ -595,7 +659,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 (((long)data[7] & 0xFF) << 24);
         byte[] sha256 = Arrays.copyOfRange(data, 8, 40);
         String id = new String(data, 40, idLength, StandardCharsets.US_ASCII);
-        if (size <= 0 || size > MAX_BLOB_BYTES || !id.matches("[0-9a-f\\-]{36}")) {
+        if (size <= 0 || size > MAX_BLOB_BYTES || !isCanonicalUuid(id)) {
             return null;
         }
         return new BlobReference(targetMime, size, sha256, id);
@@ -699,9 +763,17 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         return false;
     }
 
-    private static boolean hasPngSignature(byte[] data) {
+    private static boolean isValidUtf8Text(byte[] data) {
+        if (data.length > MAX_TEXT_BYTES || containsNull(data)) {
+            return false;
+        }
+        String value = new String(data, StandardCharsets.UTF_8);
+        return Arrays.equals(value.getBytes(StandardCharsets.UTF_8), data);
+    }
+
+    private static boolean isValidPngHeader(byte[] data, long maximumSize) {
         byte[] signature = {(byte)0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
-        if (data.length < signature.length) {
+        if (data.length < 24 || data.length > maximumSize) {
             return false;
         }
         for (int i = 0; i < signature.length; i++) {
@@ -709,7 +781,32 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 return false;
             }
         }
-        return true;
+        if (data[12] != 'I' || data[13] != 'H' ||
+                data[14] != 'D' || data[15] != 'R') {
+            return false;
+        }
+
+        long width = readUnsignedIntBigEndian(data, 16);
+        long height = readUnsignedIntBigEndian(data, 20);
+        return width != 0 &&
+                height != 0 &&
+                width <= MAX_IMAGE_PIXELS / height;
+    }
+
+    private static long readUnsignedIntBigEndian(byte[] data, int offset) {
+        return ((long)data[offset] & 0xFF) << 24 |
+                ((long)data[offset + 1] & 0xFF) << 16 |
+                ((long)data[offset + 2] & 0xFF) << 8 |
+                ((long)data[offset + 3] & 0xFF);
+    }
+
+    private static boolean isCanonicalUuid(String value) {
+        try {
+            return value != null &&
+                    UUID.fromString(value).toString().equals(value);
+        } catch (IllegalArgumentException error) {
+            return false;
+        }
     }
 
     private static String hexSha256(byte[] data) {

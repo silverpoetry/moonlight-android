@@ -3,8 +3,10 @@ package com.limelight.nvstream.http;
 import android.os.Build;
 import android.text.TextUtils;
 
+import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,6 +17,7 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.Proxy;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -863,10 +866,17 @@ public class NvHTTP {
     public ClipboardBlobUploadResult uploadClipboardBlob(String mime, File source,
                                                          long originId,
                                                          String idempotencyKey) throws IOException {
-        if (source == null || !source.isFile() || source.length() <= 0 ||
-                source.length() > 32L * 1024L * 1024L) {
+        if ((!"image/png".equals(mime) && !"text/plain".equals(mime)) ||
+                source == null ||
+                !source.isFile() ||
+                source.length() <= 0 ||
+                source.length() > 32L * 1024L * 1024L ||
+                originId == 0 ||
+                idempotencyKey == null ||
+                !idempotencyKey.matches("[A-Za-z0-9._-]{1,128}")) {
             throw new IOException("Invalid clipboard blob file");
         }
+        byte[] sourceSha256 = sha256File(source);
 
         HttpUrl url = getHttpsUrl(true).newBuilder()
                 .addPathSegments("api/v2/clipboard/blobs")
@@ -894,13 +904,15 @@ public class NvHTTP {
             }
 
             try {
-                JSONObject json = new JSONObject(responseBody.string());
+                JSONObject json = new JSONObject(
+                        readUtf8ResponseBody(responseBody, 64 * 1024));
                 String id = json.optString("id", "").trim();
                 long size = json.optLong("size", -1);
                 byte[] sha256 = decodeHex(json.optString("sha256", ""));
-                if (!id.matches("[0-9a-f\\-]{36}") ||
+                if (!isCanonicalUuid(id) ||
                         size != source.length() ||
-                        sha256.length != 32) {
+                        sha256.length != 32 ||
+                        !MessageDigest.isEqual(sha256, sourceSha256)) {
                     throw new IOException("Malformed clipboard blob upload response");
                 }
                 return new ClipboardBlobUploadResult(id, size, sha256);
@@ -910,11 +922,16 @@ public class NvHTTP {
         }
     }
 
-    public File downloadClipboardBlob(String id, long originId, long expectedSize,
+    public File downloadClipboardBlob(String id, String expectedMime, long originId,
+                                      long expectedSize,
                                       byte[] expectedSha256, File destination) throws IOException {
-        if (id == null || !id.matches("[0-9a-f\\-]{36}") ||
+        if (!isCanonicalUuid(id) ||
+                (!"image/png".equals(expectedMime) &&
+                        !"text/plain".equals(expectedMime)) ||
+                originId == 0 ||
                 expectedSize <= 0 || expectedSize > 32L * 1024L * 1024L ||
-                expectedSha256 == null || expectedSha256.length != 32) {
+                expectedSha256 == null || expectedSha256.length != 32 ||
+                destination == null) {
             throw new IOException("Invalid clipboard blob reference");
         }
 
@@ -939,6 +956,16 @@ public class NvHTTP {
             if (responseBody == null ||
                     (responseBody.contentLength() >= 0 && responseBody.contentLength() != expectedSize)) {
                 throw new IOException("Clipboard blob size mismatch");
+            }
+            MediaType contentType = responseBody.contentType();
+            byte[] responseSha256 = decodeHex(response.header("X-Clipboard-SHA256", ""));
+            String responseMime = contentType == null ?
+                    null :
+                    contentType.type() + "/" + contentType.subtype();
+            if (contentType == null ||
+                    !expectedMime.equals(responseMime) ||
+                    !MessageDigest.isEqual(responseSha256, expectedSha256)) {
+                throw new IOException("Clipboard blob metadata mismatch");
             }
 
             MessageDigest digest;
@@ -989,6 +1016,57 @@ public class NvHTTP {
             decoded[i] = (byte)((high << 4) | low);
         }
         return decoded;
+    }
+
+    private static String readUtf8ResponseBody(ResponseBody responseBody,
+                                               int maximumBytes) throws IOException {
+        long contentLength = responseBody.contentLength();
+        if (contentLength > maximumBytes) {
+            throw new IOException("HTTP response exceeded the size limit");
+        }
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream(
+                contentLength > 0 ? (int)contentLength : Math.min(maximumBytes, 4096));
+        byte[] buffer = new byte[4096];
+        int total = 0;
+        try (InputStream input = responseBody.byteStream()) {
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                total += read;
+                if (total > maximumBytes) {
+                    throw new IOException("HTTP response exceeded the size limit");
+                }
+                output.write(buffer, 0, read);
+            }
+        }
+        return new String(output.toByteArray(), StandardCharsets.UTF_8);
+    }
+
+    private static byte[] sha256File(File source) throws IOException {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IOException("SHA-256 unavailable", e);
+        }
+
+        byte[] buffer = new byte[32 * 1024];
+        try (InputStream input = new FileInputStream(source)) {
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                digest.update(buffer, 0, read);
+            }
+        }
+        return digest.digest();
+    }
+
+    private static boolean isCanonicalUuid(String value) {
+        try {
+            return value != null &&
+                    UUID.fromString(value).toString().equals(value);
+        } catch (IllegalArgumentException error) {
+            return false;
+        }
     }
 
 }
