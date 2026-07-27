@@ -108,7 +108,8 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
             btn_screen_move.setBackgroundResource(game.getScreenMoveZoom()?R.drawable.ic_game_menu_btn_green_selector:R.drawable.ic_game_menu_btn_selector);
 
         }
-        btn_gamepad_mouse.setVisibility(device!=null?View.VISIBLE:View.INVISIBLE);
+        v.findViewById(R.id.row_gamepad_mouse)
+                .setVisibility(device != null ? View.VISIBLE : View.GONE);
 
         v.findViewById(R.id.btn_unlink).setOnClickListener(this);
         v.findViewById(R.id.btn_exit).setOnClickListener(this);

@@ -187,6 +187,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public boolean connected = false;
     private boolean awaitingRecordAudioPermission = false;
     private boolean selectingClipboardFileDirectory = false;
+    private AlertDialog clipboardFileTransferDialog;
+    private long clipboardFileTransferGeneration;
+    private boolean clipboardFileTransferInProgress;
     private boolean autoEnterPip = false;
     private boolean surfaceCreated = false;
     private boolean attemptedConnection = false;
@@ -1429,6 +1432,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        clipboardFileTransferGeneration++;
+        clipboardFileTransferInProgress = false;
+        if (clipboardFileTransferDialog != null) {
+            clipboardFileTransferDialog.dismiss();
+            clipboardFileTransferDialog = null;
+        }
         super.onDestroy();
 
         instance = null;
@@ -4410,6 +4419,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     public void pullRemoteClipboardFiles() {
+        if (clipboardFileTransferInProgress) {
+            Toast.makeText(this, R.string.clipboard_file_pull_in_progress,
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (conn == null) {
             Toast.makeText(this, "剪贴板同步尚未连接",
                     Toast.LENGTH_SHORT).show();
@@ -4451,69 +4465,171 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void downloadRemoteClipboardFiles(Uri directory) {
-        final ProgressBar progress = new ProgressBar(
-                this, null, android.R.attr.progressBarStyleHorizontal);
-        progress.setMax(1000);
-        final TextView status = new TextView(this);
-        status.setText("正在准备文件…");
-        status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        if (clipboardFileTransferInProgress) {
+            return;
+        }
 
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        int padding = UiHelper.dpToPx(this, 24);
-        content.setPadding(padding, padding, padding, padding);
-        content.addView(status, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-        LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        progressParams.topMargin = UiHelper.dpToPx(this, 16);
-        content.addView(progress, progressParams);
+        clipboardFileTransferInProgress = true;
+        final long generation = ++clipboardFileTransferGeneration;
+        final String destinationName =
+                getClipboardFileDestinationName(directory);
+        final View dialogView = getLayoutInflater().inflate(
+                R.layout.dialog_clipboard_file_transfer, null);
+        final TextView title = dialogView.findViewById(
+                R.id.clipboard_file_transfer_title);
+        final TextView subtitle = dialogView.findViewById(
+                R.id.clipboard_file_transfer_subtitle);
+        final TextView destination = dialogView.findViewById(
+                R.id.clipboard_file_transfer_destination);
+        final TextView status = dialogView.findViewById(
+                R.id.clipboard_file_transfer_status);
+        final ProgressBar progress = dialogView.findViewById(
+                R.id.clipboard_file_transfer_progress);
+        final TextView bytes = dialogView.findViewById(
+                R.id.clipboard_file_transfer_bytes);
+        final LinearLayout actions = dialogView.findViewById(
+                R.id.clipboard_file_transfer_actions);
+        final TextView secondaryAction = dialogView.findViewById(
+                R.id.clipboard_file_transfer_secondary_action);
+        final TextView primaryAction = dialogView.findViewById(
+                R.id.clipboard_file_transfer_primary_action);
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("拉取远端剪贴板文件")
-                .setView(content)
+        destination.setText(getString(
+                R.string.clipboard_file_pull_destination, destinationName));
+        progress.setIndeterminate(true);
+
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(dialogView)
                 .setCancelable(false)
                 .create();
+        clipboardFileTransferDialog = dialog;
+        dialog.setCanceledOnTouchOutside(false);
         dialog.show();
+        Window dialogWindow = dialog.getWindow();
+        if (dialogWindow != null) {
+            dialogWindow.setBackgroundDrawableResource(
+                    android.R.color.transparent);
+            int availableWidth = getResources().getDisplayMetrics().widthPixels -
+                    UiHelper.dpToPx(this, 32);
+            dialogWindow.setLayout(
+                    Math.max(1, Math.min(
+                            availableWidth, UiHelper.dpToPx(this, 520))),
+                    WindowManager.LayoutParams.WRAP_CONTENT);
+        }
 
         conn.downloadRemoteClipboardFiles(directory,
                 new NvConnection.ClipboardFileDownloadListener() {
                     @Override
                     public void onProgress(long transferredBytes, long totalBytes) {
-                        if (isFinishing() || isDestroyed()) {
+                        if (!isCurrentClipboardFileTransfer(generation)) {
                             return;
                         }
-                        int value = totalBytes == 0 ? 1000 :
-                                (int)Math.min(1000,
-                                        transferredBytes * 1000 / totalBytes);
-                        progress.setProgress(value);
-                        status.setText(Formatter.formatFileSize(
-                                Game.this, transferredBytes) + " / " +
-                                Formatter.formatFileSize(Game.this, totalBytes));
+                        status.setText(R.string.clipboard_file_pull_progress);
+                        if (totalBytes > 0) {
+                            progress.setIndeterminate(false);
+                            progress.setProgress((int) Math.min(
+                                    1000,
+                                    transferredBytes * 1000 / totalBytes));
+                            bytes.setText(getString(
+                                    R.string.file_transfer_progress_bytes,
+                                    Formatter.formatFileSize(
+                                            Game.this, transferredBytes),
+                                    Formatter.formatFileSize(
+                                            Game.this, totalBytes)));
+                        } else {
+                            progress.setIndeterminate(true);
+                            bytes.setText(getString(
+                                    R.string.file_transfer_progress_transferred,
+                                    Formatter.formatFileSize(
+                                            Game.this, transferredBytes)));
+                        }
                     }
 
                     @Override
                     public void onComplete(int topLevelItemCount) {
-                        if (dialog.isShowing()) {
-                            dialog.dismiss();
+                        if (!isCurrentClipboardFileTransfer(generation)) {
+                            return;
                         }
-                        Toast.makeText(Game.this,
-                                "已保存 " + topLevelItemCount + " 个项目",
-                                Toast.LENGTH_LONG).show();
+                        clipboardFileTransferInProgress = false;
+                        title.setText(
+                                R.string.clipboard_file_pull_complete_title);
+                        subtitle.setText(getString(
+                                R.string.clipboard_file_pull_complete_subtitle,
+                                destinationName));
+                        status.setText(getString(
+                                R.string.clipboard_file_pull_complete_count,
+                                topLevelItemCount));
+                        progress.setIndeterminate(false);
+                        progress.setProgress(1000);
+                        bytes.setText(getString(
+                                R.string.clipboard_file_pull_destination,
+                                destinationName));
+                        actions.setVisibility(View.VISIBLE);
+                        secondaryAction.setVisibility(View.GONE);
+                        primaryAction.setText(R.string.file_transfer_done);
+                        primaryAction.setOnClickListener(view -> {
+                            dialog.dismiss();
+                            if (clipboardFileTransferDialog == dialog) {
+                                clipboardFileTransferDialog = null;
+                            }
+                        });
+                        primaryAction.requestFocus();
                     }
 
                     @Override
                     public void onError(String message) {
-                        if (dialog.isShowing()) {
-                            dialog.dismiss();
+                        if (!isCurrentClipboardFileTransfer(generation)) {
+                            return;
                         }
-                        Toast.makeText(Game.this,
-                                "拉取失败：" + message,
-                                Toast.LENGTH_LONG).show();
+                        clipboardFileTransferInProgress = false;
+                        title.setText(
+                                R.string.clipboard_file_pull_failed_title);
+                        subtitle.setText(
+                                R.string.clipboard_file_pull_failed_subtitle);
+                        status.setText(message);
+                        progress.setVisibility(View.GONE);
+                        bytes.setVisibility(View.GONE);
+                        actions.setVisibility(View.VISIBLE);
+                        secondaryAction.setVisibility(View.VISIBLE);
+                        secondaryAction.setText(R.string.file_transfer_close);
+                        secondaryAction.setOnClickListener(view -> {
+                            dialog.dismiss();
+                            if (clipboardFileTransferDialog == dialog) {
+                                clipboardFileTransferDialog = null;
+                            }
+                        });
+                        primaryAction.setText(R.string.file_transfer_retry);
+                        primaryAction.setOnClickListener(view -> {
+                            dialog.dismiss();
+                            if (clipboardFileTransferDialog == dialog) {
+                                clipboardFileTransferDialog = null;
+                            }
+                            downloadRemoteClipboardFiles(directory);
+                        });
+                        primaryAction.requestFocus();
                     }
                 });
+    }
+
+    private boolean isCurrentClipboardFileTransfer(long generation) {
+        return generation == clipboardFileTransferGeneration &&
+                clipboardFileTransferDialog != null &&
+                !isFinishing() &&
+                !isDestroyed();
+    }
+
+    private String getClipboardFileDestinationName(Uri directory) {
+        try {
+            DocumentFile document =
+                    DocumentFile.fromTreeUri(this, directory);
+            if (document != null && document.getName() != null &&
+                    !document.getName().isEmpty()) {
+                return document.getName();
+            }
+        } catch (Throwable ignored) {
+        }
+        return getString(
+                R.string.clipboard_file_pull_destination_unknown);
     }
 
     @Override

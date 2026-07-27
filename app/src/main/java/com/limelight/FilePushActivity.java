@@ -1,13 +1,13 @@
 package com.limelight;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.format.Formatter;
-import android.util.TypedValue;
+import android.view.LayoutInflater;
+import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.LinearLayout;
@@ -21,28 +21,61 @@ import com.limelight.computers.IdentityManager;
 import com.limelight.nvstream.filetransfer.DesktopFileUploader;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvHTTP;
+import com.limelight.utils.UiHelper;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public class FilePushActivity extends Activity {
-    private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "DesktopFileUpload");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private final ExecutorService executor =
+            Executors.newSingleThreadExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "DesktopFileUpload");
+                thread.setDaemon(true);
+                return thread;
+            });
+
     private List<Uri> sharedUris;
+    private Future<?> uploadTask;
+    private boolean uploadInProgress;
+
+    private TextView titleView;
+    private TextView subtitleView;
+    private TextView selectionTitleView;
+    private TextView selectionDetailView;
+    private LinearLayout hostSection;
+    private LinearLayout hostList;
+    private LinearLayout progressPanel;
+    private ProgressBar progressBar;
+    private TextView progressStatusView;
+    private TextView progressBytesView;
+    private TextView errorView;
+    private LinearLayout actions;
+    private TextView primaryAction;
+    private TextView secondaryAction;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        setContentView(R.layout.activity_file_push);
+        UiHelper.notifyNewRootView(this);
+        UiHelper.setStatusBarLightMode(getWindow(), false);
+
+        bindViews();
+        constrainPanelWidth();
+
         sharedUris = collectSharedUris(getIntent());
+        selectionTitleView.setText(getString(
+                R.string.file_push_selection_count, sharedUris.size()));
+        selectionDetailView.setText(R.string.file_push_selection_hint);
+
         if (sharedUris.isEmpty()) {
-            Toast.makeText(this, "没有收到可推送的文件", Toast.LENGTH_LONG).show();
-            finish();
+            showTerminalError(getString(R.string.file_push_no_shared_items));
             return;
         }
         showHostPicker();
@@ -50,79 +83,155 @@ public class FilePushActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (uploadTask != null && !uploadTask.isDone()) {
+            uploadTask.cancel(true);
+        }
         executor.shutdownNow();
         super.onDestroy();
     }
 
+    @Override
+    public void onBackPressed() {
+        if (uploadInProgress) {
+            Toast.makeText(this, R.string.file_push_in_progress,
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        super.onBackPressed();
+    }
+
+    private void bindViews() {
+        titleView = findViewById(R.id.file_push_title);
+        subtitleView = findViewById(R.id.file_push_subtitle);
+        selectionTitleView = findViewById(R.id.file_push_selection_title);
+        selectionDetailView = findViewById(R.id.file_push_selection_detail);
+        hostSection = findViewById(R.id.file_push_host_section);
+        hostList = findViewById(R.id.file_push_host_list);
+        progressPanel = findViewById(R.id.file_push_progress_panel);
+        progressBar = findViewById(R.id.file_push_progress);
+        progressStatusView = findViewById(R.id.file_push_progress_status);
+        progressBytesView = findViewById(R.id.file_push_progress_bytes);
+        errorView = findViewById(R.id.file_push_error);
+        actions = findViewById(R.id.file_push_actions);
+        primaryAction = findViewById(R.id.file_push_primary_action);
+        secondaryAction = findViewById(R.id.file_push_secondary_action);
+    }
+
+    private void constrainPanelWidth() {
+        View scrollView = findViewById(R.id.file_push_scroll);
+        int availableWidth = getResources().getDisplayMetrics().widthPixels -
+                UiHelper.dpToPx(this, 32);
+        int width = Math.min(availableWidth, UiHelper.dpToPx(this, 520));
+        ViewGroup.LayoutParams params = scrollView.getLayoutParams();
+        params.width = Math.max(width, 1);
+        scrollView.setLayoutParams(params);
+    }
+
     private void showHostPicker() {
+        uploadInProgress = false;
+        titleView.setText(R.string.desktop_file_share_target);
+        subtitleView.setText(R.string.file_push_choose_host);
+        hostSection.setVisibility(View.VISIBLE);
+        progressPanel.setVisibility(View.GONE);
+        errorView.setVisibility(View.GONE);
+        actions.setVisibility(View.VISIBLE);
+        secondaryAction.setVisibility(View.GONE);
+        primaryAction.setVisibility(View.VISIBLE);
+        primaryAction.setText(R.string.file_push_cancel);
+        primaryAction.setOnClickListener(view -> finish());
+
+        List<ComputerDetails> pairedHosts = loadPairedHosts();
+        hostList.removeAllViews();
+        if (pairedHosts.isEmpty()) {
+            showTerminalError(getString(R.string.file_push_no_hosts));
+            return;
+        }
+
+        LayoutInflater inflater = LayoutInflater.from(this);
+        for (int index = 0; index < pairedHosts.size(); index++) {
+            ComputerDetails computer = pairedHosts.get(index);
+            View item = inflater.inflate(
+                    R.layout.item_file_push_host, hostList, false);
+            TextView name = item.findViewById(R.id.file_push_host_name);
+            TextView detail = item.findViewById(R.id.file_push_host_detail);
+            ComputerDetails.AddressTuple address = selectAddress(computer);
+
+            String computerName = hostDisplayName(computer, address);
+            name.setText(computerName);
+            detail.setText(getString(
+                    computer.state == ComputerDetails.State.ONLINE ?
+                            R.string.file_push_host_online :
+                            R.string.file_push_host_paired,
+                    address.address));
+            item.setContentDescription(getString(
+                    R.string.file_push_host_content_description, computerName));
+            item.setOnClickListener(view -> beginUpload(computer));
+
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+            if (index > 0) {
+                params.topMargin = UiHelper.dpToPx(this, 7);
+            }
+            hostList.addView(item, params);
+        }
+
+        if (hostList.getChildCount() > 0) {
+            hostList.getChildAt(0).requestFocus();
+        }
+    }
+
+    private List<ComputerDetails> loadPairedHosts() {
         List<ComputerDetails> pairedHosts = new ArrayList<>();
         ComputerDatabaseManager database = new ComputerDatabaseManager(this);
         try {
             for (ComputerDetails computer : database.getAllComputers()) {
-                if (computer.serverCert != null && selectAddress(computer) != null) {
+                if (computer.serverCert != null &&
+                        selectAddress(computer) != null) {
                     pairedHosts.add(computer);
                 }
             }
         } finally {
             database.close();
         }
-
-        if (pairedHosts.isEmpty()) {
-            Toast.makeText(this, "没有已配对且可连接的主机",
-                    Toast.LENGTH_LONG).show();
-            finish();
-            return;
-        }
-
-        String[] names = new String[pairedHosts.size()];
-        for (int index = 0; index < pairedHosts.size(); index++) {
-            names[index] = pairedHosts.get(index).name;
-        }
-        new AlertDialog.Builder(this)
-                .setTitle("推送至哪台主机的桌面？")
-                .setItems(names, (dialog, which) ->
-                        beginUpload(pairedHosts.get(which)))
-                .setNegativeButton(android.R.string.cancel,
-                        (dialog, which) -> finish())
-                .setOnCancelListener(dialog -> finish())
-                .show();
+        Collections.sort(pairedHosts, new Comparator<ComputerDetails>() {
+            @Override
+            public int compare(
+                    ComputerDetails left, ComputerDetails right) {
+                String leftName = left.name == null ? "" : left.name;
+                String rightName = right.name == null ? "" : right.name;
+                return leftName.compareToIgnoreCase(rightName);
+            }
+        });
+        return pairedHosts;
     }
 
     private void beginUpload(ComputerDetails computer) {
-        final ProgressBar progress = new ProgressBar(
-                this, null, android.R.attr.progressBarStyleHorizontal);
-        progress.setMax(1000);
-        final TextView status = new TextView(this);
-        status.setText("正在检查文件…");
-        status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        if (uploadInProgress) {
+            return;
+        }
+        ComputerDetails.AddressTuple address = selectAddress(computer);
+        if (address == null) {
+            showUploadError(getString(R.string.file_push_no_hosts));
+            return;
+        }
 
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        int padding = Math.round(24 * getResources().getDisplayMetrics().density);
-        content.setPadding(padding, padding, padding, padding);
-        content.addView(status, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-        LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        progressParams.topMargin =
-                Math.round(16 * getResources().getDisplayMetrics().density);
-        content.addView(progress, progressParams);
+        uploadInProgress = true;
+        titleView.setText(R.string.file_push_uploading_title);
+        String computerName = hostDisplayName(computer, address);
+        subtitleView.setText(getString(
+                R.string.file_push_uploading_to, computerName));
+        hostSection.setVisibility(View.GONE);
+        errorView.setVisibility(View.GONE);
+        progressPanel.setVisibility(View.VISIBLE);
+        progressBar.setIndeterminate(true);
+        progressBar.setProgress(0);
+        progressStatusView.setText(R.string.file_push_preparing);
+        progressBytesView.setText(R.string.file_push_keep_open);
+        actions.setVisibility(View.GONE);
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("推送至 " + computer.name)
-                .setView(content)
-                .setCancelable(false)
-                .create();
-        dialog.show();
-
-        executor.execute(() -> {
+        uploadTask = executor.submit(() -> {
             try {
-                ComputerDetails.AddressTuple address = selectAddress(computer);
-                if (address == null) {
-                    throw new java.io.IOException("主机没有可用地址");
-                }
                 NvHTTP http = new NvHTTP(
                         address,
                         computer.httpsPort,
@@ -130,40 +239,95 @@ public class FilePushActivity extends Activity {
                         computer.serverCert,
                         PlatformBinding.getCryptoProvider(this));
                 DesktopFileUploader.upload(this, http, sharedUris,
-                        (transferred, total) -> runOnUiThread(() -> {
-                            int value = total == 0 ? 1000 :
-                                    (int)Math.min(1000, transferred * 1000 / total);
-                            progress.setProgress(value);
-                            status.setText(Formatter.formatFileSize(
-                                    FilePushActivity.this, transferred) + " / " +
-                                    Formatter.formatFileSize(
-                                            FilePushActivity.this, total));
-                        }));
-                runOnUiThread(() -> {
-                    if (dialog.isShowing()) {
-                        dialog.dismiss();
-                    }
-                    Toast.makeText(FilePushActivity.this,
-                            "文件已推送到 " + computer.name + " 的桌面",
-                            Toast.LENGTH_LONG).show();
-                    finish();
-                });
+                        (transferred, total) -> runOnUiThread(() ->
+                                updateProgress(transferred, total)));
+                runOnUiThread(() -> showUploadComplete(computerName));
             } catch (Throwable error) {
-                LimeLog.warning("Desktop file upload failed: " + error.getMessage());
-                runOnUiThread(() -> {
-                    if (dialog.isShowing()) {
-                        dialog.dismiss();
-                    }
-                    Toast.makeText(FilePushActivity.this,
-                            "推送失败：" +
-                                    (error.getMessage() == null ?
-                                            "未知错误" :
-                                            error.getMessage()),
-                            Toast.LENGTH_LONG).show();
-                    finish();
-                });
+                LimeLog.warning(
+                        "Desktop file upload failed: " + error.getMessage());
+                runOnUiThread(() -> showUploadError(
+                        error.getMessage() == null ?
+                                getString(R.string.file_push_unknown_error) :
+                                error.getMessage()));
             }
         });
+    }
+
+    private void updateProgress(long transferred, long total) {
+        if (!uploadInProgress || isFinishing() || isDestroyed()) {
+            return;
+        }
+        if (total > 0) {
+            progressBar.setIndeterminate(false);
+            progressBar.setProgress((int) Math.min(
+                    1000, transferred * 1000 / total));
+            progressBytesView.setText(getString(
+                    R.string.file_transfer_progress_bytes,
+                    Formatter.formatFileSize(this, transferred),
+                    Formatter.formatFileSize(this, total)));
+        } else {
+            progressBar.setIndeterminate(true);
+            progressBytesView.setText(getString(
+                    R.string.file_transfer_progress_transferred,
+                    Formatter.formatFileSize(this, transferred)));
+        }
+    }
+
+    private void showUploadComplete(String computerName) {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        uploadInProgress = false;
+        titleView.setText(R.string.file_push_complete_title);
+        subtitleView.setText(getString(
+                R.string.file_push_complete_message, computerName));
+        progressBar.setIndeterminate(false);
+        progressBar.setProgress(1000);
+        progressStatusView.setText(R.string.file_push_complete_title);
+        actions.setVisibility(View.VISIBLE);
+        secondaryAction.setVisibility(View.GONE);
+        primaryAction.setVisibility(View.VISIBLE);
+        primaryAction.setText(R.string.file_transfer_done);
+        primaryAction.setOnClickListener(view -> finish());
+        primaryAction.requestFocus();
+    }
+
+    private void showUploadError(String message) {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        uploadInProgress = false;
+        titleView.setText(R.string.file_push_failed_title);
+        subtitleView.setText(R.string.file_push_choose_host);
+        hostSection.setVisibility(View.GONE);
+        progressPanel.setVisibility(View.GONE);
+        errorView.setVisibility(View.VISIBLE);
+        errorView.setText(getString(R.string.file_push_failed_message, message));
+        actions.setVisibility(View.VISIBLE);
+
+        secondaryAction.setVisibility(View.VISIBLE);
+        secondaryAction.setText(R.string.file_transfer_close);
+        secondaryAction.setOnClickListener(view -> finish());
+        primaryAction.setVisibility(View.VISIBLE);
+        primaryAction.setText(R.string.file_push_retry);
+        primaryAction.setOnClickListener(view -> showHostPicker());
+        primaryAction.requestFocus();
+    }
+
+    private void showTerminalError(String message) {
+        uploadInProgress = false;
+        titleView.setText(R.string.file_push_failed_title);
+        subtitleView.setText(R.string.desktop_file_share_target);
+        hostSection.setVisibility(View.GONE);
+        progressPanel.setVisibility(View.GONE);
+        errorView.setVisibility(View.VISIBLE);
+        errorView.setText(message);
+        actions.setVisibility(View.VISIBLE);
+        secondaryAction.setVisibility(View.GONE);
+        primaryAction.setVisibility(View.VISIBLE);
+        primaryAction.setText(R.string.file_transfer_close);
+        primaryAction.setOnClickListener(view -> finish());
+        primaryAction.requestFocus();
     }
 
     private static ComputerDetails.AddressTuple selectAddress(
@@ -183,6 +347,15 @@ public class FilePushActivity extends Activity {
         return computer.remoteAddress;
     }
 
+    private static String hostDisplayName(
+            ComputerDetails computer,
+            ComputerDetails.AddressTuple address) {
+        if (computer.name != null && !computer.name.trim().isEmpty()) {
+            return computer.name;
+        }
+        return address.address;
+    }
+
     private static List<Uri> collectSharedUris(Intent intent) {
         List<Uri> uris = new ArrayList<>();
         if (intent == null) {
@@ -194,8 +367,7 @@ public class FilePushActivity extends Activity {
             if (values != null) {
                 uris.addAll(values);
             }
-        }
-        else if (Intent.ACTION_SEND.equals(intent.getAction())) {
+        } else if (Intent.ACTION_SEND.equals(intent.getAction())) {
             Uri value = intent.getParcelableExtra(Intent.EXTRA_STREAM);
             if (value != null) {
                 uris.add(value);

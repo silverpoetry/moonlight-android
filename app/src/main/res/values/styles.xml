@@ -50,6 +50,12 @@
         <item name="android:windowNoTitle">true</item>
     </style>
 
+    <style name="FilePushTheme" parent="BaseActivityTheme">
+        <item name="android:windowBackground">@drawable/bg_gradient_axi_main</item>
+        <item name="android:colorAccent">#80C342</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
     <style name="BottomDialog" parent="@android:style/Theme.DeviceDefault.Dialog">
         <item name="android:windowTitleStyle">@null</item>
         <item name="android:windowIsFloating">false</item>

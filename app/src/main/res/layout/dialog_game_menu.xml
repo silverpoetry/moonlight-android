@@ -331,28 +331,56 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:background="@drawable/ic_game_menu_btn_selector"
+                android:contentDescription="@string/clipboard_file_pull"
+                android:drawablePadding="4dp"
+                android:drawableTop="@drawable/ic_axi_clipboard_send"
+                android:gravity="center"
+                android:padding="4dp"
+                android:id="@+id/btn_pull_clipboard_files"
+                android:text="@string/clipboard_file_pull_short"
+                android:textSize="11sp" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/row_gamepad_mouse"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:layout_margin="5dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <Button
+                android:id="@+id/btn_gamepad_mouse"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="5dp"
+                android:layout_weight="1"
+                android:background="@drawable/ic_game_menu_btn_selector"
                 android:drawablePadding="4dp"
                 android:drawableTop="@drawable/ic_axi_joystick"
                 android:gravity="center"
                 android:padding="4dp"
-                android:id="@+id/btn_gamepad_mouse"
                 android:text="手柄键鼠"
-                android:textSize="11dp" />
+                android:textSize="11sp" />
 
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="5dp"
+                android:layout_weight="1" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="5dp"
+                android:layout_weight="1" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1" />
         </LinearLayout>
-
-        <Button
-            android:id="@+id/btn_pull_clipboard_files"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_margin="5dp"
-            android:background="@drawable/ic_game_menu_btn_selector"
-            android:drawableLeft="@drawable/ic_axi_clipboard_send"
-            android:drawablePadding="8dp"
-            android:gravity="center"
-            android:padding="6dp"
-            android:text="@string/clipboard_file_pull"
-            android:textSize="11dp" />
 
         <TextView
             android:layout_width="wrap_content"

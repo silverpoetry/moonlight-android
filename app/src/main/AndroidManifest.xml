@@ -162,7 +162,7 @@
             android:exported="true"
             android:excludeFromRecents="true"
             android:noHistory="true"
-            android:theme="@style/BaseActivityTheme"
+            android:theme="@style/FilePushTheme"
             android:label="@string/desktop_file_share_target">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
