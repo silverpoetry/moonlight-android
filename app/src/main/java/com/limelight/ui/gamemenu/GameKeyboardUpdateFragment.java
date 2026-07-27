@@ -14,7 +14,7 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 
 import com.google.gson.Gson;
 import com.limelight.LimeLog;
@@ -147,7 +147,7 @@ public class GameKeyboardUpdateFragment extends BaseGameMenuDialog implements Vi
                         // 处理释放事件
                         v.setBackgroundResource(R.drawable.bg_ax_keyboard_button);
                         if(contentValues.toString().split(",").length>=5){
-                            Toast.makeText(getActivity(),"限制只能输入5个按键！",Toast.LENGTH_SHORT).show();
+                            UiToast.makeText(getActivity(),"限制只能输入5个按键！",UiToast.LENGTH_SHORT).show();
                             return true;
                         }
                         if(!TextUtils.isEmpty(contentValues.toString())){
@@ -274,11 +274,11 @@ public class GameKeyboardUpdateFragment extends BaseGameMenuDialog implements Vi
                 name=name.trim();
             }
             if(TextUtils.isEmpty(name)){
-                Toast.makeText(getActivity(),"请输入名称！",Toast.LENGTH_SHORT).show();
+                UiToast.makeText(getActivity(),"请输入名称！",UiToast.LENGTH_SHORT).show();
                 return;
             }
             if(TextUtils.isEmpty(contentValues.toString())){
-                Toast.makeText(getActivity(),"请输入组合键！",Toast.LENGTH_SHORT).show();
+                UiToast.makeText(getActivity(),"请输入组合键！",UiToast.LENGTH_SHORT).show();
                 return;
             }
             GameMenuQuickBean bean=new GameMenuQuickBean();
@@ -293,7 +293,6 @@ public class GameKeyboardUpdateFragment extends BaseGameMenuDialog implements Vi
             bean.setCodes(contentValues.toString());
             bean.setDesc(contentNames.toString());
 //            saveKeyBoardListData(getActivity(),bean);
-//            Toast.makeText(getActivity(),"已保存！",Toast.LENGTH_SHORT).show();
             onClick.click(bean);
             dismiss();
             return;

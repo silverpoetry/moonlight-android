@@ -1,6 +1,5 @@
 package com.limelight.ui.gamemenu;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -9,16 +8,18 @@ import android.os.Handler;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.Space;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.limelight.Game;
 import com.limelight.GameMenu;
 import com.limelight.R;
 import com.limelight.binding.input.GameInputDevice;
 import com.limelight.binding.input.KeyboardTranslator;
-import com.limelight.binding.input.virtual_controller.VirtualController;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.input.KeyboardPacket;
@@ -27,8 +28,9 @@ import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
 import com.limelight.utils.UiHelper;
 
-import java.security.Key;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Description
@@ -64,6 +66,10 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
 
     @Override
     public void onDismiss(DialogInterface dialog) {
+        if (cardEditor != null) {
+            cardEditor.dismiss();
+            cardEditor = null;
+        }
         super.onDismiss(dialog);
         if (game != null) {
             game.cancelPendingStreamBackExit();
@@ -89,6 +95,10 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
 
     private Button btn_mic;
 
+    private LinearLayout actionGrid;
+    private final Map<Integer, Button> actionButtons = new HashMap<>();
+    private GameMenuCardEditor cardEditor;
+
     private Game game;
     private NvConnection conn;
     private GameInputDevice device;
@@ -96,30 +106,10 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
     @Override
     public void bindView(View v) {
         super.bindView(v);
-        btn_performance=v.findViewById(R.id.btn_performance);
-        btn_game_pad=v.findViewById(R.id.btn_game_pad);
-        btn_v_keyboard=v.findViewById(R.id.btn_v_keyboard);
-        btn_gamepad_mouse=v.findViewById(R.id.btn_gamepad_mouse);
-        btn_screen_move=v.findViewById(R.id.btn_screen_move);
-        if(game!=null){
-            btn_performance.setBackgroundResource(game.prefConfig.enablePerfOverlay?R.drawable.ic_game_menu_btn_green_selector:R.drawable.ic_game_menu_btn_selector);
-            btn_game_pad.setBackgroundResource(game.prefConfig.onscreenController?R.drawable.ic_game_menu_btn_green_selector:R.drawable.ic_game_menu_btn_selector);
-            btn_v_keyboard.setBackgroundResource(game.prefConfig.enableKeyboard?R.drawable.ic_game_menu_btn_green_selector:R.drawable.ic_game_menu_btn_selector);
-            btn_screen_move.setBackgroundResource(game.getScreenMoveZoom()?R.drawable.ic_game_menu_btn_green_selector:R.drawable.ic_game_menu_btn_selector);
+        actionGrid = v.findViewById(R.id.game_menu_action_grid);
+        collectActionButtons(v);
+        rebuildActionGrid();
 
-        }
-        v.findViewById(R.id.row_gamepad_mouse)
-                .setVisibility(device != null ? View.VISIBLE : View.GONE);
-
-        v.findViewById(R.id.btn_unlink).setOnClickListener(this);
-        v.findViewById(R.id.btn_exit).setOnClickListener(this);
-        v.findViewById(R.id.btn_swicth_screen).setOnClickListener(this);
-        v.findViewById(R.id.btn_performance).setOnClickListener(this);
-        v.findViewById(R.id.btn_game_pad).setOnClickListener(this);
-        v.findViewById(R.id.btn_v_keyboard).setOnClickListener(this);
-        v.findViewById(R.id.btn_keyboard).setOnClickListener(this);
-        v.findViewById(R.id.btn_screen_move).setOnClickListener(this);
-        v.findViewById(R.id.btn_gamepad_mouse).setOnClickListener(this);
         v.findViewById(R.id.bt_touch_sensitivity).setOnClickListener(this);
         v.findViewById(R.id.bt_quick_list).setOnClickListener(this);
         v.findViewById(R.id.bt_touch_list).setOnClickListener(this);
@@ -127,39 +117,211 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
         v.findViewById(R.id.btn_desktop).setOnClickListener(this);
         v.findViewById(R.id.btn_window).setOnClickListener(this);
         v.findViewById(R.id.bt_touch_sensitivity).setOnClickListener(this);
-        v.findViewById(R.id.btn_hdr).setOnClickListener(this);
-        btn_mic=v.findViewById(R.id.btn_mic);
-        btn_mic.setOnClickListener(this);
-        v.findViewById(R.id.btn_display_1).setOnClickListener(this);
         v.findViewById(R.id.bt_virtual_view).setOnClickListener(this);
         v.findViewById(R.id.bt_display).setOnClickListener(this);
         v.findViewById(R.id.bt_device).setOnClickListener(this);
         v.findViewById(R.id.bt_other_setting).setOnClickListener(this);
         v.findViewById(R.id.btn_soft_function).setOnClickListener(this);
-        v.findViewById(R.id.btn_pull_clipboard_files).setOnClickListener(this);
-
-        v.findViewById(R.id.btn_performance).setOnLongClickListener(new View.OnLongClickListener() {
-            @Override
-            public boolean onLongClick(View v) {
-                if(game!=null){
-                    game.switchHUD();
-                }
-                return false;
-            }
-        });
-        refreshMicButton();
-//        v.findViewById(R.id.btn_soft_keyboard).setOnLongClickListener(new View.OnLongClickListener() {
-//            @Override
-//            public boolean onLongClick(View v) {
-//                if(game!=null){
-//                    game.sendClipboardText();
-//                }
-//                return false;
-//            }
-//        });
+        v.findViewById(R.id.btn_customize_actions)
+                .setOnClickListener(view -> showCardEditor());
 
         tx_title_battery=v.findViewById(R.id.tx_title_battery);
-        tx_title_battery.setText(getPhoneBattery(getActivity())+"%");
+        tx_title_battery.setText(getString(
+                R.string.game_menu_battery_percent,
+                getPhoneBattery(getActivity())));
+    }
+
+    private void collectActionButtons(View root) {
+        actionButtons.clear();
+        for (GameMenuActionCatalog.Action action :
+                GameMenuActionCatalog.all()) {
+            Button button = root.findViewById(action.viewId);
+            if (button == null) {
+                continue;
+            }
+            detachFromParent(button);
+            button.setText(action.labelRes);
+            button.setContentDescription(getString(
+                    action.contentDescriptionRes));
+            button.setTextSize(11);
+            button.setOnClickListener(this);
+            actionButtons.put(action.viewId, button);
+        }
+        actionGrid.removeAllViews();
+    }
+
+    private void rebuildActionGrid() {
+        // Buttons are reused so their active state and listeners remain
+        // attached. Detach them from the old row before removing that row.
+        // Removing the row alone does not clear each button's parent pointer.
+        for (Button button : actionButtons.values()) {
+            detachFromParent(button);
+        }
+        actionGrid.removeAllViews();
+        List<GameMenuCardCatalog.Card> catalog = loadCardCatalog();
+        GameMenuCardConfiguration.State configuration =
+                GameMenuCardConfiguration.load(getActivity(), catalog);
+        LinearLayout row = null;
+        int column = 0;
+        int displayedCount = 0;
+        for (GameMenuCardCatalog.Card card : configuration.visible) {
+            if (card.requiresGamepad() && device == null) {
+                continue;
+            }
+            Button button = card.action != null ?
+                    actionButtons.get(card.action.viewId) :
+                    createShortcutButton(card);
+            if (button == null) {
+                continue;
+            }
+            if (column == 0) {
+                row = createActionRow();
+                actionGrid.addView(row);
+            }
+            row.addView(button, createActionCellParams(column));
+            column++;
+            displayedCount++;
+            if (column == 4) {
+                column = 0;
+            }
+        }
+        if (row != null && column != 0) {
+            while (column < 4) {
+                row.addView(new Space(getActivity()),
+                        createActionCellParams(column));
+                column++;
+            }
+        }
+        if (displayedCount == 0) {
+            TextView empty = new TextView(getActivity());
+            empty.setText(R.string.game_menu_customize_no_visible);
+            empty.setTextColor(0xBFFFFFFF);
+            empty.setTextSize(12);
+            empty.setGravity(android.view.Gravity.CENTER);
+            empty.setPadding(
+                    UiHelper.dpToPx(getActivity(), 12),
+                    UiHelper.dpToPx(getActivity(), 18),
+                    UiHelper.dpToPx(getActivity(), 12),
+                    UiHelper.dpToPx(getActivity(), 18));
+            actionGrid.addView(empty, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        bindActionButtonFields();
+        refreshActionButtonStates();
+    }
+
+    private List<GameMenuCardCatalog.Card> loadCardCatalog() {
+        boolean includeBuiltInShortcuts =
+                game == null ||
+                        !game.prefConfig.enableClearDefaultSpecial;
+        return GameMenuCardCatalog.load(
+                getActivity(), includeBuiltInShortcuts);
+    }
+
+    private Button createShortcutButton(
+            GameMenuCardCatalog.Card card) {
+        Button button = (Button) getActivity()
+                .getLayoutInflater()
+                .inflate(R.layout.item_game_menu_card, actionGrid, false);
+        button.setText(card.label);
+        button.setContentDescription(card.contentDescription);
+        button.setCompoundDrawablesWithIntrinsicBounds(
+                0, card.iconRes, 0, 0);
+        button.setTag(card.shortcut);
+        button.setOnClickListener(this);
+        return button;
+    }
+
+    private static void detachFromParent(View view) {
+        ViewParent parent = view.getParent();
+        if (parent instanceof ViewGroup) {
+            ((ViewGroup) parent).removeView(view);
+        }
+    }
+
+    private LinearLayout createActionRow() {
+        LinearLayout row = new LinearLayout(getActivity());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                UiHelper.dpToPx(getActivity(), 54));
+        int margin = UiHelper.dpToPx(getActivity(), 5);
+        params.setMargins(margin, margin, margin, margin);
+        row.setLayoutParams(params);
+        return row;
+    }
+
+    private LinearLayout.LayoutParams createActionCellParams(
+            int column) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
+        if (column < 3) {
+            params.setMarginEnd(UiHelper.dpToPx(getActivity(), 5));
+        }
+        return params;
+    }
+
+    private void bindActionButtonFields() {
+        btn_performance = actionButtons.get(R.id.btn_performance);
+        btn_game_pad = actionButtons.get(R.id.btn_game_pad);
+        btn_v_keyboard = actionButtons.get(R.id.btn_v_keyboard);
+        btn_gamepad_mouse = actionButtons.get(R.id.btn_gamepad_mouse);
+        btn_screen_move = actionButtons.get(R.id.btn_screen_move);
+        btn_mic = actionButtons.get(R.id.btn_mic);
+        if (btn_performance != null) {
+            btn_performance.setOnLongClickListener(view -> {
+                if (game != null) {
+                    game.switchHUD();
+                }
+                return true;
+            });
+        }
+    }
+
+    private void refreshActionButtonStates() {
+        if (game == null) {
+            return;
+        }
+        setActionButtonActive(
+                btn_performance, game.prefConfig.enablePerfOverlay);
+        setActionButtonActive(
+                btn_game_pad, game.prefConfig.onscreenController);
+        setActionButtonActive(
+                btn_v_keyboard, game.prefConfig.enableKeyboard);
+        setActionButtonActive(
+                btn_screen_move, game.getScreenMoveZoom());
+        refreshMicButton();
+    }
+
+    private void setActionButtonActive(Button button, boolean active) {
+        if (button != null) {
+            button.setBackgroundResource(
+                    active ?
+                            R.drawable.ic_game_menu_btn_green_selector :
+                            R.drawable.ic_game_menu_btn_selector);
+        }
+    }
+
+    private void showCardEditor() {
+        if (cardEditor != null || getActivity() == null) {
+            return;
+        }
+        cardEditor = new GameMenuCardEditor(
+                getActivity(),
+                loadCardCatalog(),
+                new GameMenuCardEditor.Listener() {
+                    @Override
+                    public void onSaved() {
+                        rebuildActionGrid();
+                    }
+
+                    @Override
+                    public void onDismissed() {
+                        cardEditor = null;
+                    }
+                });
+        cardEditor.show();
     }
 
     @Override
@@ -171,6 +333,12 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
     public void onClick(View v) {
         if (game != null) {
             game.cancelPendingStreamBackExit();
+        }
+
+        if (v.getTag() instanceof GameMenuShortcutCatalog.Entry) {
+            executeShortcut(
+                    ((GameMenuShortcutCatalog.Entry) v.getTag()).shortcut);
+            return;
         }
 
         //操作 或 显示器
@@ -369,23 +537,11 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
             fragment.setOnClick(new GameListQuickFragment.onClick() {
                 @Override
                 public void click(GameMenuQuickBean bean) {
-                    if(bean==null){
-                        return;
-                    }
-                    if(!TextUtils.isEmpty(bean.getName())){
-                        Toast.makeText(getActivity(),bean.getName(),Toast.LENGTH_SHORT).show();
-                    }
-                    //原来的快捷键列表逻辑
-                    if(TextUtils.isEmpty(bean.getId())){
-                        if(conn!=null){
-                            sendKeys(bean.getDatas());
-                        }
-                        return;
-                    }
-                    sendQuickKeylist(bean.getCodes());
-
+                    executeShortcut(bean);
                 }
             });
+            fragment.setOnShortcutsChangedListener(
+                    this::rebuildActionGrid);
             fragment.show(getFragmentManager());
             return;
         }
@@ -396,9 +552,6 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
             fragment.setOnClick(new GameListMouseFragment.onClick() {
                 @Override
                 public void click(String title, int index) {
-                    if(!TextUtils.isEmpty(title)&&index!=8){
-                        Toast.makeText(getActivity(),title,Toast.LENGTH_SHORT).show();
-                    }
                     if(game==null||index<0){
                         return;
                     }
@@ -407,8 +560,7 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
                         return;
                     }
                     if(index==8){
-                        boolean enabled = game.toggleAbsoluteMouseMode();
-                        Toast.makeText(getActivity(),"远程桌面鼠标模式"+(enabled?"已启用！":"已禁用！"),Toast.LENGTH_SHORT).show();
+                        game.toggleAbsoluteMouseMode();
                         return;
                     }
                     if(index==9){
@@ -535,7 +687,6 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
                         return;
                     }
                     game.updateVirtualView();
-//                    Toast.makeText(getActivity(),"更新成功！",Toast.LENGTH_SHORT).show();
                 }
 
                 @Override
@@ -663,5 +814,19 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
                 Game.instance.onKey(null, keyEvent.getKeyCode(), keyEvent);
             }
         }), KEY_UP_DELAY);
+    }
+
+    private void executeShortcut(GameMenuQuickBean shortcut) {
+        if (shortcut == null) {
+            return;
+        }
+        short[] keys = shortcut.getDatas();
+        if (keys != null && keys.length > 0) {
+            if (conn != null) {
+                sendKeys(keys);
+            }
+            return;
+        }
+        sendQuickKeylist(shortcut.getCodes());
     }
 }

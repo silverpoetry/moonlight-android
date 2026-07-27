@@ -26,7 +26,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 
 import com.google.gson.Gson;
 import com.limelight.Game;
@@ -406,7 +406,7 @@ public class KeyBoardController {
             }
             if(TextUtils.isEmpty(tips)){
                 tips="无按键可用，打开编辑模式新增按钮后使用！(菜单-虚拟手柄与按键-编辑模式)";
-                Toast.makeText(context,tips,Toast.LENGTH_LONG).show();
+                UiToast.makeText(context,tips,UiToast.LENGTH_LONG).show();
             }
 //            switchMode(ControllerMode.MoveButtons);
             return;
@@ -557,7 +557,6 @@ public class KeyBoardController {
         for (keyBoardVirtualControllerElement element : elements) {
             element.invalidate();
         }
-        Toast.makeText(context,"已保存！",Toast.LENGTH_SHORT).show();
     }
 
 

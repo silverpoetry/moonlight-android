@@ -39,7 +39,7 @@ import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 
 public class AddComputerManually extends Activity {
     private TextView hostText;
@@ -200,8 +200,6 @@ public class AddComputerManually extends Activity {
             AddComputerManually.this.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                Toast.makeText(AddComputerManually.this, getResources().getString(R.string.addpc_success), Toast.LENGTH_LONG).show();
-
                 if (!isFinishing()) {
                     // Close the activity
                     AddComputerManually.this.finish();
@@ -321,7 +319,7 @@ public class AddComputerManually extends Activity {
             public void onClick(View v) {
                 String text=hostText.getText().toString().trim();
                 if(TextUtils.isEmpty(text)){
-                    Toast.makeText(AddComputerManually.this, getResources().getString(R.string.addpc_enter_ip), Toast.LENGTH_LONG).show();
+                    UiToast.makeText(AddComputerManually.this, getResources().getString(R.string.addpc_enter_ip), UiToast.LENGTH_LONG).show();
                     return;
                 }
                 SpinnerDialog dialog = SpinnerDialog.displayDialog(AddComputerManually.this, "提示",
@@ -337,11 +335,11 @@ public class AddComputerManually extends Activity {
                             return;
                         }
                         if(result.getCode()!=0){
-                            Toast.makeText(AddComputerManually.this,result.getResult(),Toast.LENGTH_SHORT).show();
+                            UiToast.makeText(AddComputerManually.this,result.getResult(),UiToast.LENGTH_SHORT).show();
                             return;
                         }
                         if(TextUtils.isEmpty(result.getResult())){
-                            Toast.makeText(AddComputerManually.this,"没有检索到_limelightax._tcp",Toast.LENGTH_SHORT).show();
+                            UiToast.makeText(AddComputerManually.this,"没有检索到_limelightax._tcp",UiToast.LENGTH_SHORT).show();
                             return;
                         }
                         hostText.setText(result.getResult());
@@ -360,7 +358,7 @@ public class AddComputerManually extends Activity {
         String hostAddress = hostText.getText().toString().trim();
 
         if (hostAddress.length() == 0) {
-            Toast.makeText(AddComputerManually.this, getResources().getString(R.string.addpc_enter_ip), Toast.LENGTH_LONG).show();
+            UiToast.makeText(AddComputerManually.this, getResources().getString(R.string.addpc_enter_ip), UiToast.LENGTH_LONG).show();
             return true;
         }
 

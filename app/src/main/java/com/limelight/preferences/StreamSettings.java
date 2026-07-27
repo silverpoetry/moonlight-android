@@ -46,7 +46,7 @@ import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 import android.window.OnBackInvokedCallback;
 import android.window.OnBackInvokedDispatcher;
 
@@ -1063,15 +1063,14 @@ public class StreamSettings extends Activity {
     private boolean beforeTextValueChanged(SettingsItem item, String value) {
         if ("edit_diy_bitrate".equals(item.key)) {
             if (TextUtils.isEmpty(value)) {
-                Toast.makeText(this, "请输入0-9999的数值。", Toast.LENGTH_SHORT).show();
+                UiToast.makeText(this, "请输入0-9999的数值。", UiToast.LENGTH_SHORT).show();
                 return false;
             }
             try {
                 float bitrateValue = Float.valueOf(value) * 1000;
                 store.putInt(PreferenceConfiguration.BITRATE_PREF_STRING, (int) bitrateValue);
-                Toast.makeText(this, "设置成功！", Toast.LENGTH_SHORT).show();
             } catch (NumberFormatException e) {
-                Toast.makeText(this, "请输入0-9999的数值。", Toast.LENGTH_SHORT).show();
+                UiToast.makeText(this, "请输入0-9999的数值。", UiToast.LENGTH_SHORT).show();
                 return false;
             }
         }
@@ -1672,8 +1671,8 @@ public class StreamSettings extends Activity {
                         .apply();
                 reloadSettings();
             } catch (SecurityException error) {
-                Toast.makeText(this, "无法保留该目录的访问权限",
-                        Toast.LENGTH_SHORT).show();
+                UiToast.makeText(this, "无法保留该目录的访问权限",
+                        UiToast.LENGTH_SHORT).show();
             }
             return;
         }
@@ -1682,7 +1681,7 @@ public class StreamSettings extends Activity {
                 Uri uri = data.getData();
                 String json = FileUriUtils.openUriForRead(this, uri);
                 if (TextUtils.isEmpty(json)) {
-                    Toast.makeText(this, "空文件~", Toast.LENGTH_SHORT).show();
+                    UiToast.makeText(this, "空文件~", UiToast.LENGTH_SHORT).show();
                     return;
                 }
                 String name = store.prefs.getString(KeyBoardControllerConfigurationLoader.OSC_PREFERENCE, KeyBoardControllerConfigurationLoader.OSC_PREFERENCE_VALUE);
@@ -1690,10 +1689,10 @@ public class StreamSettings extends Activity {
                     name = store.prefs.getString(KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE, KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE_VALUE);
                 }
                 boolean result = FileUriUtils.saveKeyBoardJson(this, "axi_" + name + ".txt", json);
-                Toast.makeText(this, result ? "导入成功！" : "导入失败！", Toast.LENGTH_SHORT).show();
+                UiToast.makeText(this, result ? "导入成功！" : "导入失败！", UiToast.LENGTH_SHORT).show();
             } catch (Exception e) {
                 e.printStackTrace();
-                Toast.makeText(this, "出错啦~" + e.getMessage(), Toast.LENGTH_SHORT).show();
+                UiToast.makeText(this, "出错啦~" + e.getMessage(), UiToast.LENGTH_SHORT).show();
             }
             return;
         }
@@ -1716,10 +1715,10 @@ public class StreamSettings extends Activity {
                 for (ComputerDetails computer : importComputers) {
                     manager.updateComputer(computer);
                 }
-                Toast.makeText(this, "导入成功,重新打开APP生效！", Toast.LENGTH_SHORT).show();
+                UiToast.makeText(this, "导入成功,重新打开APP生效！", UiToast.LENGTH_SHORT).show();
             } catch (Exception e) {
                 e.printStackTrace();
-                Toast.makeText(this, "出错啦~" + e.getMessage(), Toast.LENGTH_SHORT).show();
+                UiToast.makeText(this, "出错啦~" + e.getMessage(), UiToast.LENGTH_SHORT).show();
             }
             return;
         }
@@ -1745,10 +1744,9 @@ public class StreamSettings extends Activity {
                 File imageFile = new File(getFilesDir(), displayName);
                 FileUriUtils.copyUriToInternalStorage(this, data.getData(), imageFile);
                 store.prefs.edit().putString("screen_bg_file_name", displayName).apply();
-                Toast.makeText(this, "设置成功!", Toast.LENGTH_SHORT).show();
             } catch (Exception e) {
                 e.printStackTrace();
-                Toast.makeText(this, "出错啦~" + e.getMessage(), Toast.LENGTH_SHORT).show();
+                UiToast.makeText(this, "出错啦~" + e.getMessage(), UiToast.LENGTH_SHORT).show();
             }
         }
     }
@@ -1757,10 +1755,10 @@ public class StreamSettings extends Activity {
         try {
             File file = new File(getFilesDir(), displayName);
             FileUriUtils.copyUriToInternalStorage(this, uri, file);
-            Toast.makeText(this, "导入成功!", Toast.LENGTH_SHORT).show();
+            UiToast.makeText(this, "导入成功!", UiToast.LENGTH_SHORT).show();
         } catch (Exception e) {
             e.printStackTrace();
-            Toast.makeText(this, "出错啦~" + e.getMessage(), Toast.LENGTH_SHORT).show();
+            UiToast.makeText(this, "出错啦~" + e.getMessage(), UiToast.LENGTH_SHORT).show();
         }
     }
 

@@ -16,7 +16,7 @@ import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 
 import com.limelight.binding.input.GameInputDevice;
 import com.limelight.binding.input.KeyboardTranslator;
@@ -262,7 +262,7 @@ public class GameMenu {
                 }
             } catch (Exception e) {
                 e.printStackTrace();
-                Toast.makeText(game,"自定义导入格式出错了，请检查！",Toast.LENGTH_SHORT).show();
+                UiToast.makeText(game,"自定义导入格式出错了，请检查！",UiToast.LENGTH_SHORT).show();
             }
         }
         options.add(new MenuOption(getString(R.string.game_menu_cancel), null));

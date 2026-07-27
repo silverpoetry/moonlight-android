@@ -51,7 +51,7 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -212,7 +212,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                         @Override
                         public void run() {
                             // Display a toast to the user and quit the activity
-                            Toast.makeText(AppView.this, getResources().getText(R.string.lost_connection), Toast.LENGTH_SHORT).show();
+                            UiToast.makeText(AppView.this, getResources().getText(R.string.lost_connection), UiToast.LENGTH_SHORT).show();
                             finish();
                         }
                     });
@@ -230,7 +230,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                                     getResources().getString(R.string.scut_not_paired));
 
                             // Display a toast to the user and quit the activity
-                            Toast.makeText(AppView.this, getResources().getText(R.string.scut_not_paired), Toast.LENGTH_SHORT).show();
+                            UiToast.makeText(AppView.this, getResources().getText(R.string.scut_not_paired), UiToast.LENGTH_SHORT).show();
                             finish();
                         }
                     });
@@ -375,7 +375,6 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                 dialogFragment.setOnClick(new GameDisplayFragment.onClick() {
                     @Override
                     public void click() {
-                        Toast.makeText(AppView.this,"修改成功！",Toast.LENGTH_SHORT).show();
                     }
                 });
                 dialogFragment.setPrefConfig(pref);
@@ -608,8 +607,8 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                 public void run() {
                     Bitmap appBits = getAppBitmap(targetView);
                     if (!shortcutHelper.createPinnedGameShortcut(computer, app.app, appBits)) {
-                        Toast.makeText(AppView.this, getResources().getString(R.string.unable_to_pin_shortcut),
-                                Toast.LENGTH_LONG).show();
+                        UiToast.makeText(AppView.this, getResources().getString(R.string.unable_to_pin_shortcut),
+                                UiToast.LENGTH_LONG).show();
                     }
                 }
             }));

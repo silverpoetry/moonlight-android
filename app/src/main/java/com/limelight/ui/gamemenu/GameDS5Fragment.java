@@ -8,7 +8,6 @@ import android.widget.ImageButton;
 import android.widget.RadioGroup;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.limelight.R;
 import com.limelight.preferences.PreferenceConfiguration;
@@ -71,7 +70,6 @@ public class GameDS5Fragment extends BaseGameMenuDialog implements SeekBar.OnSee
             public void onClick(View v) {
                 if(onClick!=null){
                     onClick.click(1,true);
-                    Toast.makeText(getActivity(),"已生效！",Toast.LENGTH_SHORT).show();
                 }
             }
         });

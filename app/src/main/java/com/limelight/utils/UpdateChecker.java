@@ -13,7 +13,7 @@ import android.view.View;
 import android.view.Window;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 
 import com.google.gson.Gson;
 import com.limelight.BuildConfig;
@@ -404,7 +404,7 @@ public final class UpdateChecker {
     }
 
     private static void showToast(Activity activity, String message) {
-        Toast.makeText(activity, message, Toast.LENGTH_SHORT).show();
+        UiToast.makeText(activity, message, UiToast.LENGTH_SHORT).show();
     }
 
     private static final class UpdateResponse {

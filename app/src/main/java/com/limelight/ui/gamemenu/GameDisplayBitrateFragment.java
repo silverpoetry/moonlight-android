@@ -5,7 +5,7 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 
 import com.limelight.R;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
@@ -81,7 +81,7 @@ public class GameDisplayBitrateFragment extends BaseGameMenuDialog implements Vi
         if(v.getId()==R.id.btn_right){
             String bitrate=edt_bitrate.getText().toString().trim();
             if(TextUtils.isEmpty(bitrate)){
-                Toast.makeText(getActivity(),"码率不能为空！",Toast.LENGTH_SHORT).show();
+                UiToast.makeText(getActivity(),"码率不能为空！",UiToast.LENGTH_SHORT).show();
                 return;
             }
             dismiss();

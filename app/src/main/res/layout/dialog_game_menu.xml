@@ -111,28 +111,43 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="功能与操作"
+                android:text="@string/game_menu_title"
                 android:textColor="@android:color/white"
                 android:textStyle="bold"
                 android:id="@+id/tx_title_name"
-                android:textSize="11dp" />
+                android:textSize="11sp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="(只对本次串流生效)"
-                android:textStyle="italic"
-                android:layout_marginLeft="4dp"
                 android:layout_centerVertical="true"
-                android:layout_toRightOf="@+id/tx_title_name"
-                android:textSize="8dp" />
+                android:layout_marginStart="4dp"
+                android:layout_toEndOf="@+id/tx_title_name"
+                android:layout_toStartOf="@+id/btn_customize_actions"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:text="@string/game_menu_session_only"
+                android:textStyle="italic"
+                android:textSize="11sp" />
+
+            <ImageButton
+                android:id="@+id/btn_customize_actions"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_centerVertical="true"
+                android:layout_marginEnd="5dp"
+                android:layout_toStartOf="@+id/textClock"
+                android:background="@drawable/ic_game_menu_btn_transparent"
+                android:contentDescription="@string/game_menu_customize"
+                android:padding="8dp"
+                android:src="@drawable/ic_axi_edit" />
 
             <TextClock
                 android:id="@+id/textClock"
-                android:textSize="11dp"
+                android:textSize="11sp"
                 android:textStyle="bold"
                 android:layout_centerVertical="true"
-                android:layout_toLeftOf="@+id/tx_title_battery"
+                android:layout_toStartOf="@+id/tx_title_battery"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:format12Hour="EEEE hh:mm"
@@ -140,18 +155,24 @@
 
             <TextView
                 android:id="@+id/tx_title_battery"
-                android:textSize="11dp"
+                android:textSize="11sp"
                 android:textStyle="bold"
                 tools:text="100%"
                 android:gravity="center"
-                android:drawableLeft="@drawable/ic_axi_game_pad_battery"
-                android:layout_marginLeft="4dp"
+                android:drawableStart="@drawable/ic_axi_game_pad_battery"
+                android:layout_marginStart="4dp"
                 android:textColor="@android:color/white"
                 android:layout_centerVertical="true"
-                android:layout_alignParentRight="true"
+                android:layout_alignParentEnd="true"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"/>
         </RelativeLayout>
+
+        <LinearLayout
+            android:id="@+id/game_menu_action_grid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -162,7 +183,7 @@
             <Button
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_marginRight="5dp"
+                android:layout_marginEnd="5dp"
                 android:layout_weight="1"
                 android:background="@drawable/ic_game_menu_btn_selector"
                 android:drawablePadding="4dp"
@@ -170,13 +191,13 @@
                 android:gravity="center"
                 android:padding="4dp"
                 android:id="@+id/btn_unlink"
-                android:text="断开连接"
-                android:textSize="11dp" />
+                android:text="@string/game_menu_action_disconnect"
+                android:textSize="11sp" />
 
             <Button
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_marginRight="5dp"
+                android:layout_marginEnd="5dp"
                 android:layout_weight="1"
                 android:background="@drawable/ic_game_menu_btn_selector"
                 android:drawablePadding="4dp"
@@ -184,13 +205,13 @@
                 android:gravity="center"
                 android:padding="4dp"
                 android:id="@+id/btn_exit"
-                android:text="退出串流"
-                android:textSize="11dp" />
+                android:text="@string/game_menu_action_quit_stream"
+                android:textSize="11sp" />
 
             <Button
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_marginRight="5dp"
+                android:layout_marginEnd="5dp"
                 android:layout_weight="1"
                 android:background="@drawable/ic_game_menu_btn_selector"
                 android:drawablePadding="4dp"
@@ -198,8 +219,8 @@
                 android:gravity="center"
                 android:padding="4dp"
                 android:id="@+id/btn_swicth_screen"
-                android:text="旋转屏幕"
-                android:textSize="11dp" />
+                android:text="@string/game_menu_action_rotate"
+                android:textSize="11sp" />
 
             <Button
                 android:layout_width="match_parent"
@@ -211,8 +232,8 @@
                 android:gravity="center"
                 android:padding="4dp"
                 android:id="@+id/btn_performance"
-                android:text="性能信息"
-                android:textSize="11dp" />
+                android:text="@string/game_menu_action_performance"
+                android:textSize="11sp" />
 
         </LinearLayout>
 
@@ -225,7 +246,7 @@
             <Button
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_marginRight="5dp"
+                android:layout_marginEnd="5dp"
                 android:layout_weight="1"
                 android:background="@drawable/ic_game_menu_btn_selector"
                 android:drawablePadding="4dp"
@@ -233,13 +254,13 @@
                 android:gravity="center"
                 android:padding="4dp"
                 android:id="@+id/btn_game_pad"
-                android:text="虚拟手柄"
-                android:textSize="11dp" />
+                android:text="@string/game_menu_action_virtual_gamepad"
+                android:textSize="11sp" />
 
             <Button
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_marginRight="5dp"
+                android:layout_marginEnd="5dp"
                 android:layout_weight="1"
                 android:background="@drawable/ic_game_menu_btn_selector"
                 android:drawablePadding="4dp"
@@ -247,22 +268,22 @@
                 android:gravity="center"
                 android:padding="4dp"
                 android:id="@+id/btn_v_keyboard"
-                android:text="虚拟按键"
-                android:textSize="11dp" />
+                android:text="@string/game_menu_action_virtual_buttons"
+                android:textSize="11sp" />
 
             <Button
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_marginRight="5dp"
+                android:layout_marginEnd="5dp"
                 android:layout_weight="1"
                 android:background="@drawable/ic_game_menu_btn_selector"
                 android:drawablePadding="4dp"
                 android:drawableTop="@drawable/ic_axi_quick"
                 android:gravity="center"
                 android:padding="4dp"
-                android:text="全键盘"
+                android:text="@string/game_menu_action_full_keyboard"
                 android:id="@+id/btn_keyboard"
-                android:textSize="11dp" />
+                android:textSize="11sp" />
 
             <Button
                 android:layout_width="match_parent"
@@ -274,8 +295,8 @@
                 android:gravity="center"
                 android:padding="4dp"
                 android:id="@+id/btn_screen_move"
-                android:text="画面缩放"
-                android:textSize="11dp" />
+                android:text="@string/game_menu_action_screen_zoom"
+                android:textSize="11sp" />
 
         </LinearLayout>
 
@@ -288,7 +309,7 @@
             <Button
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_marginRight="5dp"
+                android:layout_marginEnd="5dp"
                 android:layout_weight="1"
                 android:background="@drawable/ic_game_menu_btn_selector"
                 android:drawablePadding="4dp"
@@ -296,13 +317,13 @@
                 android:gravity="center"
                 android:padding="4dp"
                 android:id="@+id/btn_display_1"
-                android:text="显示器"
-                android:textSize="11dp" />
+                android:text="@string/game_menu_action_display"
+                android:textSize="11sp" />
 
             <Button
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_marginRight="5dp"
+                android:layout_marginEnd="5dp"
                 android:layout_weight="1"
                 android:background="@drawable/ic_game_menu_btn_selector"
                 android:drawablePadding="4dp"
@@ -310,22 +331,22 @@
                 android:gravity="center"
                 android:padding="4dp"
                 android:id="@+id/btn_mic"
-                android:text="麦克风"
-                android:textSize="11dp" />
+                android:text="@string/game_menu_action_microphone"
+                android:textSize="11sp" />
 
             <Button
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:layout_marginRight="5dp"
+                android:layout_marginEnd="5dp"
                 android:background="@drawable/ic_game_menu_btn_selector"
                 android:drawablePadding="4dp"
                 android:drawableTop="@drawable/ic_axi_hdr"
                 android:gravity="center"
                 android:padding="4dp"
                 android:id="@+id/btn_hdr"
-                android:text="HDR开关"
-                android:textSize="10dp" />
+                android:text="@string/game_menu_action_hdr"
+                android:textSize="11sp" />
             <Button
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
@@ -361,7 +382,7 @@
                 android:drawableTop="@drawable/ic_axi_joystick"
                 android:gravity="center"
                 android:padding="4dp"
-                android:text="手柄键鼠"
+                android:text="@string/game_menu_action_gamepad_mouse"
                 android:textSize="11sp" />
 
             <Space
@@ -380,6 +401,8 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1" />
+        </LinearLayout>
+
         </LinearLayout>
 
         <TextView

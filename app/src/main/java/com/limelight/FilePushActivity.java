@@ -13,7 +13,7 @@ import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 
 import com.limelight.binding.PlatformBinding;
 import com.limelight.computers.ComputerDatabaseManager;
@@ -93,8 +93,8 @@ public class FilePushActivity extends Activity {
     @Override
     public void onBackPressed() {
         if (uploadInProgress) {
-            Toast.makeText(this, R.string.file_push_in_progress,
-                    Toast.LENGTH_SHORT).show();
+            UiToast.makeText(this, R.string.file_push_in_progress,
+                    UiToast.LENGTH_SHORT).show();
             return;
         }
         super.onBackPressed();

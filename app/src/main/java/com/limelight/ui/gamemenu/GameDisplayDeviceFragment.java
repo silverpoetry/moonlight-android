@@ -9,7 +9,6 @@ import android.widget.ImageButton;
 import android.widget.RadioGroup;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.limelight.R;
 import com.limelight.preferences.PreferenceConfiguration;

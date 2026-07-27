@@ -12,7 +12,7 @@ import android.view.WindowMetrics;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 
 import com.limelight.R;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
@@ -198,11 +198,11 @@ public class GameDisplayResolutionFragment extends BaseGameMenuDialog implements
             String width=edt_width.getText().toString().trim();
             String height=edt_height.getText().toString().trim();
             if(TextUtils.isEmpty(width)){
-                Toast.makeText(getActivity(),"宽度不能为空！",Toast.LENGTH_SHORT).show();
+                UiToast.makeText(getActivity(),"宽度不能为空！",UiToast.LENGTH_SHORT).show();
                 return;
             }
             if(TextUtils.isEmpty(height)){
-                Toast.makeText(getActivity(),"高度不能为空！",Toast.LENGTH_SHORT).show();
+                UiToast.makeText(getActivity(),"高度不能为空！",UiToast.LENGTH_SHORT).show();
                 return;
             }
             

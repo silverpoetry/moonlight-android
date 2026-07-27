@@ -33,6 +33,7 @@ import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.View.OnGenericMotionListener;
 import android.view.View.OnSystemUiVisibilityChangeListener;
 import android.view.Window;
@@ -44,7 +45,7 @@ import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 
 import com.limelight.binding.video.PerfOverlayStats;
 
@@ -104,7 +105,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
 
     // Only 2 touches are supported
     private final TouchContext[] touchContextMap = new TouchContext[2];
-    private final SoftKeyboardGestureDetector softKeyboardGestureDetector = new SoftKeyboardGestureDetector();
+    private SoftKeyboardGestureDetector softKeyboardGestureDetector;
     private TouchscreenTouchpadHandler touchscreenTouchpadHandler;
 
     private static final int REFERENCE_HORIZ_RES = 1280;
@@ -196,6 +197,8 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         super.onCreate(savedInstanceState);
 
         instance = this;
+        softKeyboardGestureDetector = new SoftKeyboardGestureDetector(
+                ViewConfiguration.get(this).getScaledTouchSlop());
 
         UiHelper.setLocale(this);
 
@@ -367,10 +370,10 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
 
                 if (!willStreamHdr) {
                     // Nope, no HDR for us :(
-                    Toast.makeText(this, "Display does not support HDR10", Toast.LENGTH_LONG).show();
+                    UiToast.makeText(this, "Display does not support HDR10", UiToast.LENGTH_LONG).show();
                 }
             } else {
-                Toast.makeText(this, "HDR requires Android 7.0 or later", Toast.LENGTH_LONG).show();
+                UiToast.makeText(this, "HDR requires Android 7.0 or later", UiToast.LENGTH_LONG).show();
             }
         }
 
@@ -401,17 +404,17 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         // Don't stream HDR if the decoder can't support it
         if (willStreamHdr && !decoderRenderer.isHevcMain10Hdr10Supported() && !decoderRenderer.isAv1Main10Supported()) {
             willStreamHdr = false;
-            Toast.makeText(this, "Decoder does not support HDR10 profile", Toast.LENGTH_LONG).show();
+            UiToast.makeText(this, "Decoder does not support HDR10 profile", UiToast.LENGTH_LONG).show();
         }
 
         // Display a message to the user if HEVC was forced on but we still didn't find a decoder
         if (prefConfig.videoFormat == PreferenceConfiguration.FormatOption.FORCE_HEVC && !decoderRenderer.isHevcSupported()) {
-            Toast.makeText(this, "No HEVC decoder found", Toast.LENGTH_LONG).show();
+            UiToast.makeText(this, "No HEVC decoder found", UiToast.LENGTH_LONG).show();
         }
 
         // Display a message to the user if AV1 was forced on but we still didn't find a decoder
         if (prefConfig.videoFormat == PreferenceConfiguration.FormatOption.FORCE_AV1 && !decoderRenderer.isAv1Supported()) {
-            Toast.makeText(this, "No AV1 decoder found", Toast.LENGTH_LONG).show();
+            UiToast.makeText(this, "No AV1 decoder found", UiToast.LENGTH_LONG).show();
         }
 
         // H.264 is always supported
@@ -1070,7 +1073,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                 }
 
                 if (message != null) {
-                    Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                    UiToast.makeText(this, message, UiToast.LENGTH_LONG).show();
                 }
             }
 
@@ -1451,15 +1454,15 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         SoftKeyboardGestureDetector.Result result =
                 softKeyboardGestureDetector.onTouchEvent(event, getSoftKeyboardGestureFingerCount());
 
-        if (result == SoftKeyboardGestureDetector.Result.STARTED) {
-            cancelNativeTouchpadInput();
-            for (TouchContext aTouchContext : touchContextMap) {
-                aTouchContext.cancelTouch();
-            }
-            return true;
-        }
-
         if (result == SoftKeyboardGestureDetector.Result.TRIGGERED) {
+            cancelNativeTouchpadInput();
+            for (TouchContext touchContext : touchContextMap) {
+                touchContext.cancelTouch();
+                touchContext.setPointerCount(0);
+            }
+            conn.sendTouchEvent(MoonBridge.LI_TOUCH_EVENT_CANCEL_ALL, 0,
+                    0, 0, 0, 0, 0,
+                    MoonBridge.LI_ROT_UNKNOWN);
             showKeyboard();
             return true;
         }
@@ -2355,7 +2358,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                Toast.makeText(GameSbs.this, message, Toast.LENGTH_LONG).show();
+                UiToast.makeText(GameSbs.this, message, UiToast.LENGTH_LONG).show();
             }
         });
     }
@@ -2366,7 +2369,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    Toast.makeText(GameSbs.this, message, Toast.LENGTH_LONG).show();
+                    UiToast.makeText(GameSbs.this, message, UiToast.LENGTH_LONG).show();
                 }
             });
         }

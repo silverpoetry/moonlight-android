@@ -8,14 +8,12 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Vibrator;
-import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.RadioGroup;
-import android.widget.Toast;
 
 import com.limelight.LimeLog;
 import com.limelight.R;
@@ -146,15 +144,12 @@ public class VirtualController {
 
     public void switchMode(ControllerMode currentMode){
         this.currentMode=currentMode;
-        String message="";
         switch (currentMode){
             case Active:
-                message="正常模式~";
                 buttonConfigure.setVisibility(View.GONE);
                 VirtualControllerConfigurationLoader.saveProfile(VirtualController.this, context);
                 break;
             case MoveButtons:
-                message="位移模式~";
                 buttonConfigure.setVisibility(View.VISIBLE);
                 rg_game_virtual_pad.check(R.id.btn_game_virtual_move);
                 showEnabledElements();
@@ -162,19 +157,13 @@ public class VirtualController {
             case ResizeButtons:
                 buttonConfigure.setVisibility(View.VISIBLE);
                 rg_game_virtual_pad.check(R.id.btn_game_virtual_zoom);
-                message="缩放模式~";
                 break;
             case DisableEnableButtons:
                 buttonConfigure.setVisibility(View.VISIBLE);
                 rg_game_virtual_pad.check(R.id.btn_game_virtual_disable);
-                message="禁用模式~";
                 showElements();
                 break;
         }
-        if(TextUtils.isEmpty(message)){
-            return;
-        }
-        Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
         buttonConfigure.invalidate();
         for (VirtualControllerElement element : elements) {
             element.invalidate();

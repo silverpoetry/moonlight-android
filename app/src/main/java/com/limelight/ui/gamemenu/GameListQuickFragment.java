@@ -15,24 +15,17 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.limelight.R;
-import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.ui.gamemenu.adapter.GameMenuQuickKeyboardAdapter;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.limelight.GameMenu.KEY_NAME;
-import static com.limelight.GameMenu.PREF_NAME;
 import static com.limelight.ui.gamemenu.GameListKeyBoardFragment.PREF_KEYBOARD_LIST_NAME;
 
 /**
@@ -53,8 +46,6 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
     private String title;
     private Button btn_right;
     private boolean enableClearDefaultSpecial;
-
-    private List<GameMenuQuickBean> oldGameMenus;
 
     private GameMenuQuickKeyboardAdapter adapter;
 
@@ -102,57 +93,14 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
                     public void click(GameMenuQuickBean bean) {
                         saveKeyBoardListData(getActivity(),bean);
                         updateData();
+                        notifyShortcutsChanged();
                     }
                 });
                 fragment.show(getFragmentManager());
             }
         });
 
-        oldGameMenus =new ArrayList<>();
-        //内置的快捷指令
-        if(!enableClearDefaultSpecial){
-            oldGameMenus.add(new GameMenuQuickBean("ESC (退出/菜单)",new short[]{KeyboardTranslator.VK_ESCAPE}));
-            oldGameMenus.add(new GameMenuQuickBean("F11 (网页全屏)",new short[]{KeyboardTranslator.VK_F11}));
-            oldGameMenus.add(new GameMenuQuickBean("Alt + F4 (关闭应用)",new short[]{KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_F4}));
-            oldGameMenus.add(new GameMenuQuickBean("Alt + Enter (窗口大小)",new short[]{KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_RETURN}));
-            oldGameMenus.add(new GameMenuQuickBean("Win (打开Windows开始菜单)",new short[]{KeyboardTranslator.VK_LWIN}));
-            oldGameMenus.add(new GameMenuQuickBean("Ctrl+Shift+ESC (任务管理器)",new short[]{KeyboardTranslator.VK_LCONTROL, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_ESCAPE}));
-            oldGameMenus.add(new GameMenuQuickBean("Win + D (返回桌面)",new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_D}));
-            oldGameMenus.add(new GameMenuQuickBean("Win + P (显示器模式)",new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_P}));
-            oldGameMenus.add(new GameMenuQuickBean("Win + G (打开Xbox Game Bar)",new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_G}));
-            oldGameMenus.add(new GameMenuQuickBean("Shift + Tab (打开Steam Overlay)",new short[]{KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_TAB}));
-            oldGameMenus.add(new GameMenuQuickBean("Win + Shift + left (切换桌面)",new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_LEFT}));
-        }
-        //自定义导入的指令
-        SharedPreferences preferences=getActivity().getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE);
-        String value=preferences.getString(KEY_NAME,"");
-
-        if(!TextUtils.isEmpty(value)){
-            try {
-                JSONObject object=new JSONObject(value);
-                JSONArray array=object.optJSONArray("data");
-                if(array!=null&&array.length()>0){
-                    for (int i = 0; i < array.length(); i++) {
-                        JSONObject object1=array.getJSONObject(i);
-                        String name=object1.optString("name");
-                        JSONArray array1=object1.getJSONArray("data");
-                        short[] datas=new short[array1.length()];
-                        for (int j = 0; j < array1.length(); j++) {
-                            String code=array1.getString(j);
-                            datas[j]= (short) Integer.parseInt(code.substring(2), 16);
-                        }
-                        oldGameMenus.add(new GameMenuQuickBean(name,datas));
-                    }
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-                Toast.makeText(getActivity(),"自定义导入格式出错了，请检查！",Toast.LENGTH_SHORT).show();
-            }
-        }
-
-        gameMenus=new ArrayList<>();
-        gameMenus.addAll(oldGameMenus);
-        gameMenus.addAll(getKeyBoardList(getActivity()));
+        gameMenus = loadShortcutBeans();
 
         adapter=new GameMenuQuickKeyboardAdapter(getActivity(), gameMenus);
         lv_menu.setAdapter(adapter);
@@ -179,6 +127,7 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
                             public void onClick(DialogInterface dialog, int which) {
                                 removeKeyBoardListData(getActivity(), gameMenus.get(position));
                                 updateData();
+                                notifyShortcutsChanged();
                             }
                         })
                         .setNegativeButton("取消", new DialogInterface.OnClickListener() {
@@ -200,10 +149,14 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
 
     public void updateData(){
         gameMenus.clear();
-        gameMenus.addAll(oldGameMenus);
-        gameMenus.addAll(getKeyBoardList(getActivity()));
+        gameMenus.addAll(loadShortcutBeans());
         adapter.setDatas(gameMenus);
         adapter.notifyDataSetChanged();
+    }
+
+    private List<GameMenuQuickBean> loadShortcutBeans() {
+        return GameMenuShortcutCatalog.loadBeans(
+                getActivity(), !enableClearDefaultSpecial);
     }
 
     @Override
@@ -223,6 +176,18 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
 
     public void setOnClick(GameListQuickFragment.onClick onClick) {
         this.onClick = onClick;
+    }
+
+    private Runnable shortcutsChangedListener;
+
+    public void setOnShortcutsChangedListener(Runnable listener) {
+        shortcutsChangedListener = listener;
+    }
+
+    private void notifyShortcutsChanged() {
+        if (shortcutsChangedListener != null) {
+            shortcutsChangedListener.run();
+        }
     }
 
     public List<GameMenuQuickBean> getKeyBoardList(Context context){

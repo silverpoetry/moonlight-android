@@ -7,7 +7,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 
 import com.limelight.R;
 import com.limelight.preferences.PreferenceConfiguration;
@@ -98,7 +98,7 @@ public class GameDisplayFpsFragment extends BaseGameMenuDialog implements View.O
         if(v.getId()==R.id.btn_right){
             String fps=edt_fps.getText().toString().trim();
             if(TextUtils.isEmpty(fps)){
-                Toast.makeText(getActivity(),"fps不能为空！",Toast.LENGTH_SHORT).show();
+                UiToast.makeText(getActivity(),"fps不能为空！",UiToast.LENGTH_SHORT).show();
                 return;
             }
             dismiss();

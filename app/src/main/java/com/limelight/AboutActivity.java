@@ -9,7 +9,6 @@ import android.view.View;
 import android.view.ViewOutlineProvider;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.limelight.utils.UpdateChecker;
 

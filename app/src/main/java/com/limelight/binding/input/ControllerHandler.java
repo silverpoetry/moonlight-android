@@ -33,7 +33,7 @@ import android.view.InputEvent;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.Surface;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 
 import com.google.gson.Gson;
 import com.limelight.GameMenu;
@@ -3572,7 +3572,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         public void toggleMouseEmulation() {
             mainThreadHandler.removeCallbacks(mouseEmulationRunnable);
             mouseEmulationActive = !mouseEmulationActive;
-            Toast.makeText(activityContext, "手柄键鼠模式: " + (mouseEmulationActive ? "开启" : "关闭"), Toast.LENGTH_SHORT).show();
+            UiToast.makeText(activityContext, "手柄键鼠模式: " + (mouseEmulationActive ? "开启" : "关闭"), UiToast.LENGTH_SHORT).show();
             if (mouseEmulationActive) {
                 mainThreadHandler.postDelayed(mouseEmulationRunnable, mouseEmulationReportPeriod);
             }
@@ -3800,7 +3800,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             byte reportedType;
             if (type != MoonBridge.LI_CTYPE_PS && sensorManager != null) {
                 // Override the detected controller type if we're emulating motion sensors on an Xbox controller
-                Toast.makeText(activityContext, activityContext.getResources().getText(R.string.toast_controller_type_changed), Toast.LENGTH_LONG).show();
+                LimeLog.info(
+                        "Reporting an unknown controller type while " +
+                                "emulating motion sensors");
                 reportedType = MoonBridge.LI_CTYPE_UNKNOWN;
 
                 // Remember that we should enable the clickpad emulation combo (Select+LB) for this device

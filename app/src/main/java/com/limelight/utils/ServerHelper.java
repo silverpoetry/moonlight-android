@@ -2,7 +2,7 @@ package com.limelight.utils;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 
 import com.limelight.AppView;
 import com.limelight.Game;
@@ -123,7 +123,7 @@ public class ServerHelper {
     public static void doStart(Activity parent, NvApp app, ComputerDetails computer,
                                 ComputerManagerService.ComputerManagerBinder managerBinder) {
         if (computer.state == ComputerDetails.State.OFFLINE || computer.activeAddress == null) {
-            Toast.makeText(parent, parent.getResources().getString(R.string.pair_pc_offline), Toast.LENGTH_SHORT).show();
+            UiToast.makeText(parent, parent.getResources().getString(R.string.pair_pc_offline), UiToast.LENGTH_SHORT).show();
             return;
         }
         rememberRecentSession(parent, app, computer);
@@ -167,7 +167,7 @@ public class ServerHelper {
                               final NvApp app,
                               final ComputerManagerService.ComputerManagerBinder managerBinder,
                               final Runnable onComplete) {
-        Toast.makeText(parent, parent.getResources().getString(R.string.applist_quit_app) + " " + app.getAppName() + "...", Toast.LENGTH_SHORT).show();
+        UiToast.makeText(parent, parent.getResources().getString(R.string.applist_quit_app) + " " + app.getAppName() + "...", UiToast.LENGTH_SHORT).show();
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -207,7 +207,7 @@ public class ServerHelper {
                 parent.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        Toast.makeText(parent, toastMessage, Toast.LENGTH_LONG).show();
+                        UiToast.makeText(parent, toastMessage, UiToast.LENGTH_LONG).show();
                     }
                 });
             }
@@ -217,7 +217,7 @@ public class ServerHelper {
     public static void doQuit(final Activity parent,
                               final StreamReqBean reqBean,
                               final Runnable onComplete) {
-        Toast.makeText(parent, parent.getResources().getString(R.string.applist_quit_app) + " " + reqBean.getAppName() + "...", Toast.LENGTH_SHORT).show();
+        UiToast.makeText(parent, parent.getResources().getString(R.string.applist_quit_app) + " " + reqBean.getAppName() + "...", UiToast.LENGTH_SHORT).show();
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -257,7 +257,7 @@ public class ServerHelper {
                 parent.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        Toast.makeText(parent, toastMessage, Toast.LENGTH_LONG).show();
+                        UiToast.makeText(parent, toastMessage, UiToast.LENGTH_LONG).show();
                     }
                 });
             }

@@ -9,7 +9,6 @@ import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.accessibility.AccessibilityEvent;
-import android.widget.Toast;
 
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.utils.FileUriUtils;
@@ -40,7 +39,10 @@ public class KeyboardAccessibilityService extends AccessibilityService {
         int action = event.getAction();
         int keyCode = event.getKeyCode();
         if (action == KeyEvent.ACTION_DOWN&&PreferenceConfiguration.readPreferences(this).enableAccessibilityShowLog) {
-            Toast.makeText(getApplicationContext(),"scancode:"+event.getScanCode()+",code:"+event.getKeyCode(),Toast.LENGTH_SHORT).show();
+            LimeLog.info(
+                    "Accessibility key: scancode=" +
+                            event.getScanCode() +
+                            ", keycode=" + event.getKeyCode());
         }
         String displayName = "axi_switch_keyboard.json";
         File dataBaseFile=new File(getFilesDir().getAbsolutePath(), displayName);

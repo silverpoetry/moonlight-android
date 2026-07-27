@@ -115,6 +115,7 @@ import android.view.View.OnTouchListener;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.view.ViewParent;
+import android.view.ViewConfiguration;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
@@ -122,7 +123,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 import android.support.v4.provider.DocumentFile;
 
 import java.io.ByteArrayInputStream;
@@ -154,7 +155,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     // Only 2 touches are supported
     private final TouchContext[] touchContextMap = new TouchContext[2];
-    private final SoftKeyboardGestureDetector softKeyboardGestureDetector = new SoftKeyboardGestureDetector();
+    private SoftKeyboardGestureDetector softKeyboardGestureDetector;
     private TouchscreenTouchpadHandler touchscreenTouchpadHandler;
     private boolean nativeTouchpadInputMode;
 
@@ -282,6 +283,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         super.onCreate(savedInstanceState);
 
         instance=this;
+        softKeyboardGestureDetector = new SoftKeyboardGestureDetector(
+                ViewConfiguration.get(this).getScaledTouchSlop());
 
         UiHelper.setLocale(this);
 
@@ -569,11 +572,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
                     if (!willStreamHdr) {
                         // Nope, no HDR for us :(
-                        Toast.makeText(this, "Display does not support HDR10", Toast.LENGTH_LONG).show();
+                        UiToast.makeText(this, "Display does not support HDR10", UiToast.LENGTH_LONG).show();
                     }
                 }
                 else {
-                    Toast.makeText(this, "HDR requires Android 7.0 or later", Toast.LENGTH_LONG).show();
+                    UiToast.makeText(this, "HDR requires Android 7.0 or later", UiToast.LENGTH_LONG).show();
                 }
             }
         }
@@ -620,16 +623,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // Don't stream HDR if the decoder can't support it
         if (willStreamHdr && !decoderRenderer.isHevcMain10Hdr10Supported() && !decoderRenderer.isAv1Main10Supported()) {
             willStreamHdr = false;
-            Toast.makeText(this, "Decoder does not support HDR10 profile", Toast.LENGTH_LONG).show();
+            UiToast.makeText(this, "Decoder does not support HDR10 profile", UiToast.LENGTH_LONG).show();
         }
         // Display a message to the user if HEVC was forced on but we still didn't find a decoder
         if (prefConfig.videoFormat == PreferenceConfiguration.FormatOption.FORCE_HEVC && !decoderRenderer.isHevcSupported()) {
-            Toast.makeText(this, "No HEVC decoder found", Toast.LENGTH_LONG).show();
+            UiToast.makeText(this, "No HEVC decoder found", UiToast.LENGTH_LONG).show();
         }
 
         // Display a message to the user if AV1 was forced on but we still didn't find a decoder
         if (prefConfig.videoFormat == PreferenceConfiguration.FormatOption.FORCE_AV1 && !decoderRenderer.isAv1Supported()) {
-            Toast.makeText(this, "No AV1 decoder found", Toast.LENGTH_LONG).show();
+            UiToast.makeText(this, "No AV1 decoder found", UiToast.LENGTH_LONG).show();
         }
 
         // H.264 is always supported
@@ -1584,7 +1587,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 }
 
                 if (message != null) {
-                    Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                    UiToast.makeText(this, message, UiToast.LENGTH_LONG).show();
                 }
             }
 
@@ -2050,19 +2053,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         SoftKeyboardGestureDetector.Result result =
                 softKeyboardGestureDetector.onTouchEvent(event, getSoftKeyboardGestureFingerCount());
 
-        if (result == SoftKeyboardGestureDetector.Result.STARTED) {
-            cancelNativeTouchpadInput();
-            for (TouchContext aTouchContext : touchContextMap) {
-                aTouchContext.cancelTouch();
-            }
-            return true;
-        }
-
         if (result == SoftKeyboardGestureDetector.Result.TRIGGERED) {
-            showKeyboard();
+            cancelNativeTouchpadInput();
+            for (TouchContext touchContext : touchContextMap) {
+                touchContext.cancelTouch();
+                touchContext.setPointerCount(0);
+            }
             conn.sendTouchEvent(MoonBridge.LI_TOUCH_EVENT_CANCEL_ALL, 0,
                     0, 0, 0, 0, 0,
                     MoonBridge.LI_ROT_UNKNOWN);
+            showKeyboard();
             return true;
         }
 
@@ -3079,7 +3079,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
                     // If video initialization failed and the surface is still valid, display extra information for the user
                     if (stage.contains("video") && streamView.getHolder().getSurface().isValid()) {
-                        Toast.makeText(Game.this, getResources().getText(R.string.video_decoder_init_failed), Toast.LENGTH_LONG).show();
+                        UiToast.makeText(Game.this, getResources().getText(R.string.video_decoder_init_failed), UiToast.LENGTH_LONG).show();
                     }
 
                     String dialogText = getResources().getString(R.string.conn_error_msg) + " " + stage +" (error "+errorCode+")";
@@ -3267,7 +3267,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                Toast.makeText(Game.this, message, Toast.LENGTH_LONG).show();
+                UiToast.makeText(Game.this, message, UiToast.LENGTH_LONG).show();
             }
         });
     }
@@ -3278,7 +3278,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    Toast.makeText(Game.this, message, Toast.LENGTH_LONG).show();
+                    UiToast.makeText(Game.this, message, UiToast.LENGTH_LONG).show();
                 }
             });
         }
@@ -3480,7 +3480,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         pendingMicToggleAfterPermission = false;
 
-        Toast.makeText(this, getResources().getString(R.string.mic_uplink_permission_denied), Toast.LENGTH_LONG).show();
+        UiToast.makeText(this, getResources().getString(R.string.mic_uplink_permission_denied), UiToast.LENGTH_LONG).show();
     }
 
     @Override
@@ -3914,7 +3914,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         lastBackPressedElapsedMs = now;
-        Toast.makeText(this, "再按一次返回退出串流", Toast.LENGTH_SHORT).show();
+        UiToast.makeText(this, "再按一次返回退出串流", UiToast.LENGTH_SHORT).show();
 
         if (prefConfig.enableQtDialog && (dialogGameMenu == null || !dialogGameMenu.isVisible())) {
             showGameMenu(null);
@@ -4101,7 +4101,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     //切换虚拟手柄模式
     public void switchVirtualController(KeyBoardController.ControllerMode mode){
         if(virtualController==null||!prefConfig.onscreenController){
-            Toast.makeText(this,"请先打开虚拟手柄开关！",Toast.LENGTH_SHORT).show();
+            UiToast.makeText(this,"请先打开虚拟手柄开关！",UiToast.LENGTH_SHORT).show();
             return;
         }
         virtualController.switchMode(mode);
@@ -4118,7 +4118,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     //切换虚拟手柄模式
     public void switchVirtualKeyController(KeyBoardController.ControllerMode mode){
         if(keyBoardController==null||!prefConfig.enableKeyboard){
-            Toast.makeText(this,"请先打开虚拟按键开关！",Toast.LENGTH_SHORT).show();
+            UiToast.makeText(this,"请先打开虚拟按键开关！",UiToast.LENGTH_SHORT).show();
             return;
         }
         keyBoardController.switchMode(mode);
@@ -4151,12 +4151,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if(!streamView.isEnableZoomAndPan()){
             disableMouseModel=true;
             streamView.setEnableZoomAndPan(true);
-            Toast.makeText(this,"开启画面平移&缩放！",Toast.LENGTH_SHORT).show();
             return;
         }
         disableMouseModel=false;
         streamView.setEnableZoomAndPan(false);
-        Toast.makeText(this,"关闭画面平移&缩放！",Toast.LENGTH_SHORT).show();
     }
 
     public boolean getScreenMoveZoom(){
@@ -4420,13 +4418,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     public void pullRemoteClipboardFiles() {
         if (clipboardFileTransferInProgress) {
-            Toast.makeText(this, R.string.clipboard_file_pull_in_progress,
-                    Toast.LENGTH_SHORT).show();
+            UiToast.makeText(this, R.string.clipboard_file_pull_in_progress,
+                    UiToast.LENGTH_SHORT).show();
             return;
         }
         if (conn == null) {
-            Toast.makeText(this, "剪贴板同步尚未连接",
-                    Toast.LENGTH_SHORT).show();
+            UiToast.makeText(this, "剪贴板同步尚未连接",
+                    UiToast.LENGTH_SHORT).show();
             return;
         }
 
@@ -4459,8 +4457,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             startActivityForResult(intent, REQUEST_CLIPBOARD_FILE_DIRECTORY);
         } catch (RuntimeException error) {
             selectingClipboardFileDirectory = false;
-            Toast.makeText(this, "无法打开目录选择器",
-                    Toast.LENGTH_LONG).show();
+            UiToast.makeText(this, "无法打开目录选择器",
+                    UiToast.LENGTH_LONG).show();
         }
     }
 
@@ -4659,8 +4657,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     .apply();
             downloadRemoteClipboardFiles(directory);
         } catch (SecurityException error) {
-            Toast.makeText(this, "无法保留该目录的访问权限",
-                    Toast.LENGTH_LONG).show();
+            UiToast.makeText(this, "无法保留该目录的访问权限",
+                    UiToast.LENGTH_LONG).show();
         }
     }
 
@@ -4735,10 +4733,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             new Thread(() -> {
                 currentConn.stopMicUplink();
                 String message = currentConn.getLastMicUplinkMessage();
+                boolean stoppedCleanly =
+                        currentConn.getMicUplinkState() !=
+                                NvConnection.MicUplinkState.ERROR;
                 runOnUiThread(() -> {
                     micToggleInFlight = false;
-                    if (message != null && !message.isEmpty()) {
-                        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+                    if (!stoppedCleanly &&
+                            message != null && !message.isEmpty()) {
+                        UiToast.makeText(this, message, UiToast.LENGTH_SHORT).show();
                     }
                 });
             }, "MicToggle").start();
@@ -4746,7 +4748,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         if (!MicUplinkConnection.isSupported()) {
-            Toast.makeText(this, getResources().getString(R.string.mic_uplink_not_supported), Toast.LENGTH_LONG).show();
+            UiToast.makeText(this, getResources().getString(R.string.mic_uplink_not_supported), UiToast.LENGTH_LONG).show();
             return;
         }
 
@@ -4764,13 +4766,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         micToggleInFlight = true;
         final NvConnection currentConn = conn;
         new Thread(() -> {
-            currentConn.startMicUplink();
+            boolean started = currentConn.startMicUplink();
             String message = currentConn.getLastMicUplinkMessage();
             runOnUiThread(() -> {
                 micToggleInFlight = false;
 
-                if (message != null && !message.isEmpty()) {
-                    Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+                if (!started &&
+                        message != null && !message.isEmpty()) {
+                    UiToast.makeText(this, message, UiToast.LENGTH_SHORT).show();
                 }
             });
         }, "MicToggle").start();

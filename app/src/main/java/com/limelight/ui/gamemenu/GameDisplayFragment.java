@@ -7,7 +7,7 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.limelight.utils.UiToast;
 
 import com.limelight.R;
 import com.limelight.preferences.PreferenceConfiguration;
@@ -176,7 +176,6 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
         rg_game_display_lock.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(RadioGroup group, int checkedId) {
-                Toast.makeText(getActivity(),"切换成功！",Toast.LENGTH_SHORT).show();
                 if(checkedId==R.id.rbt_game_display_lock_1){
                     prefConfig.enableScreenOnAuto=0;
                     saveLock(0);
@@ -602,7 +601,7 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
 
         if(v.getId()==R.id.btn_right){
             if(width==0||height==0||bitrate==0||fps==0){
-                Toast.makeText(getActivity(),"请检查配置信息！",Toast.LENGTH_SHORT).show();
+                UiToast.makeText(getActivity(),"请检查配置信息！",UiToast.LENGTH_SHORT).show();
                 return;
             }
             if(onClick==null){

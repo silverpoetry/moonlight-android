@@ -1,11 +1,12 @@
 package com.limelight.binding.input.touch;
 
+import android.os.Build;
+import android.util.SparseArray;
 import android.view.MotionEvent;
 
 public final class SoftKeyboardGestureDetector {
     public enum Result {
         NONE,
-        STARTED,
         CONSUMED,
         TRIGGERED
     }
@@ -13,98 +14,186 @@ public final class SoftKeyboardGestureDetector {
     private static final int MIN_GESTURE_FINGER_COUNT = 3;
     private static final int TAP_THRESHOLD_MS = 300;
 
-    private boolean pending;
-    private boolean armed;
-    private int configuredFingerCount;
-    private int maxPointerCount;
-    private long armedEventTime;
+    private static final class PointerOrigin {
+        final float x;
+        final float y;
 
-    public Result onTouchEvent(MotionEvent event, int configuredFingerCount) {
-        if (configuredFingerCount < MIN_GESTURE_FINGER_COUNT) {
+        PointerOrigin(float x, float y) {
+            this.x = x;
+            this.y = y;
+        }
+    }
+
+    private final float movementThresholdSquared;
+    private final SparseArray<PointerOrigin> pointerOrigins = new SparseArray<>();
+
+    private boolean eligible;
+    private boolean armed;
+    private boolean suppressRemainder;
+    private int configuredFingerCount;
+
+    public SoftKeyboardGestureDetector(int movementThresholdPx) {
+        int safeMovementThreshold = Math.max(1, movementThresholdPx);
+        movementThresholdSquared = safeMovementThreshold * safeMovementThreshold;
+    }
+
+    /**
+     * Observes a touch stream without consuming it until an exact multi-finger tap is confirmed.
+     *
+     * <p>Native touchpad frames must continue flowing while a swipe is still possible. The first
+     * pointer-up is the earliest point where a tap can be confirmed and canceled before the host
+     * receives any contact-up frame. Only the remaining releases from that confirmed tap are
+     * consumed.</p>
+     */
+    public Result onTouchEvent(MotionEvent event, int requestedFingerCount) {
+        if (requestedFingerCount < MIN_GESTURE_FINGER_COUNT) {
             reset();
             return Result.NONE;
+        }
+
+        if (suppressRemainder) {
+            if (event.getActionMasked() == MotionEvent.ACTION_UP ||
+                    event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                reset();
+            }
+            return Result.CONSUMED;
         }
 
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 reset();
+                configuredFingerCount = requestedFingerCount;
+                eligible = true;
+                recordPointerOrigin(event, 0);
                 return Result.NONE;
 
             case MotionEvent.ACTION_POINTER_DOWN:
-                return handlePointerDown(event, configuredFingerCount);
+                return handlePointerDown(event, requestedFingerCount);
+
+            case MotionEvent.ACTION_MOVE:
+                updateEligibility(event);
+                return Result.NONE;
 
             case MotionEvent.ACTION_POINTER_UP:
-            case MotionEvent.ACTION_UP:
-                return handlePointerUp(event);
+                return handlePointerUp(event, requestedFingerCount);
 
+            case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
-                return handleCancel(event);
+                reset();
+                return Result.NONE;
 
             default:
-                return pending ? Result.CONSUMED : Result.NONE;
+                return Result.NONE;
         }
     }
 
     public void reset() {
-        pending = false;
+        eligible = false;
         armed = false;
+        suppressRemainder = false;
         configuredFingerCount = 0;
-        maxPointerCount = 0;
-        armedEventTime = 0;
+        pointerOrigins.clear();
     }
 
-    private Result handlePointerDown(MotionEvent event, int configuredFingerCount) {
-        int pointerCount = event.getPointerCount();
-
-        if (pointerCount < MIN_GESTURE_FINGER_COUNT) {
-            return pending ? Result.CONSUMED : Result.NONE;
-        }
-
-        if (pointerCount > configuredFingerCount) {
-            Result result = pending ? Result.CONSUMED : Result.NONE;
+    private Result handlePointerDown(MotionEvent event, int requestedFingerCount) {
+        if (!eligible || configuredFingerCount != requestedFingerCount) {
             reset();
-            return result;
+            return Result.NONE;
         }
 
-        boolean justStarted = !pending;
-        pending = true;
-        this.configuredFingerCount = configuredFingerCount;
-        maxPointerCount = Math.max(maxPointerCount, pointerCount);
+        recordPointerOrigin(event, event.getActionIndex());
+        updateEligibility(event);
+        if (!eligible) {
+            return Result.NONE;
+        }
+
+        int pointerCount = event.getPointerCount();
+        if (pointerCount > configuredFingerCount) {
+            eligible = false;
+            armed = false;
+            return Result.NONE;
+        }
 
         if (pointerCount == configuredFingerCount) {
             armed = true;
-            armedEventTime = event.getEventTime();
         }
 
-        return justStarted ? Result.STARTED : Result.CONSUMED;
+        return Result.NONE;
     }
 
-    private Result handlePointerUp(MotionEvent event) {
-        if (!pending) {
+    private Result handlePointerUp(MotionEvent event, int requestedFingerCount) {
+        if (!armed || configuredFingerCount != requestedFingerCount) {
+            eligible = false;
+            armed = false;
             return Result.NONE;
         }
 
-        maxPointerCount = Math.max(maxPointerCount, event.getPointerCount());
-        if (event.getPointerCount() == 1) {
-            return completeIfTriggered(event);
-        }
+        updateEligibility(event);
+        boolean canceled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                (event.getFlags() & MotionEvent.FLAG_CANCELED) != 0;
+        boolean triggered = eligible &&
+                !canceled &&
+                event.getPointerCount() == configuredFingerCount &&
+                event.getEventTime() - event.getDownTime() < TAP_THRESHOLD_MS;
 
-        return Result.CONSUMED;
-    }
-
-    private Result handleCancel(MotionEvent event) {
-        if (!pending) {
+        if (!triggered) {
+            eligible = false;
+            armed = false;
             return Result.NONE;
         }
 
-        return completeIfTriggered(event);
+        eligible = false;
+        armed = false;
+        suppressRemainder = true;
+        pointerOrigins.clear();
+        return Result.TRIGGERED;
     }
 
-    private Result completeIfTriggered(MotionEvent event) {
-        boolean triggered = armed &&
-                maxPointerCount == configuredFingerCount &&
-                event.getEventTime() - armedEventTime < TAP_THRESHOLD_MS;
-        reset();
-        return triggered ? Result.TRIGGERED : Result.CONSUMED;
+    private void recordPointerOrigin(MotionEvent event, int pointerIndex) {
+        pointerOrigins.put(
+                event.getPointerId(pointerIndex),
+                new PointerOrigin(event.getX(pointerIndex), event.getY(pointerIndex)));
+    }
+
+    private void updateEligibility(MotionEvent event) {
+        if (!eligible) {
+            return;
+        }
+
+        if (event.getEventTime() - event.getDownTime() >= TAP_THRESHOLD_MS ||
+                event.getPointerCount() > configuredFingerCount) {
+            eligible = false;
+            armed = false;
+            return;
+        }
+
+        for (int pointerIndex = 0; pointerIndex < event.getPointerCount(); pointerIndex++) {
+            PointerOrigin origin = pointerOrigins.get(event.getPointerId(pointerIndex));
+            if (origin == null ||
+                    movedBeyondThreshold(event.getX(pointerIndex), event.getY(pointerIndex), origin)) {
+                eligible = false;
+                armed = false;
+                return;
+            }
+
+            for (int historyIndex = 0;
+                 historyIndex < event.getHistorySize();
+                 historyIndex++) {
+                if (movedBeyondThreshold(
+                        event.getHistoricalX(pointerIndex, historyIndex),
+                        event.getHistoricalY(pointerIndex, historyIndex),
+                        origin)) {
+                    eligible = false;
+                    armed = false;
+                    return;
+                }
+            }
+        }
+    }
+
+    private boolean movedBeyondThreshold(float x, float y, PointerOrigin origin) {
+        float deltaX = x - origin.x;
+        float deltaY = y - origin.y;
+        return deltaX * deltaX + deltaY * deltaY > movementThresholdSquared;
     }
 }
