@@ -12,20 +12,30 @@ import com.limelight.preferences.PreferenceConfiguration;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Forwards touchscreen gestures with two or more contacts as native touchpad input.
  *
  * <p>Standalone single-finger gestures intentionally remain on the legacy mouse path. This keeps
  * local cursor rendering and host cursor movement driven by the same mouse packet. When a native
- * multi-finger gesture returns to one contact, the remaining contact sends mouse movement only
- * until it is lifted, preventing a discontinuity or a synthetic tap.</p>
+ * multi-finger gesture returns to one contact, the tail is either handled as relative movement
+ * or suppressed until all contacts are lifted. Suppression preserves the cursor position used by
+ * native tap gestures in absolute mouse mode.</p>
  */
 public final class TouchscreenTouchpadHandler {
+    /**
+     * Defines how the remaining contact behaves after a native multi-finger gesture ends.
+     */
+    public enum SinglePointerRemainderMode {
+        RELATIVE,
+        SUPPRESS
+    }
+
     private enum GestureState {
         IDLE,
         NATIVE_MULTITOUCH,
-        MOUSE_REMAINDER,
+        RELATIVE_REMAINDER,
         SUPPRESSED
     }
 
@@ -42,9 +52,11 @@ public final class TouchscreenTouchpadHandler {
     private GestureState gestureState = GestureState.IDLE;
     private short deviceWidthMm;
     private short deviceHeightMm;
-    private int mousePointerId;
-    private int mouseX;
-    private int mouseY;
+    private SinglePointerRemainderMode singlePointerRemainderMode =
+            SinglePointerRemainderMode.RELATIVE;
+    private int remainderPointerId;
+    private int remainderX;
+    private int remainderY;
 
     public TouchscreenTouchpadHandler(NvConnection connection, View targetView,
                                      int referenceWidth, int referenceHeight,
@@ -55,6 +67,24 @@ public final class TouchscreenTouchpadHandler {
     }
 
     /**
+     * Configures how a single contact is handled after native multi-touch has ended.
+     *
+     * <p>Changing modes cancels any gesture currently owned by this handler, so input from one
+     * mode can never leak into another.</p>
+     */
+    public void setSinglePointerRemainderMode(
+            SinglePointerRemainderMode singlePointerRemainderMode) {
+        SinglePointerRemainderMode newMode =
+                Objects.requireNonNull(singlePointerRemainderMode);
+        if (this.singlePointerRemainderMode == newMode) {
+            return;
+        }
+
+        cancel();
+        this.singlePointerRemainderMode = newMode;
+    }
+
+    /**
      * Returns whether this handler owns the current touchscreen gesture.
      */
     public boolean isHandlingGesture() {
@@ -62,7 +92,7 @@ public final class TouchscreenTouchpadHandler {
     }
 
     /**
-     * Handles native multi-finger touchpad input and the movement-only single-finger tail.
+     * Handles native multi-finger touchpad input and owns any remaining single-finger tail.
      *
      * @return {@code true} when this handler owns the event, or {@code false} when the caller
      *         should dispatch it through the original touchscreen touchpad implementation.
@@ -106,8 +136,8 @@ public final class TouchscreenTouchpadHandler {
                 handleNativeGesture(eventView, event);
                 return true;
 
-            case MOUSE_REMAINDER:
-                handleMouseRemainder(eventView, event);
+            case RELATIVE_REMAINDER:
+                handleRelativeRemainder(eventView, event);
                 return true;
 
             default:
@@ -137,7 +167,7 @@ public final class TouchscreenTouchpadHandler {
 
         activeContacts.clear();
         syncActiveContacts(frameContacts);
-        clearMouseRemainder();
+        clearSinglePointerRemainder();
         gestureState = GestureState.NATIVE_MULTITOUCH;
         return true;
     }
@@ -154,7 +184,7 @@ public final class TouchscreenTouchpadHandler {
 
             case MotionEvent.ACTION_POINTER_UP:
                 if (event.getPointerCount() - 1 == 1) {
-                    finishNativeGestureWithMouseRemainder(eventView, event);
+                    finishNativeGestureWithSinglePointerRemainder(eventView, event);
                 }
                 else {
                     sendContactUp(eventView, event);
@@ -163,7 +193,9 @@ public final class TouchscreenTouchpadHandler {
 
             case MotionEvent.ACTION_UP:
                 sendContactUp(eventView, event);
-                mouseMotionSender.resendAbsoluteMousePosition();
+                if (singlePointerRemainderMode == SinglePointerRemainderMode.RELATIVE) {
+                    mouseMotionSender.resendAbsoluteMousePosition();
+                }
                 resetState();
                 break;
 
@@ -229,13 +261,14 @@ public final class TouchscreenTouchpadHandler {
         activeContacts.remove(actionPointerId);
     }
 
-    private void finishNativeGestureWithMouseRemainder(View eventView, MotionEvent event) {
+    private void finishNativeGestureWithSinglePointerRemainder(View eventView,
+                                                                MotionEvent event) {
         int actionIndex = event.getActionIndex();
         int remainingIndex = actionIndex == 0 ? 1 : 0;
         boolean canceled = isCanceledPointerUp(event);
 
-        // End the complete native frame before resuming mouse movement. Leaving the remaining
-        // contact active would make Windows move the host cursor from both input paths.
+        // End the complete native frame before leaving native multi-touch. Leaving the remaining
+        // contact active would make Windows continue processing an already completed gesture.
         frameContacts.clear();
         for (int pointerIndex = 0; pointerIndex < event.getPointerCount(); pointerIndex++) {
             // Finish every native contact atomically. A normal two-finger release must use UP
@@ -247,22 +280,31 @@ public final class TouchscreenTouchpadHandler {
                     eventType));
         }
         nativeSender.sendContacts(frameContacts, (byte) 0, deviceWidthMm, deviceHeightMm);
-        mouseMotionSender.resendAbsoluteMousePosition();
 
         activeContacts.clear();
-        beginMouseRemainder(event, remainingIndex);
+        if (singlePointerRemainderMode == SinglePointerRemainderMode.RELATIVE) {
+            beginRelativeRemainder(event, remainingIndex);
+        }
+        else {
+            // An absolute mouse gesture must keep the cursor at the location where Windows
+            // evaluates the native touchpad tap. Consume the remaining Android contact until
+            // every finger is lifted; the next ACTION_DOWN starts a fresh absolute gesture.
+            clearSinglePointerRemainder();
+            gestureState = GestureState.SUPPRESSED;
+        }
     }
 
-    private void beginMouseRemainder(MotionEvent event, int pointerIndex) {
+    private void beginRelativeRemainder(MotionEvent event, int pointerIndex) {
+        mouseMotionSender.resendAbsoluteMousePosition();
         mouseMotionSender.updateScaleFactors();
         mouseMotionSender.beginPointerMotion(event.getEventTime());
-        mousePointerId = event.getPointerId(pointerIndex);
-        mouseX = (int) event.getX(pointerIndex);
-        mouseY = (int) event.getY(pointerIndex);
-        gestureState = GestureState.MOUSE_REMAINDER;
+        remainderPointerId = event.getPointerId(pointerIndex);
+        remainderX = (int) event.getX(pointerIndex);
+        remainderY = (int) event.getY(pointerIndex);
+        gestureState = GestureState.RELATIVE_REMAINDER;
     }
 
-    private void handleMouseRemainder(View eventView, MotionEvent event) {
+    private void handleRelativeRemainder(View eventView, MotionEvent event) {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_POINTER_DOWN:
                 updateDeviceDimensions(eventView);
@@ -274,7 +316,7 @@ public final class TouchscreenTouchpadHandler {
                 break;
 
             case MotionEvent.ACTION_MOVE:
-                int pointerIndex = event.findPointerIndex(mousePointerId);
+                int pointerIndex = event.findPointerIndex(remainderPointerId);
                 if (pointerIndex < 0 || event.getPointerCount() != 1) {
                     gestureState = GestureState.SUPPRESSED;
                     return;
@@ -283,9 +325,9 @@ public final class TouchscreenTouchpadHandler {
                 for (int historyIndex = 0;
                      historyIndex < event.getHistorySize();
                      historyIndex++) {
-                    sendMouseRemainderSample(event, pointerIndex, historyIndex);
+                    sendRelativeRemainderSample(event, pointerIndex, historyIndex);
                 }
-                sendMouseRemainderSample(event, pointerIndex, CURRENT_SAMPLE);
+                sendRelativeRemainderSample(event, pointerIndex, CURRENT_SAMPLE);
                 break;
 
             case MotionEvent.ACTION_UP:
@@ -298,19 +340,20 @@ public final class TouchscreenTouchpadHandler {
         }
     }
 
-    private void sendMouseRemainderSample(MotionEvent event, int pointerIndex, int historyIndex) {
+    private void sendRelativeRemainderSample(MotionEvent event, int pointerIndex,
+                                             int historyIndex) {
         int eventX = (int) (historyIndex < 0
                 ? event.getX(pointerIndex)
                 : event.getHistoricalX(pointerIndex, historyIndex));
         int eventY = (int) (historyIndex < 0
                 ? event.getY(pointerIndex)
                 : event.getHistoricalY(pointerIndex, historyIndex));
-        if (eventX == mouseX && eventY == mouseY) {
+        if (eventX == remainderX && eventY == remainderY) {
             return;
         }
 
-        int touchDeltaX = eventX - mouseX;
-        int touchDeltaY = eventY - mouseY;
+        int touchDeltaX = eventX - remainderX;
+        int touchDeltaY = eventY - remainderY;
         long eventTime = historyIndex < 0
                 ? event.getEventTime()
                 : event.getHistoricalEventTime(historyIndex);
@@ -318,8 +361,8 @@ public final class TouchscreenTouchpadHandler {
 
         // Touch coordinates always follow the hardware sample. Fractional mouse movement is
         // retained by TouchpadMotionSender, which keeps velocity and output accumulation separate.
-        mouseX = eventX;
-        mouseY = eventY;
+        remainderX = eventX;
+        remainderY = eventY;
     }
 
     private List<Contact> createMoveFrame(View eventView, MotionEvent event, int historyIndex) {
@@ -376,21 +419,23 @@ public final class TouchscreenTouchpadHandler {
     private void cancelNativeContacts() {
         if (gestureState == GestureState.NATIVE_MULTITOUCH && activeContacts.size() != 0) {
             nativeSender.cancelAll(deviceWidthMm, deviceHeightMm);
-            mouseMotionSender.resendAbsoluteMousePosition();
+            if (singlePointerRemainderMode == SinglePointerRemainderMode.RELATIVE) {
+                mouseMotionSender.resendAbsoluteMousePosition();
+            }
         }
         activeContacts.clear();
     }
 
     private void resetState() {
         activeContacts.clear();
-        clearMouseRemainder();
+        clearSinglePointerRemainder();
         gestureState = GestureState.IDLE;
     }
 
-    private void clearMouseRemainder() {
-        mousePointerId = 0;
-        mouseX = 0;
-        mouseY = 0;
+    private void clearSinglePointerRemainder() {
+        remainderPointerId = 0;
+        remainderX = 0;
+        remainderY = 0;
     }
 
     private void updateDeviceDimensions(View eventView) {

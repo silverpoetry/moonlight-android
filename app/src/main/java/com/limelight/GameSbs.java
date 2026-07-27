@@ -56,6 +56,7 @@ import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.binding.input.driver.UsbDriverService;
 import com.limelight.binding.input.evdev.EvdevListener;
 import com.limelight.binding.input.touch.AbsoluteTouchContext;
+import com.limelight.binding.input.touch.BufferedTouchEventDispatcher;
 import com.limelight.binding.input.touch.RelativeTouchContext;
 import com.limelight.binding.input.touch.SoftKeyboardGestureDetector;
 import com.limelight.binding.input.touch.TouchContext;
@@ -107,6 +108,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
     // Only 2 touches are supported
     private final TouchContext[] touchContextMap = new TouchContext[2];
     private SoftKeyboardGestureDetector softKeyboardGestureDetector;
+    private BufferedTouchEventDispatcher bufferedTouchEventDispatcher;
     private TouchscreenTouchpadHandler touchscreenTouchpadHandler;
 
     private static final int REFERENCE_HORIZ_RES = 1280;
@@ -200,6 +202,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         instance = this;
         softKeyboardGestureDetector = new SoftKeyboardGestureDetector(
                 ViewConfiguration.get(this).getScaledTouchSlop());
+        bufferedTouchEventDispatcher = new BufferedTouchEventDispatcher();
 
         UiHelper.setLocale(this);
 
@@ -988,6 +991,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
 
     @Override
     protected void onDestroy() {
+        bufferedTouchEventDispatcher.cancel();
         super.onDestroy();
 
         instance = null;
@@ -1452,6 +1456,10 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
     }
 
     private boolean handleSoftKeyboardGesture(View view, MotionEvent event) {
+        if (bufferedTouchEventDispatcher.queueIfReplaying(view, event)) {
+            return true;
+        }
+
         int configuredFingerCount = getSoftKeyboardGestureFingerCount();
         if (configuredFingerCount < 3) {
             softKeyboardGestureDetector.reset();
@@ -1476,14 +1484,9 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
 
         if (result == SoftKeyboardGestureDetector.Result.FORWARD) {
             List<MotionEvent> bufferedEvents = softKeyboardGestureDetector.takeBufferedEvents();
-            for (MotionEvent bufferedEvent : bufferedEvents) {
-                try {
-                    handleMotionEvent(view, bufferedEvent);
-                }
-                finally {
-                    bufferedEvent.recycle();
-                }
-            }
+            bufferedTouchEventDispatcher.dispatch(view, bufferedEvents,
+                    (eventView, bufferedEvent) ->
+                            handleMotionEvent(eventView, bufferedEvent));
             return true;
         }
 

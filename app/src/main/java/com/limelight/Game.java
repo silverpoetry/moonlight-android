@@ -11,6 +11,7 @@ import com.limelight.binding.input.capture.InputCaptureManager;
 import com.limelight.binding.input.capture.InputCaptureProvider;
 import com.limelight.binding.input.touch.AbsoluteTouchContext;
 import com.limelight.binding.input.touch.AbsoluteTouchSwitchContext;
+import com.limelight.binding.input.touch.BufferedTouchEventDispatcher;
 import com.limelight.binding.input.touch.RelativeTouchContext;
 import com.limelight.binding.input.driver.UsbDriverService;
 import com.limelight.binding.input.evdev.EvdevListener;
@@ -157,11 +158,19 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     // Only 2 touches are supported
     private final TouchContext[] touchContextMap = new TouchContext[2];
     private SoftKeyboardGestureDetector softKeyboardGestureDetector;
+    private BufferedTouchEventDispatcher bufferedTouchEventDispatcher;
     private TouchscreenTouchpadHandler touchscreenTouchpadHandler;
-    private boolean nativeTouchpadInputMode;
+    private boolean nativeMultiTouchpadInputEnabled;
 
     private static final int REFERENCE_HORIZ_RES = 1280;
     private static final int REFERENCE_VERT_RES = 720;
+    private static final int MOUSE_MODE_MULTI_TOUCH = 0;
+    private static final int MOUSE_MODE_ABSOLUTE = 1;
+    private static final int MOUSE_MODE_NATIVE_TOUCHPAD = 2;
+    private static final int MOUSE_MODE_DISABLED = 3;
+    private static final int MOUSE_MODE_ABSOLUTE_SWAPPED = 4;
+    private static final int MOUSE_MODE_TOUCHPAD_MOVE_ONLY = 5;
+    private static final int MOUSE_MODE_TOUCHPAD_MOVE_AND_CLICK = 6;
 
     private static final int STYLUS_DOWN_DEAD_ZONE_DELAY = 100;
     private static final int STYLUS_DOWN_DEAD_ZONE_RADIUS = 20;
@@ -286,6 +295,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         instance=this;
         softKeyboardGestureDetector = new SoftKeyboardGestureDetector(
                 ViewConfiguration.get(this).getScaledTouchSlop());
+        bufferedTouchEventDispatcher = new BufferedTouchEventDispatcher();
 
         UiHelper.setLocale(this);
 
@@ -1436,6 +1446,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        bufferedTouchEventDispatcher.cancel();
         clipboardFileTransferGeneration++;
         clipboardFileTransferInProgress = false;
         if (clipboardFileTransferDialog != null) {
@@ -2051,6 +2062,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private boolean handleSoftKeyboardGesture(View view, MotionEvent event) {
+        if (bufferedTouchEventDispatcher.queueIfReplaying(view, event)) {
+            return true;
+        }
+
         int configuredFingerCount = getSoftKeyboardGestureFingerCount();
         if (configuredFingerCount < 3) {
             softKeyboardGestureDetector.reset();
@@ -2075,14 +2090,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         if (result == SoftKeyboardGestureDetector.Result.FORWARD) {
             List<MotionEvent> bufferedEvents = softKeyboardGestureDetector.takeBufferedEvents();
-            for (MotionEvent bufferedEvent : bufferedEvents) {
-                try {
-                    handleMotionEvent(view, bufferedEvent);
-                }
-                finally {
-                    bufferedEvent.recycle();
-                }
-            }
+            bufferedTouchEventDispatcher.dispatch(view, bufferedEvents,
+                    (eventView, bufferedEvent) ->
+                            handleMotionEvent(eventView, bufferedEvent));
             return true;
         }
 
@@ -3981,62 +3991,66 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     public void switchMouseModel(int which){
         cancelNativeTouchpadInput();
-        disableMouseModel=false;
-        nativeTouchpadInputMode=false;
-        //多点触控
-        if(which==0){
-            prefConfig.enableMultiTouchScreen=true;
-            prefConfig.touchscreenTrackpad=false;
-        }
-        //普通鼠标模式
-        if(which==1){
-            prefConfig.enableMultiTouchScreen=false;
-            prefConfig.touchscreenTrackpad=false;
-        }
-        //触控板模式
-        if(which==2){
-            prefConfig.enableMultiTouchScreen=false;
-            prefConfig.touchscreenTrackpad=true;
-            nativeTouchpadInputMode=true;
-        }
-        //禁用鼠标
-        if(which==3){
-            disableMouseModel=true;
-            return;
-        }
-        //普通鼠标 左右键互换
-        if(which==4){
-            prefConfig.enableMultiTouchScreen=false;
-            prefConfig.touchscreenTrackpad=false;
+        disableMouseModel = false;
+        nativeMultiTouchpadInputEnabled = false;
+
+        switch (which) {
+            case MOUSE_MODE_MULTI_TOUCH:
+                prefConfig.enableMultiTouchScreen = true;
+                prefConfig.touchscreenTrackpad = false;
+                break;
+
+            case MOUSE_MODE_ABSOLUTE:
+            case MOUSE_MODE_ABSOLUTE_SWAPPED:
+                prefConfig.enableMultiTouchScreen = false;
+                prefConfig.touchscreenTrackpad = false;
+                nativeMultiTouchpadInputEnabled = true;
+                break;
+
+            case MOUSE_MODE_NATIVE_TOUCHPAD:
+                prefConfig.enableMultiTouchScreen = false;
+                prefConfig.touchscreenTrackpad = true;
+                nativeMultiTouchpadInputEnabled = true;
+                break;
+
+            case MOUSE_MODE_DISABLED:
+                disableMouseModel = true;
+                return;
+
+            case MOUSE_MODE_TOUCHPAD_MOVE_ONLY:
+            case MOUSE_MODE_TOUCHPAD_MOVE_AND_CLICK:
+                prefConfig.enableMultiTouchScreen = false;
+                prefConfig.touchscreenTrackpad = true;
+                break;
+
+            default:
+                return;
         }
 
-        //触控板模式 仅移动
-        if(which==5){
-            prefConfig.enableMultiTouchScreen=false;
-            prefConfig.touchscreenTrackpad=true;
-        }
-
-        //触控板模式 仅移动&左键点击
-        if(which==6){
-            prefConfig.enableMultiTouchScreen=false;
-            prefConfig.touchscreenTrackpad=true;
-        }
+        touchscreenTouchpadHandler.setSinglePointerRemainderMode(
+                which == MOUSE_MODE_ABSOLUTE || which == MOUSE_MODE_ABSOLUTE_SWAPPED
+                        ? TouchscreenTouchpadHandler.SinglePointerRemainderMode.SUPPRESS
+                        : TouchscreenTouchpadHandler.SinglePointerRemainderMode.RELATIVE);
 
         TouchpadGestureState touchpadGestureState = new TouchpadGestureState();
         for (int i = 0; i < touchContextMap.length; i++) {
             if (!prefConfig.touchscreenTrackpad) {
-                if(which==4){
+                if (which == MOUSE_MODE_ABSOLUTE_SWAPPED) {
                     touchContextMap[i] = new AbsoluteTouchSwitchContext(conn, i, streamView);
-                }else{
+                }
+                else {
                     touchContextMap[i] = new AbsoluteTouchContext(conn, i, streamView);
                 }
             }
             else {
-                if(which==5||which==6){
+                if (which == MOUSE_MODE_TOUCHPAD_MOVE_ONLY ||
+                        which == MOUSE_MODE_TOUCHPAD_MOVE_AND_CLICK) {
                     touchContextMap[i] = new RelativeTouchSwitchContext(conn, i,
                             REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
-                            streamView, prefConfig, which != 5, touchpadGestureState);
-                }else{
+                            streamView, prefConfig,
+                            which != MOUSE_MODE_TOUCHPAD_MOVE_ONLY, touchpadGestureState);
+                }
+                else {
                     touchContextMap[i] = new RelativeTouchContext(conn, i,
                             REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
                             streamView, prefConfig, touchpadGestureState);
@@ -4060,7 +4074,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private boolean tryHandleNativeTouchpadInput(View view, MotionEvent event) {
-        if (!nativeTouchpadInputMode || touchscreenTouchpadHandler == null) {
+        if (!nativeMultiTouchpadInputEnabled || touchscreenTouchpadHandler == null) {
             return false;
         }
 
