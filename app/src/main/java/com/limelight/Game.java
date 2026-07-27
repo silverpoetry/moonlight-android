@@ -134,6 +134,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -2049,19 +2050,43 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         return prefConfig.quickSoftKeyboardFingers;
     }
 
-    private boolean handleSoftKeyboardGesture(MotionEvent event) {
-        SoftKeyboardGestureDetector.Result result =
-                softKeyboardGestureDetector.onTouchEvent(event, getSoftKeyboardGestureFingerCount());
+    private boolean handleSoftKeyboardGesture(View view, MotionEvent event) {
+        int configuredFingerCount = getSoftKeyboardGestureFingerCount();
+        if (configuredFingerCount < 3) {
+            softKeyboardGestureDetector.reset();
+            return false;
+        }
 
-        if (result == SoftKeyboardGestureDetector.Result.TRIGGERED) {
+        SoftKeyboardGestureDetector.Result result =
+                softKeyboardGestureDetector.onTouchEvent(event, configuredFingerCount);
+
+        if (result == SoftKeyboardGestureDetector.Result.STARTED) {
             cancelNativeTouchpadInput();
             for (TouchContext touchContext : touchContextMap) {
                 touchContext.cancelTouch();
                 touchContext.setPointerCount(0);
             }
-            conn.sendTouchEvent(MoonBridge.LI_TOUCH_EVENT_CANCEL_ALL, 0,
-                    0, 0, 0, 0, 0,
-                    MoonBridge.LI_ROT_UNKNOWN);
+            return true;
+        }
+
+        if (result == SoftKeyboardGestureDetector.Result.BUFFERING) {
+            return true;
+        }
+
+        if (result == SoftKeyboardGestureDetector.Result.FORWARD) {
+            List<MotionEvent> bufferedEvents = softKeyboardGestureDetector.takeBufferedEvents();
+            for (MotionEvent bufferedEvent : bufferedEvents) {
+                try {
+                    handleMotionEvent(view, bufferedEvent);
+                }
+                finally {
+                    bufferedEvent.recycle();
+                }
+            }
+            return true;
+        }
+
+        if (result == SoftKeyboardGestureDetector.Result.TRIGGERED) {
             showKeyboard();
             return true;
         }
@@ -2774,7 +2799,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     yOffset = 0.f;
                 }
 
-                if (handleSoftKeyboardGesture(event)) {
+                if (handleSoftKeyboardGesture(view, event)) {
                     return true;
                 }
 

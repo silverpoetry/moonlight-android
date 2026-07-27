@@ -4,9 +4,15 @@ import android.os.Build;
 import android.util.SparseArray;
 import android.view.MotionEvent;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public final class SoftKeyboardGestureDetector {
     public enum Result {
         NONE,
+        STARTED,
+        BUFFERING,
+        FORWARD,
         CONSUMED,
         TRIGGERED
     }
@@ -26,9 +32,12 @@ public final class SoftKeyboardGestureDetector {
 
     private final float movementThresholdSquared;
     private final SparseArray<PointerOrigin> pointerOrigins = new SparseArray<>();
+    private final List<MotionEvent> bufferedEvents = new ArrayList<>();
 
     private boolean eligible;
     private boolean armed;
+    private boolean buffering;
+    private boolean passthrough;
     private boolean suppressRemainder;
     private int configuredFingerCount;
 
@@ -38,25 +47,36 @@ public final class SoftKeyboardGestureDetector {
     }
 
     /**
-     * Observes a touch stream without consuming it until an exact multi-finger tap is confirmed.
+     * Defers multi-pointer events only while they can still form the configured keyboard tap.
      *
-     * <p>Native touchpad frames must continue flowing while a swipe is still possible. The first
-     * pointer-up is the earliest point where a tap can be confirmed and canceled before the host
-     * receives any contact-up frame. Only the remaining releases from that confirmed tap are
-     * consumed.</p>
+     * <p>The first finger remains on the normal mouse path. Starting with the second pointer-down,
+     * events are copied into a short-lived buffer. Movement, timeout, an early release, or an
+     * unexpected finger count releases the complete buffer in original order. An exact tap drops
+     * the buffer, so the host never receives contacts that could trigger its own gesture.</p>
      */
     public Result onTouchEvent(MotionEvent event, int requestedFingerCount) {
-        if (requestedFingerCount < MIN_GESTURE_FINGER_COUNT) {
-            reset();
+        if (passthrough) {
+            if (isGestureEnd(event)) {
+                reset();
+            }
             return Result.NONE;
         }
 
         if (suppressRemainder) {
-            if (event.getActionMasked() == MotionEvent.ACTION_UP ||
-                    event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+            if (isGestureEnd(event)) {
                 reset();
             }
             return Result.CONSUMED;
+        }
+
+        if (requestedFingerCount < MIN_GESTURE_FINGER_COUNT) {
+            if (buffering) {
+                buffer(event);
+                beginPassthrough();
+                return Result.FORWARD;
+            }
+            reset();
+            return Result.NONE;
         }
 
         switch (event.getActionMasked()) {
@@ -71,25 +91,46 @@ public final class SoftKeyboardGestureDetector {
                 return handlePointerDown(event, requestedFingerCount);
 
             case MotionEvent.ACTION_MOVE:
-                updateEligibility(event);
-                return Result.NONE;
+                return handleMove(event);
 
             case MotionEvent.ACTION_POINTER_UP:
                 return handlePointerUp(event, requestedFingerCount);
 
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
+                if (buffering) {
+                    buffer(event);
+                    beginPassthrough();
+                    return Result.FORWARD;
+                }
                 reset();
                 return Result.NONE;
 
             default:
+                if (buffering) {
+                    buffer(event);
+                    return Result.BUFFERING;
+                }
                 return Result.NONE;
         }
     }
 
+    /**
+     * Transfers ownership of events returned with {@link Result#FORWARD}.
+     * The caller must recycle each event after dispatch.
+     */
+    public List<MotionEvent> takeBufferedEvents() {
+        List<MotionEvent> events = new ArrayList<>(bufferedEvents);
+        bufferedEvents.clear();
+        return events;
+    }
+
     public void reset() {
+        recycleBufferedEvents();
         eligible = false;
         armed = false;
+        buffering = false;
+        passthrough = false;
         suppressRemainder = false;
         configuredFingerCount = 0;
         pointerOrigins.clear();
@@ -97,32 +138,53 @@ public final class SoftKeyboardGestureDetector {
 
     private Result handlePointerDown(MotionEvent event, int requestedFingerCount) {
         if (!eligible || configuredFingerCount != requestedFingerCount) {
-            reset();
-            return Result.NONE;
-        }
-
-        recordPointerOrigin(event, event.getActionIndex());
-        updateEligibility(event);
-        if (!eligible) {
-            return Result.NONE;
-        }
-
-        int pointerCount = event.getPointerCount();
-        if (pointerCount > configuredFingerCount) {
+            if (buffering) {
+                buffer(event);
+                beginPassthrough();
+                return Result.FORWARD;
+            }
             eligible = false;
             armed = false;
             return Result.NONE;
         }
 
-        if (pointerCount == configuredFingerCount) {
+        recordPointerOrigin(event, event.getActionIndex());
+        updateEligibility(event);
+
+        boolean started = !buffering;
+        if (event.getPointerCount() >= 2) {
+            buffering = true;
+            buffer(event);
+        }
+
+        if (!eligible || event.getPointerCount() > configuredFingerCount) {
+            beginPassthrough();
+            return Result.FORWARD;
+        }
+
+        if (event.getPointerCount() == configuredFingerCount) {
             armed = true;
         }
 
-        return Result.NONE;
+        return started ? Result.STARTED : Result.BUFFERING;
+    }
+
+    private Result handleMove(MotionEvent event) {
+        updateEligibility(event);
+        if (!buffering) {
+            return Result.NONE;
+        }
+
+        buffer(event);
+        if (!eligible) {
+            beginPassthrough();
+            return Result.FORWARD;
+        }
+        return Result.BUFFERING;
     }
 
     private Result handlePointerUp(MotionEvent event, int requestedFingerCount) {
-        if (!armed || configuredFingerCount != requestedFingerCount) {
+        if (!buffering) {
             eligible = false;
             armed = false;
             return Result.NONE;
@@ -131,22 +193,26 @@ public final class SoftKeyboardGestureDetector {
         updateEligibility(event);
         boolean canceled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 (event.getFlags() & MotionEvent.FLAG_CANCELED) != 0;
-        boolean triggered = eligible &&
+        boolean triggered = armed &&
+                eligible &&
+                configuredFingerCount == requestedFingerCount &&
                 !canceled &&
                 event.getPointerCount() == configuredFingerCount &&
                 event.getEventTime() - event.getDownTime() < TAP_THRESHOLD_MS;
 
-        if (!triggered) {
+        if (triggered) {
+            recycleBufferedEvents();
             eligible = false;
             armed = false;
-            return Result.NONE;
+            buffering = false;
+            suppressRemainder = true;
+            pointerOrigins.clear();
+            return Result.TRIGGERED;
         }
 
-        eligible = false;
-        armed = false;
-        suppressRemainder = true;
-        pointerOrigins.clear();
-        return Result.TRIGGERED;
+        buffer(event);
+        beginPassthrough();
+        return Result.FORWARD;
     }
 
     private void recordPointerOrigin(MotionEvent event, int pointerIndex) {
@@ -189,6 +255,30 @@ public final class SoftKeyboardGestureDetector {
                 }
             }
         }
+    }
+
+    private void beginPassthrough() {
+        eligible = false;
+        armed = false;
+        buffering = false;
+        passthrough = true;
+        pointerOrigins.clear();
+    }
+
+    private void buffer(MotionEvent event) {
+        bufferedEvents.add(MotionEvent.obtain(event));
+    }
+
+    private void recycleBufferedEvents() {
+        for (MotionEvent event : bufferedEvents) {
+            event.recycle();
+        }
+        bufferedEvents.clear();
+    }
+
+    private static boolean isGestureEnd(MotionEvent event) {
+        return event.getActionMasked() == MotionEvent.ACTION_UP ||
+                event.getActionMasked() == MotionEvent.ACTION_CANCEL;
     }
 
     private boolean movedBeyondThreshold(float x, float y, PointerOrigin origin) {

@@ -7,6 +7,8 @@ import android.view.MotionEvent;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.List;
+
 import static org.junit.Assert.assertEquals;
 
 @RunWith(AndroidJUnit4.class)
@@ -22,11 +24,12 @@ public final class SoftKeyboardGestureDetectorTest {
         assertResult(detector, event(0, MotionEvent.ACTION_DOWN, 1, 0), 3,
                 SoftKeyboardGestureDetector.Result.NONE);
         assertResult(detector, event(10, MotionEvent.ACTION_POINTER_DOWN, 2, 1), 3,
-                SoftKeyboardGestureDetector.Result.NONE);
+                SoftKeyboardGestureDetector.Result.STARTED);
         assertResult(detector, event(20, MotionEvent.ACTION_POINTER_DOWN, 3, 2), 3,
-                SoftKeyboardGestureDetector.Result.NONE);
+                SoftKeyboardGestureDetector.Result.BUFFERING);
         assertResult(detector, event(30, MotionEvent.ACTION_MOVE, 3, 0, 40), 3,
-                SoftKeyboardGestureDetector.Result.NONE);
+                SoftKeyboardGestureDetector.Result.FORWARD);
+        assertBufferedEventCount(detector, 3);
         assertResult(detector, event(40, MotionEvent.ACTION_POINTER_UP, 3, 2, 40), 3,
                 SoftKeyboardGestureDetector.Result.NONE);
         assertResult(detector, event(50, MotionEvent.ACTION_POINTER_UP, 2, 1, 40), 3,
@@ -43,11 +46,12 @@ public final class SoftKeyboardGestureDetectorTest {
         assertResult(detector, event(0, MotionEvent.ACTION_DOWN, 1, 0), 3,
                 SoftKeyboardGestureDetector.Result.NONE);
         assertResult(detector, event(10, MotionEvent.ACTION_POINTER_DOWN, 2, 1), 3,
-                SoftKeyboardGestureDetector.Result.NONE);
+                SoftKeyboardGestureDetector.Result.STARTED);
         assertResult(detector, event(20, MotionEvent.ACTION_POINTER_DOWN, 3, 2), 3,
-                SoftKeyboardGestureDetector.Result.NONE);
+                SoftKeyboardGestureDetector.Result.BUFFERING);
         assertResult(detector, event(60, MotionEvent.ACTION_POINTER_UP, 3, 2), 3,
                 SoftKeyboardGestureDetector.Result.TRIGGERED);
+        assertBufferedEventCount(detector, 0);
         assertResult(detector, event(70, MotionEvent.ACTION_POINTER_UP, 2, 1), 3,
                 SoftKeyboardGestureDetector.Result.CONSUMED);
         assertResult(detector, event(80, MotionEvent.ACTION_UP, 1, 0), 3,
@@ -64,9 +68,10 @@ public final class SoftKeyboardGestureDetectorTest {
         assertResult(detector, event(0, MotionEvent.ACTION_DOWN, 1, 0), 3,
                 SoftKeyboardGestureDetector.Result.NONE);
         assertResult(detector, event(10, MotionEvent.ACTION_POINTER_DOWN, 2, 1), 3,
-                SoftKeyboardGestureDetector.Result.NONE);
+                SoftKeyboardGestureDetector.Result.STARTED);
         assertResult(detector, event(20, MotionEvent.ACTION_MOVE, 2, 0, 30), 3,
-                SoftKeyboardGestureDetector.Result.NONE);
+                SoftKeyboardGestureDetector.Result.FORWARD);
+        assertBufferedEventCount(detector, 2);
         assertResult(detector, event(30, MotionEvent.ACTION_POINTER_UP, 2, 1, 30), 3,
                 SoftKeyboardGestureDetector.Result.NONE);
         assertResult(detector, event(40, MotionEvent.ACTION_UP, 1, 0, 30), 3,
@@ -81,9 +86,10 @@ public final class SoftKeyboardGestureDetectorTest {
         assertResult(detector, event(0, MotionEvent.ACTION_DOWN, 1, 0), 3,
                 SoftKeyboardGestureDetector.Result.NONE);
         assertResult(detector, event(10, MotionEvent.ACTION_POINTER_DOWN, 2, 1), 3,
-                SoftKeyboardGestureDetector.Result.NONE);
+                SoftKeyboardGestureDetector.Result.STARTED);
         assertResult(detector, event(20, MotionEvent.ACTION_MOVE, 2, 0, 30), 3,
-                SoftKeyboardGestureDetector.Result.NONE);
+                SoftKeyboardGestureDetector.Result.FORWARD);
+        assertBufferedEventCount(detector, 2);
         assertResult(detector, event(30, MotionEvent.ACTION_POINTER_DOWN, 3, 2, 30), 3,
                 SoftKeyboardGestureDetector.Result.NONE);
         assertResult(detector, event(40, MotionEvent.ACTION_POINTER_UP, 3, 2, 30), 3,
@@ -98,13 +104,73 @@ public final class SoftKeyboardGestureDetectorTest {
         assertResult(detector, event(0, MotionEvent.ACTION_DOWN, 1, 0), 3,
                 SoftKeyboardGestureDetector.Result.NONE);
         assertResult(detector, event(10, MotionEvent.ACTION_POINTER_DOWN, 2, 1), 3,
-                SoftKeyboardGestureDetector.Result.NONE);
+                SoftKeyboardGestureDetector.Result.STARTED);
         assertResult(detector, event(20, MotionEvent.ACTION_POINTER_DOWN, 3, 2), 3,
-                SoftKeyboardGestureDetector.Result.NONE);
+                SoftKeyboardGestureDetector.Result.BUFFERING);
         assertResult(detector, event(30, MotionEvent.ACTION_POINTER_DOWN, 4, 3), 3,
-                SoftKeyboardGestureDetector.Result.NONE);
+                SoftKeyboardGestureDetector.Result.FORWARD);
+        assertBufferedEventCount(detector, 3);
         assertResult(detector, event(40, MotionEvent.ACTION_POINTER_UP, 4, 3), 3,
                 SoftKeyboardGestureDetector.Result.NONE);
+    }
+
+    @Test
+    public void disabledGestureNeverBuffersEvents() {
+        SoftKeyboardGestureDetector detector =
+                new SoftKeyboardGestureDetector(TOUCH_SLOP_PX);
+
+        assertResult(detector, event(0, MotionEvent.ACTION_DOWN, 1, 0), 0,
+                SoftKeyboardGestureDetector.Result.NONE);
+        assertResult(detector, event(10, MotionEvent.ACTION_POINTER_DOWN, 2, 1), 0,
+                SoftKeyboardGestureDetector.Result.NONE);
+        assertResult(detector, event(20, MotionEvent.ACTION_POINTER_DOWN, 3, 2), 0,
+                SoftKeyboardGestureDetector.Result.NONE);
+        assertResult(detector, event(30, MotionEvent.ACTION_MOVE, 3, 0, 40), 0,
+                SoftKeyboardGestureDetector.Result.NONE);
+        assertBufferedEventCount(detector, 0);
+    }
+
+    @Test
+    public void twoFingerTapIsForwardedInOriginalOrder() {
+        SoftKeyboardGestureDetector detector =
+                new SoftKeyboardGestureDetector(TOUCH_SLOP_PX);
+
+        assertResult(detector, event(0, MotionEvent.ACTION_DOWN, 1, 0), 3,
+                SoftKeyboardGestureDetector.Result.NONE);
+        assertResult(detector, event(10, MotionEvent.ACTION_POINTER_DOWN, 2, 1), 3,
+                SoftKeyboardGestureDetector.Result.STARTED);
+        assertResult(detector, event(40, MotionEvent.ACTION_POINTER_UP, 2, 1), 3,
+                SoftKeyboardGestureDetector.Result.FORWARD);
+
+        List<MotionEvent> events = detector.takeBufferedEvents();
+        try {
+            assertEquals(2, events.size());
+            assertEquals(MotionEvent.ACTION_POINTER_DOWN, events.get(0).getActionMasked());
+            assertEquals(MotionEvent.ACTION_POINTER_UP, events.get(1).getActionMasked());
+            assertEquals(DOWN_TIME_MS + 10, events.get(0).getEventTime());
+            assertEquals(DOWN_TIME_MS + 40, events.get(1).getEventTime());
+        }
+        finally {
+            recycle(events);
+        }
+    }
+
+    private static void assertBufferedEventCount(
+            SoftKeyboardGestureDetector detector,
+            int expectedCount) {
+        List<MotionEvent> events = detector.takeBufferedEvents();
+        try {
+            assertEquals(expectedCount, events.size());
+        }
+        finally {
+            recycle(events);
+        }
+    }
+
+    private static void recycle(List<MotionEvent> events) {
+        for (MotionEvent event : events) {
+            event.recycle();
+        }
     }
 
     private static void assertResult(
