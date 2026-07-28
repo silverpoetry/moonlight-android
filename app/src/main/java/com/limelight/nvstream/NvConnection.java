@@ -73,7 +73,6 @@ public class NvConnection {
     private volatile String lastMicUplinkMessage;
     private volatile MousePositionListener mousePositionListener;
     private ClipboardSyncController clipboardSyncController;
-    private volatile NvHTTP clipboardHttp;
 
     public void downloadRemoteClipboardFiles(android.net.Uri destinationTree,
                                              ClipboardFileDownloadListener listener) {
@@ -191,7 +190,6 @@ public class NvConnection {
             micUplinkConnection = null;
             micUplinkState = MicUplinkState.ERROR;
         }
-        clipboardHttp = null;
     }
 
     public synchronized void stopMicUplink() {
@@ -384,17 +382,21 @@ public class NvConnection {
         return StreamConfiguration.STREAM_CFG_AUTO;
     }
 
-    private boolean startApp() throws XmlPullParserException, IOException
+    private NvHTTP startApp() throws XmlPullParserException, IOException
     {
-        NvHTTP h = new NvHTTP(context.serverAddress, context.httpsPort, uniqueId, context.serverCert, cryptoProvider);
-        clipboardHttp = h;
+        NvHTTP h = new NvHTTP(
+                context.serverAddress,
+                context.httpsPort,
+                uniqueId,
+                context.serverCert,
+                cryptoProvider);
 
         String serverInfo = h.getServerInfo(true);
 
         context.serverAppVersion = h.getServerVersion(serverInfo);
         if (context.serverAppVersion == null) {
             context.connListener.displayMessage("Server version malformed");
-            return false;
+            return null;
         }
 
         ComputerDetails details = h.getComputerDetails(serverInfo);
@@ -405,7 +407,7 @@ public class NvConnection {
 
         if (h.getPairState(serverInfo) != PairingManager.PairState.PAIRED) {
             context.connListener.displayMessage("Device not paired with computer");
-            return false;
+            return null;
         }
 
         context.serverCodecModeSupport = (int)h.getServerCodecModeSupport(serverInfo);
@@ -424,12 +426,12 @@ public class NvConnection {
         if ((context.streamConfig.getWidth() > 4096 || context.streamConfig.getHeight() > 4096) &&
                 (h.getServerCodecModeSupport(serverInfo) & 0x200) == 0 && context.isNvidiaServerSoftware) {
             context.connListener.displayMessage("Your host PC does not support streaming at resolutions above 4K.");
-            return false;
+            return null;
         }
         else if ((context.streamConfig.getWidth() > 4096 || context.streamConfig.getHeight() > 4096) &&
                 (context.streamConfig.getSupportedVideoFormats() & ~MoonBridge.VIDEO_FORMAT_MASK_H264) == 0) {
             context.connListener.displayMessage("Your streaming device must support HEVC or AV1 to stream at resolutions above 4K.");
-            return false;
+            return null;
         }
         else if (context.streamConfig.getHeight() >= 2160 && !h.supports4K(serverInfo)) {
             // Client wants 4K but the server can't do it
@@ -469,7 +471,7 @@ public class NvConnection {
             app = h.getAppByName(context.streamConfig.getApp().getAppName());
             if (app == null) {
                 context.connListener.displayMessage("The app " + context.streamConfig.getApp().getAppName() + " is not in GFE app list");
-                return false;
+                return null;
             }
         }
 
@@ -479,10 +481,10 @@ public class NvConnection {
                 if (h.getCurrentGame(serverInfo) == app.getAppId()) {
                     if (!h.launchApp(context, "resume", app.getAppId(), context.negotiatedHdr)) {
                         context.connListener.displayMessage("Failed to resume existing session");
-                        return false;
+                        return null;
                     }
                 } else {
-                    return quitAndLaunch(h, context);
+                    return quitAndLaunch(h, context) ? h : null;
                 }
             } catch (HostHttpResponseException e) {
                 if (e.getErrorCode() == 470) {
@@ -491,22 +493,22 @@ public class NvConnection {
                     context.connListener.displayMessage("This session wasn't started by this device," +
                             " so it cannot be resumed. End streaming on the original " +
                             "device or the PC itself and try again. (Error code: "+e.getErrorCode()+")");
-                    return false;
+                    return null;
                 }
                 else if (e.getErrorCode() == 525) {
                     context.connListener.displayMessage("The application is minimized. Resume it on the PC manually or " +
                             "quit the session and start streaming again.");
-                    return false;
+                    return null;
                 } else {
                     throw e;
                 }
             }
 
             LimeLog.info("Resumed existing game session");
-            return true;
+            return h;
         }
         else {
-            return launchNotRunningApp(h, context);
+            return launchNotRunningApp(h, context) ? h : null;
         }
     }
 
@@ -556,8 +558,10 @@ public class NvConnection {
 
                 context.connListener.stageStarting(appName);
 
+                NvHTTP sessionHttp;
                 try {
-                    if (!startApp()) {
+                    sessionHttp = startApp();
+                    if (sessionHttp == null) {
                         context.connListener.stageFailed(appName, 0, 0);
                         return;
                     }
@@ -594,7 +598,7 @@ public class NvConnection {
                     if (context.streamConfig.getClipboardProtocolEnabled()) {
                         clipboardSyncController = new ClipboardSyncController(
                                 appContext,
-                                clipboardHttp);
+                                sessionHttp);
                         clipboardSyncController.start();
                     }
                     int ret = MoonBridge.startConnection(context.serverAddress.address,

@@ -199,6 +199,10 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     void downloadRemoteFiles(Uri destinationTree,
                              NvConnection.ClipboardFileDownloadListener listener) {
         if (!started || !ready || destinationTree == null || nvHttp == null) {
+            LimeLog.warning("Clipboard file pull unavailable: started=" +
+                    started + ", ready=" + ready +
+                    ", destination=" + (destinationTree != null) +
+                    ", http=" + (nvHttp != null));
             mainHandler.post(() -> listener.onError(
                     "剪贴板同步尚未连接"));
             return;
