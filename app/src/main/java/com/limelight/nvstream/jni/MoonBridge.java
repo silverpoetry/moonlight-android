@@ -130,7 +130,7 @@ public class MoonBridge {
     public static final byte LI_CLIPBOARD_MIME_TEXT_UTF8 = 0x01;
     public static final byte LI_CLIPBOARD_MIME_PNG = 0x02;
     public static final byte LI_CLIPBOARD_MIME_BLOB_REFERENCE = 0x03;
-    public static final byte LI_CLIPBOARD_MIME_FILE_MANIFEST = 0x04;
+    public static final byte LI_CLIPBOARD_MIME_FILE_OFFER = 0x05;
 
     public static final int LI_CLIPBOARD_CAP_CAN_SEND = 0x01;
     public static final int LI_CLIPBOARD_CAP_CAN_RECEIVE = 0x02;

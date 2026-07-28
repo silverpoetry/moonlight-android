@@ -23,7 +23,6 @@ public final class ClipboardFileDownloader {
 
     public static int download(Context context, NvHTTP http, Uri destinationTree,
                                String transferId, long originId,
-                               long manifestSize, byte[] manifestSha256,
                                Listener listener) throws IOException {
         DocumentFile root = DocumentFile.fromTreeUri(context, destinationTree);
         if (root == null || !root.isDirectory() || !root.canWrite()) {
@@ -31,7 +30,7 @@ public final class ClipboardFileDownloader {
         }
 
         byte[] encoded = http.downloadClipboardFileManifest(
-                transferId, originId, manifestSize, manifestSha256);
+                transferId, originId);
         FileManifest manifest = FileManifest.decode(encoded);
         Map<String, DocumentFile> documents = new HashMap<>();
         List<DocumentFile> createdTopLevel = new ArrayList<>();

@@ -18,7 +18,6 @@ import android.support.v4.content.FileProvider;
 
 import com.limelight.LimeLog;
 import com.limelight.nvstream.filetransfer.ClipboardFileDownloader;
-import com.limelight.nvstream.filetransfer.FileManifest;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.jni.MoonBridge;
 
@@ -173,16 +172,16 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             ioExecutor.execute(() ->
                     applyInboundPng(originId, itemId, data, generation));
         }
+        else if (mimeType == MoonBridge.LI_CLIPBOARD_MIME_FILE_OFFER &&
+                canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_FILES) &&
+                canReceiveFromHost(
+                    MoonBridge.LI_CLIPBOARD_CAP_FILE_STREAMS) &&
+                decodeFileOfferId(data) != null) {
+            remoteGeneration.incrementAndGet();
+        }
         else if (mimeType == MoonBridge.LI_CLIPBOARD_MIME_BLOB_REFERENCE) {
             BlobReference reference = decodeBlobReference(data);
             if (reference != null &&
-                    reference.targetMime == MoonBridge.LI_CLIPBOARD_MIME_FILE_MANIFEST &&
-                    canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_BLOB) &&
-                    canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_FILES) &&
-                    canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_FILE_STREAMS)) {
-                remoteGeneration.incrementAndGet();
-            }
-            else if (reference != null &&
                     canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_BLOB) &&
                     canReceiveFromHost(reference.targetMime ==
                             MoonBridge.LI_CLIPBOARD_MIME_PNG ?
@@ -213,21 +212,14 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 }
                 NvHTTP.ClipboardFileReference pulled =
                         nvHttp.pullClipboardFiles(originId);
-                LimeLog.info("Remote clipboard file pull prepared manifest " +
-                        pulled.id + " (" + pulled.manifestSize + " bytes)");
-                BlobReference reference = new BlobReference(
-                        MoonBridge.LI_CLIPBOARD_MIME_FILE_MANIFEST,
-                        pulled.manifestSize,
-                        pulled.manifestSha256,
+                LimeLog.info("Remote clipboard file offer prepared: " +
                         pulled.id);
                 int topLevelCount = ClipboardFileDownloader.download(
                         context,
                         nvHttp,
                         destinationTree,
-                        reference.id,
+                        pulled.id,
                         originId,
-                        reference.size,
-                        reference.sha256,
                         (transferred, total) -> mainHandler.post(() ->
                                 listener.onProgress(transferred, total)));
                 mainHandler.post(() -> listener.onComplete(topLevelCount));
@@ -710,8 +702,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         byte targetMime = data[1];
         int idLength = data[2] & 0xFF;
         if ((targetMime != MoonBridge.LI_CLIPBOARD_MIME_TEXT_UTF8 &&
-                targetMime != MoonBridge.LI_CLIPBOARD_MIME_PNG &&
-                targetMime != MoonBridge.LI_CLIPBOARD_MIME_FILE_MANIFEST) ||
+                targetMime != MoonBridge.LI_CLIPBOARD_MIME_PNG) ||
                 idLength == 0 || idLength > 64 || data.length != 40 + idLength) {
             return null;
         }
@@ -722,13 +713,35 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 (((long)data[7] & 0xFF) << 24);
         byte[] sha256 = Arrays.copyOfRange(data, 8, 40);
         String id = new String(data, 40, idLength, StandardCharsets.US_ASCII);
-        long maximumSize = targetMime == MoonBridge.LI_CLIPBOARD_MIME_FILE_MANIFEST ?
-                FileManifest.MAX_MANIFEST_BYTES :
-                MAX_BLOB_BYTES;
-        if (size <= 0 || size > maximumSize || !isCanonicalUuid(id)) {
+        if (size <= 0 || size > MAX_BLOB_BYTES || !isCanonicalUuid(id)) {
             return null;
         }
         return new BlobReference(targetMime, size, sha256, id);
+    }
+
+    private String decodeFileOfferId(byte[] data) {
+        if (data.length < 9 ||
+                data[0] != 'M' ||
+                data[1] != 'L' ||
+                data[2] != 'F' ||
+                data[3] != 'O' ||
+                data[4] != 1 ||
+                data[6] != 0 ||
+                data[7] != 0) {
+            return null;
+        }
+        int idLength = data[5] & 0xFF;
+        if (idLength == 0 ||
+                idLength > 64 ||
+                data.length != 8 + idLength) {
+            return null;
+        }
+        String id = new String(
+                data,
+                8,
+                idLength,
+                StandardCharsets.US_ASCII);
+        return isCanonicalUuid(id) ? id : null;
     }
 
     private File clipboardCacheDirectory() {

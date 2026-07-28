@@ -1005,14 +1005,9 @@ public class NvHTTP {
 
     public static final class ClipboardFileReference {
         public final String id;
-        public final long manifestSize;
-        public final byte[] manifestSha256;
 
-        ClipboardFileReference(String id, long manifestSize,
-                               byte[] manifestSha256) {
+        ClipboardFileReference(String id) {
             this.id = id;
-            this.manifestSize = manifestSize;
-            this.manifestSha256 = manifestSha256;
         }
     }
 
@@ -1054,18 +1049,11 @@ public class NvHTTP {
                 JSONObject json = new JSONObject(
                         readUtf8ResponseBody(responseBody, 64 * 1024));
                 String id = json.optString("id", "").trim();
-                long manifestSize = json.optLong("size", -1);
-                byte[] manifestSha256 =
-                        decodeHex(json.optString("sha256", ""));
-                if (!isCanonicalUuid(id) ||
-                        manifestSize <= 0 ||
-                        manifestSize > FileManifest.MAX_MANIFEST_BYTES ||
-                        manifestSha256.length != 32) {
+                if (!isCanonicalUuid(id)) {
                     throw new IOException(
                             "Malformed clipboard file pull response");
                 }
-                return new ClipboardFileReference(
-                        id, manifestSize, manifestSha256);
+                return new ClipboardFileReference(id);
             } catch (JSONException error) {
                 throw new IOException(
                         "Malformed clipboard file pull response", error);
@@ -1073,12 +1061,9 @@ public class NvHTTP {
         }
     }
 
-    public byte[] downloadClipboardFileManifest(String id, long originId,
-                                                long expectedSize,
-                                                byte[] expectedSha256) throws IOException {
-        if (!isCanonicalUuid(id) || originId == 0 ||
-                expectedSize <= 0 || expectedSize > FileManifest.MAX_MANIFEST_BYTES ||
-                expectedSha256 == null || expectedSha256.length != 32) {
+    public byte[] downloadClipboardFileManifest(String id, long originId)
+            throws IOException {
+        if (!isCanonicalUuid(id) || originId == 0) {
             throw new IOException("Invalid clipboard file reference");
         }
 
@@ -1103,18 +1088,24 @@ public class NvHTTP {
             ResponseBody responseBody = response.body();
             MediaType contentType = responseBody == null ? null : responseBody.contentType();
             byte[] responseSha256 = decodeHex(response.header("X-Clipboard-SHA256", ""));
+            long contentLength = responseBody == null ? -1 :
+                    responseBody.contentLength();
             if (responseBody == null ||
-                    responseBody.contentLength() != expectedSize ||
+                    contentLength > FileManifest.MAX_MANIFEST_BYTES ||
                     contentType == null ||
                     !"application/vnd.moonlight.file-manifest".equals(
                             contentType.type() + "/" + contentType.subtype()) ||
-                    !MessageDigest.isEqual(responseSha256, expectedSha256)) {
+                    responseSha256.length != 32) {
                 throw new IOException("Clipboard file manifest metadata mismatch");
             }
             byte[] manifest = readResponseBodyBytes(responseBody,
                     FileManifest.MAX_MANIFEST_BYTES);
-            if (manifest.length != expectedSize ||
-                    !MessageDigest.isEqual(sha256(manifest), expectedSha256)) {
+            if (manifest.length == 0 ||
+                    (contentLength >= 0 &&
+                     manifest.length != contentLength) ||
+                    !MessageDigest.isEqual(
+                        sha256(manifest),
+                        responseSha256)) {
                 throw new IOException("Clipboard file manifest integrity check failed");
             }
             return manifest;
