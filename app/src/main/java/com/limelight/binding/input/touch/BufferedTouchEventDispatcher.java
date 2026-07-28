@@ -52,6 +52,15 @@ public final class BufferedTouchEventDispatcher {
     }
 
     /**
+     * Returns true while buffered events are being replayed through the normal
+     * input pipeline. Side-channel observers that already saw the original
+     * hardware event must skip the replay to avoid counting it twice.
+     */
+    public boolean isInternalDispatch() {
+        return internalDispatch;
+    }
+
+    /**
      * Takes ownership of {@code events} and dispatches each event exactly once.
      */
     public void dispatch(View eventView, List<MotionEvent> events, Dispatcher dispatcher) {

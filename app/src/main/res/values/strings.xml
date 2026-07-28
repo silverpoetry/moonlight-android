@@ -196,6 +196,14 @@
     <string name="summary_checkbox_flip_face_buttons">Switches the face buttons A/B and X/Y for gamepads and the on-screen controls</string>
     <string name="title_checkbox_gamepad_touchpad_as_mouse">Always control mouse with touchpad</string>
     <string name="summary_checkbox_gamepad_touchpad_as_mouse">Forces gamepad touchpad input to control the host mouse, even when emulating a gamepad with a touchpad.</string>
+    <string name="title_checkbox_barometer_force_press">Barometer force press</string>
+    <string name="summary_checkbox_barometer_force_press">In touchpad mode, replace one- and two-finger long presses with barometer force presses. One finger holds the left button and two fingers hold the right button until a finger is lifted.</string>
+    <string name="title_seekbar_barometer_force_press_threshold">Force-press threshold</string>
+    <string name="summary_seekbar_barometer_force_press_threshold">Pressure rise above the pre-touch baseline. Lower values trigger more easily.</string>
+    <string name="suffix_barometer_force_press_threshold">hPa</string>
+    <string name="title_seekbar_barometer_force_press_min_duration">Minimum touch duration</string>
+    <string name="summary_seekbar_barometer_force_press_min_duration">Require the current contact set to remain down for this long before a force press can trigger, filtering pressure spikes caused by initial contact.</string>
+    <string name="suffix_barometer_force_press_min_duration">ms</string>
     <string name="title_checkbox_gamepad_motion_sensors">Allow use of gamepad motion sensors</string>
     <string name="summary_checkbox_gamepad_motion_sensors">Enables supported hosts to request motion sensor data when emulating a gamepad with motion sensors. Disabling may slightly reduce power and network usage if motion sensors are not being used in game.</string>
     <string name="title_checkbox_gamepad_motion_fallback">Emulate gamepad motion sensor support</string>
@@ -206,10 +214,8 @@
     <string name="summary_checkbox_touchscreen_trackpad">If enabled, the touchscreen acts like a trackpad. If disabled, the touchscreen directly controls the mouse cursor.</string>
     <string name="title_checkbox_absolute_mouse_mode">Remote desktop mouse mode</string>
     <string name="summary_checkbox_absolute_mouse_mode">This can make mouse acceleration behave more naturally for remote desktop usage. When supported by the host, Moonlight will draw the host cursor locally for lower cursor latency. Incompatible with many games.</string>
-    <string name="title_checkbox_clipboard_sync">Sync clipboard text</string>
-    <string name="summary_checkbox_clipboard_sync">Synchronize UTF-8 text clipboard contents with supported Sunshine hosts while streaming.</string>
-    <string name="title_checkbox_clipboard_image_sync">Sync clipboard images</string>
-    <string name="summary_checkbox_clipboard_image_sync">Synchronize PNG images with supported Sunshine hosts while streaming. Large images use the existing encrypted host connection.</string>
+    <string name="title_checkbox_clipboard_sync">Clipboard sync</string>
+    <string name="summary_checkbox_clipboard_sync">Synchronize text, images, files, and folders with supported Sunshine hosts while streaming.</string>
     <string name="title_clipboard_file_save_directory">剪贴板文件保存目录</string>
     <string name="summary_clipboard_file_save_directory">首次拉取时选择，应用仅访问你授权的目录</string>
     <string name="clipboard_file_save_directory_selected">当前目录：%1$s</string>

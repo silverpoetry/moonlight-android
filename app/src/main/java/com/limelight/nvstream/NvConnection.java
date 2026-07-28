@@ -594,9 +594,7 @@ public class NvConnection {
                     if (context.streamConfig.getClipboardProtocolEnabled()) {
                         clipboardSyncController = new ClipboardSyncController(
                                 appContext,
-                                clipboardHttp,
-                                context.streamConfig.getClipboardSyncEnabled(),
-                                context.streamConfig.getClipboardImageSyncEnabled());
+                                clipboardHttp);
                         clipboardSyncController.start();
                     }
                     int ret = MoonBridge.startConnection(context.serverAddress.address,

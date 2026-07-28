@@ -494,7 +494,6 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                 .setColorRange(decoderRenderer.getPreferredColorRange())
                 .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
                 .enableClipboardSync(prefConfig.enableClipboardSync)
-                .enableClipboardImageSync(prefConfig.enableClipboardImageSync)
                 .disableAdaptiveInputThrottling(prefConfig.disableAdaptiveInputThrottling)
                 .build();
 
@@ -1470,11 +1469,6 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                 softKeyboardGestureDetector.onTouchEvent(event, configuredFingerCount);
 
         if (result == SoftKeyboardGestureDetector.Result.STARTED) {
-            cancelNativeTouchpadInput();
-            for (TouchContext touchContext : touchContextMap) {
-                touchContext.cancelTouch();
-                touchContext.setPointerCount(0);
-            }
             return true;
         }
 
@@ -1491,6 +1485,11 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         }
 
         if (result == SoftKeyboardGestureDetector.Result.TRIGGERED) {
+            cancelNativeTouchpadInput();
+            for (TouchContext touchContext : touchContextMap) {
+                touchContext.cancelTouch();
+                touchContext.setPointerCount(0);
+            }
             showKeyboard();
             return true;
         }

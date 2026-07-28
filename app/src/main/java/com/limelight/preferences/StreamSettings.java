@@ -14,6 +14,8 @@ import android.content.res.XmlResourceParser;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.ColorDrawable;
+import android.hardware.Sensor;
+import android.hardware.SensorManager;
 import android.media.MediaCodecInfo;
 import android.net.Uri;
 import android.os.Build;
@@ -1078,6 +1080,19 @@ public class StreamSettings extends Activity {
     }
 
     private void afterItemChanged(SettingsItem item, Object value, boolean allowSwitchAnimation) {
+        if (PreferenceConfiguration.BAROMETER_FORCE_PRESS_PREF_STRING.equals(
+                item.key)) {
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (!isFinishing()) {
+                        reloadSettings();
+                    }
+                }
+            }, allowSwitchAnimation ? 180 : 0);
+            return;
+        }
+
         if (PreferenceConfiguration.UNLOCK_FPS_STRING.equals(item.key)) {
             new Handler().postDelayed(new Runnable() {
                 @Override
@@ -1281,6 +1296,23 @@ public class StreamSettings extends Activity {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
                 pm.hasSystemFeature("com.nvidia.feature.shield")) {
             hideItem("checkbox_absolute_mouse_mode");
+        }
+
+        SensorManager sensorManager =
+                (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        boolean hasPressureSensor = sensorManager != null &&
+                sensorManager.getDefaultSensor(
+                        Sensor.TYPE_PRESSURE, false) != null;
+        if (!hasPressureSensor) {
+            hideItem(PreferenceConfiguration.BAROMETER_FORCE_PRESS_PREF_STRING);
+            hideItem(PreferenceConfiguration.BAROMETER_FORCE_PRESS_THRESHOLD_PREF_STRING);
+            hideItem(PreferenceConfiguration.BAROMETER_FORCE_PRESS_MIN_DURATION_PREF_STRING);
+        }
+        else if (!store.getBoolean(
+                PreferenceConfiguration.BAROMETER_FORCE_PRESS_PREF_STRING,
+                false)) {
+            hideItem(PreferenceConfiguration.BAROMETER_FORCE_PRESS_THRESHOLD_PREF_STRING);
+            hideItem(PreferenceConfiguration.BAROMETER_FORCE_PRESS_MIN_DURATION_PREF_STRING);
         }
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
@@ -1874,6 +1906,7 @@ public class StreamSettings extends Activity {
         int step;
         int keyStep;
         int divisor;
+        int decimalPlaces;
         CharSequence suffix;
         CharSequence dialogMessage;
         CharSequence[] entries = new CharSequence[0];
@@ -1907,7 +1940,9 @@ public class StreamSettings extends Activity {
         String formatSliderValue(int value) {
             String text;
             if (divisor != 1) {
-                text = String.format((Locale) null, "%.1f", value / (float) divisor);
+                text = String.format((Locale) null,
+                        "%." + decimalPlaces + "f",
+                        value / (float) divisor);
             }
             else {
                 text = Integer.toString(value);
@@ -2012,6 +2047,8 @@ public class StreamSettings extends Activity {
                 item.step = parser.getAttributeIntValue(SEEKBAR_NS, "step", 1);
                 item.keyStep = parser.getAttributeIntValue(SEEKBAR_NS, "keyStep", 0);
                 item.divisor = parser.getAttributeIntValue(SEEKBAR_NS, "divisor", 1);
+                item.decimalPlaces = Math.max(0, Math.min(4,
+                        parser.getAttributeIntValue(SEEKBAR_NS, "decimals", 1)));
                 item.suffix = attrText(context, parser, "text");
                 item.dialogMessage = attrText(context, parser, "dialogMessage");
             }
@@ -2131,6 +2168,9 @@ public class StreamSettings extends Activity {
             if ("checkbox_mouse_local_cursor".equals(key)) return R.drawable.ic_axi_mouse_left_s;
             if ("checkbox_mouse_nav_buttons".equals(key)) return R.drawable.ic_axi_mouse_right;
             if ("checkbox_absolute_mouse_mode".equals(key)) return R.drawable.ic_axi_touch_center;
+            if (PreferenceConfiguration.BAROMETER_FORCE_PRESS_PREF_STRING.equals(key)) return R.drawable.ic_axi_touch;
+            if (PreferenceConfiguration.BAROMETER_FORCE_PRESS_THRESHOLD_PREF_STRING.equals(key)) return R.drawable.ic_axi_touch_sensitivity;
+            if (PreferenceConfiguration.BAROMETER_FORCE_PRESS_MIN_DURATION_PREF_STRING.equals(key)) return R.drawable.ic_axi_touch_sensitivity;
             if ("checkbox_clipboard_sync".equals(key)) return R.drawable.ic_axi_clipboard_send;
 
             if ("checkbox_show_onscreen_controls".equals(key)) return R.drawable.ic_axi_game_control_dpad;

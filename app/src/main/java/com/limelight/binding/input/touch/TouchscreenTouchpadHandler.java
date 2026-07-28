@@ -1,12 +1,17 @@
 package com.limelight.binding.input.touch;
 
+import android.graphics.PointF;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.util.SparseArray;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 
 import com.limelight.nvstream.NvConnection;
+import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.PreferenceConfiguration;
 
@@ -34,6 +39,8 @@ public final class TouchscreenTouchpadHandler {
 
     private enum GestureState {
         IDLE,
+        MULTITOUCH_HANDOFF_CANDIDATE,
+        LEGACY_MULTITOUCH,
         NATIVE_MULTITOUCH,
         RELATIVE_REMAINDER,
         SUPPRESSED
@@ -43,12 +50,19 @@ public final class TouchscreenTouchpadHandler {
     private static final float MILLIMETERS_PER_INCH = 25.4f;
     private static final int MIN_TOUCHPAD_SIZE_MM = 40;
     private static final int MAX_TOUCHPAD_SIZE_MM = 200;
-
     private final NativeTouchpadSender nativeSender;
     private final TouchpadMotionSender mouseMotionSender;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final TouchpadButtonController forceButtonController;
+    private final TouchpadHapticFeedback hapticFeedback;
+    private boolean barometerForcePressEnabled;
+    private boolean secondaryForcePressActive;
     private final SparseArray<Contact> activeContacts = new SparseArray<>();
+    private final SparseArray<PointF> handoffPointerOrigins = new SparseArray<>();
     private final List<Contact> frameContacts =
             new ArrayList<>(MoonBridge.LI_TOUCHPAD_MAX_CONTACTS);
+    private final List<MotionEvent> handoffEvents = new ArrayList<>();
+    private final float handoffSlopSquared;
     private GestureState gestureState = GestureState.IDLE;
     private short deviceWidthMm;
     private short deviceHeightMm;
@@ -57,6 +71,16 @@ public final class TouchscreenTouchpadHandler {
     private int remainderPointerId;
     private int remainderX;
     private int remainderY;
+    private View handoffView;
+
+    private final Runnable handoffTimeoutRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (gestureState == GestureState.MULTITOUCH_HANDOFF_CANDIDATE) {
+                retainLegacyMultiTouchGesture();
+            }
+        }
+    };
 
     public TouchscreenTouchpadHandler(NvConnection connection, View targetView,
                                      int referenceWidth, int referenceHeight,
@@ -64,6 +88,15 @@ public final class TouchscreenTouchpadHandler {
         nativeSender = new NativeTouchpadSender(connection);
         mouseMotionSender = new TouchpadMotionSender(connection, referenceWidth, referenceHeight,
                 targetView, prefConfig);
+        forceButtonController = new TouchpadButtonController(
+                connection, handler, () -> false);
+        hapticFeedback = new TouchpadHapticFeedback(targetView);
+        int touchSlop = ViewConfiguration.get(targetView.getContext())
+                .getScaledTouchSlop();
+        int handoffSlop = Math.min(
+                touchSlop,
+                RelativeTouchContext.TAP_MOVEMENT_THRESHOLD);
+        handoffSlopSquared = handoffSlop * handoffSlop;
     }
 
     /**
@@ -84,11 +117,22 @@ public final class TouchscreenTouchpadHandler {
         this.singlePointerRemainderMode = newMode;
     }
 
+    public void setBarometerForcePressEnabled(boolean enabled) {
+        if (barometerForcePressEnabled == enabled) {
+            return;
+        }
+
+        cancel();
+        barometerForcePressEnabled = enabled;
+    }
+
     /**
      * Returns whether this handler owns the current touchscreen gesture.
      */
     public boolean isHandlingGesture() {
-        return gestureState != GestureState.IDLE;
+        return gestureState == GestureState.NATIVE_MULTITOUCH ||
+                gestureState == GestureState.RELATIVE_REMAINDER ||
+                gestureState == GestureState.SUPPRESSED;
     }
 
     /**
@@ -118,6 +162,7 @@ public final class TouchscreenTouchpadHandler {
 
         if (event.getPointerCount() > MoonBridge.LI_TOUCHPAD_MAX_CONTACTS) {
             cancelNativeContacts();
+            clearMultiTouchHandoffCandidate();
             gestureState = GestureState.SUPPRESSED;
             return true;
         }
@@ -125,9 +170,19 @@ public final class TouchscreenTouchpadHandler {
         switch (gestureState) {
             case IDLE:
                 if (event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN &&
-                        event.getPointerCount() >= 2) {
+                        event.getPointerCount() == 2) {
                     updateDeviceDimensions(eventView);
-                    return beginNativeGesture(eventView, event);
+                    beginMultiTouchHandoffCandidate(eventView, event);
+                }
+                return false;
+
+            case MULTITOUCH_HANDOFF_CANDIDATE:
+                return handleMultiTouchHandoffCandidate(event);
+
+            case LEGACY_MULTITOUCH:
+                if (event.getActionMasked() == MotionEvent.ACTION_UP ||
+                        event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                    resetState();
                 }
                 return false;
 
@@ -150,7 +205,183 @@ public final class TouchscreenTouchpadHandler {
      */
     public void cancel() {
         cancelNativeContacts();
+        releaseSecondaryForcePress(false);
         resetState();
+    }
+
+    public boolean beginSecondaryForcePress() {
+        if (!barometerForcePressEnabled || secondaryForcePressActive) {
+            return false;
+        }
+
+        forceButtonController.pressButton(MouseButtonPacket.BUTTON_RIGHT);
+        secondaryForcePressActive = true;
+        hapticFeedback.performPhysicalClick();
+        return true;
+    }
+
+    public boolean releaseSecondaryForcePress(boolean performHapticFeedback) {
+        if (!secondaryForcePressActive) {
+            return false;
+        }
+
+        forceButtonController.releaseButton(MouseButtonPacket.BUTTON_RIGHT);
+        secondaryForcePressActive = false;
+        if (performHapticFeedback) {
+            hapticFeedback.performPhysicalClick();
+        }
+        return true;
+    }
+
+    private void beginMultiTouchHandoffCandidate(View eventView,
+                                                 MotionEvent event) {
+        clearMultiTouchHandoffCandidate();
+        handoffView = eventView;
+        for (int pointerIndex = 0;
+             pointerIndex < event.getPointerCount();
+             pointerIndex++) {
+            handoffPointerOrigins.put(
+                    event.getPointerId(pointerIndex),
+                    new PointF(
+                            event.getX(pointerIndex),
+                            event.getY(pointerIndex)));
+        }
+        handoffEvents.add(MotionEvent.obtain(event));
+        gestureState = GestureState.MULTITOUCH_HANDOFF_CANDIDATE;
+        if (!barometerForcePressEnabled) {
+            handler.postDelayed(
+                    handoffTimeoutRunnable,
+                    RelativeTouchContext.PHYSICAL_LONG_PRESS_MS);
+        }
+    }
+
+    private boolean handleMultiTouchHandoffCandidate(MotionEvent event) {
+        switch (event.getActionMasked()) {
+        case MotionEvent.ACTION_MOVE:
+            handoffEvents.add(MotionEvent.obtain(event));
+            if (!isHandoffWithinBounds(event)) {
+                promoteHandoffToNative();
+                return true;
+            }
+            return false;
+
+        case MotionEvent.ACTION_POINTER_DOWN:
+            handoffEvents.add(MotionEvent.obtain(event));
+            promoteHandoffToNative();
+            return true;
+
+        case MotionEvent.ACTION_POINTER_UP:
+        case MotionEvent.ACTION_CANCEL:
+        case MotionEvent.ACTION_UP:
+            clearMultiTouchHandoffCandidate();
+            resetState();
+            return false;
+
+        default:
+            return false;
+        }
+    }
+
+    /**
+     * Keeps a stationary two-finger gesture on the original relative-touch
+     * state machine after its long press or barometer force press is accepted.
+     */
+    public void retainLegacyMultiTouchGesture() {
+        if (gestureState != GestureState.MULTITOUCH_HANDOFF_CANDIDATE) {
+            return;
+        }
+
+        clearMultiTouchHandoffCandidate();
+        gestureState = GestureState.LEGACY_MULTITOUCH;
+    }
+
+    private boolean isHandoffWithinBounds(MotionEvent event) {
+        if (event.getPointerCount() != 2 ||
+                handoffPointerOrigins.size() != 2) {
+            return false;
+        }
+
+        for (int pointerIndex = 0;
+             pointerIndex < event.getPointerCount();
+             pointerIndex++) {
+            PointF origin =
+                    handoffPointerOrigins.get(event.getPointerId(pointerIndex));
+            if (origin == null ||
+                    movedBeyondTapSlop(
+                            event.getX(pointerIndex),
+                            event.getY(pointerIndex),
+                            origin)) {
+                return false;
+            }
+
+            for (int historyIndex = 0;
+                 historyIndex < event.getHistorySize();
+                 historyIndex++) {
+                if (movedBeyondTapSlop(
+                        event.getHistoricalX(pointerIndex, historyIndex),
+                        event.getHistoricalY(pointerIndex, historyIndex),
+                        origin)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private boolean movedBeyondTapSlop(float x, float y, PointF origin) {
+        float deltaX = x - origin.x;
+        float deltaY = y - origin.y;
+        return deltaX * deltaX + deltaY * deltaY >
+                handoffSlopSquared;
+    }
+
+    private void promoteHandoffToNative() {
+        if (gestureState != GestureState.MULTITOUCH_HANDOFF_CANDIDATE ||
+                handoffView == null ||
+                handoffEvents.isEmpty()) {
+            return;
+        }
+
+        View eventView = handoffView;
+        List<MotionEvent> events =
+                new ArrayList<>(handoffEvents);
+        handler.removeCallbacks(handoffTimeoutRunnable);
+        handoffEvents.clear();
+        handoffPointerOrigins.clear();
+
+        boolean nativeGestureStarted =
+                beginNativeGesture(eventView, events.get(0));
+        if (nativeGestureStarted) {
+            for (int i = 1; i < events.size(); i++) {
+                MotionEvent event = events.get(i);
+                if (event.getActionMasked() ==
+                        MotionEvent.ACTION_POINTER_DOWN) {
+                    sendAdditionalContactDown(eventView, event);
+                }
+                else if (event.getActionMasked() ==
+                        MotionEvent.ACTION_MOVE) {
+                    sendNativeMoves(eventView, event);
+                }
+            }
+        }
+        else {
+            gestureState = GestureState.SUPPRESSED;
+        }
+
+        for (MotionEvent event : events) {
+            event.recycle();
+        }
+        handoffView = null;
+    }
+
+    private void clearMultiTouchHandoffCandidate() {
+        handler.removeCallbacks(handoffTimeoutRunnable);
+        for (MotionEvent event : handoffEvents) {
+            event.recycle();
+        }
+        handoffEvents.clear();
+        handoffPointerOrigins.clear();
+        handoffView = null;
     }
 
     private boolean beginNativeGesture(View eventView, MotionEvent event) {
@@ -427,6 +658,7 @@ public final class TouchscreenTouchpadHandler {
     }
 
     private void resetState() {
+        clearMultiTouchHandoffCandidate();
         activeContacts.clear();
         clearSinglePointerRemainder();
         gestureState = GestureState.IDLE;

@@ -66,8 +66,18 @@ public class PreferenceConfiguration {
     private static final String LATENCY_TOAST_PREF_STRING = "checkbox_enable_post_stream_toast";
     private static final String FRAME_PACING_PREF_STRING = "frame_pacing";
     private static final String ABSOLUTE_MOUSE_MODE_PREF_STRING = "checkbox_absolute_mouse_mode";
+    public static final String BAROMETER_FORCE_PRESS_PREF_STRING =
+            "checkbox_barometer_force_press";
+    public static final String BAROMETER_FORCE_PRESS_THRESHOLD_PREF_STRING =
+            "seekbar_barometer_force_press_threshold";
+    public static final String BAROMETER_FORCE_PRESS_MIN_DURATION_PREF_STRING =
+            "seekbar_barometer_force_press_min_duration";
+    public static final int MIN_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA = 50;
+    public static final int MAX_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA = 1000;
+    public static final int DEFAULT_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA = 180;
+    public static final int DEFAULT_BAROMETER_FORCE_PRESS_MIN_DURATION_MS = 100;
     public static final String CLIPBOARD_SYNC_PREF_STRING = "checkbox_clipboard_sync";
-    public static final String CLIPBOARD_IMAGE_SYNC_PREF_STRING = "checkbox_clipboard_image_sync";
+    private static final String LEGACY_CLIPBOARD_IMAGE_SYNC_PREF_STRING = "checkbox_clipboard_image_sync";
     public static final String CLIPBOARD_FILE_DIRECTORY_PREF_STRING = "clipboard_file_save_directory";
     private static final String DISABLE_ADAPTIVE_INPUT_THROTTLING_PREF_STRING = "checkbox_disable_adaptive_input_throttling";
     private static final String ENABLE_AUDIO_FX_PREF_STRING = "checkbox_enable_audiofx";
@@ -136,7 +146,6 @@ public class PreferenceConfiguration {
     private static final String DEFAULT_FRAME_PACING = "latency";
     private static final boolean DEFAULT_ABSOLUTE_MOUSE_MODE = false;
     private static final boolean DEFAULT_CLIPBOARD_SYNC = false;
-    private static final boolean DEFAULT_CLIPBOARD_IMAGE_SYNC = false;
     private static final boolean DEFAULT_DISABLE_ADAPTIVE_INPUT_THROTTLING = true;
     private static final boolean DEFAULT_ENABLE_AUDIO_FX = false;
     private static final boolean DEFAULT_ENABLE_AUDIO_HAPTICS = false;
@@ -287,8 +296,10 @@ public class PreferenceConfiguration {
     public int framePacing;
     public boolean absoluteMouseMode;
     public boolean enableNativeCursor;
+    public boolean enableBarometerForcePress;
+    public float barometerForcePressThresholdHpa;
+    public int barometerForcePressMinimumDurationMs;
     public boolean enableClipboardSync;
-    public boolean enableClipboardImageSync;
     public boolean disableAdaptiveInputThrottling;
     public boolean enableAudioFx;
     public boolean enableAudioHaptics;
@@ -986,6 +997,20 @@ public class PreferenceConfiguration {
         config.vibrateFallbackToDeviceStrength = prefs.getInt(VIBRATE_FALLBACK_STRENGTH_PREF_STRING, DEFAULT_VIBRATE_FALLBACK_STRENGTH);
         config.flipFaceButtons = prefs.getBoolean(FLIP_FACE_BUTTONS_PREF_STRING, DEFAULT_FLIP_FACE_BUTTONS);
         config.touchscreenTrackpad = prefs.getBoolean(TOUCHSCREEN_TRACKPAD_PREF_STRING, DEFAULT_TOUCHSCREEN_TRACKPAD);
+        config.enableBarometerForcePress = prefs.getBoolean(
+                BAROMETER_FORCE_PRESS_PREF_STRING, false);
+        int barometerThresholdMilliHpa = prefs.getInt(
+                BAROMETER_FORCE_PRESS_THRESHOLD_PREF_STRING,
+                DEFAULT_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA);
+        config.barometerForcePressThresholdHpa = Math.max(
+                MIN_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA,
+                Math.min(MAX_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA,
+                        barometerThresholdMilliHpa)) / 1000.0f;
+        config.barometerForcePressMinimumDurationMs = Math.max(
+                0,
+                Math.min(500, prefs.getInt(
+                        BAROMETER_FORCE_PRESS_MIN_DURATION_PREF_STRING,
+                        DEFAULT_BAROMETER_FORCE_PRESS_MIN_DURATION_MS)));
         config.enableLatencyToast = prefs.getBoolean(LATENCY_TOAST_PREF_STRING, DEFAULT_LATENCY_TOAST);
         //软键盘
         config.enableQtDialog = prefs.getBoolean(CHECKBOX_ENABLE_QUIT_DIALOG,false);
@@ -1111,9 +1136,15 @@ public class PreferenceConfiguration {
         config.enforceDisplayMode=prefs.getBoolean("checkbox_enforce_display_mode",false);
         config.absoluteMouseMode = prefs.getBoolean(ABSOLUTE_MOUSE_MODE_PREF_STRING, DEFAULT_ABSOLUTE_MOUSE_MODE);
         config.enableNativeCursor = config.absoluteMouseMode;
-        config.enableClipboardSync = prefs.getBoolean(CLIPBOARD_SYNC_PREF_STRING, DEFAULT_CLIPBOARD_SYNC);
-        config.enableClipboardImageSync = prefs.getBoolean(CLIPBOARD_IMAGE_SYNC_PREF_STRING,
-                DEFAULT_CLIPBOARD_IMAGE_SYNC);
+        config.enableClipboardSync =
+                prefs.getBoolean(CLIPBOARD_SYNC_PREF_STRING, DEFAULT_CLIPBOARD_SYNC) ||
+                prefs.getBoolean(LEGACY_CLIPBOARD_IMAGE_SYNC_PREF_STRING, false);
+        if (prefs.contains(LEGACY_CLIPBOARD_IMAGE_SYNC_PREF_STRING)) {
+            prefs.edit()
+                    .putBoolean(CLIPBOARD_SYNC_PREF_STRING, config.enableClipboardSync)
+                    .remove(LEGACY_CLIPBOARD_IMAGE_SYNC_PREF_STRING)
+                    .apply();
+        }
         config.disableAdaptiveInputThrottling = prefs.getBoolean(DISABLE_ADAPTIVE_INPUT_THROTTLING_PREF_STRING,
                 DEFAULT_DISABLE_ADAPTIVE_INPUT_THROTTLING);
         config.enableAudioFx = prefs.getBoolean(ENABLE_AUDIO_FX_PREF_STRING, DEFAULT_ENABLE_AUDIO_FX);

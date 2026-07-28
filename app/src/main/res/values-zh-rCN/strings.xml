@@ -270,10 +270,8 @@
     <string name="summary_seekbar_deadzone">注意：有些游戏可以执行一个比Moonlight摇杆配置的更大的盲区。</string>
     <string name="title_checkbox_absolute_mouse_mode">适合远程桌面的鼠标模式</string>
     <string name="summary_checkbox_absolute_mouse_mode">这可以使鼠标加速在远程桌面使用中表现得更自然。主机支持时，Moonlight 会在本地绘制主机光标以降低光标延迟；不支持时会自动使用视频内光标。它与许多游戏不兼容。</string>
-    <string name="title_checkbox_clipboard_sync">同步剪贴板文本</string>
-    <string name="summary_checkbox_clipboard_sync">串流时与支持的 Sunshine 主机同步 UTF-8 文本剪贴板内容。</string>
-    <string name="title_checkbox_clipboard_image_sync">同步剪贴板图片</string>
-    <string name="summary_checkbox_clipboard_image_sync">串流时与支持的 Sunshine 主机同步 PNG 图片；大图片复用现有加密主机连接传输。</string>
+    <string name="title_checkbox_clipboard_sync">剪贴板同步</string>
+    <string name="summary_checkbox_clipboard_sync">串流时与支持的 Sunshine 主机同步文字、图片、文件和文件夹。</string>
     <string name="title_checkbox_disable_adaptive_input_throttling">关闭自适应输入节流</string>
     <string name="summary_checkbox_disable_adaptive_input_throttling">防止 ENet 在网络延迟波动时主动丢弃实时输入事件。数据包仍不会重传，但上行流量可能略微增加。</string>
     <string name="resolution_prefix_native_landscape">（横向）</string>
@@ -295,6 +293,14 @@
     <string name="category_gamepad_settings">手柄设置</string>
     <string name="title_checkbox_gamepad_touchpad_as_mouse">始终使用触摸板控制鼠标</string>
     <string name="summary_checkbox_gamepad_touchpad_as_mouse">强制使用手柄触摸板来控制主机鼠标，即使在使用触摸板模拟游戏板时也是如此。</string>
+    <string name="title_checkbox_barometer_force_press">气压计重按</string>
+    <string name="summary_checkbox_barometer_force_press">在触控板模式下，用气压计重按替代单指和双指长按；单指按住左键，双指按住右键，手指离开前保持按下。</string>
+    <string name="title_seekbar_barometer_force_press_threshold">重按阈值</string>
+    <string name="summary_seekbar_barometer_force_press_threshold">相对触摸前基准气压的上升量。数值越小越容易触发。</string>
+    <string name="suffix_barometer_force_press_threshold">hPa</string>
+    <string name="title_seekbar_barometer_force_press_min_duration">最短触摸时间</string>
+    <string name="summary_seekbar_barometer_force_press_min_duration">当前触点组合至少保持该时长后才允许触发重按，用于过滤手指落屏时的瞬时气压尖峰。</string>
+    <string name="suffix_barometer_force_press_min_duration">ms</string>
     <string name="title_checkbox_gamepad_motion_sensors">允许使用手柄的运动传感器</string>
     <string name="summary_checkbox_gamepad_motion_sensors">使支持的主机能够在模拟具有运动传感器的游戏手柄时请求运动传感器数据。如果在游戏中未使用运动传感器，禁用可能会略微降低电源和网络使用量。</string>
     <string name="videoformat_av1always">首选 AV1（实验性）</string>

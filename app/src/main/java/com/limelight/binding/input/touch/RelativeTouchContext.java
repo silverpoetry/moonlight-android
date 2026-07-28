@@ -39,6 +39,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     private final TouchpadDragPrimer dragPrimer;
     private final TouchpadButtonController buttonController;
     private final TouchpadHapticFeedback hapticFeedback;
+    private boolean barometerForcePressEnabled;
 
     private final Runnable primaryClickHoldRunnable = new Runnable() {
         @Override
@@ -91,12 +92,12 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         }
     };
 
-    private static final int TAP_MOVEMENT_THRESHOLD = 35;
+    static final int TAP_MOVEMENT_THRESHOLD = 35;
     private static final int TAP_DISTANCE_THRESHOLD = 45;
     private static final int TAP_TIME_THRESHOLD = 250;
     // Keep the legacy click-release window independent from physical long-press detection.
     private static final int PRIMARY_CLICK_RELEASE_MS = 200;
-    private static final int PHYSICAL_LONG_PRESS_MS = 300;
+    static final int PHYSICAL_LONG_PRESS_MS = 300;
     private static final int DOUBLE_TAP_DRAG_HOLD_MS = 300;
 
     private static final int SCROLL_SPEED_FACTOR = 5;
@@ -122,6 +123,11 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         this.dragPrimer = new TouchpadDragPrimer(handler, motionSender, this);
         this.buttonController = new TouchpadButtonController(conn, handler, this);
         this.hapticFeedback = new TouchpadHapticFeedback(view);
+        this.barometerForcePressEnabled = prefConfig.enableBarometerForcePress;
+    }
+
+    public void setBarometerForcePressEnabled(boolean enabled) {
+        barometerForcePressEnabled = enabled;
     }
 
     @Override
@@ -223,7 +229,9 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
 
         primaryPressActive = true;
         handler.postDelayed(primaryClickHoldRunnable, PRIMARY_CLICK_RELEASE_MS);
-        handler.postDelayed(primaryLongPressRunnable, PHYSICAL_LONG_PRESS_MS);
+        if (!barometerForcePressEnabled) {
+            handler.postDelayed(primaryLongPressRunnable, PHYSICAL_LONG_PRESS_MS);
+        }
     }
 
     private void beginPrimaryMove() {
@@ -246,6 +254,52 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         buttonController.pressPrimaryButton();
         gestureState.setMouseButtonActive(true);
         hapticFeedback.performPhysicalClick();
+    }
+
+    /**
+     * Converts the current single-finger contact into the same held primary
+     * button state used by the original long-press implementation.
+     */
+    public boolean beginBarometerForcePress() {
+        if (!barometerForcePressEnabled ||
+                cancelled ||
+                confirmedDrag ||
+                doubleTapDragActive ||
+                waitingForSecondTap) {
+            return false;
+        }
+
+        if (pointerCount == 1 &&
+                primaryPressActive &&
+                !primaryLongPressActive &&
+                !doubleTapCandidate) {
+            beginPrimaryLongPress();
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Releases the button immediately when the force-owning pointer leaves.
+     * The gesture flag remains set until the matching Android touch-up is
+     * processed, preventing that same touch from falling back into a tap.
+     */
+    public void endBarometerForcePress(boolean performHapticFeedback) {
+        if (!barometerForcePressEnabled) {
+            return;
+        }
+
+        boolean released = false;
+        if (primaryLongPressActive) {
+            buttonController.releasePrimaryButton();
+            gestureState.setMouseButtonActive(false);
+            released = true;
+        }
+
+        if (released && performHapticFeedback) {
+            hapticFeedback.performPhysicalClick();
+        }
     }
 
     private void beginSecondPrimaryPress(int eventX, int eventY, long eventTime) {
@@ -353,7 +407,9 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
 
     private void beginSecondaryButtonHoldCandidate() {
         cancelSecondaryButtonHoldTimer();
-        if (actionIndex == 0 && pointerCount == 2) {
+        if (!barometerForcePressEnabled &&
+                actionIndex == 0 &&
+                pointerCount == 2) {
             handler.postDelayed(secondaryButtonHoldRunnable, PHYSICAL_LONG_PRESS_MS);
         }
     }

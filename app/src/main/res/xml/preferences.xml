@@ -261,19 +261,49 @@
             android:defaultValue="false" />
 
         <CheckBoxPreference
+            android:key="checkbox_barometer_force_press"
+            android:title="@string/title_checkbox_barometer_force_press"
+            android:summary="@string/summary_checkbox_barometer_force_press"
+            android:defaultValue="false" />
+
+        <com.limelight.preferences.SeekBarPreference
+            android:key="seekbar_barometer_force_press_threshold"
+            android:dependency="checkbox_barometer_force_press"
+            android:title="@string/title_seekbar_barometer_force_press_threshold"
+            android:summary="@string/summary_seekbar_barometer_force_press_threshold"
+            android:dialogMessage="@string/summary_seekbar_barometer_force_press_threshold"
+            android:defaultValue="180"
+            android:max="1000"
+            android:text="@string/suffix_barometer_force_press_threshold"
+            seekbar:min="50"
+            seekbar:step="5"
+            seekbar:keyStep="10"
+            seekbar:divisor="1000"
+            seekbar:decimals="3" />
+
+        <com.limelight.preferences.SeekBarPreference
+            android:key="seekbar_barometer_force_press_min_duration"
+            android:dependency="checkbox_barometer_force_press"
+            android:title="@string/title_seekbar_barometer_force_press_min_duration"
+            android:summary="@string/summary_seekbar_barometer_force_press_min_duration"
+            android:dialogMessage="@string/summary_seekbar_barometer_force_press_min_duration"
+            android:defaultValue="100"
+            android:max="500"
+            android:text="@string/suffix_barometer_force_press_min_duration"
+            seekbar:min="0"
+            seekbar:step="10"
+            seekbar:keyStep="10" />
+
+        <CheckBoxPreference
             android:key="checkbox_clipboard_sync"
             android:title="@string/title_checkbox_clipboard_sync"
             android:summary="@string/summary_checkbox_clipboard_sync"
             android:defaultValue="false" />
-        <CheckBoxPreference
-            android:key="checkbox_clipboard_image_sync"
-            android:title="@string/title_checkbox_clipboard_image_sync"
-            android:summary="@string/summary_checkbox_clipboard_image_sync"
-            android:defaultValue="false" />
         <Preference
             android:key="clipboard_file_save_directory"
             android:title="@string/title_clipboard_file_save_directory"
-            android:summary="@string/summary_clipboard_file_save_directory" />
+            android:summary="@string/summary_clipboard_file_save_directory"
+            android:dependency="checkbox_clipboard_sync" />
 
         <CheckBoxPreference
             android:key="checkbox_disable_adaptive_input_throttling"

@@ -47,12 +47,15 @@ public final class SoftKeyboardGestureDetector {
     }
 
     /**
-     * Defers multi-pointer events only while they can still form the configured keyboard tap.
+     * Defers events starting with the third pointer only while they can still
+     * form the configured keyboard tap.
      *
-     * <p>The first finger remains on the normal mouse path. Starting with the second pointer-down,
-     * events are copied into a short-lived buffer. Movement, timeout, an early release, or an
-     * unexpected finger count releases the complete buffer in original order. An exact tap drops
-     * the buffer, so the host never receives contacts that could trigger its own gesture.</p>
+     * <p>One- and two-finger input remains on the normal path, which preserves
+     * two-finger long press and force press. The touchpad handoff layer already
+     * holds a stationary two-finger gesture locally, so buffering from the
+     * third contact is still early enough to prevent an exact keyboard tap
+     * from reaching the host. Movement, timeout, an early release, or an
+     * unexpected finger count releases the complete buffer in original order.</p>
      */
     public Result onTouchEvent(MotionEvent event, int requestedFingerCount) {
         if (passthrough) {
@@ -152,7 +155,7 @@ public final class SoftKeyboardGestureDetector {
         updateEligibility(event);
 
         boolean started = !buffering;
-        if (event.getPointerCount() >= 2) {
+        if (event.getPointerCount() >= MIN_GESTURE_FINGER_COUNT) {
             buffering = true;
             buffer(event);
         }
@@ -166,6 +169,9 @@ public final class SoftKeyboardGestureDetector {
             armed = true;
         }
 
+        if (!buffering) {
+            return Result.NONE;
+        }
         return started ? Result.STARTED : Result.BUFFERING;
     }
 

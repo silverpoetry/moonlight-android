@@ -89,7 +89,7 @@ android {
             resValue "string", "app_label", "Moonlight (Debug)"
             resValue "string", "app_label_root", "Moonlight (Root Debug)"
 
-            minifyEnabled true
+            minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
         release {
@@ -131,7 +131,7 @@ android {
             resValue "string", "app_label", "月光·阿西西"
             resValue "string", "app_label_root", "Moonlight (Root)"
 
-            minifyEnabled true
+            minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
@@ -145,6 +145,7 @@ android {
 
 dependencies {
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
+    testImplementation 'junit:junit:4.13.2'
 
     implementation files('libs/axi_gamepad_1.0.5.aar')
     implementation 'org.bouncycastle:bcprov-jdk18on:1.77'

@@ -11,6 +11,7 @@ import com.limelight.binding.input.capture.InputCaptureManager;
 import com.limelight.binding.input.capture.InputCaptureProvider;
 import com.limelight.binding.input.touch.AbsoluteTouchContext;
 import com.limelight.binding.input.touch.AbsoluteTouchSwitchContext;
+import com.limelight.binding.input.touch.BarometerForcePressController;
 import com.limelight.binding.input.touch.BufferedTouchEventDispatcher;
 import com.limelight.binding.input.touch.RelativeTouchContext;
 import com.limelight.binding.input.driver.UsbDriverService;
@@ -143,7 +144,8 @@ import java.util.Map;
 public class Game extends Activity implements SurfaceHolder.Callback,
         OnGenericMotionListener, OnTouchListener, NvConnectionListener, EvdevListener,
         OnSystemUiVisibilityChangeListener, GameGestures, StreamInputCallbacks,
-        PerfOverlayListener, UsbDriverService.UsbDriverStateListener, View.OnKeyListener{
+        PerfOverlayListener, UsbDriverService.UsbDriverStateListener, View.OnKeyListener,
+        BarometerForcePressController.Listener {
     private static final float EXTERNAL_TOUCHPAD_SCROLL_FACTOR = 0.15f;
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 1001;
     private static final int REQUEST_CLIPBOARD_FILE_DIRECTORY = 1107;
@@ -159,6 +161,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private final TouchContext[] touchContextMap = new TouchContext[2];
     private SoftKeyboardGestureDetector softKeyboardGestureDetector;
     private BufferedTouchEventDispatcher bufferedTouchEventDispatcher;
+    private BarometerForcePressController barometerForcePressController;
     private TouchscreenTouchpadHandler touchscreenTouchpadHandler;
     private boolean nativeMultiTouchpadInputEnabled;
 
@@ -353,6 +356,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         streamView.setOnGenericMotionListener(this);
         streamView.setOnKeyListener(this);
         streamView.setInputCallbacks(this);
+        barometerForcePressController =
+                new BarometerForcePressController(this, this);
+        barometerForcePressController.setThresholdHpa(
+                prefConfig.barometerForcePressThresholdHpa);
+        barometerForcePressController.setMinimumTouchDurationMs(
+                prefConfig.barometerForcePressMinimumDurationMs);
+        prefConfig.enableBarometerForcePress =
+                prefConfig.enableBarometerForcePress &&
+                        barometerForcePressController.isAvailable();
 
         fsrEnabled = isFsrEnabled();
         configureFsrWindowColorMode();
@@ -720,7 +732,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
                 .enableNativeCursor(prefConfig.enableNativeCursor)
                 .enableClipboardSync(prefConfig.enableClipboardSync)
-                .enableClipboardImageSync(prefConfig.enableClipboardImageSync)
                 .disableAdaptiveInputThrottling(prefConfig.disableAdaptiveInputThrottling)
                 .build();
 
@@ -1495,6 +1506,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     protected void onResume() {
         super.onResume();
 
+        if (barometerForcePressController != null) {
+            barometerForcePressController.start();
+        }
+
         if (fsrView != null && fsrViewLifecyclePaused) {
             fsrView.onResume();
             fsrViewLifecyclePaused = false;
@@ -1503,6 +1518,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     protected void onPause() {
+        if (barometerForcePressController != null) {
+            barometerForcePressController.stop();
+        }
+
         if (fsrView != null && !(usbPermissionPromptVisible && !isFinishing())) {
             fsrView.onPause();
             fsrViewLifecyclePaused = true;
@@ -2076,11 +2095,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 softKeyboardGestureDetector.onTouchEvent(event, configuredFingerCount);
 
         if (result == SoftKeyboardGestureDetector.Result.STARTED) {
-            cancelNativeTouchpadInput();
-            for (TouchContext touchContext : touchContextMap) {
-                touchContext.cancelTouch();
-                touchContext.setPointerCount(0);
-            }
             return true;
         }
 
@@ -2097,6 +2111,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         if (result == SoftKeyboardGestureDetector.Result.TRIGGERED) {
+            if (barometerForcePressController != null) {
+                barometerForcePressController.cancelTouchSession();
+            }
+            cancelNativeTouchpadInput();
+            for (TouchContext touchContext : touchContextMap) {
+                touchContext.cancelTouch();
+                touchContext.setPointerCount(0);
+            }
             showKeyboard();
             return true;
         }
@@ -2795,6 +2817,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 //禁用鼠标
                 if(disableMouseModel){
                     return true;
+                }
+
+                if (barometerForcePressController != null &&
+                        !bufferedTouchEventDispatcher.isInternalDispatch()) {
+                    barometerForcePressController.onTouchEvent(event);
                 }
 
                 // If this is the parent view, we'll offset our coordinates to appear as if they
@@ -3991,6 +4018,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     public void switchMouseModel(int which){
         cancelNativeTouchpadInput();
+        if (barometerForcePressController != null) {
+            barometerForcePressController.setEnabled(false);
+        }
         disableMouseModel = false;
         nativeMultiTouchpadInputEnabled = false;
 
@@ -4031,6 +4061,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 which == MOUSE_MODE_ABSOLUTE || which == MOUSE_MODE_ABSOLUTE_SWAPPED
                         ? TouchscreenTouchpadHandler.SinglePointerRemainderMode.SUPPRESS
                         : TouchscreenTouchpadHandler.SinglePointerRemainderMode.RELATIVE);
+        touchscreenTouchpadHandler.setBarometerForcePressEnabled(
+                which == MOUSE_MODE_NATIVE_TOUCHPAD &&
+                        prefConfig.enableBarometerForcePress);
 
         TouchpadGestureState touchpadGestureState = new TouchpadGestureState();
         for (int i = 0; i < touchContextMap.length; i++) {
@@ -4055,7 +4088,45 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                             REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
                             streamView, prefConfig, touchpadGestureState);
                 }
+
+                ((RelativeTouchContext) touchContextMap[i])
+                        .setBarometerForcePressEnabled(
+                                which == MOUSE_MODE_NATIVE_TOUCHPAD &&
+                                        prefConfig.enableBarometerForcePress);
             }
+        }
+
+        if (barometerForcePressController != null) {
+            barometerForcePressController.setEnabled(
+                    which == MOUSE_MODE_NATIVE_TOUCHPAD &&
+                            prefConfig.enableBarometerForcePress);
+        }
+    }
+
+    @Override
+    public boolean onForcePressDown(int pointerId, int pointerCount) {
+        if (pointerCount == 2 && touchscreenTouchpadHandler != null) {
+            return touchscreenTouchpadHandler.beginSecondaryForcePress();
+        }
+
+        if (touchContextMap[0] instanceof RelativeTouchContext) {
+            return ((RelativeTouchContext) touchContextMap[0])
+                    .beginBarometerForcePress();
+        }
+        return false;
+    }
+
+    @Override
+    public void onForcePressUp(int pointerId, boolean cancelled) {
+        if (touchscreenTouchpadHandler != null &&
+                touchscreenTouchpadHandler.releaseSecondaryForcePress(
+                        !cancelled)) {
+            return;
+        }
+
+        if (touchContextMap[0] instanceof RelativeTouchContext) {
+            ((RelativeTouchContext) touchContextMap[0])
+                    .endBarometerForcePress(!cancelled);
         }
     }
 

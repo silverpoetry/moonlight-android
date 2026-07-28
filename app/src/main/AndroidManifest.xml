@@ -37,6 +37,9 @@
     <uses-feature
         android:name="android.hardware.sensor.gyroscope"
         android:required="false" />
+    <uses-feature
+        android:name="android.hardware.sensor.barometer"
+        android:required="false" />
 
     <!-- Disable legacy input emulation on ChromeOS -->
     <uses-feature

@@ -34,6 +34,7 @@ public class SeekBarPreference extends DialogPreference
     private final int stepSize;
     private final int keyStepSize;
     private final int divisor;
+    private final int decimalPlaces;
     private int currentValue;
 
     public SeekBarPreference(Context context, AttributeSet attrs) {
@@ -65,6 +66,8 @@ public class SeekBarPreference extends DialogPreference
         stepSize = attrs.getAttributeIntValue(SEEKBAR_SCHEMA_URL, "step", 1);
         divisor = attrs.getAttributeIntValue(SEEKBAR_SCHEMA_URL, "divisor", 1);
         keyStepSize = attrs.getAttributeIntValue(SEEKBAR_SCHEMA_URL, "keyStep", 0);
+        decimalPlaces = Math.max(0, Math.min(4,
+                attrs.getAttributeIntValue(SEEKBAR_SCHEMA_URL, "decimals", 1)));
     }
 
     @Override
@@ -110,7 +113,9 @@ public class SeekBarPreference extends DialogPreference
                 String t;
                 if (divisor != 1) {
                     float floatValue = roundedValue / (float)divisor;
-                    t = String.format((Locale)null, "%.1f", floatValue);
+                    t = String.format((Locale)null,
+                            "%." + decimalPlaces + "f",
+                            floatValue);
                 }
                 else {
                     t = String.valueOf(value);
