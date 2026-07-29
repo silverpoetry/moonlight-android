@@ -620,7 +620,7 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
         if(v.getId() == R.id.bt_other_setting){
             GameDisplaySettingFragment fragment=new GameDisplaySettingFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle("杂项");
+            fragment.setTitle(R.string.game_menu_misc_title);
             fragment.setOnClick(new GameDisplaySettingFragment.onClick() {
                 @Override
                 public void click(int index,boolean flag) {

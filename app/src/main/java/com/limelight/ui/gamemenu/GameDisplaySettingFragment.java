@@ -1,7 +1,7 @@
 package com.limelight.ui.gamemenu;
 
 import android.preference.PreferenceManager;
-import android.text.TextUtils;
+import android.support.annotation.StringRes;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
@@ -21,6 +21,15 @@ import static com.limelight.preferences.PreferenceConfiguration.TOUCH_SENSITIVIT
  * 游戏菜单-杂项
  */
 public class GameDisplaySettingFragment extends BaseGameMenuDialog {
+    private static final SeekBarValueRange GYRO_SENSITIVITY_RANGE =
+            new SeekBarValueRange(50, 200);
+    private static final SeekBarValueRange PERFORMANCE_SCALE_RANGE =
+            new SeekBarValueRange(50, 230);
+    private static final SeekBarValueRange PERFORMANCE_MARGIN_RANGE =
+            new SeekBarValueRange(0, 100);
+    private static final SeekBarValueRange AUDIO_HAPTICS_STRENGTH_RANGE =
+            new SeekBarValueRange(25, 200);
+
     @Override
     public int getLayoutRes() {
         return R.layout.dialog_game_menu_setting;
@@ -29,7 +38,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
     private ImageButton ibtn_back;
     private TextView tx_title;
 
-    private String title;
+    private int titleRes = R.string.game_menu_misc_title;
 
     private CheckBox btn_game_float_ball;
     private CheckBox btn_game_audio_mute;
@@ -111,9 +120,8 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
         layout_game_audio_haptics_details=v.findViewById(R.id.layout_game_audio_haptics_details);
         tx_game_audio_haptics_keep_controller_rumble=v.findViewById(R.id.tx_game_audio_haptics_keep_controller_rumble);
 
-        if(!TextUtils.isEmpty(title)){
-            tx_title.setText(title);
-        }
+        tx_title.setText(titleRes);
+        configureSeekBars();
         initViewData();
         initControl();
         initTouchNumber();
@@ -375,8 +383,13 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
         sb_game_setting_pref_zoom.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                prefConfig.gameSettingPrefZoom=progress;
-                saveSetting("game_setting_pref_zoom",progress);
+                if (!fromUser) {
+                    return;
+                }
+                int value = PERFORMANCE_SCALE_RANGE
+                        .progressToValue(progress);
+                prefConfig.gameSettingPrefZoom=value;
+                saveSetting("game_setting_pref_zoom",value);
                 initPrefZoom();
                 if(onClick!=null){
                     onClick.click(3,false);
@@ -397,8 +410,13 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
         sb_game_setting_pref_magin_top.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                prefConfig.performanceOverlayLiteMaginTop=progress;
-                saveSetting("performance_overlayLite_magin_top",progress);
+                if (!fromUser) {
+                    return;
+                }
+                int value = PERFORMANCE_MARGIN_RANGE
+                        .progressToValue(progress);
+                prefConfig.performanceOverlayLiteMaginTop=value;
+                saveSetting("performance_overlayLite_magin_top",value);
                 initPrefMagin();
                 if(onClick!=null){
                     onClick.click(5,false);
@@ -419,8 +437,13 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
         sb_game_setting_gyro_sensitivity.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                prefConfig.gameForceGyroSensitivity=progress;
-                saveSetting("gameForceGyroSensitivity",progress);
+                if (!fromUser) {
+                    return;
+                }
+                int value = GYRO_SENSITIVITY_RANGE
+                        .progressToValue(progress);
+                prefConfig.gameForceGyroSensitivity=value;
+                saveSetting("gameForceGyroSensitivity",value);
                 initGyroSensitivity();
             }
 
@@ -438,8 +461,13 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
         sb_game_audio_haptics_strength.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                prefConfig.audioHapticsStrength = progress;
-                saveSetting("seekbar_audio_haptics_strength", progress);
+                if (!fromUser) {
+                    return;
+                }
+                int value = AUDIO_HAPTICS_STRENGTH_RANGE
+                        .progressToValue(progress);
+                prefConfig.audioHapticsStrength = value;
+                saveSetting("seekbar_audio_haptics_strength", value);
                 initAudioHapticsStrength();
                 notifyAudioHapticsChanged();
             }
@@ -454,6 +482,17 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
 
             }
         });
+    }
+
+    private void configureSeekBars() {
+        sb_game_setting_gyro_sensitivity.setMax(
+                GYRO_SENSITIVITY_RANGE.getProgressMaximum());
+        sb_game_setting_pref_zoom.setMax(
+                PERFORMANCE_SCALE_RANGE.getProgressMaximum());
+        sb_game_setting_pref_magin_top.setMax(
+                PERFORMANCE_MARGIN_RANGE.getProgressMaximum());
+        sb_game_audio_haptics_strength.setMax(
+                AUDIO_HAPTICS_STRENGTH_RANGE.getProgressMaximum());
     }
 
 
@@ -571,18 +610,30 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
     }
 
     private void initPrefZoom(){
-        tx_game_setting_pref_zoom.setText("性能信息·缩放："+prefConfig.gameSettingPrefZoom+"%");
-        sb_game_setting_pref_zoom.setProgress(prefConfig.gameSettingPrefZoom);
+        tx_game_setting_pref_zoom.setText(getString(
+                R.string.game_menu_performance_scale_format,
+                prefConfig.gameSettingPrefZoom));
+        sb_game_setting_pref_zoom.setProgress(
+                PERFORMANCE_SCALE_RANGE.valueToProgress(
+                        prefConfig.gameSettingPrefZoom));
     }
 
     private void initPrefMagin(){
-        tx_game_setting_pref_magin_top.setText("性能信息·边距："+prefConfig.performanceOverlayLiteMaginTop);
-        sb_game_setting_pref_magin_top.setProgress(prefConfig.performanceOverlayLiteMaginTop);
+        tx_game_setting_pref_magin_top.setText(getString(
+                R.string.game_menu_performance_margin_format,
+                prefConfig.performanceOverlayLiteMaginTop));
+        sb_game_setting_pref_magin_top.setProgress(
+                PERFORMANCE_MARGIN_RANGE.valueToProgress(
+                        prefConfig.performanceOverlayLiteMaginTop));
     }
 
     private void initGyroSensitivity(){
-        tx_game_setting_gyro_sensitivity.setText("强制体感·灵敏度："+prefConfig.gameForceGyroSensitivity);
-        sb_game_setting_gyro_sensitivity.setProgress(prefConfig.gameForceGyroSensitivity);
+        tx_game_setting_gyro_sensitivity.setText(getString(
+                R.string.game_menu_gyro_sensitivity_format,
+                prefConfig.gameForceGyroSensitivity));
+        sb_game_setting_gyro_sensitivity.setProgress(
+                GYRO_SENSITIVITY_RANGE.valueToProgress(
+                        prefConfig.gameForceGyroSensitivity));
     }
 
     private void initAudioHaptics() {
@@ -618,8 +669,12 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
     }
 
     private void initAudioHapticsStrength() {
-        tx_game_audio_haptics_strength.setText("音频震动强度：" + prefConfig.audioHapticsStrength + "%");
-        sb_game_audio_haptics_strength.setProgress(prefConfig.audioHapticsStrength);
+        tx_game_audio_haptics_strength.setText(getString(
+                R.string.game_menu_audio_haptics_strength_format,
+                prefConfig.audioHapticsStrength));
+        sb_game_audio_haptics_strength.setProgress(
+                AUDIO_HAPTICS_STRENGTH_RANGE.valueToProgress(
+                        prefConfig.audioHapticsStrength));
     }
 
     private void updateAudioHapticsVisibility() {
@@ -652,8 +707,8 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
         return super.getDimAmount();
     }
 
-    public void setTitle(String title) {
-        this.title = title;
+    public void setTitle(@StringRes int titleRes) {
+        this.titleRes = titleRes;
     }
 
     private PreferenceConfiguration prefConfig;

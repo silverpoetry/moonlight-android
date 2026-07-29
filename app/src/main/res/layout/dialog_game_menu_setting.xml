@@ -4,857 +4,370 @@
     android:layout_height="match_parent"
     android:background="@color/gameMenuBgColor"
     android:orientation="vertical"
-    android:paddingBottom="0dp"
-    android:paddingLeft="10dp"
-    android:paddingRight="10dp"
-    android:paddingTop="10dp">
+    android:paddingStart="10dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="10dp">
 
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:layout_marginBottom="4dp"
-        android:layout_height="wrap_content">
-        <ImageButton
-            android:src="@drawable/ic_axi_back"
-            android:background="@drawable/ic_game_menu_btn_side_selector"
-            android:layout_width="24dp"
-            android:id="@+id/ibtn_back"
-            android:layout_height="24dp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="杂项"
-            android:id="@+id/tx_title"
-            android:textColor="@android:color/white"
-            android:textSize="13dp" />
-
-    </RelativeLayout>
+    <include layout="@layout/layout_game_menu_back_header" />
 
     <ScrollView
-        android:scrollbars="none"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:scrollbars="none">
 
         <LinearLayout
-            android:orientation="vertical"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:orientation="vertical">
 
-            <LinearLayout
-                android:layout_marginTop="10dp"
-                android:layout_marginLeft="5dp"
-                android:layout_marginRight="5dp"
-                android:layout_marginBottom="5dp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+            <LinearLayout style="@style/GameMenuSectionRow">
 
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="功能"
-                    android:textStyle="bold"
-                    android:textColor="@android:color/white"
-                    android:textSize="12dp" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginLeft="5dp"
-                    android:text="以下选项开关会保存到配置文件"
-                    android:textStyle="italic|bold"
-                    android:textColor="@android:color/white"
-                    android:textSize="8dp" />
+                    style="@style/GameMenuSectionTitle"
+                    android:text="@string/game_menu_features" />
 
+                <TextView
+                    style="@style/GameMenuSectionHint"
+                    android:text="@string/game_menu_settings_saved_help" />
             </LinearLayout>
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:layout_margin="5dp"
+                android:orientation="horizontal">
+
+                <CheckBox
+                    android:id="@+id/btn_game_float_ball"
+                    style="@style/GameMenuToggleTile"
+                    android:text="@string/game_menu_floating_ball" />
+
+                <CheckBox
+                    android:id="@+id/btn_game_float_ball_postion"
+                    style="@style/GameMenuToggleTile"
+                    android:text="@string/game_menu_remember_floating_ball_position" />
+
+                <CheckBox
+                    android:id="@+id/btn_game_audio_mute"
+                    style="@style/GameMenuToggleTile"
+                    android:text="@string/game_menu_mute_device" />
+            </LinearLayout>
+
+            <TextView
+                style="@style/GameMenuDetailLabel"
+                android:text="@string/game_menu_floating_ball_action" />
+
+            <RadioGroup
+                android:id="@+id/rg_game_setting_float_ball"
+                style="@style/GameMenuRadioGroup">
+
+                <RadioButton
+                    android:id="@+id/rbt_game_setting_float_ball_1"
+                    style="@style/GameMenuRadioButton"
+                    android:text="@string/game_menu_game_menu" />
+
+                <RadioButton
+                    android:id="@+id/rbt_game_setting_float_ball_2"
+                    style="@style/GameMenuRadioButton"
+                    android:text="@string/game_menu_soft_keyboard" />
+
+                <RadioButton
+                    android:id="@+id/rbt_game_setting_float_ball_3"
+                    style="@style/GameMenuRadioButton"
+                    android:text="@string/game_menu_full_keyboard" />
+            </RadioGroup>
+
+            <TextView
+                style="@style/GameMenuSectionTitle"
+                android:layout_margin="5dp"
+                android:text="@string/game_menu_lite_performance_info" />
 
             <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:layout_margin="5dp"
+                android:orientation="horizontal">
+
+                <CheckBox
+                    android:id="@+id/btn_game_lite_ext"
+                    style="@style/GameMenuToggleTile"
+                    android:text="@string/game_menu_show_extended_metrics" />
+
+                <CheckBox
+                    android:id="@+id/btn_game_lite_click"
+                    style="@style/GameMenuToggleTile"
+                    android:text="@string/game_menu_open_menu_on_tap" />
+
+                <CheckBox
+                    android:id="@+id/btn_game_rumble_hud"
+                    style="@style/GameMenuToggleTile"
+                    android:text="@string/game_menu_show_rumble_info" />
+            </LinearLayout>
+
+            <TextView
+                style="@style/GameMenuDetailLabel"
+                android:text="@string/game_menu_controller_menu_shortcut" />
+
+            <RadioGroup
+                android:id="@+id/rg_game_setting_control"
+                style="@style/GameMenuRadioGroup">
+
+                <RadioButton
+                    android:id="@+id/rbt_game_setting_control_1"
+                    style="@style/GameMenuRadioButton"
+                    android:text="@string/game_menu_disabled" />
+
+                <RadioButton
+                    android:id="@+id/rbt_game_setting_control_2"
+                    style="@style/GameMenuRadioButton"
+                    android:text="@string/game_menu_start_long_press" />
+
+                <RadioButton
+                    android:id="@+id/rbt_game_setting_control_3"
+                    style="@style/GameMenuRadioButton"
+                    android:text="@string/game_menu_xbox_single_tap" />
+
+                <RadioButton
+                    android:id="@+id/rbt_game_setting_control_4"
+                    style="@style/GameMenuRadioButton"
+                    android:text="@string/game_menu_view_long_press" />
+            </RadioGroup>
+
+            <TextView
+                style="@style/GameMenuDetailLabel"
+                android:text="@string/game_menu_multitouch_keyboard" />
+
+            <RadioGroup
+                android:id="@+id/rg_game_setting_touch"
+                style="@style/GameMenuRadioGroup">
+
+                <RadioButton
+                    android:id="@+id/rbt_game_setting_touch_1"
+                    style="@style/GameMenuRadioButton"
+                    android:text="@string/game_menu_disabled" />
+
+                <RadioButton
+                    android:id="@+id/rbt_game_setting_touch_2"
+                    style="@style/GameMenuRadioButton"
+                    android:text="@string/game_menu_three_fingers" />
+
+                <RadioButton
+                    android:id="@+id/rbt_game_setting_touch_3"
+                    style="@style/GameMenuRadioButton"
+                    android:text="@string/game_menu_four_fingers" />
+
+                <RadioButton
+                    android:id="@+id/rbt_game_setting_touch_4"
+                    style="@style/GameMenuRadioButton"
+                    android:text="@string/game_menu_five_fingers" />
+            </RadioGroup>
+
+            <TextView
+                style="@style/GameMenuSectionTitle"
+                android:layout_margin="5dp"
+                android:text="@string/game_menu_device_vibration" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:layout_margin="5dp"
+                android:orientation="horizontal">
+
+                <CheckBox
+                    android:id="@+id/btn_game_rumble_force_stop"
+                    style="@style/GameMenuToggleTile"
+                    android:text="@string/game_menu_force_stop_rumble" />
+
+                <CheckBox
+                    android:id="@+id/btn_game_rumble_force"
+                    style="@style/GameMenuToggleTile"
+                    android:text="@string/game_menu_strong_rumble" />
+
+                <Space
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1" />
+            </LinearLayout>
+
+            <TextView
+                style="@style/GameMenuSectionTitle"
+                android:layout_margin="5dp"
+                android:text="@string/game_menu_gyro_mouse" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:layout_margin="5dp"
+                android:orientation="horizontal">
+
+                <CheckBox
+                    android:id="@+id/btn_game_force_gyro"
+                    style="@style/GameMenuToggleTile"
+                    android:text="@string/game_menu_enable" />
+
+                <CheckBox
+                    android:id="@+id/btn_game_force_gyro_left_trgger"
+                    style="@style/GameMenuToggleTile"
+                    android:text="@string/game_menu_enable_with_left_trigger" />
+
+                <CheckBox
+                    android:id="@+id/btn_game_force_gyro_switch"
+                    style="@style/GameMenuToggleTile"
+                    android:text="@string/game_menu_swap_xy_axes" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tx_game_setting_gyro_sensitivity"
+                style="@style/GameMenuSliderLabel"
+                android:text="@string/game_menu_gyro_mouse" />
+
+            <SeekBar
+                android:id="@+id/sb_game_setting_gyro_sensitivity"
+                style="@style/GameMenuSeekBar" />
+
+            <TextView
+                android:id="@+id/tx_game_setting_pref_zoom"
+                style="@style/GameMenuSliderLabel"
+                android:text="@string/game_menu_lite_performance_info" />
+
+            <SeekBar
+                android:id="@+id/sb_game_setting_pref_zoom"
+                style="@style/GameMenuSeekBar" />
+
+            <TextView
+                android:id="@+id/tx_game_setting_pref_magin_top"
+                style="@style/GameMenuSliderLabel"
+                android:text="@string/game_menu_lite_performance_info" />
+
+            <SeekBar
+                android:id="@+id/sb_game_setting_pref_magin_top"
+                style="@style/GameMenuSeekBar" />
+
+            <LinearLayout style="@style/GameMenuSectionRow">
+
+                <TextView
+                    style="@style/GameMenuSectionTitle"
+                    android:text="@string/game_menu_audio_haptics" />
+
+                <TextView
+                    style="@style/GameMenuSectionHint"
+                    android:text="@string/game_menu_audio_haptics_help" />
+            </LinearLayout>
+
+            <RadioGroup
+                android:id="@+id/rg_game_audio_haptics_enable"
+                style="@style/GameMenuRadioGroup">
+
+                <RadioButton
+                    android:id="@+id/rbt_game_audio_haptics_enable_on"
+                    style="@style/GameMenuRadioButton"
+                    android:text="@string/game_menu_enabled" />
+
+                <RadioButton
+                    android:id="@+id/rbt_game_audio_haptics_enable_off"
+                    style="@style/GameMenuRadioButton"
+                    android:text="@string/game_menu_disabled" />
+            </RadioGroup>
+
+            <LinearLayout
+                android:id="@+id/layout_game_audio_haptics_details"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginLeft="5dp"
-                android:layout_marginRight="5dp"
-                android:layout_marginTop="5dp"
-                android:layout_marginBottom="15dp"
                 android:orientation="vertical">
 
-                <LinearLayout
-                    android:orientation="horizontal"
-                    android:layout_marginTop="4dp"
-                    android:layout_width="match_parent"
-                    android:layout_height="32dp">
+                <LinearLayout style="@style/GameMenuSectionRow">
 
-                    <CheckBox
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:button="@null"
-                        android:id="@+id/btn_game_float_ball"
-                        android:text="悬浮球"
-                        android:textSize="8dp" />
+                    <TextView
+                        style="@style/GameMenuSectionTitle"
+                        android:text="@string/game_menu_audio_haptics_output" />
 
-<!--                    <CheckBox-->
-<!--                        android:layout_width="match_parent"-->
-<!--                        android:layout_height="match_parent"-->
-<!--                        android:layout_marginRight="5dp"-->
-<!--                        android:layout_weight="1"-->
-<!--                        android:background="@drawable/ic_game_menu_btn_selector"-->
-<!--                        android:gravity="center"-->
-<!--                        android:padding="4dp"-->
-<!--                        android:button="@null"-->
-<!--                        android:id="@+id/btn_game_float_ball_quick"-->
-<!--                        android:text="悬浮球\n打开软键盘"-->
-<!--                        android:textSize="8dp" />-->
-
-                    <CheckBox
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:button="@null"
-                        android:id="@+id/btn_game_float_ball_postion"
-                        android:text="悬浮球\n记住位置"
-                        android:textSize="8dp" />
-
-                    <CheckBox
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:button="@null"
-                        android:id="@+id/btn_game_audio_mute"
-                        android:text="设备静音"
-                        android:textSize="8dp" />
-
+                    <TextView
+                        style="@style/GameMenuSectionHint"
+                        android:text="@string/game_menu_audio_haptics_controller_help" />
                 </LinearLayout>
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="悬浮球点击操作"
-                    android:textStyle="italic|bold"
-                    android:textColor="@android:color/white"
-                    android:textSize="8dp" />
-
                 <RadioGroup
-                    android:layout_width="match_parent"
-                    android:layout_height="27dp"
-                    android:layout_marginTop="4dp"
-                    android:id="@+id/rg_game_setting_float_ball"
-                    android:orientation="horizontal">
+                    android:id="@+id/rg_game_audio_haptics_output_target"
+                    style="@style/GameMenuRadioGroup">
 
                     <RadioButton
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:id="@+id/rbt_game_setting_float_ball_1"
-                        android:button="@null"
-                        android:text="游戏菜单"
-                        android:checked="true"
-                        android:textSize="8dp" />
+                        android:id="@+id/rbt_game_audio_haptics_output_target_phone"
+                        style="@style/GameMenuRadioButton"
+                        android:text="@string/game_menu_phone" />
 
                     <RadioButton
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:id="@+id/rbt_game_setting_float_ball_2"
-                        android:button="@null"
-                        android:text="软键盘"
-                        android:textSize="8dp" />
-
-                    <RadioButton
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:id="@+id/rbt_game_setting_float_ball_3"
-                        android:button="@null"
-                        android:text="全键盘"
-                        android:textSize="8dp" />
-
+                        android:id="@+id/rbt_game_audio_haptics_output_target_controller"
+                        style="@style/GameMenuRadioButton"
+                        android:text="@string/game_menu_gamepad" />
                 </RadioGroup>
 
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="精简性能信息"
-                    android:textStyle="italic|bold"
-                    android:textColor="@android:color/white"
-                    android:textSize="8dp" />
-
-                <LinearLayout
-                    android:orientation="horizontal"
-                    android:layout_marginTop="4dp"
-                    android:layout_width="match_parent"
-                    android:layout_height="32dp">
-
-                    <CheckBox
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:button="@null"
-                        android:id="@+id/btn_game_lite_ext"
-                        android:text="显示更多\n扩展参数"
-                        android:textSize="8dp" />
-
-                    <CheckBox
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:button="@null"
-                        android:id="@+id/btn_game_lite_click"
-                        android:text="点击打开\n游戏菜单"
-                        android:textSize="8dp" />
-
-                    <CheckBox
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:button="@null"
-                        android:id="@+id/btn_game_rumble_hud"
-                        android:text="显示震动信息"
-                        android:textSize="8dp" />
-
-                </LinearLayout>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="游戏菜单 摇杆鼠标 快捷键"
-                    android:textStyle="italic|bold"
-                    android:textColor="@android:color/white"
-                    android:textSize="8dp" />
+                    android:id="@+id/tx_game_audio_haptics_keep_controller_rumble"
+                    style="@style/GameMenuDetailLabel"
+                    android:text="@string/game_menu_keep_game_rumble" />
 
                 <RadioGroup
-                    android:layout_width="match_parent"
-                    android:layout_height="27dp"
-                    android:layout_marginTop="4dp"
-                    android:id="@+id/rg_game_setting_control"
-                    android:orientation="horizontal">
+                    android:id="@+id/rg_game_audio_haptics_keep_controller_rumble"
+                    style="@style/GameMenuRadioGroup">
 
                     <RadioButton
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:id="@+id/rbt_game_setting_control_1"
-                        android:button="@null"
-                        android:text="关闭"
-                        android:checked="true"
-                        android:textSize="6dp" />
+                        android:id="@+id/rbt_game_audio_haptics_keep_controller_rumble_on"
+                        style="@style/GameMenuRadioButton"
+                        android:text="@string/game_menu_enabled" />
 
                     <RadioButton
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:id="@+id/rbt_game_setting_control_2"
-                        android:button="@null"
-                        android:text="开始键【长按】"
-                        android:textSize="6dp" />
-
-                    <RadioButton
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:id="@+id/rbt_game_setting_control_3"
-                        android:button="@null"
-                        android:text="Xbox键【单击】"
-                        android:textSize="6dp" />
-
-                    <RadioButton
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:id="@+id/rbt_game_setting_control_4"
-                        android:button="@null"
-                        android:text="视图键【长按】"
-                        android:textSize="6dp" />
-
+                        android:id="@+id/rbt_game_audio_haptics_keep_controller_rumble_off"
+                        style="@style/GameMenuRadioButton"
+                        android:text="@string/game_menu_disabled" />
                 </RadioGroup>
 
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="多点触控打开软键盘"
-                    android:textStyle="italic|bold"
-                    android:textColor="@android:color/white"
-                    android:textSize="8dp" />
-
-                <RadioGroup
-                    android:layout_width="match_parent"
-                    android:layout_height="27dp"
-                    android:layout_marginTop="4dp"
-                    android:id="@+id/rg_game_setting_touch"
-                    android:orientation="horizontal">
-
-                    <RadioButton
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:id="@+id/rbt_game_setting_touch_1"
-                        android:button="@null"
-                        android:text="关闭"
-                        android:checked="true"
-                        android:textSize="6dp" />
-
-                    <RadioButton
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:id="@+id/rbt_game_setting_touch_2"
-                        android:button="@null"
-                        android:text="三指"
-                        android:textSize="6dp" />
-
-                    <RadioButton
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:id="@+id/rbt_game_setting_touch_3"
-                        android:button="@null"
-                        android:text="四指"
-                        android:textSize="6dp" />
-
-                    <RadioButton
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:id="@+id/rbt_game_setting_touch_4"
-                        android:button="@null"
-                        android:text="五指"
-                        android:textSize="6dp" />
-
-                </RadioGroup>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="设备震动相关"
-                    android:textStyle="italic|bold"
-                    android:textColor="@android:color/white"
-                    android:textSize="8dp" />
-
-                <LinearLayout
-                    android:orientation="horizontal"
-                    android:layout_marginTop="4dp"
-                    android:layout_width="match_parent"
-                    android:layout_height="32dp">
-
-
-                    <CheckBox
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:button="@null"
-                        android:id="@+id/btn_game_rumble_force_stop"
-                        android:text="震动停止方案A"
-                        android:textSize="8dp" />
-
-                    <CheckBox
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:button="@null"
-                        android:id="@+id/btn_game_rumble_force"
-                        android:text="强烈震动"
-                        android:textSize="8dp" />
-
-                </LinearLayout>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="手柄陀螺仪模拟右摇杆 Beta"
-                    android:textStyle="italic|bold"
-                    android:visibility="visible"
-                    android:textColor="@android:color/white"
-                    android:textSize="8dp" />
-
-                <LinearLayout
-                    android:orientation="horizontal"
-                    android:layout_marginTop="4dp"
-                    android:visibility="visible"
-                    android:layout_width="match_parent"
-                    android:layout_height="27dp">
-
-
-                    <CheckBox
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:button="@null"
-                        android:id="@+id/btn_game_force_gyro"
-                        android:text="启用"
-                        android:textSize="8dp" />
-
-                    <CheckBox
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:button="@null"
-                        android:id="@+id/btn_game_force_gyro_left_trgger"
-                        android:text="按下左扳机启用"
-                        android:textSize="8dp" />
-
-                    <CheckBox
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:button="@null"
-                        android:id="@+id/btn_game_force_gyro_switch"
-                        android:text="反转XY轴"
-                        android:textSize="8dp" />
-
-                </LinearLayout>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="强制体感灵敏度：120%"
-                    android:textStyle="italic|bold"
-                    android:visibility="visible"
-                    android:id="@+id/tx_game_setting_gyro_sensitivity"
-                    android:textColor="@android:color/white"
-                    android:textSize="8dp" />
+                    android:id="@+id/tx_game_audio_haptics_strength"
+                    style="@style/GameMenuSliderLabel"
+                    android:text="@string/game_menu_audio_haptics" />
 
                 <SeekBar
-                    android:max="200"
-                    android:min="50"
-                    android:layout_marginTop="4dp"
-                    android:layout_marginRight="5dp"
-                    android:padding="0dp"
-                    android:thumbOffset="0dp"
-                    android:progress="100"
-                    android:splitTrack="false"
-                    android:id="@+id/sb_game_setting_gyro_sensitivity"
-                    android:thumb="@android:color/transparent"
-                    android:progressDrawable="@drawable/ic_game_menu_seek_bg"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"/>
+                    android:id="@+id/sb_game_audio_haptics_strength"
+                    style="@style/GameMenuSeekBar" />
 
+                <LinearLayout style="@style/GameMenuSectionRow">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="性能信息 缩放：100%"
-                    android:textStyle="italic|bold"
-                    android:visibility="visible"
-                    android:id="@+id/tx_game_setting_pref_zoom"
-                    android:textColor="@android:color/white"
-                    android:textSize="8dp" />
-
-                <SeekBar
-                    android:max="230"
-                    android:min="50"
-                    android:layout_marginTop="4dp"
-                    android:layout_marginRight="5dp"
-                    android:padding="0dp"
-                    android:thumbOffset="0dp"
-                    android:progress="100"
-                    android:splitTrack="false"
-                    android:id="@+id/sb_game_setting_pref_zoom"
-                    android:thumb="@android:color/transparent"
-                    android:progressDrawable="@drawable/ic_game_menu_seek_bg"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"/>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="性能信息 边距：4"
-                    android:textStyle="italic|bold"
-                    android:visibility="visible"
-                    android:id="@+id/tx_game_setting_pref_magin_top"
-                    android:textColor="@android:color/white"
-                    android:textSize="8dp" />
-
-                <SeekBar
-                    android:max="100"
-                    android:min="0"
-                    android:layout_marginTop="4dp"
-                    android:layout_marginRight="5dp"
-                    android:padding="0dp"
-                    android:thumbOffset="0dp"
-                    android:progress="4"
-                    android:splitTrack="false"
-                    android:id="@+id/sb_game_setting_pref_magin_top"
-                    android:thumb="@android:color/transparent"
-                    android:progressDrawable="@drawable/ic_game_menu_seek_bg"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"/>
-
-                <LinearLayout
-                    android:layout_marginTop="10dp"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
                     <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="音频震动（Beta）"
-                        android:textStyle="italic|bold"
-                        android:textColor="@android:color/white"
-                        android:textSize="8dp" />
+                        style="@style/GameMenuSectionTitle"
+                        android:text="@string/game_menu_voice_filter" />
+
                     <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginLeft="5dp"
-                        android:text="把串流音频转换成震动反馈，更适合爆炸、撞击、低频场景"
-                        android:textStyle="italic|bold"
-                        android:textColor="#FFC107"
-                        android:textSize="6dp" />
+                        style="@style/GameMenuSectionHint"
+                        android:text="@string/game_menu_voice_filter_help" />
                 </LinearLayout>
 
                 <RadioGroup
-                    android:id="@+id/rg_game_audio_haptics_enable"
-                    android:layout_width="match_parent"
-                    android:layout_height="27dp"
-                    android:layout_marginTop="4dp"
-                    android:orientation="horizontal">
+                    android:id="@+id/rg_game_audio_haptics_voice_filter"
+                    style="@style/GameMenuRadioGroup">
 
                     <RadioButton
-                        android:id="@+id/rbt_game_audio_haptics_enable_on"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:button="@null"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:text="开启"
-                        android:textSize="8dp" />
+                        android:id="@+id/rbt_game_audio_haptics_voice_filter_1"
+                        style="@style/GameMenuRadioButton"
+                        android:text="@string/game_menu_disabled" />
 
                     <RadioButton
-                        android:id="@+id/rbt_game_audio_haptics_enable_off"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginRight="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/ic_game_menu_btn_selector"
-                        android:button="@null"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:text="关闭"
-                        android:textSize="8dp" />
+                        android:id="@+id/rbt_game_audio_haptics_voice_filter_2"
+                        style="@style/GameMenuRadioButton"
+                        android:text="@string/game_menu_filter_low" />
 
+                    <RadioButton
+                        android:id="@+id/rbt_game_audio_haptics_voice_filter_3"
+                        style="@style/GameMenuRadioButton"
+                        android:text="@string/game_menu_filter_medium" />
+
+                    <RadioButton
+                        android:id="@+id/rbt_game_audio_haptics_voice_filter_4"
+                        style="@style/GameMenuRadioButton"
+                        android:text="@string/game_menu_filter_high" />
                 </RadioGroup>
-
-                <LinearLayout
-                    android:id="@+id/layout_game_audio_haptics_details"
-                    android:orientation="vertical"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:visibility="visible">
-
-                    <LinearLayout
-                        android:layout_marginTop="8dp"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="音频震动输出目标"
-                            android:textStyle="italic|bold"
-                            android:textColor="@android:color/white"
-                            android:textSize="8dp" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginLeft="5dp"
-                            android:text="其中原装DS5有线驱动接管模式，有特殊优化."
-                            android:textStyle="italic|bold"
-                            android:textColor="#FFC107"
-                            android:textSize="6dp" />
-                    </LinearLayout>
-
-                    <RadioGroup
-                        android:id="@+id/rg_game_audio_haptics_output_target"
-                        android:layout_width="match_parent"
-                        android:layout_height="27dp"
-                        android:layout_marginTop="4dp"
-                        android:orientation="horizontal">
-
-                        <RadioButton
-                            android:id="@+id/rbt_game_audio_haptics_output_target_phone"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:layout_marginRight="5dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/ic_game_menu_btn_selector"
-                            android:button="@null"
-                            android:gravity="center"
-                            android:padding="4dp"
-                            android:text="手机"
-                            android:textSize="8dp" />
-
-                        <RadioButton
-                            android:id="@+id/rbt_game_audio_haptics_output_target_controller"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:layout_marginRight="5dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/ic_game_menu_btn_selector"
-                            android:button="@null"
-                            android:gravity="center"
-                            android:padding="4dp"
-                            android:text="手柄"
-                            android:textSize="8dp" />
-
-                    </RadioGroup>
-
-                    <TextView
-                        android:id="@+id/tx_game_audio_haptics_keep_controller_rumble"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="保留游戏内手柄震动"
-                        android:textStyle="italic|bold"
-                        android:textColor="@android:color/white"
-                        android:textSize="8dp"
-                        android:visibility="gone" />
-
-                    <RadioGroup
-                        android:id="@+id/rg_game_audio_haptics_keep_controller_rumble"
-                        android:layout_width="match_parent"
-                        android:layout_height="27dp"
-                        android:layout_marginTop="4dp"
-                        android:orientation="horizontal"
-                        android:visibility="gone">
-
-                        <RadioButton
-                            android:id="@+id/rbt_game_audio_haptics_keep_controller_rumble_on"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:layout_marginRight="5dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/ic_game_menu_btn_selector"
-                            android:button="@null"
-                            android:gravity="center"
-                            android:padding="4dp"
-                            android:text="开启"
-                            android:textSize="8dp" />
-
-                        <RadioButton
-                            android:id="@+id/rbt_game_audio_haptics_keep_controller_rumble_off"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:layout_marginRight="5dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/ic_game_menu_btn_selector"
-                            android:button="@null"
-                            android:gravity="center"
-                            android:padding="4dp"
-                            android:text="关闭"
-                            android:textSize="8dp" />
-
-                    </RadioGroup>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:id="@+id/tx_game_audio_haptics_strength"
-                        android:text="音频震动强度：100%"
-                        android:textStyle="italic|bold"
-                        android:textColor="@android:color/white"
-                        android:textSize="8dp" />
-
-                    <SeekBar
-                        android:max="200"
-                        android:min="25"
-                        android:layout_marginTop="4dp"
-                        android:layout_marginRight="5dp"
-                        android:padding="0dp"
-                        android:thumbOffset="0dp"
-                        android:progress="100"
-                        android:splitTrack="false"
-                        android:id="@+id/sb_game_audio_haptics_strength"
-                        android:thumb="@android:color/transparent"
-                        android:progressDrawable="@drawable/ic_game_menu_seek_bg"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"/>
-
-                    <LinearLayout
-                        android:layout_marginTop="8dp"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="音频震动语音过滤"
-                            android:textStyle="italic|bold"
-                            android:textColor="@android:color/white"
-                            android:textSize="8dp" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginLeft="5dp"
-                            android:text="降低人声、语音聊天、播报声对震动的触发"
-                            android:textStyle="italic|bold"
-                            android:textColor="#FFC107"
-                            android:textSize="6dp" />
-                    </LinearLayout>
-
-                    <RadioGroup
-                        android:layout_width="match_parent"
-                        android:layout_height="27dp"
-                        android:layout_marginTop="4dp"
-                        android:id="@+id/rg_game_audio_haptics_voice_filter"
-                        android:orientation="horizontal">
-
-                        <RadioButton
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:layout_marginRight="5dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/ic_game_menu_btn_selector"
-                            android:gravity="center"
-                            android:padding="4dp"
-                            android:id="@+id/rbt_game_audio_haptics_voice_filter_1"
-                            android:button="@null"
-                            android:text="关闭"
-                            android:textSize="6dp" />
-
-                        <RadioButton
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:layout_marginRight="5dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/ic_game_menu_btn_selector"
-                            android:gravity="center"
-                            android:padding="4dp"
-                            android:id="@+id/rbt_game_audio_haptics_voice_filter_2"
-                            android:button="@null"
-                            android:text="低"
-                            android:textSize="6dp" />
-
-                        <RadioButton
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:layout_marginRight="5dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/ic_game_menu_btn_selector"
-                            android:gravity="center"
-                            android:padding="4dp"
-                            android:id="@+id/rbt_game_audio_haptics_voice_filter_3"
-                            android:button="@null"
-                            android:text="中"
-                            android:textSize="6dp" />
-
-                        <RadioButton
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:layout_marginRight="5dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/ic_game_menu_btn_selector"
-                            android:gravity="center"
-                            android:padding="4dp"
-                            android:id="@+id/rbt_game_audio_haptics_voice_filter_4"
-                            android:button="@null"
-                            android:text="高"
-                            android:textSize="6dp" />
-
-                    </RadioGroup>
-
-                </LinearLayout>
-
-
             </LinearLayout>
-
         </LinearLayout>
-
     </ScrollView>
 
 </LinearLayout>
