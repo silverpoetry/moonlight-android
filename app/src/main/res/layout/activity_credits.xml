@@ -20,17 +20,21 @@
             android:id="@+id/iv_back"
             android:layout_width="@dimen/axi_gameplay_index_app_icon_size"
             android:layout_height="@dimen/axi_gameplay_index_app_icon_size"
-            android:layout_alignParentLeft="true"
+            android:layout_alignParentStart="true"
             android:layout_centerVertical="true"
-            android:layout_marginRight="10dp"
+            android:layout_marginEnd="10dp"
+            android:contentDescription="@string/accessibility_back"
             android:focusable="false"
             android:src="@drawable/axi_gameplay_ic_back_selector" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="鸣谢"
+            android:layout_centerVertical="true"
+            android:layout_toEndOf="@id/iv_back"
+            android:layout_toStartOf="@id/tx_sponsored"
+            android:gravity="center"
+            android:text="@string/credits_title"
             android:textColor="@android:color/white"
             android:textSize="14sp"
             android:textStyle="bold" />
@@ -39,7 +43,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
-            android:text="赞赏"
+            android:text="@string/credits_sponsor"
             android:id="@+id/tx_sponsored"
             android:textColor="@android:color/white"
             android:textSize="14sp"
@@ -74,7 +78,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="感谢一路同行的你们"
+                    android:text="@string/credits_intro_title"
                     android:textColor="@android:color/white"
                     android:textSize="17sp"
                     android:textStyle="bold" />
@@ -84,9 +88,9 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:lineSpacingExtra="2dp"
-                    android:text="这份名单献给每一位支持阿西西的朋友，因为你们，项目才得以持续前进。"
+                    android:text="@string/credits_intro_body"
                     android:textColor="@android:color/white"
-                    android:textSize="10sp" />
+                    android:textSize="11sp" />
             </LinearLayout>
 
             <LinearLayout
@@ -105,8 +109,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="start"
-                    android:layout_marginLeft="20dp"
-                    android:text="鸣谢墙"
+                    android:layout_marginStart="20dp"
+                    android:text="@string/credits_wall_title"
                     android:textColor="@android:color/white"
                     android:textSize="14sp"
                     android:textStyle="bold" />

@@ -485,5 +485,40 @@
 
     <string name="about_get_res"><u>网盘资源</u></string>
     <string name="about_update_tx"><u>检测更新</u></string>
+    <string name="about_tagline">随时随地，畅连你的电脑！</string>
+    <string name="about_version_format">版本号：%1$s</string>
+    <string name="about_credits_title">鸣谢</string>
+    <string name="about_credits_subtitle">感谢每一位支持与陪伴的朋友</string>
+    <string name="about_faq_title">常见问题</string>
+    <string name="about_more_coming">未完待续……</string>
+    <string name="about_find_developer">在这里找到开发者</string>
+
+    <string name="credits_title">鸣谢</string>
+    <string name="credits_sponsor">赞赏</string>
+    <string name="credits_intro_title">感谢一路同行的你们</string>
+    <string name="credits_intro_body">这份名单献给每一位支持阿西西的朋友，因为你们，项目才得以持续前进。</string>
+    <string name="credits_wall_title">鸣谢墙</string>
+
+    <string name="update_dialog_title">发现新版本</string>
+    <string name="update_dialog_subtitle">新版本已经准备好了，可以查看更新内容后选择下载。</string>
+    <string name="update_version_info">版本信息</string>
+    <string name="update_content">更新内容</string>
+    <string name="update_skip">跳过本次更新</string>
+    <string name="update_cancel">取消</string>
+    <string name="update_download">下载</string>
+    <string name="update_channel_title">选择下载渠道</string>
+    <string name="update_channel_subtitle">可根据你的习惯选择下载渠道。</string>
+    <string name="update_versions_format">当前版本：%1$s (%2$d)\n最新版本：%3$s (%4$d)</string>
+    <string name="update_unknown_version">未知版本</string>
+    <string name="update_no_description">暂无更新说明。</string>
+    <string name="update_channel_quark">夸克网盘</string>
+    <string name="update_channel_baidu">百度网盘</string>
+    <string name="update_no_channels">当前没有可用下载地址</string>
+
+    <string name="accessibility_back">返回</string>
+    <string name="accessibility_bilibili">在哔哩哔哩查找开发者</string>
+    <string name="accessibility_xiaohongshu">在小红书查找开发者</string>
+    <string name="accessibility_douyin">在抖音查找开发者</string>
+    <string name="accessibility_developer_website">打开开发者网站</string>
 
 </resources>

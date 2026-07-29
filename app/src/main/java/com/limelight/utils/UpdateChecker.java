@@ -137,9 +137,16 @@ public final class UpdateChecker {
         View cancelButton = dialogView.findViewById(R.id.btn_cancel_update);
         View downloadButton = dialogView.findViewById(R.id.btn_download_update);
 
-        versionsView.setText("当前版本：" + BuildConfig.VERSION_NAME + " (" + BuildConfig.AXI_CODE + ")"
-                + "\n最新版本：" + safeText(latest.versionName, "未知版本") + " (" + latest.code + ")");
-        descView.setText(TextUtils.isEmpty(description) ? "暂无更新说明。" : description);
+        versionsView.setText(activity.getString(
+                R.string.update_versions_format,
+                BuildConfig.VERSION_NAME,
+                BuildConfig.AXI_CODE,
+                safeText(latest.versionName,
+                        activity.getString(R.string.update_unknown_version)),
+                latest.code));
+        descView.setText(TextUtils.isEmpty(description)
+                ? activity.getString(R.string.update_no_description)
+                : description);
         skipRow.setVisibility(interactive ? View.GONE : View.VISIBLE);
 
         AlertDialog dialog = buildDialog(activity, dialogView);
@@ -166,11 +173,13 @@ public final class UpdateChecker {
         List<String> urls = new ArrayList<>();
 
         addDownloadOption(labels, urls, "GitHub Releases", latest.github);
-        addDownloadOption(labels, urls, "夸克网盘", latest.quark);
-        addDownloadOption(labels, urls, "百度网盘", latest.baidu);
+        addDownloadOption(labels, urls,
+                activity.getString(R.string.update_channel_quark), latest.quark);
+        addDownloadOption(labels, urls,
+                activity.getString(R.string.update_channel_baidu), latest.baidu);
 
         if (urls.isEmpty()) {
-            showToast(activity, "当前没有可用下载地址");
+            showToast(activity, activity.getString(R.string.update_no_channels));
             return;
         }
 

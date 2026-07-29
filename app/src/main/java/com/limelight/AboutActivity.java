@@ -25,7 +25,8 @@ public class AboutActivity extends BaseActivity implements View.OnClickListener 
         tvVersion = findViewById(cn.axi.gamepad.an.R.id.tv_version);
         ivLogo = findViewById(cn.axi.gamepad.an.R.id.iv_logo);
         findViewById(cn.axi.gamepad.an.R.id.iv_back).setOnClickListener(v -> finish());
-        tvVersion.setText("版本号：" + BuildConfig.VERSION_NAME);
+        tvVersion.setText(getString(
+                R.string.about_version_format, BuildConfig.VERSION_NAME));
 
         ivLogo.setClipToOutline(true);
         ivLogo.setOutlineProvider(new ViewOutlineProvider() {
