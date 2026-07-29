@@ -86,7 +86,8 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
                     fragment.setWidth((getActivity().getResources().getDisplayMetrics().heightPixels*2)/3);
                 }
                 fragment.setDimAmount(0.8f);
-                fragment.setTitle("设置快捷键");
+                fragment.setTitle(
+                        R.string.keyboard_shortcut_setup_title);
                 fragment.setKeyFrom(1);
                 fragment.setOnClick(new GameKeyboardUpdateFragment.onClick() {
                     @Override
