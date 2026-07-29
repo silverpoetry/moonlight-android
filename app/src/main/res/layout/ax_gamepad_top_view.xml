@@ -1,83 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="horizontal"
-    android:paddingTop="5dp"
-    android:paddingLeft="5dp"
-    android:paddingRight="5dp"
-    android:paddingBottom="5dp"
-    android:gravity="center_vertical"
     android:layout_width="wrap_content"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="5dp">
 
     <RadioGroup
-        android:layout_width="220dp"
-        android:layout_height="20dp"
         android:id="@+id/rg_game_virtual_pad"
+        android:layout_width="240dp"
+        android:layout_height="28dp"
         android:orientation="horizontal">
 
         <RadioButton
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginRight="5dp"
-            android:layout_weight="1"
-            android:background="@drawable/ic_game_menu_btn_selector"
-            android:drawableLeft="@drawable/ic_axi_game_pad_move"
-            android:gravity="center_vertical|left"
-            android:drawablePadding="4dp"
-            android:padding="4dp"
-            android:button="@null"
             android:id="@+id/btn_game_virtual_move"
-            android:text="位移"
-            android:textSize="8dp" />
+            style="@style/GameMenuRadioButton"
+            android:drawableStart="@drawable/ic_axi_game_pad_move"
+            android:drawablePadding="4dp"
+            android:text="@string/virtual_controller_move" />
 
         <RadioButton
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginRight="5dp"
-            android:layout_weight="1"
-            android:background="@drawable/ic_game_menu_btn_selector"
-            android:drawableLeft="@drawable/ic_axi_game_pad_zoom"
-            android:gravity="center_vertical|left"
-            android:drawablePadding="4dp"
-            android:padding="4dp"
-            android:button="@null"
             android:id="@+id/btn_game_virtual_zoom"
-            android:text="缩放"
-            android:textSize="8dp" />
+            style="@style/GameMenuRadioButton"
+            android:drawableStart="@drawable/ic_axi_game_pad_zoom"
+            android:drawablePadding="4dp"
+            android:text="@string/virtual_controller_resize" />
 
         <RadioButton
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:layout_marginRight="5dp"
-            android:background="@drawable/ic_game_menu_btn_selector"
-            android:drawableLeft="@drawable/ic_axi_game_pad_disable"
-            android:gravity="center_vertical|left"
-            android:drawablePadding="4dp"
-            android:padding="4dp"
-            android:button="@null"
             android:id="@+id/btn_game_virtual_disable"
-            android:text="禁用"
-            android:textSize="8dp" />
+            style="@style/GameMenuRadioButton"
+            android:drawableStart="@drawable/ic_axi_game_pad_disable"
+            android:drawablePadding="4dp"
+            android:text="@string/virtual_controller_toggle" />
 
         <RadioButton
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:background="@drawable/ic_game_menu_btn_selector"
-            android:gravity="center"
-            android:drawablePadding="4dp"
-            android:padding="4dp"
-            android:button="@null"
             android:id="@+id/btn_game_virtual_nomall"
-            android:text="应用"
-            android:textSize="8dp" />
+            style="@style/GameMenuRadioButton"
+            android:text="@string/virtual_controller_apply" />
     </RadioGroup>
 
     <ImageView
-        android:src="@drawable/ic_axi_game_pad_top_left"
-        android:layout_marginLeft="4dp"
         android:id="@+id/iv_game_virtual_pad"
-        android:layout_width="18dp"
-        android:layout_height="18dp"/>
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginStart="4dp"
+        android:contentDescription="@string/accessibility_virtual_controller_options"
+        android:src="@drawable/ic_axi_game_pad_top_left" />
 </LinearLayout>

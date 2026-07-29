@@ -606,6 +606,11 @@
     <string name="keyboard_direction_pad">十字键</string>
     <string name="keyboard_virtual_full_keyboard">虚拟全键盘</string>
     <string name="keyboard_arrow_directions">上-左-下-右</string>
+    <string name="virtual_controller_move">移动</string>
+    <string name="virtual_controller_resize">缩放</string>
+    <string name="virtual_controller_toggle">禁用</string>
+    <string name="virtual_controller_apply">应用</string>
+    <string name="accessibility_virtual_controller_options">展开或收起虚拟手柄编辑工具</string>
     <string name="title_checkbox_disable_adaptive_input_throttling">Disable adaptive input throttling</string>
     <string name="summary_checkbox_disable_adaptive_input_throttling">Prevent ENet from intentionally dropping real-time input events when network latency varies. Packets remain non-retransmitted, but upstream traffic may increase slightly.</string>
     <string name="title_checkbox_mouse_nav_buttons">Enable back and forward mouse buttons</string>
