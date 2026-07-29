@@ -214,14 +214,12 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
 
         // If we're going to use immersive mode, we want to have
         // the entire screen
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
-                            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-                            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                        View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
 
-            getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN);
-        }
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN);
 
         // Listen for UI visibility events
         getWindow().getDecorView().setOnSystemUiVisibilityChangeListener(this);
@@ -903,7 +901,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
             displayRefreshRate = bestMode.getRefreshRate();
         }
         // On L, we can at least tell the OS that we want a refresh rate
-        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+        else {
             float bestRefreshRate = display.getRefreshRate();
             for (float candidate : display.getSupportedRefreshRates()) {
                 LimeLog.info("Examining refresh rate: " + candidate);
@@ -930,10 +928,6 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
             if (!systemManagedRefreshRate) {
                 getWindow().setAttributes(windowLayoutParams);
             }
-        } else {
-            // Otherwise, the active display refresh rate is just
-            // whatever is currently in use.
-            displayRefreshRate = display.getRefreshRate();
         }
 
         streamView.setDesiredAspectRatio((double) 16 / 9);
@@ -964,8 +958,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                 GameSbs.this.getWindow().getDecorView().setSystemUiVisibility(
                         View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
             }
-            // Use immersive mode on 4.4+ or standard low profile on previous builds
-            else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            else {
                 GameSbs.this.getWindow().getDecorView().setSystemUiVisibility(
                         View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
                                 View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
@@ -973,10 +966,6 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
                                 View.SYSTEM_UI_FLAG_FULLSCREEN |
                                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-            } else {
-                GameSbs.this.getWindow().getDecorView().setSystemUiVisibility(
-                        View.SYSTEM_UI_FLAG_FULLSCREEN |
-                                View.SYSTEM_UI_FLAG_LOW_PROFILE);
             }
         }
     };
@@ -2516,14 +2505,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         if ((visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
             hideSystemUi(2000);
         }
-        // This flag is only set on 4.4+
-        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT &&
-                (visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
-            hideSystemUi(2000);
-        }
-        // This flag is only set before 4.4+
-        else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT &&
-                (visibility & View.SYSTEM_UI_FLAG_LOW_PROFILE) == 0) {
+        else if ((visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
             hideSystemUi(2000);
         }
     }

@@ -541,15 +541,14 @@ public class MediaCodecHelper {
             setNewOption = true;
         }
 
-        if (tryNumber < 3) {
-            if (MediaCodecHelper.decoderSupportsMaxOperatingRate(decoderInfo.getName())) {
+        if (tryNumber < 3 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (decoderSupportsMaxOperatingRate(decoderInfo.getName())) {
                 videoFormat.setInteger(MediaFormat.KEY_OPERATING_RATE, Short.MAX_VALUE);
-                setNewOption = true;
             }
-            else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            else {
                 videoFormat.setInteger(MediaFormat.KEY_PRIORITY, 0);
-                setNewOption = true;
             }
+            setNewOption = true;
         }
 
         // MediaCodec supports vendor-defined format keys using the "vendor.<extension name>.<parameter name>" syntax.
