@@ -14,6 +14,7 @@ import android.widget.TextView;
 import com.limelight.R;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
+import com.limelight.utils.SeekBarValueRange;
 
 import static com.limelight.preferences.PreferenceConfiguration.TOUCH_SENSITIVITY;
 

@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Key legends and weighted rows intentionally mirror a fixed PC keyboard. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="200dp"
     android:padding="3dp"
     android:background="#212121"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    tools:ignore="HardcodedText,NestedWeights,TooManyViews">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -16,7 +19,7 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="150"
-            android:layout_marginRight="5dp"
+            android:layout_marginEnd="5dp"
             android:background="@drawable/bg_ax_keyboard_button"
             android:gravity="center"
             android:tag="111"
@@ -160,7 +163,7 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="100"
-            android:layout_marginLeft="5dp"
+            android:layout_marginStart="5dp"
             android:background="@drawable/bg_ax_keyboard_button"
             android:gravity="center"
             android:tag="124"
@@ -882,7 +885,7 @@
             android:tag="122"
             android:text="Home"
             android:textColor="@android:color/white"
-            android:textSize="10sp" />
+            android:textSize="12sp" />
 
         <TextView
             android:layout_width="0dp"
@@ -893,7 +896,7 @@
             android:tag="123"
             android:text="End"
             android:textColor="@android:color/white"
-            android:textSize="10sp" />
+            android:textSize="12sp" />
 
 <!--        <TextView-->
 <!--            android:layout_width="0dp"-->

@@ -2,115 +2,95 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="3dp"
     android:background="#212121"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:padding="3dp">
 
     <RelativeLayout
-        android:layout_marginTop="2dp"
-        android:layout_marginRight="5dp"
-        android:layout_marginLeft="5dp"
-        android:layout_marginBottom="2dp"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:layout_marginStart="5dp"
+        android:layout_marginTop="2dp"
+        android:layout_marginEnd="5dp"
+        android:layout_marginBottom="2dp">
+
         <RadioGroup
+            android:id="@+id/rg_keyboard"
             android:layout_width="150dp"
             android:layout_height="27dp"
-            android:id="@+id/rg_keyboard"
             android:orientation="horizontal">
 
             <RadioButton
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_marginRight="5dp"
-                android:layout_weight="1"
-                android:background="@drawable/ic_game_menu_btn_selector"
-                android:gravity="center"
-                android:padding="4dp"
-                android:button="@null"
                 android:id="@+id/rbt_keyboard_1"
-                android:text="电脑全键盘"
-                android:textSize="10dp" />
+                style="@style/GameMenuRadioButton"
+                android:text="@string/keyboard_full_pc" />
 
             <RadioButton
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_marginRight="5dp"
-                android:layout_weight="1"
-                android:background="@drawable/ic_game_menu_btn_selector"
-                android:gravity="center"
-                android:padding="4dp"
-                android:button="@null"
                 android:id="@+id/rbt_keyboard_2"
-                android:text="数字键盘"
-                android:textSize="10dp" />
-
+                style="@style/GameMenuRadioButton"
+                android:text="@string/keyboard_numeric" />
         </RadioGroup>
+
         <CheckBox
+            android:id="@+id/btn_combination"
             android:layout_width="70dp"
             android:layout_height="27dp"
-            android:layout_toRightOf="@+id/rg_keyboard"
+            android:layout_marginEnd="5dp"
+            android:layout_toEndOf="@id/rg_keyboard"
             android:background="@drawable/ic_game_menu_btn_selector"
+            android:button="@null"
             android:gravity="center"
             android:padding="4dp"
-            android:layout_marginRight="5dp"
-            android:button="@null"
-            android:id="@+id/btn_combination"
-            android:text="组合键模式"
-            android:textSize="10dp" />
+            android:text="@string/keyboard_chord_mode"
+            android:textSize="11sp" />
 
         <TextView
+            android:id="@+id/btn_soft_phone"
             android:layout_width="70dp"
             android:layout_height="27dp"
-            android:layout_toRightOf="@+id/btn_combination"
+            android:layout_marginEnd="5dp"
+            android:layout_toEndOf="@id/btn_combination"
             android:background="@drawable/ic_game_menu_btn_selector"
             android:gravity="center"
-            android:layout_marginRight="5dp"
             android:padding="4dp"
-            android:id="@+id/btn_soft_phone"
-            android:text="手机软键盘"
+            android:text="@string/keyboard_phone_ime"
             android:textColor="@android:color/white"
-            android:textSize="10dp" />
+            android:textSize="11sp" />
 
         <ImageView
-            android:layout_centerVertical="true"
-            android:layout_toLeftOf="@+id/iv_down"
-            android:textColor="@android:color/white"
-            android:src="@drawable/ic_axi_menu"
-            android:layout_marginRight="2dp"
             android:id="@+id/iv_game_menu"
-            android:padding="6dp"
             android:layout_width="27dp"
-            android:layout_height="27dp"/>
+            android:layout_height="27dp"
+            android:layout_centerVertical="true"
+            android:layout_marginEnd="2dp"
+            android:layout_toStartOf="@id/iv_down"
+            android:contentDescription="@string/accessibility_open_game_menu"
+            android:padding="6dp"
+            android:src="@drawable/ic_axi_menu" />
 
         <ImageView
-            android:layout_alignParentRight="true"
-            android:layout_centerVertical="true"
-            android:textColor="@android:color/white"
-            android:src="@drawable/ic_axi_down"
             android:id="@+id/iv_down"
-            android:paddingLeft="10dp"
-            android:paddingRight="10dp"
             android:layout_width="wrap_content"
-            android:layout_height="27dp"/>
-
+            android:layout_height="27dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:contentDescription="@string/accessibility_collapse_keyboard"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:src="@drawable/ic_axi_down" />
     </RelativeLayout>
-
 
     <include
         android:id="@+id/lv_keyboard"
+        layout="@layout/item_layout_axixi_keyboard"
         android:layout_width="match_parent"
-        android:layout_height="200dp"
-        android:layout_alignParentBottom="true"
-        layout="@layout/item_layout_axixi_keyboard"/>
-
+        android:layout_height="200dp" />
 
     <include
         android:id="@+id/lv_keyboard_digitpad"
+        layout="@layout/item_layout_axixi_keyboard_digitpad"
         android:layout_width="match_parent"
         android:layout_height="200dp"
-        android:visibility="gone"
-        android:layout_alignParentBottom="true"
-        layout="@layout/item_layout_axixi_keyboard_digitpad"/>
+        android:visibility="gone" />
 
 </LinearLayout>

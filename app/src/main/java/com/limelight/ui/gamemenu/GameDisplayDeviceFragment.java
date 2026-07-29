@@ -13,6 +13,7 @@ import android.widget.TextView;
 import com.limelight.R;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
+import com.limelight.utils.SeekBarValueRange;
 
 public class GameDisplayDeviceFragment
         extends BaseGameMenuDialog

@@ -19,6 +19,7 @@ import com.limelight.R;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
+import com.limelight.utils.SeekBarValueRange;
 import com.limelight.utils.UiToast;
 
 public class GameMenuVirtualViewFragment

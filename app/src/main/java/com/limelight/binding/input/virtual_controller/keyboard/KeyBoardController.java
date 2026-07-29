@@ -39,6 +39,7 @@ import com.limelight.ui.gamemenu.GameKeyboardUpdateFragment;
 import com.limelight.ui.gamemenu.GamePadAddFragment;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
 import com.limelight.utils.FileUriUtils;
+import com.limelight.utils.SeekBarValueRange;
 import com.limelight.utils.UiHelper;
 
 import java.util.ArrayList;
@@ -51,6 +52,8 @@ import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardCo
 import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader.OSC_PREFERENCE_VALUE;
 
 public class KeyBoardController {
+    private static final SeekBarValueRange BUTTON_SCALE_RANGE =
+            new SeekBarValueRange(50, 300);
 
     public static class ControllerInputContext {
         //        public short inputMap = 0x0000;
@@ -155,6 +158,9 @@ public class KeyBoardController {
         tx_zoom_w=lv_left_view.findViewById(R.id.tx_zoom_w);
         tx_zoom_h=lv_left_view.findViewById(R.id.tx_zoom_h);
         tx_margin=lv_left_view.findViewById(R.id.tx_margin);
+        sb_zoom_x.setMax(BUTTON_SCALE_RANGE.getProgressMaximum());
+        sb_zoom_w.setMax(BUTTON_SCALE_RANGE.getProgressMaximum());
+        sb_zoom_h.setMax(BUTTON_SCALE_RANGE.getProgressMaximum());
 
         iv_game_virtual_pad.setOnClickListener(v -> {
             if(lv_right_view.getVisibility()==View.GONE){
@@ -255,25 +261,30 @@ public class KeyBoardController {
         sb_zoom_x.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                txZoom.setText("缩放比例："+progress+"%");
-                beanList.get(currentIndex).setZoom(progress);
+                if (!fromUser) {
+                    return;
+                }
+                int value = BUTTON_SCALE_RANGE.progressToValue(progress);
+                txZoom.setText(context.getString(
+                        R.string.keyboard_scale_format, value));
+                beanList.get(currentIndex).setZoom(value);
                 switch (beanList.get(currentIndex).getBtnType()){
                     case 1://1鼠标 2触控板 3摇杆 4普通按钮 5十字键
                     case 4:
-                        beanList.get(currentIndex).setWidth((int) (buttonWidth*progress*0.01));
-                        beanList.get(currentIndex).setHeight((int) (buttonHeight*progress*0.01));
+                        beanList.get(currentIndex).setWidth((int) (buttonWidth*value*0.01));
+                        beanList.get(currentIndex).setHeight((int) (buttonHeight*value*0.01));
                         break;
                     case 2:
-                        beanList.get(currentIndex).setWidth((int) (buttonWidth*4*progress*0.01));
-                        beanList.get(currentIndex).setHeight((int) (buttonHeight*2*progress*0.01));
+                        beanList.get(currentIndex).setWidth((int) (buttonWidth*4*value*0.01));
+                        beanList.get(currentIndex).setHeight((int) (buttonHeight*2*value*0.01));
                         break;
                     case 3:
-                        beanList.get(currentIndex).setWidth((int) (buttonWidth*2*progress*0.01));
-                        beanList.get(currentIndex).setHeight((int) (buttonHeight*2*progress*0.01));
+                        beanList.get(currentIndex).setWidth((int) (buttonWidth*2*value*0.01));
+                        beanList.get(currentIndex).setHeight((int) (buttonHeight*2*value*0.01));
                         break;
                     case 5://十字键
-                        beanList.get(currentIndex).setWidth((int) (buttonWidth*2*progress*0.01));
-                        beanList.get(currentIndex).setHeight((int) (buttonHeight*2*progress*0.01));
+                        beanList.get(currentIndex).setWidth((int) (buttonWidth*2*value*0.01));
+                        beanList.get(currentIndex).setHeight((int) (buttonHeight*2*value*0.01));
                         break;
                 }
                 frame_layout.findViewWithTag(new TagInfo(currentIndex,isGamePadMode)).getLayoutParams().width=beanList.get(currentIndex).getWidth();
@@ -294,14 +305,19 @@ public class KeyBoardController {
         sb_zoom_w.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                tx_zoom_w.setText("缩放宽度："+progress+"%");
-                beanList.get(currentIndex).setZoomW(progress);
+                if (!fromUser) {
+                    return;
+                }
+                int value = BUTTON_SCALE_RANGE.progressToValue(progress);
+                tx_zoom_w.setText(context.getString(
+                        R.string.keyboard_width_scale_format, value));
+                beanList.get(currentIndex).setZoomW(value);
                 switch (beanList.get(currentIndex).getBtnType()){
                     case 2:
-                        beanList.get(currentIndex).setWidth((int) (buttonWidth*4*progress*0.01));
+                        beanList.get(currentIndex).setWidth((int) (buttonWidth*4*value*0.01));
                         break;
                     case 4:
-                        beanList.get(currentIndex).setWidth((int) (buttonWidth*progress*0.01));
+                        beanList.get(currentIndex).setWidth((int) (buttonWidth*value*0.01));
                         break;
                 }
                 frame_layout.findViewWithTag(new TagInfo(currentIndex,isGamePadMode)).getLayoutParams().width=beanList.get(currentIndex).getWidth();
@@ -321,14 +337,19 @@ public class KeyBoardController {
         sb_zoom_h.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                tx_zoom_h.setText("缩放高度："+progress+"%");
-                beanList.get(currentIndex).setZoomH(progress);
+                if (!fromUser) {
+                    return;
+                }
+                int value = BUTTON_SCALE_RANGE.progressToValue(progress);
+                tx_zoom_h.setText(context.getString(
+                        R.string.keyboard_height_scale_format, value));
+                beanList.get(currentIndex).setZoomH(value);
                 switch (beanList.get(currentIndex).getBtnType()){
                     case 2:
-                        beanList.get(currentIndex).setHeight((int) (buttonHeight*2*progress*0.01));
+                        beanList.get(currentIndex).setHeight((int) (buttonHeight*2*value*0.01));
                         break;
                     case 4:
-                        beanList.get(currentIndex).setHeight((int) (buttonHeight*progress*0.01));
+                        beanList.get(currentIndex).setHeight((int) (buttonHeight*value*0.01));
                         break;
                 }
                 frame_layout.findViewWithTag(new TagInfo(currentIndex,isGamePadMode)).getLayoutParams().height=beanList.get(currentIndex).getHeight();
@@ -504,9 +525,16 @@ public class KeyBoardController {
         if(lastView!=null){
             lastView.invalidate();
         }
-        txName.setText("当前按钮："+beanList.get(index).getName());
-        txDesc.setText("键值："+beanList.get(index).getDesc());
-        tx_margin.setText("坐标："+beanList.get(index).getmLeft()+"，"+beanList.get(index).getmTop());
+        txName.setText(context.getString(
+                R.string.keyboard_current_button_format,
+                beanList.get(index).getName()));
+        txDesc.setText(context.getString(
+                R.string.keyboard_key_value_format,
+                beanList.get(index).getDesc()));
+        tx_margin.setText(context.getString(
+                R.string.keyboard_coordinates_format,
+                beanList.get(index).getmLeft(),
+                beanList.get(index).getmTop()));
 
         if(beanList.get(index).getBtnType()==4||beanList.get(index).getBtnType()==2){
             cb_round.setChecked(beanList.get(index).getShapeType()==1);
@@ -528,18 +556,27 @@ public class KeyBoardController {
             txZoom.setVisibility(beanList.get(index).getShapeType()==1?View.GONE:View.VISIBLE);
             sb_zoom_x.setVisibility(beanList.get(index).getShapeType()==1?View.GONE:View.VISIBLE);
 
-            tx_zoom_w.setText("缩放宽度："+beanList.get(index).getZoomW()+"%");
-            tx_zoom_h.setText("缩放高度："+beanList.get(index).getZoomH()+"%");
-            sb_zoom_w.setProgress(beanList.get(index).getZoomW());
-            sb_zoom_h.setProgress(beanList.get(index).getZoomH());
+            tx_zoom_w.setText(context.getString(
+                    R.string.keyboard_width_scale_format,
+                    beanList.get(index).getZoomW()));
+            tx_zoom_h.setText(context.getString(
+                    R.string.keyboard_height_scale_format,
+                    beanList.get(index).getZoomH()));
+            sb_zoom_w.setProgress(BUTTON_SCALE_RANGE.valueToProgress(
+                    beanList.get(index).getZoomW()));
+            sb_zoom_h.setProgress(BUTTON_SCALE_RANGE.valueToProgress(
+                    beanList.get(index).getZoomH()));
         }else{
             cb_switch_mode.setVisibility(View.GONE);
             cb_round.setVisibility(View.GONE);
             lv_left_view.findViewById(R.id.lv_zoom_wh).setVisibility(View.GONE);
             txZoom.setVisibility(View.VISIBLE);
             sb_zoom_x.setVisibility(View.VISIBLE);
-            txZoom.setText("缩放比例："+beanList.get(index).getZoom()+"%");
-            sb_zoom_x.setProgress(beanList.get(index).getZoom());
+            txZoom.setText(context.getString(
+                    R.string.keyboard_scale_format,
+                    beanList.get(index).getZoom()));
+            sb_zoom_x.setProgress(BUTTON_SCALE_RANGE.valueToProgress(
+                    beanList.get(index).getZoom()));
         }
 
         FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) frame_layout.findViewWithTag(new TagInfo(currentIndex,isGamePadMode)).getLayoutParams();
@@ -654,10 +691,10 @@ public class KeyBoardController {
 
     public void initView(){
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        params.gravity= Gravity.RIGHT;
+        params.gravity= Gravity.END;
         frame_layout.addView(buttonConfigure, params);
         FrameLayout.LayoutParams params1 = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        params1.gravity=Gravity.LEFT;
+        params1.gravity=Gravity.START;
         frame_layout.addView(lv_left_view, params1);
         buttonConfigure.setVisibility(this.currentMode==ControllerMode.MoveButtons?View.VISIBLE:View.GONE);
         lv_left_view.setVisibility(View.GONE);

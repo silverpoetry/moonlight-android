@@ -2,6 +2,8 @@ package com.limelight.ui.gamemenu;
 
 import static org.junit.Assert.assertEquals;
 
+import com.limelight.utils.SeekBarValueRange;
+
 import org.junit.Test;
 
 public class SeekBarValueRangeTest {
