@@ -5,6 +5,7 @@ import android.content.Context;
 import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.preferences.PreferenceConfiguration;
 
+@android.annotation.SuppressLint("ViewConstructor")
 public class AnalogStickGamePad extends KeyAnalogStick {
     public AnalogStickGamePad(KeyBoardController controller, String elementId, Context context, boolean isLeft,boolean fixedStroke) {
         super(controller, context, elementId);

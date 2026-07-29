@@ -8,6 +8,7 @@ import android.content.Context;
 
 import com.limelight.nvstream.input.ControllerPacket;
 
+@android.annotation.SuppressLint("ViewConstructor")
 public class RightAnalogStickFree2 extends AnalogStickFree2 {
     public RightAnalogStickFree2(final VirtualController controller, final Context context) {
         super(controller, context, EID_RS);

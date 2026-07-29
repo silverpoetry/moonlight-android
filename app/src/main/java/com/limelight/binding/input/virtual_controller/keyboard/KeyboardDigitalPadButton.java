@@ -19,6 +19,7 @@ import com.limelight.utils.UiHelper;
 import java.util.ArrayList;
 import java.util.List;
 
+@android.annotation.SuppressLint("ViewConstructor")
 public class KeyboardDigitalPadButton extends keyBoardVirtualControllerElement{
 
     public final static int DIGITAL_PAD_DIRECTION_NO_DIRECTION = 0;

@@ -3,6 +3,7 @@ package com.limelight.binding.input.virtual_controller.keyboard;
 import android.content.Context;
 
 
+@android.annotation.SuppressLint("ViewConstructor")
 public class KeyBoardAnalogStickButton extends KeyAnalogStick {
 
     private final int MIN_CIRCLE_R = 10000;  //当摇杆移动的非常小时，不产生操作，摇杆范围-32765<x,y<32765

@@ -25,6 +25,7 @@ import java.util.List;
 /**
  * This is a digital button on screen element. It is used to get click and double click user input.
  */
+@android.annotation.SuppressLint("ViewConstructor")
 public class KeyBoardDigitalButton extends keyBoardVirtualControllerElement {
 
     /**

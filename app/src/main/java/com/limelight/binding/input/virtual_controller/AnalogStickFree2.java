@@ -14,6 +14,7 @@ import java.util.List;
 /**
  * This is a analog stick on screen element. It is used to get 2-Axis user input.
  */
+@android.annotation.SuppressLint("ViewConstructor")
 public class AnalogStickFree2 extends VirtualControllerElement {
 
    /**

@@ -7,6 +7,7 @@ package com.limelight.binding.input.virtual_controller.keyboard;
 import android.content.Context;
 
 
+@android.annotation.SuppressLint("ViewConstructor")
 public class TriggerGamePad extends KeyBoardDigitalButton {
 
     public TriggerGamePad(KeyBoardController controller, String elementId, String name,boolean isLeft,

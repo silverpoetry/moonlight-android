@@ -1,5 +1,6 @@
 package com.limelight.utils;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
@@ -125,6 +126,7 @@ public final class UpdateChecker {
         showUpdateDialog(activity, latest, normalizeDescription(latest.desc), interactive);
     }
 
+    @SuppressLint("InflateParams") // AlertDialog provides the content parent when shown.
     private static void showUpdateDialog(Activity activity, UpdateRelease latest, String description, boolean interactive) {
         View dialogView = LayoutInflater.from(activity).inflate(R.layout.dialog_update_prompt, null, false);
 
@@ -158,6 +160,7 @@ public final class UpdateChecker {
         showDialog(dialog);
     }
 
+    @SuppressLint("InflateParams") // AlertDialog provides the content parent when shown.
     private static void showDownloadOptions(Activity activity, UpdateRelease latest) {
         List<String> labels = new ArrayList<>();
         List<String> urls = new ArrayList<>();

@@ -9,6 +9,7 @@ import android.view.MotionEvent;
 import java.util.ArrayList;
 import java.util.List;
 
+@android.annotation.SuppressLint("ViewConstructor")
 public class keyAnalogStickFree extends keyBoardVirtualControllerElement {
 
     public final static long timeoutDoubleClick = 350;

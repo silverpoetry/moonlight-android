@@ -22,6 +22,7 @@ import com.limelight.preferences.PreferenceConfiguration;
 import java.util.ArrayList;
 import java.util.List;
 
+@android.annotation.SuppressLint("ViewConstructor")
 public class DigitalPad extends VirtualControllerElement {
     public final static int DIGITAL_PAD_DIRECTION_NO_DIRECTION = 0;
     int direction = DIGITAL_PAD_DIRECTION_NO_DIRECTION;

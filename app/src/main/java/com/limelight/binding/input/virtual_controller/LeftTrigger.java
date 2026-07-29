@@ -6,6 +6,7 @@ package com.limelight.binding.input.virtual_controller;
 
 import android.content.Context;
 
+@android.annotation.SuppressLint("ViewConstructor")
 public class LeftTrigger extends DigitalButton {
     public LeftTrigger(final VirtualController controller, final int layer, final Context context) {
         super(controller, EID_LT, layer, context);

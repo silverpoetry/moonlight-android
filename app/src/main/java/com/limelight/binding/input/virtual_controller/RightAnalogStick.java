@@ -8,6 +8,7 @@ import android.content.Context;
 
 import com.limelight.nvstream.input.ControllerPacket;
 
+@android.annotation.SuppressLint("ViewConstructor")
 public class RightAnalogStick extends AnalogStick {
     public RightAnalogStick(final VirtualController controller, final Context context) {
         super(controller, context, EID_RS);
