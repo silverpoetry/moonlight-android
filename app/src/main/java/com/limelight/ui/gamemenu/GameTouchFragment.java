@@ -19,6 +19,13 @@ import static com.limelight.preferences.PreferenceConfiguration.TOUCH_SENSITIVIT
  * Time: 16:07
  */
 public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClickListener, SeekBar.OnSeekBarChangeListener {
+    private static final SeekBarValueRange MULTITOUCH_RANGE =
+            new SeekBarValueRange(10, 800);
+    private static final SeekBarValueRange SENSITIVITY_RANGE =
+            new SeekBarValueRange(10, 300);
+    private static final SeekBarValueRange DISTANCE_RANGE =
+            new SeekBarValueRange(1, 30);
+
     @Override
     public int getLayoutRes() {
         return R.layout.dialog_game_menu_touch;
@@ -106,6 +113,7 @@ public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClic
         tx_touchpad_equipment_view_y=v.findViewById(R.id.tx_touchpad_equipment_view_y);
         tx_touchpad_equipment_amount=v.findViewById(R.id.tx_touchpad_equipment_amount);
 
+        configureSeekBars();
         tx_title.setText(title);
         initViewData();
         initViewTouch();
@@ -153,43 +161,128 @@ public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClic
     }
 
     private void initViewTouch(){
-        sb_touch_x.setProgress(prefConfig.touchSensitivityX);
-        sb_touch_y.setProgress(prefConfig.touchSensitivityY);
-        tx_touch_x.setText("X轴："+prefConfig.touchSensitivityX+"%");
-        tx_touch_y.setText("Y轴："+prefConfig.touchSensitivityY+"%");
+        setSeekBarValue(
+                sb_touch_x, MULTITOUCH_RANGE,
+                prefConfig.touchSensitivityX);
+        setSeekBarValue(
+                sb_touch_y, MULTITOUCH_RANGE,
+                prefConfig.touchSensitivityY);
+        tx_touch_x.setText(getString(
+                R.string.game_menu_axis_x_format,
+                prefConfig.touchSensitivityX));
+        tx_touch_y.setText(getString(
+                R.string.game_menu_axis_y_format,
+                prefConfig.touchSensitivityY));
     }
 
     private void initViewTouchPad(){
-        sb_touchpad_x.setProgress(prefConfig.mouseTouchPadSensitityX);
-        sb_touchpad_y.setProgress(prefConfig.mouseTouchPadSensitityY);
-        tx_touchpad_x.setText("X轴："+prefConfig.mouseTouchPadSensitityX+"%");
-        tx_touchpad_y.setText("Y轴："+prefConfig.mouseTouchPadSensitityY+"%");
+        setSeekBarValue(
+                sb_touchpad_x, SENSITIVITY_RANGE,
+                prefConfig.mouseTouchPadSensitityX);
+        setSeekBarValue(
+                sb_touchpad_y, SENSITIVITY_RANGE,
+                prefConfig.mouseTouchPadSensitityY);
+        tx_touchpad_x.setText(getString(
+                R.string.game_menu_axis_x_format,
+                prefConfig.mouseTouchPadSensitityX));
+        tx_touchpad_y.setText(getString(
+                R.string.game_menu_axis_y_format,
+                prefConfig.mouseTouchPadSensitityY));
     }
 
     private void initViewTouchPadView(){
-        sb_touchpad_view_x.setProgress(prefConfig.touchPadSensitivity);
-        sb_touchpad_view_y.setProgress(prefConfig.touchPadYSensitity);
-        tx_touchpad_view_x.setText("X轴："+prefConfig.touchPadSensitivity+"%");
-        tx_touchpad_view_y.setText("Y轴："+prefConfig.touchPadYSensitity+"%");
+        setSeekBarValue(
+                sb_touchpad_view_x, SENSITIVITY_RANGE,
+                prefConfig.touchPadSensitivity);
+        setSeekBarValue(
+                sb_touchpad_view_y, SENSITIVITY_RANGE,
+                prefConfig.touchPadYSensitity);
+        tx_touchpad_view_x.setText(getString(
+                R.string.game_menu_axis_x_format,
+                prefConfig.touchPadSensitivity));
+        tx_touchpad_view_y.setText(getString(
+                R.string.game_menu_axis_y_format,
+                prefConfig.touchPadYSensitity));
     }
 
     private void initViewMouseGamePadView(){
-        sb_mouse_gamepad_sensitity.setProgress(prefConfig.mouseGamePadSensitity);
-        tx_mouse_gamepad_sensitity.setText("灵敏度："+prefConfig.mouseGamePadSensitity+"%");
+        setSeekBarValue(
+                sb_mouse_gamepad_sensitity, SENSITIVITY_RANGE,
+                prefConfig.mouseGamePadSensitity);
+        tx_mouse_gamepad_sensitity.setText(getString(
+                R.string.game_menu_sensitivity_format,
+                prefConfig.mouseGamePadSensitity));
     }
 
     private void initViewMouseSCView(){
-        sb_mouse_sc_amount.setProgress(prefConfig.mouseSCAmount);
-        tx_mouse_sc_amount.setText("距离："+prefConfig.mouseSCAmount);
+        setSeekBarValue(
+                sb_mouse_sc_amount, DISTANCE_RANGE,
+                prefConfig.mouseSCAmount);
+        tx_mouse_sc_amount.setText(getString(
+                R.string.game_menu_distance_format,
+                prefConfig.mouseSCAmount));
     }
 
     private void initViewExternalTouchPadView(){
-        sb_touchpad_equipment_view_x.setProgress(prefConfig.externalTouchPadSensitityX);
-        sb_touchpad_equipment_view_y.setProgress(prefConfig.externalTouchPadSensitityY);
-        sb_touchpad_equipment_amount.setProgress(prefConfig.externalTouchPadScrollAmount);
-        tx_touchpad_equipment_view_x.setText("X轴：" + prefConfig.externalTouchPadSensitityX + "%");
-        tx_touchpad_equipment_view_y.setText("Y轴：" + prefConfig.externalTouchPadSensitityY + "%");
-        tx_touchpad_equipment_amount.setText("滚轮速度：" + prefConfig.externalTouchPadScrollAmount);
+        setSeekBarValue(
+                sb_touchpad_equipment_view_x, SENSITIVITY_RANGE,
+                prefConfig.externalTouchPadSensitityX);
+        setSeekBarValue(
+                sb_touchpad_equipment_view_y, SENSITIVITY_RANGE,
+                prefConfig.externalTouchPadSensitityY);
+        setSeekBarValue(
+                sb_touchpad_equipment_amount, DISTANCE_RANGE,
+                prefConfig.externalTouchPadScrollAmount);
+        tx_touchpad_equipment_view_x.setText(getString(
+                R.string.game_menu_axis_x_format,
+                prefConfig.externalTouchPadSensitityX));
+        tx_touchpad_equipment_view_y.setText(getString(
+                R.string.game_menu_axis_y_format,
+                prefConfig.externalTouchPadSensitityY));
+        tx_touchpad_equipment_amount.setText(getString(
+                R.string.game_menu_scroll_speed_format,
+                prefConfig.externalTouchPadScrollAmount));
+    }
+
+    private void configureSeekBars() {
+        configureSeekBar(sb_touch_x, MULTITOUCH_RANGE);
+        configureSeekBar(sb_touch_y, MULTITOUCH_RANGE);
+        configureSeekBar(sb_touchpad_x, SENSITIVITY_RANGE);
+        configureSeekBar(sb_touchpad_y, SENSITIVITY_RANGE);
+        configureSeekBar(sb_touchpad_view_x, SENSITIVITY_RANGE);
+        configureSeekBar(sb_touchpad_view_y, SENSITIVITY_RANGE);
+        configureSeekBar(sb_mouse_gamepad_sensitity, SENSITIVITY_RANGE);
+        configureSeekBar(sb_mouse_sc_amount, DISTANCE_RANGE);
+        configureSeekBar(
+                sb_touchpad_equipment_view_x, SENSITIVITY_RANGE);
+        configureSeekBar(
+                sb_touchpad_equipment_view_y, SENSITIVITY_RANGE);
+        configureSeekBar(
+                sb_touchpad_equipment_amount, DISTANCE_RANGE);
+    }
+
+    private static void configureSeekBar(
+            SeekBar seekBar, SeekBarValueRange range) {
+        seekBar.setMax(range.getProgressMaximum());
+    }
+
+    private static void setSeekBarValue(
+            SeekBar seekBar, SeekBarValueRange range, int value) {
+        int progress = range.valueToProgress(value);
+        if (seekBar.getProgress() != progress) {
+            seekBar.setProgress(progress);
+        }
+    }
+
+    private SeekBarValueRange getRange(SeekBar seekBar) {
+        if (seekBar == sb_touch_x || seekBar == sb_touch_y) {
+            return MULTITOUCH_RANGE;
+        }
+        if (seekBar == sb_mouse_sc_amount ||
+                seekBar == sb_touchpad_equipment_amount) {
+            return DISTANCE_RANGE;
+        }
+        return SENSITIVITY_RANGE;
     }
 
     @Override
@@ -278,64 +371,65 @@ public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClic
 
     @Override
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+        int value = getRange(seekBar).progressToValue(progress);
         if(seekBar==sb_touch_x){
-            prefConfig.touchSensitivityX=progress;
-            saveSetting(TOUCH_SENSITIVITY,progress);
+            prefConfig.touchSensitivityX=value;
+            saveSetting(TOUCH_SENSITIVITY,value);
             initViewTouch();
         }
         if(seekBar==sb_touch_y){
-            prefConfig.touchSensitivityY=progress;
-            saveSetting("seekbar_touch_sensitivity_opacity_y",progress);
+            prefConfig.touchSensitivityY=value;
+            saveSetting("seekbar_touch_sensitivity_opacity_y",value);
             initViewTouch();
         }
         if(seekBar==sb_touchpad_x){
-            prefConfig.mouseTouchPadSensitityX=progress;
-            saveSetting("seekbar_mouse_touchpad_sensitivity_x_opacity",progress);
+            prefConfig.mouseTouchPadSensitityX=value;
+            saveSetting("seekbar_mouse_touchpad_sensitivity_x_opacity",value);
             initViewTouchPad();
         }
         if(seekBar==sb_touchpad_y){
-            prefConfig.mouseTouchPadSensitityY=progress;
-            saveSetting("seekbar_mouse_touchpad_sensitivity_y_opacity",progress);
+            prefConfig.mouseTouchPadSensitityY=value;
+            saveSetting("seekbar_mouse_touchpad_sensitivity_y_opacity",value);
             initViewTouchPad();
         }
         if(seekBar==sb_touchpad_view_x){
-            prefConfig.touchPadSensitivity=progress;
-            saveSetting("seekbar_touchpad_sensitivity_opacity",progress);
+            prefConfig.touchPadSensitivity=value;
+            saveSetting("seekbar_touchpad_sensitivity_opacity",value);
             initViewTouchPadView();
         }
         if(seekBar==sb_touchpad_view_y){
-            prefConfig.touchPadYSensitity=progress;
-            saveSetting("seekbar_touchpad_sensitivity_y_opacity",progress);
+            prefConfig.touchPadYSensitity=value;
+            saveSetting("seekbar_touchpad_sensitivity_y_opacity",value);
             initViewTouchPadView();
         }
 
         if(seekBar==sb_mouse_gamepad_sensitity){
-            prefConfig.mouseGamePadSensitity=progress;
-            saveSetting("mouse_gamepad_sensitity",progress);
+            prefConfig.mouseGamePadSensitity=value;
+            saveSetting("mouse_gamepad_sensitity",value);
             initViewMouseGamePadView();
         }
 
         if(seekBar==sb_mouse_sc_amount){
-            prefConfig.mouseSCAmount=progress;
-            saveSetting("mouse_sc_amount",progress);
+            prefConfig.mouseSCAmount=value;
+            saveSetting("mouse_sc_amount",value);
             initViewMouseSCView();
         }
 
         if(seekBar==sb_touchpad_equipment_view_x){
-            prefConfig.externalTouchPadSensitityX=progress;
-            saveSetting("touchpad_equipment_view_x",progress);
+            prefConfig.externalTouchPadSensitityX=value;
+            saveSetting("touchpad_equipment_view_x",value);
             initViewExternalTouchPadView();
         }
 
         if(seekBar==sb_touchpad_equipment_view_y){
-            prefConfig.externalTouchPadSensitityY=progress;
-            saveSetting("touchpad_equipment_view_y",progress);
+            prefConfig.externalTouchPadSensitityY=value;
+            saveSetting("touchpad_equipment_view_y",value);
             initViewExternalTouchPadView();
         }
 
         if(seekBar==sb_touchpad_equipment_amount){
-            prefConfig.externalTouchPadScrollAmount=progress;
-            saveSetting("touchpad_equipment_amount",progress);
+            prefConfig.externalTouchPadScrollAmount=value;
+            saveSetting("touchpad_equipment_amount",value);
             initViewExternalTouchPadView();
         }
 

@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="300dp"
     android:layout_height="match_parent"
     android:background="@color/gameMenuBgColor"
     android:orientation="vertical"
     android:paddingBottom="0dp"
-    android:paddingLeft="10dp"
-    android:paddingRight="10dp"
-    android:paddingTop="10dp">
+    android:paddingStart="10dp"
+    android:paddingEnd="10dp"
+    android:paddingTop="10dp"
+    tools:ignore="ButtonStyle">
 
     <RelativeLayout
         android:layout_width="match_parent"
@@ -18,29 +20,38 @@
             android:background="@drawable/ic_game_menu_btn_side_selector"
             android:layout_width="24dp"
             android:id="@+id/ibtn_back"
+            android:contentDescription="@string/accessibility_back"
             android:layout_height="24dp"/>
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="触控灵敏度"
+            android:layout_centerVertical="true"
+            android:layout_toEndOf="@id/ibtn_back"
+            android:layout_toStartOf="@id/btn_right"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:singleLine="true"
+            android:text="@string/game_menu_touch_title"
             android:id="@+id/tx_title"
             android:textColor="@android:color/white"
-            android:textSize="13dp" />
+            android:textSize="13sp" />
 
         <Button
             android:layout_width="wrap_content"
             android:layout_height="24dp"
-            android:layout_alignParentRight="true"
+            android:layout_alignParentEnd="true"
             android:layout_centerVertical="true"
-            android:text="恢复默认"
+            android:layout_toEndOf="@id/ibtn_back"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:text="@string/game_menu_restore_defaults"
             android:background="@drawable/ic_game_menu_btn_side_selector"
-            android:layout_marginRight="5dp"
+            android:layout_marginEnd="5dp"
             android:gravity="center"
             android:id="@+id/btn_right"
             android:textColor="@android:color/white"
-            android:textSize="11dp" />
+            android:textSize="11sp" />
     </RelativeLayout>
 
     <ScrollView
@@ -62,19 +73,19 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="多点触控灵敏度"
+                    android:text="@string/game_menu_multitouch_sensitivity"
                     android:textStyle="bold"
                     android:textColor="@android:color/white"
-                    android:textSize="12dp" />
+                    android:textSize="12sp" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginLeft="5dp"
-                    android:text="选项会保存到磁盘中，一直有效！"
+                    android:layout_marginStart="5dp"
+                    android:text="@string/game_menu_settings_persist"
                     android:textStyle="italic|bold"
                     android:textColor="#FFC107"
-                    android:textSize="8dp" />
+                    android:textSize="11sp" />
 
             </LinearLayout>
 
@@ -88,7 +99,7 @@
                 <Button
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:layout_marginRight="5dp"
+                    android:layout_marginEnd="5dp"
                     android:layout_weight="1"
                     android:background="@drawable/ic_game_menu_btn_selector"
                     android:drawablePadding="4dp"
@@ -96,26 +107,26 @@
                     android:gravity="center"
                     android:padding="4dp"
                     android:id="@+id/btn_touch_switch"
-                    android:text="灵敏度开启"
-                    android:textSize="11dp" />
+                    android:text="@string/game_menu_sensitivity_enabled"
+                    android:textSize="11sp" />
 
                 <Button
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:layout_marginRight="5dp"
+                    android:layout_marginEnd="5dp"
                     android:layout_weight="1"
                     android:background="@drawable/ic_game_menu_btn_selector"
                     android:drawablePadding="4dp"
                     android:drawableTop="@drawable/ic_axi_touch_center"
                     android:padding="4dp"
                     android:id="@+id/btn_touch_center"
-                    android:text="自动回中"
-                    android:textSize="11dp" />
+                    android:text="@string/game_menu_auto_center"
+                    android:textSize="11sp" />
 
                 <Button
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:layout_marginRight="5dp"
+                    android:layout_marginEnd="5dp"
                     android:layout_weight="1"
                     android:background="@drawable/ic_game_menu_btn_selector"
                     android:drawablePadding="4dp"
@@ -123,8 +134,8 @@
                     android:gravity="center"
                     android:padding="4dp"
                     android:id="@+id/btn_touch_all"
-                    android:text="全局生效"
-                    android:textSize="11dp" />
+                    android:text="@string/game_menu_apply_globally"
+                    android:textSize="11sp" />
 
             </LinearLayout>
 
@@ -135,11 +146,8 @@
                 android:layout_height="wrap_content">
 
                 <SeekBar
-                    android:max="800"
-                    android:min="10"
                     android:splitTrack="false"
                     android:id="@+id/sb_touch_x"
-                    android:progress="200"
                     android:thumb="@android:color/transparent"
                     android:progressDrawable="@drawable/ic_game_menu_seek_bg"
                     android:layout_width="match_parent"
@@ -148,19 +156,16 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="left"
-                    android:layout_marginLeft="20dp"
+                    android:layout_gravity="start"
+                    android:layout_marginStart="20dp"
                     android:layout_marginTop="4dp"
-                    android:text="X轴:100%"
+                    android:text="@string/game_menu_axis_x_preview"
                     android:textColor="@android:color/white"
                     android:textStyle="italic"
                     android:id="@+id/tx_touch_x"
-                    android:textSize="10dp" />
+                    android:textSize="11sp" />
 
                 <SeekBar
-                    android:max="800"
-                    android:min="10"
-                    android:progress="100"
                     android:splitTrack="false"
                     android:id="@+id/sb_touch_y"
                     android:layout_marginTop="10dp"
@@ -172,14 +177,14 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="left"
-                    android:layout_marginLeft="20dp"
+                    android:layout_gravity="start"
+                    android:layout_marginStart="20dp"
                     android:layout_marginTop="4dp"
-                    android:text="Y轴:100%"
+                    android:text="@string/game_menu_axis_y_preview"
                     android:textColor="@android:color/white"
                     android:textStyle="italic"
                     android:id="@+id/tx_touch_y"
-                    android:textSize="10dp" />
+                    android:textSize="11sp" />
 
             </LinearLayout>
 
@@ -187,10 +192,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="5dp"
-                android:text="触控板模式灵敏度（默认启用没有开关）"
+                android:text="@string/game_menu_touchpad_mode_sensitivity"
                 android:textColor="@android:color/white"
                 android:textStyle="bold"
-                android:textSize="12dp" />
+                android:textSize="12sp" />
 
             <LinearLayout
                 android:orientation="vertical"
@@ -199,10 +204,7 @@
                 android:layout_height="wrap_content">
 
                 <SeekBar
-                    android:max="300"
-                    android:min="10"
                     android:id="@+id/sb_touchpad_x"
-                    android:progress="200"
                     android:splitTrack="false"
                     android:thumb="@android:color/transparent"
                     android:progressDrawable="@drawable/ic_game_menu_seek_bg"
@@ -212,20 +214,17 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="left"
-                    android:layout_marginLeft="20dp"
+                    android:layout_gravity="start"
+                    android:layout_marginStart="20dp"
                     android:layout_marginTop="4dp"
-                    android:text="X轴:100%"
+                    android:text="@string/game_menu_axis_x_preview"
                     android:textColor="@android:color/white"
                     android:textStyle="italic"
                     android:id="@+id/tx_touchpad_x"
-                    android:textSize="10dp" />
+                    android:textSize="11sp" />
 
                 <SeekBar
-                    android:max="300"
-                    android:min="10"
                     android:id="@+id/sb_touchpad_y"
-                    android:progress="100"
                     android:splitTrack="false"
                     android:layout_marginTop="10dp"
                     android:thumb="@android:color/transparent"
@@ -236,14 +235,14 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="left"
+                    android:layout_gravity="start"
                     android:id="@+id/tx_touchpad_y"
-                    android:layout_marginLeft="20dp"
+                    android:layout_marginStart="20dp"
                     android:layout_marginTop="4dp"
-                    android:text="Y轴:100%"
+                    android:text="@string/game_menu_axis_y_preview"
                     android:textColor="@android:color/white"
                     android:textStyle="italic"
-                    android:textSize="10dp" />
+                    android:textSize="11sp" />
 
             </LinearLayout>
 
@@ -251,10 +250,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="5dp"
-                android:text="触控板控件灵敏度（默认启用没有开关）"
+                android:text="@string/game_menu_touchpad_control_sensitivity"
                 android:textStyle="bold"
                 android:textColor="@android:color/white"
-                android:textSize="12dp" />
+                android:textSize="12sp" />
 
             <LinearLayout
                 android:orientation="vertical"
@@ -263,9 +262,6 @@
                 android:layout_height="wrap_content">
 
                 <SeekBar
-                    android:max="300"
-                    android:min="10"
-                    android:progress="200"
                     android:splitTrack="false"
                     android:id="@+id/sb_touchpad_view_x"
                     android:thumb="@android:color/transparent"
@@ -276,19 +272,16 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="left"
-                    android:layout_marginLeft="20dp"
+                    android:layout_gravity="start"
+                    android:layout_marginStart="20dp"
                     android:layout_marginTop="4dp"
-                    android:text="X轴:100%"
+                    android:text="@string/game_menu_axis_x_preview"
                     android:textColor="@android:color/white"
                     android:textStyle="italic"
                     android:id="@+id/tx_touchpad_view_x"
-                    android:textSize="10dp" />
+                    android:textSize="11sp" />
 
                 <SeekBar
-                    android:max="300"
-                    android:min="10"
-                    android:progress="100"
                     android:splitTrack="false"
                     android:id="@+id/sb_touchpad_view_y"
                     android:layout_marginTop="10dp"
@@ -300,14 +293,14 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="left"
-                    android:layout_marginLeft="20dp"
+                    android:layout_gravity="start"
+                    android:layout_marginStart="20dp"
                     android:layout_marginTop="4dp"
-                    android:text="Y轴:100%"
+                    android:text="@string/game_menu_axis_y_preview"
                     android:textStyle="italic"
                     android:textColor="@android:color/white"
                     android:id="@+id/tx_touchpad_view_y"
-                    android:textSize="10dp" />
+                    android:textSize="11sp" />
 
             </LinearLayout>
 
@@ -315,10 +308,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="5dp"
-                android:text="手柄键鼠模式 鼠标指针灵敏度"
+                android:text="@string/game_menu_gamepad_mouse_sensitivity"
                 android:textStyle="bold"
                 android:textColor="@android:color/white"
-                android:textSize="12dp" />
+                android:textSize="12sp" />
 
             <LinearLayout
                 android:orientation="vertical"
@@ -327,9 +320,6 @@
                 android:layout_height="wrap_content">
 
                 <SeekBar
-                    android:max="300"
-                    android:min="10"
-                    android:progress="200"
                     android:splitTrack="false"
                     android:id="@+id/sb_mouse_gamepad_sensitity"
                     android:thumb="@android:color/transparent"
@@ -340,14 +330,14 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="left"
-                    android:layout_marginLeft="20dp"
+                    android:layout_gravity="start"
+                    android:layout_marginStart="20dp"
                     android:layout_marginTop="4dp"
-                    android:text="灵敏度:100%"
+                    android:text="@string/game_menu_sensitivity_preview"
                     android:textColor="@android:color/white"
                     android:textStyle="italic"
                     android:id="@+id/tx_mouse_gamepad_sensitity"
-                    android:textSize="10dp" />
+                    android:textSize="11sp" />
 
             </LinearLayout>
 
@@ -355,10 +345,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="5dp"
-                android:text="虚拟鼠标滚轮移动距离"
+                android:text="@string/game_menu_virtual_scroll_distance"
                 android:textStyle="bold"
                 android:textColor="@android:color/white"
-                android:textSize="12dp" />
+                android:textSize="12sp" />
 
             <LinearLayout
                 android:orientation="vertical"
@@ -367,9 +357,6 @@
                 android:layout_height="wrap_content">
 
                 <SeekBar
-                    android:max="30"
-                    android:min="1"
-                    android:progress="5"
                     android:splitTrack="false"
                     android:id="@+id/sb_mouse_sc_amount"
                     android:thumb="@android:color/transparent"
@@ -380,14 +367,14 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="left"
-                    android:layout_marginLeft="20dp"
+                    android:layout_gravity="start"
+                    android:layout_marginStart="20dp"
                     android:layout_marginTop="4dp"
-                    android:text="距离:5"
+                    android:text="@string/game_menu_distance_preview"
                     android:textColor="@android:color/white"
                     android:textStyle="italic"
                     android:id="@+id/tx_mouse_sc_amount"
-                    android:textSize="10dp" />
+                    android:textSize="11sp" />
 
             </LinearLayout>
 
@@ -396,10 +383,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="5dp"
-                android:text="触控板外设灵敏度"
+                android:text="@string/game_menu_external_touchpad_sensitivity"
                 android:textStyle="bold"
                 android:textColor="@android:color/white"
-                android:textSize="12dp" />
+                android:textSize="12sp" />
 
             <LinearLayout
                 android:orientation="vertical"
@@ -409,9 +396,6 @@
                 android:layout_height="wrap_content">
 
                 <SeekBar
-                    android:max="300"
-                    android:min="10"
-                    android:progress="200"
                     android:splitTrack="false"
                     android:id="@+id/sb_touchpad_equipment_view_x"
                     android:thumb="@android:color/transparent"
@@ -422,19 +406,16 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="left"
-                    android:layout_marginLeft="20dp"
+                    android:layout_gravity="start"
+                    android:layout_marginStart="20dp"
                     android:layout_marginTop="4dp"
-                    android:text="X轴:100%"
+                    android:text="@string/game_menu_axis_x_preview"
                     android:textColor="@android:color/white"
                     android:textStyle="italic"
                     android:id="@+id/tx_touchpad_equipment_view_x"
-                    android:textSize="10dp" />
+                    android:textSize="11sp" />
 
                 <SeekBar
-                    android:max="300"
-                    android:min="10"
-                    android:progress="100"
                     android:splitTrack="false"
                     android:id="@+id/sb_touchpad_equipment_view_y"
                     android:layout_marginTop="10dp"
@@ -446,19 +427,16 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="left"
-                    android:layout_marginLeft="20dp"
+                    android:layout_gravity="start"
+                    android:layout_marginStart="20dp"
                     android:layout_marginTop="4dp"
-                    android:text="Y轴:100%"
+                    android:text="@string/game_menu_axis_y_preview"
                     android:textStyle="italic"
                     android:textColor="@android:color/white"
                     android:id="@+id/tx_touchpad_equipment_view_y"
-                    android:textSize="10dp" />
+                    android:textSize="11sp" />
 
                 <SeekBar
-                    android:max="30"
-                    android:min="1"
-                    android:progress="5"
                     android:splitTrack="false"
                     android:layout_marginTop="4dp"
                     android:id="@+id/sb_touchpad_equipment_amount"
@@ -470,14 +448,14 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="left"
-                    android:layout_marginLeft="20dp"
+                    android:layout_gravity="start"
+                    android:layout_marginStart="20dp"
                     android:layout_marginTop="4dp"
-                    android:text="滚轮速度:5"
+                    android:text="@string/game_menu_scroll_speed_preview"
                     android:textColor="@android:color/white"
                     android:textStyle="italic"
                     android:id="@+id/tx_touchpad_equipment_amount"
-                    android:textSize="10dp" />
+                    android:textSize="11sp" />
 
             </LinearLayout>
 
