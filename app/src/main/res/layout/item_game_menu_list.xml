@@ -8,15 +8,15 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:drawableLeft="@drawable/ic_axi_quick"
+        android:drawableStart="@drawable/ic_axi_quick"
         android:drawablePadding="4dp"
         android:id="@+id/tx_title"
         android:textColor="@android:color/white"
         android:singleLine="true"
         android:ellipsize="end"
-        android:gravity="left|center_vertical"
+        android:gravity="start|center_vertical"
         android:padding="10dp"
-        android:text="触控模式"
-        android:textSize="11dp" />
+        android:text="@string/game_menu_list_default_title"
+        android:textSize="11sp" />
 
 </RelativeLayout>

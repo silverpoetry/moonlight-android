@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="300dp"
     android:layout_height="match_parent"
     android:background="@color/gameMenuBgColor"
     android:orientation="vertical"
     android:paddingBottom="10dp"
-    android:paddingLeft="10dp"
-    android:paddingRight="10dp"
-    android:paddingTop="10dp">
+    android:paddingStart="10dp"
+    android:paddingEnd="10dp"
+    android:paddingTop="10dp"
+    tools:ignore="Overdraw">
 
     <RelativeLayout
         android:layout_width="match_parent"
@@ -17,30 +19,36 @@
             android:background="@drawable/ic_game_menu_btn_side_selector"
             android:layout_width="24dp"
             android:id="@+id/ibtn_back"
+            android:contentDescription="@string/accessibility_back"
             android:layout_height="24dp"/>
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="触控模式"
+            android:layout_centerVertical="true"
+            android:layout_toEndOf="@id/ibtn_back"
+            android:layout_toStartOf="@id/btn_right"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:singleLine="true"
+            android:text="@string/game_menu_list_default_title"
             android:id="@+id/tx_title"
             android:textColor="@android:color/white"
-            android:textSize="13dp" />
+            android:textSize="13sp" />
 
         <Button
             android:layout_width="50dp"
             android:layout_height="24dp"
-            android:layout_alignParentRight="true"
+            android:layout_alignParentEnd="true"
             android:layout_centerVertical="true"
-            android:text="新增"
+            android:text="@string/game_menu_add"
             android:visibility="visible"
             android:background="@drawable/ic_game_menu_btn_side_selector"
-            android:layout_marginRight="5dp"
+            android:layout_marginEnd="5dp"
             android:gravity="center"
             android:id="@+id/btn_right"
             android:textColor="@android:color/white"
-            android:textSize="11dp" />
+            android:textSize="11sp" />
 
     </RelativeLayout>
 
