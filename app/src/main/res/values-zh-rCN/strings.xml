@@ -321,4 +321,9 @@
 
     <string name="mic_uplink_not_supported">主机未启用麦克风上行，或未检测到兼容的虚拟麦克风设备。</string>
     <string name="mic_uplink_permission_denied">麦克风许可被拒绝了。</string>
+    <string name="app_list_long_press_hint">长按应用可查看更多选项</string>
+    <string name="appview_menu_options">应用选项</string>
+    <string name="addpc_get_from_svr">根据 SVR 记录获取地址</string>
+    <string name="addpc_append_razer_port">追加 Razer 雷游端口号</string>
+    <string name="accessibility_virtual_controller">虚拟手柄</string>
 </resources>

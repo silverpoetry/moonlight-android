@@ -19,6 +19,7 @@
             tools:src="@drawable/ic_computer"
             android:id="@+id/grid_image"
             android:layout_width="20dp"
+            android:contentDescription="@null"
             android:layout_height="20dp"/>
 
         <ImageView
@@ -26,7 +27,7 @@
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:layout_alignParentTop="true"
-            android:layout_alignParentRight="true"
+            android:layout_alignParentEnd="true"
             android:background="@drawable/ic_game_menu_btn_normal"
             android:clickable="false"
             android:contentDescription="@string/pcview_menu_options"
@@ -38,22 +39,25 @@
 
         <TextView
             tools:text="192.168.31.115"
-            android:layout_marginLeft="10dp"
-            android:textSize="11dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="6dp"
+            android:textSize="11sp"
             android:id="@+id/tx_item_ip"
             android:layout_marginTop="2dp"
             android:textStyle="bold|italic"
             android:singleLine="true"
             android:ellipsize="end"
             android:textColor="@android:color/white"
-            android:layout_toRightOf="@+id/grid_image"
-            android:layout_width="wrap_content"
+            android:layout_toEndOf="@+id/grid_image"
+            android:layout_toStartOf="@id/pc_item_menu_button"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"/>
 
         <ImageView
             tools:src="@drawable/ic_pc_offline"
             android:id="@+id/grid_overlay"
             android:layout_centerInParent="true"
+            android:contentDescription="@null"
             android:layout_width="55dp"
             android:layout_height="55dp">
         </ImageView>
@@ -76,6 +80,6 @@
             android:textStyle="bold"
             android:textColor="@android:color/white"
             android:gravity="center"
-            android:textSize="13dp" />
+            android:textSize="13sp" />
     </RelativeLayout>
 </com.limelight.ui.GlowingBorderLayout>

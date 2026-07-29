@@ -19,7 +19,6 @@
             android:text="@string/title_add_pc"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:preferKeepClear="true"
             android:textSize="14sp"
             android:textStyle="bold"
             android:layout_centerHorizontal="true"
@@ -33,19 +32,17 @@
         android:layout_width="wrap_content"
         android:layout_height="35dp"
         android:layout_below="@+id/rv_top_view"
-        android:layout_toLeftOf="@+id/addPcButton"
         android:layout_toStartOf="@+id/addPcButton"
         android:layout_marginTop="25dp"
-        android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
         android:textColorHint="@android:color/white"
         android:ems="10"
         android:textSize="12sp"
         android:background="@drawable/ic_game_menu_btn_selector"
-        android:paddingLeft="10dp"
-        android:paddingRight="10dp"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
         android:singleLine="true"
-        android:preferKeepClear="true"
+        android:importantForAutofill="no"
         android:inputType="textNoSuggestions"
         android:hint="@string/ip_hint" >
         
@@ -58,12 +55,10 @@
         android:layout_width="wrap_content"
         android:layout_height="35dp"
         android:layout_marginTop="25dp"
-        android:layout_marginLeft="10dp"
+        android:layout_marginStart="10dp"
         android:textSize="13sp"
         android:layout_below="@+id/rv_top_view"
-        android:layout_alignParentRight="true"
         android:layout_alignParentEnd="true"
-        android:preferKeepClear="true"
         android:text="@android:string/ok"/>
 
     <Button
@@ -72,10 +67,9 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="15dp"
         android:layout_below="@+id/addPcButton"
-        android:layout_alignParentLeft="true"
-        android:preferKeepClear="true"
+        android:layout_alignParentStart="true"
         android:visibility="gone"
-        android:text="根据svr获取"/>
+        android:text="@string/addpc_get_from_svr"/>
 
     <Button
         android:id="@+id/razerPort"
@@ -83,13 +77,12 @@
         android:layout_width="wrap_content"
         android:layout_height="35dp"
         android:layout_marginTop="15dp"
-        android:paddingLeft="10dp"
-        android:paddingRight="10dp"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
         android:textSize="13sp"
         android:layout_below="@+id/addPcButton"
-        android:layout_alignParentLeft="true"
-        android:preferKeepClear="true"
-        android:text="追加Razer雷游端口号"/>
+        android:layout_alignParentStart="true"
+        android:text="@string/addpc_append_razer_port"/>
 
     <TextView
         android:layout_marginTop="15dp"

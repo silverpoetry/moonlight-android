@@ -276,4 +276,9 @@
     <string name="summary_checkbox_gamepad_motion_fallback">如果您連線的手把或 Android 版本不支援手把感測器，請使用裝置內建的動態感測器。
 \n注意：啟用此選項可能會導致您的手把在主機被辨識為 PlayStation 控制器。</string>
     <string name="title_checkbox_gamepad_motion_fallback">模擬手把動態感測器支援</string>
+    <string name="app_list_long_press_hint">長按應用程式可查看更多選項</string>
+    <string name="appview_menu_options">應用程式選項</string>
+    <string name="addpc_get_from_svr">根據 SVR 記錄取得位址</string>
+    <string name="addpc_append_razer_port">附加 Razer 雷遊連接埠號碼</string>
+    <string name="accessibility_virtual_controller">虛擬手把</string>
 </resources>
