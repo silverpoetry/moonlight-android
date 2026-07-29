@@ -483,7 +483,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
 
         final ArrayList<MenuAction> actions = buildAppMenuActions(app, targetView);
         for (int i = 0; i < actions.size(); i++) {
-            View item = createAppOptionView(actions.get(i));
+            View item = createAppOptionView(actionList, actions.get(i));
             LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -516,8 +516,10 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         }
     }
 
-    private View createAppOptionView(final MenuAction action) {
-        View item = getLayoutInflater().inflate(R.layout.item_host_option, null, false);
+    private View createAppOptionView(
+            LinearLayout parent, final MenuAction action) {
+        View item = getLayoutInflater().inflate(
+                R.layout.item_host_option, parent, false);
         TextView label = item.findViewById(R.id.tv_host_option);
         ImageView icon = item.findViewById(R.id.iv_host_option_icon);
 

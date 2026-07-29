@@ -46,7 +46,8 @@ public class KeyBoardLayoutController {
         this.context = context;
         this.prefConfig=prefConfig;
         this.vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
-        this.keyboardView= (LinearLayout) LayoutInflater.from(context).inflate(R.layout.layout_axixi_keyboard,null);
+        this.keyboardView = (LinearLayout) LayoutInflater.from(context).inflate(
+                R.layout.layout_axixi_keyboard, layout, false);
         initKeyboard();
     }
 

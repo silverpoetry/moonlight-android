@@ -11,6 +11,7 @@ import com.limelight.LimeLog;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public final class RazerKishiHapticsDevice {
     // Disabled until the Kishi haptics protocol is validated on real hardware.
@@ -85,7 +86,7 @@ public final class RazerKishiHapticsDevice {
                 return false;
             }
 
-            String lowerName = productName.toLowerCase();
+            String lowerName = productName.toLowerCase(Locale.ROOT);
             return lowerName.contains("kishi") || lowerName.contains("ultra");
         }
 

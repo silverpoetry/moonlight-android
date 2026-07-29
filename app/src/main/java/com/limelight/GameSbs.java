@@ -389,6 +389,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                 this,
                 prefConfig,
                 new CrashListener() {
+                    @SuppressLint("ApplySharedPref")
                     @Override
                     public void notifyCrash(Exception e) {
                         // The MediaCodec instance is going down due to a crash

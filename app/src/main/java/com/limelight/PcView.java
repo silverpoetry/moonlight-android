@@ -664,7 +664,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
         final ArrayList<MenuAction> actions = buildHostMenuActions(computer);
         for (int i = 0; i < actions.size(); i++) {
-            View item = createHostOptionView(actions.get(i));
+            View item = createHostOptionView(actionList, actions.get(i));
             LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -699,8 +699,10 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         }
     }
 
-    private View createHostOptionView(final MenuAction action) {
-        View item = getLayoutInflater().inflate(R.layout.item_host_option, null, false);
+    private View createHostOptionView(
+            LinearLayout parent, final MenuAction action) {
+        View item = getLayoutInflater().inflate(
+                R.layout.item_host_option, parent, false);
         TextView label = item.findViewById(R.id.tv_host_option);
         ImageView icon = item.findViewById(R.id.iv_host_option_icon);
 

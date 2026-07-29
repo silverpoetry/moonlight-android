@@ -184,7 +184,7 @@ public class GameDisplayDeviceFragment extends BaseGameMenuDialog implements See
         PreferenceManager.getDefaultSharedPreferences(getActivity())
                 .edit()
                 .putBoolean(name,value)
-                .commit();
+                .apply();
         initViewData();
     }
 

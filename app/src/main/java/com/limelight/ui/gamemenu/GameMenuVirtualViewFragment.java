@@ -219,7 +219,7 @@ public class GameMenuVirtualViewFragment extends BaseGameMenuDialog implements V
                 PreferenceManager.getDefaultSharedPreferences(getActivity())
                         .edit()
                         .putString(OSC_PREFERENCE,keyName)
-                        .commit();
+                        .apply();
             }
         });
 
@@ -270,7 +270,7 @@ public class GameMenuVirtualViewFragment extends BaseGameMenuDialog implements V
                 PreferenceManager.getDefaultSharedPreferences(getActivity())
                         .edit()
                         .putString(OSC_GAMEPAD_PREFERENCE,keyNameGamePad)
-                        .commit();
+                        .apply();
             }
         });
 
@@ -300,7 +300,7 @@ public class GameMenuVirtualViewFragment extends BaseGameMenuDialog implements V
                 PreferenceManager.getDefaultSharedPreferences(getActivity())
                         .edit()
                         .putInt("virtual_key_view_normal_color",value)
-                        .commit();
+                        .apply();
             }
         });
 
@@ -401,7 +401,7 @@ public class GameMenuVirtualViewFragment extends BaseGameMenuDialog implements V
             PreferenceManager.getDefaultSharedPreferences(getActivity())
                     .edit()
                     .putBoolean(PreferenceConfiguration.CHECKBOX_ENABLE_KEYBOARD_VIBRATE,prefConfig.enableKeyboardVibrate)
-                    .commit();
+                    .apply();
             return;
         }
         if(v.getId()==R.id.btn_vibration_gamepad){
@@ -410,7 +410,7 @@ public class GameMenuVirtualViewFragment extends BaseGameMenuDialog implements V
             PreferenceManager.getDefaultSharedPreferences(getActivity())
                     .edit()
                     .putBoolean(PreferenceConfiguration.VIBRATE_OSC_PREF_STRING,prefConfig.vibrateOsc)
-                    .commit();
+                    .apply();
             return;
         }
     }
@@ -428,7 +428,7 @@ public class GameMenuVirtualViewFragment extends BaseGameMenuDialog implements V
             PreferenceManager.getDefaultSharedPreferences(getActivity())
                     .edit()
                     .putInt("seekbar_keyboard_axi_height",progress)
-                    .commit();
+                    .apply();
             initViewHeight();
         }
         if(seekBar==sb_adjust_keyboard_all){
@@ -436,7 +436,7 @@ public class GameMenuVirtualViewFragment extends BaseGameMenuDialog implements V
             PreferenceManager.getDefaultSharedPreferences(getActivity())
                     .edit()
                     .putInt("seekbar_keyboard_axi_opacity",progress)
-                    .commit();
+                    .apply();
             initViewAdjust();
         }
         if(seekBar==sb_adjust_virtual_gamepad){
@@ -444,7 +444,7 @@ public class GameMenuVirtualViewFragment extends BaseGameMenuDialog implements V
             PreferenceManager.getDefaultSharedPreferences(getActivity())
                     .edit()
                     .putInt(PreferenceConfiguration.OSC_OPACITY_PREF_STRING,progress)
-                    .commit();
+                    .apply();
             initViewAdjust();
         }
 
@@ -453,7 +453,7 @@ public class GameMenuVirtualViewFragment extends BaseGameMenuDialog implements V
             PreferenceManager.getDefaultSharedPreferences(getActivity())
                     .edit()
                     .putInt("virtualGamePadScaleFactor",progress)
-                    .commit();
+                    .apply();
             initViewAdjust();
         }
 

@@ -532,14 +532,14 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
         PreferenceManager.getDefaultSharedPreferences(getActivity())
                 .edit()
                 .putString("video_format",value)
-                .commit();
+                .apply();
     }
 
     private void saveLock(int value){
         PreferenceManager.getDefaultSharedPreferences(getActivity())
                 .edit()
                 .putInt("enable_screen_on_auto",value)
-                .commit();
+                .apply();
     }
 
 
@@ -547,49 +547,49 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
         PreferenceManager.getDefaultSharedPreferences(getActivity())
                 .edit()
                 .putBoolean("checkbox_host_audio",value)
-                .commit();
+                .apply();
     }
 
     private void saveHDR(boolean value){
         PreferenceManager.getDefaultSharedPreferences(getActivity())
                 .edit()
                 .putBoolean("checkbox_enable_hdr",value)
-                .commit();
+                .apply();
     }
 
     private void saveVD(int value){
         PreferenceManager.getDefaultSharedPreferences(getActivity())
                 .edit()
                 .putInt("vdValue",value)
-                .commit();
+                .apply();
     }
 
     private void saveEnForce(boolean value){
         PreferenceManager.getDefaultSharedPreferences(getActivity())
                 .edit()
                 .putBoolean("checkbox_enforce_display_mode",value)
-                .commit();
+                .apply();
     }
 
     private void savelowLatency(boolean value){
         PreferenceManager.getDefaultSharedPreferences(getActivity())
                 .edit()
                 .putBoolean("enable_lowLatency_experiment",value)
-                .commit();
+                .apply();
     }
 
     private void saveIgnoreHDR(boolean value){
         PreferenceManager.getDefaultSharedPreferences(getActivity())
                 .edit()
                 .putBoolean("ignoreCheckHDR",value)
-                .commit();
+                .apply();
     }
 
     private void saveHdrHighBrightness(boolean value) {
         PreferenceManager.getDefaultSharedPreferences(getActivity())
                 .edit()
                 .putBoolean(PreferenceConfiguration.ENABLE_HDR_HIGH_BRIGHTNESS_PREF_STRING, value)
-                .commit();
+                .apply();
     }
 
     @Override
@@ -620,7 +620,7 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
                     .putString("list_fsr_target", fsrTargetPending)
                     .putString("list_fsr_sharpness", fsrSharpnessPending)
                     .putString("list_fsr_hdr_output", fsrHdrOutputPending)
-                    .commit();
+                    .apply();
             if(prefConfig!=null){
                 prefConfig.width=width;
                 prefConfig.height=height;

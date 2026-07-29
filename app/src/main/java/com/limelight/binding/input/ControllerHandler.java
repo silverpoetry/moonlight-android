@@ -61,6 +61,7 @@ import org.cgutman.shieldcontrollerextensions.SceManager;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class ControllerHandler implements InputManager.InputDeviceListener, UsbDriverListener {
@@ -906,7 +907,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         }
 
         // Classify this device as a remote by name if it has no joystick axes
-        if (!hasJoystickAxes(dev) && devName.toLowerCase().contains("remote")) {
+        if (!hasJoystickAxes(dev) &&
+                devName.toLowerCase(Locale.ROOT).contains("remote")) {
             return true;
         }
 

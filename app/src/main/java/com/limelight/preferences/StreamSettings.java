@@ -307,10 +307,8 @@ public class StreamSettings extends Activity {
             getWindow().getAttributes().layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            getWindow().setStatusBarColor(Color.TRANSPARENT);
-            getWindow().setNavigationBarColor(Color.TRANSPARENT);
-        }
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             getWindow().setNavigationBarDividerColor(Color.TRANSPARENT);
         }
@@ -519,22 +517,20 @@ public class StreamSettings extends Activity {
         outerContainer.setPadding(horizontalPadding, topPadding + getStatusBarHeight(),
                 horizontalPadding, bottomPadding);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
-            outerContainer.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
-                @Override
-                public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
-                    int statusInset = Math.max(insets.getSystemWindowInsetTop(), getStatusBarHeight());
-                    int bottomInset = 0;
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        bottomInset = insets.getTappableElementInsets().bottom;
-                    }
-                    v.setPadding(horizontalPadding, topPadding + statusInset,
-                            horizontalPadding, bottomPadding + bottomInset);
-                    return insets;
+        outerContainer.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+            @Override
+            public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
+                int statusInset = Math.max(insets.getSystemWindowInsetTop(), getStatusBarHeight());
+                int bottomInset = 0;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    bottomInset = insets.getTappableElementInsets().bottom;
                 }
-            });
-            outerContainer.requestApplyInsets();
-        }
+                v.setPadding(horizontalPadding, topPadding + statusInset,
+                        horizontalPadding, bottomPadding + bottomInset);
+                return insets;
+            }
+        });
+        outerContainer.requestApplyInsets();
     }
 
     private int getStatusBarHeight() {

@@ -61,7 +61,8 @@ public class GameMenuQuickKeyboardAdapter extends BaseAdapter {
     public View getView(int position, View convertView, ViewGroup parent) {
         ViewHolder holder = null;
         if (convertView == null) {
-            convertView=LayoutInflater.from(context).inflate(R.layout.item_game_menu_list, null, false);
+            convertView = LayoutInflater.from(context).inflate(
+                    R.layout.item_game_menu_list, parent, false);
             holder = new ViewHolder();
             holder.tx_title = convertView.findViewById(R.id.tx_title);
             //将holder放入当前视图中

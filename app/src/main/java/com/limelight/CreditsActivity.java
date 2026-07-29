@@ -186,7 +186,7 @@ public class CreditsActivity extends BaseActivity {
         if (isFinishing()) {
             return;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed()) {
+        if (isDestroyed()) {
             return;
         }
         runOnUiThread(() -> {

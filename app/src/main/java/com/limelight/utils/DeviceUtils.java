@@ -25,6 +25,7 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Enumeration;
+import java.util.Locale;
 import static android.Manifest.permission.ACCESS_WIFI_STATE;
 import static android.Manifest.permission.CHANGE_WIFI_STATE;
 import static android.content.Context.WIFI_SERVICE;
@@ -58,7 +59,6 @@ public final class DeviceUtils {
      *
      * @return {@code true}: yes<br>{@code false}: no
      */
-    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
     public static boolean isAdbEnabled(Context context) {
         return Settings.Secure.getInt(
                 context.getContentResolver(),
@@ -299,14 +299,7 @@ public final class DeviceUtils {
      * @return an ordered list of ABIs supported by this device
      */
     public static String[] getABIs() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            return Build.SUPPORTED_ABIS;
-        } else {
-            if (!TextUtils.isEmpty(Build.CPU_ABI2)) {
-                return new String[]{Build.CPU_ABI, Build.CPU_ABI2};
-            }
-            return new String[]{Build.CPU_ABI};
-        }
+        return Build.SUPPORTED_ABIS;
     }
 
     /**
@@ -326,9 +319,11 @@ public final class DeviceUtils {
      * @return {@code true}: yes<br>{@code false}: no
      */
     public static boolean isEmulator(Context context) {
+        String normalizedFingerprint =
+                Build.FINGERPRINT.toLowerCase(Locale.ROOT);
         boolean checkProperty = Build.FINGERPRINT.startsWith("generic")
-                || Build.FINGERPRINT.toLowerCase().contains("vbox")
-                || Build.FINGERPRINT.toLowerCase().contains("test-keys")
+                || normalizedFingerprint.contains("vbox")
+                || normalizedFingerprint.contains("test-keys")
                 || Build.MODEL.contains("google_sdk")
                 || Build.MODEL.contains("Emulator")
                 || Build.MODEL.contains("Android SDK built for x86")
@@ -345,7 +340,7 @@ public final class DeviceUtils {
                 operatorName = name;
             }
         }
-        boolean checkOperatorName = operatorName.toLowerCase().equals("android");
+        boolean checkOperatorName = operatorName.equalsIgnoreCase("android");
         if (checkOperatorName) return true;
 
         String url = "tel:" + "123456";
@@ -392,7 +387,7 @@ public final class DeviceUtils {
                 sb.append(readLine);
             }
             responseReader.close();
-            result = sb.toString().toLowerCase();
+            result = sb.toString().toLowerCase(Locale.ROOT);
         } catch (IOException ignored) {
         }
         return result;
@@ -403,7 +398,6 @@ public final class DeviceUtils {
      *
      * @return whether user has enabled development settings.
      */
-    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
     public static boolean isDevelopmentSettingsEnabled(Context context) {
         return Settings.Global.getInt(
                 context.getContentResolver(),

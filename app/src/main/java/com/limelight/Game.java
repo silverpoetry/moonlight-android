@@ -629,6 +629,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 this,
                 prefConfig,
                 new CrashListener() {
+                    @SuppressLint("ApplySharedPref")
                     @Override
                     public void notifyCrash(Exception e) {
                         // The MediaCodec instance is going down due to a crash
@@ -1655,7 +1656,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             PreferenceManager.getDefaultSharedPreferences(this)
                     .edit()
                     .putInt("enable_screen_on_auto",0)
-                    .commit();
+                    .apply();
         }
     }
 
