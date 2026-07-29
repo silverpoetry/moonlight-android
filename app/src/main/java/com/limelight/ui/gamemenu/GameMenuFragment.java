@@ -676,13 +676,13 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
         if(v.getId()==R.id.bt_virtual_view){
             GameMenuVirtualViewFragment fragment=new GameMenuVirtualViewFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle("虚拟手柄与虚拟按键");
+            fragment.setTitle(R.string.game_menu_virtual_controls_title);
             fragment.setGamePadMode(game==null? KeyBoardController.ControllerMode.NONE:game.getVirtualControllerMode());
             fragment.setGameKeyMode(game==null? KeyBoardController.ControllerMode.NONE:game.getVirtualKeyControllerMode());
             fragment.setPrefConfig(game==null?new PreferenceConfiguration():game.prefConfig);
-            fragment.setOnClick(new GameMenuVirtualViewFragment.onClick() {
+            fragment.setListener(new GameMenuVirtualViewFragment.Listener() {
                 @Override
-                public void click(String name, int index) {
+                public void onRefreshRequested() {
                     if(game==null){
                         return;
                     }
@@ -690,7 +690,8 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
                 }
 
                 @Override
-                public void switchModeGamePad(String name, KeyBoardController.ControllerMode mode) {
+                public void onGamepadModeSelected(
+                        KeyBoardController.ControllerMode mode) {
                     if(game==null){
                         return;
                     }
@@ -698,7 +699,8 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
                 }
 
                 @Override
-                public void switchModeGameKey(String name, KeyBoardController.ControllerMode mode) {
+                public void onVirtualKeyModeSelected(
+                        KeyBoardController.ControllerMode mode) {
                     if(game==null){
                         return;
                     }

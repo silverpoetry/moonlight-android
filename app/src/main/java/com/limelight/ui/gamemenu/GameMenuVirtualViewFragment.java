@@ -1,483 +1,541 @@
 package com.limelight.ui.gamemenu;
 
-import android.preference.PreferenceManager;
-import android.text.TextUtils;
-import android.view.View;
-import android.widget.Button;
-import android.widget.ImageButton;
-import android.widget.RadioGroup;
-import android.widget.SeekBar;
-import android.widget.TextView;
-import com.limelight.utils.UiToast;
-
-import com.limelight.R;
-import com.limelight.binding.input.virtual_controller.VirtualController;
-import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
-import com.limelight.preferences.PreferenceConfiguration;
-import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
-import com.limelight.utils.UiHelper;
-
 import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE;
 import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE_VALUE;
 import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader.OSC_PREFERENCE;
 import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader.OSC_PREFERENCE_VALUE;
 
-/**
- * Description
- * Date: 2024-10-20
- * Time: 16:07
- */
-public class GameMenuVirtualViewFragment extends BaseGameMenuDialog implements View.OnClickListener, SeekBar.OnSeekBarChangeListener {
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
+import android.support.annotation.StringRes;
+import android.text.TextUtils;
+import android.view.View;
+import android.widget.Button;
+import android.widget.RadioGroup;
+import android.widget.SeekBar;
+import android.widget.TextView;
+
+import com.limelight.R;
+import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
+import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
+import com.limelight.utils.UiToast;
+
+public class GameMenuVirtualViewFragment
+        extends BaseGameMenuDialog
+        implements View.OnClickListener,
+        SeekBar.OnSeekBarChangeListener {
+    private static final String KEY_KEYBOARD_HEIGHT =
+            "seekbar_keyboard_axi_height";
+    private static final String KEY_KEYBOARD_OPACITY =
+            "seekbar_keyboard_axi_opacity";
+    private static final String KEY_GAMEPAD_SCALE =
+            "virtualGamePadScaleFactor";
+    private static final String KEY_CONTROL_COLOR =
+            "virtual_key_view_normal_color";
+
+    private static final int COLOR_BLACK = 0xF0000000;
+    private static final int COLOR_WHITE = 0xF0FFFFFF;
+    private static final int COLOR_GRAY = 0xFF888888;
+
+    private static final SeekBarValueRange OPACITY_RANGE =
+            new SeekBarValueRange(0, 100);
+    private static final SeekBarValueRange KEYBOARD_HEIGHT_RANGE =
+            new SeekBarValueRange(100, 400);
+    private static final SeekBarValueRange GAMEPAD_SCALE_RANGE =
+            new SeekBarValueRange(20, 180);
+
+    private static final int[] GAMEPAD_SCHEME_BUTTONS = {
+            R.id.btn_game_virtual_game_scheme_1,
+            R.id.btn_game_virtual_game_scheme_2,
+            R.id.btn_game_virtual_game_scheme_3,
+            R.id.btn_game_virtual_game_scheme_4,
+            R.id.btn_game_virtual_game_scheme_5
+    };
+    private static final int[] KEY_SCHEME_BUTTONS = {
+            R.id.btn_game_virtual_key_scheme_1,
+            R.id.btn_game_virtual_key_scheme_2,
+            R.id.btn_game_virtual_key_scheme_3,
+            R.id.btn_game_virtual_key_scheme_4,
+            R.id.btn_game_virtual_key_scheme_5
+    };
+
+    private int titleRes = R.string.game_menu_virtual_controls_title;
+    private PreferenceConfiguration prefConfig =
+            new PreferenceConfiguration();
+    private KeyBoardController.ControllerMode gamePadMode =
+            KeyBoardController.ControllerMode.NONE;
+    private KeyBoardController.ControllerMode gameKeyMode =
+            KeyBoardController.ControllerMode.NONE;
+    private Listener listener;
+
+    private Button keyboardVibrationButton;
+    private Button gamepadVibrationButton;
+    private SeekBar keyboardOpacitySeekBar;
+    private SeekBar keyboardHeightSeekBar;
+    private SeekBar controlOpacitySeekBar;
+    private SeekBar gamepadScaleSeekBar;
+    private TextView keyboardOpacityValue;
+    private TextView keyboardHeightValue;
+    private TextView controlOpacityValue;
+    private TextView gamepadScaleValue;
+    private RadioGroup gamepadModeGroup;
+    private RadioGroup keyModeGroup;
+    private RadioGroup gamepadSchemeGroup;
+    private RadioGroup keySchemeGroup;
+    private RadioGroup controlColorGroup;
+    private String[] gamepadSchemeValues;
+    private String[] keySchemeValues;
+
     @Override
     public int getLayoutRes() {
         return R.layout.dialog_game_menu_virtual_gamepad;
     }
 
-    private ImageButton ibtn_back;
-    private TextView tx_title;
-
-    private String title;
-
-    private Button btn_vibration;
-
-    private Button btn_vibration_gamepad;
-
-    private SeekBar sb_adjust_keyboard_all;
-
-    private SeekBar sb_height_keyboard_all;
-
-    private SeekBar sb_adjust_virtual_gamepad;
-
-    private SeekBar sb_gamepad_scale_factor;
-
-    private TextView tx_gamepad_scale_factor;
-
-    private TextView tx_adjust_keyboard_all;
-
-    private TextView tx_height_keyboard_all;
-
-    private TextView tx_adjust_virtual_gamepad;
-
-    private RadioGroup rg_game_virtual_pad;
-
-    private RadioGroup rg_game_virtual_pad_key;
-
-    private RadioGroup rg_game_virtual_key_scheme;
-
-    private RadioGroup rg_game_virtual_key_color;
-
-    private KeyBoardController.ControllerMode gamePadMode;
-    private KeyBoardController.ControllerMode gameKeyMode;
-
-    private String[] keyValues;
-    private String keyName;
-
-    private String[] keyValuesGamePad;
-    private String keyNameGamePad;
-
-    private RadioGroup rg_game_virtual_game_scheme;
     @Override
-    public void bindView(View v) {
-        super.bindView(v);
-        ibtn_back=v.findViewById(R.id.ibtn_back);
-        tx_title=v.findViewById(R.id.tx_title);
+    public void bindView(View view) {
+        super.bindView(view);
+        bindControls(view);
+        configureSeekBars();
 
-        btn_vibration=v.findViewById(R.id.btn_vibration);
-        btn_vibration_gamepad=v.findViewById(R.id.btn_vibration_gamepad);
-        sb_adjust_keyboard_all=v.findViewById(R.id.sb_adjust_keyboard_all);
-        sb_height_keyboard_all=v.findViewById(R.id.sb_height_keyboard_all);
-        sb_adjust_virtual_gamepad=v.findViewById(R.id.sb_adjust_virtual_gamepad);
+        ((TextView) view.findViewById(R.id.tx_title))
+                .setText(titleRes);
+        ((Button) view.findViewById(R.id.btn_right))
+                .setText(R.string.game_menu_update_configuration);
 
-        tx_adjust_keyboard_all=v.findViewById(R.id.tx_adjust_keyboard_all);
-        tx_height_keyboard_all=v.findViewById(R.id.tx_height_keyboard_all);
-        tx_adjust_virtual_gamepad=v.findViewById(R.id.tx_adjust_virtual_gamepad);
+        initializeModeSelections();
+        initializeSchemeSelections();
+        initializeControlColor();
+        updateVibrationButtons();
+        updateSeekBarValues();
 
-        rg_game_virtual_key_scheme=v.findViewById(R.id.rg_game_virtual_key_scheme);
-        rg_game_virtual_game_scheme=v.findViewById(R.id.rg_game_virtual_game_scheme);
-        rg_game_virtual_pad=v.findViewById(R.id.rg_game_virtual_pad);
-        rg_game_virtual_pad_key=v.findViewById(R.id.rg_game_virtual_key);
+        view.findViewById(R.id.ibtn_back).setOnClickListener(this);
+        view.findViewById(R.id.btn_right).setOnClickListener(this);
+        keyboardVibrationButton.setOnClickListener(this);
+        gamepadVibrationButton.setOnClickListener(this);
+        controlOpacitySeekBar.setOnSeekBarChangeListener(this);
+        keyboardOpacitySeekBar.setOnSeekBarChangeListener(this);
+        keyboardHeightSeekBar.setOnSeekBarChangeListener(this);
+        gamepadScaleSeekBar.setOnSeekBarChangeListener(this);
 
-        rg_game_virtual_key_color=v.findViewById(R.id.rg_game_virtual_key_color);
+        bindModeListeners();
+        bindSchemeListeners();
+        bindColorListener();
+    }
 
-        sb_gamepad_scale_factor=v.findViewById(R.id.sb_gamepad_scale_factor);
-        tx_gamepad_scale_factor=v.findViewById(R.id.tx_gamepad_scale_factor);
+    private void bindControls(View view) {
+        keyboardVibrationButton =
+                view.findViewById(R.id.btn_vibration);
+        gamepadVibrationButton =
+                view.findViewById(R.id.btn_vibration_gamepad);
+        keyboardOpacitySeekBar =
+                view.findViewById(R.id.sb_adjust_keyboard_all);
+        keyboardHeightSeekBar =
+                view.findViewById(R.id.sb_height_keyboard_all);
+        controlOpacitySeekBar =
+                view.findViewById(R.id.sb_adjust_virtual_gamepad);
+        gamepadScaleSeekBar =
+                view.findViewById(R.id.sb_gamepad_scale_factor);
+        keyboardOpacityValue =
+                view.findViewById(R.id.tx_adjust_keyboard_all);
+        keyboardHeightValue =
+                view.findViewById(R.id.tx_height_keyboard_all);
+        controlOpacityValue =
+                view.findViewById(R.id.tx_adjust_virtual_gamepad);
+        gamepadScaleValue =
+                view.findViewById(R.id.tx_gamepad_scale_factor);
+        gamepadModeGroup =
+                view.findViewById(R.id.rg_game_virtual_pad);
+        keyModeGroup =
+                view.findViewById(R.id.rg_game_virtual_key);
+        gamepadSchemeGroup =
+                view.findViewById(R.id.rg_game_virtual_game_scheme);
+        keySchemeGroup =
+                view.findViewById(R.id.rg_game_virtual_key_scheme);
+        controlColorGroup =
+                view.findViewById(R.id.rg_game_virtual_key_color);
+    }
 
-        if(!TextUtils.isEmpty(title)){
-            tx_title.setText(title);
+    private void configureSeekBars() {
+        controlOpacitySeekBar.setMax(
+                OPACITY_RANGE.getProgressMaximum());
+        keyboardOpacitySeekBar.setMax(
+                OPACITY_RANGE.getProgressMaximum());
+        keyboardHeightSeekBar.setMax(
+                KEYBOARD_HEIGHT_RANGE.getProgressMaximum());
+        gamepadScaleSeekBar.setMax(
+                GAMEPAD_SCALE_RANGE.getProgressMaximum());
+    }
+
+    private void initializeModeSelections() {
+        if (gamePadMode ==
+                KeyBoardController.ControllerMode.Active) {
+            gamepadModeGroup.check(
+                    R.id.btn_game_virtual_nomall);
         }
-        initViewData();
-        initViewHeight();
-        initViewAdjust();
-
-        ibtn_back.setOnClickListener(this);
-        btn_vibration.setOnClickListener(this);
-        btn_vibration_gamepad.setOnClickListener(this);
-        v.findViewById(R.id.btn_right).setOnClickListener(this);
-
-        sb_adjust_keyboard_all.setOnSeekBarChangeListener(this);
-        sb_height_keyboard_all.setOnSeekBarChangeListener(this);
-        sb_adjust_virtual_gamepad.setOnSeekBarChangeListener(this);
-        sb_gamepad_scale_factor.setOnSeekBarChangeListener(this);
-
-        switch (gamePadMode){
-            case Active:
-                rg_game_virtual_pad.check(R.id.btn_game_virtual_nomall);
-                break;
-            case MoveButtons:
-                rg_game_virtual_pad.check(R.id.btn_game_virtual_move);
-                break;
-        }
-
-        switch (gameKeyMode){
-            case Active:
-                rg_game_virtual_pad_key.check(R.id.btn_game_virtual_key_nomall);
-                break;
-            case MoveButtons:
-                rg_game_virtual_pad_key.check(R.id.btn_game_virtual_key_move);
-                break;
-        }
-
-        rg_game_virtual_pad.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if(onClick==null){
-                    return;
-                }
-                if(checkedId==R.id.btn_game_virtual_nomall){
-                    onClick.switchModeGamePad("正常模式", KeyBoardController.ControllerMode.Active);
-                    return;
-                }
-                if(checkedId==R.id.btn_game_virtual_move){
-                    onClick.switchModeGamePad("编辑模式", KeyBoardController.ControllerMode.MoveButtons);
-                    UiToast.makeText(getActivity(),"已进入编辑模式，关闭游戏菜单，进行操作！",UiToast.LENGTH_SHORT).show();
-                    return;
-                }
-            }
-        });
-
-        rg_game_virtual_pad_key.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if(onClick==null){
-                    return;
-                }
-                if(checkedId==R.id.btn_game_virtual_key_nomall){
-                    onClick.switchModeGameKey("正常模式", KeyBoardController.ControllerMode.Active);
-                    return;
-                }
-                if(checkedId==R.id.btn_game_virtual_key_move){
-                    onClick.switchModeGameKey("编辑模式", KeyBoardController.ControllerMode.MoveButtons);
-                    UiToast.makeText(getActivity(),"已进入编辑模式，关闭游戏菜单，进行操作！",UiToast.LENGTH_SHORT).show();
-                    return;
-                }
-            }
-        });
-
-        keyValues=getResources().getStringArray(R.array.keyboard_axi_values);
-        keyName = PreferenceManager.getDefaultSharedPreferences(getActivity()).getString(OSC_PREFERENCE, OSC_PREFERENCE_VALUE);
-
-        for (int i = 0; i < keyValues.length; i++) {
-            if(TextUtils.equals(keyName,keyValues[i])){
-                switch (i){
-                    case 0:
-                        rg_game_virtual_key_scheme.check(R.id.btn_game_virtual_key_scheme_1);
-                        break;
-                    case 1:
-                        rg_game_virtual_key_scheme.check(R.id.btn_game_virtual_key_scheme_2);
-                        break;
-                    case 2:
-                        rg_game_virtual_key_scheme.check(R.id.btn_game_virtual_key_scheme_3);
-                        break;
-                    case 3:
-                        rg_game_virtual_key_scheme.check(R.id.btn_game_virtual_key_scheme_4);
-                        break;
-                    case 4:
-                        rg_game_virtual_key_scheme.check(R.id.btn_game_virtual_key_scheme_5);
-                        break;
-                }
-                break;
-            }
-        }
-        rg_game_virtual_key_scheme.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if(checkedId==R.id.btn_game_virtual_key_scheme_1){
-                    keyName=keyValues[0];
-                }
-                if(checkedId==R.id.btn_game_virtual_key_scheme_2){
-                    keyName=keyValues[1];
-                }
-                if(checkedId==R.id.btn_game_virtual_key_scheme_3){
-                    keyName=keyValues[2];
-                }
-                if(checkedId==R.id.btn_game_virtual_key_scheme_4){
-                    keyName=keyValues[3];
-                }
-                if(checkedId==R.id.btn_game_virtual_key_scheme_5){
-                    keyName=keyValues[4];
-                }
-                PreferenceManager.getDefaultSharedPreferences(getActivity())
-                        .edit()
-                        .putString(OSC_PREFERENCE,keyName)
-                        .apply();
-            }
-        });
-
-        //虚拟手柄
-        keyValuesGamePad=getResources().getStringArray(R.array.gamepad_axi_values);
-        keyNameGamePad = PreferenceManager.getDefaultSharedPreferences(getActivity()).getString(OSC_GAMEPAD_PREFERENCE, OSC_GAMEPAD_PREFERENCE_VALUE);
-
-        for (int i = 0; i < keyValuesGamePad.length; i++) {
-            if(TextUtils.equals(keyNameGamePad,keyValuesGamePad[i])){
-                switch (i){
-                    case 0:
-                        rg_game_virtual_game_scheme.check(R.id.btn_game_virtual_game_scheme_1);
-                        break;
-                    case 1:
-                        rg_game_virtual_game_scheme.check(R.id.btn_game_virtual_game_scheme_2);
-                        break;
-                    case 2:
-                        rg_game_virtual_game_scheme.check(R.id.btn_game_virtual_game_scheme_3);
-                        break;
-                    case 3:
-                        rg_game_virtual_game_scheme.check(R.id.btn_game_virtual_game_scheme_4);
-                        break;
-                    case 4:
-                        rg_game_virtual_game_scheme.check(R.id.btn_game_virtual_game_scheme_5);
-                        break;
-                }
-                break;
-            }
-        }
-        rg_game_virtual_game_scheme.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if(checkedId==R.id.btn_game_virtual_game_scheme_1){
-                    keyNameGamePad=keyValuesGamePad[0];
-                }
-                if(checkedId==R.id.btn_game_virtual_game_scheme_2){
-                    keyNameGamePad=keyValuesGamePad[1];
-                }
-                if(checkedId==R.id.btn_game_virtual_game_scheme_3){
-                    keyNameGamePad=keyValuesGamePad[2];
-                }
-                if(checkedId==R.id.btn_game_virtual_game_scheme_4){
-                    keyNameGamePad=keyValuesGamePad[3];
-                }
-                if(checkedId==R.id.btn_game_virtual_game_scheme_5){
-                    keyNameGamePad=keyValuesGamePad[4];
-                }
-                PreferenceManager.getDefaultSharedPreferences(getActivity())
-                        .edit()
-                        .putString(OSC_GAMEPAD_PREFERENCE,keyNameGamePad)
-                        .apply();
-            }
-        });
-
-
-        switch (PreferenceConfiguration.readPreferences(getActivity()).virtualkeyViewNormalColor){
-            case 0xF0000000:
-                rg_game_virtual_key_color.check(R.id.btn_game_virtual_key_color_1);
-                break;
-            case 0xF0FFFFFF:
-                rg_game_virtual_key_color.check(R.id.btn_game_virtual_key_color_2);
-                break;
-            case 0xFF888888:
-                rg_game_virtual_key_color.check(R.id.btn_game_virtual_key_color_3);
-                break;
+        else if (gamePadMode ==
+                KeyBoardController.ControllerMode.MoveButtons) {
+            gamepadModeGroup.check(
+                    R.id.btn_game_virtual_move);
         }
 
-        rg_game_virtual_key_color.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                int value=0xFF888888;
-                if(checkedId==R.id.btn_game_virtual_key_color_1){
-                    value=0xF0000000;
-                }
-                if(checkedId==R.id.btn_game_virtual_key_color_2){
-                    value=0xF0FFFFFF;
-                }
-                PreferenceManager.getDefaultSharedPreferences(getActivity())
-                        .edit()
-                        .putInt("virtual_key_view_normal_color",value)
-                        .apply();
+        if (gameKeyMode ==
+                KeyBoardController.ControllerMode.Active) {
+            keyModeGroup.check(
+                    R.id.btn_game_virtual_key_nomall);
+        }
+        else if (gameKeyMode ==
+                KeyBoardController.ControllerMode.MoveButtons) {
+            keyModeGroup.check(
+                    R.id.btn_game_virtual_key_move);
+        }
+    }
+
+    private void bindModeListeners() {
+        gamepadModeGroup.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    if (listener == null) {
+                        return;
+                    }
+                    if (checkedId ==
+                            R.id.btn_game_virtual_nomall) {
+                        listener.onGamepadModeSelected(
+                                KeyBoardController.ControllerMode.Active);
+                    }
+                    else if (checkedId ==
+                            R.id.btn_game_virtual_move) {
+                        listener.onGamepadModeSelected(
+                                KeyBoardController.ControllerMode.MoveButtons);
+                        showEditModeToast();
+                    }
+                });
+
+        keyModeGroup.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    if (listener == null) {
+                        return;
+                    }
+                    if (checkedId ==
+                            R.id.btn_game_virtual_key_nomall) {
+                        listener.onVirtualKeyModeSelected(
+                                KeyBoardController.ControllerMode.Active);
+                    }
+                    else if (checkedId ==
+                            R.id.btn_game_virtual_key_move) {
+                        listener.onVirtualKeyModeSelected(
+                                KeyBoardController.ControllerMode.MoveButtons);
+                        showEditModeToast();
+                    }
+                });
+    }
+
+    private void showEditModeToast() {
+        UiToast.makeText(
+                getActivity(),
+                R.string.game_menu_edit_mode_entered,
+                UiToast.LENGTH_SHORT).show();
+    }
+
+    private void initializeSchemeSelections() {
+        keySchemeValues =
+                getResources().getStringArray(
+                        R.array.keyboard_axi_values);
+        gamepadSchemeValues =
+                getResources().getStringArray(
+                        R.array.gamepad_axi_values);
+
+        String selectedKeyScheme = preferences().getString(
+                OSC_PREFERENCE, OSC_PREFERENCE_VALUE);
+        checkSavedScheme(
+                keySchemeGroup,
+                KEY_SCHEME_BUTTONS,
+                keySchemeValues,
+                selectedKeyScheme);
+
+        String selectedGamepadScheme = preferences().getString(
+                OSC_GAMEPAD_PREFERENCE,
+                OSC_GAMEPAD_PREFERENCE_VALUE);
+        checkSavedScheme(
+                gamepadSchemeGroup,
+                GAMEPAD_SCHEME_BUTTONS,
+                gamepadSchemeValues,
+                selectedGamepadScheme);
+    }
+
+    private static void checkSavedScheme(
+            RadioGroup group,
+            int[] buttonIds,
+            String[] values,
+            String selectedValue) {
+        int count = Math.min(buttonIds.length, values.length);
+        for (int index = 0; index < count; index++) {
+            if (TextUtils.equals(selectedValue, values[index])) {
+                group.check(buttonIds[index]);
+                return;
             }
-        });
-
-//        switch (PreferenceConfiguration.readPreferences(getActivity()).gamepad_skin){
-//            case 0:
-//                rg_game_pad_skin.check(R.id.btn_game_pad_skin_1);
-//                break;
-//            case 1:
-//                rg_game_pad_skin.check(R.id.btn_game_pad_skin_2);
-//                break;
-//            case 2:
-//                rg_game_pad_skin.check(R.id.btn_game_pad_skin_3);
-//                break;
-//        }
-//
-//        rg_game_pad_skin.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-//            @Override
-//            public void onCheckedChanged(RadioGroup group, int checkedId) {
-//                int value=0;
-//                if(checkedId==R.id.btn_game_pad_skin_2){
-//                    value=1;
-//                }
-//                if(checkedId==R.id.btn_game_pad_skin_3){
-//                    value=2;
-//                }
-//                if(prefConfig!=null){
-//                    prefConfig.gamepad_skin=value;
-//                }
-//                PreferenceManager.getDefaultSharedPreferences(getActivity())
-//                        .edit()
-//                        .putInt("onscreen_game_pad_skin",value)
-//                        .commit();
-//                if(onClick!=null){
-//                    onClick.click("刷新",0);
-//                }
-//            }
-//        });
+        }
     }
 
-    @Override
-    public float getDimAmount() {
-        return super.getDimAmount();
+    private void bindSchemeListeners() {
+        keySchemeGroup.setOnCheckedChangeListener(
+                (group, checkedId) -> saveSelectedScheme(
+                        OSC_PREFERENCE,
+                        KEY_SCHEME_BUTTONS,
+                        keySchemeValues,
+                        checkedId));
+        gamepadSchemeGroup.setOnCheckedChangeListener(
+                (group, checkedId) -> saveSelectedScheme(
+                        OSC_GAMEPAD_PREFERENCE,
+                        GAMEPAD_SCHEME_BUTTONS,
+                        gamepadSchemeValues,
+                        checkedId));
     }
 
-    public void setTitle(String title) {
-        this.title = title;
+    private void saveSelectedScheme(
+            String preferenceKey,
+            int[] buttonIds,
+            String[] values,
+            int checkedId) {
+        int index = indexOf(buttonIds, checkedId);
+        if (index < 0 || index >= values.length) {
+            return;
+        }
+        preferences().edit()
+                .putString(preferenceKey, values[index])
+                .apply();
     }
 
-    public void setGameKeyMode(KeyBoardController.ControllerMode gameKeyMode) {
-        this.gameKeyMode = gameKeyMode;
+    private static int indexOf(int[] values, int target) {
+        for (int index = 0; index < values.length; index++) {
+            if (values[index] == target) {
+                return index;
+            }
+        }
+        return -1;
     }
 
-    public void setGamePadMode(KeyBoardController.ControllerMode gamePadMode) {
-        this.gamePadMode = gamePadMode;
+    private void initializeControlColor() {
+        switch (prefConfig.virtualkeyViewNormalColor) {
+            case COLOR_BLACK:
+                controlColorGroup.check(
+                        R.id.btn_game_virtual_key_color_1);
+                break;
+            case COLOR_WHITE:
+                controlColorGroup.check(
+                        R.id.btn_game_virtual_key_color_2);
+                break;
+            default:
+                controlColorGroup.check(
+                        R.id.btn_game_virtual_key_color_3);
+                break;
+        }
     }
 
-    private void initViewData(){
-        btn_vibration.setBackgroundResource(prefConfig.enableKeyboardVibrate?R.drawable.ic_game_menu_btn_green_selector:R.drawable.ic_game_menu_btn_selector);
-        btn_vibration_gamepad.setBackgroundResource(prefConfig.vibrateOsc?R.drawable.ic_game_menu_btn_green_selector:R.drawable.ic_game_menu_btn_selector);
+    private void bindColorListener() {
+        controlColorGroup.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    int color = COLOR_GRAY;
+                    if (checkedId ==
+                            R.id.btn_game_virtual_key_color_1) {
+                        color = COLOR_BLACK;
+                    }
+                    else if (checkedId ==
+                            R.id.btn_game_virtual_key_color_2) {
+                        color = COLOR_WHITE;
+                    }
+                    prefConfig.virtualkeyViewNormalColor = color;
+                    preferences().edit()
+                            .putInt(KEY_CONTROL_COLOR, color)
+                            .apply();
+                });
     }
 
-    private void initViewHeight(){
-        sb_height_keyboard_all.setProgress(prefConfig.oscKeyboardHeight);
-        tx_height_keyboard_all.setText("高度："+prefConfig.oscKeyboardHeight);
-
+    private void updateVibrationButtons() {
+        keyboardVibrationButton.setBackgroundResource(
+                prefConfig.enableKeyboardVibrate ?
+                        R.drawable.ic_game_menu_btn_green_selector :
+                        R.drawable.ic_game_menu_btn_selector);
+        gamepadVibrationButton.setBackgroundResource(
+                prefConfig.vibrateOsc ?
+                        R.drawable.ic_game_menu_btn_green_selector :
+                        R.drawable.ic_game_menu_btn_selector);
     }
 
-    private void initViewAdjust(){
-        sb_adjust_virtual_gamepad.setProgress(prefConfig.oscOpacity);
-        tx_adjust_virtual_gamepad.setText("透明度："+prefConfig.oscOpacity+"%");
+    private void updateSeekBarValues() {
+        setSeekBarValue(
+                controlOpacitySeekBar,
+                OPACITY_RANGE,
+                prefConfig.oscOpacity);
+        setSeekBarValue(
+                keyboardOpacitySeekBar,
+                OPACITY_RANGE,
+                prefConfig.oscKeyboardOpacity);
+        setSeekBarValue(
+                keyboardHeightSeekBar,
+                KEYBOARD_HEIGHT_RANGE,
+                prefConfig.oscKeyboardHeight);
+        setSeekBarValue(
+                gamepadScaleSeekBar,
+                GAMEPAD_SCALE_RANGE,
+                prefConfig.virtualGamePadScaleFactor);
 
-        sb_adjust_keyboard_all.setProgress(prefConfig.oscKeyboardOpacity);
-
-        tx_adjust_keyboard_all.setText("透明度："+prefConfig.oscKeyboardOpacity+"%");
-
-        sb_gamepad_scale_factor.setProgress(prefConfig.virtualGamePadScaleFactor);
-        tx_gamepad_scale_factor.setText("缩放："+prefConfig.virtualGamePadScaleFactor+"%");
+        controlOpacityValue.setText(getString(
+                R.string.game_menu_opacity_format,
+                OPACITY_RANGE.progressToValue(
+                        controlOpacitySeekBar.getProgress())));
+        keyboardOpacityValue.setText(getString(
+                R.string.game_menu_opacity_format,
+                OPACITY_RANGE.progressToValue(
+                        keyboardOpacitySeekBar.getProgress())));
+        keyboardHeightValue.setText(getString(
+                R.string.game_menu_height_format,
+                KEYBOARD_HEIGHT_RANGE.progressToValue(
+                        keyboardHeightSeekBar.getProgress())));
+        gamepadScaleValue.setText(getString(
+                R.string.game_menu_scale_format,
+                GAMEPAD_SCALE_RANGE.progressToValue(
+                        gamepadScaleSeekBar.getProgress())));
     }
 
+    private static void setSeekBarValue(
+            SeekBar seekBar,
+            SeekBarValueRange range,
+            int value) {
+        seekBar.setProgress(range.valueToProgress(value));
+    }
 
     @Override
-    public void onClick(View v) {
-        if(v.getId()==R.id.ibtn_back){
+    public void onClick(View view) {
+        int viewId = view.getId();
+        if (viewId == R.id.ibtn_back) {
             dismiss();
             return;
         }
-
-        if(v.getId()==R.id.btn_right){
-            if(onClick!=null){
-                onClick.click("刷新",0);
+        if (viewId == R.id.btn_right) {
+            if (listener != null) {
+                listener.onRefreshRequested();
             }
             return;
         }
-
-        if(v.getId()==R.id.btn_vibration){
-            prefConfig.enableKeyboardVibrate=!prefConfig.enableKeyboardVibrate;
-            initViewData();
-            PreferenceManager.getDefaultSharedPreferences(getActivity())
-                    .edit()
-                    .putBoolean(PreferenceConfiguration.CHECKBOX_ENABLE_KEYBOARD_VIBRATE,prefConfig.enableKeyboardVibrate)
+        if (viewId == R.id.btn_vibration) {
+            prefConfig.enableKeyboardVibrate =
+                    !prefConfig.enableKeyboardVibrate;
+            preferences().edit()
+                    .putBoolean(
+                            PreferenceConfiguration
+                                    .CHECKBOX_ENABLE_KEYBOARD_VIBRATE,
+                            prefConfig.enableKeyboardVibrate)
                     .apply();
+            updateVibrationButtons();
             return;
         }
-        if(v.getId()==R.id.btn_vibration_gamepad){
-            prefConfig.vibrateOsc=!prefConfig.vibrateOsc;
-            initViewData();
-            PreferenceManager.getDefaultSharedPreferences(getActivity())
-                    .edit()
-                    .putBoolean(PreferenceConfiguration.VIBRATE_OSC_PREF_STRING,prefConfig.vibrateOsc)
+        if (viewId == R.id.btn_vibration_gamepad) {
+            prefConfig.vibrateOsc = !prefConfig.vibrateOsc;
+            preferences().edit()
+                    .putBoolean(
+                            PreferenceConfiguration.VIBRATE_OSC_PREF_STRING,
+                            prefConfig.vibrateOsc)
                     .apply();
-            return;
+            updateVibrationButtons();
         }
-    }
-
-    private PreferenceConfiguration prefConfig;
-
-    public void setPrefConfig(PreferenceConfiguration prefConfig) {
-        this.prefConfig = prefConfig;
     }
 
     @Override
-    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-        if(seekBar==sb_height_keyboard_all){
-            prefConfig.oscKeyboardHeight=progress;
-            PreferenceManager.getDefaultSharedPreferences(getActivity())
-                    .edit()
-                    .putInt("seekbar_keyboard_axi_height",progress)
-                    .apply();
-            initViewHeight();
-        }
-        if(seekBar==sb_adjust_keyboard_all){
-            prefConfig.oscKeyboardOpacity=progress;
-            PreferenceManager.getDefaultSharedPreferences(getActivity())
-                    .edit()
-                    .putInt("seekbar_keyboard_axi_opacity",progress)
-                    .apply();
-            initViewAdjust();
-        }
-        if(seekBar==sb_adjust_virtual_gamepad){
-            prefConfig.oscOpacity=progress;
-            PreferenceManager.getDefaultSharedPreferences(getActivity())
-                    .edit()
-                    .putInt(PreferenceConfiguration.OSC_OPACITY_PREF_STRING,progress)
-                    .apply();
-            initViewAdjust();
+    public void onProgressChanged(
+            SeekBar seekBar,
+            int progress,
+            boolean fromUser) {
+        if (!fromUser) {
+            return;
         }
 
-        if(seekBar==sb_gamepad_scale_factor){
-            prefConfig.virtualGamePadScaleFactor=progress;
-            PreferenceManager.getDefaultSharedPreferences(getActivity())
-                    .edit()
-                    .putInt("virtualGamePadScaleFactor",progress)
+        if (seekBar == controlOpacitySeekBar) {
+            int value = OPACITY_RANGE.progressToValue(progress);
+            prefConfig.oscOpacity = value;
+            preferences().edit()
+                    .putInt(
+                            PreferenceConfiguration.OSC_OPACITY_PREF_STRING,
+                            value)
                     .apply();
-            initViewAdjust();
+            controlOpacityValue.setText(getString(
+                    R.string.game_menu_opacity_format, value));
         }
-
+        else if (seekBar == keyboardOpacitySeekBar) {
+            int value = OPACITY_RANGE.progressToValue(progress);
+            prefConfig.oscKeyboardOpacity = value;
+            preferences().edit()
+                    .putInt(KEY_KEYBOARD_OPACITY, value)
+                    .apply();
+            keyboardOpacityValue.setText(getString(
+                    R.string.game_menu_opacity_format, value));
+        }
+        else if (seekBar == keyboardHeightSeekBar) {
+            int value =
+                    KEYBOARD_HEIGHT_RANGE.progressToValue(progress);
+            prefConfig.oscKeyboardHeight = value;
+            preferences().edit()
+                    .putInt(KEY_KEYBOARD_HEIGHT, value)
+                    .apply();
+            keyboardHeightValue.setText(getString(
+                    R.string.game_menu_height_format, value));
+        }
+        else if (seekBar == gamepadScaleSeekBar) {
+            int value =
+                    GAMEPAD_SCALE_RANGE.progressToValue(progress);
+            prefConfig.virtualGamePadScaleFactor = value;
+            preferences().edit()
+                    .putInt(KEY_GAMEPAD_SCALE, value)
+                    .apply();
+            gamepadScaleValue.setText(getString(
+                    R.string.game_menu_scale_format, value));
+        }
     }
 
     @Override
     public void onStartTrackingTouch(SeekBar seekBar) {
-
     }
 
     @Override
     public void onStopTrackingTouch(SeekBar seekBar) {
-
     }
 
-    private onClick onClick;
-
-    public interface onClick{
-        void click(String name,int index);
-        void switchModeGamePad(String name, KeyBoardController.ControllerMode mode);
-        void switchModeGameKey(String name, KeyBoardController.ControllerMode mode);
+    private SharedPreferences preferences() {
+        return PreferenceManager.getDefaultSharedPreferences(
+                getActivity());
     }
 
-    public void setOnClick(onClick onClick) {
-        this.onClick = onClick;
+    public void setTitle(@StringRes int titleRes) {
+        this.titleRes = titleRes;
+    }
+
+    public void setGameKeyMode(
+            KeyBoardController.ControllerMode gameKeyMode) {
+        this.gameKeyMode = gameKeyMode;
+    }
+
+    public void setGamePadMode(
+            KeyBoardController.ControllerMode gamePadMode) {
+        this.gamePadMode = gamePadMode;
+    }
+
+    public void setPrefConfig(
+            PreferenceConfiguration prefConfig) {
+        if (prefConfig != null) {
+            this.prefConfig = prefConfig;
+        }
+    }
+
+    public void setListener(Listener listener) {
+        this.listener = listener;
+    }
+
+    public interface Listener {
+        void onRefreshRequested();
+
+        void onGamepadModeSelected(
+                KeyBoardController.ControllerMode mode);
+
+        void onVirtualKeyModeSelected(
+                KeyBoardController.ControllerMode mode);
     }
 }
