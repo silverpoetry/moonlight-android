@@ -1,10 +1,10 @@
 package com.limelight.binding.input.touch;
 
+import android.os.Build;
 import android.view.HapticFeedbackConstants;
 import android.view.View;
 
-// Uses Android's standard long-press haptic, matching the feedback produced by
-// normal long-click UI elements such as the host card long-press action.
+// Keeps remote mouse-button haptics consistent across all touchscreen input modes.
 final class TouchpadHapticFeedback {
     private final View targetView;
 
@@ -12,7 +12,18 @@ final class TouchpadHapticFeedback {
         this.targetView = targetView;
     }
 
-    void performPhysicalClick() {
+    void performButtonPress() {
+        targetView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+    }
+
+    void performButtonRelease() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 &&
+                targetView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY_RELEASE)) {
+            return;
+        }
+
+        // Older Android versions and some vendor implementations don't expose a
+        // dedicated release effect. Keep release feedback observable there too.
         targetView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
     }
 }

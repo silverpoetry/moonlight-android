@@ -33,6 +33,7 @@ public class AbsoluteTouchSwitchContext implements TouchContext {
                 conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_RIGHT);
             }
             conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_LEFT);
+            hapticFeedback.performButtonPress();
         }
     };
 
@@ -48,6 +49,7 @@ public class AbsoluteTouchSwitchContext implements TouchContext {
     private final int actionIndex;
     private final View targetView;
     private final Handler handler;
+    private final TouchpadHapticFeedback hapticFeedback;
 
     private final Runnable leftButtonUpRunnable = new Runnable() {
         @Override
@@ -73,6 +75,7 @@ public class AbsoluteTouchSwitchContext implements TouchContext {
         this.actionIndex = actionIndex;
         this.targetView = view;
         this.handler = new Handler(Looper.getMainLooper());
+        this.hapticFeedback = new TouchpadHapticFeedback(view);
     }
 
     @Override
@@ -133,6 +136,7 @@ public class AbsoluteTouchSwitchContext implements TouchContext {
             // Raise the mouse buttons that we currently have down
             if (confirmedLongPress) {
                 conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
+                hapticFeedback.performButtonRelease();
             }
             else if (confirmedTap) {
                 conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_RIGHT);

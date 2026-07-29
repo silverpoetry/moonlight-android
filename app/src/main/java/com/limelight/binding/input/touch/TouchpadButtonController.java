@@ -86,32 +86,36 @@ final class TouchpadButtonController {
         return isButtonDown(MouseButtonPacket.BUTTON_LEFT);
     }
 
-    void pressPrimaryButton() {
-        pressButton(MouseButtonPacket.BUTTON_LEFT);
+    boolean pressPrimaryButton() {
+        return pressButton(MouseButtonPacket.BUTTON_LEFT);
     }
 
-    void releasePrimaryButton() {
-        releaseButton(MouseButtonPacket.BUTTON_LEFT);
+    boolean releasePrimaryButton() {
+        return releaseButton(MouseButtonPacket.BUTTON_LEFT);
     }
 
     boolean isButtonDown(byte buttonIndex) {
         return heldButtonDown[getPendingButtonIndex(buttonIndex)];
     }
 
-    void pressButton(byte buttonIndex) {
+    boolean pressButton(byte buttonIndex) {
         int index = getPendingButtonIndex(buttonIndex);
         if (!heldButtonDown[index]) {
             conn.sendMouseButtonDown(buttonIndex);
             heldButtonDown[index] = true;
+            return true;
         }
+        return false;
     }
 
-    void releaseButton(byte buttonIndex) {
+    boolean releaseButton(byte buttonIndex) {
         int index = getPendingButtonIndex(buttonIndex);
         if (heldButtonDown[index]) {
             conn.sendMouseButtonUp(buttonIndex);
             heldButtonDown[index] = false;
+            return true;
         }
+        return false;
     }
 
     void sendTapClick(byte buttonIndex) {

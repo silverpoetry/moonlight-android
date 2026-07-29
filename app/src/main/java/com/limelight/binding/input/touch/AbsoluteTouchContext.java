@@ -19,6 +19,14 @@ public class AbsoluteTouchContext implements TouchContext {
     private boolean cancelled;
     private boolean confirmedLongPress;
     private boolean confirmedTap;
+    private boolean longPressButtonDown;
+
+    private final Runnable longPressButtonUpRunnable = new Runnable() {
+        @Override
+        public void run() {
+            releaseLongPressButton(true);
+        }
+    };
 
     private final Runnable longPressRunnable = new Runnable() {
         @Override
@@ -30,12 +38,9 @@ public class AbsoluteTouchContext implements TouchContext {
 
             updatePosition(lastTouchDownX, lastTouchDownY);
             conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_RIGHT);
-            handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_RIGHT);
-                }
-            }, 100);
+            longPressButtonDown = true;
+            hapticFeedback.performButtonPress();
+            handler.postDelayed(longPressButtonUpRunnable, 100);
         }
     };
 
@@ -43,6 +48,7 @@ public class AbsoluteTouchContext implements TouchContext {
     private final int actionIndex;
     private final View targetView;
     private final Handler handler;
+    private final TouchpadHapticFeedback hapticFeedback;
 
     private final Runnable leftButtonUpRunnable = new Runnable() {
         @Override
@@ -68,6 +74,7 @@ public class AbsoluteTouchContext implements TouchContext {
         this.actionIndex = actionIndex;
         this.targetView = view;
         this.handler = new Handler(Looper.getMainLooper());
+        this.hapticFeedback = new TouchpadHapticFeedback(view);
     }
 
     @Override
@@ -149,6 +156,19 @@ public class AbsoluteTouchContext implements TouchContext {
         handler.removeCallbacks(longPressRunnable);
     }
 
+    private boolean releaseLongPressButton(boolean performHapticFeedback) {
+        if (!longPressButtonDown) {
+            return false;
+        }
+
+        conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_RIGHT);
+        longPressButtonDown = false;
+        if (performHapticFeedback) {
+            hapticFeedback.performButtonRelease();
+        }
+        return true;
+    }
+
     private void tapConfirmed() {
         if (confirmedTap || confirmedLongPress) {
             return;
@@ -204,6 +224,7 @@ public class AbsoluteTouchContext implements TouchContext {
 
         cancelLongPressTimer();
         handler.removeCallbacksAndMessages(null);
+        releaseLongPressButton(false);
 
         if (!confirmedLongPress && confirmedTap) {
             conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);

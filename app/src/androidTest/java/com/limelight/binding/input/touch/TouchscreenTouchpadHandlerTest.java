@@ -1,6 +1,7 @@
 package com.limelight.binding.input.touch;
 
 import android.content.Context;
+import android.os.SystemClock;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.runner.AndroidJUnit4;
 import android.view.InputDevice;
@@ -162,6 +163,99 @@ public final class TouchscreenTouchpadHandlerTest {
         assertEquals(2, connection.frames.get(2).contactCount);
     }
 
+    @Test
+    public void forcePressUsesNativeTouchpadButtonStateForSameContact() {
+        prefConfig.absoluteMouseMode = true;
+        TouchscreenTouchpadHandler handler = createHandler();
+        TouchpadMotionSender sharedMotionSender =
+                new TouchpadMotionSender(connection, 1_280, 720,
+                        eventView, prefConfig);
+        RelativeTouchContext primaryTouchContext =
+                new RelativeTouchContext(connection, 0, 1_280, 720,
+                        eventView, prefConfig, new TouchpadGestureState(),
+                        sharedMotionSender);
+        primaryTouchContext.setNativeTouchpadPressHandlingEnabled(true);
+        final int[] ownershipTransitions = {0};
+        handler.setNativeGestureListener(() -> {
+            ownershipTransitions[0]++;
+            primaryTouchContext.cancelTouch();
+            primaryTouchContext.setPointerCount(0);
+        });
+        handler.configureNativePressHandling(
+                true, true, sharedMotionSender);
+
+        assertFalse(handler.handleMotionEvent(eventView,
+                event(0, MotionEvent.ACTION_DOWN, 0, 100, 100)));
+        primaryTouchContext.setPointerCount(1);
+        primaryTouchContext.touchDownEvent(100, 100,
+                DOWN_TIME_MS, true);
+        assertTrue(handler.beginForcePress(0, 1));
+
+        assertEquals(1, ownershipTransitions[0]);
+        assertEquals(2, connection.frames.size());
+        assertEquals(MoonBridge.LI_TOUCH_EVENT_DOWN,
+                connection.frames.get(0).eventTypes[0]);
+        assertEquals(0, connection.frames.get(0).buttonState);
+        assertEquals(MoonBridge.LI_TOUCH_EVENT_BUTTON_ONLY,
+                connection.frames.get(1).eventTypes[0]);
+        assertEquals(MoonBridge.LI_TOUCHPAD_BUTTON_PRIMARY,
+                connection.frames.get(1).buttonState);
+
+        assertTrue(handler.handleMotionEvent(eventView,
+                event(10, MotionEvent.ACTION_MOVE, 0, 140, 120)));
+        assertEquals(MoonBridge.LI_TOUCH_EVENT_BUTTON_ONLY,
+                connection.frames.get(2).eventTypes[0]);
+        assertEquals(MoonBridge.LI_TOUCHPAD_BUTTON_PRIMARY,
+                connection.frames.get(2).buttonState);
+        assertTrue(connection.mouseMovePackets > 0);
+        assertTrue(connection.absoluteMouseMovePackets > 0);
+        assertEquals(0, connection.relativeMouseMovePackets);
+        assertEquals(0, connection.mouseButtonPackets);
+        assertEquals(connection.frames.get(0).x[0],
+                connection.frames.get(2).x[0], 0.0f);
+        assertEquals(connection.frames.get(0).y[0],
+                connection.frames.get(2).y[0], 0.0f);
+
+        assertTrue(handler.endForcePress(0, true));
+        assertEquals(MoonBridge.LI_TOUCH_EVENT_BUTTON_ONLY,
+                connection.frames.get(3).eventTypes[0]);
+        assertEquals(0, connection.frames.get(3).buttonState);
+
+        assertTrue(handler.handleMotionEvent(eventView,
+                event(20, MotionEvent.ACTION_UP, 0, 140, 120)));
+        assertEquals(MoonBridge.LI_TOUCH_EVENT_UP,
+                connection.frames.get(4).eventTypes[0]);
+        assertEquals(0, connection.frames.get(4).buttonState);
+        assertEquals(connection.frames.get(0).x[0],
+                connection.frames.get(4).x[0], 0.0f);
+        assertEquals(connection.frames.get(0).y[0],
+                connection.frames.get(4).y[0], 0.0f);
+        assertFalse(handler.isHandlingGesture());
+    }
+
+    @Test
+    public void stationaryLongPressPromotesContactWithoutMouseButtonPackets() {
+        TouchscreenTouchpadHandler handler = createHandler();
+        handler.configureNativePressHandling(
+                true, false,
+                new TouchpadMotionSender(connection, 1_280, 720,
+                        eventView, prefConfig));
+
+        assertFalse(handler.handleMotionEvent(eventView,
+                event(0, MotionEvent.ACTION_DOWN, 0, 100, 100)));
+        SystemClock.sleep(RelativeTouchContext.PHYSICAL_LONG_PRESS_MS + 100);
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
+        assertEquals(2, connection.frames.size());
+        assertEquals(MoonBridge.LI_TOUCH_EVENT_DOWN,
+                connection.frames.get(0).eventTypes[0]);
+        assertEquals(MoonBridge.LI_TOUCH_EVENT_BUTTON_ONLY,
+                connection.frames.get(1).eventTypes[0]);
+        assertEquals(MoonBridge.LI_TOUCHPAD_BUTTON_PRIMARY,
+                connection.frames.get(1).buttonState);
+        assertEquals(0, connection.mouseButtonPackets);
+    }
+
     private TouchscreenTouchpadHandler createHandler() {
         return new TouchscreenTouchpadHandler(connection, eventView,
                 1_280, 720, prefConfig);
@@ -206,16 +300,26 @@ public final class TouchscreenTouchpadHandlerTest {
     private static final class Frame {
         final int contactCount;
         final byte[] eventTypes;
+        final float[] x;
+        final float[] y;
+        final byte buttonState;
 
-        Frame(int contactCount, byte[] eventTypes) {
+        Frame(int contactCount, byte[] eventTypes,
+              float[] x, float[] y, byte buttonState) {
             this.contactCount = contactCount;
             this.eventTypes = eventTypes;
+            this.x = x;
+            this.y = y;
+            this.buttonState = buttonState;
         }
     }
 
     private static final class FakeConnection extends NvConnection {
         final List<Frame> frames = new ArrayList<>();
         int mouseMovePackets;
+        int relativeMouseMovePackets;
+        int absoluteMouseMovePackets;
+        int mouseButtonPackets;
 
         FakeConnection(Context context) {
             super(context, new ComputerDetails.AddressTuple("127.0.0.1", 47_989),
@@ -234,7 +338,12 @@ public final class TouchscreenTouchpadHandlerTest {
                                           byte buttonState) {
             byte[] copiedEventTypes = new byte[contactCount];
             System.arraycopy(eventTypes, 0, copiedEventTypes, 0, contactCount);
-            frames.add(new Frame(contactCount, copiedEventTypes));
+            float[] copiedX = new float[contactCount];
+            float[] copiedY = new float[contactCount];
+            System.arraycopy(x, 0, copiedX, 0, contactCount);
+            System.arraycopy(y, 0, copiedY, 0, contactCount);
+            frames.add(new Frame(contactCount, copiedEventTypes,
+                    copiedX, copiedY, buttonState));
             return 0;
         }
 
@@ -250,6 +359,7 @@ public final class TouchscreenTouchpadHandlerTest {
         @Override
         public void sendMouseMove(short deltaX, short deltaY) {
             mouseMovePackets++;
+            relativeMouseMovePackets++;
         }
 
         @Override
@@ -257,6 +367,17 @@ public final class TouchscreenTouchpadHandlerTest {
                                                  short referenceWidth,
                                                  short referenceHeight) {
             mouseMovePackets++;
+            absoluteMouseMovePackets++;
+        }
+
+        @Override
+        public void sendMouseButtonDown(byte mouseButton) {
+            mouseButtonPackets++;
+        }
+
+        @Override
+        public void sendMouseButtonUp(byte mouseButton) {
+            mouseButtonPackets++;
         }
     }
 }

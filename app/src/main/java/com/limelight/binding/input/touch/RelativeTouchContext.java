@@ -8,6 +8,8 @@ import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.preferences.PreferenceConfiguration;
 
+import java.util.Objects;
+
 public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Listener,
         TouchpadButtonController.CancellationProvider {
     private int lastTouchX = 0;
@@ -39,7 +41,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     private final TouchpadDragPrimer dragPrimer;
     private final TouchpadButtonController buttonController;
     private final TouchpadHapticFeedback hapticFeedback;
-    private boolean barometerForcePressEnabled;
+    private boolean nativeTouchpadPressHandlingEnabled;
 
     private final Runnable primaryClickHoldRunnable = new Runnable() {
         @Override
@@ -65,7 +67,8 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     private final Runnable primaryLongPressRunnable = new Runnable() {
         @Override
         public void run() {
-            if (!cancelled && primaryPressActive && !confirmedMove &&
+            if (!nativeTouchpadPressHandlingEnabled &&
+                    !cancelled && primaryPressActive && !confirmedMove &&
                     pointerCount == 1 && !doubleTapCandidate) {
                 beginPrimaryLongPress();
             }
@@ -84,10 +87,12 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     private final Runnable secondaryButtonHoldRunnable = new Runnable() {
         @Override
         public void run() {
-            if (!cancelled && actionIndex == 0 && pointerCount == 2 &&
+            if (!nativeTouchpadPressHandlingEnabled &&
+                    !cancelled && actionIndex == 0 && pointerCount == 2 &&
                     gestureState.beginSecondaryButtonHold()) {
-                buttonController.pressButton(MouseButtonPacket.BUTTON_RIGHT);
-                hapticFeedback.performPhysicalClick();
+                if (buttonController.pressButton(MouseButtonPacket.BUTTON_RIGHT)) {
+                    hapticFeedback.performButtonPress();
+                }
             }
         }
     };
@@ -115,19 +120,33 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
                                 View view, PreferenceConfiguration prefConfig,
                                 TouchpadGestureState gestureState)
     {
+        this(conn, actionIndex, referenceWidth, referenceHeight, view,
+                prefConfig, gestureState,
+                new TouchpadMotionSender(conn, referenceWidth,
+                        referenceHeight, view, prefConfig));
+    }
+
+    public RelativeTouchContext(NvConnection conn, int actionIndex,
+                                int referenceWidth, int referenceHeight,
+                                View view, PreferenceConfiguration prefConfig,
+                                TouchpadGestureState gestureState,
+                                TouchpadMotionSender motionSender)
+    {
         this.actionIndex = actionIndex;
         this.handler = new Handler(Looper.getMainLooper());
         this.gestureState = gestureState;
-        this.motionSender = new TouchpadMotionSender(conn, referenceWidth, referenceHeight,
-                view, prefConfig);
+        this.motionSender = Objects.requireNonNull(motionSender);
         this.dragPrimer = new TouchpadDragPrimer(handler, motionSender, this);
         this.buttonController = new TouchpadButtonController(conn, handler, this);
         this.hapticFeedback = new TouchpadHapticFeedback(view);
-        this.barometerForcePressEnabled = prefConfig.enableBarometerForcePress;
     }
 
-    public void setBarometerForcePressEnabled(boolean enabled) {
-        barometerForcePressEnabled = enabled;
+    public void setNativeTouchpadPressHandlingEnabled(boolean enabled) {
+        nativeTouchpadPressHandlingEnabled = enabled;
+        if (enabled) {
+            cancelPrimaryLongPressTimer();
+            cancelSecondaryButtonHoldTimer();
+        }
     }
 
     @Override
@@ -229,7 +248,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
 
         primaryPressActive = true;
         handler.postDelayed(primaryClickHoldRunnable, PRIMARY_CLICK_RELEASE_MS);
-        if (!barometerForcePressEnabled) {
+        if (!nativeTouchpadPressHandlingEnabled) {
             handler.postDelayed(primaryLongPressRunnable, PHYSICAL_LONG_PRESS_MS);
         }
     }
@@ -251,54 +270,10 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         primaryMoveActive = false;
         waitingForSecondTap = false;
 
-        buttonController.pressPrimaryButton();
+        boolean pressed = buttonController.pressPrimaryButton();
         gestureState.setMouseButtonActive(true);
-        hapticFeedback.performPhysicalClick();
-    }
-
-    /**
-     * Converts the current single-finger contact into the same held primary
-     * button state used by the original long-press implementation.
-     */
-    public boolean beginBarometerForcePress() {
-        if (!barometerForcePressEnabled ||
-                cancelled ||
-                confirmedDrag ||
-                doubleTapDragActive ||
-                waitingForSecondTap) {
-            return false;
-        }
-
-        if (pointerCount == 1 &&
-                primaryPressActive &&
-                !primaryLongPressActive &&
-                !doubleTapCandidate) {
-            beginPrimaryLongPress();
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Releases the button immediately when the force-owning pointer leaves.
-     * The gesture flag remains set until the matching Android touch-up is
-     * processed, preventing that same touch from falling back into a tap.
-     */
-    public void endBarometerForcePress(boolean performHapticFeedback) {
-        if (!barometerForcePressEnabled) {
-            return;
-        }
-
-        boolean released = false;
-        if (primaryLongPressActive) {
-            buttonController.releasePrimaryButton();
-            gestureState.setMouseButtonActive(false);
-            released = true;
-        }
-
-        if (released && performHapticFeedback) {
-            hapticFeedback.performPhysicalClick();
+        if (pressed) {
+            hapticFeedback.performButtonPress();
         }
     }
 
@@ -384,8 +359,11 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
 
     private void finishPrimaryLongPress(int eventX, int eventY, long eventTime) {
         sendPrimaryMoveTo(eventX, eventY, eventTime);
-        buttonController.releasePrimaryButton();
+        boolean released = buttonController.releasePrimaryButton();
         gestureState.setMouseButtonActive(false);
+        if (released) {
+            hapticFeedback.performButtonRelease();
+        }
         clearPrimaryClickState();
     }
 
@@ -407,7 +385,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
 
     private void beginSecondaryButtonHoldCandidate() {
         cancelSecondaryButtonHoldTimer();
-        if (!barometerForcePressEnabled &&
+        if (!nativeTouchpadPressHandlingEnabled &&
                 actionIndex == 0 &&
                 pointerCount == 2) {
             handler.postDelayed(secondaryButtonHoldRunnable, PHYSICAL_LONG_PRESS_MS);
@@ -420,7 +398,9 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
             return false;
         }
 
-        buttonController.releaseButton(MouseButtonPacket.BUTTON_RIGHT);
+        if (buttonController.releaseButton(MouseButtonPacket.BUTTON_RIGHT)) {
+            hapticFeedback.performButtonRelease();
+        }
         return true;
     }
 

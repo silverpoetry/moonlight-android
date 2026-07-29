@@ -20,6 +20,7 @@ import com.limelight.binding.input.touch.RelativeTouchSwitchContext;
 import com.limelight.binding.input.touch.SoftKeyboardGestureDetector;
 import com.limelight.binding.input.touch.TouchContext;
 import com.limelight.binding.input.touch.TouchpadGestureState;
+import com.limelight.binding.input.touch.TouchpadMotionSender;
 import com.limelight.binding.input.touch.TouchscreenTouchpadHandler;
 import com.limelight.binding.input.virtual_controller.VirtualController;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
@@ -749,6 +750,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 PlatformBinding.getCryptoProvider(this), serverCert);
         touchscreenTouchpadHandler = new TouchscreenTouchpadHandler(
                 conn, streamView, REFERENCE_HORIZ_RES, REFERENCE_VERT_RES, prefConfig);
+        touchscreenTouchpadHandler.setNativeGestureListener(
+                this::cancelLegacyTouchContextsForNativeGesture);
         if (prefConfig.enableNativeCursor) {
             conn.setMousePositionListener(new NvConnection.MousePositionListener() {
                 @Override
@@ -4057,13 +4060,21 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 return;
         }
 
+        TouchpadMotionSender pressedPointerMotionSender =
+                which == MOUSE_MODE_NATIVE_TOUCHPAD
+                        ? new TouchpadMotionSender(conn,
+                                REFERENCE_HORIZ_RES,
+                                REFERENCE_VERT_RES,
+                                streamView, prefConfig)
+                        : null;
         touchscreenTouchpadHandler.setSinglePointerRemainderMode(
                 which == MOUSE_MODE_ABSOLUTE || which == MOUSE_MODE_ABSOLUTE_SWAPPED
                         ? TouchscreenTouchpadHandler.SinglePointerRemainderMode.SUPPRESS
                         : TouchscreenTouchpadHandler.SinglePointerRemainderMode.RELATIVE);
-        touchscreenTouchpadHandler.setBarometerForcePressEnabled(
-                which == MOUSE_MODE_NATIVE_TOUCHPAD &&
-                        prefConfig.enableBarometerForcePress);
+        touchscreenTouchpadHandler.configureNativePressHandling(
+                which == MOUSE_MODE_NATIVE_TOUCHPAD,
+                prefConfig.enableBarometerForcePress,
+                pressedPointerMotionSender);
 
         TouchpadGestureState touchpadGestureState = new TouchpadGestureState();
         for (int i = 0; i < touchContextMap.length; i++) {
@@ -4084,15 +4095,24 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                             which != MOUSE_MODE_TOUCHPAD_MOVE_ONLY, touchpadGestureState);
                 }
                 else {
-                    touchContextMap[i] = new RelativeTouchContext(conn, i,
-                            REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
-                            streamView, prefConfig, touchpadGestureState);
+                    if (i == 0 && pressedPointerMotionSender != null) {
+                        touchContextMap[i] = new RelativeTouchContext(
+                                conn, i, REFERENCE_HORIZ_RES,
+                                REFERENCE_VERT_RES, streamView,
+                                prefConfig, touchpadGestureState,
+                                pressedPointerMotionSender);
+                    }
+                    else {
+                        touchContextMap[i] = new RelativeTouchContext(
+                                conn, i, REFERENCE_HORIZ_RES,
+                                REFERENCE_VERT_RES, streamView,
+                                prefConfig, touchpadGestureState);
+                    }
                 }
 
                 ((RelativeTouchContext) touchContextMap[i])
-                        .setBarometerForcePressEnabled(
-                                which == MOUSE_MODE_NATIVE_TOUCHPAD &&
-                                        prefConfig.enableBarometerForcePress);
+                        .setNativeTouchpadPressHandlingEnabled(
+                                which == MOUSE_MODE_NATIVE_TOUCHPAD);
             }
         }
 
@@ -4105,28 +4125,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public boolean onForcePressDown(int pointerId, int pointerCount) {
-        if (pointerCount == 2 && touchscreenTouchpadHandler != null) {
-            return touchscreenTouchpadHandler.beginSecondaryForcePress();
-        }
-
-        if (touchContextMap[0] instanceof RelativeTouchContext) {
-            return ((RelativeTouchContext) touchContextMap[0])
-                    .beginBarometerForcePress();
-        }
-        return false;
+        return touchscreenTouchpadHandler != null &&
+                touchscreenTouchpadHandler.beginForcePress(
+                        pointerId, pointerCount);
     }
 
     @Override
     public void onForcePressUp(int pointerId, boolean cancelled) {
-        if (touchscreenTouchpadHandler != null &&
-                touchscreenTouchpadHandler.releaseSecondaryForcePress(
-                        !cancelled)) {
-            return;
-        }
-
-        if (touchContextMap[0] instanceof RelativeTouchContext) {
-            ((RelativeTouchContext) touchContextMap[0])
-                    .endBarometerForcePress(!cancelled);
+        if (touchscreenTouchpadHandler != null) {
+            touchscreenTouchpadHandler.endForcePress(
+                    pointerId, !cancelled);
         }
     }
 
@@ -4149,18 +4157,19 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             return false;
         }
 
-        boolean wasHandlingGesture = touchscreenTouchpadHandler.isHandlingGesture();
-        boolean handled = touchscreenTouchpadHandler.handleMotionEvent(view, event);
-        if (!wasHandlingGesture && handled &&
-                touchscreenTouchpadHandler.isHandlingGesture()) {
-            // The second finger moved this gesture from the original mouse path to the native
-            // touchpad path. Cancel legacy timers and button state exactly once at handoff.
-            for (TouchContext touchContext : touchContextMap) {
+        return touchscreenTouchpadHandler.handleMotionEvent(view, event);
+    }
+
+    private void cancelLegacyTouchContextsForNativeGesture() {
+        // Native touchpad ownership starts exactly once, either when a second contact arrives
+        // or when a physical press promotes the standalone contact. End the legacy path before
+        // it can emit a duplicate click or leave one of its delayed button timers armed.
+        for (TouchContext touchContext : touchContextMap) {
+            if (touchContext != null) {
                 touchContext.cancelTouch();
                 touchContext.setPointerCount(0);
             }
         }
-        return handled;
     }
 
     public void showHUD(){

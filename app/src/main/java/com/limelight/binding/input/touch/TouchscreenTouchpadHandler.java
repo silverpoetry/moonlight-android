@@ -11,7 +11,6 @@ import android.view.View;
 import android.view.ViewConfiguration;
 
 import com.limelight.nvstream.NvConnection;
-import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.PreferenceConfiguration;
 
@@ -20,15 +19,20 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Forwards touchscreen gestures with two or more contacts as native touchpad input.
+ * Owns native touchpad gestures and physical clickpad button state.
  *
  * <p>Standalone single-finger gestures intentionally remain on the legacy mouse path. This keeps
- * local cursor rendering and host cursor movement driven by the same mouse packet. When a native
- * multi-finger gesture returns to one contact, the tail is either handled as relative movement
- * or suppressed until all contacts are lifted. Suppression preserves the cursor position used by
- * native tap gestures in absolute mouse mode.</p>
+ * local cursor rendering and host cursor movement driven by the same mouse packet. A long press
+ * or barometer force press promotes that exact contact to native touchpad ownership before
+ * changing the native clickpad button state. Multi-finger gestures enter native ownership as soon
+ * as the second contact arrives. When they return to one contact, the tail is either handled as
+ * relative movement or suppressed until every contact is lifted.</p>
  */
 public final class TouchscreenTouchpadHandler {
+    public interface NativeGestureListener {
+        void onNativeGestureStarted();
+    }
+
     /**
      * Defines how the remaining contact behaves after a native multi-finger gesture ends.
      */
@@ -39,11 +43,15 @@ public final class TouchscreenTouchpadHandler {
 
     private enum GestureState {
         IDLE,
-        MULTITOUCH_HANDOFF_CANDIDATE,
-        LEGACY_MULTITOUCH,
-        NATIVE_MULTITOUCH,
+        NATIVE_GESTURE,
         RELATIVE_REMAINDER,
         SUPPRESSED
+    }
+
+    private enum PressSource {
+        NONE,
+        LONG_PRESS,
+        FORCE_PRESS
     }
 
     private static final int CURRENT_SAMPLE = -1;
@@ -51,18 +59,21 @@ public final class TouchscreenTouchpadHandler {
     private static final int MIN_TOUCHPAD_SIZE_MM = 40;
     private static final int MAX_TOUCHPAD_SIZE_MM = 200;
     private final NativeTouchpadSender nativeSender;
-    private final TouchpadMotionSender mouseMotionSender;
+    private final TouchpadMotionSender remainderMotionSender;
+    private TouchpadMotionSender pressedPointerMotionSender;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final TouchpadButtonController forceButtonController;
     private final TouchpadHapticFeedback hapticFeedback;
+    private final float pressSlopSquared;
+    private NativeGestureListener nativeGestureListener;
+    private boolean nativePressHandlingEnabled;
     private boolean barometerForcePressEnabled;
-    private boolean secondaryForcePressActive;
+    private byte buttonState;
+    private PressSource pressSource = PressSource.NONE;
+    private int forcePressPointerId = -1;
     private final SparseArray<Contact> activeContacts = new SparseArray<>();
-    private final SparseArray<PointF> handoffPointerOrigins = new SparseArray<>();
+    private final SparseArray<PointF> pressPointerOrigins = new SparseArray<>();
     private final List<Contact> frameContacts =
             new ArrayList<>(MoonBridge.LI_TOUCHPAD_MAX_CONTACTS);
-    private final List<MotionEvent> handoffEvents = new ArrayList<>();
-    private final float handoffSlopSquared;
     private GestureState gestureState = GestureState.IDLE;
     private short deviceWidthMm;
     private short deviceHeightMm;
@@ -71,13 +82,33 @@ public final class TouchscreenTouchpadHandler {
     private int remainderPointerId;
     private int remainderX;
     private int remainderY;
-    private View handoffView;
+    private View observedView;
+    private Contact observedContact;
+    private float observedOriginX;
+    private float observedOriginY;
+    private int observedTouchX;
+    private int observedTouchY;
+    private int pressedPointerId = -1;
+    private int pressedPointerTouchX;
+    private int pressedPointerTouchY;
 
-    private final Runnable handoffTimeoutRunnable = new Runnable() {
+    private final Runnable longPressRunnable = new Runnable() {
         @Override
         public void run() {
-            if (gestureState == GestureState.MULTITOUCH_HANDOFF_CANDIDATE) {
-                retainLegacyMultiTouchGesture();
+            if (!nativePressHandlingEnabled || barometerForcePressEnabled ||
+                    pressSource != PressSource.NONE) {
+                return;
+            }
+
+            if (gestureState == GestureState.IDLE &&
+                    !promoteObservedContactToNative()) {
+                return;
+            }
+
+            if (gestureState == GestureState.NATIVE_GESTURE &&
+                    activeContacts.size() >= 1 &&
+                    activeContacts.size() <= 2) {
+                pressTouchpadButton(PressSource.LONG_PRESS, -1);
             }
         }
     };
@@ -86,17 +117,21 @@ public final class TouchscreenTouchpadHandler {
                                      int referenceWidth, int referenceHeight,
                                      PreferenceConfiguration prefConfig) {
         nativeSender = new NativeTouchpadSender(connection);
-        mouseMotionSender = new TouchpadMotionSender(connection, referenceWidth, referenceHeight,
+        remainderMotionSender = new TouchpadMotionSender(connection,
+                referenceWidth, referenceHeight,
                 targetView, prefConfig);
-        forceButtonController = new TouchpadButtonController(
-                connection, handler, () -> false);
         hapticFeedback = new TouchpadHapticFeedback(targetView);
         int touchSlop = ViewConfiguration.get(targetView.getContext())
                 .getScaledTouchSlop();
-        int handoffSlop = Math.min(
+        int pressSlop = Math.min(
                 touchSlop,
                 RelativeTouchContext.TAP_MOVEMENT_THRESHOLD);
-        handoffSlopSquared = handoffSlop * handoffSlop;
+        pressSlopSquared = pressSlop * pressSlop;
+    }
+
+    public void setNativeGestureListener(
+            NativeGestureListener nativeGestureListener) {
+        this.nativeGestureListener = nativeGestureListener;
     }
 
     /**
@@ -117,20 +152,41 @@ public final class TouchscreenTouchpadHandler {
         this.singlePointerRemainderMode = newMode;
     }
 
-    public void setBarometerForcePressEnabled(boolean enabled) {
-        if (barometerForcePressEnabled == enabled) {
+    /**
+     * Atomically configures physical press handling for standalone pointers.
+     *
+     * <p>The supplied sender must be the same instance used by the primary legacy touch
+     * context. This preserves acceleration history and fractional motion across the exact
+     * moment when native touchpad ownership begins.</p>
+     */
+    public void configureNativePressHandling(
+            boolean enabled,
+            boolean barometerForcePressEnabled,
+            TouchpadMotionSender primaryMotionSender) {
+        TouchpadMotionSender newMotionSender = enabled
+                ? Objects.requireNonNull(primaryMotionSender)
+                : null;
+        boolean newBarometerForcePressEnabled =
+                enabled && barometerForcePressEnabled;
+        if (nativePressHandlingEnabled == enabled &&
+                this.barometerForcePressEnabled ==
+                        newBarometerForcePressEnabled &&
+                pressedPointerMotionSender == newMotionSender) {
             return;
         }
 
         cancel();
-        barometerForcePressEnabled = enabled;
+        pressedPointerMotionSender = newMotionSender;
+        nativePressHandlingEnabled = enabled;
+        this.barometerForcePressEnabled =
+                newBarometerForcePressEnabled;
     }
 
     /**
      * Returns whether this handler owns the current touchscreen gesture.
      */
     public boolean isHandlingGesture() {
-        return gestureState == GestureState.NATIVE_MULTITOUCH ||
+        return gestureState == GestureState.NATIVE_GESTURE ||
                 gestureState == GestureState.RELATIVE_REMAINDER ||
                 gestureState == GestureState.SUPPRESSED;
     }
@@ -146,15 +202,24 @@ public final class TouchscreenTouchpadHandler {
             return false;
         }
 
-        if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
-            // A new gesture always starts on the original single-finger mouse path.
+        int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) {
+            // A standalone finger stays on the legacy mouse path unless a physical press
+            // promotes it. Tracking the contact here lets that promotion preserve the exact
+            // Android pointer identity and position.
             cancel();
+            if (nativePressHandlingEnabled &&
+                    event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER) {
+                updateDeviceDimensions(eventView);
+                observeSingleContact(eventView, event);
+                scheduleLongPress();
+            }
             return false;
         }
 
         if (gestureState == GestureState.SUPPRESSED) {
-            if (event.getActionMasked() == MotionEvent.ACTION_UP ||
-                    event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+            if (action == MotionEvent.ACTION_UP ||
+                    action == MotionEvent.ACTION_CANCEL) {
                 resetState();
             }
             return true;
@@ -162,31 +227,37 @@ public final class TouchscreenTouchpadHandler {
 
         if (event.getPointerCount() > MoonBridge.LI_TOUCHPAD_MAX_CONTACTS) {
             cancelNativeContacts();
-            clearMultiTouchHandoffCandidate();
+            clearObservedContact();
             gestureState = GestureState.SUPPRESSED;
             return true;
         }
 
         switch (gestureState) {
             case IDLE:
-                if (event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN &&
+                if (action == MotionEvent.ACTION_POINTER_DOWN &&
                         event.getPointerCount() == 2) {
                     updateDeviceDimensions(eventView);
-                    beginMultiTouchHandoffCandidate(eventView, event);
+                    clearObservedContact();
+                    if (beginNativeGesture(eventView, event)) {
+                        notifyNativeGestureStarted();
+                        scheduleLongPress();
+                        return true;
+                    }
+                    return false;
+                }
+
+                if (nativePressHandlingEnabled &&
+                        action == MotionEvent.ACTION_MOVE &&
+                        event.getPointerCount() == 1) {
+                    updateObservedContact(eventView, event);
+                }
+                else if (action == MotionEvent.ACTION_UP ||
+                        action == MotionEvent.ACTION_CANCEL) {
+                    clearObservedContact();
                 }
                 return false;
 
-            case MULTITOUCH_HANDOFF_CANDIDATE:
-                return handleMultiTouchHandoffCandidate(event);
-
-            case LEGACY_MULTITOUCH:
-                if (event.getActionMasked() == MotionEvent.ACTION_UP ||
-                        event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
-                    resetState();
-                }
-                return false;
-
-            case NATIVE_MULTITOUCH:
+            case NATIVE_GESTURE:
                 updateDeviceDimensions(eventView);
                 handleNativeGesture(eventView, event);
                 return true;
@@ -205,183 +276,195 @@ public final class TouchscreenTouchpadHandler {
      */
     public void cancel() {
         cancelNativeContacts();
-        releaseSecondaryForcePress(false);
         resetState();
     }
 
-    public boolean beginSecondaryForcePress() {
-        if (!barometerForcePressEnabled || secondaryForcePressActive) {
+    public boolean beginForcePress(int pointerId, int pointerCount) {
+        if (!nativePressHandlingEnabled || !barometerForcePressEnabled ||
+                pressSource != PressSource.NONE ||
+                pointerCount < 1 || pointerCount > 2) {
             return false;
         }
 
-        forceButtonController.pressButton(MouseButtonPacket.BUTTON_RIGHT);
-        secondaryForcePressActive = true;
-        hapticFeedback.performPhysicalClick();
-        return true;
-    }
-
-    public boolean releaseSecondaryForcePress(boolean performHapticFeedback) {
-        if (!secondaryForcePressActive) {
+        if (gestureState == GestureState.IDLE &&
+                !promoteObservedContactToNative()) {
             return false;
         }
 
-        forceButtonController.releaseButton(MouseButtonPacket.BUTTON_RIGHT);
-        secondaryForcePressActive = false;
-        if (performHapticFeedback) {
-            hapticFeedback.performPhysicalClick();
+        if (gestureState != GestureState.NATIVE_GESTURE ||
+                activeContacts.size() != pointerCount ||
+                activeContacts.get(pointerId) == null) {
+            return false;
         }
+
+        return pressTouchpadButton(PressSource.FORCE_PRESS, pointerId);
+    }
+
+    public boolean endForcePress(int pointerId,
+                                 boolean performHapticFeedback) {
+        if (pressSource != PressSource.FORCE_PRESS ||
+                forcePressPointerId != pointerId) {
+            return false;
+        }
+        return releaseTouchpadButton(performHapticFeedback);
+    }
+
+    private void observeSingleContact(View eventView, MotionEvent event) {
+        observedView = eventView;
+        observedOriginX = event.getX(0);
+        observedOriginY = event.getY(0);
+        observedTouchX = (int) event.getX(0);
+        observedTouchY = (int) event.getY(0);
+        observedContact = createContact(eventView, event, 0, CURRENT_SAMPLE,
+                MoonBridge.LI_TOUCH_EVENT_DOWN);
+    }
+
+    private void updateObservedContact(View eventView, MotionEvent event) {
+        if (observedContact == null ||
+                event.getPointerId(0) != observedContact.pointerId) {
+            clearObservedContact();
+            return;
+        }
+
+        if (hasMovedBeyondPressSlop(event, 0,
+                observedOriginX, observedOriginY)) {
+            cancelLongPress();
+        }
+        observedView = eventView;
+        observedTouchX = (int) event.getX(0);
+        observedTouchY = (int) event.getY(0);
+        observedContact = createContact(eventView, event, 0, CURRENT_SAMPLE,
+                MoonBridge.LI_TOUCH_EVENT_DOWN);
+    }
+
+    private boolean promoteObservedContactToNative() {
+        if (gestureState != GestureState.IDLE ||
+                observedView == null || observedContact == null) {
+            return false;
+        }
+
+        frameContacts.clear();
+        frameContacts.add(observedContact);
+        if (!nativeSender.sendContacts(frameContacts, (byte) 0,
+                deviceWidthMm, deviceHeightMm)) {
+            return false;
+        }
+
+        activeContacts.clear();
+        syncActiveContacts(frameContacts);
+        beginPressedPointerMotion(observedContact.pointerId,
+                observedTouchX, observedTouchY);
+        clearSinglePointerRemainder();
+        clearObservedContact();
+        gestureState = GestureState.NATIVE_GESTURE;
+        notifyNativeGestureStarted();
         return true;
     }
 
-    private void beginMultiTouchHandoffCandidate(View eventView,
-                                                 MotionEvent event) {
-        clearMultiTouchHandoffCandidate();
-        handoffView = eventView;
-        for (int pointerIndex = 0;
-             pointerIndex < event.getPointerCount();
-             pointerIndex++) {
-            handoffPointerOrigins.put(
-                    event.getPointerId(pointerIndex),
-                    new PointF(
-                            event.getX(pointerIndex),
-                            event.getY(pointerIndex)));
+    private boolean hasMovedBeyondPressSlop(MotionEvent event, int pointerIndex,
+                                            float originX, float originY) {
+        if (movedBeyondPressSlop(event.getX(pointerIndex),
+                event.getY(pointerIndex), originX, originY)) {
+            return true;
         }
-        handoffEvents.add(MotionEvent.obtain(event));
-        gestureState = GestureState.MULTITOUCH_HANDOFF_CANDIDATE;
-        if (!barometerForcePressEnabled) {
-            handler.postDelayed(
-                    handoffTimeoutRunnable,
+
+        for (int historyIndex = 0;
+             historyIndex < event.getHistorySize();
+             historyIndex++) {
+            if (movedBeyondPressSlop(
+                    event.getHistoricalX(pointerIndex, historyIndex),
+                    event.getHistoricalY(pointerIndex, historyIndex),
+                    originX, originY)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean movedBeyondPressSlop(float x, float y,
+                                         float originX, float originY) {
+        float deltaX = x - originX;
+        float deltaY = y - originY;
+        return deltaX * deltaX + deltaY * deltaY > pressSlopSquared;
+    }
+
+    private void scheduleLongPress() {
+        cancelLongPress();
+        if (nativePressHandlingEnabled && !barometerForcePressEnabled) {
+            handler.postDelayed(longPressRunnable,
                     RelativeTouchContext.PHYSICAL_LONG_PRESS_MS);
         }
     }
 
-    private boolean handleMultiTouchHandoffCandidate(MotionEvent event) {
-        switch (event.getActionMasked()) {
-        case MotionEvent.ACTION_MOVE:
-            handoffEvents.add(MotionEvent.obtain(event));
-            if (!isHandoffWithinBounds(event)) {
-                promoteHandoffToNative();
-                return true;
-            }
-            return false;
+    private void cancelLongPress() {
+        handler.removeCallbacks(longPressRunnable);
+    }
 
-        case MotionEvent.ACTION_POINTER_DOWN:
-            handoffEvents.add(MotionEvent.obtain(event));
-            promoteHandoffToNative();
-            return true;
+    private void clearObservedContact() {
+        cancelLongPress();
+        observedView = null;
+        observedContact = null;
+        observedOriginX = 0;
+        observedOriginY = 0;
+        observedTouchX = 0;
+        observedTouchY = 0;
+    }
 
-        case MotionEvent.ACTION_POINTER_UP:
-        case MotionEvent.ACTION_CANCEL:
-        case MotionEvent.ACTION_UP:
-            clearMultiTouchHandoffCandidate();
-            resetState();
-            return false;
-
-        default:
-            return false;
+    private void notifyNativeGestureStarted() {
+        if (nativeGestureListener != null) {
+            nativeGestureListener.onNativeGestureStarted();
         }
     }
 
-    /**
-     * Keeps a stationary two-finger gesture on the original relative-touch
-     * state machine after its long press or barometer force press is accepted.
-     */
-    public void retainLegacyMultiTouchGesture() {
-        if (gestureState != GestureState.MULTITOUCH_HANDOFF_CANDIDATE) {
-            return;
-        }
-
-        clearMultiTouchHandoffCandidate();
-        gestureState = GestureState.LEGACY_MULTITOUCH;
-    }
-
-    private boolean isHandoffWithinBounds(MotionEvent event) {
-        if (event.getPointerCount() != 2 ||
-                handoffPointerOrigins.size() != 2) {
+    private boolean pressTouchpadButton(PressSource source,
+                                        int pointerId) {
+        if (gestureState != GestureState.NATIVE_GESTURE ||
+                activeContacts.size() == 0 ||
+                buttonState != 0 ||
+                source == PressSource.NONE) {
             return false;
         }
 
-        for (int pointerIndex = 0;
-             pointerIndex < event.getPointerCount();
-             pointerIndex++) {
-            PointF origin =
-                    handoffPointerOrigins.get(event.getPointerId(pointerIndex));
-            if (origin == null ||
-                    movedBeyondTapSlop(
-                            event.getX(pointerIndex),
-                            event.getY(pointerIndex),
-                            origin)) {
-                return false;
-            }
+        if (!sendButtonState(MoonBridge.LI_TOUCHPAD_BUTTON_PRIMARY)) {
+            return false;
+        }
 
-            for (int historyIndex = 0;
-                 historyIndex < event.getHistorySize();
-                 historyIndex++) {
-                if (movedBeyondTapSlop(
-                        event.getHistoricalX(pointerIndex, historyIndex),
-                        event.getHistoricalY(pointerIndex, historyIndex),
-                        origin)) {
-                    return false;
-                }
-            }
+        cancelLongPress();
+        buttonState = MoonBridge.LI_TOUCHPAD_BUTTON_PRIMARY;
+        pressSource = source;
+        forcePressPointerId = source == PressSource.FORCE_PRESS
+                ? pointerId
+                : -1;
+        hapticFeedback.performButtonPress();
+        return true;
+    }
+
+    private boolean releaseTouchpadButton(
+            boolean performHapticFeedback) {
+        if (buttonState == 0 || pressSource == PressSource.NONE) {
+            return false;
+        }
+
+        boolean sent = gestureState == GestureState.NATIVE_GESTURE &&
+                activeContacts.size() != 0 &&
+                sendButtonState((byte) 0);
+        buttonState = 0;
+        pressSource = PressSource.NONE;
+        forcePressPointerId = -1;
+        if (sent && performHapticFeedback) {
+            hapticFeedback.performButtonRelease();
         }
         return true;
     }
 
-    private boolean movedBeyondTapSlop(float x, float y, PointF origin) {
-        float deltaX = x - origin.x;
-        float deltaY = y - origin.y;
-        return deltaX * deltaX + deltaY * deltaY >
-                handoffSlopSquared;
-    }
-
-    private void promoteHandoffToNative() {
-        if (gestureState != GestureState.MULTITOUCH_HANDOFF_CANDIDATE ||
-                handoffView == null ||
-                handoffEvents.isEmpty()) {
-            return;
+    private boolean sendButtonState(byte newButtonState) {
+        frameContacts.clear();
+        for (int i = 0; i < activeContacts.size(); i++) {
+            frameContacts.add(activeContacts.valueAt(i).withEventType(
+                    MoonBridge.LI_TOUCH_EVENT_BUTTON_ONLY));
         }
-
-        View eventView = handoffView;
-        List<MotionEvent> events =
-                new ArrayList<>(handoffEvents);
-        handler.removeCallbacks(handoffTimeoutRunnable);
-        handoffEvents.clear();
-        handoffPointerOrigins.clear();
-
-        boolean nativeGestureStarted =
-                beginNativeGesture(eventView, events.get(0));
-        if (nativeGestureStarted) {
-            for (int i = 1; i < events.size(); i++) {
-                MotionEvent event = events.get(i);
-                if (event.getActionMasked() ==
-                        MotionEvent.ACTION_POINTER_DOWN) {
-                    sendAdditionalContactDown(eventView, event);
-                }
-                else if (event.getActionMasked() ==
-                        MotionEvent.ACTION_MOVE) {
-                    sendNativeMoves(eventView, event);
-                }
-            }
-        }
-        else {
-            gestureState = GestureState.SUPPRESSED;
-        }
-
-        for (MotionEvent event : events) {
-            event.recycle();
-        }
-        handoffView = null;
-    }
-
-    private void clearMultiTouchHandoffCandidate() {
-        handler.removeCallbacks(handoffTimeoutRunnable);
-        for (MotionEvent event : handoffEvents) {
-            event.recycle();
-        }
-        handoffEvents.clear();
-        handoffPointerOrigins.clear();
-        handoffView = null;
+        return nativeSender.sendContacts(frameContacts, newButtonState,
+                deviceWidthMm, deviceHeightMm);
     }
 
     private boolean beginNativeGesture(View eventView, MotionEvent event) {
@@ -398,8 +481,9 @@ public final class TouchscreenTouchpadHandler {
 
         activeContacts.clear();
         syncActiveContacts(frameContacts);
+        rememberPressOrigins(event);
         clearSinglePointerRemainder();
-        gestureState = GestureState.NATIVE_MULTITOUCH;
+        gestureState = GestureState.NATIVE_GESTURE;
         return true;
     }
 
@@ -414,6 +498,7 @@ public final class TouchscreenTouchpadHandler {
                 break;
 
             case MotionEvent.ACTION_POINTER_UP:
+                releaseTouchpadButton(true);
                 if (event.getPointerCount() - 1 == 1) {
                     finishNativeGestureWithSinglePointerRemainder(eventView, event);
                 }
@@ -423,14 +508,16 @@ public final class TouchscreenTouchpadHandler {
                 break;
 
             case MotionEvent.ACTION_UP:
+                releaseTouchpadButton(true);
                 sendContactUp(eventView, event);
                 if (singlePointerRemainderMode == SinglePointerRemainderMode.RELATIVE) {
-                    mouseMotionSender.resendAbsoluteMousePosition();
+                    remainderMotionSender.resendAbsoluteMousePosition();
                 }
                 resetState();
                 break;
 
             case MotionEvent.ACTION_CANCEL:
+                releaseTouchpadButton(false);
                 cancelNativeContacts();
                 resetState();
                 break;
@@ -451,19 +538,38 @@ public final class TouchscreenTouchpadHandler {
                     eventType));
         }
 
-        nativeSender.sendContacts(frameContacts, (byte) 0, deviceWidthMm, deviceHeightMm);
+        nativeSender.sendContacts(frameContacts, buttonState,
+                deviceWidthMm, deviceHeightMm);
         syncActiveContacts(frameContacts);
+        clearPressedPointerMotion();
+        pressPointerOrigins.put(event.getPointerId(actionIndex),
+                new PointF(event.getX(actionIndex),
+                        event.getY(actionIndex)));
+        if (event.getPointerCount() > 2) {
+            cancelLongPress();
+        }
     }
 
     private void sendNativeMoves(View eventView, MotionEvent event) {
+        cancelLongPressIfMoved(event);
+        if (sendPressedPointerMotion(event)) {
+            // The physical contact remains at its press location while the canonical mouse
+            // motion path moves the cursor. Reassert only the clickpad state so Windows does
+            // not also accelerate the same finger delta as native touchpad movement.
+            sendButtonState(buttonState);
+            return;
+        }
+
         for (int historyIndex = 0; historyIndex < event.getHistorySize(); historyIndex++) {
             List<Contact> contacts = createMoveFrame(eventView, event, historyIndex);
-            nativeSender.sendContacts(contacts, (byte) 0, deviceWidthMm, deviceHeightMm);
+            nativeSender.sendContacts(contacts, buttonState,
+                    deviceWidthMm, deviceHeightMm);
             syncActiveContacts(contacts);
         }
 
         List<Contact> contacts = createMoveFrame(eventView, event, CURRENT_SAMPLE);
-        nativeSender.sendContacts(contacts, (byte) 0, deviceWidthMm, deviceHeightMm);
+        nativeSender.sendContacts(contacts, buttonState,
+                deviceWidthMm, deviceHeightMm);
         syncActiveContacts(contacts);
     }
 
@@ -483,13 +589,29 @@ public final class TouchscreenTouchpadHandler {
             else {
                 eventType = MoonBridge.LI_TOUCH_EVENT_MOVE;
             }
-            frameContacts.add(createContact(eventView, event, pointerIndex, CURRENT_SAMPLE,
-                    eventType));
+
+            int pointerId = event.getPointerId(pointerIndex);
+            Contact activeContact = activeContacts.get(pointerId);
+            if (pointerId == pressedPointerId && activeContact != null) {
+                // A pressed single pointer moves through the canonical mouse path. Keep its
+                // native contact pinned through the terminal frame too, otherwise the UP frame
+                // would teleport the host-side clickpad contact to the Android finger position.
+                frameContacts.add(activeContact.withEventType(eventType));
+            }
+            else {
+                frameContacts.add(createContact(eventView, event, pointerIndex,
+                        CURRENT_SAMPLE, eventType));
+            }
         }
 
-        nativeSender.sendContacts(frameContacts, (byte) 0, deviceWidthMm, deviceHeightMm);
+        nativeSender.sendContacts(frameContacts, buttonState,
+                deviceWidthMm, deviceHeightMm);
         syncActiveContacts(frameContacts);
         activeContacts.remove(actionPointerId);
+        pressPointerOrigins.remove(actionPointerId);
+        if (pressedPointerId == actionPointerId) {
+            clearPressedPointerMotion();
+        }
     }
 
     private void finishNativeGestureWithSinglePointerRemainder(View eventView,
@@ -510,9 +632,12 @@ public final class TouchscreenTouchpadHandler {
             frameContacts.add(createContact(eventView, event, pointerIndex, CURRENT_SAMPLE,
                     eventType));
         }
-        nativeSender.sendContacts(frameContacts, (byte) 0, deviceWidthMm, deviceHeightMm);
+        nativeSender.sendContacts(frameContacts, buttonState,
+                deviceWidthMm, deviceHeightMm);
 
         activeContacts.clear();
+        pressPointerOrigins.clear();
+        clearPressedPointerMotion();
         if (singlePointerRemainderMode == SinglePointerRemainderMode.RELATIVE) {
             beginRelativeRemainder(event, remainingIndex);
         }
@@ -526,9 +651,9 @@ public final class TouchscreenTouchpadHandler {
     }
 
     private void beginRelativeRemainder(MotionEvent event, int pointerIndex) {
-        mouseMotionSender.resendAbsoluteMousePosition();
-        mouseMotionSender.updateScaleFactors();
-        mouseMotionSender.beginPointerMotion(event.getEventTime());
+        remainderMotionSender.resendAbsoluteMousePosition();
+        remainderMotionSender.updateScaleFactors();
+        remainderMotionSender.beginPointerMotion(event.getEventTime());
         remainderPointerId = event.getPointerId(pointerIndex);
         remainderX = (int) event.getX(pointerIndex);
         remainderY = (int) event.getY(pointerIndex);
@@ -543,6 +668,9 @@ public final class TouchscreenTouchpadHandler {
                     // Native input was already supported earlier in this gesture. If it becomes
                     // unavailable unexpectedly, consume the remainder to avoid duplicate input.
                     gestureState = GestureState.SUPPRESSED;
+                }
+                else {
+                    scheduleLongPress();
                 }
                 break;
 
@@ -588,12 +716,67 @@ public final class TouchscreenTouchpadHandler {
         long eventTime = historyIndex < 0
                 ? event.getEventTime()
                 : event.getHistoricalEventTime(historyIndex);
-        mouseMotionSender.sendTouchpadMove(touchDeltaX, touchDeltaY, eventTime);
+        remainderMotionSender.sendTouchpadMove(
+                touchDeltaX, touchDeltaY, eventTime);
 
         // Touch coordinates always follow the hardware sample. Fractional mouse movement is
         // retained by TouchpadMotionSender, which keeps velocity and output accumulation separate.
         remainderX = eventX;
         remainderY = eventY;
+    }
+
+    private void beginPressedPointerMotion(int pointerId, int touchX,
+                                           int touchY) {
+        pressedPointerId = pointerId;
+        pressedPointerTouchX = touchX;
+        pressedPointerTouchY = touchY;
+    }
+
+    private boolean sendPressedPointerMotion(MotionEvent event) {
+        if (pressedPointerMotionSender == null ||
+                pressedPointerId < 0 ||
+                event.getPointerCount() != 1) {
+            return false;
+        }
+
+        int pointerIndex = event.findPointerIndex(pressedPointerId);
+        if (pointerIndex < 0) {
+            clearPressedPointerMotion();
+            return false;
+        }
+
+        for (int historyIndex = 0;
+             historyIndex < event.getHistorySize();
+             historyIndex++) {
+            sendPressedPointerMotionSample(
+                    (int) event.getHistoricalX(pointerIndex, historyIndex),
+                    (int) event.getHistoricalY(pointerIndex, historyIndex),
+                    event.getHistoricalEventTime(historyIndex));
+        }
+        sendPressedPointerMotionSample((int) event.getX(pointerIndex),
+                (int) event.getY(pointerIndex), event.getEventTime());
+        return true;
+    }
+
+    private void sendPressedPointerMotionSample(int touchX, int touchY,
+                                                long eventTime) {
+        if (touchX == pressedPointerTouchX &&
+                touchY == pressedPointerTouchY) {
+            return;
+        }
+
+        pressedPointerMotionSender.sendTouchpadMove(
+                touchX - pressedPointerTouchX,
+                touchY - pressedPointerTouchY,
+                eventTime);
+        pressedPointerTouchX = touchX;
+        pressedPointerTouchY = touchY;
+    }
+
+    private void clearPressedPointerMotion() {
+        pressedPointerId = -1;
+        pressedPointerTouchX = 0;
+        pressedPointerTouchY = 0;
     }
 
     private List<Contact> createMoveFrame(View eventView, MotionEvent event, int historyIndex) {
@@ -647,19 +830,54 @@ public final class TouchscreenTouchpadHandler {
         }
     }
 
+    private void rememberPressOrigins(MotionEvent event) {
+        pressPointerOrigins.clear();
+        for (int pointerIndex = 0;
+             pointerIndex < event.getPointerCount();
+             pointerIndex++) {
+            pressPointerOrigins.put(event.getPointerId(pointerIndex),
+                    new PointF(event.getX(pointerIndex),
+                            event.getY(pointerIndex)));
+        }
+    }
+
+    private void cancelLongPressIfMoved(MotionEvent event) {
+        if (pressSource != PressSource.NONE) {
+            return;
+        }
+
+        for (int pointerIndex = 0;
+             pointerIndex < event.getPointerCount();
+             pointerIndex++) {
+            PointF origin = pressPointerOrigins.get(
+                    event.getPointerId(pointerIndex));
+            if (origin == null ||
+                    hasMovedBeyondPressSlop(event, pointerIndex,
+                            origin.x, origin.y)) {
+                cancelLongPress();
+                return;
+            }
+        }
+    }
+
     private void cancelNativeContacts() {
-        if (gestureState == GestureState.NATIVE_MULTITOUCH && activeContacts.size() != 0) {
+        releaseTouchpadButton(false);
+        if (gestureState == GestureState.NATIVE_GESTURE &&
+                activeContacts.size() != 0) {
             nativeSender.cancelAll(deviceWidthMm, deviceHeightMm);
             if (singlePointerRemainderMode == SinglePointerRemainderMode.RELATIVE) {
-                mouseMotionSender.resendAbsoluteMousePosition();
+                remainderMotionSender.resendAbsoluteMousePosition();
             }
         }
         activeContacts.clear();
     }
 
     private void resetState() {
-        clearMultiTouchHandoffCandidate();
+        clearObservedContact();
+        releaseTouchpadButton(false);
         activeContacts.clear();
+        pressPointerOrigins.clear();
+        clearPressedPointerMotion();
         clearSinglePointerRemainder();
         gestureState = GestureState.IDLE;
     }
@@ -723,6 +941,11 @@ public final class TouchscreenTouchpadHandler {
             this.pressure = pressure;
             this.contactAreaMajor = contactAreaMajor;
             this.contactAreaMinor = contactAreaMinor;
+        }
+
+        Contact withEventType(byte eventType) {
+            return new Contact(eventType, pointerId, x, y, pressure,
+                    contactAreaMajor, contactAreaMinor);
         }
     }
 

@@ -8,7 +8,7 @@ import com.limelight.preferences.PreferenceConfiguration;
 
 // Converts physical finger motion into stream mouse packets while keeping acceleration,
 // sub-pixel accumulation, sensitivity, and absolute-mouse transport in one place.
-final class TouchpadMotionSender {
+public final class TouchpadMotionSender {
     static final class MotionDelta {
         int x;
         int y;
@@ -43,8 +43,9 @@ final class TouchpadMotionSender {
     private double xRemainder;
     private double yRemainder;
 
-    TouchpadMotionSender(NvConnection conn, int referenceWidth, int referenceHeight,
-                         View targetView, PreferenceConfiguration prefConfig) {
+    public TouchpadMotionSender(NvConnection conn, int referenceWidth,
+                                int referenceHeight, View targetView,
+                                PreferenceConfiguration prefConfig) {
         this.conn = conn;
         this.referenceWidth = referenceWidth;
         this.referenceHeight = referenceHeight;
