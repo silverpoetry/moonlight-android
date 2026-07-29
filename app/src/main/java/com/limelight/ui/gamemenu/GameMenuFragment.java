@@ -606,9 +606,9 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
         if(v.getId()==R.id.bt_device){
             GameDisplayDeviceFragment fragment=new GameDisplayDeviceFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle("外设");
-            fragment.setOnClick((index, flag) -> {
-                if(index==1){
+            fragment.setTitle(R.string.game_menu_devices_title);
+            fragment.setListener(() -> {
+                if (game != null) {
                     game.setDualSenseTrigger();
                 }
             });

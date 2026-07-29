@@ -1,11 +1,11 @@
 package com.limelight.ui.gamemenu;
 
+import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
-import android.text.TextUtils;
+import android.support.annotation.StringRes;
 import android.view.View;
+import android.widget.Button;
 import android.widget.CheckBox;
-import android.widget.CompoundButton;
-import android.widget.ImageButton;
 import android.widget.RadioGroup;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -14,290 +14,403 @@ import com.limelight.R;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 
-/**
- * Description
- * Date: 2024-10-20
- * Time: 16:07
- */
-public class GameDisplayDeviceFragment extends BaseGameMenuDialog implements SeekBar.OnSeekBarChangeListener{
+public class GameDisplayDeviceFragment
+        extends BaseGameMenuDialog
+        implements SeekBar.OnSeekBarChangeListener {
+    private static final String KEY_USB_DRIVER =
+            "checkbox_usb_driver";
+    private static final String KEY_USB_BIND_ALL =
+            "checkbox_usb_bind_all";
+    private static final String KEY_FLIP_RUMBLE =
+            "checkbox_flip_rumble_ff";
+    private static final String KEY_DISABLE_TRIGGER_DEADZONE =
+            "checkbox_disable_trigger_deadzone";
+    private static final String KEY_DEVICE_RUMBLE =
+            "checkbox_enable_device_rumble";
+    private static final String KEY_VIRTUAL_MOTION =
+            "checkbox_enable_virtual_motion";
+    private static final String KEY_JOYCON_FIX =
+            "checkbox_enable_joyconfix";
+    private static final String KEY_BATTERY_REPORT =
+            "checkbox_gamepad_enable_battery_report";
+    private static final String KEY_USB_GYROSCOPE =
+            "usbGyroscopeReport";
+    private static final String KEY_TRIGGER_RUMBLE_LINK =
+            "gameTriggerRumbleLink";
+    private static final String KEY_TRIGGER_MODE =
+            "ds5TriggerMode";
+    private static final String KEY_TRIGGER_STRENGTH =
+            "ds5TriggerStrength";
+    private static final String KEY_TRIGGER_FREQUENCY =
+            "ds5TriggerFrequency";
+    private static final String KEY_TRIGGER_START =
+            "ds5TriggerStart";
+    private static final String KEY_TRIGGER_END =
+            "ds5TriggerEnd";
+
+    private static final SeekBarValueRange STRENGTH_RANGE =
+            new SeekBarValueRange(10, 255);
+    private static final SeekBarValueRange FREQUENCY_RANGE =
+            new SeekBarValueRange(5, 15);
+    private static final SeekBarValueRange POSITION_RANGE =
+            new SeekBarValueRange(10, 255);
+
+    private int titleRes = R.string.game_menu_devices_title;
+    private PreferenceConfiguration prefConfig =
+            new PreferenceConfiguration();
+    private Listener listener;
+
+    private CheckBox usbDriver;
+    private CheckBox flipGripRumble;
+    private CheckBox ignoreTriggerDeadzone;
+    private CheckBox forceDeviceRumble;
+    private CheckBox useDeviceGyroscope;
+    private CheckBox joyConCompatibility;
+    private CheckBox reportBattery;
+    private CheckBox usbGyroscope;
+    private CheckBox linkTriggerRumble;
+    private RadioGroup adaptiveTriggerMode;
+    private SeekBar triggerStrength;
+    private SeekBar triggerFrequency;
+    private SeekBar triggerStart;
+    private SeekBar triggerEnd;
+    private TextView triggerStrengthValue;
+    private TextView triggerFrequencyValue;
+    private TextView triggerStartValue;
+    private TextView triggerEndValue;
+
     @Override
     public int getLayoutRes() {
         return R.layout.dialog_game_menu_control;
     }
 
-    private ImageButton ibtn_back;
-    private TextView tx_title;
+    @Override
+    public void bindView(View view) {
+        super.bindView(view);
+        bindControls(view);
+        configureSeekBars();
 
-    private String title;
+        ((TextView) view.findViewById(R.id.tx_title))
+                .setText(titleRes);
+        ((Button) view.findViewById(R.id.btn_right))
+                .setText(R.string.game_menu_apply_configuration);
 
-    private CheckBox btn_game_usb;
-    private CheckBox btn_game_grip;
-    private CheckBox btn_game_trigger;
-    private CheckBox btn_game_shake;
-    private CheckBox btn_game_gyroscope;
-    private CheckBox btn_game_joycon;
+        initializeControls();
+        bindControlListeners();
 
-    private CheckBox btn_game_battery;
+        view.findViewById(R.id.ibtn_back)
+                .setOnClickListener(clickedView -> dismiss());
+        view.findViewById(R.id.btn_right)
+                .setOnClickListener(clickedView -> {
+                    if (listener != null) {
+                        listener.onApplyAdaptiveTrigger();
+                    }
+                });
+    }
 
-    private CheckBox btn_game_usb_gyroscope;
+    private void bindControls(View view) {
+        usbDriver = view.findViewById(R.id.btn_game_usb);
+        flipGripRumble =
+                view.findViewById(R.id.btn_game_grip);
+        ignoreTriggerDeadzone =
+                view.findViewById(R.id.btn_game_trigger);
+        forceDeviceRumble =
+                view.findViewById(R.id.btn_game_shake);
+        useDeviceGyroscope =
+                view.findViewById(R.id.btn_game_gyroscope);
+        joyConCompatibility =
+                view.findViewById(R.id.btn_game_joycon);
+        reportBattery =
+                view.findViewById(R.id.btn_game_battery);
+        usbGyroscope =
+                view.findViewById(R.id.btn_game_usb_gyroscope);
+        linkTriggerRumble =
+                view.findViewById(R.id.btn_game_trigger_rumble);
+        adaptiveTriggerMode =
+                view.findViewById(R.id.rg_game_control_ds5);
+        triggerStrength =
+                view.findViewById(R.id.sb_game_control_ds5_strength);
+        triggerFrequency =
+                view.findViewById(R.id.sb_game_control_ds5_frequency);
+        triggerStart =
+                view.findViewById(R.id.sb_game_control_ds5_start);
+        triggerEnd =
+                view.findViewById(R.id.sb_game_control_ds5_end);
+        triggerStrengthValue =
+                view.findViewById(R.id.tx_game_control_ds5_strength);
+        triggerFrequencyValue =
+                view.findViewById(R.id.tx_game_control_ds5_frequency);
+        triggerStartValue =
+                view.findViewById(R.id.tx_game_control_ds5_start);
+        triggerEndValue =
+                view.findViewById(R.id.tx_game_control_ds5_end);
+    }
 
-    private RadioGroup rg_game_control_ds5;
+    private void configureSeekBars() {
+        triggerStrength.setMax(
+                STRENGTH_RANGE.getProgressMaximum());
+        triggerFrequency.setMax(
+                FREQUENCY_RANGE.getProgressMaximum());
+        triggerStart.setMax(
+                POSITION_RANGE.getProgressMaximum());
+        triggerEnd.setMax(
+                POSITION_RANGE.getProgressMaximum());
+    }
 
-    private SeekBar sb_game_control_ds5_strength;
-    private SeekBar sb_game_control_ds5_frequency;
-    private SeekBar sb_game_control_ds5_start;
-    private SeekBar sb_game_control_ds5_end;
+    private void initializeControls() {
+        usbDriver.setChecked(prefConfig.bindAllUsb);
+        flipGripRumble.setChecked(
+                prefConfig.enableFlipRumbleFF);
+        ignoreTriggerDeadzone.setChecked(
+                prefConfig.disableTriggerDeadzone);
+        forceDeviceRumble.setChecked(
+                prefConfig.enableDeviceRumble);
+        useDeviceGyroscope.setChecked(
+                prefConfig.enableVirtualControllerMotion);
+        joyConCompatibility.setChecked(
+                prefConfig.enableJoyConFix);
+        reportBattery.setChecked(
+                prefConfig.enableBatteryReport);
+        usbGyroscope.setChecked(
+                prefConfig.usbGyroscopeReport);
+        linkTriggerRumble.setChecked(
+                prefConfig.gameTriggerRumbleLink);
 
+        checkAdaptiveTriggerMode(prefConfig.ds5TriggerMode);
+        setSeekBarValue(
+                triggerStrength,
+                STRENGTH_RANGE,
+                prefConfig.ds5TriggerStrength);
+        setSeekBarValue(
+                triggerFrequency,
+                FREQUENCY_RANGE,
+                prefConfig.ds5TriggerFrequency);
+        setSeekBarValue(
+                triggerStart,
+                POSITION_RANGE,
+                prefConfig.ds5TriggerStart);
+        setSeekBarValue(
+                triggerEnd,
+                POSITION_RANGE,
+                prefConfig.ds5TriggerEnd);
+        updateTriggerValueLabels();
+    }
 
-    private TextView tx_game_control_ds5_strength;
-    private TextView tx_game_control_ds5_frequency;
-    private TextView tx_game_control_ds5_start;
-    private TextView tx_game_control_ds5_end;
+    private void checkAdaptiveTriggerMode(int mode) {
+        if (mode == 1) {
+            adaptiveTriggerMode.check(
+                    R.id.rbt_game_control_ds5_2);
+        }
+        else if (mode == 2) {
+            adaptiveTriggerMode.check(
+                    R.id.rbt_game_control_ds5_3);
+        }
+        else if (mode == 6) {
+            adaptiveTriggerMode.check(
+                    R.id.rbt_game_control_ds5_4);
+        }
+        else {
+            adaptiveTriggerMode.check(
+                    R.id.rbt_game_control_ds5_1);
+        }
+    }
 
-    private CheckBox btn_game_trigger_rumble;
+    private static void setSeekBarValue(
+            SeekBar seekBar,
+            SeekBarValueRange range,
+            int value) {
+        seekBar.setProgress(range.valueToProgress(value));
+    }
+
+    private void bindControlListeners() {
+        usbDriver.setOnCheckedChangeListener(
+                (button, checked) -> {
+                    if (checked) {
+                        prefConfig.usbDriver = true;
+                        saveBoolean(KEY_USB_DRIVER, true);
+                    }
+                    prefConfig.bindAllUsb = checked;
+                    saveBoolean(KEY_USB_BIND_ALL, checked);
+                });
+        flipGripRumble.setOnCheckedChangeListener(
+                (button, checked) -> {
+                    prefConfig.enableFlipRumbleFF = checked;
+                    saveBoolean(KEY_FLIP_RUMBLE, checked);
+                });
+        ignoreTriggerDeadzone.setOnCheckedChangeListener(
+                (button, checked) -> {
+                    prefConfig.disableTriggerDeadzone = checked;
+                    saveBoolean(
+                            KEY_DISABLE_TRIGGER_DEADZONE,
+                            checked);
+                });
+        forceDeviceRumble.setOnCheckedChangeListener(
+                (button, checked) -> {
+                    prefConfig.enableDeviceRumble = checked;
+                    saveBoolean(KEY_DEVICE_RUMBLE, checked);
+                });
+        useDeviceGyroscope.setOnCheckedChangeListener(
+                (button, checked) -> {
+                    prefConfig.enableVirtualControllerMotion =
+                            checked;
+                    saveBoolean(KEY_VIRTUAL_MOTION, checked);
+                });
+        joyConCompatibility.setOnCheckedChangeListener(
+                (button, checked) -> {
+                    prefConfig.enableJoyConFix = checked;
+                    saveBoolean(KEY_JOYCON_FIX, checked);
+                });
+        reportBattery.setOnCheckedChangeListener(
+                (button, checked) -> {
+                    prefConfig.enableBatteryReport = checked;
+                    saveBoolean(KEY_BATTERY_REPORT, checked);
+                });
+        usbGyroscope.setOnCheckedChangeListener(
+                (button, checked) -> {
+                    prefConfig.usbGyroscopeReport = checked;
+                    saveBoolean(KEY_USB_GYROSCOPE, checked);
+                });
+        linkTriggerRumble.setOnCheckedChangeListener(
+                (button, checked) -> {
+                    prefConfig.gameTriggerRumbleLink = checked;
+                    saveBoolean(
+                            KEY_TRIGGER_RUMBLE_LINK,
+                            checked);
+                });
+
+        triggerStrength.setOnSeekBarChangeListener(this);
+        triggerFrequency.setOnSeekBarChangeListener(this);
+        triggerStart.setOnSeekBarChangeListener(this);
+        triggerEnd.setOnSeekBarChangeListener(this);
+        adaptiveTriggerMode.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    if (checkedId ==
+                            R.id.rbt_game_control_ds5_2) {
+                        saveAdaptiveTriggerMode(1);
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_control_ds5_3) {
+                        saveAdaptiveTriggerMode(2);
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_control_ds5_4) {
+                        saveAdaptiveTriggerMode(6);
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_control_ds5_1) {
+                        saveAdaptiveTriggerMode(0);
+                    }
+                });
+    }
+
+    private void saveAdaptiveTriggerMode(int mode) {
+        prefConfig.ds5TriggerMode = mode;
+        saveInteger(KEY_TRIGGER_MODE, mode);
+    }
+
+    private void updateTriggerValueLabels() {
+        triggerStrengthValue.setText(getString(
+                R.string.game_menu_integer_value,
+                STRENGTH_RANGE.progressToValue(
+                        triggerStrength.getProgress())));
+        triggerFrequencyValue.setText(getString(
+                R.string.game_menu_integer_value,
+                FREQUENCY_RANGE.progressToValue(
+                        triggerFrequency.getProgress())));
+        triggerStartValue.setText(getString(
+                R.string.game_menu_integer_value,
+                POSITION_RANGE.progressToValue(
+                        triggerStart.getProgress())));
+        triggerEndValue.setText(getString(
+                R.string.game_menu_integer_value,
+                POSITION_RANGE.progressToValue(
+                        triggerEnd.getProgress())));
+    }
+
+    private void saveBoolean(String key, boolean value) {
+        preferences().edit()
+                .putBoolean(key, value)
+                .apply();
+    }
+
+    private void saveInteger(String key, int value) {
+        preferences().edit()
+                .putInt(key, value)
+                .apply();
+    }
+
+    private SharedPreferences preferences() {
+        return PreferenceManager.getDefaultSharedPreferences(
+                getActivity());
+    }
 
     @Override
-    public void bindView(View v) {
-        super.bindView(v);
-        ibtn_back=v.findViewById(R.id.ibtn_back);
-        tx_title=v.findViewById(R.id.tx_title);
-
-        btn_game_usb=v.findViewById(R.id.btn_game_usb);
-        btn_game_grip=v.findViewById(R.id.btn_game_grip);
-        btn_game_trigger=v.findViewById(R.id.btn_game_trigger);
-        btn_game_shake=v.findViewById(R.id.btn_game_shake);
-        btn_game_gyroscope=v.findViewById(R.id.btn_game_gyroscope);
-        btn_game_joycon=v.findViewById(R.id.btn_game_joycon);
-        rg_game_control_ds5=v.findViewById(R.id.rg_game_control_ds5);
-        btn_game_battery=v.findViewById(R.id.btn_game_battery);
-        btn_game_usb_gyroscope=v.findViewById(R.id.btn_game_usb_gyroscope);
-
-        sb_game_control_ds5_strength=v.findViewById(R.id.sb_game_control_ds5_strength);
-        sb_game_control_ds5_frequency=v.findViewById(R.id.sb_game_control_ds5_frequency);
-        sb_game_control_ds5_start=v.findViewById(R.id.sb_game_control_ds5_start);
-        sb_game_control_ds5_end=v.findViewById(R.id.sb_game_control_ds5_end);
-
-        tx_game_control_ds5_strength=v.findViewById(R.id.tx_game_control_ds5_strength);
-        tx_game_control_ds5_frequency=v.findViewById(R.id.tx_game_control_ds5_frequency);
-        tx_game_control_ds5_start=v.findViewById(R.id.tx_game_control_ds5_start);
-        tx_game_control_ds5_end=v.findViewById(R.id.tx_game_control_ds5_end);
-
-        btn_game_trigger_rumble=v.findViewById(R.id.btn_game_trigger_rumble);
-
-        if(!TextUtils.isEmpty(title)){
-            tx_title.setText(title);
-        }
-        initViewData();
-        ibtn_back.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                dismiss();
-            }
-        });
-        v.findViewById(R.id.btn_right).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(onClick!=null){
-                    onClick.click(1,true);
-                }
-            }
-        });
-
-        btn_game_usb.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if(isChecked){
-                prefConfig.usbDriver=true;
-                setSetting("checkbox_usb_driver", true);
-            }
-            prefConfig.bindAllUsb=isChecked;
-            setSetting("checkbox_usb_bind_all",isChecked);
-        });
-
-        btn_game_grip.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            prefConfig.enableFlipRumbleFF=isChecked;
-            setSetting("checkbox_flip_rumble_ff",isChecked);
-        });
-        btn_game_trigger.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            prefConfig.disableTriggerDeadzone=isChecked;
-            setSetting("checkbox_disable_trigger_deadzone",isChecked);
-        });
-        btn_game_shake.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            prefConfig.enableDeviceRumble=isChecked;
-            setSetting("checkbox_enable_device_rumble",isChecked);
-        });
-        btn_game_gyroscope.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            prefConfig.enableVirtualControllerMotion=isChecked;
-            setSetting("checkbox_enable_virtual_motion",isChecked);
-        });
-        btn_game_joycon.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            prefConfig.enableJoyConFix=isChecked;
-            setSetting("checkbox_enable_joyconfix",isChecked);
-        });
-
-        btn_game_battery.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            prefConfig.enableBatteryReport=isChecked;
-            setSetting("checkbox_gamepad_enable_battery_report",isChecked);
-        });
-
-        btn_game_usb_gyroscope.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            prefConfig.usbGyroscopeReport=isChecked;
-            setSetting("usbGyroscopeReport",isChecked);
-        });
-
-        btn_game_trigger_rumble.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            prefConfig.gameTriggerRumbleLink=isChecked;
-            setSetting("gameTriggerRumbleLink",isChecked);
-        });
-
-        sb_game_control_ds5_strength.setOnSeekBarChangeListener(this);
-        sb_game_control_ds5_frequency.setOnSeekBarChangeListener(this);
-        sb_game_control_ds5_start.setOnSeekBarChangeListener(this);
-        sb_game_control_ds5_end.setOnSeekBarChangeListener(this);
-
-        rg_game_control_ds5.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                //关闭
-                if(checkedId==R.id.rbt_game_control_ds5_1){
-                    setDs5TriggerMode(0);
-                    return;
-                }
-                //阻尼
-                if(checkedId==R.id.rbt_game_control_ds5_2){
-                    setDs5TriggerMode(1);
-                    return;
-                }
-                //扳机
-                if(checkedId==R.id.rbt_game_control_ds5_3){
-                    setDs5TriggerMode(2);
-                    return;
-                }
-                //自动步枪扳机
-                if(checkedId==R.id.rbt_game_control_ds5_4){
-                    setDs5TriggerMode(6);
-                    return;
-                }
-            }
-        });
-    }
-
-    private void setSetting(String name,boolean value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putBoolean(name,value)
-                .apply();
-        initViewData();
-    }
-
-    private void setDs5TriggerMode(int mode){
-        prefConfig.ds5TriggerMode=mode;
-//        saveSetting("ds5TriggerMode",mode);
-    }
-
-    private void initDs5View(){
-        sb_game_control_ds5_strength.setProgress(prefConfig.ds5TriggerStrength);
-        tx_game_control_ds5_strength.setText(""+prefConfig.ds5TriggerStrength);
-
-        sb_game_control_ds5_frequency.setProgress(prefConfig.ds5TriggerFrequency);
-        tx_game_control_ds5_frequency.setText(""+prefConfig.ds5TriggerFrequency);
-
-        sb_game_control_ds5_start.setProgress(prefConfig.ds5TriggerStart);
-        tx_game_control_ds5_start.setText(""+prefConfig.ds5TriggerStart);
-
-        sb_game_control_ds5_end.setProgress(prefConfig.ds5TriggerEnd);
-        tx_game_control_ds5_end.setText(""+prefConfig.ds5TriggerEnd);
-    }
-
-    private void initViewData() {
-        if(prefConfig==null){
+    public void onProgressChanged(
+            SeekBar seekBar,
+            int progress,
+            boolean fromUser) {
+        if (!fromUser) {
             return;
         }
-        btn_game_usb.setChecked(prefConfig.bindAllUsb);
-        btn_game_grip.setChecked(prefConfig.enableFlipRumbleFF);
-        btn_game_trigger.setChecked(prefConfig.disableTriggerDeadzone);
-        btn_game_shake.setChecked(prefConfig.enableDeviceRumble);
-        btn_game_gyroscope.setChecked(prefConfig.enableVirtualControllerMotion);
-        btn_game_joycon.setChecked(prefConfig.enableJoyConFix);
-        btn_game_battery.setChecked(prefConfig.enableBatteryReport);
-        btn_game_usb_gyroscope.setChecked(prefConfig.usbGyroscopeReport);
-        btn_game_trigger_rumble.setChecked(prefConfig.gameTriggerRumbleLink);
-        initDs5View();
 
-        switch (prefConfig.ds5TriggerMode){
-            case 0:
-                rg_game_control_ds5.check(R.id.rbt_game_control_ds5_1);
-                break;
-            case 1:
-                rg_game_control_ds5.check(R.id.rbt_game_control_ds5_2);
-                break;
-            case 2:
-                rg_game_control_ds5.check(R.id.rbt_game_control_ds5_3);
-                break;
-            case 6:
-                rg_game_control_ds5.check(R.id.rbt_game_control_ds5_4);
-                break;
+        if (seekBar == triggerStrength) {
+            int value =
+                    STRENGTH_RANGE.progressToValue(progress);
+            prefConfig.ds5TriggerStrength = value;
+            saveInteger(KEY_TRIGGER_STRENGTH, value);
+            triggerStrengthValue.setText(getString(
+                    R.string.game_menu_integer_value, value));
         }
-    }
-
-    @Override
-    public float getDimAmount() {
-        return super.getDimAmount();
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    private PreferenceConfiguration prefConfig;
-
-    public void setPrefConfig(PreferenceConfiguration prefConfig) {
-        this.prefConfig = prefConfig;
-    }
-
-    private void saveSetting(String name,int value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putInt(name,value)
-                .apply();
-    }
-
-    private onClick onClick;
-
-    @Override
-    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-        if(seekBar==sb_game_control_ds5_strength){
-            prefConfig.ds5TriggerStrength=progress;
-            saveSetting("ds5TriggerStrength",progress);
+        else if (seekBar == triggerFrequency) {
+            int value =
+                    FREQUENCY_RANGE.progressToValue(progress);
+            prefConfig.ds5TriggerFrequency = value;
+            saveInteger(KEY_TRIGGER_FREQUENCY, value);
+            triggerFrequencyValue.setText(getString(
+                    R.string.game_menu_integer_value, value));
         }
-        if(seekBar==sb_game_control_ds5_frequency){
-            prefConfig.ds5TriggerFrequency=progress;
-            saveSetting("ds5TriggerFrequency",progress);
+        else if (seekBar == triggerStart) {
+            int value =
+                    POSITION_RANGE.progressToValue(progress);
+            prefConfig.ds5TriggerStart = value;
+            saveInteger(KEY_TRIGGER_START, value);
+            triggerStartValue.setText(getString(
+                    R.string.game_menu_integer_value, value));
         }
-        if(seekBar==sb_game_control_ds5_start){
-            prefConfig.ds5TriggerStart=progress;
-            saveSetting("ds5TriggerStart",progress);
+        else if (seekBar == triggerEnd) {
+            int value =
+                    POSITION_RANGE.progressToValue(progress);
+            prefConfig.ds5TriggerEnd = value;
+            saveInteger(KEY_TRIGGER_END, value);
+            triggerEndValue.setText(getString(
+                    R.string.game_menu_integer_value, value));
         }
-        if(seekBar==sb_game_control_ds5_end){
-            prefConfig.ds5TriggerEnd=progress;
-            saveSetting("ds5TriggerEnd",progress);
-        }
-        initDs5View();
     }
 
     @Override
     public void onStartTrackingTouch(SeekBar seekBar) {
-
     }
 
     @Override
     public void onStopTrackingTouch(SeekBar seekBar) {
-
     }
 
-    public interface onClick{
-        void click(int index,boolean flag);
+    public void setTitle(@StringRes int titleRes) {
+        this.titleRes = titleRes;
     }
 
-    public void setOnClick(onClick onClick) {
-        this.onClick = onClick;
+    public void setPrefConfig(
+            PreferenceConfiguration prefConfig) {
+        if (prefConfig != null) {
+            this.prefConfig = prefConfig;
+        }
+    }
+
+    public void setListener(Listener listener) {
+        this.listener = listener;
+    }
+
+    public interface Listener {
+        void onApplyAdaptiveTrigger();
     }
 }

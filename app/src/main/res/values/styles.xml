@@ -187,6 +187,19 @@
         <item name="android:thumb">@android:color/transparent</item>
     </style>
 
+    <style name="GameMenuToggleTile" parent="@android:style/Widget.Material.CompoundButton.CheckBox">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_marginEnd">5dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">@drawable/ic_game_menu_btn_selector</item>
+        <item name="android:button">@null</item>
+        <item name="android:drawablePadding">4dp</item>
+        <item name="android:gravity">start|center_vertical</item>
+        <item name="android:padding">4dp</item>
+        <item name="android:textSize">10sp</item>
+    </style>
+
     <style name="BottomDialog" parent="@android:style/Theme.DeviceDefault.Dialog">
         <item name="android:windowTitleStyle">@null</item>
         <item name="android:windowIsFloating">false</item>
