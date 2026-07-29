@@ -54,6 +54,7 @@ import com.limelight.ui.floatingview.AXFloatingView;
 import com.limelight.ui.floatingview.AXFloatingViewListener;
 import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.Dialog;
+import com.limelight.utils.FileUriUtils;
 import com.limelight.utils.RazerUtils;
 import com.limelight.utils.ServerHelper;
 import com.limelight.utils.ShortcutHelper;
@@ -4763,11 +4764,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         Uri directory = data.getData();
-        int flags = data.getFlags() &
-                (Intent.FLAG_GRANT_READ_URI_PERMISSION |
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
         try {
-            getContentResolver().takePersistableUriPermission(directory, flags);
+            if (!FileUriUtils.persistUriPermission(this, data, directory)) {
+                throw new SecurityException(
+                        "Document provider returned no persistable URI permission");
+            }
             PreferenceManager.getDefaultSharedPreferences(this)
                     .edit()
                     .putString(

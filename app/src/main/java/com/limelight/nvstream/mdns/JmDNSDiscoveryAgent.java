@@ -143,7 +143,8 @@ public class JmDNSDiscoveryAgent extends MdnsDiscoveryAgent implements ServiceLi
         super(listener);
 
         // Create the multicast lock required to receive mDNS traffic
-        WifiManager wifiMgr = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+        WifiManager wifiMgr = (WifiManager) context.getApplicationContext()
+                .getSystemService(Context.WIFI_SERVICE);
         multicastLock = wifiMgr.createMulticastLock("Limelight mDNS");
         multicastLock.setReferenceCounted(false);
     }

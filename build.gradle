@@ -16,3 +16,20 @@ allprojects {
         maven { url 'https://jitpack.io' }
     }
 }
+
+tasks.register('verifyLocal') {
+    group = 'verification'
+    description = 'Runs all JVM tests, Android Lint checks, and builds the non-root release.'
+    dependsOn ':app:test',
+            ':app:lintNonRootDebug',
+            ':app:lintNonRootRelease',
+            ':app:lintRootDebug',
+            ':app:lintRootRelease',
+            ':app:assembleNonRootRelease'
+}
+
+tasks.register('verifyConnected') {
+    group = 'verification'
+    description = 'Runs local verification plus every instrumentation test on a connected device.'
+    dependsOn verifyLocal, ':app:connectedAndroidTest'
+}

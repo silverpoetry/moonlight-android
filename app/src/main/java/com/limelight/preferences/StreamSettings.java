@@ -1,5 +1,6 @@
 package com.limelight.preferences;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
@@ -13,6 +14,7 @@ import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
+import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
@@ -119,7 +121,7 @@ public class StreamSettings extends Activity {
     private boolean nativeFramerateShown;
     private boolean wideLayout;
     private boolean sectionActivity;
-    private OnBackInvokedCallback backInvokedCallback;
+    private Object backInvokedCallback;
 
     // HACK for Android 9
     static DisplayCutout displayCutoutP;
@@ -209,7 +211,7 @@ public class StreamSettings extends Activity {
     @Override
     protected void onDestroy() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && backInvokedCallback != null) {
-            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backInvokedCallback);
+            Api33BackNavigation.unregister(this, backInvokedCallback);
             backInvokedCallback = null;
         }
         super.onDestroy();
@@ -220,14 +222,7 @@ public class StreamSettings extends Activity {
             return;
         }
 
-        backInvokedCallback = new OnBackInvokedCallback() {
-            @Override
-            public void onBackInvoked() {
-                handleBackNavigation();
-            }
-        };
-        getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                OnBackInvokedDispatcher.PRIORITY_DEFAULT, backInvokedCallback);
+        backInvokedCallback = Api33BackNavigation.register(this);
     }
 
     private void handleBackNavigation() {
@@ -289,7 +284,7 @@ public class StreamSettings extends Activity {
         titleView = new TextView(this);
         titleView.setTextColor(Color.WHITE);
         titleView.setTextSize(24);
-        titleView.setTypeface(null, 1);
+        titleView.setTypeface(null, Typeface.BOLD);
         titleBlock.addView(titleView);
 
         subtitleView = new TextView(this);
@@ -316,7 +311,7 @@ public class StreamSettings extends Activity {
             getWindow().setStatusBarColor(Color.TRANSPARENT);
             getWindow().setNavigationBarColor(Color.TRANSPARENT);
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             getWindow().setNavigationBarDividerColor(Color.TRANSPARENT);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -488,7 +483,7 @@ public class StreamSettings extends Activity {
         header.setText(titleResId);
         header.setTextColor(0xBFFFFFFF);
         header.setTextSize(13);
-        header.setTypeface(null, 1);
+        header.setTypeface(null, Typeface.BOLD);
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.setPadding(dp(4), dp(10), dp(4), dp(8));
         list.addView(header, new LinearLayout.LayoutParams(
@@ -589,7 +584,7 @@ public class StreamSettings extends Activity {
         title.setText(section.title);
         title.setTextColor(Color.WHITE);
         title.setTextSize(16);
-        title.setTypeface(null, 1);
+        title.setTypeface(null, Typeface.BOLD);
         textBlock.addView(title);
 
         TextView summary = new TextView(this);
@@ -677,7 +672,7 @@ public class StreamSettings extends Activity {
         title.setText(item.title);
         title.setTextColor(item.isEnabled(store) ? Color.WHITE : 0x80FFFFFF);
         title.setTextSize(16);
-        title.setTypeface(null, 1);
+        title.setTypeface(null, Typeface.BOLD);
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.END);
         textBlock.addView(title);
@@ -845,7 +840,7 @@ public class StreamSettings extends Activity {
         valueText.setGravity(Gravity.CENTER);
         valueText.setTextColor(Color.WHITE);
         valueText.setTextSize(28);
-        valueText.setTypeface(null, 1);
+        valueText.setTypeface(null, Typeface.BOLD);
         panel.addView(valueText);
 
         final SeekBar seekBar = new SeekBar(this);
@@ -970,7 +965,7 @@ public class StreamSettings extends Activity {
         titleView.setText(title);
         titleView.setTextColor(Color.WHITE);
         titleView.setTextSize(19);
-        titleView.setTypeface(null, 1);
+        titleView.setTypeface(null, Typeface.BOLD);
         titleView.setPadding(0, 0, 0, dp(12));
         panel.addView(titleView);
         return panel;
@@ -1005,7 +1000,7 @@ public class StreamSettings extends Activity {
         button.setText(text);
         button.setTextColor(Color.WHITE);
         button.setTextSize(14);
-        button.setTypeface(null, 1);
+        button.setTypeface(null, Typeface.BOLD);
         button.setGravity(Gravity.CENTER);
         button.setBackgroundResource(R.drawable.ic_game_menu_btn_selector);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(92), dp(40));
@@ -1130,7 +1125,7 @@ public class StreamSettings extends Activity {
     }
 
     private void tintSwitch(Switch switchView) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             return;
         }
 
@@ -1691,11 +1686,11 @@ public class StreamSettings extends Activity {
                 resultCode == Activity.RESULT_OK && data != null &&
                 data.getData() != null) {
             Uri directory = data.getData();
-            int flags = data.getFlags() &
-                    (Intent.FLAG_GRANT_READ_URI_PERMISSION |
-                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
             try {
-                getContentResolver().takePersistableUriPermission(directory, flags);
+                if (!FileUriUtils.persistUriPermission(this, data, directory)) {
+                    throw new SecurityException(
+                            "Document provider returned no persistable URI permission");
+                }
                 store.prefs.edit()
                         .putString(
                                 PreferenceConfiguration.CLIPBOARD_FILE_DIRECTORY_PREF_STRING,
@@ -1780,6 +1775,24 @@ public class StreamSettings extends Activity {
                 e.printStackTrace();
                 UiToast.makeText(this, "出错啦~" + e.getMessage(), UiToast.LENGTH_SHORT).show();
             }
+        }
+    }
+
+    @TargetApi(Build.VERSION_CODES.TIRAMISU)
+    private static final class Api33BackNavigation {
+        private Api33BackNavigation() {
+        }
+
+        static Object register(StreamSettings activity) {
+            OnBackInvokedCallback callback = activity::handleBackNavigation;
+            activity.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    OnBackInvokedDispatcher.PRIORITY_DEFAULT, callback);
+            return callback;
+        }
+
+        static void unregister(StreamSettings activity, Object callback) {
+            activity.getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(
+                    (OnBackInvokedCallback) callback);
         }
     }
 

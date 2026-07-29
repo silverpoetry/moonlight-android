@@ -117,8 +117,8 @@ public final class DeviceUtils {
     }
 
     private static boolean getWifiEnabled(Context context) {
-        @SuppressLint("WifiManagerLeak")
-        WifiManager manager = (WifiManager) context.getSystemService(WIFI_SERVICE);
+        WifiManager manager = (WifiManager) context.getApplicationContext()
+                .getSystemService(WIFI_SERVICE);
         if (manager == null) return false;
         return manager.isWifiEnabled();
     }
@@ -131,8 +131,8 @@ public final class DeviceUtils {
      */
     @RequiresPermission(CHANGE_WIFI_STATE)
     private static void setWifiEnabled(Context context,final boolean enabled) {
-        @SuppressLint("WifiManagerLeak")
-        WifiManager manager = (WifiManager) context.getSystemService(WIFI_SERVICE);
+        WifiManager manager = (WifiManager) context.getApplicationContext()
+                .getSystemService(WIFI_SERVICE);
         if (manager == null) return;
         if (enabled == manager.isWifiEnabled()) return;
         manager.setWifiEnabled(enabled);
