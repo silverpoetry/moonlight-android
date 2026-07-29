@@ -5,44 +5,11 @@
     android:background="@color/gameMenuBgColor"
     android:orientation="vertical"
     android:paddingBottom="10dp"
-    android:paddingLeft="10dp"
-    android:paddingRight="10dp"
+    android:paddingStart="10dp"
+    android:paddingEnd="10dp"
     android:paddingTop="10dp">
 
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:layout_marginBottom="4dp"
-        android:layout_height="wrap_content">
-        <ImageButton
-            android:src="@drawable/ic_axi_back"
-            android:background="@drawable/ic_game_menu_btn_side_selector"
-            android:layout_width="24dp"
-            android:id="@+id/ibtn_back"
-            android:layout_height="24dp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="码率"
-            android:id="@+id/tx_title"
-            android:textColor="@android:color/white"
-            android:textSize="13dp" />
-
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="24dp"
-            android:layout_alignParentRight="true"
-            android:layout_centerVertical="true"
-            android:text="确认"
-            android:background="@drawable/ic_game_menu_btn_side_selector"
-            android:layout_marginRight="5dp"
-            android:gravity="center"
-            android:id="@+id/btn_right"
-            android:textColor="@android:color/white"
-            android:textSize="11dp" />
-
-    </RelativeLayout>
+    <include layout="@layout/layout_game_menu_confirm_header" />
 
     <ScrollView
         android:scrollbars="none"
@@ -56,8 +23,8 @@
 
             <LinearLayout
                 android:layout_marginTop="10dp"
-                android:layout_marginLeft="5dp"
-                android:layout_marginRight="5dp"
+                android:layout_marginStart="5dp"
+                android:layout_marginEnd="5dp"
                 android:layout_marginBottom="5dp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
@@ -65,18 +32,18 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="信息"
+                    android:text="@string/game_menu_information"
                     android:textStyle="bold"
                     android:textColor="@android:color/white"
-                    android:textSize="12dp" />
+                    android:textSize="12sp" />
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginLeft="5dp"
-                    android:text="输入码率 单位mbps (只校验非空，别填奇怪的数值)"
+                    android:layout_marginStart="5dp"
+                    android:text="@string/game_menu_bitrate_help"
                     android:textStyle="italic"
                     android:textColor="@android:color/white"
-                    android:textSize="8dp" />
+                    android:textSize="11sp" />
 
             </LinearLayout>
 
@@ -89,10 +56,11 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="left"
-                    android:text="码率"
+                    android:layout_gravity="start"
+                    android:labelFor="@id/edt_bitrate"
+                    android:text="@string/game_menu_bitrate"
                     android:textStyle="bold"
-                    android:textSize="10dp" />
+                    android:textSize="11sp" />
 
                 <EditText
                     android:id="@+id/edt_bitrate"
@@ -100,22 +68,22 @@
                     android:layout_height="30dp"
                     android:layout_marginTop="4dp"
                     android:background="@drawable/ic_game_menu_btn_selector"
-                    android:hint="请输入码率，最大99999"
+                    android:importantForAutofill="no"
                     android:inputType="number"
                     android:maxLength="5"
-                    android:paddingLeft="10dp"
-                    android:paddingRight="10dp"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
                     android:singleLine="true"
-                    android:textSize="12dp" />
+                    android:textSize="12sp" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="left"
-                    android:text="常用码率"
+                    android:layout_gravity="start"
+                    android:text="@string/game_menu_common_bitrates"
                     android:layout_marginTop="4dp"
                     android:textStyle="bold"
-                    android:textSize="10dp" />
+                    android:textSize="11sp" />
 
                 <org.apmem.tools.layouts.FlowLayout
                     android:layout_width="match_parent"
@@ -124,86 +92,86 @@
                     <TextView
                         android:layout_width="60dp"
                         android:layout_height="28dp"
-                        android:layout_marginRight="4dp"
+                        android:layout_marginEnd="4dp"
                         android:layout_marginTop="5dp"
                         android:background="@drawable/ic_game_menu_btn_selector"
                         android:gravity="center"
                         android:tag="0"
                         android:textColor="@android:color/white"
-                        android:text="20mbps"
-                        android:textSize="9sp" />
+                        android:text="@string/game_menu_bitrate_20"
+                        android:textSize="11sp" />
 
                     <TextView
                         android:layout_width="60dp"
                         android:layout_height="28dp"
-                        android:layout_marginRight="4dp"
+                        android:layout_marginEnd="4dp"
                         android:layout_marginTop="5dp"
                         android:textColor="@android:color/white"
                         android:background="@drawable/ic_game_menu_btn_selector"
                         android:gravity="center"
-                        android:text="50mbps"
+                        android:text="@string/game_menu_bitrate_50"
                         android:tag="1"
-                        android:textSize="9sp" />
+                        android:textSize="11sp" />
 
                     <TextView
                         android:layout_width="60dp"
                         android:layout_height="28dp"
-                        android:layout_marginRight="4dp"
+                        android:layout_marginEnd="4dp"
                         android:layout_marginTop="5dp"
                         android:background="@drawable/ic_game_menu_btn_selector"
                         android:gravity="center"
                         android:textColor="@android:color/white"
-                        android:text="60mbps"
+                        android:text="@string/game_menu_bitrate_60"
                         android:tag="2"
-                        android:textSize="9sp" />
+                        android:textSize="11sp" />
 
                     <TextView
                         android:layout_width="60dp"
                         android:layout_height="28dp"
-                        android:layout_marginRight="4dp"
+                        android:layout_marginEnd="4dp"
                         android:layout_marginTop="5dp"
                         android:background="@drawable/ic_game_menu_btn_selector"
                         android:gravity="center"
                         android:textColor="@android:color/white"
-                        android:text="100mbps"
+                        android:text="@string/game_menu_bitrate_100"
                         android:tag="3"
-                        android:textSize="9sp" />
+                        android:textSize="11sp" />
 
                     <TextView
                         android:layout_width="60dp"
                         android:layout_height="28dp"
-                        android:layout_marginRight="4dp"
+                        android:layout_marginEnd="4dp"
                         android:layout_marginTop="5dp"
                         android:background="@drawable/ic_game_menu_btn_selector"
                         android:gravity="center"
-                        android:text="150mbps"
+                        android:text="@string/game_menu_bitrate_150"
                         android:tag="4"
                         android:textColor="@android:color/white"
-                        android:textSize="9sp" />
+                        android:textSize="11sp" />
 
                     <TextView
                         android:layout_width="60dp"
                         android:layout_height="28dp"
-                        android:layout_marginRight="4dp"
+                        android:layout_marginEnd="4dp"
                         android:layout_marginTop="5dp"
                         android:background="@drawable/ic_game_menu_btn_selector"
                         android:gravity="center"
-                        android:text="200mbps"
+                        android:text="@string/game_menu_bitrate_200"
                         android:tag="5"
                         android:textColor="@android:color/white"
-                        android:textSize="9sp" />
+                        android:textSize="11sp" />
 
                     <TextView
                         android:layout_width="60dp"
                         android:layout_height="28dp"
-                        android:layout_marginRight="4dp"
+                        android:layout_marginEnd="4dp"
                         android:layout_marginTop="5dp"
                         android:background="@drawable/ic_game_menu_btn_selector"
                         android:gravity="center"
-                        android:text="300mbps"
+                        android:text="@string/game_menu_bitrate_300"
                         android:tag="6"
                         android:textColor="@android:color/white"
-                        android:textSize="9sp" />
+                        android:textSize="11sp" />
 
                 </org.apmem.tools.layouts.FlowLayout>
 

@@ -5,226 +5,272 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Rect;
 import android.os.Build;
+import android.support.annotation.StringRes;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowMetrics;
 import android.widget.EditText;
-import android.widget.ImageButton;
 import android.widget.TextView;
-import com.limelight.utils.UiToast;
 
 import com.limelight.R;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
+import com.limelight.utils.UiToast;
 
 import org.apmem.tools.layouts.FlowLayout;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Description
- * Date: 2024-10-20
- * Time: 16:07
- */
-public class GameDisplayResolutionFragment extends BaseGameMenuDialog implements View.OnClickListener{
+public class GameDisplayResolutionFragment
+        extends BaseGameMenuDialog implements View.OnClickListener {
+    private static final String PREFS_NAME = "CustomResolutions";
+    private static final String KEY_RESOLUTIONS = "resolutions";
+    private static final int MIN_DIMENSION = 1;
+    private static final int MAX_DIMENSION = 99_999;
+    private static final int PRESET_COUNT = 6;
+
+    private final Set<String> defaultResolutions = new HashSet<>();
+
+    private int titleRes = R.string.game_menu_resolution;
+    private EditText widthInput;
+    private EditText heightInput;
+    private FlowLayout customResolutionFlow;
+    private TextView customResolutionTitle;
+    private Listener listener;
+
     @Override
     public int getLayoutRes() {
         return R.layout.dialog_game_menu_display_resolution;
     }
 
-    private ImageButton ibtn_back;
-    private TextView tx_title;
-
-    private String title;
-
-    private EditText edt_width;
-    private EditText edt_height;
-    private FlowLayout flow_custom;
-    private TextView tx_custom_title;
-
-    private static final String PREFS_NAME = "CustomResolutions";
-    private static final String KEY_RESOLUTIONS = "resolutions";
-
-    private final Set<String> defaultResolutions = new HashSet<>();
-
     @Override
-    public void bindView(View v) {
-        super.bindView(v);
-        ibtn_back=v.findViewById(R.id.ibtn_back);
-        tx_title=v.findViewById(R.id.tx_title);
+    public void bindView(View view) {
+        super.bindView(view);
 
-        edt_width=v.findViewById(R.id.edt_width);
-        edt_height=v.findViewById(R.id.edt_height);
-        flow_custom = v.findViewById(R.id.flow_custom);
-        tx_custom_title = v.findViewById(R.id.tx_custom_title);
-
-        if(!TextUtils.isEmpty(title)){
-            tx_title.setText(title);
-        }
+        TextView titleView = view.findViewById(R.id.tx_title);
+        titleView.setText(titleRes);
+        widthInput = view.findViewById(R.id.edt_width);
+        heightInput = view.findViewById(R.id.edt_height);
+        customResolutionFlow = view.findViewById(R.id.flow_custom);
+        customResolutionTitle = view.findViewById(R.id.tx_custom_title);
 
         defaultResolutions.clear();
-        TextView txNative=v.findViewWithTag("5");
-        String nativeRes;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            WindowMetrics windowMetrics = getActivity().getWindowManager().getCurrentWindowMetrics();
-            Rect bounds = windowMetrics.getBounds();
-            nativeRes = bounds.width()+"x"+bounds.height();
-        }else{
-            nativeRes = getResources().getDisplayMetrics().widthPixels+"x"+getResources().getDisplayMetrics().heightPixels;
-        }
-        txNative.setText(nativeRes);
+        int[] windowDimensions = getWindowDimensions();
+        TextView nativeResolutionView = view.findViewWithTag("5");
+        nativeResolutionView.setText(getResolutionText(
+                windowDimensions[0], windowDimensions[1]));
 
-        for (int i = 0; i < 6; i++) {
-            TextView textView=v.findViewWithTag(""+i);
-            String res = textView.getText().toString().trim();
-            defaultResolutions.add(res);
-            textView.setOnClickListener(v1 -> {
-                String txt=textView.getText().toString().trim();
-                String[] strings=txt.split("x");
-                if(onClick==null){
-                    return;
-                }
-                onClick.click(Integer.parseInt(strings[0]),Integer.parseInt(strings[1]));
-                dismiss();
-            });
+        for (int index = 0; index < PRESET_COUNT; index++) {
+            TextView preset = view.findViewWithTag(
+                    Integer.toString(index));
+            String resolution = preset.getText().toString().trim();
+            if (parseResolution(resolution) == null) {
+                preset.setEnabled(false);
+                continue;
+            }
+            defaultResolutions.add(resolution);
+            preset.setOnClickListener(
+                    clickedView -> selectResolution(resolution));
         }
 
-        initViewData();
-        ibtn_back.setOnClickListener(this);
-        v.findViewById(R.id.btn_right).setOnClickListener(this);
+        loadCustomResolutions();
+        view.findViewById(R.id.ibtn_back).setOnClickListener(this);
+        view.findViewById(R.id.btn_right).setOnClickListener(this);
     }
 
-    private void initViewData() {
-        loadCustomResolutions();
+    private int[] getWindowDimensions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowMetrics metrics =
+                    getActivity().getWindowManager()
+                            .getCurrentWindowMetrics();
+            Rect bounds = metrics.getBounds();
+            return new int[] {bounds.width(), bounds.height()};
+        }
+        return new int[] {
+                getResources().getDisplayMetrics().widthPixels,
+                getResources().getDisplayMetrics().heightPixels
+        };
     }
 
     private void loadCustomResolutions() {
-        flow_custom.removeAllViews();
-        SharedPreferences prefs = getActivity().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        Set<String> savedResolutions = prefs.getStringSet(KEY_RESOLUTIONS, new HashSet<>());
-        
-        boolean hasCustom = false;
-        if (!savedResolutions.isEmpty()) {
-            List<String> list = new ArrayList<>(savedResolutions);
-            for (String res : list) {
-                if (!defaultResolutions.contains(res)) {
-                    addResolutionToFlow(res);
-                    hasCustom = true;
-                }
+        customResolutionFlow.removeAllViews();
+        Set<String> savedResolutions = getSavedResolutions();
+
+        boolean hasCustomResolution = false;
+        List<String> sortedResolutions =
+                new ArrayList<>(savedResolutions);
+        Collections.sort(sortedResolutions);
+        for (String resolution : sortedResolutions) {
+            if (!defaultResolutions.contains(resolution) &&
+                    parseResolution(resolution) != null) {
+                addResolutionToFlow(resolution);
+                hasCustomResolution = true;
             }
         }
-
-        tx_custom_title.setVisibility(hasCustom ? View.VISIBLE : View.GONE);
+        customResolutionTitle.setVisibility(
+                hasCustomResolution ? View.VISIBLE : View.GONE);
     }
 
-    private void addResolutionToFlow(String res) {
-        TextView tv = (TextView) LayoutInflater.from(getActivity()).inflate(R.layout.layout_resolution_item, flow_custom, false);
-        if (tv == null) {
-            tv = new TextView(getActivity());
-            FlowLayout.LayoutParams lp = new FlowLayout.LayoutParams(60, 28);
-            lp.rightMargin = 4;
-            lp.topMargin = 5;
-            tv.setLayoutParams(lp);
-        }
-        tv.setText(res);
-        tv.setOnClickListener(v -> {
-            String[] strings = res.split("x");
-            if (onClick != null) {
-                onClick.click(Integer.parseInt(strings[0]), Integer.parseInt(strings[1]));
-                dismiss();
-            }
-        });
-        tv.setOnLongClickListener(v -> {
-            showDeleteConfirmDialog(res);
+    private void addResolutionToFlow(String resolution) {
+        TextView resolutionView = (TextView) LayoutInflater
+                .from(getActivity())
+                .inflate(
+                        R.layout.layout_resolution_item,
+                        customResolutionFlow,
+                        false);
+        resolutionView.setText(resolution);
+        resolutionView.setOnClickListener(
+                view -> selectResolution(resolution));
+        resolutionView.setOnLongClickListener(view -> {
+            showDeleteConfirmDialog(resolution);
             return true;
         });
-        flow_custom.addView(tv);
+        customResolutionFlow.addView(resolutionView);
     }
 
-    private void showDeleteConfirmDialog(String res) {
+    private void selectResolution(String resolution) {
+        int[] dimensions = parseResolution(resolution);
+        if (dimensions == null) {
+            return;
+        }
+        if (listener != null) {
+            listener.onResolutionSelected(
+                    dimensions[0], dimensions[1]);
+        }
+        dismiss();
+    }
+
+    private void showDeleteConfirmDialog(String resolution) {
         new AlertDialog.Builder(getActivity())
-                .setTitle("确认删除")
-                .setMessage("是否删除分辨率 " + res + "？")
-                .setPositiveButton("确定", (dialog, which) -> {
-                    deleteResolution(res);
-                })
-                .setNegativeButton("取消", null)
+                .setTitle(R.string.game_menu_resolution_delete_title)
+                .setMessage(getString(
+                        R.string.game_menu_resolution_delete_message,
+                        resolution))
+                .setPositiveButton(
+                        R.string.game_menu_delete,
+                        (dialog, which) ->
+                                deleteResolution(resolution))
+                .setNegativeButton(
+                        R.string.game_menu_customize_cancel, null)
                 .show();
     }
 
-    private void deleteResolution(String res) {
-        SharedPreferences prefs = getActivity().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        Set<String> resolutions = new HashSet<>(prefs.getStringSet(KEY_RESOLUTIONS, new HashSet<>()));
-        if (resolutions.remove(res)) {
-            prefs.edit().putStringSet(KEY_RESOLUTIONS, resolutions).apply();
+    private void deleteResolution(String resolution) {
+        Set<String> resolutions = getSavedResolutions();
+        if (resolutions.remove(resolution)) {
+            getPreferences().edit()
+                    .putStringSet(KEY_RESOLUTIONS, resolutions)
+                    .apply();
             loadCustomResolutions();
         }
     }
 
-    private void saveResolution(String w, String h) {
-        String res = w + "x" + h;
-        // 如果是内置分辨率，不保存到自定义列表
-        if (defaultResolutions.contains(res)) {
+    private void saveResolution(int width, int height) {
+        String resolution = getResolutionText(width, height);
+        if (defaultResolutions.contains(resolution)) {
             return;
         }
-        SharedPreferences prefs = getActivity().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        Set<String> resolutions = new HashSet<>(prefs.getStringSet(KEY_RESOLUTIONS, new HashSet<>()));
-        if (resolutions.add(res)) {
-            prefs.edit().putStringSet(KEY_RESOLUTIONS, resolutions).apply();
+
+        Set<String> resolutions = getSavedResolutions();
+        if (resolutions.add(resolution)) {
+            getPreferences().edit()
+                    .putStringSet(KEY_RESOLUTIONS, resolutions)
+                    .apply();
         }
+    }
+
+    private SharedPreferences getPreferences() {
+        return getActivity().getSharedPreferences(
+                PREFS_NAME, Context.MODE_PRIVATE);
+    }
+
+    private Set<String> getSavedResolutions() {
+        Set<String> savedResolutions = getPreferences().getStringSet(
+                KEY_RESOLUTIONS, null);
+        return savedResolutions == null ?
+                new HashSet<>() : new HashSet<>(savedResolutions);
+    }
+
+    private String getResolutionText(int width, int height) {
+        return getString(
+                R.string.game_menu_resolution_format,
+                width,
+                height);
+    }
+
+    private static int[] parseResolution(String resolution) {
+        if (resolution == null) {
+            return null;
+        }
+        String[] dimensions = resolution.split("x", -1);
+        if (dimensions.length != 2) {
+            return null;
+        }
+        Integer width = BoundedIntegerParser.parse(
+                dimensions[0], MIN_DIMENSION, MAX_DIMENSION);
+        Integer height = BoundedIntegerParser.parse(
+                dimensions[1], MIN_DIMENSION, MAX_DIMENSION);
+        return width != null && height != null ?
+                new int[] {width, height} : null;
     }
 
     @Override
-    public float getDimAmount() {
-        return super.getDimAmount();
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-
-    @Override
-    public void onClick(View v) {
-        if(v.getId()==R.id.ibtn_back){
+    public void onClick(View view) {
+        if (view.getId() == R.id.ibtn_back) {
             dismiss();
             return;
         }
-
-        if(v.getId()==R.id.btn_right){
-            String width=edt_width.getText().toString().trim();
-            String height=edt_height.getText().toString().trim();
-            if(TextUtils.isEmpty(width)){
-                UiToast.makeText(getActivity(),"宽度不能为空！",UiToast.LENGTH_SHORT).show();
-                return;
-            }
-            if(TextUtils.isEmpty(height)){
-                UiToast.makeText(getActivity(),"高度不能为空！",UiToast.LENGTH_SHORT).show();
-                return;
-            }
-            
-            saveResolution(width, height);
-            
-            if(onClick==null){
-                dismiss();
-                return;
-            }
-            onClick.click(Integer.parseInt(width),Integer.parseInt(height));
-            dismiss();
+        if (view.getId() != R.id.btn_right) {
             return;
         }
-    }
-    private onClick onClick;
 
-    public interface onClick{
-        void click(int w,int h);
+        String widthText =
+                widthInput.getText().toString().trim();
+        String heightText =
+                heightInput.getText().toString().trim();
+        if (TextUtils.isEmpty(widthText)) {
+            showToast(R.string.game_menu_width_required);
+            return;
+        }
+        if (TextUtils.isEmpty(heightText)) {
+            showToast(R.string.game_menu_height_required);
+            return;
+        }
+
+        Integer width = BoundedIntegerParser.parse(
+                widthText, MIN_DIMENSION, MAX_DIMENSION);
+        Integer height = BoundedIntegerParser.parse(
+                heightText, MIN_DIMENSION, MAX_DIMENSION);
+        if (width == null || height == null) {
+            showToast(R.string.game_menu_resolution_invalid);
+            return;
+        }
+
+        saveResolution(width, height);
+        if (listener != null) {
+            listener.onResolutionSelected(width, height);
+        }
+        dismiss();
     }
 
-    public void setOnClick(onClick onClick) {
-        this.onClick = onClick;
+    private void showToast(@StringRes int messageRes) {
+        UiToast.makeText(
+                getActivity(), messageRes, UiToast.LENGTH_SHORT).show();
     }
 
+    public void setTitle(@StringRes int titleRes) {
+        this.titleRes = titleRes;
+    }
+
+    public void setListener(Listener listener) {
+        this.listener = listener;
+    }
+
+    public interface Listener {
+        void onResolutionSelected(int width, int height);
+    }
 }

@@ -637,10 +637,10 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
         if(v.getId()==R.id.bt_display_screen){
             GameDisplayResolutionFragment fragment=new GameDisplayResolutionFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle("分辨率");
-            fragment.setOnClick(new GameDisplayResolutionFragment.onClick() {
+            fragment.setTitle(R.string.game_menu_resolution);
+            fragment.setListener(new GameDisplayResolutionFragment.Listener() {
                 @Override
-                public void click(int w, int h) {
+                public void onResolutionSelected(int w, int h) {
                     width=w;
                     height=h;
                     initViewData();
@@ -667,10 +667,10 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
         if(v.getId()==R.id.bt_display_bitrate){
             GameDisplayBitrateFragment fragment=new GameDisplayBitrateFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle("码率");
-            fragment.setOnClick(new GameDisplayBitrateFragment.onClick() {
+            fragment.setTitle(R.string.game_menu_bitrate);
+            fragment.setListener(new GameDisplayBitrateFragment.Listener() {
                 @Override
-                public void click(int num) {
+                public void onBitrateSelected(int num) {
                     bitrate=num*1000;
                     initViewData();
                 }
@@ -681,10 +681,10 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
         if(v.getId()==R.id.bt_display_fps){
             GameDisplayFpsFragment fragment=new GameDisplayFpsFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle("帧率");
-            fragment.setOnClick(new GameDisplayFpsFragment.onClick() {
+            fragment.setTitle(R.string.game_menu_fps);
+            fragment.setListener(new GameDisplayFpsFragment.Listener() {
                 @Override
-                public void click(int fps2) {
+                public void onFpsSelected(int fps2) {
                     fps=fps2;
                     initViewData();
                 }

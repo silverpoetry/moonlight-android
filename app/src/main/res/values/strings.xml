@@ -347,6 +347,52 @@
     <string name="game_menu_sensitivity_format">灵敏度：%1$d%%</string>
     <string name="game_menu_distance_format">距离：%1$d</string>
     <string name="game_menu_scroll_speed_format">滚轮速度：%1$d</string>
+    <string name="game_menu_display_title">显示设置</string>
+    <string name="game_menu_confirm">确认</string>
+    <string name="game_menu_information">信息</string>
+    <string name="game_menu_resolution">分辨率</string>
+    <string name="game_menu_resolution_help">输入宽度和高度，确认后保存并使用</string>
+    <string name="game_menu_width">宽度</string>
+    <string name="game_menu_height">高度</string>
+    <string name="game_menu_common_resolutions">常用分辨率</string>
+    <string name="game_menu_native_resolution">本机</string>
+    <string name="game_menu_custom_resolutions">自定义分辨率（长按删除）</string>
+    <string name="game_menu_resolution_format" translatable="false">%1$dx%2$d</string>
+    <string name="game_menu_resolution_720p" translatable="false">1280x720</string>
+    <string name="game_menu_resolution_1080p" translatable="false">1920x1080</string>
+    <string name="game_menu_resolution_1440p" translatable="false">2560x1440</string>
+    <string name="game_menu_resolution_1600p" translatable="false">2560x1600</string>
+    <string name="game_menu_resolution_2160p" translatable="false">3840x2160</string>
+    <string name="game_menu_resolution_delete_title">删除分辨率</string>
+    <string name="game_menu_resolution_delete_message">确定删除分辨率 %1$s？</string>
+    <string name="game_menu_delete">删除</string>
+    <string name="game_menu_width_required">宽度不能为空</string>
+    <string name="game_menu_height_required">高度不能为空</string>
+    <string name="game_menu_resolution_invalid">宽度和高度必须是大于 0 的整数</string>
+    <string name="game_menu_fps">FPS</string>
+    <string name="game_menu_fps_help">请选择设备与主机均支持的帧率，否则可能黑屏。</string>
+    <string name="game_menu_common_frame_rates">常用帧率</string>
+    <string name="game_menu_fps_30" translatable="false">30 FPS</string>
+    <string name="game_menu_fps_60" translatable="false">60 FPS</string>
+    <string name="game_menu_fps_90" translatable="false">90 FPS</string>
+    <string name="game_menu_fps_120" translatable="false">120 FPS</string>
+    <string name="game_menu_fps_144" translatable="false">144 FPS</string>
+    <string name="game_menu_fps_preview_max" translatable="false">165 FPS</string>
+    <string name="game_menu_fps_format" translatable="false">%1$d FPS</string>
+    <string name="game_menu_fps_required">帧率不能为空</string>
+    <string name="game_menu_fps_invalid">帧率必须是 1–999 之间的整数</string>
+    <string name="game_menu_bitrate">码率</string>
+    <string name="game_menu_bitrate_help">输入码率，单位为 Mbps；有效范围为 1–99999。</string>
+    <string name="game_menu_common_bitrates">常用码率</string>
+    <string name="game_menu_bitrate_20" translatable="false">20 Mbps</string>
+    <string name="game_menu_bitrate_50" translatable="false">50 Mbps</string>
+    <string name="game_menu_bitrate_60" translatable="false">60 Mbps</string>
+    <string name="game_menu_bitrate_100" translatable="false">100 Mbps</string>
+    <string name="game_menu_bitrate_150" translatable="false">150 Mbps</string>
+    <string name="game_menu_bitrate_200" translatable="false">200 Mbps</string>
+    <string name="game_menu_bitrate_300" translatable="false">300 Mbps</string>
+    <string name="game_menu_bitrate_required">码率不能为空</string>
+    <string name="game_menu_bitrate_invalid">码率必须是 1–99999 之间的整数</string>
     <string name="title_checkbox_disable_adaptive_input_throttling">Disable adaptive input throttling</string>
     <string name="summary_checkbox_disable_adaptive_input_throttling">Prevent ENet from intentionally dropping real-time input events when network latency varies. Packets remain non-retransmitted, but upstream traffic may increase slightly.</string>
     <string name="title_checkbox_mouse_nav_buttons">Enable back and forward mouse buttons</string>

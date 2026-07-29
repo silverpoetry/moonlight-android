@@ -5,44 +5,11 @@
     android:background="@color/gameMenuBgColor"
     android:orientation="vertical"
     android:paddingBottom="10dp"
-    android:paddingLeft="10dp"
-    android:paddingRight="10dp"
+    android:paddingStart="10dp"
+    android:paddingEnd="10dp"
     android:paddingTop="10dp">
 
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:layout_marginBottom="4dp"
-        android:layout_height="wrap_content">
-        <ImageButton
-            android:src="@drawable/ic_axi_back"
-            android:background="@drawable/ic_game_menu_btn_side_selector"
-            android:layout_width="24dp"
-            android:id="@+id/ibtn_back"
-            android:layout_height="24dp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="帧率"
-            android:id="@+id/tx_title"
-            android:textColor="@android:color/white"
-            android:textSize="13dp" />
-
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="24dp"
-            android:layout_alignParentRight="true"
-            android:layout_centerVertical="true"
-            android:text="确认"
-            android:background="@drawable/ic_game_menu_btn_side_selector"
-            android:layout_marginRight="5dp"
-            android:gravity="center"
-            android:id="@+id/btn_right"
-            android:textColor="@android:color/white"
-            android:textSize="11dp" />
-
-    </RelativeLayout>
+    <include layout="@layout/layout_game_menu_confirm_header" />
 
     <ScrollView
         android:scrollbars="none"
@@ -56,8 +23,8 @@
 
             <LinearLayout
                 android:layout_marginTop="10dp"
-                android:layout_marginLeft="5dp"
-                android:layout_marginRight="5dp"
+                android:layout_marginStart="5dp"
+                android:layout_marginEnd="5dp"
                 android:layout_marginBottom="5dp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
@@ -65,18 +32,19 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="FPS"
+                    android:labelFor="@id/edt_fps"
+                    android:text="@string/game_menu_fps"
                     android:textStyle="bold"
                     android:textColor="@android:color/white"
-                    android:textSize="12dp" />
+                    android:textSize="12sp" />
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginLeft="5dp"
-                    android:text="选择合适的帧率，异常帧率可能黑屏。"
+                    android:layout_marginStart="5dp"
+                    android:text="@string/game_menu_fps_help"
                     android:textStyle="italic"
                     android:textColor="@android:color/white"
-                    android:textSize="8dp" />
+                    android:textSize="11sp" />
 
             </LinearLayout>
 
@@ -93,104 +61,104 @@
                     android:layout_height="30dp"
                     android:layout_marginTop="4dp"
                     android:background="@drawable/ic_game_menu_btn_selector"
-                    android:hint="请输入帧率"
+                    android:importantForAutofill="no"
                     android:inputType="number"
                     android:maxLength="3"
-                    android:paddingLeft="10dp"
-                    android:paddingRight="10dp"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
                     android:singleLine="true"
-                    android:textSize="12dp" />
+                    android:textSize="12sp" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="left"
-                    android:text="常用帧率"
+                    android:layout_gravity="start"
+                    android:text="@string/game_menu_common_frame_rates"
                     android:layout_marginTop="10dp"
                     android:textStyle="bold"
-                    android:textSize="10dp" />
+                    android:textSize="11sp" />
 
                 <Button
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:background="@drawable/ic_game_menu_btn_selector"
-                    android:drawableLeft="@drawable/ic_axi_game_pad_bitrate"
+                    android:drawableStart="@drawable/ic_axi_game_pad_bitrate"
                     android:drawablePadding="4dp"
                     android:layout_marginTop="4dp"
                     android:id="@+id/bt_display_fps_30"
-                    android:gravity="left|center_vertical"
+                    android:gravity="start|center_vertical"
                     android:padding="10dp"
-                    android:text="30 fps"
-                    android:textSize="11dp" />
+                    android:text="@string/game_menu_fps_30"
+                    android:textSize="11sp" />
 
                 <Button
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:layout_marginTop="4dp"
                     android:background="@drawable/ic_game_menu_btn_selector"
-                    android:drawableLeft="@drawable/ic_axi_game_pad_bitrate"
+                    android:drawableStart="@drawable/ic_axi_game_pad_bitrate"
                     android:drawablePadding="4dp"
                     android:id="@+id/bt_display_fps_60"
-                    android:gravity="left|center_vertical"
+                    android:gravity="start|center_vertical"
                     android:padding="10dp"
-                    android:text="60 fps"
-                    android:textSize="11dp" />
+                    android:text="@string/game_menu_fps_60"
+                    android:textSize="11sp" />
 
                 <Button
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:layout_marginTop="4dp"
                     android:background="@drawable/ic_game_menu_btn_selector"
-                    android:drawableLeft="@drawable/ic_axi_game_pad_bitrate"
+                    android:drawableStart="@drawable/ic_axi_game_pad_bitrate"
                     android:drawablePadding="4dp"
                     android:id="@+id/bt_display_fps_90"
-                    android:gravity="left|center_vertical"
+                    android:gravity="start|center_vertical"
                     android:padding="10dp"
                     android:visibility="gone"
-                    android:text="90 fps"
-                    android:textSize="11dp" />
+                    android:text="@string/game_menu_fps_90"
+                    android:textSize="11sp" />
 
                 <Button
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:layout_marginTop="4dp"
                     android:background="@drawable/ic_game_menu_btn_selector"
-                    android:drawableLeft="@drawable/ic_axi_game_pad_bitrate"
+                    android:drawableStart="@drawable/ic_axi_game_pad_bitrate"
                     android:drawablePadding="4dp"
                     android:id="@+id/bt_display_fps_120"
-                    android:gravity="left|center_vertical"
+                    android:gravity="start|center_vertical"
                     android:padding="10dp"
                     android:visibility="gone"
-                    android:text="120 fps"
-                    android:textSize="11dp" />
+                    android:text="@string/game_menu_fps_120"
+                    android:textSize="11sp" />
 
                 <Button
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:layout_marginTop="4dp"
                     android:background="@drawable/ic_game_menu_btn_selector"
-                    android:drawableLeft="@drawable/ic_axi_game_pad_bitrate"
+                    android:drawableStart="@drawable/ic_axi_game_pad_bitrate"
                     android:drawablePadding="4dp"
                     android:id="@+id/bt_display_fps_144"
-                    android:gravity="left|center_vertical"
+                    android:gravity="start|center_vertical"
                     android:padding="10dp"
-                    android:text="144 fps"
+                    android:text="@string/game_menu_fps_144"
                     android:visibility="gone"
-                    android:textSize="11dp" />
+                    android:textSize="11sp" />
 
                 <Button
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:layout_marginTop="4dp"
                     android:background="@drawable/ic_game_menu_btn_selector"
-                    android:drawableLeft="@drawable/ic_axi_game_pad_bitrate"
+                    android:drawableStart="@drawable/ic_axi_game_pad_bitrate"
                     android:drawablePadding="4dp"
                     android:id="@+id/bt_display_fps_max"
-                    android:gravity="left|center_vertical"
+                    android:gravity="start|center_vertical"
                     android:padding="10dp"
-                    android:text="165 fps"
+                    android:text="@string/game_menu_fps_preview_max"
                     android:visibility="gone"
-                    android:textSize="11dp" />
+                    android:textSize="11sp" />
 
             </LinearLayout>
 
