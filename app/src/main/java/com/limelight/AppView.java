@@ -370,13 +370,8 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                 }
                 dialogFragment=new GameDisplayFragment();
                 dialogFragment.setWidth(UiHelper.dpToPx(AppView.this,364));
-                dialogFragment.setTitle("显示");
+                dialogFragment.setTitle(R.string.game_menu_display_title);
                 dialogFragment.setShowLock(false);
-                dialogFragment.setOnClick(new GameDisplayFragment.onClick() {
-                    @Override
-                    public void click() {
-                    }
-                });
                 dialogFragment.setPrefConfig(pref);
                 dialogFragment.show(getFragmentManager());
             }

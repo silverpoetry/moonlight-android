@@ -1,7 +1,7 @@
 package com.limelight.ui.gamemenu;
 
 import android.preference.PreferenceManager;
-import android.text.TextUtils;
+import android.support.annotation.StringRes;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
@@ -28,7 +28,7 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
     private ImageButton ibtn_back;
     private TextView tx_title;
 
-    private String title;
+    private int titleRes = R.string.game_menu_display_title;
 
     private Button bt_display_screen;
 
@@ -88,7 +88,7 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
 
     private boolean direction;
 
-    private boolean exDiaplay;
+    private boolean externalDisplay;
 
     private String fsrTargetPending = "off";
 
@@ -96,7 +96,7 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
 
     private String fsrHdrOutputPending = "native";
 
-    private boolean showLock=true;
+    private boolean showLock = true;
     @Override
     public void bindView(View v) {
         super.bindView(v);
@@ -131,9 +131,9 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
         rg_game_display_fsr_sharpness=v.findViewById(R.id.rg_game_display_fsr_sharpness);
         rg_game_display_fsr_hdr_output=v.findViewById(R.id.rg_game_display_fsr_hdr_output);
 
-        if(!TextUtils.isEmpty(title)){
-            tx_title.setText(title);
-        }
+        tx_title.setText(titleRes);
+        ((Button) v.findViewById(R.id.btn_right))
+                .setText(R.string.game_menu_apply_configuration);
 
         v.findViewById(R.id.lv_display_lock).setVisibility(showLock?View.VISIBLE:View.GONE);
 
@@ -143,7 +143,7 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
             bitrate=prefConfig.bitrate;
             fps=prefConfig.fps;
             direction=prefConfig.enablePortrait;
-            exDiaplay=prefConfig.enableExDisplay;
+            externalDisplay=prefConfig.enableExDisplay;
         }
         fsrTargetPending = PreferenceManager.getDefaultSharedPreferences(getActivity())
                 .getString("list_fsr_target", "off");
@@ -160,7 +160,7 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
         initLowLatency();
         initVD();
         initVideoFormat();
-        initEnfoce();
+        initEnforce();
         initFsr();
         initFsrSharpness();
         initFsrHdrOutput();
@@ -271,11 +271,11 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
             @Override
             public void onCheckedChanged(RadioGroup group, int checkedId) {
                 if(checkedId==R.id.rbt_game_display_enforce_1){
-                    saveEnForce(true);
+                    saveEnforce(true);
                     return;
                 }
                 if(checkedId==R.id.rbt_game_display_enforce_2){
-                    saveEnForce(false);
+                    saveEnforce(false);
                     return;
                 }
             }
@@ -285,11 +285,11 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
             @Override
             public void onCheckedChanged(RadioGroup group, int checkedId) {
                 if(checkedId==R.id.rbt_game_display_lowlatency_1){
-                    savelowLatency(true);
+                    saveLowLatency(true);
                     return;
                 }
                 if(checkedId==R.id.rbt_game_display_lowlatency_2){
-                    savelowLatency(false);
+                    saveLowLatency(false);
                     return;
                 }
             }
@@ -373,17 +373,28 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
 
     }
 
-    private void initEnfoce() {
+    private void initEnforce() {
         boolean foceFlag=PreferenceManager.getDefaultSharedPreferences(getActivity()).getBoolean("checkbox_enforce_display_mode",false);
         rg_game_display_enforce.check(foceFlag?R.id.rbt_game_display_enforce_1:R.id.rbt_game_display_enforce_2);
     }
 
     private void initViewData() {
-        tx_game_display_screen.setText("分辨率："+width+"x"+height);
-        tx_game_display_bit.setText("\t码率："+(bitrate/1000)+"mbps");
-        tx_game_display_fps.setText("\t帧率："+fps+"fps");
-        tx_game_display_direction.setText("\t方向："+(!direction?"横屏":"竖屏(旋转功能失效，自行在PC端显示器改成竖向)"));
-        tx_game_display_ex.setText("\t模式："+(exDiaplay?"外接显示器":"正常模式"));
+        tx_game_display_screen.setText(getString(
+                R.string.game_menu_resolution_summary, width, height));
+        tx_game_display_bit.setText(getString(
+                R.string.game_menu_bitrate_summary, bitrate / 1000));
+        tx_game_display_fps.setText(getString(
+                R.string.game_menu_fps_summary, fps));
+        tx_game_display_direction.setText(getString(
+                R.string.game_menu_direction_summary,
+                getString(direction ?
+                        R.string.game_menu_orientation_portrait :
+                        R.string.game_menu_orientation_landscape)));
+        tx_game_display_ex.setText(getString(
+                R.string.game_menu_mode_summary,
+                getString(externalDisplay ?
+                        R.string.game_menu_display_mode_external :
+                        R.string.game_menu_display_mode_normal)));
     }
 
     private void initLock(){
@@ -523,8 +534,8 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
         return super.getDimAmount();
     }
 
-    public void setTitle(String title) {
-        this.title = title;
+    public void setTitle(@StringRes int titleRes) {
+        this.titleRes = titleRes;
     }
 
 
@@ -564,14 +575,14 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
                 .apply();
     }
 
-    private void saveEnForce(boolean value){
+    private void saveEnforce(boolean value){
         PreferenceManager.getDefaultSharedPreferences(getActivity())
                 .edit()
                 .putBoolean("checkbox_enforce_display_mode",value)
                 .apply();
     }
 
-    private void savelowLatency(boolean value){
+    private void saveLowLatency(boolean value){
         PreferenceManager.getDefaultSharedPreferences(getActivity())
                 .edit()
                 .putBoolean("enable_lowLatency_experiment",value)
@@ -601,10 +612,10 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
 
         if(v.getId()==R.id.btn_right){
             if(width==0||height==0||bitrate==0||fps==0){
-                UiToast.makeText(getActivity(),"请检查配置信息！",UiToast.LENGTH_SHORT).show();
-                return;
-            }
-            if(onClick==null){
+                UiToast.makeText(
+                        getActivity(),
+                        R.string.game_menu_invalid_display_configuration,
+                        UiToast.LENGTH_SHORT).show();
                 return;
             }
             PreferenceManager.getDefaultSharedPreferences(getActivity())
@@ -615,7 +626,7 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
                     .putString(PreferenceConfiguration.FPS_PREF_STRING,String.valueOf(fps))
                     .putInt(PreferenceConfiguration.BITRATE_PREF_STRING,bitrate)
                     .putString("edit_diy_w_h",width+"x"+height)
-                    .putBoolean("checkbox_enable_exdisplay",exDiaplay)
+                    .putBoolean("checkbox_enable_exdisplay", externalDisplay)
                     .putBoolean(PreferenceConfiguration.CHECKBOX_ENABLE_PORTRAIT,direction)
                     .putString("list_fsr_target", fsrTargetPending)
                     .putString("list_fsr_sharpness", fsrSharpnessPending)
@@ -628,10 +639,12 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
                 prefConfig.fps=fps;
                 prefConfig.resolutionSelection = PreferenceConfiguration.ResolutionSelection.CUSTOM_OR_NATIVE;
                 prefConfig.enablePortrait=direction;
-                prefConfig.enableExDisplay=exDiaplay;
+                prefConfig.enableExDisplay=externalDisplay;
             }
             dismiss();
-            onClick.click();
+            if (listener != null) {
+                listener.onDisplayConfigurationApplied();
+            }
             return;
         }
         if(v.getId()==R.id.bt_display_screen){
@@ -694,7 +707,7 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
         }
 
         if(v.getId()==R.id.bt_display_ex){
-            exDiaplay=!exDiaplay;
+            externalDisplay = !externalDisplay;
             initViewData();
             return;
         }
@@ -705,13 +718,13 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
     public void setPrefConfig(PreferenceConfiguration prefConfig) {
         this.prefConfig = prefConfig;
     }
-    private onClick onClick;
+    private Listener listener;
 
-    public interface onClick{
-        void click();
+    public interface Listener {
+        void onDisplayConfigurationApplied();
     }
 
-    public void setOnClick(onClick onClick) {
-        this.onClick = onClick;
+    public void setListener(Listener listener) {
+        this.listener = listener;
     }
 }

@@ -47,6 +47,100 @@
         <item name="android:windowNoTitle">true</item>
     </style>
 
+    <style name="GameMenuSectionRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginStart">5dp</item>
+        <item name="android:layout_marginTop">10dp</item>
+        <item name="android:layout_marginEnd">5dp</item>
+        <item name="android:layout_marginBottom">5dp</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:orientation">horizontal</item>
+    </style>
+
+    <style name="GameMenuSectionTitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="GameMenuSectionHint">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginStart">5dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:maxLines">2</item>
+        <item name="android:textColor">#FFC107</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:textStyle">italic|bold</item>
+    </style>
+
+    <style name="GameMenuRadioGroup">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">27dp</item>
+        <item name="android:layout_marginStart">5dp</item>
+        <item name="android:layout_marginTop">4dp</item>
+        <item name="android:layout_marginEnd">5dp</item>
+        <item name="android:layout_marginBottom">5dp</item>
+        <item name="android:orientation">horizontal</item>
+    </style>
+
+    <style name="GameMenuRadioButton" parent="@android:style/Widget.CompoundButton.RadioButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_marginEnd">5dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">@drawable/ic_game_menu_btn_selector</item>
+        <item name="android:button">@null</item>
+        <item name="android:gravity">center</item>
+        <item name="android:padding">4dp</item>
+        <item name="android:textSize">10sp</item>
+    </style>
+
+    <style name="GameMenuOptionButton" parent="@android:style/Widget.Button">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:background">@drawable/ic_game_menu_btn_selector</item>
+        <item name="android:drawablePadding">4dp</item>
+        <item name="android:gravity">start|center_vertical</item>
+        <item name="android:padding">10dp</item>
+        <item name="android:textSize">11sp</item>
+    </style>
+
+    <style name="GameMenuCompactButton" parent="@android:style/Widget.Material.Button.Borderless">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_marginEnd">4dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">@drawable/ic_game_menu_btn_selector</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textSize">10sp</item>
+    </style>
+
+    <style name="GameMenuSummaryText">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">4dp</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">italic|bold</item>
+    </style>
+
+    <style name="GameMenuDetailLabel">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginStart">5dp</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:layout_marginEnd">5dp</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">italic|bold</item>
+    </style>
+
     <style name="BottomDialog" parent="@android:style/Theme.DeviceDefault.Dialog">
         <item name="android:windowTitleStyle">@null</item>
         <item name="android:windowIsFloating">false</item>

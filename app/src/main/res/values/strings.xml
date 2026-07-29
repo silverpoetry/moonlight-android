@@ -393,6 +393,64 @@
     <string name="game_menu_bitrate_300" translatable="false">300 Mbps</string>
     <string name="game_menu_bitrate_required">码率不能为空</string>
     <string name="game_menu_bitrate_invalid">码率必须是 1–99999 之间的整数</string>
+    <string name="game_menu_apply_configuration">应用配置</string>
+    <string name="game_menu_video_information">视频信息</string>
+    <string name="game_menu_apply_restart_notice">应用后将关闭当前页面，重新进入串流后生效。</string>
+    <string name="game_menu_options">选项</string>
+    <string name="game_menu_resolution_summary">分辨率：%1$d × %2$d</string>
+    <string name="game_menu_bitrate_summary">码率：%1$d Mbps</string>
+    <string name="game_menu_fps_summary">帧率：%1$d FPS</string>
+    <string name="game_menu_direction_summary">方向：%1$s</string>
+    <string name="game_menu_mode_summary">模式：%1$s</string>
+    <string name="game_menu_orientation_landscape">横屏</string>
+    <string name="game_menu_orientation_portrait">竖屏（旋转功能不可用，请在主机端设置竖屏）</string>
+    <string name="game_menu_display_mode_external">外接显示器</string>
+    <string name="game_menu_display_mode_normal">正常模式</string>
+    <string name="game_menu_switch_display_mode">模式切换</string>
+    <string name="game_menu_swap_dimensions">宽高交换</string>
+    <string name="game_menu_swap_orientation">方向交换</string>
+    <string name="game_menu_decoder">解码器</string>
+    <string name="game_menu_decoder_help">主机软件或显卡不支持所选编解码器时，此设置可能被忽略。</string>
+    <string name="game_menu_codec_auto">自动</string>
+    <string name="game_menu_codec_h264" translatable="false">H.264</string>
+    <string name="game_menu_codec_hevc" translatable="false">HEVC</string>
+    <string name="game_menu_codec_av1" translatable="false">AV1</string>
+    <string name="game_menu_hdr" translatable="false">HDR</string>
+    <string name="game_menu_restart_stream_notice">重新进入串流后生效。</string>
+    <string name="game_menu_enabled">开启</string>
+    <string name="game_menu_disabled">关闭</string>
+    <string name="game_menu_hdr_high_brightness">HDR 满亮度</string>
+    <string name="game_menu_hdr_high_brightness_help">在 HDR 模式下将串流窗口亮度提高到最大，默认关闭。</string>
+    <string name="game_menu_decoder_low_latency">解码低延迟模式（测试）</string>
+    <string name="game_menu_decoder_low_latency_help">仅在支持的高通和联发科设备上生效。</string>
+    <string name="game_menu_fsr" translatable="false">FSR 超分</string>
+    <string name="game_menu_fsr_help">选择超分输出目标，HDR 由渲染链路自动处理。</string>
+    <string name="game_menu_fsr_off">关闭</string>
+    <string name="game_menu_fsr_2k" translatable="false">2K</string>
+    <string name="game_menu_fsr_4k" translatable="false">4K</string>
+    <string name="game_menu_fsr_sharpness">锐化程度</string>
+    <string name="game_menu_fsr_soft">柔和</string>
+    <string name="game_menu_fsr_standard">标准</string>
+    <string name="game_menu_fsr_strong">强</string>
+    <string name="game_menu_fsr_max">极强</string>
+    <string name="game_menu_fsr_hdr_output">FSR HDR 输出</string>
+    <string name="game_menu_fsr_sdr_mapping">SDR 映射</string>
+    <string name="game_menu_fsr_hdr_native">HDR 直出</string>
+    <string name="game_menu_ignore_hdr_check">忽略 HDR 校验</string>
+    <string name="game_menu_virtual_display">虚拟显示器</string>
+    <string name="game_menu_virtual_display_help">适用于 Sunshine·阿西西、雷蛇雷游，并兼容 Apollo 扩展模式。</string>
+    <string name="game_menu_virtual_display_extended">扩展模式</string>
+    <string name="game_menu_virtual_display_only">仅虚拟显示屏</string>
+    <string name="game_menu_enforce_display_mode">强制显示模式</string>
+    <string name="game_menu_enforce_display_mode_help">部分系统（如 ColorOS）需要开启此项才能正确设置刷新率和分辨率。</string>
+    <string name="game_menu_audio_output">播放声音</string>
+    <string name="game_menu_audio_device_only">仅本设备</string>
+    <string name="game_menu_audio_device_and_host">本设备和主机</string>
+    <string name="game_menu_screen_on_reconnect">亮屏自动回连</string>
+    <string name="game_menu_screen_on_reconnect_help">立即生效；锁屏前请关闭游戏菜单。</string>
+    <string name="game_menu_current_session">本次生效</string>
+    <string name="game_menu_always">一直生效</string>
+    <string name="game_menu_invalid_display_configuration">请检查分辨率、码率和帧率配置</string>
     <string name="title_checkbox_disable_adaptive_input_throttling">Disable adaptive input throttling</string>
     <string name="summary_checkbox_disable_adaptive_input_throttling">Prevent ENet from intentionally dropping real-time input events when network latency varies. Packets remain non-retransmitted, but upstream traffic may increase slightly.</string>
     <string name="title_checkbox_mouse_nav_buttons">Enable back and forward mouse buttons</string>

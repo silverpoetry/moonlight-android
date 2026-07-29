@@ -588,10 +588,10 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
         if(v.getId()==R.id.bt_display){
             GameDisplayFragment fragment=new GameDisplayFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle("显示");
-            fragment.setOnClick(new GameDisplayFragment.onClick() {
+            fragment.setTitle(R.string.game_menu_display_title);
+            fragment.setListener(new GameDisplayFragment.Listener() {
                 @Override
-                public void click() {
+                public void onDisplayConfigurationApplied() {
                     dismiss();
                     if(game!=null){
                         game.finish();
