@@ -238,9 +238,26 @@ public final class StreamInputControllerTest {
     }
 
     private static final class RecordingGamepadHandler
-            implements GamepadMotionInputHandler {
+            implements GamepadInputHandler {
         int handleCount;
         boolean handleResult;
+
+        @Override
+        public boolean isGameControllerDevice(InputDevice device) {
+            return false;
+        }
+
+        @Override
+        public boolean handleButtonDown(
+                android.view.KeyEvent event) {
+            return false;
+        }
+
+        @Override
+        public boolean handleButtonUp(
+                android.view.KeyEvent event) {
+            return false;
+        }
 
         @Override
         public boolean handleMotionEvent(MotionEvent event) {

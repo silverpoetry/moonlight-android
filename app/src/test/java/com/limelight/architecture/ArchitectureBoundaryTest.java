@@ -110,4 +110,43 @@ public final class ArchitectureBoundaryTest {
                 .because("the Activity supplies UI policy through a host port")
                 .check(productionClasses);
     }
+
+    @Test
+    public void keyboardInputControllerDoesNotDependOnConcreteConnection() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.KeyboardInputController")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("com.limelight.nvstream.NvConnection")
+                .because("keyboard protocol output uses KeyboardInputSink")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void keyboardInputControllerDoesNotDependOnGameActivity() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.KeyboardInputController")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .because("local keyboard actions use the host contract")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void keyboardChordSenderDoesNotDependOnConcreteConnection() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.KeyboardChordSender")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("com.limelight.nvstream.NvConnection")
+                .because("chords emit through KeyboardInputSink")
+                .check(productionClasses);
+    }
 }

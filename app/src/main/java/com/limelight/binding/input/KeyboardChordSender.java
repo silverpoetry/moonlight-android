@@ -3,7 +3,6 @@ package com.limelight.binding.input;
 import android.os.Handler;
 import android.os.Looper;
 
-import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.input.KeyboardPacket;
 
 import java.util.Arrays;
@@ -20,8 +19,10 @@ public final class KeyboardChordSender {
     private KeyboardChordSender() {
     }
 
-    public static void send(NvConnection connection, short[] keyCodes) {
-        Objects.requireNonNull(connection, "connection");
+    public static void send(
+            KeyboardInputSink inputSink,
+            short[] keyCodes) {
+        Objects.requireNonNull(inputSink, "inputSink");
         Objects.requireNonNull(keyCodes, "keyCodes");
         if (keyCodes.length == 0) {
             return;
@@ -30,25 +31,25 @@ public final class KeyboardChordSender {
         short[] chord = Arrays.copyOf(keyCodes, keyCodes.length);
         byte modifier = 0;
         for (short keyCode : chord) {
-            connection.sendKeyboardInput(
+            inputSink.sendKey(
                     keyCode, KeyboardPacket.KEY_DOWN, modifier, (byte) 0);
             modifier |= getModifier(keyCode);
         }
 
         final byte pressedModifiers = modifier;
         MAIN_HANDLER.postDelayed(
-                () -> release(connection, chord, pressedModifiers),
+                () -> release(inputSink, chord, pressedModifiers),
                 KEY_UP_DELAY_MS);
     }
 
-    private static void release(NvConnection connection,
+    private static void release(KeyboardInputSink inputSink,
                                 short[] chord,
                                 byte pressedModifiers) {
         byte modifier = pressedModifiers;
         for (int index = chord.length - 1; index >= 0; index--) {
             short keyCode = chord[index];
             modifier &= ~getModifier(keyCode);
-            connection.sendKeyboardInput(
+            inputSink.sendKey(
                     keyCode, KeyboardPacket.KEY_UP, modifier, (byte) 0);
         }
     }

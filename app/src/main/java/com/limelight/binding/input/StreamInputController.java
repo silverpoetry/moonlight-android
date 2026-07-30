@@ -21,14 +21,14 @@ public final class StreamInputController {
         boolean shouldSuppressTouchscreenInput();
     }
 
-    private final GamepadMotionInputHandler gamepadInputHandler;
+    private final GamepadInputHandler gamepadInputHandler;
     private final ExternalPointerInputController
             externalPointerInputController;
     private final TouchInputController touchInputController;
     private final Host host;
 
     public StreamInputController(
-            GamepadMotionInputHandler gamepadInputHandler,
+            GamepadInputHandler gamepadInputHandler,
             ExternalPointerInputController
                     externalPointerInputController,
             TouchInputController touchInputController,

@@ -66,10 +66,21 @@ from a delayed host cursor-position response.
 
 ## Controller and external-device input
 
-The first input migration does not alter controller mapping, evdev capture,
-physical mouse buttons, stylus dead zones, or Android key translation. Those
-paths remain delegated to their existing implementations until dedicated
-characterization tests exist.
+| Behavior | Evidence |
+| --- | --- |
+| Mouse, touchpad, stylus, and finger sources retain deterministic routing precedence | `StreamInputControllerTest`, `ExternalPointerInputControllerTest.classificationSeparatesFingerTouchscreenFromMouse` |
+| Uncaptured external-pointer input is consumed without protocol output | `ExternalPointerInputControllerTest.inactiveCaptureConsumesWithoutProtocolOutput` |
+| Relative and absolute mouse modes preserve sensitivity and reference dimensions | external-pointer relative/absolute motion tests |
+| A physical two-finger primary touchpad action is normalized to a secondary click | `ExternalPointerInputControllerTest.twoFingerTouchpadPrimaryActionBecomesRightClick` |
+| Physical two-finger motion produces scroll without a cursor-motion packet | `ExternalPointerInputControllerTest.relativeTwoFingerTouchpadMoveProducesScrollOnly` |
+| Keyboard DOWN/UP, modifier, repeat, UTF-8, and ungrabbed pass-through semantics remain stable | `KeyboardInputControllerTest` |
+| Synthetic mouse BACK remains a right-click compatibility path | `KeyboardInputControllerTest.syntheticMouseBackMapsToRightMouseButton` |
+| Ctrl+Alt+Shift local chords are consumed until all modifiers are released | `KeyboardInputControllerTest.localSpecialChordFiresAfterEveryModifierIsReleased` |
+
+Controller mapping, evdev capture, slot assignment, rumble, sensors, and
+controller packet generation remain delegated to `ControllerHandler`. The
+stream input orchestrator owns their event-routing precedence, but this phase
+does not alter their algorithms.
 
 ## Release acceptance
 

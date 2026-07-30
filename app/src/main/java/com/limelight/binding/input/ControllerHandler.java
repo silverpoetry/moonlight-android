@@ -44,6 +44,7 @@ import com.limelight.binding.input.driver.DualSenseController;
 import com.limelight.binding.input.driver.RazerKishiHapticsDevice;
 import com.limelight.binding.input.driver.UsbDriverListener;
 import com.limelight.binding.input.driver.UsbDriverService;
+import com.limelight.binding.input.protocol.NvConnectionKeyboardInputSink;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.nvstream.input.KeyboardPacket;
@@ -64,7 +65,7 @@ import java.util.Locale;
 import java.util.Map;
 
 public class ControllerHandler implements InputManager.InputDeviceListener,
-        UsbDriverListener, GamepadMotionInputHandler {
+        UsbDriverListener, GamepadInputHandler {
     private static final String KISHI_LOG_TAG = "RazerKishiDebug";
 
     private static final int MAXIMUM_BUMPER_UP_DELAY_MS = 100;
@@ -127,6 +128,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private final SparseArray<RazerKishiHapticsDevice> razerKishiHapticsDevices = new SparseArray<>();
 
     private final NvConnection conn;
+    private final KeyboardInputSink keyboardInputSink;
     private final Activity activityContext;
     private final double stickDeadzone;
     private final InputDeviceContext defaultContext = new InputDeviceContext();
@@ -389,6 +391,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     public ControllerHandler(Activity activityContext, NvConnection conn, GameGestures gestures, PreferenceConfiguration prefConfig) {
         this.activityContext = activityContext;
         this.conn = conn;
+        this.keyboardInputSink =
+                new NvConnectionKeyboardInputSink(conn);
         this.gestures = gestures;
         this.prefConfig = prefConfig;
         this.usbManager = (UsbManager) activityContext.getSystemService(Context.USB_SERVICE);
@@ -584,7 +588,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         return (device.getSources() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD;
     }
 
-    public static boolean isGameControllerDevice(InputDevice device) {
+    @Override
+    public boolean isGameControllerDevice(InputDevice device) {
         if (device == null) {
             return true;
         }
@@ -1544,9 +1549,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 //                    conn.sendMouseScroll((byte) 1);
 //                }
                 if ((inputMap & ControllerPacket.UP_FLAG) != 0) {
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_UP, KeyboardPacket.KEY_DOWN, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_UP,
+                            KeyboardPacket.KEY_DOWN);
                 }else{
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_UP, KeyboardPacket.KEY_UP, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_UP,
+                            KeyboardPacket.KEY_UP);
                 }
             }
             if ((changedMask & ControllerPacket.DOWN_FLAG) != 0) {
@@ -1554,9 +1563,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 //                    conn.sendMouseScroll((byte) -1);
 //                }
                 if ((inputMap & ControllerPacket.DOWN_FLAG) != 0) {
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_DOWN, KeyboardPacket.KEY_DOWN, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_DOWN,
+                            KeyboardPacket.KEY_DOWN);
                 }else{
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_DOWN, KeyboardPacket.KEY_UP, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_DOWN,
+                            KeyboardPacket.KEY_UP);
                 }
             }
             if ((changedMask & ControllerPacket.RIGHT_FLAG) != 0) {
@@ -1564,9 +1577,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 //                    conn.sendMouseHScroll((byte) 1);
 //                }
                 if ((inputMap & ControllerPacket.RIGHT_FLAG) != 0) {
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_RIGHT, KeyboardPacket.KEY_DOWN, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_RIGHT,
+                            KeyboardPacket.KEY_DOWN);
                 }else{
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_RIGHT, KeyboardPacket.KEY_UP, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_RIGHT,
+                            KeyboardPacket.KEY_UP);
                 }
             }
             if ((changedMask & ControllerPacket.LEFT_FLAG) != 0) {
@@ -1574,9 +1591,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 //                    conn.sendMouseHScroll((byte) -1);
 //                }
                 if ((inputMap & ControllerPacket.LEFT_FLAG) != 0) {
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_LEFT, KeyboardPacket.KEY_DOWN, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_LEFT,
+                            KeyboardPacket.KEY_DOWN);
                 }else{
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_LEFT, KeyboardPacket.KEY_UP, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_LEFT,
+                            KeyboardPacket.KEY_UP);
                 }
             }
 
@@ -1587,80 +1608,112 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 //                    if(activityContext instanceof Game){
 //                        ((Game)activityContext).toggleKeyboard();
 //                    }
-                    KeyboardChordSender.send(conn, new short[]{
-                            KeyboardTranslator.VK_LWIN,
-                            KeyboardTranslator.VK_LCONTROL,
-                            KeyboardTranslator.VK_O});
+                    KeyboardChordSender.send(
+                            keyboardInputSink,
+                            new short[]{
+                                KeyboardTranslator.VK_LWIN,
+                                KeyboardTranslator.VK_LCONTROL,
+                                KeyboardTranslator.VK_O});
                 }
             }
 
             //下压右摇杆 WIN+D 显示桌面
             if ((changedMask & ControllerPacket.RS_CLK_FLAG) != 0) {
                 if ((inputMap & ControllerPacket.RS_CLK_FLAG) != 0) {
-                    KeyboardChordSender.send(conn, new short[]{
-                            KeyboardTranslator.VK_LWIN,
-                            KeyboardTranslator.VK_D});
+                    KeyboardChordSender.send(
+                            keyboardInputSink,
+                            new short[]{
+                                KeyboardTranslator.VK_LWIN,
+                                KeyboardTranslator.VK_D});
                 }
             }
 
             //X=esc
             if ((changedMask & ControllerPacket.X_FLAG) != 0) {
                 if ((inputMap & ControllerPacket.X_FLAG) != 0) {
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_ESCAPE, KeyboardPacket.KEY_DOWN, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_ESCAPE,
+                            KeyboardPacket.KEY_DOWN);
                 }else{
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_ESCAPE, KeyboardPacket.KEY_UP, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_ESCAPE,
+                            KeyboardPacket.KEY_UP);
                 }
             }
 
             //Y=回车
             if ((changedMask & ControllerPacket.Y_FLAG) != 0) {
                 if ((inputMap & ControllerPacket.Y_FLAG) != 0) {
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_RETURN, KeyboardPacket.KEY_DOWN, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_RETURN,
+                            KeyboardPacket.KEY_DOWN);
                 }else{
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_RETURN, KeyboardPacket.KEY_UP, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_RETURN,
+                            KeyboardPacket.KEY_UP);
                 }
             }
             //xbox键 windows键
             if ((changedMask & ControllerPacket.SPECIAL_BUTTON_FLAG) != 0) {
                 if ((inputMap & ControllerPacket.SPECIAL_BUTTON_FLAG) != 0) {
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_LWIN, KeyboardPacket.KEY_DOWN, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_LWIN,
+                            KeyboardPacket.KEY_DOWN);
                 }else{
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_LWIN, KeyboardPacket.KEY_UP, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_LWIN,
+                            KeyboardPacket.KEY_UP);
                 }
             }
             //LB alt
             if ((changedMask & ControllerPacket.LB_FLAG) != 0) {
                 if ((inputMap & ControllerPacket.LB_FLAG) != 0) {
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_LMENU, KeyboardPacket.KEY_DOWN, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_LMENU,
+                            KeyboardPacket.KEY_DOWN);
                 }else{
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_LMENU, KeyboardPacket.KEY_UP, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_LMENU,
+                            KeyboardPacket.KEY_UP);
                 }
             }
 
             //RB tab
             if ((changedMask & ControllerPacket.RB_FLAG) != 0) {
                 if ((inputMap & ControllerPacket.RB_FLAG) != 0) {
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_TAB, KeyboardPacket.KEY_DOWN, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_TAB,
+                            KeyboardPacket.KEY_DOWN);
                 }else{
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_TAB, KeyboardPacket.KEY_UP, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_TAB,
+                            KeyboardPacket.KEY_UP);
                 }
             }
 
             //start
             if ((changedMask & ControllerPacket.PLAY_FLAG) != 0) {
                 if ((inputMap & ControllerPacket.PLAY_FLAG) != 0) {
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_BACK_SPACE, KeyboardPacket.KEY_DOWN, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_BACK_SPACE,
+                            KeyboardPacket.KEY_DOWN);
                 }else{
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_BACK_SPACE, KeyboardPacket.KEY_UP, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_BACK_SPACE,
+                            KeyboardPacket.KEY_UP);
                 }
             }
 
             //select
             if ((changedMask & ControllerPacket.BACK_FLAG) != 0) {
                 if ((inputMap & ControllerPacket.BACK_FLAG) != 0) {
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_SPACE, KeyboardPacket.KEY_DOWN, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_SPACE,
+                            KeyboardPacket.KEY_DOWN);
                 }else{
-                    conn.sendKeyboardInput((short)KeyboardTranslator.VK_SPACE, KeyboardPacket.KEY_UP, (byte) 0, (byte) 0);
+                    sendKeyboardKey(
+                            KeyboardTranslator.VK_SPACE,
+                            KeyboardPacket.KEY_UP);
                 }
             }
 
@@ -1678,6 +1731,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     leftStickX, leftStickY,
                     rightStickX, rightStickY);
         }
+    }
+
+    private void sendKeyboardKey(int keyCode, byte action) {
+        keyboardInputSink.sendKey(
+                (short) keyCode,
+                action,
+                (byte) 0,
+                (byte) 0);
     }
 
     private short sensorLeftTrigger=0x00;
@@ -2880,6 +2941,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
     }
 
+    @Override
     public boolean handleButtonUp(KeyEvent event) {
         InputDeviceContext context = getContextForEvent(event);
         if (context == null) {
@@ -3144,6 +3206,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         return true;
     }
 
+    @Override
     public boolean handleButtonDown(KeyEvent event) {
         InputDeviceContext context = getContextForEvent(event);
         if (context == null) {
