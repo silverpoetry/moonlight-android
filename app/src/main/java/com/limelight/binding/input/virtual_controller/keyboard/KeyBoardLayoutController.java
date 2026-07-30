@@ -122,6 +122,9 @@ public class KeyBoardLayoutController {
                     case MotionEvent.ACTION_CANCEL:
                         // 处理释放事件
                         String tag2=(String) v.getTag();
+                        if (event.getAction() == MotionEvent.ACTION_UP) {
+                            v.performClick();
+                        }
                         if(TextUtils.equals("hide",tag2)){
 //                            hide();
                             return true;
@@ -298,6 +301,9 @@ public class KeyBoardLayoutController {
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
                         keyboardView.findViewById(R.id.mouse_up).removeCallbacks(repeater);
+                        if (event.getAction() == MotionEvent.ACTION_UP) {
+                            v.performClick();
+                        }
                         return true;
                 }
                 return false;
@@ -322,6 +328,9 @@ public class KeyBoardLayoutController {
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
                         keyboardView.findViewById(R.id.mouse_down).removeCallbacks(repeater);
+                        if (event.getAction() == MotionEvent.ACTION_UP) {
+                            v.performClick();
+                        }
                         return true;
                 }
                 return false;

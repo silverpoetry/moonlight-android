@@ -4,7 +4,8 @@ import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.os.AsyncTask;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
@@ -18,9 +19,13 @@ import com.limelight.nvstream.http.NvApp;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.WeakReference;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class CachedAppAssetLoader {
     private static final int MAX_CONCURRENT_DISK_LOADS = 3;
@@ -30,24 +35,42 @@ public class CachedAppAssetLoader {
     private static final int MAX_PENDING_CACHE_LOADS = 100;
     private static final int MAX_PENDING_NETWORK_LOADS = 40;
     private static final int MAX_PENDING_DISK_LOADS = 40;
+    private static final long IDLE_WORKER_TIMEOUT_SECONDS = 30;
+    private static final AtomicInteger NEXT_WORKER_ID = new AtomicInteger();
+    private static final RejectedExecutionHandler DISCARD_OLDEST_AND_CANCEL =
+            (task, executor) -> {
+                if (executor.isShutdown()) {
+                    cancelQueuedTask(task, false);
+                    return;
+                }
 
-    private final ThreadPoolExecutor cacheExecutor = new ThreadPoolExecutor(
-            MAX_CONCURRENT_CACHE_LOADS, MAX_CONCURRENT_CACHE_LOADS,
-            Long.MAX_VALUE, TimeUnit.DAYS,
-            new LinkedBlockingQueue<Runnable>(MAX_PENDING_CACHE_LOADS),
-            new ThreadPoolExecutor.DiscardOldestPolicy());
+                Runnable discardedTask = executor.getQueue().poll();
+                cancelQueuedTask(discardedTask, true);
 
-    private final ThreadPoolExecutor foregroundExecutor = new ThreadPoolExecutor(
-            MAX_CONCURRENT_DISK_LOADS, MAX_CONCURRENT_DISK_LOADS,
-            Long.MAX_VALUE, TimeUnit.DAYS,
-            new LinkedBlockingQueue<Runnable>(MAX_PENDING_DISK_LOADS),
-            new ThreadPoolExecutor.DiscardOldestPolicy());
+                // A competing producer may have filled the slot we just freed. In that
+                // exceptional case, cancel the new task instead of blocking the UI thread.
+                if (!executor.getQueue().offer(task)) {
+                    cancelQueuedTask(task, true);
+                }
+                else if (executor.isShutdown() && executor.remove(task)) {
+                    cancelQueuedTask(task, false);
+                }
+            };
 
-    private final ThreadPoolExecutor networkExecutor = new ThreadPoolExecutor(
-            MAX_CONCURRENT_NETWORK_LOADS, MAX_CONCURRENT_NETWORK_LOADS,
-            Long.MAX_VALUE, TimeUnit.DAYS,
-            new LinkedBlockingQueue<Runnable>(MAX_PENDING_NETWORK_LOADS),
-            new ThreadPoolExecutor.DiscardOldestPolicy());
+    private final ThreadPoolExecutor cacheExecutor = createExecutor(
+            "prefetch",
+            MAX_CONCURRENT_CACHE_LOADS,
+            MAX_PENDING_CACHE_LOADS);
+
+    private final ThreadPoolExecutor foregroundExecutor = createExecutor(
+            "disk",
+            MAX_CONCURRENT_DISK_LOADS,
+            MAX_PENDING_DISK_LOADS);
+
+    private final ThreadPoolExecutor networkExecutor = createExecutor(
+            "network",
+            MAX_CONCURRENT_NETWORK_LOADS,
+            MAX_PENDING_NETWORK_LOADS);
 
     private final ComputerDetails computer;
     private final double scalingDivider;
@@ -56,6 +79,7 @@ public class CachedAppAssetLoader {
     private final DiskAssetLoader diskLoader;
     private final Bitmap placeholderBitmap;
     private final Bitmap noAppImageBitmap;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public CachedAppAssetLoader(ComputerDetails computer, double scalingDivider,
                                 NetworkAssetLoader networkLoader, MemoryAssetLoader memoryLoader,
@@ -69,10 +93,42 @@ public class CachedAppAssetLoader {
         this.placeholderBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
     }
 
+    private static ThreadPoolExecutor createExecutor(
+            String role,
+            int concurrency,
+            int pendingCapacity) {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                concurrency,
+                concurrency,
+                IDLE_WORKER_TIMEOUT_SECONDS,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<Runnable>(pendingCapacity),
+                new AssetThreadFactory(role),
+                DISCARD_OLDEST_AND_CANCEL);
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
+    }
+
+    private static final class AssetThreadFactory implements ThreadFactory {
+        private final String role;
+
+        AssetThreadFactory(String role) {
+            this.role = role;
+        }
+
+        @Override
+        public Thread newThread(Runnable runnable) {
+            return new Thread(
+                    runnable,
+                    "moonlight-boxart-" + role + "-" +
+                            NEXT_WORKER_ID.incrementAndGet());
+        }
+    }
+
     public void cancelBackgroundLoads() {
         Runnable r;
         while ((r = cacheExecutor.getQueue().poll()) != null) {
-            cacheExecutor.remove(r);
+            cancelQueuedTask(r, false);
         }
     }
 
@@ -80,16 +136,24 @@ public class CachedAppAssetLoader {
         Runnable r;
 
         while ((r = foregroundExecutor.getQueue().poll()) != null) {
-            foregroundExecutor.remove(r);
+            cancelQueuedTask(r, false);
         }
 
         while ((r = networkExecutor.getQueue().poll()) != null) {
-            networkExecutor.remove(r);
+            cancelQueuedTask(r, false);
         }
     }
 
     public void freeCacheMemory() {
         memoryLoader.clearCache();
+    }
+
+    private static void cancelQueuedTask(
+            Runnable task,
+            boolean showFallback) {
+        if (task instanceof LoaderFutureTask) {
+            ((LoaderFutureTask) task).cancelFromQueue(showFallback);
+        }
     }
 
     private ScaledBitmap doNetworkAssetLoad(LoaderTuple tuple, LoaderTask task) {
@@ -142,112 +206,210 @@ public class CachedAppAssetLoader {
         return null;
     }
 
-    private class LoaderTask extends AsyncTask<LoaderTuple, Void, ScaledBitmap> {
+    private static final class LoaderTask implements Runnable {
+        private final CachedAppAssetLoader assetLoader;
         private final WeakReference<ImageView> imageViewRef;
         private final WeakReference<TextView> textViewRef;
         private final boolean diskOnly;
 
-        private LoaderTuple tuple;
+        private volatile LoaderTuple tuple;
+        private volatile ThreadPoolExecutor executor;
+        private volatile LoaderFutureTask future;
+        private volatile boolean cancelled;
 
-        public LoaderTask(ImageView imageView, TextView textView, boolean diskOnly) {
+        LoaderTask(
+                CachedAppAssetLoader assetLoader,
+                ImageView imageView,
+                TextView textView,
+                boolean diskOnly) {
+            this.assetLoader = assetLoader;
             this.imageViewRef = new WeakReference<>(imageView);
             this.textViewRef = new WeakReference<>(textView);
             this.diskOnly = diskOnly;
         }
 
-        @Override
-        protected ScaledBitmap doInBackground(LoaderTuple... params) {
-            tuple = params[0];
+        void executeOn(ThreadPoolExecutor executor, LoaderTuple loaderTuple) {
+            tuple = loaderTuple;
+            this.executor = executor;
+            LoaderFutureTask submittedFuture = new LoaderFutureTask(this);
+            future = submittedFuture;
+            if (cancelled) {
+                submittedFuture.cancel(true);
+                return;
+            }
+            executor.execute(submittedFuture);
+            if (cancelled) {
+                submittedFuture.cancel(true);
+                executor.remove(submittedFuture);
+            }
+        }
 
-            // Check whether it has been cancelled or the views are gone
-            if (isCancelled() || imageViewRef.get() == null || textViewRef.get() == null) {
+        boolean isCancelled() {
+            return cancelled;
+        }
+
+        void cancel(boolean mayInterruptIfRunning) {
+            cancelled = true;
+            LoaderFutureTask activeFuture = future;
+            if (activeFuture != null) {
+                activeFuture.cancel(mayInterruptIfRunning);
+                ThreadPoolExecutor activeExecutor = executor;
+                if (activeExecutor != null) {
+                    activeExecutor.remove(activeFuture);
+                }
+            }
+        }
+
+        void onQueuedTaskCancelled(boolean showFallback) {
+            cancelled = true;
+            if (showFallback) {
+                assetLoader.mainHandler.post(this::showFallbackIfCurrent);
+            }
+        }
+
+        @Override
+        public void run() {
+            ScaledBitmap bitmap = loadInBackground();
+            if (!cancelled) {
+                assetLoader.mainHandler.post(() -> deliverResult(bitmap));
+            }
+        }
+
+        private ScaledBitmap loadInBackground() {
+            if (isCancelled() ||
+                    imageViewRef.get() == null ||
+                    textViewRef.get() == null) {
                 return null;
             }
 
-            ScaledBitmap bmp = diskLoader.loadBitmapFromCache(tuple, (int) scalingDivider);
-            if (bmp == null) {
-                if (!diskOnly) {
-                    // Try to load the asset from the network
-                    bmp = doNetworkAssetLoad(tuple, this);
-                } else {
-                    // Report progress to display the placeholder and spin
-                    // off the network-capable task
-                    publishProgress();
+            ScaledBitmap bitmap = assetLoader.diskLoader.loadBitmapFromCache(
+                    tuple,
+                    (int) assetLoader.scalingDivider);
+            if (bitmap == null) {
+                if (diskOnly) {
+                    assetLoader.mainHandler.post(this::startNetworkLoad);
+                }
+                else {
+                    bitmap = assetLoader.doNetworkAssetLoad(tuple, this);
                 }
             }
 
-            // Cache the bitmap
-            if (bmp != null) {
-                memoryLoader.populateCache(tuple, bmp);
+            if (bitmap != null) {
+                assetLoader.memoryLoader.populateCache(tuple, bitmap);
             }
-
-            return bmp;
+            return bitmap;
         }
 
-        @Override
-        protected void onProgressUpdate(Void... nothing) {
-            // Do nothing if cancelled
+        private void startNetworkLoad() {
             if (isCancelled()) {
                 return;
             }
 
-            // If the current loader task for this view isn't us, do nothing
-            final ImageView imageView = imageViewRef.get();
-            final TextView textView = textViewRef.get();
-            if (getLoaderTask(imageView) == this) {
-                // Set off another loader task on the network executor. This time our AsyncDrawable
-                // will use the app image placeholder bitmap, rather than an empty bitmap.
-                LoaderTask task = new LoaderTask(imageView, textView, false);
-                AsyncDrawable asyncDrawable = new AsyncDrawable(imageView.getResources(), noAppImageBitmap, task);
-                imageView.setImageDrawable(asyncDrawable);
-                imageView.startAnimation(AnimationUtils.loadAnimation(imageView.getContext(), R.anim.boxart_fadein));
-                imageView.setVisibility(View.VISIBLE);
-                textView.setVisibility(View.VISIBLE);
-                task.executeOnExecutor(networkExecutor, tuple);
+            ImageView imageView = imageViewRef.get();
+            TextView textView = textViewRef.get();
+            if (imageView == null ||
+                    textView == null ||
+                    getLoaderTask(imageView) != this) {
+                return;
             }
+
+            LoaderTask task = new LoaderTask(
+                    assetLoader,
+                    imageView,
+                    textView,
+                    false);
+            AsyncDrawable asyncDrawable = new AsyncDrawable(
+                    imageView.getResources(),
+                    assetLoader.noAppImageBitmap,
+                    task);
+            imageView.setImageDrawable(asyncDrawable);
+            imageView.startAnimation(AnimationUtils.loadAnimation(
+                    imageView.getContext(),
+                    R.anim.boxart_fadein));
+            imageView.setVisibility(View.VISIBLE);
+            textView.setVisibility(View.VISIBLE);
+            task.executeOn(assetLoader.networkExecutor, tuple);
         }
 
-        @Override
-        protected void onPostExecute(final ScaledBitmap bitmap) {
-            // Do nothing if cancelled
+        private void showFallbackIfCurrent() {
+            ImageView imageView = imageViewRef.get();
+            TextView textView = textViewRef.get();
+            if (imageView == null ||
+                    textView == null ||
+                    getLoaderTask(imageView) != this) {
+                return;
+            }
+
+            imageView.setImageBitmap(assetLoader.noAppImageBitmap);
+            imageView.setVisibility(View.VISIBLE);
+            textView.setVisibility(View.VISIBLE);
+        }
+
+        private void deliverResult(final ScaledBitmap bitmap) {
             if (isCancelled()) {
                 return;
             }
 
-            final ImageView imageView = imageViewRef.get();
-            final TextView textView = textViewRef.get();
-            if (getLoaderTask(imageView) == this) {
-                // Fade in the box art
-                if (bitmap != null) {
-                    // Show the text if it's a placeholder
-                    textView.setVisibility(isBitmapPlaceholder(bitmap) ? View.VISIBLE : View.GONE);
+            ImageView imageView = imageViewRef.get();
+            TextView textView = textViewRef.get();
+            if (imageView == null ||
+                    textView == null ||
+                    getLoaderTask(imageView) != this ||
+                    bitmap == null) {
+                return;
+            }
 
-                    if (imageView.getVisibility() == View.VISIBLE) {
-                        // Fade out the placeholder first
-                        Animation fadeOutAnimation = AnimationUtils.loadAnimation(imageView.getContext(), R.anim.boxart_fadeout);
-                        fadeOutAnimation.setAnimationListener(new Animation.AnimationListener() {
-                            @Override
-                            public void onAnimationStart(Animation animation) {}
+            textView.setVisibility(
+                    assetLoader.isBitmapPlaceholder(bitmap)
+                            ? View.VISIBLE
+                            : View.GONE);
 
+            if (imageView.getVisibility() == View.VISIBLE) {
+                Animation fadeOutAnimation = AnimationUtils.loadAnimation(
+                        imageView.getContext(),
+                        R.anim.boxart_fadeout);
+                fadeOutAnimation.setAnimationListener(
+                        new Animation.AnimationListener() {
                             @Override
-                            public void onAnimationEnd(Animation animation) {
-                                // Fade in the new box art
-                                imageView.setImageBitmap(bitmap.bitmap);
-                                imageView.startAnimation(AnimationUtils.loadAnimation(imageView.getContext(), R.anim.boxart_fadein));
+                            public void onAnimationStart(Animation animation) {
                             }
 
                             @Override
-                            public void onAnimationRepeat(Animation animation) {}
+                            public void onAnimationEnd(Animation animation) {
+                                imageView.setImageBitmap(bitmap.bitmap);
+                                imageView.startAnimation(
+                                        AnimationUtils.loadAnimation(
+                                                imageView.getContext(),
+                                                R.anim.boxart_fadein));
+                            }
+
+                            @Override
+                            public void onAnimationRepeat(Animation animation) {
+                            }
                         });
-                        imageView.startAnimation(fadeOutAnimation);
-                    }
-                    else {
-                        // View is invisible already, so just fade in the new art
-                        imageView.setImageBitmap(bitmap.bitmap);
-                        imageView.startAnimation(AnimationUtils.loadAnimation(imageView.getContext(), R.anim.boxart_fadein));
-                        imageView.setVisibility(View.VISIBLE);
-                    }
-                }
+                imageView.startAnimation(fadeOutAnimation);
+            }
+            else {
+                imageView.setImageBitmap(bitmap.bitmap);
+                imageView.startAnimation(AnimationUtils.loadAnimation(
+                        imageView.getContext(),
+                        R.anim.boxart_fadein));
+                imageView.setVisibility(View.VISIBLE);
+            }
+        }
+    }
+
+    private static final class LoaderFutureTask extends FutureTask<Void> {
+        private final LoaderTask loaderTask;
+
+        LoaderFutureTask(LoaderTask loaderTask) {
+            super(loaderTask, null);
+            this.loaderTask = loaderTask;
+        }
+
+        void cancelFromQueue(boolean showFallback) {
+            if (cancel(false)) {
+                loaderTask.onQueuedTaskCancelled(showFallback);
             }
         }
     }
@@ -358,14 +520,15 @@ public class CachedAppAssetLoader {
 
         // If it's not in memory, create an async task to load it. This task will be attached
         // via AsyncDrawable to this view.
-        final LoaderTask task = new LoaderTask(imgView, textView, true);
+        final LoaderTask task =
+                new LoaderTask(this, imgView, textView, true);
         final AsyncDrawable asyncDrawable = new AsyncDrawable(imgView.getResources(), placeholderBitmap, task);
         textView.setVisibility(View.INVISIBLE);
         imgView.setVisibility(View.INVISIBLE);
         imgView.setImageDrawable(asyncDrawable);
 
         // Run the task on our foreground executor
-        task.executeOnExecutor(foregroundExecutor, tuple);
+        task.executeOn(foregroundExecutor, tuple);
         return false;
     }
 

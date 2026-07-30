@@ -72,10 +72,16 @@ public class GameMenuQuickKeyboardAdapter extends BaseAdapter {
             holder = (ViewHolder) convertView.getTag();
         }
         if(type==2){
-            holder.tx_title.setText(datas.get(position).getName()+"\t【"+datas.get(position).getDesc()+"】");
+            holder.tx_title.setText(context.getString(
+                    R.string.quick_action_description_format,
+                    datas.get(position).getName(),
+                    datas.get(position).getDesc()));
         }else{
             if(type==0&& !TextUtils.isEmpty(datas.get(position).getDesc())){
-                holder.tx_title.setText(datas.get(position).getName()+"\t【"+datas.get(position).getDesc()+"】");
+                holder.tx_title.setText(context.getString(
+                        R.string.quick_action_description_format,
+                        datas.get(position).getName(),
+                        datas.get(position).getDesc()));
                 holder.tx_title.setTypeface(Typeface.defaultFromStyle(Typeface.BOLD_ITALIC));
             }else{
                 holder.tx_title.setText(datas.get(position).getName());

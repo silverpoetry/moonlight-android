@@ -1,5 +1,6 @@
 package com.limelight.ui;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Outline;
 import android.os.SystemClock;
@@ -140,6 +141,7 @@ public class CreditsWallView extends FrameLayout {
         post(this::resetScrollAndStart);
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private View createColumn(List<CreditEntry> columnEntries, int viewportHeightPx, int columnIndex) {
         FrameLayout viewport = new FrameLayout(getContext());
         LinearLayout.LayoutParams viewportParams = new LinearLayout.LayoutParams(
@@ -155,6 +157,8 @@ public class CreditsWallView extends FrameLayout {
         scrollView.setVerticalScrollBarEnabled(false);
         scrollView.setOverScrollMode(OVER_SCROLL_NEVER);
         scrollView.setFillViewport(true);
+        // The wall is an automatically animated presentation, so direct scrolling is
+        // intentionally disabled rather than exposed as an incomplete touch control.
         scrollView.setOnTouchListener((v, event) -> true);
 
         LinearLayout track = new LinearLayout(getContext());

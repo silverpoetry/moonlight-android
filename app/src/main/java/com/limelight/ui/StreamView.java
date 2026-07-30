@@ -8,6 +8,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.SurfaceView;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
@@ -28,6 +29,10 @@ public class StreamView extends SurfaceView {
     private float initX;
     private float initY;
     private boolean initFlag;
+    private float touchDownX;
+    private float touchDownY;
+    private boolean touchMoved;
+    private int touchSlop;
 
     public void setDesiredAspectRatio(double aspectRatio) {
         this.desiredAspectRatio = aspectRatio;
@@ -71,6 +76,7 @@ public class StreamView extends SurfaceView {
         // 初始化手势检测器
         gestureDetector = new GestureDetector(context, new GestureListener());
         scaleDetector = new ScaleGestureDetector(context, new ScaleListener());
+        touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
     }
 
     @Override
@@ -153,6 +159,29 @@ public class StreamView extends SurfaceView {
         if(!enableZoomAndPan){
             return super.onTouchEvent(event);
         }
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                touchDownX = event.getX();
+                touchDownY = event.getY();
+                touchMoved = false;
+                break;
+            case MotionEvent.ACTION_POINTER_DOWN:
+                touchMoved = true;
+                break;
+            case MotionEvent.ACTION_MOVE:
+                if (Math.abs(event.getX() - touchDownX) > touchSlop ||
+                        Math.abs(event.getY() - touchDownY) > touchSlop) {
+                    touchMoved = true;
+                }
+                break;
+            case MotionEvent.ACTION_UP:
+                if (!touchMoved) {
+                    performClick();
+                }
+                break;
+            default:
+                break;
+        }
         if(!initFlag){
             initX = getX();
             initY = getY();
@@ -162,6 +191,12 @@ public class StreamView extends SurfaceView {
         }
         scaleDetector.onTouchEvent(event);
         gestureDetector.onTouchEvent(event);
+        return true;
+    }
+
+    @Override
+    public boolean performClick() {
+        super.performClick();
         return true;
     }
 

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -40,6 +41,9 @@
     <uses-feature
         android:name="android.hardware.sensor.barometer"
         android:required="false" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
 
     <!-- Disable legacy input emulation on ChromeOS -->
     <uses-feature
@@ -57,13 +61,18 @@
         android:gwpAsanMode="always"
         android:localeConfig="@xml/locales_config"
         android:enableOnBackInvokedCallback="false"
+        android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!-- Android TV launchers must be able to resolve poster-art URIs stored in TvContract.
+             The provider exposes only validated, read-only PNG files under the box-art cache. -->
         <provider
             android:name=".PosterContentProvider"
             android:authorities="poster.${applicationId}"
             android:enabled="true"
-            android:exported="true">
+            android:exported="true"
+            android:grantUriPermissions="true"
+            tools:ignore="ExportedContentProvider">
         </provider>
 
         <!-- Samsung multi-window support -->

@@ -154,10 +154,7 @@ public class TouchPadView extends View {
             case MotionEvent.ACTION_UP:
                 isPressedFeedback = false;
                 invalidate();
-                if (viewLister != null) {
-                    viewLister.sendMouseLeft(true);
-                    viewLister.sendMouseLeft(false);
-                }
+                performClick();
                 break;
 
             case MotionEvent.ACTION_POINTER_UP:
@@ -166,6 +163,16 @@ public class TouchPadView extends View {
                     viewLister.sendMouseRight(false); // 左键抬起
                 }
                 break;
+        }
+        return true;
+    }
+
+    @Override
+    public boolean performClick() {
+        super.performClick();
+        if (viewLister != null) {
+            viewLister.sendMouseLeft(true);
+            viewLister.sendMouseLeft(false);
         }
         return true;
     }

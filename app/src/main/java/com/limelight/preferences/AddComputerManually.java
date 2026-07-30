@@ -308,7 +308,7 @@ public class AddComputerManually extends Activity {
         findViewById(R.id.razerPort).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                hostText.setText(hostText.getText().toString()+":51337");
+                hostText.append(":51337");
             }
         });
 

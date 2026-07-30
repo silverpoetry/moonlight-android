@@ -13,7 +13,12 @@ This runs:
 
 - all JVM tests for every root/non-root and debug/release variant;
 - Android Lint for every variant;
-- the non-root Release build, including release-critical Lint checks.
+- both root and non-root Release builds, including release-critical Lint checks.
+
+Lint uses a checked-in baseline for reviewed legacy findings and treats every finding
+outside that baseline as an error. Do not regenerate the baseline merely to make a build
+pass: fix new findings, or document why a baseline change is necessary and review the
+baseline diff with the code change.
 
 ## Connected-device verification
 

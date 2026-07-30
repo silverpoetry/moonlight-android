@@ -365,12 +365,16 @@ public class GameMenu {
                 break;
         }
         seekBar.setProgress(initialValue / step);
-        valueText.setText(initialValue+"%");
+        valueText.setText(game.getString(
+                R.string.percentage_format,
+                initialValue));
 
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                valueText.setText(progress * step +"%");
+                valueText.setText(game.getString(
+                        R.string.percentage_format,
+                        progress * step));
             }
 
             @Override

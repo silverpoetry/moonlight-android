@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Root application name -->
-    <!-- Ensure native libraries are always extracted for root builds,
-         since we must invoke the evdev_reader binary ourselves -->
-    <application
-        android:label="@string/app_label_root"
-        android:extractNativeLibs="true" />
+    <!-- Native libraries use AGP's legacy compressed packaging for this minSdk and are
+         therefore extracted at install time, as required by evdev_reader. -->
+    <application android:label="@string/app_label_root" />
 </manifest>

@@ -514,13 +514,13 @@ public class StreamSettings extends Activity {
         final int topPadding = dp(12);
         final int bottomPadding = dp(12);
 
-        outerContainer.setPadding(horizontalPadding, topPadding + getStatusBarHeight(),
+        outerContainer.setPadding(horizontalPadding, topPadding,
                 horizontalPadding, bottomPadding);
 
         outerContainer.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
             @Override
             public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
-                int statusInset = Math.max(insets.getSystemWindowInsetTop(), getStatusBarHeight());
+                int statusInset = insets.getSystemWindowInsetTop();
                 int bottomInset = 0;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     bottomInset = insets.getTappableElementInsets().bottom;
@@ -531,14 +531,6 @@ public class StreamSettings extends Activity {
             }
         });
         outerContainer.requestApplyInsets();
-    }
-
-    private int getStatusBarHeight() {
-        int resourceId = getResources().getIdentifier("status_bar_height", "dimen", "android");
-        if (resourceId == 0) {
-            return 0;
-        }
-        return getResources().getDimensionPixelSize(resourceId);
     }
 
     private ScrollView createScrollView() {
@@ -734,7 +726,7 @@ public class StreamSettings extends Activity {
         TextView value = new TextView(this);
         value.setTextColor(0xE6FFFFFF);
         value.setTextSize(13);
-        value.setGravity(Gravity.CENTER_VERTICAL | Gravity.RIGHT);
+        value.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
         value.setMaxWidth(dp(180));
         value.setSingleLine(true);
         value.setEllipsize(TextUtils.TruncateAt.END);
@@ -986,7 +978,7 @@ public class StreamSettings extends Activity {
 
     private LinearLayout createDialogButtonRow() {
         LinearLayout buttons = new LinearLayout(this);
-        buttons.setGravity(Gravity.RIGHT);
+        buttons.setGravity(Gravity.END);
         buttons.setPadding(0, dp(14), 0, 0);
         return buttons;
     }
@@ -1000,7 +992,7 @@ public class StreamSettings extends Activity {
         button.setGravity(Gravity.CENTER);
         button.setBackgroundResource(R.drawable.ic_game_menu_btn_selector);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(92), dp(40));
-        params.leftMargin = dp(10);
+        params.setMarginStart(dp(10));
         button.setLayoutParams(params);
         return button;
     }
@@ -1222,6 +1214,7 @@ public class StreamSettings extends Activity {
         startActivity(Intent.createChooser(intent, "保存数据文件"));
     }
 
+    @TargetApi(Build.VERSION_CODES.TIRAMISU)
     private void launchNativeLanguageSettings() {
         try {
             Intent intent = new Intent(Settings.ACTION_APP_LOCALE_SETTINGS);

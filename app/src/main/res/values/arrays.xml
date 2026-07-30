@@ -134,6 +134,9 @@
         <item>עִבְרִית</item>
         <item>Svenska</item>
         <item>Indonesia</item>
+        <item>Български</item>
+        <item>Polski</item>
+        <item>Türkçe</item>
     </string-array>
     <string-array name="language_values" translatable="false">
         <item>default</item>
@@ -159,6 +162,9 @@
         <item>iw</item>
         <item>sv</item>
         <item>in</item>
+        <item>bg</item>
+        <item>pl</item>
+        <item>tr</item>
     </string-array>
 
     <string-array name="video_format_names">

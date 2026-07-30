@@ -978,7 +978,11 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         listView.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                return handlePcItemMenuTouch(listView, event);
+                boolean handled = handlePcItemMenuTouch(listView, event);
+                if (handled && event.getActionMasked() == MotionEvent.ACTION_UP) {
+                    v.performClick();
+                }
+                return handled;
             }
         });
         UiHelper.applyStatusBarPadding(listView);
@@ -1012,6 +1016,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
         menuButton.setAlpha(1.0f);
         if (action == MotionEvent.ACTION_UP) {
+            menuButton.performClick();
             openPcContextMenu(position);
         }
         return true;

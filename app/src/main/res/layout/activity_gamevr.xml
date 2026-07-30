@@ -26,7 +26,7 @@
             <TextView
                 android:layout_width="200dp"
                 android:layout_height="60dp"
-                android:text="画面大小"
+                android:text="@string/vr_image_size"
                 android:gravity="center" />
             <SeekBar
                 android:layout_width="match_parent"
@@ -44,7 +44,7 @@
             <TextView
                 android:layout_width="200dp"
                 android:layout_height="60dp"
-                android:text="畸变"
+                android:text="@string/vr_distortion"
                 android:gravity="center" />
             <SeekBar
                 android:layout_width="match_parent"
@@ -62,7 +62,7 @@
             <TextView
                 android:layout_width="200dp"
                 android:layout_height="60dp"
-                android:text="填充边缘"
+                android:text="@string/vr_edge_padding"
                 android:gravity="center" />
             <CheckBox
                 android:layout_width="32dp"
@@ -78,7 +78,7 @@
             <TextView
                 android:layout_width="200dp"
                 android:layout_height="60dp"
-                android:text="单眼"
+                android:text="@string/vr_single_eye"
                 android:gravity="center" />
             <CheckBox
                 android:layout_width="32dp"
@@ -97,12 +97,11 @@
         android:id="@+id/notificationOverlay"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginRight="10dp"
         android:layout_marginEnd="10dp"
         android:layout_marginTop="10dp"
-        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
         android:textAppearance="?android:attr/textAppearanceLarge"
-        android:gravity="right"
+        android:gravity="end"
         android:background="#80000000"
         android:preferKeepClear="true"
         android:visibility="gone" />
@@ -112,12 +111,11 @@
         android:id="@+id/performanceOverlay"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginLeft="10dp"
         android:layout_marginStart="10dp"
         android:layout_marginTop="10dp"
-        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
         android:textAppearance="?android:attr/textAppearanceSmall"
-        android:gravity="left"
+        android:gravity="start"
         android:background="#80000000"
         android:preferKeepClear="true"
         android:visibility="gone" />

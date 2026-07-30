@@ -122,11 +122,18 @@ public class AXFloatingMagnetView extends FrameLayout {
                 clearPortraitY();
                 moveToEdge();
                 if (isOnClickEvent()) {
-                    dealClickEvent();
+                    performClick();
                 }
                 startDelayedAction();
                 break;
         }
+        return true;
+    }
+
+    @Override
+    public boolean performClick() {
+        super.performClick();
+        dealClickEvent();
         return true;
     }
 

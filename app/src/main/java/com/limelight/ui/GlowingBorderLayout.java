@@ -128,12 +128,6 @@ public class GlowingBorderLayout extends FrameLayout {
     }
 
     @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        // 关键：返回 false 告诉系统：“我没处理这个点击，请交给底层的 GridView 处理”
-        return false;
-    }
-
-    @Override
     protected void drawableStateChanged() {
         super.drawableStateChanged();
         // 检查现在是否处于 选中(Selected)、聚焦(Focused) 或 按下(Pressed) 状态

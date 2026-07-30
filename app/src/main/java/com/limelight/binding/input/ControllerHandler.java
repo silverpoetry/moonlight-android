@@ -1,9 +1,9 @@
 package com.limelight.binding.input;
 
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
-import android.hardware.BatteryState;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -16,6 +16,7 @@ import android.hardware.lights.LightsRequest;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.media.AudioAttributes;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.CombinedVibration;
 import android.os.Handler;
@@ -81,6 +82,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
 
     private static final int BATTERY_RECHECK_INTERVAL_MS = 120 * 1000;
 
+    // These API 24 key codes are compile-time integers and may also be reported by
+    // external input devices on older Android releases, so retaining the mappings
+    // is both binary-compatible and useful below API 24.
+    @SuppressLint("InlinedApi")
     private static final Map<Integer, Integer> ANDROID_TO_LI_BUTTON_MAP = Map.ofEntries(
             Map.entry(KeyEvent.KEYCODE_BUTTON_A, ControllerPacket.A_FLAG),
             Map.entry(KeyEvent.KEYCODE_BUTTON_B, ControllerPacket.B_FLAG),
@@ -1369,36 +1374,36 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             // We can make some assumptions about charge state based on the connection type
             if (connectionType == SceConnectionType.WIRED || connectionType == SceConnectionType.BOTH) {
                 if (batteryPercentage == 100) {
-                    currentBatteryStatus = BatteryState.STATUS_FULL;
+                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_FULL;
                 }
                 else if (chargingState == SceChargingState.NOT_CHARGING) {
-                    currentBatteryStatus = BatteryState.STATUS_NOT_CHARGING;
+                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_NOT_CHARGING;
                 }
                 else {
-                    currentBatteryStatus = BatteryState.STATUS_CHARGING;
+                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_CHARGING;
                 }
             }
             else if (connectionType == SceConnectionType.WIRELESS) {
                 if (chargingState == SceChargingState.CHARGING) {
-                    currentBatteryStatus = BatteryState.STATUS_CHARGING;
+                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_CHARGING;
                 }
                 else {
-                    currentBatteryStatus = BatteryState.STATUS_DISCHARGING;
+                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_DISCHARGING;
                 }
             }
             else {
                 // If connection type is unknown, just use the charge state
                 if (batteryPercentage == 100) {
-                    currentBatteryStatus = BatteryState.STATUS_FULL;
+                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_FULL;
                 }
                 else if (chargingState == SceChargingState.NOT_CHARGING) {
-                    currentBatteryStatus = BatteryState.STATUS_DISCHARGING;
+                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_DISCHARGING;
                 }
                 else if (chargingState == SceChargingState.CHARGING) {
-                    currentBatteryStatus = BatteryState.STATUS_CHARGING;
+                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_CHARGING;
                 }
                 else {
-                    currentBatteryStatus = BatteryState.STATUS_UNKNOWN;
+                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_UNKNOWN;
                 }
             }
         }
@@ -1412,23 +1417,23 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             byte percentage;
 
             switch (currentBatteryStatus) {
-                case BatteryState.STATUS_UNKNOWN:
+                case BatteryManager.BATTERY_STATUS_UNKNOWN:
                     state = MoonBridge.LI_BATTERY_STATE_UNKNOWN;
                     break;
 
-                case BatteryState.STATUS_CHARGING:
+                case BatteryManager.BATTERY_STATUS_CHARGING:
                     state = MoonBridge.LI_BATTERY_STATE_CHARGING;
                     break;
 
-                case BatteryState.STATUS_DISCHARGING:
+                case BatteryManager.BATTERY_STATUS_DISCHARGING:
                     state = MoonBridge.LI_BATTERY_STATE_DISCHARGING;
                     break;
 
-                case BatteryState.STATUS_NOT_CHARGING:
+                case BatteryManager.BATTERY_STATUS_NOT_CHARGING:
                     state = MoonBridge.LI_BATTERY_STATE_NOT_CHARGING;
                     break;
 
-                case BatteryState.STATUS_FULL:
+                case BatteryManager.BATTERY_STATUS_FULL:
                     state = MoonBridge.LI_BATTERY_STATE_FULL;
                     break;
 
@@ -3608,7 +3613,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         public boolean hasRgbLed;
         public LightsManager.LightsSession lightsSession;
 
-        // These are BatteryState values, not Moonlight values
+        // These are Android BatteryManager status values, not Moonlight values
         public int lastReportedBatteryStatus;
         public float lastReportedBatteryCapacity;
 

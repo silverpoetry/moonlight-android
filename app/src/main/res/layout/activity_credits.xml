@@ -133,22 +133,6 @@
                         android:paddingRight="4dp"
                         android:paddingBottom="12dp" />
 
-<!--                    <View-->
-<!--                        android:layout_width="match_parent"-->
-<!--                        android:layout_height="28dp"-->
-<!--                        android:layout_gravity="top"-->
-<!--                        android:background="@drawable/bg_credits_fade_top"-->
-<!--                        android:clickable="false"-->
-<!--                        android:focusable="false" />-->
-
-<!--                    <View-->
-<!--                        android:layout_width="match_parent"-->
-<!--                        android:layout_height="28dp"-->
-<!--                        android:layout_gravity="bottom"-->
-<!--                        android:background="@drawable/bg_credits_fade_bottom"-->
-<!--                        android:clickable="false"-->
-<!--                        android:focusable="false" />-->
-
                 </FrameLayout>
 
             </LinearLayout>

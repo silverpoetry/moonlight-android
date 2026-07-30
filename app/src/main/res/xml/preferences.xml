@@ -235,20 +235,6 @@
             android:summary="默认外接物理鼠标的光标会被捕获，此选项可显示安卓系统光标"
             android:defaultValue="false" />
 
-<!--        <CheckBoxPreference-->
-<!--            android:key="checkbox_multi_touch_screen"-->
-<!--            android:title="多点触控屏幕模式"-->
-<!--            android:summary="开启此选项可以实现surface一样多点触控操作windows系统效果。-->
-<!--            \n仅支持sunshine 0.21及以上版本"-->
-<!--            android:disableDependentsState="true"-->
-<!--            android:defaultValue="false" />-->
-
-<!--        <CheckBoxPreference-->
-<!--            android:dependency="checkbox_multi_touch_screen"-->
-<!--            android:key="checkbox_touchscreen_trackpad"-->
-<!--            android:title="@string/title_checkbox_touchscreen_trackpad"-->
-<!--            android:summary="@string/summary_checkbox_touchscreen_trackpad"-->
-<!--            android:defaultValue="false" />-->
         <CheckBoxPreference
             android:key="checkbox_mouse_nav_buttons"
             android:title="@string/title_checkbox_mouse_nav_buttons"
@@ -333,21 +319,6 @@
             android:title="@string/title_checkbox_vibrate_osc"
             android:summary="@string/summary_checkbox_vibrate_osc"
             android:defaultValue="true" />
-<!--        <CheckBoxPreference-->
-<!--            android:defaultValue="false"-->
-<!--            android:dependency="checkbox_show_onscreen_controls"-->
-<!--            android:key="checkbox_only_show_L3R3"-->
-<!--            android:summary="@string/summary_only_l3r3"-->
-<!--            android:title="@string/title_only_l3r3" />-->
-<!--        <CheckBoxPreference-->
-<!--            android:layout_width="wrap_content"-->
-<!--            android:layout_height="wrap_content"-->
-<!--            android:defaultValue="false"-->
-<!--            android:dependency="checkbox_show_onscreen_controls"-->
-<!--            android:key="checkbox_show_guide_button"-->
-<!--            android:summary="@string/summary_show_guide_button"-->
-<!--            android:title="@string/title_show_guide_button" />-->
-
         <com.limelight.preferences.SeekBarPreference
             android:key="seekbar_osc_opacity"
             android:dependency="checkbox_show_onscreen_controls"
@@ -793,20 +764,4 @@
 
     </PreferenceCategory>
 
-
-    <!--PreferenceCategory android:title="@string/category_help"
-        android:key="category_help">
-        <com.limelight.preferences.WebLauncherPreference
-            android:title="@string/title_setup_guide"
-            android:summary="@string/summary_setup_guide"
-            url="https://github.com/moonlight-stream/moonlight-docs/wiki/Setup-Guide"/>
-        <com.limelight.preferences.WebLauncherPreference
-            android:title="@string/title_troubleshooting"
-            android:summary="@string/summary_troubleshooting"
-            url="https://github.com/moonlight-stream/moonlight-docs/wiki/Troubleshooting"/>
-        <com.limelight.preferences.WebLauncherPreference
-            android:title="@string/title_privacy_policy"
-            android:summary="@string/summary_privacy_policy"
-            url="https://moonlight-stream.org/privacy.html"/>
-    </PreferenceCategory-->
 </PreferenceScreen>

@@ -19,13 +19,14 @@ allprojects {
 
 tasks.register('verifyLocal') {
     group = 'verification'
-    description = 'Runs all JVM tests, Android Lint checks, and builds the non-root release.'
+    description = 'Runs all JVM tests, Android Lint checks, and builds both release flavors.'
     dependsOn ':app:test',
             ':app:lintNonRootDebug',
             ':app:lintNonRootRelease',
             ':app:lintRootDebug',
             ':app:lintRootRelease',
-            ':app:assembleNonRootRelease'
+            ':app:assembleNonRootRelease',
+            ':app:assembleRootRelease'
 }
 
 tasks.register('verifyConnected') {

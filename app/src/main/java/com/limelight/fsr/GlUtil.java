@@ -96,7 +96,7 @@ public final class GlUtil {
     }
 
     public static FloatBuffer createFloatBuffer(float[] values) {
-        ByteBuffer byteBuffer = ByteBuffer.allocateDirect(values.length * Float.BYTES);
+        ByteBuffer byteBuffer = ByteBuffer.allocateDirect(values.length * (Float.SIZE / 8));
         byteBuffer.order(ByteOrder.nativeOrder());
         FloatBuffer floatBuffer = byteBuffer.asFloatBuffer();
         floatBuffer.put(values);

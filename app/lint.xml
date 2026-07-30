@@ -8,4 +8,23 @@
     <issue id="NotificationPermission">
         <ignore regexp="usage from com\.bumptech\.glide\.request\.target\.NotificationTarget"/>
     </issue>
+    <!-- GameStream/Sunshine requires HTTP for discovery and pairing against dynamic LAN hosts.
+         HTTPS remains protected by system trust or the exact certificate pinned at pairing. -->
+    <issue id="InsecureBaseConfiguration">
+        <ignore path="src/main/res/xml/network_security_config.xml"/>
+    </issue>
+    <!-- This warning originates from an unused compatibility class inside Bouncy Castle,
+         not from application TLS configuration. -->
+    <issue id="TrustAllX509TrustManager">
+        <ignore regexp="bcpkix-jdk18on-1\.77\.jar"/>
+    </issue>
+    <!-- AV1 is the standardized codec name, not a misspelling of "AV!". -->
+    <issue id="Typos">
+        <ignore regexp="AV1"/>
+    </issue>
+    <!-- This release/debug label is consumed only by the root flavor, so non-root
+         variant analysis cannot see its manifest reference. -->
+    <issue id="UnusedResources">
+        <ignore regexp="app_label_root"/>
+    </issue>
 </lint>

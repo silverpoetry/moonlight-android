@@ -1,5 +1,6 @@
 package com.limelight.nvstream.http;
 
+import android.annotation.SuppressLint;
 import android.os.Build;
 import android.text.TextUtils;
 
@@ -129,6 +130,14 @@ public class NvHTTP {
         throw new IllegalStateException("No X509 trust manager found");
     }
 
+    /**
+     * Builds the mutual-TLS state used by GameStream.
+     *
+     * <p>Publicly trusted hosts use Android's default trust manager. Self-signed host
+     * certificates are accepted only when they exactly equal the certificate persisted during
+     * pairing; hostname relaxation is likewise limited to that exact pinned certificate.</p>
+     */
+    @SuppressLint("CustomX509TrustManager")
     private void initializeHttpState(final LimelightCryptoProvider cryptoProvider) {
         keyManager = new X509KeyManager() {
             public String chooseClientAlias(String[] keyTypes,

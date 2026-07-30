@@ -23,4 +23,7 @@
     <locale android:name="iw"/>
     <locale android:name="sv"/>
     <locale android:name="in"/>
+    <locale android:name="bg"/>
+    <locale android:name="pl"/>
+    <locale android:name="tr"/>
 </locale-config>

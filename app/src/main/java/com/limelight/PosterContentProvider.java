@@ -12,47 +12,48 @@ import com.limelight.grid.assets.DiskAssetLoader;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.List;
 
-public class PosterContentProvider extends ContentProvider {
-
-
+public final class PosterContentProvider extends ContentProvider {
     private static final String AUTHORITY_PREFIX = "poster.";
     public static final String PNG_MIME_TYPE = "image/png";
-    public static final int APP_ID_PATH_INDEX = 2;
-    public static final int COMPUTER_UUID_PATH_INDEX = 1;
-    private DiskAssetLoader mDiskAssetLoader;
-
-    private UriMatcher uriMatcher;
     private static final String BOXART_PATH = "boxart";
     private static final int BOXART_URI_ID = 1;
+    private static final int APP_ID_PATH_INDEX = 2;
+    private static final int COMPUTER_UUID_PATH_INDEX = 1;
+
+    private DiskAssetLoader diskAssetLoader;
+    private UriMatcher uriMatcher;
 
     @Override
     public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
-        int match = uriMatcher.match(uri);
-        if (match == BOXART_URI_ID) {
-            return openBoxArtFile(uri, mode);
+        if (uriMatcher.match(uri) != BOXART_URI_ID) {
+            throw new FileNotFoundException("Unknown poster URI");
         }
-        return openBoxArtFile(uri, mode);
-
-    }
-
-    public ParcelFileDescriptor openBoxArtFile(Uri uri, String mode) throws FileNotFoundException {
         if (!"r".equals(mode)) {
             throw new UnsupportedOperationException("This provider is only for read mode");
         }
 
         List<String> segments = uri.getPathSegments();
-        if (segments.size() != 3) {
-            throw new FileNotFoundException();
+        String computerUuid = segments.get(COMPUTER_UUID_PATH_INDEX);
+        if (!isSafePathComponent(computerUuid)) {
+            throw new FileNotFoundException("Invalid computer identifier");
         }
-        String appId = segments.get(APP_ID_PATH_INDEX);
-        String uuid = segments.get(COMPUTER_UUID_PATH_INDEX);
-        File file = mDiskAssetLoader.getFile(uuid, Integer.parseInt(appId));
-        if (file.exists()) {
-            return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
+
+        final int appId;
+        try {
+            appId = Integer.parseInt(segments.get(APP_ID_PATH_INDEX));
         }
-        throw new FileNotFoundException();
+        catch (NumberFormatException e) {
+            throw new FileNotFoundException("Invalid application identifier");
+        }
+
+        File file = diskAssetLoader.getFile(computerUuid, appId);
+        if (!isWithinBoxArtCache(file) || !file.isFile()) {
+            throw new FileNotFoundException("Poster not found");
+        }
+        return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
     }
 
     @Override
@@ -72,9 +73,12 @@ public class PosterContentProvider extends ContentProvider {
 
     @Override
     public boolean onCreate() {
-        mDiskAssetLoader = new DiskAssetLoader(getContext());
+        diskAssetLoader = new DiskAssetLoader(getContext());
         uriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
-        uriMatcher.addURI(getAuthority(getContext()), BOXART_PATH, BOXART_URI_ID);
+        uriMatcher.addURI(
+                getAuthority(getContext()),
+                BOXART_PATH + "/*/#",
+                BOXART_URI_ID);
         return true;
     }
 
@@ -87,15 +91,17 @@ public class PosterContentProvider extends ContentProvider {
     @Override
     public int update(Uri uri, ContentValues values, String selection,
                       String[] selectionArgs) {
-        throw new UnsupportedOperationException("This provider is support read only");
+        throw new UnsupportedOperationException("This provider is read only");
     }
-
 
     public static String getAuthority(android.content.Context context) {
         return AUTHORITY_PREFIX + context.getPackageName();
     }
 
-    public static Uri createBoxArtUri(android.content.Context context, String uuid, String appId) {
+    public static Uri createBoxArtUri(
+            android.content.Context context,
+            String uuid,
+            String appId) {
         return new Uri.Builder()
                 .scheme(ContentResolver.SCHEME_CONTENT)
                 .authority(getAuthority(context))
@@ -105,4 +111,27 @@ public class PosterContentProvider extends ContentProvider {
                 .build();
     }
 
+    private static boolean isSafePathComponent(String value) {
+        return value != null &&
+                !value.isEmpty() &&
+                !".".equals(value) &&
+                !"..".equals(value) &&
+                value.indexOf('/') < 0 &&
+                value.indexOf('\\') < 0 &&
+                value.indexOf(File.separatorChar) < 0;
+    }
+
+    private boolean isWithinBoxArtCache(File file) {
+        try {
+            File root = new File(getContext().getCacheDir(), BOXART_PATH)
+                    .getCanonicalFile();
+            File candidate = file.getCanonicalFile();
+            return candidate.getParentFile() != null &&
+                    candidate.getParentFile().getParentFile() != null &&
+                    root.equals(candidate.getParentFile().getParentFile());
+        }
+        catch (IOException e) {
+            return false;
+        }
+    }
 }

@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
+    <!-- GameStream/Sunshine discovery and pairing use HTTP on user-selected LAN hosts and
+         numeric addresses, so cleartext cannot be restricted to a finite domain list.
+         HTTPS traffic still uses system trust or the exact certificate pinned during pairing. -->
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />

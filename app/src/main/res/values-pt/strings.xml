@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="pcview_menu_header_unknown">Recarregando</string>
-    <string name="pcview_menu_unpair_pc">Dessincronize</string>
     <string name="scut_deleted_pc">PC deletado</string>
     <string name="scut_not_paired">PC despairado</string>
     <string name="scut_pc_not_found">PC não encontrado</string>
@@ -56,15 +55,11 @@
     <string name="conn_terminated_title">Conexão Encerrada</string>
     <string name="conn_terminated_msg">A conexão foi encerrada</string>
     <string name="ip_hint">Endereço de IP do PC GeForce</string>
-    <string name="searching_pc">Procurando por PCs a executar o GameStream...
+    <string name="searching_pc">Procurando por PCs a executar o GameStream…
 \n
 \nCertifique-se de que o GameStream esteja ativado nas configurações do SHIELD do GeForce Experience.</string>
-    <string name="perf_overlay_renderingfps">Taxa de quadros renderizando: %1$.2f FPS</string>
-    <string name="perf_overlay_netdrops">Quadros dropados pela rede: %1$.2f%%</string>
-    <string name="perf_overlay_netlatency">Latência média da rede: %1$d ms (variação: %2$d ms)</string>
     <string name="applist_menu_scut">Criar Atalho</string>
     <string name="applist_refresh_msg">A recarregar apps…</string>
-    <string name="applist_refresh_error_msg">Falha ao obter a lista de apps</string>
     <string name="applist_quit_app">Saindo</string>
     <string name="applist_quit_success">Saiu com sucesso</string>
     <string name="applist_quit_fail">Falha ao sair</string>
@@ -95,10 +90,6 @@
     <string name="category_on_screen_controls_settings">Configurações de Controles de Ecrã</string>
     <string name="title_checkbox_show_onscreen_controls">Mostrar controles no ecrã</string>
     <string name="summary_checkbox_show_onscreen_controls">Ativa o controle virtual no ecrã de toque</string>
-    <string name="summary_only_l3r3">Esconde todos os botões virtuais exceto o L3 e R3</string>
-    <string name="dialog_title_reset_osc">Resetar Layout</string>
-    <string name="toast_reset_osc_success">Controles de ecrã redefinidos para o padrão</string>
-    <string name="title_osc_opacity">Mudar a opacidade dos controles de ecrã</string>
     <string name="dialog_title_osc_opacity">Mudar opacidade</string>
     <string name="suffix_osc_opacity">%</string>
     <string name="category_ui_settings">Configurações de Interface</string>
@@ -110,17 +101,13 @@
     <string name="title_unlock_fps">Liberar todas as taxas de quadros possíveis</string>
     <string name="summary_unlock_fps">Transmitir a 90 ou 120 FPS pode reduzir a latência em aparelhos de última geração, mas pode causar atraso ou instabilidade em aparelhos que não suportam</string>
     <string name="title_checkbox_reduce_refresh_rate">Permitir redução de taxa de atualização</string>
-    <string name="summary_checkbox_reduce_refresh_rate">Taxas menores de atualização do display podem gravar energia ao custo de latência de video adicional</string>
+    <string name="summary_checkbox_reduce_refresh_rate">Taxas menores de atualização do display podem gravar energia ao custo de latência de vídeo adicional</string>
     <string name="summary_checkbox_disable_warnings">Desativa as mensagens de aviso de conexão no ecrã durante a transmissão</string>
-    <string name="summary_disable_frame_drop">Talvez reduza o micro-stuttering em alguns aparelhos, mas pode aumentar a latência</string>
     <string name="summary_video_format">HEVC reduz os requisitos de largura de banda de vídeo, mas requer um aparelho mais atual</string>
     <string name="title_enable_hdr">Ativar HDR (Experimental)</string>
     <string name="summary_full_range">Isso causará perda de detalhes em áreas claras e escuras se o seu aparelho não exibir corretamente todo o conteúdo de vídeo em cores.</string>
-    <string name="title_disable_frame_drop">Nunca dropar quadros</string>
     <string name="summary_enable_perf_overlay">Exibe informações de performance em tempo real durante a transmissão</string>
     <string name="title_enable_post_stream_toast">Mostrar aviso de latência após terminar a transmissão</string>
-    <string name="title_troubleshooting">Guia de solução de problemas</string>
-    <string name="summary_troubleshooting">Veja dicas para diagnosticar e corrigir problemas comuns de streaming</string>
     <string name="resolution_360p">360p</string>
     <string name="resolution_1080p">1080p</string>
     <string name="fps_60">60 FPS</string>
@@ -132,7 +119,6 @@
     <string name="title_frame_pacing">Ritmo de quadros</string>
     <string name="pacing_smoothness">Preferir vídeo mais suave (pode aumentar significativamente a latência)</string>
     <string name="summary_seekbar_deadzone">Nota: Alguns jogos podem impor uma zona morta maior do que o Moonlight está configurado para usar.</string>
-    <string name="dialog_text_reset_osc">Tem certeza de que deseja apagar o layout salvo dos controles de ecrã\?</string>
     <string name="category_host_settings">Configurações de Host</string>
     <string name="pacing_balanced_alt">Equilibrado com limite de FPS</string>
     <string name="audioconf_71surround">7.1 Surround</string>
@@ -155,32 +141,23 @@
     <string name="poor_connection_msg">Conexão ruim com o PC</string>
     <string name="slow_connection_msg">Conexão lenta com o PC
 \nReduza sua taxa de bits</string>
-    <string name="perf_overlay_streamdetails">Transmissão: %1$s %2$.2f FPS</string>
-    <string name="perf_overlay_decoder">Decodificador: %1$s</string>
-    <string name="perf_overlay_incomingfps">Taxa de quadros recebidos pela rede:: %1$.2f FPS</string>
-    <string name="perf_overlay_dectime">Tempo médio de decodificação: %1$.2f ms</string>
     <string name="applist_connect_msg">Conectando ao PC…</string>
     <string name="applist_menu_resume">Retomar Sessão</string>
     <string name="applist_menu_quit">Sair da Sessão</string>
     <string name="applist_menu_quit_and_start">Sair do Jogo Atual e Iniciar</string>
     <string name="applist_menu_cancel">Cancelar</string>
     <string name="applist_menu_details">Ver Detalhes</string>
-    <string name="applist_menu_tv_channel">Adicionar ao Canal</string>
     <string name="applist_menu_hide_app">Esconder app</string>
     <string name="applist_refresh_title">Lista de apps</string>
-    <string name="applist_refresh_error_title">Erro</string>
     <string name="applist_quit_confirmation">Tem certeza de que deseja sair da app em execução\? Todos os dados não salvos serão perdidos.</string>
-    <string name="applist_details_id">ID do App:</string>
     <string name="title_add_pc">Adicionar PC Manualmente</string>
     <string name="msg_add_pc">Conectando ao PC…</string>
-    <string name="addpc_success">Computador adicionado com sucesso</string>
     <string name="addpc_unknown_host">Não foi possível encontrar o PC. Certifique-se de que não cometeu um erro de digitação no endereço.</string>
     <string name="addpc_enter_ip">Deve inserir um endereço de IP</string>
     <string name="addpc_wrong_sitelocal">Esse endereço não parece certo. Deve usar o endereço de IP público do seu roteador para transmitir pela Internet.</string>
     <string name="category_basic_settings">Configurações Básicas</string>
     <string name="title_resolution_list">Resolução</string>
     <string name="summary_resolution_list">Aumente para melhorar a clareza da imagem. Diminua para melhor desempenho em aparelhos de baixo custo e redes mais lentas.</string>
-    <string name="title_native_res_dialog">Alerta de Resolução Nativa</string>
     <string name="title_fps_list">Taxa de quadros por segundo</string>
     <string name="title_seekbar_bitrate">Taxa de bits</string>
     <string name="summary_seekbar_bitrate">Aumente para uma melhor qualidade de imagem. Diminua para melhorar o desempenho em conexões mais lentas.</string>
@@ -190,15 +167,10 @@
     <string name="category_audio_settings">Configurações de Áudio</string>
     <string name="summary_audio_config_list">Ativa o som Surround 5.1 ou 7.1 para sistemas de home theater</string>
     <string name="category_input_settings">Configurações de Controles</string>
-    <string name="title_checkbox_touchscreen_trackpad">Usar o ecrã como um trackpad</string>
-    <string name="summary_checkbox_touchscreen_trackpad">Se ativado, o ecrã sensível ao toque funciona como um trackpad. Se desativado, o ecrã controla diretamente o cursor do rato.</string>
     <string name="summary_checkbox_multi_controller">Desmarque esta opção para forçar o gamepad a estar sempre presente</string>
     <string name="title_checkbox_vibrate_fallback">Emular suporte rumble com vibração</string>
     <string name="title_checkbox_vibrate_osc">Ativar vibração</string>
     <string name="summary_checkbox_vibrate_osc">Vibra o seu aparelho para emular rumble nos controles de ecrã</string>
-    <string name="title_only_l3r3">Mostrar somente L3 e R3</string>
-    <string name="title_reset_osc">Limpar o layout salvo dos controles de ecrã</string>
-    <string name="summary_reset_osc">Redefine todos os controles no ecrã para tamanho e posição padrão dele</string>
     <string name="summary_osc_opacity">Deixe os controles de ecrã mais/menos transparentes</string>
     <string name="title_language_list">Idioma</string>
     <string name="summary_language_list">Idioma para ser usado no Moonlight</string>
@@ -219,13 +191,11 @@
     <string name="pair_already_in_progress">Pareamento já em andamento</string>
     <string name="wol_pc_online">Esse computador está disponível</string>
     <string name="wol_no_mac">Não foi possível acordar o PC porque o GFE não enviou um endereço MAC</string>
-    <string name="wol_waking_pc">Acordando o PC…</string>
     <string name="unpairing">Despareando…</string>
     <string name="unpair_error">Aparelho não pareado</string>
     <string name="error_pc_offline">Esse computador está indisponível</string>
     <string name="error_manager_not_running">O serviço ComputerManager não está em execução. Aguarde alguns segundos ou reinicie a app..</string>
     <string name="error_unknown_host">Falha ao encontrar o host</string>
-    <string name="title_setup_guide">Guia de configuração</string>
     <string name="title_full_range">Forçar vídeo de gama completa de cores (Experimental)</string>
     <string name="conn_establishing_title">Estabelecendo Conexão</string>
     <string name="conn_establishing_msg">Iniciando a conexão</string>
@@ -235,8 +205,6 @@
     <string name="title_checkbox_xb1_driver">Driver de gamepad USB Xbox 360/One</string>
     <string name="title_checkbox_enable_sops">Otimizar configurações de jogo</string>
     <string name="summary_enable_post_stream_toast">Exibe uma mensagem com informações de latência após o término da transmissão</string>
-    <string name="category_help">Ajuda</string>
-    <string name="summary_setup_guide">Veja instruções sobre como configurar o seu PC para streaming</string>
     <string name="resolution_1440p">1440p</string>
     <string name="resolution_4k">4K</string>
     <string name="fps_30">30 FPS</string>
@@ -244,8 +212,6 @@
     <string name="title_checkbox_mouse_nav_buttons">Ativar os botões de voltar e avançar do rato</string>
     <string name="summary_checkbox_mouse_nav_buttons">Ativar esta opção pode bugar o clique com o botão direito em alguns aparelhos com bugs</string>
     <string name="title_checkbox_flip_face_buttons">Inverter botões</string>
-    <string name="title_privacy_policy">Política de privacidade</string>
-    <string name="summary_privacy_policy">Veja a política de privacidade do Moonlight</string>
     <string name="resolution_480p">480p</string>
     <string name="resolution_720p">720p</string>
     <string name="summary_frame_pacing">Especifique o equilíbrio entre latência e suavidade do vídeo</string>

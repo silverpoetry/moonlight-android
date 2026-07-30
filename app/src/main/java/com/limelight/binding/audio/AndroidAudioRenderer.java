@@ -1,5 +1,6 @@
 package com.limelight.binding.audio;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioAttributes;
@@ -40,6 +41,9 @@ public class AndroidAudioRenderer implements AudioRenderer {
                 audioHapticsStrength, audioHapticsVoiceFilterMode);
     }
 
+    // FLAG_LOW_LATENCY is a compile-time integer flag. It was publicized in API 24,
+    // but AudioAttributes.Builder#setFlags() safely accepts it on our API 21 minimum.
+    @SuppressLint("InlinedApi")
     private AudioTrack createAudioTrack(int channelConfig, int sampleRate, int bufferSize, boolean lowLatency) {
         AudioAttributes.Builder attributesBuilder = new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_GAME);

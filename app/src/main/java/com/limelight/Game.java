@@ -389,34 +389,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         performanceRumble=findViewById(R.id.performanceRumble);
         switchPerformanceRumbleHUD();
 
-//        //串流画面 顶部居中显示
-//        if(prefConfig.enableDisplayTopCenter){
-//            FrameLayout.LayoutParams params= (FrameLayout.LayoutParams) streamView.getLayoutParams();
-//            params.gravity= Gravity.CENTER_HORIZONTAL|Gravity.TOP;
-//        }
-        //串流画面 顶部居中显示
-        FrameLayout.LayoutParams params= (FrameLayout.LayoutParams) streamView.getLayoutParams();
-        int gravityModel=Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(this).getString("screen_gravity_list", "0"));
-        switch (gravityModel){
-            case 1://顶部居中
-                params.gravity= Gravity.CENTER_HORIZONTAL|Gravity.TOP;
-                break;
-            case 2://顶部居左
-                params.gravity= Gravity.LEFT|Gravity.TOP;
-                break;
-            case 3://顶部居右
-                params.gravity= Gravity.RIGHT|Gravity.TOP;
-                break;
-            case 4://底部居中
-                params.gravity= Gravity.CENTER_HORIZONTAL|Gravity.BOTTOM;
-                break;
-            case 5://底部居左
-                params.gravity= Gravity.LEFT|Gravity.BOTTOM;
-                break;
-            case 6://底部居右
-                params.gravity= Gravity.RIGHT|Gravity.BOTTOM;
-                break;
-        }
+        FrameLayout.LayoutParams params =
+                (FrameLayout.LayoutParams) streamView.getLayoutParams();
+        int gravityModel = Integer.parseInt(
+                PreferenceManager.getDefaultSharedPreferences(this)
+                        .getString("screen_gravity_list", "0"));
+        params.gravity = resolvePhysicalStreamGravity(gravityModel, params.gravity);
 
         if (fsrEnabled) {
             fsrVideoProcessor = new FsrVideoProcessor(this);
@@ -2105,6 +2083,33 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 view,
                 event,
                 getSoftKeyboardGestureFingerCount());
+    }
+
+    /**
+     * Resolves the user's explicitly selected physical screen edge. LEFT and RIGHT are
+     * intentional here: changing the UI language must not move the decoded video to the
+     * opposite side of the display.
+     */
+    @SuppressLint("RtlHardcoded")
+    private static int resolvePhysicalStreamGravity(
+            int gravityModel,
+            int defaultGravity) {
+        switch (gravityModel) {
+            case 1:
+                return Gravity.CENTER_HORIZONTAL | Gravity.TOP;
+            case 2:
+                return Gravity.LEFT | Gravity.TOP;
+            case 3:
+                return Gravity.RIGHT | Gravity.TOP;
+            case 4:
+                return Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM;
+            case 5:
+                return Gravity.LEFT | Gravity.BOTTOM;
+            case 6:
+                return Gravity.RIGHT | Gravity.BOTTOM;
+            default:
+                return defaultGravity;
+        }
     }
 
     private void suspendPendingTouchpadPressRecognition() {

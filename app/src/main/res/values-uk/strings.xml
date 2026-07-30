@@ -3,7 +3,6 @@
     <!-- PC view menu entries -->
     <string name="pcview_menu_app_list">Подивитися перелік застосунків</string>
     <string name="pcview_menu_pair_pc">Створити пару з пристроєм</string>
-    <string name="pcview_menu_unpair_pc">Розірвати пару</string>
     <string name="pcview_menu_send_wol">Надіслати запит Wake-On-LAN</string>
     <string name="pcview_menu_delete_pc">Видалити пристрій</string>
     <!-- Pair messages -->
@@ -17,7 +16,6 @@
     <!-- WOL messages -->
     <string name="wol_pc_online">Пристрій у мережі</string>
     <string name="wol_no_mac">Не вдається розбудити ПК, оскільки немає збереженої MAC-адреси</string>
-    <string name="wol_waking_pc">Пробудження пристрою…</string>
     <string name="wol_waking_msg">Пробудження пристрою може зайняти кілька секунд. Якщо цього не відбувається, упевніться що Wake-On-LAN налаштований правильно.</string>
     <string name="wol_fail">Помилка при відправці Wake-On-LAN пакетів</string>
     <!-- Unpair messages -->
@@ -55,11 +53,8 @@
     <string name="applist_menu_quit">Вийти з сесії</string>
     <string name="applist_menu_quit_and_start">Вийти з поточної гри і запустити</string>
     <string name="applist_menu_cancel">Скасувати</string>
-    <string name="applist_menu_tv_channel">Додати на канал</string>
     <string name="applist_refresh_title">Перелік застосунків</string>
     <string name="applist_refresh_msg">Оновлення застосунків…</string>
-    <string name="applist_refresh_error_title">Помилка</string>
-    <string name="applist_refresh_error_msg">Помилка отримання переліку застосунків</string>
     <string name="applist_quit_app">Виходимо з</string>
     <string name="applist_quit_success">Успішний вихід з</string>
     <string name="applist_quit_fail">Помилка при виході</string>
@@ -68,7 +63,6 @@
     <string name="title_add_pc">Додати пристрій вручну</string>
     <string name="msg_add_pc">З\'єднання з пристроєм…</string>
     <string name="addpc_fail">Неможливо під\'єднатися до вибраного пристрою. Переконайтеся, що необхідні порти дозволені в налаштуваннях брандмауера.</string>
-    <string name="addpc_success">Пристрій додано успішно</string>
     <string name="addpc_unknown_host">Неможливо знайти пристрій за вказаною адресою. Переконайтеся, що ви не зробили помилок під час його написання.</string>
     <string name="addpc_enter_ip">Ви повинні ввести IP адресу</string>
     <!-- Preferences -->
@@ -105,8 +99,6 @@
     <string name="category_on_screen_controls_settings">Налаштування екранних ґудзиків</string>
     <string name="title_checkbox_show_onscreen_controls">Показувати екранні ґудзики</string>
     <string name="summary_checkbox_show_onscreen_controls">Відображати віртуальні ґудзики контролера на екрані</string>
-    <string name="title_only_l3r3">Показувати тільки L3 та R3</string>
-    <string name="summary_only_l3r3">Приховувати всі віртуальні ґудзики окрім L3 та R3</string>
     <string name="scut_deleted_pc">Пристрій видалено</string>
     <string name="scut_not_paired">Пристрій не сполучений</string>
     <string name="help_loading_title">Перегляд допомоги</string>
@@ -126,13 +118,6 @@
     <string name="summary_checkbox_usb_bind_all">Використовувати USB драйвер Moonlight для усіх підтриманих контролерів, навіть якщо існує рідна підтримка</string>
     <string name="title_checkbox_mouse_emulation">Емуляція миші через контролер</string>
     <string name="summary_checkbox_mouse_emulation">Довге натиснення ґудзика Start, перемкне контролер в режим миші</string>
-    <string name="title_reset_osc">Скинути власне розташування ґудзиків на екрані</string>
-    <string name="summary_reset_osc">Повертає всі екранні елементи керування до їх розташуванням за замовчуванням</string>
-    <string name="dialog_title_reset_osc">Скинути розташування</string>
-    <string name="dialog_text_reset_osc">Ви впевнені що хочете видалити збережене розташування ґудзиків\?</string>
-    <string name="toast_reset_osc_success">Екранні елементи керування повернуті до положень за замовчуванням</string>
-    <string name="title_disable_frame_drop">Ніколи не пропускати кадри</string>
-    <string name="summary_disable_frame_drop">Може зменшити мікрозависання на деяких пристроях але, також збільшити затримку</string>
     <string name="title_enable_hdr">Увімкнути HDR (Експериментально)</string>
     <string name="summary_enable_hdr">Транслювати в HDR, якщо це підтримується грою та графічним процесором ПК. Для HDR потрібен графічний процесор із підтримкою кодування HEVC Main 10.</string>
     <string name="title_checkbox_vibrate_osc">Увімкнути вібрацію</string>
@@ -140,15 +125,12 @@
     <string name="applist_menu_details">Переглянути деталі</string>
     <string name="applist_menu_scut">Створити ярлик</string>
     <string name="category_input_settings">Налаштування введення</string>
-    <string name="title_checkbox_touchscreen_trackpad">Використовувати сенсорний екран як пальцевід</string>
-    <string name="summary_checkbox_touchscreen_trackpad">Якщо увімкнено, сенсорний екран працює як ноутбуковий пальцевід. Якщо вимкнено, безпосередньо керує вказівником миші.</string>
     <string name="delete_pc_msg">Ви впевнені що хочете видалити цей пристрій\?</string>
     <string name="pcview_menu_details">Переглянути деталі</string>
     <string name="poor_connection_msg">Слабке з\'єднання з пристроєм</string>
     <string name="title_details">Деталі</string>
     <string name="title_enable_perf_overlay">Увімкнути відображення статистики</string>
     <string name="title_unlock_fps">Розблокувати всі можливі частоти кадрів</string>
-    <string name="applist_details_id">ID застосунку:</string>
     <string name="title_checkbox_vibrate_fallback">Емуляція вібровіддачі</string>
     <string name="summary_checkbox_vibrate_osc">Вібрація пристрою для емуляції вібровіддачі при екранному управлінні</string>
     <string name="summary_checkbox_vibrate_fallback">Вібрує пристрій для емуляції вібровіддачі, якщо під\'єднаний контролер не підтримує її</string>
@@ -162,15 +144,9 @@
 \nЗменшіть швидкість потоку</string>
     <string name="summary_unlock_fps">Трансляція зі швидкістю 90 або 120 кадрів на секунду може зменшити затримку на швидких пристроях але, може викликати затримки або збої на слабших</string>
     <string name="summary_enable_perf_overlay">Відображає статистику продуктивності під час трансляції, в режимі реального часу</string>
-    <string name="perf_overlay_decoder">Розцифрувач: %1$s</string>
-    <string name="perf_overlay_incomingfps">Вхідна частота кадрів з мережі: %1$.2f FPS</string>
-    <string name="perf_overlay_renderingfps">Частота кадрів при відтворенні: %1$.2f FPS</string>
-    <string name="perf_overlay_netdrops">Кадри втрачені вашою мережею: %1$.2f%%</string>
-    <string name="perf_overlay_dectime">Середній час розцифрування: %1$.2f мс</string>
     <string name="summary_fps_list">Збільшіть для плавнішого відео потоку. Зменшіть для кращої продуктивності на повільних пристроях.</string>
     <string name="scut_invalid_uuid">Зазначений пристрій недійсний</string>
     <string name="scut_invalid_app_id">Зазначений застосунок недійсний</string>
-    <string name="title_osc_opacity">Змінити прозорість екранних елементів керування</string>
     <string name="summary_osc_opacity">Зробити екранні елементи керування більш/менш прозорими</string>
     <string name="dialog_title_osc_opacity">Зміна прозорості</string>
     <string name="suffix_osc_opacity">%</string>
@@ -192,10 +168,7 @@
 \nМи не несемо відповідальності за будь-які проблеми, що виникли в результаті встановлення власної роздільної здатності на вашому ПК.
 \n
 \nМожливо, ваш монітор не підтримує необхідну конфігурацію дисплея. Якщо так, ви можете спробувати налаштувати віртуальний монітор. Врешті-решт, якщо ваш пристрій або хост-комп’ютер не підтримує потокове передавання з певною роздільною здатністю чи частотою оновлення, вам, на жаль, не пощастило.</string>
-    <string name="title_native_res_dialog">Застереження про рідну роздільну здатність</string>
     <string name="applist_menu_hide_app">Сховати застосунок</string>
-    <string name="perf_overlay_netlatency">Середня затримка мережі: %1$d мс (розбіжність %2$d мс)</string>
-    <string name="perf_overlay_streamdetails">Відео трансл: %1$s %2$.2f FPS</string>
     <string name="check_ports_msg">Перевірте правила брандмауера та переадресації для наступних портів:</string>
     <string name="no_frame_received_error">Здається, ваше мережеве з\'єднання човпає. Спробуйте зменшити швидкість потоку (бітрейт) чи переключіть пристрій на швидшу мережу.</string>
     <string name="no_video_received_error">Не отримано відео від хоста.</string>
@@ -237,22 +210,15 @@
     <string name="audioconf_51surround">5.1 Об\'ємний Звук</string>
     <string name="audioconf_71surround">7.1 Об\'ємний Звук</string>
     <string name="summary_checkbox_enable_audiofx">Дозволяє аудіоефектам функціонувати під час потокового передавання, але може збільшити затримку звуку</string>
-    <string name="title_troubleshooting">Гайд з усунення несправностей</string>
-    <string name="title_privacy_policy">Політика конфіденційності</string>
-    <string name="summary_troubleshooting">Переглянути поради щодо діагностики та усунення поширених проблем з потоковою передачею</string>
     <string name="summary_checkbox_reduce_refresh_rate">Більш низька частота оновлення дисплея може заощадити енергію за рахунок деякої додаткової затримки відео</string>
     <string name="summary_seekbar_deadzone">Примітка: Деякі ігри можуть встановлювати більшу мертву зону, ніж та, на яку налаштовано Moonlight.</string>
     <string name="title_checkbox_absolute_mouse_mode">Режим миші віддаленого робочого столу</string>
-    <string name="title_setup_guide">Гайд по налаштуванню</string>
-    <string name="summary_setup_guide">Переглянути інструкцію, як налаштувати ігровий ПК для стрімінгу</string>
     <string name="pacing_balanced_alt">Збалансований з лімітом FPS</string>
     <string name="resolution_prefix_native_landscape">(Горизонтальний)</string>
     <string name="resolution_prefix_native_portrait">(Портретний)</string>
     <string name="title_checkbox_enable_audiofx">Увімкнення підтримки системного еквалайзера</string>
     <string name="summary_checkbox_absolute_mouse_mode">Це може зробити прискорення миші більш природним під час використання віддаленого робочого столу, але воно несумісне з багатьма іграми.</string>
     <string name="title_checkbox_reduce_refresh_rate">Дозволити зниження частоти оновлення</string>
-    <string name="category_help">Допомога</string>
-    <string name="summary_privacy_policy">Переглянути політику конфіденційності Moonlight</string>
     <string name="frame_conversion_error">Головний комп\'ютер повідомив про фатальну помилку кодування відео.
 \n
 \nСпробуйте вимкнути режим HDR, змінити роздільну здатність потокового відео або змінити роздільну здатність дисплея головного комп\'ютера.</string>
@@ -280,7 +246,5 @@
     <string name="summary_checkbox_gamepad_motion_sensors">Дозволяє підтримуваним хостам запитувати дані датчиків руху під час емуляції геймпада з датчиками руху. Якщо в грі не використовуються датчики руху, вимкнення може дещо зменшити енергоспоживання та використання мережі.</string>
     <string name="summary_checkbox_gamepad_motion_fallback">Використовує вбудовані датчики руху вашого пристрою, якщо датчики геймпада не підтримуються підключеним геймпадом або вашою версією Android.
 \nПримітка. Якщо ввімкнути цей параметр, ваш геймпад може відображатися як контролер PlayStation на хості.</string>
-    <string name="toast_controller_type_changed">Тип геймпада може бути змінений через емуляцію датчика руху</string>
     <string name="pcview_menu_eol">Закриття сервісів NVIDIA GameStream</string>
-    <string name="perf_overlay_hostprocessinglatency">Затримка обробки хостом мін./макс./середня: %1$.1f/%2$.1f/%3$.1f мс</string>
 </resources>
