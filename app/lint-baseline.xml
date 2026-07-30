@@ -333,17 +333,6 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of com.squareup.okhttp3:okhttp than 4.12.0 is available: 5.4.0"
-        errorLine1="    implementation &apos;com.squareup.okhttp3:okhttp:4.12.0&apos;"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle"
-            line="166"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
         message="A newer version of com.github.bumptech.glide:glide than 3.8.0 is available: 5.0.5"
         errorLine1="    implementation &apos;com.github.bumptech.glide:glide:3.8.0&apos;"
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">

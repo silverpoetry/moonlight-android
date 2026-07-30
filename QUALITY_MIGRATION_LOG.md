@@ -151,3 +151,28 @@ manual release gate.
   The debug About activity launched without a runtime exception. Devices were locked,
   so visible styling and settings interaction remain part of the final manual gate.
 - Lint: no new findings; the reviewed baseline remains at 59 entries.
+
+## Dependency: OkHttp 5.4.0
+
+- Upgraded `com.squareup.okhttp3:okhttp` from 4.12.0 to the current upstream release,
+  5.4.0.
+- Migrated every request-body construction site to the non-deprecated body-first API;
+  request methods, media types, byte content, transfer headers, and empty-body
+  semantics remain unchanged.
+- The merged debug and release manifests contain OkHttp's
+  `androidx.startup.InitializationProvider` entry, confirming that the Android runtime
+  integration is packaged rather than merely compiling against the common artifact.
+- Device loopback tests cover synchronous POST request framing, headers and response
+  consumption, asynchronous callback response ownership, read timeout, and
+  cancellation. Test clients explicitly release their dispatcher and connection-pool
+  resources.
+- `verifyLocal`: passed.
+- API 36 phone (`192.168.3.125:5555`): 35 non-root and 35 root instrumentation tests
+  passed.
+- API 36 large-screen device (`192.168.3.3:42815`): 35 non-root and 35 root
+  instrumentation tests passed.
+- Lint: no new findings; the matching `GradleDependency` entry was removed, leaving
+  58 reviewed baseline entries.
+- Live host discovery, pairing, streaming, clipboard, and file-transfer requests remain
+  part of the final manual release gate because the automated checks do not establish
+  an active Sunshine session.

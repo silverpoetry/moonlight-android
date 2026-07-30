@@ -891,7 +891,7 @@ public class NvHTTP {
         HttpUrl url = getHttpsUrl(true).newBuilder()
                 .addPathSegments("api/v2/clipboard/blobs")
                 .build();
-        RequestBody body = RequestBody.create(MediaType.parse(mime), source);
+        RequestBody body = RequestBody.create(source, MediaType.parse(mime));
         Request request = new Request.Builder()
                 .url(url)
                 .post(body)
@@ -1031,7 +1031,7 @@ public class NvHTTP {
                 .build();
         Request request = new Request.Builder()
                 .url(url)
-                .post(RequestBody.create(null, new byte[0]))
+                .post(RequestBody.create(new byte[0], null))
                 .header("X-Clipboard-Origin", Long.toUnsignedString(originId))
                 .build();
         OkHttpClient client = httpClientLongConnectTimeout.newBuilder()
@@ -1204,8 +1204,8 @@ public class NvHTTP {
         Request request = new Request.Builder()
                 .url(url)
                 .post(RequestBody.create(
-                        MediaType.parse("application/vnd.moonlight.file-manifest"),
-                        manifest))
+                        manifest,
+                        MediaType.parse("application/vnd.moonlight.file-manifest")))
                 .header("X-Moonlight-Transfer-Token", token)
                 .header("X-Moonlight-Idempotency-Key", idempotencyKey)
                 .build();
@@ -1254,7 +1254,8 @@ public class NvHTTP {
                 .build();
         Request request = new Request.Builder()
                 .url(url)
-                .put(RequestBody.create(MediaType.parse("application/octet-stream"), bytes))
+                .put(RequestBody.create(
+                        bytes, MediaType.parse("application/octet-stream")))
                 .header("X-Moonlight-Transfer-Token", token)
                 .header("X-Moonlight-Chunk-SHA256", encodeHex(sha256(bytes)))
                 .build();
@@ -1281,7 +1282,7 @@ public class NvHTTP {
                 .build();
         Request request = new Request.Builder()
                 .url(url)
-                .post(RequestBody.create(null, new byte[0]))
+                .post(RequestBody.create(new byte[0], null))
                 .header("X-Moonlight-Transfer-Token", token)
                 .build();
         OkHttpClient client = httpClientLongConnectTimeout.newBuilder()
