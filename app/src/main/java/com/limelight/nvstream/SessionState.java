@@ -15,16 +15,13 @@ public enum SessionState {
     STOPPED,
     FAILED;
 
-    public boolean hasStarted() {
-        return this != CREATED;
-    }
-
     public boolean isStreaming() {
         return this == STREAMING;
     }
 
     public boolean needsStop() {
-        return this == STARTING ||
+        return this == CREATED ||
+                this == STARTING ||
                 this == STREAMING ||
                 this == TERMINATED ||
                 this == FAILED;

@@ -1396,6 +1396,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             streamInputController.destroy();
             streamInputController = null;
         }
+        if (sessionController != null) {
+            sessionController.destroy();
+            sessionController = null;
+        }
         if (backNavigationRegistration != null) {
             backNavigationRegistration.unregister();
             backNavigationRegistration = null;
@@ -2906,7 +2910,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private void startConnectionIfReady() {
         if (!fsrEnabled || sessionController == null ||
-                sessionController.getState().hasStarted() ||
+                !sessionController.canStart() ||
                 !fsrInputSurfaceReady || !fsrDisplaySurfaceCreated) {
             return;
         }
@@ -2916,7 +2920,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private void startSessionWithRenderTarget(Surface renderTarget) {
         if (sessionController == null ||
-                sessionController.getState().hasStarted()) {
+                !sessionController.canStart()) {
             return;
         }
 
@@ -2940,7 +2944,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private boolean hasSessionStarted() {
         return sessionController != null &&
-                sessionController.getState().hasStarted();
+                sessionController.hasStartBeenRequested();
     }
 
     public boolean isSessionConnected() {

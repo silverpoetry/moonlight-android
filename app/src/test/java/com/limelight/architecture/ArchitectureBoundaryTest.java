@@ -149,4 +149,30 @@ public final class ArchitectureBoundaryTest {
                 .because("chords emit through KeyboardInputSink")
                 .check(productionClasses);
     }
+
+    @Test
+    public void streamSessionControllerDoesNotDependOnGameActivity() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.StreamSessionController")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .because("the session state machine must outlive UI refactors")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void streamSessionControllerDoesNotDependOnStreamUi() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.StreamSessionController")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("com.limelight.ui..")
+                .because("session lifecycle emits through its listener port")
+                .check(productionClasses);
+    }
 }

@@ -1,5 +1,8 @@
 package com.limelight.nvstream;
 
+import androidx.annotation.AnyThread;
+
+import com.limelight.LimeLog;
 import com.limelight.nvstream.av.audio.AudioRenderer;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 
@@ -13,11 +16,13 @@ import java.util.concurrent.Executor;
 public final class StreamSessionController implements NvConnectionListener {
     private final Object stateLock = new Object();
     private final StreamSessionConnection connection;
-    private final NvConnectionListener delegate;
     private final Executor stopExecutor;
 
     private volatile SessionState state = SessionState.CREATED;
+    private NvConnectionListener delegate;
+    private boolean startRequested;
     private boolean stopScheduled;
+    private boolean destroyed;
 
     public StreamSessionController(NvConnection connection,
                                    NvConnectionListener delegate) {
@@ -35,16 +40,33 @@ public final class StreamSessionController implements NvConnectionListener {
         this.stopExecutor = Objects.requireNonNull(stopExecutor, "stopExecutor");
     }
 
+    @AnyThread
     public SessionState getState() {
         return state;
     }
 
+    @AnyThread
+    public boolean canStart() {
+        synchronized (stateLock) {
+            return !destroyed && state == SessionState.CREATED;
+        }
+    }
+
+    @AnyThread
+    public boolean hasStartBeenRequested() {
+        synchronized (stateLock) {
+            return startRequested;
+        }
+    }
+
+    @AnyThread
     public boolean start(AudioRenderer audioRenderer,
                          VideoDecoderRenderer videoDecoderRenderer) {
         synchronized (stateLock) {
-            if (state != SessionState.CREATED) {
+            if (destroyed || state != SessionState.CREATED) {
                 return false;
             }
+            startRequested = true;
             state = SessionState.STARTING;
             try {
                 connection.start(audioRenderer, videoDecoderRenderer, this);
@@ -61,6 +83,7 @@ public final class StreamSessionController implements NvConnectionListener {
      *
      * @return {@code true} if this call initiated cleanup
      */
+    @AnyThread
     public boolean stop() {
         synchronized (stateLock) {
             if (!state.needsStop() || stopScheduled) {
@@ -81,7 +104,8 @@ public final class StreamSessionController implements NvConnectionListener {
                     synchronized (stateLock) {
                         state = SessionState.FAILED;
                     }
-                    throw error;
+                    LimeLog.severe(
+                            "Stream session cleanup failed: " + error);
                 }
             });
             return true;
@@ -90,110 +114,174 @@ public final class StreamSessionController implements NvConnectionListener {
                 state = SessionState.FAILED;
                 stopScheduled = false;
             }
-            throw error;
+            LimeLog.severe(
+                    "Unable to schedule stream session cleanup: " + error);
+            return false;
         }
+    }
+
+    /**
+     * Detaches the UI owner and guarantees transport cleanup is requested.
+     * Calls made after destruction are idempotent.
+     */
+    @AnyThread
+    public void destroy() {
+        synchronized (stateLock) {
+            if (destroyed) {
+                return;
+            }
+            destroyed = true;
+            delegate = null;
+        }
+        stop();
     }
 
     @Override
     public void stageStarting(String stage) {
+        NvConnectionListener currentDelegate;
         synchronized (stateLock) {
-            if (state != SessionState.STARTING) {
+            currentDelegate = getDelegateLocked(
+                    SessionState.STARTING);
+            if (currentDelegate == null) {
                 return;
             }
         }
-        delegate.stageStarting(stage);
+        currentDelegate.stageStarting(stage);
     }
 
     @Override
     public void stageComplete(String stage) {
+        NvConnectionListener currentDelegate;
         synchronized (stateLock) {
-            if (state != SessionState.STARTING) {
+            currentDelegate = getDelegateLocked(
+                    SessionState.STARTING);
+            if (currentDelegate == null) {
                 return;
             }
         }
-        delegate.stageComplete(stage);
+        currentDelegate.stageComplete(stage);
     }
 
     @Override
     public void stageFailed(String stage, int portFlags, int errorCode) {
+        NvConnectionListener currentDelegate;
         synchronized (stateLock) {
-            if (state != SessionState.STARTING) {
+            currentDelegate = getDelegateLocked(
+                    SessionState.STARTING);
+            if (currentDelegate == null) {
                 return;
             }
             state = SessionState.FAILED;
         }
-        delegate.stageFailed(stage, portFlags, errorCode);
+        currentDelegate.stageFailed(stage, portFlags, errorCode);
     }
 
     @Override
     public void connectionStarted() {
+        NvConnectionListener currentDelegate;
         synchronized (stateLock) {
-            if (state != SessionState.STARTING) {
+            currentDelegate = getDelegateLocked(
+                    SessionState.STARTING);
+            if (currentDelegate == null) {
                 return;
             }
             state = SessionState.STREAMING;
         }
-        delegate.connectionStarted();
+        currentDelegate.connectionStarted();
     }
 
     @Override
     public void connectionTerminated(int errorCode) {
+        NvConnectionListener currentDelegate;
         synchronized (stateLock) {
-            if (state == SessionState.CREATED ||
-                    state == SessionState.STOPPED) {
+            currentDelegate = getDelegateLocked(
+                    SessionState.STARTING,
+                    SessionState.STREAMING);
+            if (currentDelegate == null) {
                 return;
             }
-            if (state == SessionState.STARTING ||
-                    state == SessionState.STREAMING) {
-                state = SessionState.TERMINATED;
-            }
+            state = SessionState.TERMINATED;
         }
-        delegate.connectionTerminated(errorCode);
+        currentDelegate.connectionTerminated(errorCode);
     }
 
     @Override
     public void connectionStatusUpdate(int connectionStatus) {
-        delegate.connectionStatusUpdate(connectionStatus);
+        NvConnectionListener currentDelegate =
+                getStreamingDelegate();
+        if (currentDelegate != null) {
+            currentDelegate.connectionStatusUpdate(connectionStatus);
+        }
     }
 
     @Override
     public void displayMessage(String message) {
-        delegate.displayMessage(message);
+        NvConnectionListener currentDelegate =
+                getActiveDelegate();
+        if (currentDelegate != null) {
+            currentDelegate.displayMessage(message);
+        }
     }
 
     @Override
     public void displayTransientMessage(String message) {
-        delegate.displayTransientMessage(message);
+        NvConnectionListener currentDelegate =
+                getActiveDelegate();
+        if (currentDelegate != null) {
+            currentDelegate.displayTransientMessage(message);
+        }
     }
 
     @Override
     public void rumble(short controllerNumber, short lowFreqMotor,
                        short highFreqMotor) {
-        delegate.rumble(controllerNumber, lowFreqMotor, highFreqMotor);
+        NvConnectionListener currentDelegate =
+                getStreamingDelegate();
+        if (currentDelegate != null) {
+            currentDelegate.rumble(controllerNumber, lowFreqMotor,
+                    highFreqMotor);
+        }
     }
 
     @Override
     public void rumbleTriggers(short controllerNumber, short leftTrigger,
                                short rightTrigger) {
-        delegate.rumbleTriggers(controllerNumber, leftTrigger, rightTrigger);
+        NvConnectionListener currentDelegate =
+                getStreamingDelegate();
+        if (currentDelegate != null) {
+            currentDelegate.rumbleTriggers(controllerNumber, leftTrigger,
+                    rightTrigger);
+        }
     }
 
     @Override
     public void setHdrMode(boolean enabled, byte[] hdrMetadata) {
-        delegate.setHdrMode(enabled, hdrMetadata);
+        NvConnectionListener currentDelegate =
+                getStreamingDelegate();
+        if (currentDelegate != null) {
+            currentDelegate.setHdrMode(enabled, hdrMetadata);
+        }
     }
 
     @Override
     public void setMotionEventState(short controllerNumber, byte motionType,
                                     short reportRateHz) {
-        delegate.setMotionEventState(controllerNumber, motionType,
-                reportRateHz);
+        NvConnectionListener currentDelegate =
+                getStreamingDelegate();
+        if (currentDelegate != null) {
+            currentDelegate.setMotionEventState(controllerNumber,
+                    motionType, reportRateHz);
+        }
     }
 
     @Override
     public void setControllerLED(short controllerNumber, byte r, byte g,
                                  byte b) {
-        delegate.setControllerLED(controllerNumber, r, g, b);
+        NvConnectionListener currentDelegate =
+                getStreamingDelegate();
+        if (currentDelegate != null) {
+            currentDelegate.setControllerLED(controllerNumber, r, g, b);
+        }
     }
 
     @Override
@@ -201,8 +289,46 @@ public final class StreamSessionController implements NvConnectionListener {
                              int x, int y, int width, int height,
                              int hotspotX, int hotspotY, int shapeId,
                              int scaleX, int scaleY, byte[] imageData) {
-        delegate.nativeCursor(visible, shapeChanged, format, x, y,
-                width, height, hotspotX, hotspotY, shapeId, scaleX, scaleY,
-                imageData);
+        NvConnectionListener currentDelegate =
+                getStreamingDelegate();
+        if (currentDelegate != null) {
+            currentDelegate.nativeCursor(visible, shapeChanged, format,
+                    x, y, width, height, hotspotX, hotspotY, shapeId,
+                    scaleX, scaleY, imageData);
+        }
+    }
+
+    private NvConnectionListener getActiveDelegate() {
+        synchronized (stateLock) {
+            return getDelegateLocked(
+                    SessionState.STARTING,
+                    SessionState.STREAMING);
+        }
+    }
+
+    private NvConnectionListener getStreamingDelegate() {
+        synchronized (stateLock) {
+            return getDelegateLocked(SessionState.STREAMING);
+        }
+    }
+
+    private NvConnectionListener getDelegateLocked(
+            SessionState acceptedState) {
+        if (destroyed || delegate == null) {
+            return null;
+        }
+        return state == acceptedState ? delegate : null;
+    }
+
+    private NvConnectionListener getDelegateLocked(
+            SessionState firstAcceptedState,
+            SessionState secondAcceptedState) {
+        if (destroyed || delegate == null) {
+            return null;
+        }
+        return state == firstAcceptedState ||
+                state == secondAcceptedState
+                ? delegate
+                : null;
     }
 }

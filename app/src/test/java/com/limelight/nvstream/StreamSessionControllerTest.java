@@ -22,8 +22,12 @@ public final class StreamSessionControllerTest {
                 connection, listener, Runnable::run);
 
         assertEquals(SessionState.CREATED, controller.getState());
+        assertTrue(controller.canStart());
+        assertFalse(controller.hasStartBeenRequested());
         assertTrue(controller.start(null, null));
         assertEquals(SessionState.STARTING, controller.getState());
+        assertFalse(controller.canStart());
+        assertTrue(controller.hasStartBeenRequested());
         assertEquals(1, connection.startCount);
         assertFalse(controller.start(null, null));
 
@@ -99,11 +103,152 @@ public final class StreamSessionControllerTest {
         assertEquals(SessionState.STOPPED, controller.getState());
     }
 
+    @Test
+    public void stopBeforeStartStillCleansSingleUseTransport() {
+        FakeConnection connection = new FakeConnection();
+        RecordingListener listener = new RecordingListener();
+        QueuedExecutor stopExecutor = new QueuedExecutor();
+        StreamSessionController controller = new StreamSessionController(
+                connection, listener, stopExecutor);
+
+        assertTrue(controller.stop());
+        assertEquals(SessionState.STOPPING, controller.getState());
+        assertFalse(controller.hasStartBeenRequested());
+        assertFalse(controller.start(null, null));
+        assertFalse(controller.stop());
+
+        stopExecutor.runNext();
+
+        assertEquals(0, connection.startCount);
+        assertEquals(1, connection.stopCount);
+        assertEquals(SessionState.STOPPED, controller.getState());
+    }
+
+    @Test
+    public void destroyDetachesOwnerAndRequestsCleanupExactlyOnce() {
+        FakeConnection connection = new FakeConnection();
+        RecordingListener listener = new RecordingListener();
+        QueuedExecutor stopExecutor = new QueuedExecutor();
+        StreamSessionController controller = new StreamSessionController(
+                connection, listener, stopExecutor);
+        controller.start(null, null);
+
+        controller.destroy();
+        controller.destroy();
+        connection.listener.stageStarting("late");
+        connection.listener.stageFailed("late", 1, 2);
+        connection.listener.displayMessage("late");
+        connection.listener.connectionTerminated(3);
+
+        assertEquals(0, listener.stageStartingCount);
+        assertEquals(0, listener.stageFailedCount);
+        assertEquals(0, listener.displayMessageCount);
+        assertEquals(0, listener.connectionTerminatedCount);
+        assertEquals(SessionState.STOPPING, controller.getState());
+
+        stopExecutor.runNext();
+
+        assertEquals(1, connection.stopCount);
+        assertEquals(SessionState.STOPPED, controller.getState());
+    }
+
+    @Test
+    public void stopRejectsAllLateRuntimeCallbacks() {
+        FakeConnection connection = new FakeConnection();
+        RecordingListener listener = new RecordingListener();
+        QueuedExecutor stopExecutor = new QueuedExecutor();
+        StreamSessionController controller = new StreamSessionController(
+                connection, listener, stopExecutor);
+        controller.start(null, null);
+        connection.listener.connectionStarted();
+
+        assertTrue(controller.stop());
+        connection.listener.connectionStatusUpdate(1);
+        connection.listener.displayMessage("late");
+        connection.listener.displayTransientMessage("late");
+        connection.listener.rumble((short) 0, (short) 1, (short) 2);
+        connection.listener.rumbleTriggers(
+                (short) 0, (short) 1, (short) 2);
+        connection.listener.setHdrMode(true, new byte[0]);
+        connection.listener.setMotionEventState(
+                (short) 0, (byte) 1, (short) 120);
+        connection.listener.setControllerLED(
+                (short) 0, (byte) 1, (byte) 2, (byte) 3);
+        connection.listener.nativeCursor(
+                true, false, 0, 1, 2, 3, 4,
+                0, 0, 1, 65536, 65536, new byte[0]);
+        connection.listener.connectionTerminated(4);
+
+        assertEquals(0, listener.connectionStatusUpdateCount);
+        assertEquals(0, listener.displayMessageCount);
+        assertEquals(0, listener.displayTransientMessageCount);
+        assertEquals(0, listener.rumbleCount);
+        assertEquals(0, listener.rumbleTriggersCount);
+        assertEquals(0, listener.hdrModeCount);
+        assertEquals(0, listener.motionStateCount);
+        assertEquals(0, listener.controllerLedCount);
+        assertEquals(0, listener.nativeCursorCount);
+        assertEquals(0, listener.connectionTerminatedCount);
+        assertEquals(SessionState.STOPPING, controller.getState());
+    }
+
+    @Test
+    public void cleanupFailureIsContainedAndTerminal() {
+        FakeConnection connection = new FakeConnection();
+        connection.stopFailure =
+                new IllegalStateException("cleanup failed");
+        RecordingListener listener = new RecordingListener();
+        QueuedExecutor stopExecutor = new QueuedExecutor();
+        StreamSessionController controller = new StreamSessionController(
+                connection, listener, stopExecutor);
+        controller.start(null, null);
+
+        assertTrue(controller.stop());
+        stopExecutor.runNext();
+
+        assertEquals(1, connection.stopCount);
+        assertEquals(SessionState.FAILED, controller.getState());
+        assertFalse(controller.stop());
+    }
+
+    @Test
+    public void callbacksAreForwardedOnlyInTheirOwningState() {
+        FakeConnection connection = new FakeConnection();
+        RecordingListener listener = new RecordingListener();
+        StreamSessionController controller = new StreamSessionController(
+                connection, listener, Runnable::run);
+        controller.start(null, null);
+
+        connection.listener.stageStarting("video");
+        connection.listener.displayMessage("starting");
+        connection.listener.connectionStatusUpdate(1);
+        connection.listener.rumble((short) 0, (short) 1, (short) 2);
+
+        assertEquals(1, listener.stageStartingCount);
+        assertEquals(1, listener.displayMessageCount);
+        assertEquals(0, listener.connectionStatusUpdateCount);
+        assertEquals(0, listener.rumbleCount);
+
+        connection.listener.connectionStarted();
+        connection.listener.stageStarting("late");
+        connection.listener.connectionStatusUpdate(1);
+        connection.listener.displayTransientMessage("streaming");
+        connection.listener.rumble((short) 0, (short) 1, (short) 2);
+        connection.listener.setHdrMode(true, new byte[0]);
+
+        assertEquals(1, listener.stageStartingCount);
+        assertEquals(1, listener.connectionStatusUpdateCount);
+        assertEquals(1, listener.displayTransientMessageCount);
+        assertEquals(1, listener.rumbleCount);
+        assertEquals(1, listener.hdrModeCount);
+    }
+
     private static final class FakeConnection
             implements StreamSessionConnection {
         int startCount;
         int stopCount;
         NvConnectionListener listener;
+        RuntimeException stopFailure;
 
         @Override
         public void start(AudioRenderer audioRenderer,
@@ -116,6 +261,9 @@ public final class StreamSessionControllerTest {
         @Override
         public void stop() {
             stopCount++;
+            if (stopFailure != null) {
+                throw stopFailure;
+            }
         }
     }
 
@@ -134,12 +282,23 @@ public final class StreamSessionControllerTest {
 
     private static final class RecordingListener
             implements NvConnectionListener {
+        int stageStartingCount;
         int stageFailedCount;
         int connectionStartedCount;
         int connectionTerminatedCount;
+        int connectionStatusUpdateCount;
+        int displayMessageCount;
+        int displayTransientMessageCount;
+        int rumbleCount;
+        int rumbleTriggersCount;
+        int hdrModeCount;
+        int motionStateCount;
+        int controllerLedCount;
+        int nativeCursorCount;
 
         @Override
         public void stageStarting(String stage) {
+            stageStartingCount++;
         }
 
         @Override
@@ -163,40 +322,48 @@ public final class StreamSessionControllerTest {
 
         @Override
         public void connectionStatusUpdate(int connectionStatus) {
+            connectionStatusUpdateCount++;
         }
 
         @Override
         public void displayMessage(String message) {
+            displayMessageCount++;
         }
 
         @Override
         public void displayTransientMessage(String message) {
+            displayTransientMessageCount++;
         }
 
         @Override
         public void rumble(short controllerNumber, short lowFreqMotor,
                            short highFreqMotor) {
+            rumbleCount++;
         }
 
         @Override
         public void rumbleTriggers(short controllerNumber,
                                    short leftTrigger,
                                    short rightTrigger) {
+            rumbleTriggersCount++;
         }
 
         @Override
         public void setHdrMode(boolean enabled, byte[] hdrMetadata) {
+            hdrModeCount++;
         }
 
         @Override
         public void setMotionEventState(short controllerNumber,
                                         byte motionType,
                                         short reportRateHz) {
+            motionStateCount++;
         }
 
         @Override
         public void setControllerLED(short controllerNumber, byte r,
                                      byte g, byte b) {
+            controllerLedCount++;
         }
 
         @Override
@@ -205,6 +372,7 @@ public final class StreamSessionControllerTest {
                                  int height, int hotspotX, int hotspotY,
                                  int shapeId, int scaleX, int scaleY,
                                  byte[] imageData) {
+            nativeCursorCount++;
         }
     }
 }
