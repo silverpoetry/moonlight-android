@@ -6,6 +6,7 @@ import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.GameInputDevice;
+import com.limelight.binding.input.KeyboardChordSender;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.binding.input.StreamInputGateway;
 import com.limelight.binding.input.StreamInputGatewayRegistry;
@@ -47,6 +48,8 @@ import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.GlPreferences;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.gamemenu.GameMenuFragment;
+import com.limelight.ui.gamemenu.GameMenuHost;
+import com.limelight.ui.gamemenu.GameMenuSession;
 import com.limelight.ui.GameGestures;
 import com.limelight.ui.NativeCursorOverlayView;
 import com.limelight.ui.StreamUiActions;
@@ -150,12 +153,13 @@ import java.util.Map;
 public class Game extends Activity implements SurfaceHolder.Callback,
         OnGenericMotionListener, OnTouchListener, NvConnectionListener, EvdevListener,
         OnSystemUiVisibilityChangeListener, GameGestures, StreamInputGateway,
-        StreamUiActions,
+        StreamUiActions, GameMenuHost,
         PerfOverlayListener, UsbDriverService.UsbDriverStateListener, View.OnKeyListener,
         BarometerForcePressController.Listener {
     private static final float EXTERNAL_TOUCHPAD_SCROLL_FACTOR = 0.15f;
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 1001;
     private static final int REQUEST_CLIPBOARD_FILE_DIRECTORY = 1107;
+    private static final long KEY_CHORD_UP_DELAY_MS = 25;
     private int lastButtonState = 0;
     private float externalTouchpadScrollRemainderX = 0f;
     private float externalTouchpadScrollRemainderY = 0f;
@@ -293,6 +297,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private boolean fsrViewLifecyclePaused;
     private BackNavigationRegistration backNavigationRegistration;
     private StreamInputGatewayRegistry.Registration inputGatewayRegistration;
+    private boolean showSoftKeyboardWhenFocused;
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -1139,6 +1144,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (conn != null) {
             conn.onWindowFocusChanged(hasFocus);
         }
+        if (hasFocus && showSoftKeyboardWhenFocused) {
+            showSoftKeyboardWhenFocused = false;
+            showKeyboard();
+        }
     }
 
     private boolean isRefreshRateEqualMatch(float refreshRate) {
@@ -1542,6 +1551,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     protected void onStop() {
+        showSoftKeyboardWhenFocused = false;
         unregisterInputGateway();
         super.onStop();
 
@@ -4297,17 +4307,140 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private GameMenuFragment dialogGameMenu;
+    private final GameMenuSession<GameMenuFragment> gameMenuSession =
+            new GameMenuSession<>();
+
     @Override
     public void showGameMenu(GameInputDevice device) {
-        if(dialogGameMenu!=null){
-            dialogGameMenu=null;
+        if (dialogGameMenu != null && !dialogGameMenu.isRemoving()) {
+            if (device != null) {
+                gameMenuSession.open(dialogGameMenu, device);
+            }
+            return;
         }
-        dialogGameMenu=new GameMenuFragment();
-        dialogGameMenu.setWidth(UiHelper.dpToPx(this,364));
-        dialogGameMenu.setConn(conn);
-        dialogGameMenu.setDevice(device);
-        dialogGameMenu.setGame(this);
+
+        android.app.Fragment existing = getFragmentManager()
+                .findFragmentByTag(GameMenuFragment.FRAGMENT_TAG);
+        if (existing instanceof GameMenuFragment) {
+            dialogGameMenu = (GameMenuFragment) existing;
+            gameMenuSession.open(dialogGameMenu, device);
+            return;
+        }
+
+        dialogGameMenu = GameMenuFragment.newInstance(
+                UiHelper.dpToPx(this, 364));
+        gameMenuSession.open(dialogGameMenu, device);
         dialogGameMenu.show(getFragmentManager());
+    }
+
+    @Override
+    public PreferenceConfiguration getStreamPreferences() {
+        return prefConfig;
+    }
+
+    @Override
+    public boolean isGamepadMouseEmulationAvailable() {
+        return gameMenuSession.isMouseEmulationAvailable();
+    }
+
+    @Override
+    public void toggleGamepadMouseEmulation() {
+        gameMenuSession.toggleMouseEmulation();
+    }
+
+    @Override
+    public void requestStreamDisconnect() {
+        finish();
+    }
+
+    @Override
+    public void requestStreamQuit() {
+        isQuitSteamingFlag = true;
+        disconnect();
+    }
+
+    @Override
+    public void requestSoftKeyboard() {
+        if (hasWindowFocus()) {
+            showKeyboard();
+        }
+        else {
+            showSoftKeyboardWhenFocused = true;
+        }
+    }
+
+    @Override
+    public void onGameMenuDismissed(GameMenuFragment menu) {
+        cancelPendingStreamBackExit();
+        if (gameMenuSession.close(menu)) {
+            dialogGameMenu = null;
+        }
+    }
+
+    @Override
+    public void sendKeyboardChord(short[] keyCodes) {
+        if (conn != null && isInputReady()) {
+            KeyboardChordSender.send(conn, keyCodes);
+        }
+    }
+
+    @Override
+    public void sendAndroidKeyChord(int[] keyCodes) {
+        if (keyCodes == null || keyCodes.length == 0 ||
+                !isInputReady()) {
+            return;
+        }
+
+        int[] chord = Arrays.copyOf(keyCodes, keyCodes.length);
+        for (int keyCode : chord) {
+            KeyEvent event =
+                    new KeyEvent(KeyEvent.ACTION_DOWN, keyCode);
+            event.setSource(0);
+            sendKeyEvent(event);
+        }
+        streamView.postDelayed(() -> {
+            for (int index = chord.length - 1; index >= 0; index--) {
+                KeyEvent event = new KeyEvent(
+                        KeyEvent.ACTION_UP, chord[index]);
+                event.setSource(0);
+                sendKeyEvent(event);
+            }
+        }, KEY_CHORD_UP_DELAY_MS);
+    }
+
+    @Override
+    public void applyDualSenseTriggerSettings() {
+        setDualSenseTrigger();
+    }
+
+    @Override
+    public void applyRumbleOverlayVisibility() {
+        switchPerformanceRumbleHUD();
+    }
+
+    @Override
+    public void applyPerformanceOverlayInteractivity() {
+        switchPerformanceLiteHudclick();
+    }
+
+    @Override
+    public void applyPerformanceOverlayScale() {
+        setPerformanceOverlayZoom();
+    }
+
+    @Override
+    public void applyMotionEmulationSettings() {
+        setMotionForceGyro();
+    }
+
+    @Override
+    public void applyPerformanceOverlayMargin() {
+        setPerformanceOverlayLiteMagin();
+    }
+
+    @Override
+    public void applyAudioHapticsSettings() {
+        setAudioHapticsSettings();
     }
 
 

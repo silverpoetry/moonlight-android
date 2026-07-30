@@ -51,7 +51,6 @@ import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.GameGestures;
-import com.limelight.ui.gamemenu.GameMenuFragment;
 import com.limelight.utils.Vector2d;
 
 import org.cgutman.shieldcontrollerextensions.SceChargingState;
@@ -1587,14 +1586,19 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
 //                    if(activityContext instanceof Game){
 //                        ((Game)activityContext).toggleKeyboard();
 //                    }
-                    GameMenuFragment.sendKeys(conn,new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_LCONTROL,KeyboardTranslator.VK_O});
+                    KeyboardChordSender.send(conn, new short[]{
+                            KeyboardTranslator.VK_LWIN,
+                            KeyboardTranslator.VK_LCONTROL,
+                            KeyboardTranslator.VK_O});
                 }
             }
 
             //下压右摇杆 WIN+D 显示桌面
             if ((changedMask & ControllerPacket.RS_CLK_FLAG) != 0) {
                 if ((inputMap & ControllerPacket.RS_CLK_FLAG) != 0) {
-                    GameMenuFragment.sendKeys(conn,new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_D});
+                    KeyboardChordSender.send(conn, new short[]{
+                            KeyboardTranslator.VK_LWIN,
+                            KeyboardTranslator.VK_D});
                 }
             }
 

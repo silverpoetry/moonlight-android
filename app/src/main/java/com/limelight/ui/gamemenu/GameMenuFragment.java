@@ -1,10 +1,13 @@
 package com.limelight.ui.gamemenu;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.View;
@@ -15,13 +18,9 @@ import android.widget.LinearLayout;
 import android.widget.Space;
 import android.widget.TextView;
 
-import com.limelight.Game;
 import com.limelight.R;
-import com.limelight.binding.input.GameInputDevice;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
-import com.limelight.nvstream.NvConnection;
-import com.limelight.nvstream.input.KeyboardPacket;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
@@ -37,12 +36,61 @@ import java.util.Map;
  * Date: 2024-10-20
  * Time: 16:07
  */
-public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClickListener{
+public class GameMenuFragment extends BaseGameMenuDialog
+        implements View.OnClickListener {
+    public static final String FRAGMENT_TAG = "stream_game_menu";
+    private static final String ARG_WIDTH_PX = "width_px";
+    private static final long POWER_MENU_STEP_DELAY_MS = 200;
+
+    private final Handler mainHandler =
+            new Handler(Looper.getMainLooper());
+    private GameMenuHost host;
     private BackNavigationRegistration backNavigationRegistration;
 
+    public static GameMenuFragment newInstance(int widthPx) {
+        GameMenuFragment fragment = new GameMenuFragment();
+        Bundle arguments = new Bundle();
+        arguments.putInt(ARG_WIDTH_PX, widthPx);
+        fragment.setArguments(arguments);
+        return fragment;
+    }
+
+    @Override
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        if (!(activity instanceof GameMenuHost)) {
+            throw new IllegalStateException(
+                    "GameMenuFragment host must implement GameMenuHost");
+        }
+        host = (GameMenuHost) activity;
+    }
+
+    @Override
+    public void onDetach() {
+        mainHandler.removeCallbacksAndMessages(null);
+        host = null;
+        super.onDetach();
+    }
+
+    @Override
+    public String getFragmentTag() {
+        return FRAGMENT_TAG;
+    }
+
+    @Override
+    public int getViewSize() {
+        Bundle arguments = getArguments();
+        return arguments != null ?
+                arguments.getInt(ARG_WIDTH_PX, super.getViewSize()) :
+                super.getViewSize();
+    }
+
     private void refreshMicButton() {
-        if (btn_mic != null && game != null) {
-            btn_mic.setBackgroundResource(game.isMicUplinkActive() ? R.drawable.ic_game_menu_btn_green_selector : R.drawable.ic_game_menu_btn_selector);
+        if (btn_mic != null && host != null) {
+            btn_mic.setBackgroundResource(
+                    host.isMicUplinkActive() ?
+                            R.drawable.ic_game_menu_btn_green_selector :
+                            R.drawable.ic_game_menu_btn_selector);
         }
     }
 
@@ -70,8 +118,8 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
     }
 
     private void handleStreamBack() {
-        if (game != null) {
-            game.handleStreamBackPressed();
+        if (host != null) {
+            host.handleStreamBackPressed();
         }
     }
 
@@ -90,10 +138,10 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
             cardEditor.dismiss();
             cardEditor = null;
         }
-        super.onDismiss(dialog);
-        if (game != null) {
-            game.cancelPendingStreamBackExit();
+        if (host != null) {
+            host.onGameMenuDismissed(this);
         }
+        super.onDismiss(dialog);
     }
 
     @Override
@@ -118,10 +166,6 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
     private LinearLayout actionGrid;
     private final Map<Integer, Button> actionButtons = new HashMap<>();
     private GameMenuCardEditor cardEditor;
-
-    private Game game;
-    private NvConnection conn;
-    private GameInputDevice device;
 
     @Override
     public void bindView(View v) {
@@ -185,7 +229,8 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
         int column = 0;
         int displayedCount = 0;
         for (GameMenuCardCatalog.Card card : configuration.visible) {
-            if (card.requiresGamepad() && device == null) {
+            if (card.requiresGamepad() &&
+                    !host.isGamepadMouseEmulationAvailable()) {
                 continue;
             }
             Button button = card.action != null ?
@@ -233,8 +278,7 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
 
     private List<GameMenuCardCatalog.Card> loadCardCatalog() {
         boolean includeBuiltInShortcuts =
-                game == null ||
-                        !game.prefConfig.enableClearDefaultSpecial;
+                !host.getStreamPreferences().enableClearDefaultSpecial;
         return GameMenuCardCatalog.load(
                 getActivity(), includeBuiltInShortcuts);
     }
@@ -291,8 +335,8 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
         btn_mic = actionButtons.get(R.id.btn_mic);
         if (btn_performance != null) {
             btn_performance.setOnLongClickListener(view -> {
-                if (game != null) {
-                    game.switchHUD();
+                if (host != null) {
+                    host.switchHUD();
                 }
                 return true;
             });
@@ -300,17 +344,19 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
     }
 
     private void refreshActionButtonStates() {
-        if (game == null) {
+        if (host == null) {
             return;
         }
+        PreferenceConfiguration preferences =
+                host.getStreamPreferences();
         setActionButtonActive(
-                btn_performance, game.prefConfig.enablePerfOverlay);
+                btn_performance, preferences.enablePerfOverlay);
         setActionButtonActive(
-                btn_game_pad, game.prefConfig.onscreenController);
+                btn_game_pad, preferences.onscreenController);
         setActionButtonActive(
-                btn_v_keyboard, game.prefConfig.enableKeyboard);
+                btn_v_keyboard, preferences.enableKeyboard);
         setActionButtonActive(
-                btn_screen_move, game.getScreenMoveZoom());
+                btn_screen_move, host.getScreenMoveZoom());
         refreshMicButton();
     }
 
@@ -351,9 +397,10 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
 
     @Override
     public void onClick(View v) {
-        if (game != null) {
-            game.cancelPendingStreamBackExit();
+        if (host == null) {
+            return;
         }
+        host.cancelPendingStreamBackExit();
 
         if (v.getTag() instanceof GameMenuShortcutCatalog.Entry) {
             executeShortcut(
@@ -369,60 +416,58 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
             fragment.setOnClick(new GameFunctionFragment.onClick() {
                 @Override
                 public void click(String title, int index) {
-                    if(conn==null){
+                    if (host == null || !host.isInputReady()) {
                         return;
                     }
                     switch (index){
                         case 0://注销
-                            sendKeys(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_X});
-                            new Handler().postDelayed((() -> sendKeys(new short[]{KeyboardTranslator.VK_U, KeyboardTranslator.VK_I})), 200);
+                            sendPowerMenuSequence(
+                                    KeyboardTranslator.VK_I);
                             break;
                         case 1://关机
-                            sendKeys(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_X});
-                            new Handler().postDelayed((() -> sendKeys(new short[]{KeyboardTranslator.VK_U, KeyboardTranslator.VK_U})), 200);
+                            sendPowerMenuSequence(
+                                    KeyboardTranslator.VK_U);
                             break;
                         case 2://睡眠
-                            sendKeys(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_X});
-                            new Handler().postDelayed((() -> sendKeys(new short[]{KeyboardTranslator.VK_U, KeyboardTranslator.VK_S})), 200);
+                            sendPowerMenuSequence(
+                                    KeyboardTranslator.VK_S);
                             break;
                         case 3://重启
-                            sendKeys(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_X});
-                            new Handler().postDelayed((() -> sendKeys(new short[]{KeyboardTranslator.VK_U, KeyboardTranslator.VK_R})), 200);
+                            sendPowerMenuSequence(
+                                    KeyboardTranslator.VK_R);
                             break;
                         case 4://任务管理器
-                            sendKeys(new short[]{KeyboardTranslator.VK_LCONTROL, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_ESCAPE});
+                            sendKeyboardChord(new short[]{KeyboardTranslator.VK_LCONTROL, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_ESCAPE});
                             break;
                         case 5://发送剪切板
-                            if(game!=null){
-                                game.sendClipboardText();
-                            }
+                            host.sendClipboardText();
                             break;
                         case 6://打开剪切板
-                            sendKeys(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_V});
+                            sendKeyboardChord(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_V});
                             break;
                         case 7://系统设置
-                            sendKeys(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_I});
+                            sendKeyboardChord(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_I});
                             break;
                         case 8://我的电脑
-                            sendKeys(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_E});
+                            sendKeyboardChord(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_E});
                             break;
                         case 9://移动中心
-                            sendKeys(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_X});
+                            sendKeyboardChord(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_X});
                             break;
                         case 10://Win+P
-                            sendKeys(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_P});
+                            sendKeyboardChord(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_P});
                             break;
                         case 11://显示器1
-                            sendKeys(new short[]{KeyboardTranslator.VK_LCONTROL,KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_F1});
+                            sendKeyboardChord(new short[]{KeyboardTranslator.VK_LCONTROL,KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_F1});
                             break;
                         case 12://显示器2
-                            sendKeys(new short[]{KeyboardTranslator.VK_LCONTROL,KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_F2});
+                            sendKeyboardChord(new short[]{KeyboardTranslator.VK_LCONTROL,KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_F2});
                             break;
                         case 13://显示器3
-                            sendKeys(new short[]{KeyboardTranslator.VK_LCONTROL,KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_F3});
+                            sendKeyboardChord(new short[]{KeyboardTranslator.VK_LCONTROL,KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_F3});
                             break;
                         case 14://显示器4
-                            sendKeys(new short[]{KeyboardTranslator.VK_LCONTROL,KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_F4});
+                            sendKeyboardChord(new short[]{KeyboardTranslator.VK_LCONTROL,KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_F4});
                             break;
                     }
                 }
@@ -434,112 +479,86 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
         //断开链接
         if(v.getId()==R.id.btn_unlink){
             dismiss();
-            if(game!=null){
-                game.finish();
-            }
+            host.requestStreamDisconnect();
             return;
         }
         if(v.getId()==R.id.btn_exit){
             dismiss();
-            if(game!=null){
-                game.isQuitSteamingFlag=true;
-                game.disconnect();
-            }
+            host.requestStreamQuit();
             return;
         }
 
         if(v.getId()==R.id.btn_swicth_screen){
             dismiss();
-            if(game!=null){
-                game.switchLandscapePortraitScreen();
-            }
+            host.switchLandscapePortraitScreen();
             return;
         }
         if(v.getId()==R.id.btn_game_pad){
-            if(game!=null){
-                game.showHideVirtualController();
-                btn_game_pad.setBackgroundResource(game.prefConfig.onscreenController?R.drawable.ic_game_menu_btn_green_selector:R.drawable.ic_game_menu_btn_selector);
-            }
+            host.showHideVirtualController();
+            setActionButtonActive(
+                    btn_game_pad,
+                    host.getStreamPreferences().onscreenController);
             return;
         }
 
         if(v.getId()==R.id.btn_performance){
-            if(game!=null){
-                game.showHUD();
-                btn_performance.setBackgroundResource(game.prefConfig.enablePerfOverlay?R.drawable.ic_game_menu_btn_green_selector:R.drawable.ic_game_menu_btn_selector);
-            }
+            host.showHUD();
+            setActionButtonActive(
+                    btn_performance,
+                    host.getStreamPreferences().enablePerfOverlay);
             return;
         }
 
         if(v.getId()==R.id.btn_v_keyboard){
-            if(game!=null){
-                game.showHideKeyboardController();
-                btn_v_keyboard.setBackgroundResource(game.prefConfig.enableKeyboard?R.drawable.ic_game_menu_btn_green_selector:R.drawable.ic_game_menu_btn_selector);
-            }
+            host.showHideKeyboardController();
+            setActionButtonActive(
+                    btn_v_keyboard,
+                    host.getStreamPreferences().enableKeyboard);
             return;
         }
 
         if(v.getId()==R.id.btn_keyboard){
-            if(game!=null){
-                game.showHidekeyBoardLayoutController();
-            }
+            host.showHidekeyBoardLayoutController();
             return;
         }
 
         if(v.getId()==R.id.btn_soft_keyboard){
             dismiss();
-            if(game!=null){
-                showKeyboard();
-            }
+            host.requestSoftKeyboard();
             return;
         }
 
         if(v.getId()==R.id.btn_screen_move){
             dismiss();
-            if(game!=null){
-                game.screenMoveZoom();
-            }
+            host.screenMoveZoom();
             return;
         }
 
         if(v.getId()==R.id.btn_desktop){
-            if(conn!=null){
-                sendKeys(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_D});
-            }
+            sendKeyboardChord(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_D});
             return;
         }
 
         if(v.getId()==R.id.btn_window){
-            if(conn!=null){
-                sendKeys(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_TAB});
-            }
+            sendKeyboardChord(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_TAB});
             return;
         }
 
         if(v.getId()==R.id.btn_hdr){
-            if(conn!=null){
-                sendKeys(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_B});
-            }
+            sendKeyboardChord(new short[]{KeyboardTranslator.VK_LWIN, KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_B});
             return;
         }
 
         if(v.getId()==R.id.btn_mic){
-//            if(conn!=null){
-//                sendKeys(new short[]{KeyboardTranslator.VK_LCONTROL,KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_F12});
-//            }
-            if(game!=null){
-                game.switchMic();
-                refreshMicButton();
-                btn_mic.postDelayed(this::refreshMicButton, 400);
-                btn_mic.postDelayed(this::refreshMicButton, 1200);
-            }
+            host.switchMic();
+            refreshMicButton();
+            btn_mic.postDelayed(this::refreshMicButton, 400);
+            btn_mic.postDelayed(this::refreshMicButton, 1200);
             return;
         }
 
         if(v.getId()==R.id.btn_gamepad_mouse){
-            if (device != null) {
-                device.toggleMouseEmulation();
-            }
+            host.toggleGamepadMouseEmulation();
             return;
         }
 
@@ -548,9 +567,9 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
             GameListQuickFragment fragment=new GameListQuickFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle("快捷键(字体倾斜项可长按删除)");
-            if(game!=null){
-                fragment.setEnableClearDefaultSpecial(game.prefConfig.enableClearDefaultSpecial);
-            }
+            fragment.setEnableClearDefaultSpecial(
+                    host.getStreamPreferences()
+                            .enableClearDefaultSpecial);
             fragment.setOnClick(new GameListQuickFragment.onClick() {
                 @Override
                 public void click(GameMenuQuickBean bean) {
@@ -569,24 +588,22 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
             fragment.setOnClick(new GameListMouseFragment.onClick() {
                 @Override
                 public void click(String title, int index) {
-                    if(game==null||index<0){
+                    if (host == null || index < 0) {
                         return;
                     }
                     if(index==7){
-                        game.switchMouseLocalCursor();
+                        host.switchMouseLocalCursor();
                         return;
                     }
                     if(index==8){
-                        game.toggleAbsoluteMouseMode();
+                        host.toggleAbsoluteMouseMode();
                         return;
                     }
                     if(index==9){
-                        if(conn!=null){
-                            sendKeys(new short[]{KeyboardTranslator.VK_LCONTROL,KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_N});
-                        }
+                        sendKeyboardChord(new short[]{KeyboardTranslator.VK_LCONTROL,KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_N});
                         return;
                     }
-                    game.switchMouseModel(index);
+                    host.switchMouseModel(index);
                 }
             });
             fragment.show(getFragmentManager());
@@ -597,7 +614,7 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
             GameTouchFragment fragment=new GameTouchFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle("触控灵敏度");
-            fragment.setPrefConfig(game==null?new PreferenceConfiguration():game.prefConfig);
+            fragment.setPrefConfig(host.getStreamPreferences());
             fragment.show(getFragmentManager());
             return;
         }
@@ -610,12 +627,12 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
                 @Override
                 public void onDisplayConfigurationApplied() {
                     dismiss();
-                    if(game!=null){
-                        game.finish();
+                    if (host != null) {
+                        host.requestStreamDisconnect();
                     }
                 }
             });
-            fragment.setPrefConfig(game==null?new PreferenceConfiguration():game.prefConfig);
+            fragment.setPrefConfig(host.getStreamPreferences());
             fragment.show(getFragmentManager());
             return;
         }
@@ -625,11 +642,11 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle(R.string.game_menu_devices_title);
             fragment.setListener(() -> {
-                if (game != null) {
-                    game.setDualSenseTrigger();
+                if (host != null) {
+                    host.applyDualSenseTriggerSettings();
                 }
             });
-            fragment.setPrefConfig(game==null?new PreferenceConfiguration():game.prefConfig);
+            fragment.setPrefConfig(host.getStreamPreferences());
             fragment.show(getFragmentManager());
             return;
         }
@@ -641,51 +658,51 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
             fragment.setOnClick(new GameDisplaySettingFragment.onClick() {
                 @Override
                 public void click(int index,boolean flag) {
-                    if(game==null){
+                    if (host == null) {
                         return;
                     }
                     //悬浮球
                     if(index==0){
                         if(flag){
-                            game.showFloatView();
+                            host.showFloatView();
                             return;
                         }
-                        game.hideFloatView();
+                        host.hideFloatView();
                         return;
                     }
                     //显示震动信息
                     if(index==1){
-                        game.switchPerformanceRumbleHUD();
+                        host.applyRumbleOverlayVisibility();
                         return;
                     }
                     //性能信息点击
                     if(index==2){
-                        game.switchPerformanceLiteHudclick();
+                        host.applyPerformanceOverlayInteractivity();
                         return;
                     }
                     //性能信息缩放
                     if(index==3){
-                        game.setPerformanceOverlayZoom();
+                        host.applyPerformanceOverlayScale();
                         return;
                     }
                     //模拟体感
                     if(index==4){
-                        game.setMotionForceGyro();
+                        host.applyMotionEmulationSettings();
                         return;
                     }
                     //性能信息 边距
                     if(index==5){
-                        game.setPerformanceOverlayLiteMagin();
+                        host.applyPerformanceOverlayMargin();
                         return;
                     }
                     if(index==6){
-                        game.setAudioHapticsSettings();
+                        host.applyAudioHapticsSettings();
                         return;
                     }
 
                 }
             });
-            fragment.setPrefConfig(game==null?new PreferenceConfiguration():game.prefConfig);
+            fragment.setPrefConfig(host.getStreamPreferences());
             fragment.show(getFragmentManager());
             return;
         }
@@ -694,34 +711,34 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
             GameMenuVirtualViewFragment fragment=new GameMenuVirtualViewFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle(R.string.game_menu_virtual_controls_title);
-            fragment.setGamePadMode(game==null? KeyBoardController.ControllerMode.NONE:game.getVirtualControllerMode());
-            fragment.setGameKeyMode(game==null? KeyBoardController.ControllerMode.NONE:game.getVirtualKeyControllerMode());
-            fragment.setPrefConfig(game==null?new PreferenceConfiguration():game.prefConfig);
+            fragment.setGamePadMode(host.getVirtualControllerMode());
+            fragment.setGameKeyMode(host.getVirtualKeyControllerMode());
+            fragment.setPrefConfig(host.getStreamPreferences());
             fragment.setListener(new GameMenuVirtualViewFragment.Listener() {
                 @Override
                 public void onRefreshRequested() {
-                    if(game==null){
+                    if (host == null) {
                         return;
                     }
-                    game.updateVirtualView();
+                    host.updateVirtualView();
                 }
 
                 @Override
                 public void onGamepadModeSelected(
                         KeyBoardController.ControllerMode mode) {
-                    if(game==null){
+                    if (host == null) {
                         return;
                     }
-                    game.switchVirtualController(mode);
+                    host.switchVirtualController(mode);
                 }
 
                 @Override
                 public void onVirtualKeyModeSelected(
                         KeyBoardController.ControllerMode mode) {
-                    if(game==null){
+                    if (host == null) {
                         return;
                     }
-                    game.switchVirtualKeyController(mode);
+                    host.switchVirtualKeyController(mode);
                 }
             });
             fragment.show(getFragmentManager());
@@ -730,77 +747,9 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
 
         if (v.getId() == R.id.btn_pull_clipboard_files) {
             dismiss();
-            if (game != null) {
-                game.pullRemoteClipboardFiles();
-            }
+            host.pullRemoteClipboardFiles();
         }
     }
-
-    private void showKeyboard(){
-        if (!game.hasWindowFocus()) {
-            new Handler().postDelayed(() -> showKeyboard(),10);
-            return;
-        }
-        game.showKeyboard();
-    }
-
-    public void setGame(Game game) {
-        this.game = game;
-    }
-
-    public void setConn(NvConnection conn) {
-        this.conn = conn;
-    }
-
-    public void setDevice(GameInputDevice device) {
-        this.device = device;
-    }
-
-
-    private static byte getModifier(short key) {
-        switch (key) {
-            case KeyboardTranslator.VK_LSHIFT:
-                return KeyboardPacket.MODIFIER_SHIFT;
-            case KeyboardTranslator.VK_LCONTROL:
-                return KeyboardPacket.MODIFIER_CTRL;
-            case KeyboardTranslator.VK_LWIN:
-                return KeyboardPacket.MODIFIER_META;
-            case KeyboardTranslator.VK_LMENU:
-                return KeyboardPacket.MODIFIER_ALT;
-            default:
-                return 0;
-        }
-    }
-
-    public void sendKeys(short[] keys) {
-        sendKeys(conn,keys);
-    }
-
-    public static void sendKeys(NvConnection conn, short[] keys) {
-        final byte[] modifier = {(byte) 0};
-
-        for (short key : keys) {
-            conn.sendKeyboardInput(key, KeyboardPacket.KEY_DOWN, modifier[0], (byte) 0);
-
-            // Apply the modifier of the pressed key, e.g. CTRL first issues a CTRL event (without
-            // modifier) and then sends the following keys with the CTRL modifier applied
-            modifier[0] |= getModifier(key);
-        }
-
-        new Handler().postDelayed((() -> {
-
-            for (int pos = keys.length - 1; pos >= 0; pos--) {
-                short key = keys[pos];
-
-                // Remove the keys modifier before releasing the key
-                modifier[0] &= ~getModifier(key);
-
-                conn.sendKeyboardInput(key, KeyboardPacket.KEY_UP, modifier[0], (byte) 0);
-            }
-        }), KEY_UP_DELAY);
-    }
-
-    private static final long KEY_UP_DELAY = 25;
 
 
     private int getPhoneBattery(Context context) {
@@ -816,23 +765,32 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
         return 100;
     }
 
-    private void sendQuickKeylist(String codes){
-        if(TextUtils.isEmpty(codes)){
+    private void sendKeyboardChord(short[] keyCodes) {
+        if (host != null) {
+            host.sendKeyboardChord(keyCodes);
+        }
+    }
+
+    private void sendPowerMenuSequence(int actionKey) {
+        sendKeyboardChord(new short[]{
+                KeyboardTranslator.VK_LWIN,
+                KeyboardTranslator.VK_X});
+        mainHandler.postDelayed(
+                () -> sendKeyboardChord(new short[]{
+                        KeyboardTranslator.VK_U, (short) actionKey}),
+                POWER_MENU_STEP_DELAY_MS);
+    }
+
+    private void sendQuickKeylist(String codes) {
+        if (TextUtils.isEmpty(codes) || host == null) {
             return;
         }
-        String[] keys=codes.split(",");
-        for (int i = 0; i < keys.length; i++) {
-            KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN,Integer.parseInt(keys[i]));
-            keyEvent.setSource(0);
-            game.sendKeyEvent(keyEvent);
+        String[] encodedKeys = codes.split(",");
+        int[] keyCodes = new int[encodedKeys.length];
+        for (int index = 0; index < encodedKeys.length; index++) {
+            keyCodes[index] = Integer.parseInt(encodedKeys[index]);
         }
-        new Handler().postDelayed((() -> {
-            for (int i = keys.length - 1; i >= 0; i--) {
-                KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_UP,Integer.parseInt(keys[i]));
-                keyEvent.setSource(0);
-                game.sendKeyEvent(keyEvent);
-            }
-        }), KEY_UP_DELAY);
+        host.sendAndroidKeyChord(keyCodes);
     }
 
     private void executeShortcut(GameMenuQuickBean shortcut) {
@@ -841,9 +799,7 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
         }
         short[] keys = shortcut.getDatas();
         if (keys != null && keys.length > 0) {
-            if (conn != null) {
-                sendKeys(keys);
-            }
+            sendKeyboardChord(keys);
             return;
         }
         sendQuickKeylist(shortcut.getCodes());
