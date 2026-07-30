@@ -30,8 +30,6 @@ import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardLayoutCon
 import com.limelight.binding.video.CrashListener;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
-import com.limelight.binding.video.PerfOverlayListener;
-import com.limelight.binding.video.PerfOverlayStats;
 import com.limelight.fsr.FsrVideoProcessor;
 import com.limelight.fsr.VideoProcessingGLSurfaceView;
 import com.limelight.nvstream.MicUplinkConnection;
@@ -51,6 +49,8 @@ import com.limelight.ui.gamemenu.GameMenuFragment;
 import com.limelight.ui.gamemenu.GameMenuHost;
 import com.limelight.ui.gamemenu.GameMenuSession;
 import com.limelight.ui.clipboard.RemoteClipboardFileTransferController;
+import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
+import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.GameGestures;
 import com.limelight.ui.NativeCursorOverlayView;
 import com.limelight.ui.StreamUiActions;
@@ -68,7 +68,6 @@ import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.StreamOrientationController;
 import com.limelight.utils.UiHelper;
 import android.annotation.SuppressLint;
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.annotation.RequiresApi;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -88,13 +87,10 @@ import android.graphics.Outline;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.graphics.Rect;
-import android.graphics.Color;
-import android.graphics.drawable.Drawable;
 import android.hardware.display.DisplayManager;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -104,12 +100,7 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
-import android.text.SpannableString;
-import android.text.Spanned;
-import android.text.format.Formatter;
-import android.text.style.ForegroundColorSpan;
 import android.util.Rational;
-import android.util.TypedValue;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.InputDevice;
@@ -130,7 +121,6 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.limelight.utils.UiToast;
 
@@ -151,7 +141,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         OnGenericMotionListener, OnTouchListener, NvConnectionListener, EvdevListener,
         OnSystemUiVisibilityChangeListener, GameGestures, StreamInputGateway,
         StreamUiActions, GameMenuHost,
-        PerfOverlayListener, UsbDriverService.UsbDriverStateListener, View.OnKeyListener,
+        UsbDriverService.UsbDriverStateListener, View.OnKeyListener,
         BarometerForcePressController.Listener {
     private static final float EXTERNAL_TOUCHPAD_SCROLL_FACTOR = 0.15f;
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 1001;
@@ -233,12 +223,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private boolean isHidingOverlays;
     private TextView notificationOverlayView;
     private int requestedNotificationOverlayVisibility = View.GONE;
-    private View performanceOverlayView;
-
-    private TextView performanceOverlayLite;
-
-    private LinearLayout performanceOverlayBig;
-    private LinearLayout performanceOverlayBigContent;
+    private StreamPerformanceOverlayController
+            performanceOverlayController;
 
     private MediaCodecDecoderRenderer decoderRenderer;
     private AndroidAudioRenderer audioRenderer;
@@ -282,7 +268,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private StreamReqBean streamReqBean;
     private ConnectivityManager connManager;
 
-    private TextView performanceRumble;
     private boolean fsrEnabled;
     private boolean fsrInputSurfaceReady;
     private boolean fsrDisplaySurfaceCreated;
@@ -382,9 +367,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         fsrEnabled = isFsrEnabled();
         configureFsrWindowColorMode();
-
-        performanceRumble=findViewById(R.id.performanceRumble);
-        switchPerformanceRumbleHUD();
 
         FrameLayout.LayoutParams params =
                 (FrameLayout.LayoutParams) streamView.getLayoutParams();
@@ -486,12 +468,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         notificationOverlayView = findViewById(R.id.notificationOverlay);
 
-        performanceOverlayView = findViewById(R.id.performanceOverlay);
-
-        performanceOverlayLite = findViewById(R.id.performanceOverlayLite);
-
-        performanceOverlayBig = findViewById(R.id.performanceOverlayBig);
-        performanceOverlayBigContent = findViewById(R.id.performanceOverlayBigContent);
+        performanceOverlayController =
+                new StreamPerformanceOverlayController(
+                        this,
+                        prefConfig,
+                        this::createPerformanceOverlayRuntimeState,
+                        () -> showGameMenu(null));
 
         inputCaptureProvider = InputCaptureManager.getInputCaptureProvider(this, this);
 
@@ -596,25 +578,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             }
         }
 
-        // Check if the user has enabled performance stats overlay
-        if (prefConfig.enablePerfOverlay) {
-            performanceOverlayView.setVisibility(View.VISIBLE);
-            if(prefConfig.enablePerfOverlayLite){
-                performanceOverlayLite.setVisibility(View.VISIBLE);
-            }else{
-                performanceOverlayBig.setVisibility(View.VISIBLE);
-            }
-        }
-        setPerformanceOverlayLiteMagin();
-        performanceOverlayLite.setOnClickListener(v -> {
-            if(prefConfig.enablePerfOverlayLiteDialog){
-                showGameMenu(null);
-            }
-        });
-
-        performanceOverlayLite.setClickable(prefConfig.enablePerfOverlayLiteDialog);
-        setPerformanceOverlayZoom();
-
         decoderRenderer = new MediaCodecDecoderRenderer(
                 this,
                 prefConfig,
@@ -634,7 +597,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 connMgr.isActiveNetworkMetered(),
                 willStreamHdr,
                 glPrefs.glRenderer,
-                this);
+                performanceOverlayController);
 
         // Don't stream HDR if the decoder can't support it
         if (willStreamHdr && !decoderRenderer.isHevcMain10Hdr10Supported() && !decoderRenderer.isAv1Main10Supported()) {
@@ -823,10 +786,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         //强制体感
         setMotionForceGyro();
 
-        setPerformanceOverlayLiteMagin();
-
-        addPerformanceOverlayLiteLeftIcon();
-
         //光标是否显示
         if(!cursorVisible&&prefConfig.enableMouseLocalCursor){
             switchMouseLocalCursor();
@@ -834,23 +793,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 //        cursorVisible=prefConfig.enableMouseLocalCursor;
 //        initFloatingView();
 
-    }
-
-    private void addPerformanceOverlayLiteLeftIcon(){
-        NetworkInfo networkInfo=connManager.getActiveNetworkInfo();
-        if(networkInfo==null){
-            return;
-        }
-        Drawable drawable =
-                AppCompatResources.getDrawable(this, R.drawable.icon_axi_wifi);
-        if(networkInfo.getType() == ConnectivityManager.TYPE_MOBILE){
-            drawable =
-                    AppCompatResources.getDrawable(this, R.drawable.icon_axi_mobile);
-        }
-        int textSize = (int) performanceOverlayLite.getTextSize();
-        // 设置 Drawable 的宽和高与文字大小一致（或者按比例，如 0.8f）
-        drawable.setBounds(0, 0, textSize, textSize);
-        performanceOverlayLite.setCompoundDrawables(drawable, null,null, null);
     }
 
     private void initKeyboardController(){
@@ -983,7 +925,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     keyBoardLayoutController.hide();
                 }
 
-                performanceOverlayView.setVisibility(View.GONE);
+                performanceOverlayController
+                        .hideForPictureInPicture();
                 notificationOverlayView.setVisibility(View.GONE);
 
                 // Disable sensors while in PiP mode
@@ -1007,9 +950,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 //                        keyBoardController.hide();
 //                    }
 //                }
-                if (prefConfig.enablePerfOverlay) {
-                    performanceOverlayView.setVisibility(View.VISIBLE);
-                }
+                performanceOverlayController
+                        .restoreAfterPictureInPicture();
 
                 notificationOverlayView.setVisibility(requestedNotificationOverlayVisibility);
 
@@ -1467,6 +1409,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (clipboardFileTransferController != null) {
             clipboardFileTransferController.destroy();
             clipboardFileTransferController = null;
+        }
+        if (performanceOverlayController != null) {
+            performanceOverlayController.destroy();
+            performanceOverlayController = null;
         }
         super.onDestroy();
 
@@ -3362,15 +3308,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if(prefConfig.gameTriggerRumbleLink){
             rumbleTriggers(controllerNumber,lowFreqMotor,highFreqMotor);
         }
-        if(!prefConfig.showRumbleHUD){
-            return;
+        if (performanceOverlayController != null) {
+            performanceOverlayController.updateRumble(
+                    controllerNumber,
+                    lowFreqMotor,
+                    highFreqMotor);
         }
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                performanceRumble.setText(String.format((Locale)null, "手柄%d 震动信号 高%d 低%d", controllerNumber,  (short)((highFreqMotor >> 8) & 0xFF),  (short)((lowFreqMotor >> 8) & 0xFF)));
-            }
-        });
     }
 
     @Override
@@ -3650,290 +3593,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     @Override
-    public void onPerfUpdate(final PerfOverlayStats stats) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if(prefConfig.enablePerfOverlayLite){
-                    String displayText = buildLitePerfInfo(stats);
-                    CharSequence styledDisplayText = applyPerfOverlayColors(displayText);
-                    performanceOverlayLite.setText(styledDisplayText);
-                }else{
-                    renderFullPerfInfo(stats);
-                }
-            }
-        });
-    }
-
-    private String buildLitePerfInfo(PerfOverlayStats stats) {
-        if (stats == null) {
-            return "--";
-        }
-
-        StringBuilder builder = new StringBuilder();
-        if (stats.networkRateKbps > 0) {
-            builder.append("带宽：").append(formatThroughput(stats.networkRateKbps)).append("  ");
-        }
-        if (prefConfig.enablePerfOverlayLiteExt) {
-            builder.append(stats.width > 0 && stats.height > 0
-                    ? stats.width + "x" + stats.height
-                    : prefConfig.width + "x" + prefConfig.height);
-            builder.append(" ");
-            builder.append(nonEmpty(stats.codecName, "--"));
-            builder.append("  ");
-        }
-        if (fsrEnabled) {
-            builder.append(buildFsrPerfLabel()).append("  ");
-        }
-        builder.append("延迟/解码：");
-        builder.append(stats.networkLatencyMs).append(" ms / ");
-        builder.append(stats.decodeTimeMs > 0 ? String.format(Locale.US, "%.2f ms", stats.decodeTimeMs) : "--");
-        builder.append("  丢包率：").append(String.format(Locale.US, "%.2f%%", stats.packetLossPercent));
-        builder.append("  FPS：").append(String.format(Locale.US, "%.2f", stats.totalFps));
-        if (conn != null && conn.isMicUplinkActive()) {
-            builder.append(" Mic");
-        }
-        return builder.toString();
-    }
-
-    private String buildFsrPerfLabel() {
-        String target = getFsrTargetDisplayName();
-        if(prefConfig.enablePerfOverlayLite){
-            return "FSR " + target;
-        }
-        return "FSR " + target + " / 锐化 " + getFsrSharpnessDisplayName();
-    }
-
-    private void renderFullPerfInfo(PerfOverlayStats stats) {
-        if (performanceOverlayBigContent == null) {
-            return;
-        }
-        performanceOverlayBigContent.removeAllViews();
-
-        if (stats == null) {
-            addPerfRow("状态", "--");
-            return;
-        }
-
-        addPerfRow("分辨率", stats.width > 0 && stats.height > 0
-                ? stats.width + "x" + stats.height + (stats.hdr ? " HDR" : "")
-                : prefConfig.width + "x" + prefConfig.height + (prefConfig.enableHdr ? " HDR" : ""));
-        addPerfRow("编码", nonEmpty(stats.codecName, "--"));
-        addPerfRow("目标码率", formatMbps(stats.targetBitrateKbps > 0 ? stats.targetBitrateKbps : prefConfig.bitrate));
-        addPerfRow("目标帧率", (stats.targetFps > 0 ? stats.targetFps : prefConfig.fps) + " FPS");
-        addPerfRow("实时帧率", formatFps(stats.totalFps));
-        addPerfRow("视频码率", formatRate(stats.videoRateKbps));
-        addPerfRow("音频码率", formatRate(stats.audioRateKbps));
-        addPerfRow("累计视频流量", formatBytes(stats.videoBytes));
-        addPerfRow("累计音频流量", formatBytes(stats.audioBytes));
-        addPerfRow("渲染方式", fsrEnabled ? "GLES渲染" : "系统渲染");
-        addPerfRow("超分状态", buildUpscaleStatusText());
-        addPerfRow("实际渲染链", buildRenderPipelineText());
-        addPerfRow("连接地址", nonEmpty(streamHost, "--"));
-        addPerfRow("本地时长", buildSessionDurationText());
-        addPerfRow("网络延迟", stats.networkLatencyMs > 0
-                ? stats.networkLatencyMs + " ms / 抖动 " + stats.networkLatencyVarianceMs + " ms"
-                : "--");
-        addPerfRow("丢包率", String.format(Locale.US, "%.2f%%", stats.packetLossPercent));
-        addPerfRow("解码延迟", stats.decodeTimeMs > 0 ? String.format(Locale.US, "%.2f ms", stats.decodeTimeMs) : "--");
-        addPerfRow("主机延迟", stats.hostProcessingLatencyMs > 0 ? String.format(Locale.US, "%.1f ms", stats.hostProcessingLatencyMs) : "--");
-        addPerfRow("麦克风", conn != null && conn.isMicUplinkActive() ? "开启" : "关闭");
-        addPerfRow("音频震动", buildAudioHapticsStatusText());
-        addPerfRow("USB手柄", buildUsbControllerStatusText());
-    }
-
-    private void addPerfRow(String label, String value) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        rowParams.topMargin = performanceOverlayBigContent.getChildCount() == 0 ? 0 : UiHelper.dpToPx(this, 6);
-        row.setLayoutParams(rowParams);
-
-        TextView labelView = new TextView(this);
-        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        labelView.setLayoutParams(labelParams);
-        labelView.setText(label);
-        labelView.setTextColor(Color.argb(204, 218, 230, 255));
-        labelView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
-        labelView.setSingleLine(true);
-
-        TextView valueView = new TextView(this);
-        LinearLayout.LayoutParams valueParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        valueView.setLayoutParams(valueParams);
-        valueView.setText(applyPerfOverlayColors(nonEmpty(value, "--")));
-        valueView.setTextColor(Color.WHITE);
-        valueView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
-        valueView.setGravity(Gravity.END);
-        valueView.setSingleLine(true);
-
-        row.addView(labelView);
-        row.addView(valueView);
-        performanceOverlayBigContent.addView(row);
-    }
-
-    private String buildUpscaleStatusText() {
-        if (!fsrEnabled) {
-            return "关闭";
-        }
-        return getFsrTargetDisplayName() + " / "
-                + getFsrSharpnessDisplayName() + " / "
-                + (isFsrNativeHdrOutputEnabled() ? "HDR" : "SDR");
-    }
-
-    private String buildRenderPipelineText() {
-        if (!fsrEnabled) {
-            return "系统直出";
-        }
-        return isFsrNativeHdrOutputEnabled() ? "GLES FSR HDR" : "GLES FSR SDR";
-    }
-
-    private String buildUsbControllerStatusText() {
-        if (!prefConfig.usbDriver) {
-            return "关闭";
-        }
-        if (controllerHandler != null && controllerHandler.hasActiveUsbController()) {
-            String controllerType = controllerHandler.getActiveUsbControllerTypeDisplayName();
-            if (controllerType != null && !controllerType.isEmpty()) {
-                return "已接管 / " + controllerType;
-            }
-            return "已接管";
-        }
-        return connectedToUsbDriverService ? "待机" : "未启动";
-    }
-
-    private String buildAudioHapticsStatusText() {
-        if (!prefConfig.enableAudioHaptics) {
-            return "关闭";
-        }
-        return "开 / "
-                + getAudioHapticsOutputTargetDisplayName()
-                + " / " + getAudioHapticsVoiceFilterDisplayName()
-                + " / " + prefConfig.audioHapticsStrength + "%";
-    }
-
-    private String getAudioHapticsOutputTargetDisplayName() {
-        if ("controller".equals(prefConfig.audioHapticsOutputTarget)) {
-            return "手柄";
-        }
-        return "手机";
-    }
-
-    private String getAudioHapticsVoiceFilterDisplayName() {
-        if ("low".equals(prefConfig.audioHapticsVoiceFilter)) {
-            return "低";
-        }
-        if ("medium".equals(prefConfig.audioHapticsVoiceFilter)) {
-            return "中";
-        }
-        if ("high".equals(prefConfig.audioHapticsVoiceFilter)) {
-            return "高";
-        }
-        return "关";
-    }
-
-    private String buildSessionDurationText() {
-        if (streamStartElapsedMs <= 0) {
-            return "--";
-        }
-        long totalSeconds = Math.max(0, (SystemClock.elapsedRealtime() - streamStartElapsedMs) / 1000);
-        long hours = totalSeconds / 3600;
-        long minutes = (totalSeconds % 3600) / 60;
-        long seconds = totalSeconds % 60;
-        if (hours > 0) {
-            return String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds);
-        }
-        return String.format(Locale.US, "%02d:%02d", minutes, seconds);
-    }
-
-    private String formatFps(float fps) {
-        return fps > 0 ? String.format(Locale.US, "%.2f FPS", fps) : "--";
-    }
-
-    private String formatMbps(int kbps) {
-        return kbps > 0 ? String.format(Locale.US, "%.0f Mbps", kbps / 1000f) : "--";
-    }
-
-    private String formatRate(float kbps) {
-        if (kbps <= 0) {
-            return "--";
-        }
-        if (kbps >= 1000f) {
-            return String.format(Locale.US, "%.2f Mbps", kbps / 1000f);
-        }
-        return String.format(Locale.US, "%.0f Kbps", kbps);
-    }
-
-    private String formatThroughput(float kbps) {
-        if (kbps <= 0) {
-            return "--";
-        }
-        float kilobytesPerSecond = kbps / 8f;
-        if (kilobytesPerSecond >= 1024f) {
-            return String.format(Locale.US, "%.2fM/s", kilobytesPerSecond / 1024f);
-        }
-        return String.format(Locale.US, "%.2fK/s", kilobytesPerSecond);
-    }
-
-    private String formatBytes(long bytes) {
-        return bytes > 0 ? Formatter.formatShortFileSize(this, bytes) : "--";
-    }
-
-    private String nonEmpty(String value, String fallback) {
-        return value == null || value.isEmpty() ? fallback : value;
-    }
-
-    private CharSequence applyPerfOverlayColors(String text) {
-        if (text == null || text.isEmpty()) {
-            return text;
-        }
-
-        SpannableString spannable = new SpannableString(text);
-        applyFsrSpan(spannable, text);
-        applyMicSpan(spannable, text);
-        return spannable;
-    }
-
-    private void applyFsrSpan(SpannableString spannable, String text) {
-        if (!fsrEnabled) {
-            return;
-        }
-        int start = text.indexOf("FSR ");
-        if (start < 0) {
-            return;
-        }
-
-        int end = text.indexOf('\n', start);
-        if (end < 0) {
-            end = text.indexOf("  ", start);
-        }
-        if (end < 0) {
-            end = text.length();
-        }
-
-        spannable.setSpan(new ForegroundColorSpan(Color.rgb(250, 191, 2)),
-                start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-    }
-
-    private void applyMicSpan(SpannableString spannable, String text) {
-        int start = text.indexOf("Mic");
-        if (start < 0) {
-            start = text.indexOf("麦克风");
-        }
-        if (start < 0) {
-            return;
-        }
-        int end = text.indexOf('\n', start);
-        if (end < 0) {
-            end = text.length();
-        }
-        spannable.setSpan(new ForegroundColorSpan(Color.rgb(79, 210, 122)),
-                start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-    }
-
-    @Override
     public void onUsbPermissionPromptStarting() {
         usbPermissionPromptVisible = true;
         if (spinner != null) {
@@ -4193,31 +3852,40 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
+    private PerformanceOverlayRuntimeState
+            createPerformanceOverlayRuntimeState() {
+        boolean usbControllerActive =
+                controllerHandler != null &&
+                        controllerHandler.hasActiveUsbController();
+        String usbControllerType =
+                usbControllerActive ?
+                        controllerHandler
+                                .getActiveUsbControllerTypeDisplayName() :
+                        null;
+        return new PerformanceOverlayRuntimeState(
+                fsrEnabled,
+                getFsrTargetDisplayName(),
+                getFsrSharpnessDisplayName(),
+                isFsrNativeHdrOutputEnabled(),
+                conn != null && conn.isMicUplinkActive(),
+                streamHost,
+                streamStartElapsedMs,
+                SystemClock.elapsedRealtime(),
+                usbControllerActive,
+                usbControllerType,
+                connectedToUsbDriverService);
+    }
+
     public void showHUD(){
-        prefConfig.enablePerfOverlay=!prefConfig.enablePerfOverlay;
-        if(prefConfig.enablePerfOverlay){
-            performanceOverlayView.setVisibility(View.VISIBLE);
-            if(prefConfig.enablePerfOverlayLite){
-                performanceOverlayLite.setVisibility(View.VISIBLE);
-            }else{
-                performanceOverlayBig.setVisibility(View.VISIBLE);
-            }
-            return;
+        if (performanceOverlayController != null) {
+            performanceOverlayController.toggleVisibility();
         }
-        performanceOverlayView.setVisibility(View.GONE);
     }
 
     public void switchHUD(){
-        performanceOverlayView.setVisibility(View.VISIBLE);
-        if(performanceOverlayLite.getVisibility()==View.VISIBLE){
-            prefConfig.enablePerfOverlayLite=false;
-            performanceOverlayBig.setVisibility(View.VISIBLE);
-            performanceOverlayLite.setVisibility(View.GONE);
-            return;
+        if (performanceOverlayController != null) {
+            performanceOverlayController.toggleExpandedMode();
         }
-        prefConfig.enablePerfOverlayLite=true;
-        performanceOverlayBig.setVisibility(View.GONE);
-        performanceOverlayLite.setVisibility(View.VISIBLE);
     }
 
     //切换触控灵敏度开关
@@ -4410,17 +4078,23 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void applyRumbleOverlayVisibility() {
-        switchPerformanceRumbleHUD();
+        if (performanceOverlayController != null) {
+            performanceOverlayController.applyRumbleVisibility();
+        }
     }
 
     @Override
     public void applyPerformanceOverlayInteractivity() {
-        switchPerformanceLiteHudclick();
+        if (performanceOverlayController != null) {
+            performanceOverlayController.applyCompactInteractivity();
+        }
     }
 
     @Override
     public void applyPerformanceOverlayScale() {
-        setPerformanceOverlayZoom();
+        if (performanceOverlayController != null) {
+            performanceOverlayController.applyCompactScale();
+        }
     }
 
     @Override
@@ -4430,7 +4104,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void applyPerformanceOverlayMargin() {
-        setPerformanceOverlayLiteMagin();
+        if (performanceOverlayController != null) {
+            performanceOverlayController.applyCompactMargin();
+        }
     }
 
     @Override
@@ -4720,20 +4396,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
-    public void switchPerformanceRumbleHUD(){
-        performanceRumble.setVisibility(prefConfig.showRumbleHUD?View.VISIBLE:View.GONE);
-    }
-
-    //设置性能信息是否可以点击
-    public void switchPerformanceLiteHudclick(){
-        performanceOverlayLite.setClickable(prefConfig.enablePerfOverlayLiteDialog);
-    }
-
-    public void setPerformanceOverlayZoom(){
-        performanceOverlayLite.setTextSize(TypedValue.COMPLEX_UNIT_SP,prefConfig.gameSettingPrefZoom*0.1f);
-        addPerformanceOverlayLiteLeftIcon();
-    }
-
     //设置ds5手柄的自适应扳机
     public void setDualSenseTrigger(){
         controllerHandler.setDualSenseTrigger(prefConfig.ds5TriggerMode,
@@ -4751,15 +4413,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     public KeyBoardController getKeyBoardController(){
         return keyBoardController;
-    }
-
-    public void setPerformanceOverlayLiteMagin(){
-        if(prefConfig.performanceOverlayLiteMaginTop==4){
-            return;
-        }
-        LinearLayout.LayoutParams params1= (LinearLayout.LayoutParams) performanceOverlayLite.getLayoutParams();
-        params1.setMargins(0,UiHelper.dpToPx(this,prefConfig.performanceOverlayLiteMaginTop),0,0);
-        performanceOverlayLite.setLayoutParams(params1);
     }
 
     public void setAudioHapticsSettings() {
