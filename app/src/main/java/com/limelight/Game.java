@@ -50,6 +50,7 @@ import com.limelight.ui.clipboard.RemoteClipboardFileTransferController;
 import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.stream.StreamFailureDiagnostics;
+import com.limelight.ui.stream.StreamLaunchReporter;
 import com.limelight.ui.stream.StreamSessionUiEffects;
 import com.limelight.ui.stream.StreamWifiLockController;
 import com.limelight.ui.GameGestures;
@@ -159,6 +160,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private NvConnection conn;
     private StreamSessionController sessionController;
     private StreamFailureDiagnostics failureDiagnostics;
+    private StreamLaunchReporter launchReporter;
     private StreamSessionUiEffects sessionUiEffects;
     private SpinnerDialog spinner;
     private boolean displayedFailureDialog = false;
@@ -648,6 +650,22 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         443,
                         portFlags),
                 command -> mainHandler.post(command));
+        ComputerDetails launchComputer = new ComputerDetails();
+        launchComputer.name = pcName;
+        launchComputer.uuid = getIntent().getStringExtra(EXTRA_PC_UUID);
+        NvApp launchedApp = app;
+        boolean reportGameLaunch = appName != null;
+        ShortcutHelper launchShortcutHelper =
+                new ShortcutHelper(getApplicationContext());
+        launchReporter = StreamLaunchReporter.create(() -> {
+            launchShortcutHelper.reportComputerShortcutUsed(
+                    launchComputer);
+            if (reportGameLaunch) {
+                launchShortcutHelper.reportGameLaunched(
+                        launchComputer,
+                        launchedApp);
+            }
+        });
         sessionUiEffects = new StreamSessionUiEffects(
                 new StreamSessionUiEffects.Host() {
                     @Override
@@ -1434,6 +1452,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             failureDiagnostics.destroy();
             failureDiagnostics = null;
         }
+        if (launchReporter != null) {
+            launchReporter.destroy();
+            launchReporter = null;
+        }
         if (streamInputController != null) {
             streamInputController.destroy();
             streamInputController = null;
@@ -2160,21 +2182,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 updatePipAutoEnter();
 
                 sessionUiEffects.onConnected();
+                if (launchReporter != null) {
+                    launchReporter.reportOnce();
+                }
 
                 hideSystemUi(1000);
             }
         });
-
-        // Report this shortcut being used (off the main thread to prevent ANRs)
-        ComputerDetails computer = new ComputerDetails();
-        computer.name = pcName;
-        computer.uuid = Game.this.getIntent().getStringExtra(EXTRA_PC_UUID);
-        ShortcutHelper shortcutHelper = new ShortcutHelper(this);
-        shortcutHelper.reportComputerShortcutUsed(computer);
-        if (appName != null) {
-            // This may be null if launched from the "Resume Session" PC context menu item
-            shortcutHelper.reportGameLaunched(computer, app);
-        }
     }
 
     @Override

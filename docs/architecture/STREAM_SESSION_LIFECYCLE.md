@@ -55,6 +55,13 @@ It also owns the delayed input-grab task. Every accepted end path cancels that
 task, releases input capture, clears the flag, and publishes the ended state
 once.
 
+`StreamLaunchReporter` owns the single-use background task that updates Android
+shortcut and TV-channel launch metadata. The task cannot run on the connection
+callback or main thread, is accepted at most once, contains platform failures,
+and is canceled when the Activity is destroyed. Its helpers depend on
+application-safe `Context` unless an operation explicitly requires an
+`Activity`.
+
 The next migration slices move render/audio resource lifetime and the remaining
 callback presentation behind session-scoped ports. Until those slices are
 complete, `Game` remains the presentation adapter for accepted callbacks.

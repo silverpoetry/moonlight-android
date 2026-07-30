@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -34,9 +35,9 @@ public class TvChannelHelper {
     private static final int INTERNAL_PROVIDER_ID_INDEX = 1;
     private static final int PROGRAM_BROWSABLE_INDEX = 2;
     private static final int ID_INDEX = 0;
-    private Activity context;
+    private final Context context;
 
-    public TvChannelHelper(Activity context) {
+    public TvChannelHelper(Context context) {
         this.context = context;
     }
 
@@ -53,8 +54,11 @@ public class TvChannelHelper {
 
             Intent intent = new Intent(TvContract.ACTION_REQUEST_CHANNEL_BROWSABLE);
             intent.putExtra(TvContract.EXTRA_CHANNEL_ID, getChannelId(computer.uuid));
+            if (!(context instanceof Activity)) {
+                return;
+            }
             try {
-                context.startActivityForResult(intent, 0);
+                ((Activity) context).startActivityForResult(intent, 0);
             } catch (Exception ignored) {
                 // ActivityNotFoundException is the only officially documented
                 // exception that can result from this call. However some buggy

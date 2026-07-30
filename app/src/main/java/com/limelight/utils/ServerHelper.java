@@ -1,6 +1,7 @@
 package com.limelight.utils;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import com.limelight.utils.UiToast;
 
@@ -38,7 +39,7 @@ public class ServerHelper {
         return computer.activeAddress;
     }
 
-    public static Intent createPcShortcutIntent(Activity parent, ComputerDetails computer) {
+    public static Intent createPcShortcutIntent(Context parent, ComputerDetails computer) {
         Intent i = new Intent(parent, ShortcutTrampoline.class);
         i.putExtra(AppView.NAME_EXTRA, computer.name);
         i.putExtra(AppView.UUID_EXTRA, computer.uuid);
@@ -46,7 +47,7 @@ public class ServerHelper {
         return i;
     }
 
-    public static Intent createAppShortcutIntent(Activity parent, ComputerDetails computer, NvApp app) {
+    public static Intent createAppShortcutIntent(Context parent, ComputerDetails computer, NvApp app) {
         Intent i = new Intent(parent, ShortcutTrampoline.class);
         i.putExtra(AppView.NAME_EXTRA, computer.name);
         i.putExtra(AppView.UUID_EXTRA, computer.uuid);
