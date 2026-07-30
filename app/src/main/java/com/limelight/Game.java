@@ -6,6 +6,7 @@ import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.GameInputDevice;
+import com.limelight.binding.input.PointerInputCompat;
 import com.limelight.binding.input.PointerInputSink;
 import com.limelight.binding.input.KeyboardChordSender;
 import com.limelight.binding.input.KeyboardTranslator;
@@ -16,6 +17,7 @@ import com.limelight.binding.input.capture.InputCaptureManager;
 import com.limelight.binding.input.capture.InputCaptureProvider;
 import com.limelight.binding.input.driver.UsbDriverService;
 import com.limelight.binding.input.evdev.EvdevListener;
+import com.limelight.binding.input.pointer.ExternalPointerInputController;
 import com.limelight.binding.input.touch.DirectContactInputController;
 import com.limelight.binding.input.touch.TouchInputController;
 import com.limelight.binding.input.touch.TouchInputMode;
@@ -134,23 +136,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         OnSystemUiVisibilityChangeListener, GameGestures, StreamInputGateway,
         StreamUiActions, GameMenuHost,
         UsbDriverService.UsbDriverStateListener, View.OnKeyListener {
-    private static final float EXTERNAL_TOUCHPAD_SCROLL_FACTOR = 0.15f;
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 1001;
     private static final long KEY_CHORD_UP_DELAY_MS = 25;
-    private int lastButtonState = 0;
-    private float externalTouchpadScrollRemainderX = 0f;
-    private float externalTouchpadScrollRemainderY = 0f;
-    private float lastX = -1f;
-    private float lastY = -1f;
 
     private TouchInputController touchInputController;
-    private DirectContactInputController directContactInputController;
-
-    private static final int STYLUS_DOWN_DEAD_ZONE_DELAY = 100;
-    private static final int STYLUS_DOWN_DEAD_ZONE_RADIUS = 20;
-
-    private static final int STYLUS_UP_DEAD_ZONE_DELAY = 150;
-    private static final int STYLUS_UP_DEAD_ZONE_RADIUS = 50;
+    private ExternalPointerInputController
+            externalPointerInputController;
 
     private static final int SOFT_KEYBOARD_SHOW_RETRY_MS = 50;
 
@@ -192,10 +183,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private NativeCursorOverlayView nativeCursorOverlayView;
     private VideoProcessingGLSurfaceView fsrView;
     private FsrVideoProcessor fsrVideoProcessor;
-    private long lastAbsTouchUpTime = 0;
-    private long lastAbsTouchDownTime = 0;
-    private float lastAbsTouchUpX, lastAbsTouchUpY;
-    private float lastAbsTouchDownX, lastAbsTouchDownY;
 
     private boolean isHidingOverlays;
     private TextView notificationOverlayView;
@@ -652,10 +639,17 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 PlatformBinding.getCryptoProvider(this), serverCert);
         PointerInputSink pointerInputSink =
                 new NvConnectionPointerInputSink(conn);
-        directContactInputController =
+        DirectContactInputController directContactInputController =
                 new DirectContactInputController(
                         streamView,
                         pointerInputSink,
+                        prefConfig);
+        externalPointerInputController =
+                new ExternalPointerInputController(
+                        streamView,
+                        pointerInputSink,
+                        inputCaptureProvider,
+                        directContactInputController,
                         prefConfig);
         clipboardFileTransferController =
                 new RemoteClipboardFileTransferController(this, conn);
@@ -1754,8 +1748,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // create as a result of a right-click. This event WILL repeat if
         // the right mouse button is held down, so we ignore those.
         int eventSource = event.getSource();
-        if ((eventSource == InputDevice.SOURCE_MOUSE ||
-                eventSource == InputDevice.SOURCE_MOUSE_RELATIVE) &&
+        if (PointerInputCompat.isMouseSource(eventSource) &&
                 event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
 
             // Send the right mouse button event if mouse back and forward
@@ -1834,8 +1827,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // Handle a synthetic back button event that some Android OS versions
         // create as a result of a right-click.
         int eventSource = event.getSource();
-        if ((eventSource == InputDevice.SOURCE_MOUSE ||
-                eventSource == InputDevice.SOURCE_MOUSE_RELATIVE) &&
+        if (PointerInputCompat.isMouseSource(eventSource) &&
                 event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
 
             // Send the right mouse button event if mouse back and forward
@@ -2030,317 +2022,30 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         else if ((deviceSources & InputDevice.SOURCE_CLASS_JOYSTICK) != 0 && controllerHandler.tryHandleTouchpadEvent(event)) {
             return true;
         }
-        else if ((eventSource & InputDevice.SOURCE_CLASS_POINTER) != 0 ||
-                 (eventSource & InputDevice.SOURCE_CLASS_POSITION) != 0 ||
-                 eventSource == InputDevice.SOURCE_MOUSE_RELATIVE)
-        {
-            // This case is for mice and non-finger touch devices
-            if (eventSource == InputDevice.SOURCE_MOUSE ||
-                    (eventSource & InputDevice.SOURCE_CLASS_POSITION) != 0 || // SOURCE_TOUCHPAD
-                    eventSource == InputDevice.SOURCE_MOUSE_RELATIVE ||
-                    (event.getPointerCount() >= 1 &&
-                            (event.getToolType(0) == MotionEvent.TOOL_TYPE_MOUSE ||
-                                    event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS ||
-                                    event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER)) ||
-                    eventSource == 12290) // 12290 = Samsung DeX mode desktop mouse
-            {
-                int buttonState = event.getButtonState();
-                int changedButtons = buttonState ^ lastButtonState;
-
-                // The DeX touchpad on the Fold 4 sends proper right click events using BUTTON_SECONDARY,
-                // but doesn't send BUTTON_PRIMARY for a regular click. Instead it sends ACTION_DOWN/UP,
-                // so we need to fix that up to look like a sane input event to process it correctly.
-                if (eventSource == 12290) {
-                    if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
-                        buttonState |= MotionEvent.BUTTON_PRIMARY;
-                    }
-                    else if (event.getAction() == MotionEvent.ACTION_UP) {
-                        buttonState &= ~MotionEvent.BUTTON_PRIMARY;
-                    }
-                    else {
-                        // We may be faking the primary button down from a previous event,
-                        // so be sure to add that bit back into the button state.
-                        buttonState |= (lastButtonState & MotionEvent.BUTTON_PRIMARY);
-                    }
-
-                    changedButtons = buttonState ^ lastButtonState;
-                }
-
-                // Some external touchpads report a 2-finger tap as a primary action button press
-                // while keeping the pointer source as SOURCE_TOUCHPAD. Promote that gesture to
-                // a secondary click so it behaves like a desktop touchpad right-click.
-                if (eventSource == InputDevice.SOURCE_TOUCHPAD &&
-                        event.getPointerCount() == 2 &&
-                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
-                        event.getActionButton() == MotionEvent.BUTTON_PRIMARY) {
-                    if (event.getActionMasked() == MotionEvent.ACTION_BUTTON_PRESS) {
-                        buttonState |= MotionEvent.BUTTON_SECONDARY;
-                    }
-                    else if (event.getActionMasked() == MotionEvent.ACTION_BUTTON_RELEASE) {
-                        buttonState &= ~MotionEvent.BUTTON_SECONDARY;
-                    }
-
-                    // Keep any previously faked primary state, but don't let this gesture look
-                    // like a left click in addition to the synthesized right click.
-                    buttonState &= ~MotionEvent.BUTTON_PRIMARY;
-                    buttonState |= (lastButtonState & MotionEvent.BUTTON_PRIMARY);
-                    changedButtons = buttonState ^ lastButtonState;
-                }
-
-                // Ignore mouse input if we're not capturing from our input source
-                if (!inputCaptureProvider.isCapturingActive()) {
-                    // We return true here because otherwise the events may end up causing
-                    // Android to synthesize d-pad events.
-                    return true;
-                }
-
-                // Always update the position before sending any button events. If we're
-                // dealing with a stylus without hover support, our position might be
-                // significantly different than before.
-                if (inputCaptureProvider.eventHasRelativeMouseAxes(event)) {
-                    // Send the deltas straight from the motion event
-                    float rawDeltaX = inputCaptureProvider.getRelativeAxisX(event);
-                    float rawDeltaY = inputCaptureProvider.getRelativeAxisY(event);
-                    short deltaX = (short)(rawDeltaX * prefConfig.externalTouchPadSensitityX * 0.01f);
-                    short deltaY = (short)(rawDeltaY * prefConfig.externalTouchPadSensitityY * 0.01f);
-
-                    if (deltaX != 0 || deltaY != 0) {
-                        boolean isTwoFingerTouchpadScroll =
-                                eventSource == InputDevice.SOURCE_TOUCHPAD &&
-                                        event.getPointerCount() == 2 &&
-                                        event.getActionMasked() == MotionEvent.ACTION_MOVE;
-
-                        if (isTwoFingerTouchpadScroll) {
-                            float scrollFactor = prefConfig.externalTouchPadScrollAmount * EXTERNAL_TOUCHPAD_SCROLL_FACTOR;
-                            externalTouchpadScrollRemainderX += -rawDeltaX * scrollFactor;
-                            externalTouchpadScrollRemainderY += -rawDeltaY * scrollFactor;
-
-                            short hScroll = 0;
-                            short vScroll = 0;
-
-                            if (Math.abs(externalTouchpadScrollRemainderX) >= 1f) {
-                                hScroll = (short) externalTouchpadScrollRemainderX;
-                                externalTouchpadScrollRemainderX -= hScroll;
-                            }
-                            if (Math.abs(externalTouchpadScrollRemainderY) >= 1f) {
-                                vScroll = (short) externalTouchpadScrollRemainderY;
-                                externalTouchpadScrollRemainderY -= vScroll;
-                            }
-
-                            if (vScroll != 0) {
-                                conn.sendMouseHighResScroll(vScroll);
-                            }
-                            if (hScroll != 0) {
-                                conn.sendMouseHighResHScroll(hScroll);
-                            }
-                        }
-                        else {
-                            externalTouchpadScrollRemainderX = 0f;
-                            externalTouchpadScrollRemainderY = 0f;
-
-                            if (prefConfig.absoluteMouseMode) {
-                                // NB: view may be null, but we can unconditionally use streamView because we don't need to adjust
-                                // relative axis deltas for the position of the streamView within the parent's coordinate system.
-                                conn.sendMouseMoveAsMousePosition(deltaX, deltaY, (short)streamView.getWidth(), (short)streamView.getHeight());
-                            }
-                            else {
-                                conn.sendMouseMove(deltaX, deltaY);
-                            }
-                        }
-                    }
-                }
-                else if ((eventSource & InputDevice.SOURCE_CLASS_POSITION) != 0) {
-                    // If this input device is not associated with the view itself (like a trackpad),
-                    // we'll convert the device-specific coordinates to use to send the cursor position.
-                    // This really isn't ideal but it's probably better than nothing.
-                    //
-                    // Trackpad on newer versions of Android (Oreo and later) should be caught by the
-                    // relative axes case above. If we get here, we're on an older version that doesn't
-                    // support pointer capture.
-                    InputDevice device = event.getDevice();
-                    if (device != null) {
-                        InputDevice.MotionRange xRange = device.getMotionRange(MotionEvent.AXIS_X, eventSource);
-                        InputDevice.MotionRange yRange = device.getMotionRange(MotionEvent.AXIS_Y, eventSource);
-
-                        // All touchpads coordinate planes should start at (0, 0)
-                        if (xRange != null && yRange != null && xRange.getMin() == 0 && yRange.getMin() == 0) {
-                            int xMax = (int)xRange.getMax();
-                            int yMax = (int)yRange.getMax();
-
-                            // Touchpads must be smaller than (65535, 65535)
-                            if (xMax <= Short.MAX_VALUE && yMax <= Short.MAX_VALUE) {
-                                conn.sendMousePosition((short)event.getX(), (short)event.getY(),
-                                                       (short)xMax, (short)yMax);
-                            }
-                        }
-                    }
-                }
-                else if (view != null &&
-                        directContactInputController.trySendPenEvent(
-                                view,
-                                event)) {
-                    // If our host supports pen events, send it directly
-                    return true;
-                }
-                else if (view != null) {
-                    if (shouldUseAbsoluteTouchpadScroll(event, buttonState)) {
-                        float currentX = event.getX();
-                        float currentY = event.getY();
-
-                        if (lastX != -1f && lastY != -1f) {
-                            float dx = currentX - lastX;
-                            float dy = currentY - lastY;
-
-                            short vScrollAmount = (short)(dy * 4);
-                            short hScrollAmount = (short)(-dx * 4);
-
-                            if (Math.abs(vScrollAmount) > Math.abs(hScrollAmount)) {
-                                conn.sendMouseHighResScroll(vScrollAmount);
-                            }
-                            else if (Math.abs(hScrollAmount) > Math.abs(vScrollAmount)) {
-                                conn.sendMouseHighResHScroll(hScrollAmount);
-                            }
-                        }
-
-                        lastX = currentX;
-                        lastY = currentY;
-                    }
-                    else {
-                        if (event.getActionMasked() == MotionEvent.ACTION_UP ||
-                                event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
-                            lastX = -1f;
-                            lastY = -1f;
-                        }
-
-                        // Otherwise send absolute position based on the view for SOURCE_CLASS_POINTER
-                        updateMousePosition(view, event);
-                    }
-                }
-
-                if (event.getActionMasked() == MotionEvent.ACTION_SCROLL) {
-                    // Send the vertical scroll packet
-                    conn.sendMouseHighResScroll((short)(event.getAxisValue(MotionEvent.AXIS_VSCROLL) * 120));
-                    conn.sendMouseHighResHScroll((short)(event.getAxisValue(MotionEvent.AXIS_HSCROLL) * 120));
-                }
-
-                if (eventSource == InputDevice.SOURCE_TOUCHPAD &&
-                        event.getActionMasked() != MotionEvent.ACTION_MOVE) {
-                    externalTouchpadScrollRemainderX = 0f;
-                    externalTouchpadScrollRemainderY = 0f;
-                }
-
-                if ((changedButtons & MotionEvent.BUTTON_PRIMARY) != 0) {
-                    if ((buttonState & MotionEvent.BUTTON_PRIMARY) != 0) {
-                        conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_LEFT);
-                    }
-                    else {
-                        conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
-                    }
-                }
-
-                // Mouse secondary or stylus primary is right click (stylus down is left click)
-                if ((changedButtons & (MotionEvent.BUTTON_SECONDARY | MotionEvent.BUTTON_STYLUS_PRIMARY)) != 0) {
-                    if ((buttonState & (MotionEvent.BUTTON_SECONDARY | MotionEvent.BUTTON_STYLUS_PRIMARY)) != 0) {
-                        conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_RIGHT);
-                    }
-                    else {
-                        conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_RIGHT);
-                    }
-                }
-
-                // Mouse tertiary or stylus secondary is middle click
-                if ((changedButtons & (MotionEvent.BUTTON_TERTIARY | MotionEvent.BUTTON_STYLUS_SECONDARY)) != 0) {
-                    if ((buttonState & (MotionEvent.BUTTON_TERTIARY | MotionEvent.BUTTON_STYLUS_SECONDARY)) != 0) {
-                        conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_MIDDLE);
-                    }
-                    else {
-                        conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_MIDDLE);
-                    }
-                }
-
-                if (prefConfig.mouseNavButtons) {
-                    if ((changedButtons & MotionEvent.BUTTON_BACK) != 0) {
-                        if ((buttonState & MotionEvent.BUTTON_BACK) != 0) {
-                            conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_X1);
-                        }
-                        else {
-                            conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_X1);
-                        }
-                    }
-
-                    if ((changedButtons & MotionEvent.BUTTON_FORWARD) != 0) {
-                        if ((buttonState & MotionEvent.BUTTON_FORWARD) != 0) {
-                            conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_X2);
-                        }
-                        else {
-                            conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_X2);
-                        }
-                    }
-                }
-
-                // Handle stylus presses
-                if (event.getPointerCount() == 1 && event.getActionIndex() == 0) {
-                    if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
-                        if (event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS) {
-                            lastAbsTouchDownTime = event.getEventTime();
-                            lastAbsTouchDownX = event.getX(0);
-                            lastAbsTouchDownY = event.getY(0);
-
-                            // Stylus is left click
-                            conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_LEFT);
-                        } else if (event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER) {
-                            lastAbsTouchDownTime = event.getEventTime();
-                            lastAbsTouchDownX = event.getX(0);
-                            lastAbsTouchDownY = event.getY(0);
-
-                            // Eraser is right click
-                            conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_RIGHT);
-                        }
-                    }
-                    else if (event.getActionMasked() == MotionEvent.ACTION_UP || event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
-                        if (event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS) {
-                            lastAbsTouchUpTime = event.getEventTime();
-                            lastAbsTouchUpX = event.getX(0);
-                            lastAbsTouchUpY = event.getY(0);
-
-                            // Stylus is left click
-                            conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
-                        } else if (event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER) {
-                            lastAbsTouchUpTime = event.getEventTime();
-                            lastAbsTouchUpX = event.getX(0);
-                            lastAbsTouchUpY = event.getY(0);
-
-                            // Eraser is right click
-                            conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_RIGHT);
-                        }
-                    }
-                }
-
-                lastButtonState = buttonState;
-            }
-            // This case is for fingers
-            else
-            {
-                if (virtualController != null &&
-                        (virtualController.getControllerMode() == KeyBoardController.ControllerMode.MoveButtons ||
-                         virtualController.getControllerMode() == KeyBoardController.ControllerMode.ResizeButtons||
-                         virtualController.getControllerMode() == KeyBoardController.ControllerMode.DisableEnableButtons)) {
-                    // Ignore presses when the virtual controller is being configured
-                    return true;
-                }
-
-                if (keyBoardController != null &&
-                        (keyBoardController.getControllerMode() == KeyBoardController.ControllerMode.MoveButtons ||
-                                keyBoardController.getControllerMode() == KeyBoardController.ControllerMode.ResizeButtons||
-                                keyBoardController.getControllerMode() == KeyBoardController.ControllerMode.DisableEnableButtons)) {
-                    // Ignore presses when the virtual controller is being configured
-                    return true;
-                }
-                return touchInputController.handleMotionEvent(view, event);
+        else if (ExternalPointerInputController
+                .isPointerClassEvent(event)) {
+            if (externalPointerInputController.canHandle(event)) {
+                return externalPointerInputController
+                        .handleMotionEvent(view, event);
             }
 
-            // Handled a known source
-            return true;
+            // This case is for fingers.
+            if (virtualController != null &&
+                    (virtualController.getControllerMode() == KeyBoardController.ControllerMode.MoveButtons ||
+                     virtualController.getControllerMode() == KeyBoardController.ControllerMode.ResizeButtons||
+                     virtualController.getControllerMode() == KeyBoardController.ControllerMode.DisableEnableButtons)) {
+                // Ignore presses when the virtual controller is being configured
+                return true;
+            }
+
+            if (keyBoardController != null &&
+                    (keyBoardController.getControllerMode() == KeyBoardController.ControllerMode.MoveButtons ||
+                            keyBoardController.getControllerMode() == KeyBoardController.ControllerMode.ResizeButtons||
+                            keyBoardController.getControllerMode() == KeyBoardController.ControllerMode.DisableEnableButtons)) {
+                // Ignore presses when the virtual controller is being configured
+                return true;
+            }
+            return touchInputController.handleMotionEvent(view, event);
         }
 
         // Unknown class
@@ -2378,79 +2083,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         streamView, x, y, referenceWidth, referenceHeight);
             }
         });
-    }
-
-    private void updateMousePosition(View touchedView, MotionEvent event) {
-        // X and Y are already relative to the provided view object
-        float eventX, eventY;
-
-        // For our StreamView itself, we can use the coordinates unmodified.
-        if (touchedView == streamView) {
-            eventX = event.getX(0);
-            eventY = event.getY(0);
-        }
-        else {
-            // For the containing background view, we must subtract the origin
-            // of the StreamView to get video-relative coordinates.
-            eventX = event.getX(0) - streamView.getX();
-            eventY = event.getY(0) - streamView.getY();
-        }
-
-        if (event.getPointerCount() == 1 && event.getActionIndex() == 0 &&
-                (event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER ||
-                event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS))
-        {
-            switch (event.getActionMasked()) {
-                case MotionEvent.ACTION_DOWN:
-                case MotionEvent.ACTION_HOVER_ENTER:
-                case MotionEvent.ACTION_HOVER_EXIT:
-                case MotionEvent.ACTION_HOVER_MOVE:
-                    if (event.getEventTime() - lastAbsTouchUpTime <= STYLUS_UP_DEAD_ZONE_DELAY &&
-                            Math.sqrt(Math.pow(eventX - lastAbsTouchUpX, 2) + Math.pow(eventY - lastAbsTouchUpY, 2)) <= STYLUS_UP_DEAD_ZONE_RADIUS) {
-                        // Enforce a small deadzone between touch up and hover or touch down to allow more precise double-clicking
-                        return;
-                    }
-                    break;
-
-                case MotionEvent.ACTION_MOVE:
-                case MotionEvent.ACTION_UP:
-                    if (event.getEventTime() - lastAbsTouchDownTime <= STYLUS_DOWN_DEAD_ZONE_DELAY &&
-                            Math.sqrt(Math.pow(eventX - lastAbsTouchDownX, 2) + Math.pow(eventY - lastAbsTouchDownY, 2)) <= STYLUS_DOWN_DEAD_ZONE_RADIUS) {
-                        // Enforce a small deadzone between touch down and move or touch up to allow more precise double-clicking
-                        return;
-                    }
-                    break;
-            }
-        }
-
-        // We may get values slightly outside our view region on ACTION_HOVER_ENTER and ACTION_HOVER_EXIT.
-        // Normalize these to the view size. We can't just drop them because we won't always get an event
-        // right at the boundary of the view, so dropping them would result in our cursor never really
-        // reaching the sides of the screen.
-        eventX = Math.min(Math.max(eventX, 0), streamView.getWidth());
-        eventY = Math.min(Math.max(eventY, 0), streamView.getHeight());
-
-        conn.sendMousePosition((short)eventX, (short)eventY, (short)streamView.getWidth(), (short)streamView.getHeight());
-    }
-
-    private boolean shouldUseAbsoluteTouchpadScroll(MotionEvent event, int buttonState) {
-        if (event.getActionMasked() != MotionEvent.ACTION_MOVE || buttonState != 0 || event.getPointerCount() == 0) {
-            return false;
-        }
-
-        if (event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER) {
-            return true;
-        }
-
-        InputDevice device = event.getDevice();
-        if (device == null || device.getName() == null) {
-            return false;
-        }
-
-        String deviceName = device.getName().toLowerCase(Locale.ROOT);
-        return deviceName.contains("touchpad") ||
-                deviceName.contains("trackpad") ||
-                deviceName.contains("xiaomi");
     }
 
     @Override

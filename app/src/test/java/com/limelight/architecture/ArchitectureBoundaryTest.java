@@ -41,10 +41,12 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
-    public void touchInputCoreDoesNotDependOnStreamUi() {
+    public void pointerInputCoreDoesNotDependOnStreamUi() {
         noClasses()
                 .that()
-                .resideInAnyPackage("com.limelight.binding.input.touch..")
+                .resideInAnyPackage(
+                        "com.limelight.binding.input.pointer..",
+                        "com.limelight.binding.input.touch..")
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage(
@@ -56,10 +58,12 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
-    public void touchInputCoreDoesNotDependOnConcreteConnection() {
+    public void pointerInputCoreDoesNotDependOnConcreteConnection() {
         noClasses()
                 .that()
-                .resideInAnyPackage("com.limelight.binding.input.touch..")
+                .resideInAnyPackage(
+                        "com.limelight.binding.input.pointer..",
+                        "com.limelight.binding.input.touch..")
                 .should()
                 .dependOnClassesThat()
                 .haveFullyQualifiedName("com.limelight.nvstream.NvConnection")
@@ -68,10 +72,12 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
-    public void touchInputCoreDoesNotDependOnGameActivity() {
+    public void pointerInputCoreDoesNotDependOnGameActivity() {
         noClasses()
                 .that()
-                .resideInAnyPackage("com.limelight.binding.input.touch..")
+                .resideInAnyPackage(
+                        "com.limelight.binding.input.pointer..",
+                        "com.limelight.binding.input.touch..")
                 .should()
                 .dependOnClassesThat()
                 .haveFullyQualifiedName("com.limelight.Game")

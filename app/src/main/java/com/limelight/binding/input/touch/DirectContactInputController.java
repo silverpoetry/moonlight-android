@@ -5,6 +5,7 @@ import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
 
+import com.limelight.binding.input.PointerInputCompat;
 import com.limelight.binding.input.PointerInputSink;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.PreferenceConfiguration;
@@ -192,11 +193,11 @@ public final class DirectContactInputController {
             int pointerIndex) {
         byte penButtons = 0;
         if ((event.getButtonState() &
-                MotionEvent.BUTTON_STYLUS_PRIMARY) != 0) {
+                PointerInputCompat.BUTTON_STYLUS_PRIMARY) != 0) {
             penButtons |= MoonBridge.LI_PEN_BUTTON_PRIMARY;
         }
         if ((event.getButtonState() &
-                MotionEvent.BUTTON_STYLUS_SECONDARY) != 0) {
+                PointerInputCompat.BUTTON_STYLUS_SECONDARY) != 0) {
             penButtons |= MoonBridge.LI_PEN_BUTTON_SECONDARY;
         }
 
