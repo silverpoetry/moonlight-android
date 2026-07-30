@@ -15,7 +15,6 @@ import android.util.DisplayMetrics;
 import android.view.KeyEvent;
 
 import com.limelight.BuildConfig;
-import com.limelight.Game;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.binding.input.virtual_controller.DigitalPad;
@@ -226,9 +225,9 @@ public class KeyBoardControllerConfigurationLoader {
             @Override
             public void run() {
                 if ((Integer) keyShort == 4) {
-                    Game.instance.mouseHighResScroll(true);
+                    controller.sendHighResolutionScroll(true);
                 } else {
-                    Game.instance.mouseHighResScroll(false);
+                    controller.sendHighResolutionScroll(false);
                 }
                 button.postDelayed(this, 100);
             }

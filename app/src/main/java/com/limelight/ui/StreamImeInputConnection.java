@@ -8,14 +8,16 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.BaseInputConnection;
 
+import com.limelight.binding.input.StreamInputGateway;
+
 public class StreamImeInputConnection extends BaseInputConnection {
     private final Editable editable = new SpannableStringBuilder();
-    private final StreamInputCallbacks inputCallbacks;
+    private final StreamInputGateway inputGateway;
     private String composingText = "";
 
-    public StreamImeInputConnection(View targetView, StreamInputCallbacks inputCallbacks) {
+    public StreamImeInputConnection(View targetView, StreamInputGateway inputGateway) {
         super(targetView, true);
-        this.inputCallbacks = inputCallbacks;
+        this.inputGateway = inputGateway;
         syncEditable();
     }
 
@@ -65,28 +67,21 @@ public class StreamImeInputConnection extends BaseInputConnection {
 
     @Override
     public boolean sendKeyEvent(KeyEvent event) {
-        if (inputCallbacks == null || event == null) {
+        if (inputGateway == null || event == null) {
             return false;
         }
 
-        if (event.getAction() == KeyEvent.ACTION_DOWN) {
-            return inputCallbacks.handleKeyDown(event);
-        }
-        else if (event.getAction() == KeyEvent.ACTION_UP) {
-            return inputCallbacks.handleKeyUp(event);
-        }
-
-        return false;
+        return inputGateway.sendKeyEvent(event);
     }
 
     private boolean deleteSurroundingTextInternal(int beforeLength, int afterLength) {
-        if (beforeLength > 0 && inputCallbacks != null) {
-            inputCallbacks.handleImeBackspace(beforeLength);
+        if (beforeLength > 0 && inputGateway != null) {
+            inputGateway.sendImeBackspace(beforeLength);
             composingText = trimTrailingCodePoints(composingText, beforeLength);
         }
 
-        if (afterLength > 0 && inputCallbacks != null) {
-            inputCallbacks.handleImeForwardDelete(afterLength);
+        if (afterLength > 0 && inputGateway != null) {
+            inputGateway.sendImeForwardDelete(afterLength);
         }
 
         syncEditable();
@@ -94,7 +89,7 @@ public class StreamImeInputConnection extends BaseInputConnection {
     }
 
     private void replaceRemoteText(String oldText, String newText) {
-        if (inputCallbacks == null) {
+        if (inputGateway == null) {
             return;
         }
 
@@ -104,11 +99,11 @@ public class StreamImeInputConnection extends BaseInputConnection {
 
         int backspaceCount = codePointCount(oldSuffix);
         if (backspaceCount > 0) {
-            inputCallbacks.handleImeBackspace(backspaceCount);
+            inputGateway.sendImeBackspace(backspaceCount);
         }
 
         if (!newSuffix.isEmpty()) {
-            inputCallbacks.handleImeText(newSuffix);
+            inputGateway.sendImeText(newSuffix);
         }
     }
 

@@ -13,9 +13,11 @@ import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 
+import com.limelight.binding.input.StreamInputGateway;
+
 public class StreamView extends SurfaceView {
     private double desiredAspectRatio;
-    private StreamInputCallbacks inputCallbacks;
+    private StreamInputGateway inputGateway;
     private boolean imeActive;
 
 
@@ -38,8 +40,8 @@ public class StreamView extends SurfaceView {
         this.desiredAspectRatio = aspectRatio;
     }
 
-    public void setInputCallbacks(StreamInputCallbacks callbacks) {
-        this.inputCallbacks = callbacks;
+    public void setInputGateway(StreamInputGateway inputGateway) {
+        this.inputGateway = inputGateway;
     }
 
     public void setImeActive(boolean imeActive) {
@@ -94,7 +96,7 @@ public class StreamView extends SurfaceView {
                 EditorInfo.TYPE_TEXT_FLAG_AUTO_CORRECT |
                 EditorInfo.TYPE_TEXT_FLAG_MULTI_LINE;
         outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN;
-        return new StreamImeInputConnection(this, inputCallbacks);
+        return new StreamImeInputConnection(this, inputGateway);
     }
 
     @Override
@@ -129,17 +131,8 @@ public class StreamView extends SurfaceView {
 
         // This callbacks allows us to override dumb IME behavior like when
         // Samsung's default keyboard consumes Shift+Space.
-        if (inputCallbacks != null) {
-            if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                if (inputCallbacks.handleKeyDown(event)) {
-                    return true;
-                }
-            }
-            else if (event.getAction() == KeyEvent.ACTION_UP) {
-                if (inputCallbacks.handleKeyUp(event)) {
-                    return true;
-                }
-            }
+        if (inputGateway != null && inputGateway.sendKeyEvent(event)) {
+            return true;
         }
 
         return super.onKeyPreIme(keyCode, event);

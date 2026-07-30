@@ -7,6 +7,8 @@ import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.GameInputDevice;
 import com.limelight.binding.input.KeyboardTranslator;
+import com.limelight.binding.input.StreamInputGateway;
+import com.limelight.binding.input.StreamInputGatewayRegistry;
 import com.limelight.binding.input.capture.InputCaptureManager;
 import com.limelight.binding.input.capture.InputCaptureProvider;
 import com.limelight.binding.input.touch.AbsoluteTouchContext;
@@ -47,7 +49,7 @@ import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.gamemenu.GameMenuFragment;
 import com.limelight.ui.GameGestures;
 import com.limelight.ui.NativeCursorOverlayView;
-import com.limelight.ui.StreamInputCallbacks;
+import com.limelight.ui.StreamUiActions;
 import com.limelight.ui.StreamView;
 import com.limelight.ui.floatingview.AXFloatingMagnetView;
 import com.limelight.ui.floatingview.AXFloatingView;
@@ -147,14 +149,13 @@ import java.util.Map;
 
 public class Game extends Activity implements SurfaceHolder.Callback,
         OnGenericMotionListener, OnTouchListener, NvConnectionListener, EvdevListener,
-        OnSystemUiVisibilityChangeListener, GameGestures, StreamInputCallbacks,
+        OnSystemUiVisibilityChangeListener, GameGestures, StreamInputGateway,
+        StreamUiActions,
         PerfOverlayListener, UsbDriverService.UsbDriverStateListener, View.OnKeyListener,
         BarometerForcePressController.Listener {
     private static final float EXTERNAL_TOUCHPAD_SCROLL_FACTOR = 0.15f;
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 1001;
     private static final int REQUEST_CLIPBOARD_FILE_DIRECTORY = 1107;
-    public static Game instance;
-
     private int lastButtonState = 0;
     private float externalTouchpadScrollRemainderX = 0f;
     private float externalTouchpadScrollRemainderY = 0f;
@@ -291,13 +292,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private boolean usbPermissionPromptVisible;
     private boolean fsrViewLifecyclePaused;
     private BackNavigationRegistration backNavigationRegistration;
+    private StreamInputGatewayRegistry.Registration inputGatewayRegistration;
 
     @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        instance=this;
         softKeyboardGestureCoordinator = new SoftKeyboardGestureCoordinator(
                 ViewConfiguration.get(this).getScaledTouchSlop(),
                 new SoftKeyboardGestureCoordinator.Listener() {
@@ -369,7 +370,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         streamView = findViewById(R.id.surfaceView);
         streamView.setOnGenericMotionListener(this);
         streamView.setOnKeyListener(this);
-        streamView.setInputCallbacks(this);
+        streamView.setInputGateway(this);
         barometerForcePressController =
                 new BarometerForcePressController(this, this);
         barometerForcePressController.setThresholdHpa(
@@ -852,20 +853,26 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void initKeyboardController(){
-        keyBoardController=new KeyBoardController(controllerHandler, (FrameLayout) rootView, this,prefConfig,false);
+        keyBoardController = new KeyBoardController(
+                controllerHandler, (FrameLayout) rootView, this, prefConfig,
+                false, this, this);
 //        keyBoardController.refreshLayout();
         keyBoardController.show();
     }
 
 
     private void initVirtualController(){
-        virtualController = new KeyBoardController(controllerHandler,(FrameLayout) rootView, this,prefConfig,true);
+        virtualController = new KeyBoardController(
+                controllerHandler, (FrameLayout) rootView, this, prefConfig,
+                true, this, this);
 //        virtualController.refreshLayout();
         virtualController.show();
     }
 
     private void initkeyBoardLayoutController(){
-        keyBoardLayoutController=new KeyBoardLayoutController(controllerHandler,(FrameLayout)rootView, this,prefConfig);
+        keyBoardLayoutController = new KeyBoardLayoutController(
+                controllerHandler, (FrameLayout) rootView, this, prefConfig,
+                this, this);
         keyBoardLayoutController.refreshLayout();
         keyBoardLayoutController.show();
     }
@@ -896,6 +903,38 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             return;
         }
         prefConfig.onscreenController= virtualController.switchShowHide() != 0;
+    }
+
+    @Override
+    public void performStreamUiAction(StreamUiActions.Action action) {
+        switch (action) {
+            case TOGGLE_SOFT_KEYBOARD:
+                if (!hasWindowFocus()) {
+                    streamView.postDelayed(this::toggleKeyboard, 10);
+                }
+                else {
+                    toggleKeyboard();
+                }
+                break;
+            case TOGGLE_VIRTUAL_KEYS:
+                showHideKeyboardController();
+                break;
+            case TOGGLE_FULL_KEYBOARD:
+                showHidekeyBoardLayoutController();
+                break;
+            case TOGGLE_VIRTUAL_GAMEPAD:
+                showHideVirtualController();
+                break;
+            case TOGGLE_FLOATING_BUTTON:
+                switchFloatView();
+                break;
+            case TOGGLE_PERFORMANCE_OVERLAY:
+                showHUD();
+                break;
+            case OPEN_STREAM_MENU:
+                showGameMenu(null);
+                break;
+        }
     }
 
     private void setPreferredOrientationForCurrentDisplay() {
@@ -1414,6 +1453,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        unregisterInputGateway();
         softKeyboardGestureCoordinator.cancel();
         if (backNavigationRegistration != null) {
             backNavigationRegistration.unregister();
@@ -1427,7 +1467,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
         super.onDestroy();
 
-        instance = null;
         UiHelper.notifyHdrWindowStatus(this, false);
 
         if(presentation!=null){
@@ -1503,6 +1542,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     protected void onStop() {
+        unregisterInputGateway();
         super.onStop();
 
         SpinnerDialog.closeDialogs(this);
@@ -1621,6 +1661,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     protected void onStart() {
         super.onStart();
+        unregisterInputGateway();
+        inputGatewayRegistration =
+                StreamInputGatewayRegistry.getInstance().register(this);
         if (isAutoLink) {
             isAutoLink = false;
             recreate();
@@ -1792,8 +1835,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         return handleKeyDown(event) || super.onKeyDown(keyCode, event);
     }
 
-    @Override
-    public boolean handleKeyDown(KeyEvent event) {
+    private boolean handleKeyDown(KeyEvent event) {
         // Pass-through virtual navigation keys
         if ((event.getFlags() & KeyEvent.FLAG_VIRTUAL_HARD_KEY) != 0) {
             return false;
@@ -1878,8 +1920,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         return handleKeyUp(event) || super.onKeyUp(keyCode, event);
     }
 
-    @Override
-    public boolean handleKeyUp(KeyEvent event) {
+    private boolean handleKeyUp(KeyEvent event) {
         // Pass-through virtual navigation keys
         if ((event.getFlags() & KeyEvent.FLAG_VIRTUAL_HARD_KEY) != 0) {
             return false;
@@ -1960,8 +2001,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     @Override
-    public void handleImeText(String text) {
-        if (conn == null || !grabbedInput || text == null || text.isEmpty()) {
+    public void sendImeText(String text) {
+        if (!isInputReady() || !grabbedInput ||
+                text == null || text.isEmpty()) {
             return;
         }
 
@@ -1969,17 +2011,17 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     @Override
-    public void handleImeBackspace(int count) {
+    public void sendImeBackspace(int count) {
         sendImeKey((short) KeyboardTranslator.VK_BACK_SPACE, count);
     }
 
     @Override
-    public void handleImeForwardDelete(int count) {
+    public void sendImeForwardDelete(int count) {
         sendImeKey((short) 0x2e, count);
     }
 
     private void sendImeKey(short keyCode, int count) {
-        if (conn == null || !grabbedInput || count <= 0) {
+        if (!isInputReady() || !grabbedInput || count <= 0) {
             return;
         }
 
@@ -2046,6 +2088,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 view,
                 event,
                 getSoftKeyboardGestureFingerCount());
+    }
+
+    private void unregisterInputGateway() {
+        if (inputGatewayRegistration != null) {
+            inputGatewayRegistration.unregister();
+            inputGatewayRegistration = null;
+        }
     }
 
     /**
@@ -3493,6 +3542,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     @Override
+    public void sendRelativeMouseMove(int deltaX, int deltaY) {
+        if (isInputReady()) {
+            mouseMove(deltaX, deltaY);
+        }
+    }
+
+    @Override
     public void mouseButtonEvent(int buttonId, boolean down) {
         byte buttonIndex;
 
@@ -3527,6 +3583,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     @Override
+    public void sendMouseButton(int buttonId, boolean down) {
+        if (isInputReady()) {
+            mouseButtonEvent(buttonId, down);
+        }
+    }
+
+    @Override
     public void mouseVScroll(byte amount) {
         conn.sendMouseScroll(amount);
     }
@@ -3538,6 +3601,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     public void mouseHighResScroll(boolean up){
         conn.sendMouseHighResScroll((short) (up?prefConfig.mouseSCAmount*50:-50*prefConfig.mouseSCAmount));
+    }
+
+    @Override
+    public void sendHighResolutionScroll(boolean up) {
+        if (isInputReady()) {
+            mouseHighResScroll(up);
+        }
     }
 
     @Override
@@ -3892,6 +3962,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             default:
                 return false;
         }
+    }
+
+    @Override
+    public boolean sendKeyEvent(KeyEvent event) {
+        return event != null && isInputReady() &&
+                onKey(null, event.getKeyCode(), event);
     }
 
     private static final long BACK_EXIT_INTERVAL_MS = 2000;
@@ -4413,6 +4489,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public boolean isSessionConnected() {
         return sessionController != null &&
                 sessionController.getState().isStreaming();
+    }
+
+    @Override
+    public boolean isInputReady() {
+        return isSessionConnected();
     }
 
     private boolean isRecordAudioPermissionGranted() {

@@ -5,7 +5,6 @@
 package com.limelight.binding.input.virtual_controller.keyboard;
 
 import android.content.Context;
-import android.os.Handler;
 import android.os.Vibrator;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -20,19 +19,23 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 
-import com.limelight.Game;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.binding.input.ControllerHandler;
+import com.limelight.binding.input.StreamInputGateway;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.ui.StreamUiActions;
 import com.limelight.ui.gamemenu.TouchPadView;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class KeyBoardLayoutController {
 
     private final ControllerHandler controllerHandler;
+    private final StreamInputGateway inputGateway;
+    private final StreamUiActions uiActions;
     private final Context context;
     private FrameLayout frame_layout = null;
     private Vibrator vibrator;
@@ -40,8 +43,15 @@ public class KeyBoardLayoutController {
     private RadioGroup rg_keyboard;
     private PreferenceConfiguration prefConfig;
 
-    public KeyBoardLayoutController(final ControllerHandler controllerHandler, FrameLayout layout, final Context context,PreferenceConfiguration prefConfig) {
+    public KeyBoardLayoutController(final ControllerHandler controllerHandler,
+                                    FrameLayout layout,
+                                    final Context context,
+                                    PreferenceConfiguration prefConfig,
+                                    StreamInputGateway inputGateway,
+                                    StreamUiActions uiActions) {
         this.controllerHandler = controllerHandler;
+        this.inputGateway = Objects.requireNonNull(inputGateway, "inputGateway");
+        this.uiActions = Objects.requireNonNull(uiActions, "uiActions");
         this.frame_layout = layout;
         this.context = context;
         this.prefConfig=prefConfig;
@@ -225,7 +235,9 @@ public class KeyBoardLayoutController {
 
         keyboardView.findViewById(R.id.iv_down).setOnClickListener(v -> hide());
 
-        keyboardView.findViewById(R.id.iv_game_menu).setOnClickListener(v -> Game.instance.showGameMenu(null));
+        keyboardView.findViewById(R.id.iv_game_menu).setOnClickListener(v ->
+                uiActions.performStreamUiAction(
+                        StreamUiActions.Action.OPEN_STREAM_MENU));
 
         rg_keyboard=keyboardView.findViewById(R.id.rg_keyboard);
         rg_keyboard.check(R.id.rbt_keyboard_1);
@@ -253,33 +265,27 @@ public class KeyBoardLayoutController {
         touchPadView.setViewLister(new TouchPadView.TouchPadViewLister() {
             @Override
             public void sendMouseMove(float dx, float dy) {
-                Game.instance.mouseMove((int) dx, (int) dy);
+                inputGateway.sendRelativeMouseMove((int) dx, (int) dy);
             }
 
             @Override
             public void sendMouseLeft(boolean down) {
-//                Game.instance.mouseButtonEvent(1,down);
             }
 
             @Override
             public void sendMouseRight(boolean down) {
-//                Game.instance.mouseButtonEvent(3,down);
             }
 
             @Override
             public void sendMouseScroll(float distance) {
-//                Game.instance.mouseHScroll((byte) distance);
             }
         });
 
         keyboardView.findViewById(R.id.btn_soft_phone).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (!Game.instance.hasWindowFocus()) {
-                    new Handler().postDelayed(() -> Game.instance.toggleKeyboard(),10);
-                    return;
-                }
-                Game.instance.toggleKeyboard();
+                uiActions.performStreamUiAction(
+                        StreamUiActions.Action.TOGGLE_SOFT_KEYBOARD);
             }
         });
 
@@ -287,7 +293,7 @@ public class KeyBoardLayoutController {
             private Runnable repeater = new Runnable() {
                 @Override
                 public void run() {
-                    Game.instance.mouseHighResScroll(true);
+                    inputGateway.sendHighResolutionScroll(true);
                     keyboardView.findViewById(R.id.mouse_up).postDelayed(this, 100);
                 }
             };
@@ -314,7 +320,7 @@ public class KeyBoardLayoutController {
             private Runnable repeater = new Runnable() {
                 @Override
                 public void run() {
-                    Game.instance.mouseHighResScroll(false);
+                    inputGateway.sendHighResolutionScroll(false);
                     keyboardView.findViewById(R.id.mouse_down).postDelayed(this, 100);
                 }
             };
@@ -396,14 +402,16 @@ public class KeyBoardLayoutController {
     }
 
     public void sendKeyEvent(KeyEvent keyEvent) {
-        if (Game.instance == null || !Game.instance.isSessionConnected()) {
+        if (!inputGateway.isInputReady()) {
             return;
         }
         //1-鼠标 0-按键 2-摇杆 3-十字键
         if (keyEvent.getSource() == 1) {
-            Game.instance.mouseButtonEvent(keyEvent.getKeyCode(), KeyEvent.ACTION_DOWN == keyEvent.getAction());
+            inputGateway.sendMouseButton(
+                    keyEvent.getKeyCode(),
+                    KeyEvent.ACTION_DOWN == keyEvent.getAction());
         } else {
-            Game.instance.onKey(null, keyEvent.getKeyCode(), keyEvent);
+            inputGateway.sendKeyEvent(keyEvent);
         }
 //        if (prefConfig.enableKeyboardVibrate && vibrator.hasVibrator()) {
 //            vibrator.vibrate(10);

@@ -824,13 +824,13 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
         for (int i = 0; i < keys.length; i++) {
             KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN,Integer.parseInt(keys[i]));
             keyEvent.setSource(0);
-            Game.instance.onKey(null, keyEvent.getKeyCode(), keyEvent);
+            game.sendKeyEvent(keyEvent);
         }
         new Handler().postDelayed((() -> {
             for (int i = keys.length - 1; i >= 0; i--) {
                 KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_UP,Integer.parseInt(keys[i]));
                 keyEvent.setSource(0);
-                Game.instance.onKey(null, keyEvent.getKeyCode(), keyEvent);
+                game.sendKeyEvent(keyEvent);
             }
         }), KEY_UP_DELAY);
     }

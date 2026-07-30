@@ -7,9 +7,10 @@ import androidx.core.content.FileProvider;
 import android.text.TextUtils;
 import android.view.InputDevice;
 import android.view.KeyEvent;
-import android.view.MotionEvent;
 import android.view.accessibility.AccessibilityEvent;
 
+import com.limelight.binding.input.StreamInputGateway;
+import com.limelight.binding.input.StreamInputGatewayRegistry;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.utils.FileUriUtils;
 
@@ -21,9 +22,11 @@ import java.util.Arrays;
 import java.util.List;
 
 public class KeyboardAccessibilityService extends AccessibilityService {
+    private static final String KEY_REMAP_FILE_NAME =
+            "axi_switch_keyboard.json";
 
     //不屏蔽的按键列表
-    private final static List BLACKLIST_KEYS = Arrays.asList(
+    private static final List<Integer> PASSTHROUGH_KEYS = Arrays.asList(
             KeyEvent.KEYCODE_VOLUME_UP,
             KeyEvent.KEYCODE_VOLUME_DOWN,
             KeyEvent.KEYCODE_POWER
@@ -32,77 +35,77 @@ public class KeyboardAccessibilityService extends AccessibilityService {
     @Override
     public boolean onKeyEvent(KeyEvent event) {
         //如果是手柄类型则忽略
-        int sources = event.getDevice().getSources();
-        if (((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD)) {
+        InputDevice device = event.getDevice();
+        if (device != null &&
+                (device.getSources() & InputDevice.SOURCE_GAMEPAD) ==
+                        InputDevice.SOURCE_GAMEPAD) {
             return super.onKeyEvent(event);
         }
+
         int action = event.getAction();
-        int keyCode = event.getKeyCode();
-        if (action == KeyEvent.ACTION_DOWN&&PreferenceConfiguration.readPreferences(this).enableAccessibilityShowLog) {
+        if (action != KeyEvent.ACTION_DOWN &&
+                action != KeyEvent.ACTION_UP) {
+            return super.onKeyEvent(event);
+        }
+
+        StreamInputGateway inputGateway =
+                StreamInputGatewayRegistry.getInstance().getActiveGateway();
+        if (inputGateway == null || !inputGateway.isInputReady() ||
+                PASSTHROUGH_KEYS.contains(event.getKeyCode())) {
+            return super.onKeyEvent(event);
+        }
+
+        if (action == KeyEvent.ACTION_DOWN &&
+                PreferenceConfiguration.readPreferences(this)
+                        .enableAccessibilityShowLog) {
             LimeLog.info(
                     "Accessibility key: scancode=" +
                             event.getScanCode() +
                             ", keycode=" + event.getKeyCode());
         }
-        String displayName = "axi_switch_keyboard.json";
-        File dataBaseFile=new File(getFilesDir().getAbsolutePath(), displayName);
-        String authority= getApplicationContext().getPackageName()+".fileprovider";
-        Uri uri= FileProvider.getUriForFile(this,authority,dataBaseFile);
-        String result= FileUriUtils.openUriForRead(this,uri);
-        //主要解决系统自带快捷键在pc端无法使用问题 home键 scancode=172 code- 3
-        if (Game.instance != null && Game.instance.isSessionConnected() &&
-                !BLACKLIST_KEYS.contains(keyCode)) {
 
-            if (action == KeyEvent.ACTION_DOWN) {
-                //fix 小米平板esc键按钮映射错误 KEYCODE_BACK=4
-                if(event.getScanCode()==1){
-                    Game.instance.handleKeyDown(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ESCAPE));
-                    return true;
-                }
-                if(!TextUtils.isEmpty(result)){
-                    try{
-                        JSONObject jsonObject = new JSONObject(result);
-                        JSONArray array = jsonObject.getJSONArray("data");
-                        for (int i = 0; i < array.length(); i++) {
-                            JSONObject jsonObject1=array.getJSONObject(i);
-                            if(event.getScanCode()==jsonObject1.getInt("scancode")){
-                                Game.instance.handleKeyDown(new KeyEvent(KeyEvent.ACTION_DOWN, jsonObject1.getInt("code")));
-                                return true;
-                            }
-                        }
-                    }catch (Exception e){
-                        e.printStackTrace();
-                    }
-                }
-                Game.instance.handleKeyDown(event);
-                return true;
-            } else if (action == KeyEvent.ACTION_UP) {
-                //fix 小米平板esc键按钮映射错误 KEYCODE_BACK=4
-                if(event.getScanCode()==1){
-                    Game.instance.handleKeyUp(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ESCAPE));
-                    return true;
-                }
-                if(!TextUtils.isEmpty(result)){
-                    try{
-                        JSONObject jsonObject = new JSONObject(result);
-                        JSONArray array = jsonObject.getJSONArray("data");
-                        for (int i = 0; i < array.length(); i++) {
-                            JSONObject jsonObject1=array.getJSONObject(i);
-                            if(event.getScanCode()==jsonObject1.getInt("scancode")){
-                                Game.instance.handleKeyUp(new KeyEvent(KeyEvent.ACTION_UP, jsonObject1.getInt("code")));
-                                return true;
-                            }
-                        }
-                    }catch (Exception e){
-                        e.printStackTrace();
-                    }
-                }
-                Game.instance.handleKeyUp(event);
-                return true;
-            }
+        Integer remappedKeyCode = findRemappedKeyCode(event.getScanCode());
+        if (remappedKeyCode != null) {
+            inputGateway.sendKeyEvent(
+                    new KeyEvent(action, remappedKeyCode));
+        }
+        else {
+            inputGateway.sendKeyEvent(event);
+        }
+        return true;
+    }
+
+    private Integer findRemappedKeyCode(int scanCode) {
+        // Xiaomi devices may expose the physical Esc key as Android Back.
+        if (scanCode == 1) {
+            return KeyEvent.KEYCODE_ESCAPE;
         }
 
-        return super.onKeyEvent(event);
+        File mappingFile = new File(getFilesDir(), KEY_REMAP_FILE_NAME);
+        String authority =
+                getApplicationContext().getPackageName() + ".fileprovider";
+        Uri uri = FileProvider.getUriForFile(this, authority, mappingFile);
+        String mappingJson = FileUriUtils.openUriForRead(this, uri);
+        if (TextUtils.isEmpty(mappingJson)) {
+            return null;
+        }
+
+        try {
+            JSONArray mappings =
+                    new JSONObject(mappingJson).getJSONArray("data");
+            for (int i = 0; i < mappings.length(); i++) {
+                JSONObject mapping = mappings.getJSONObject(i);
+                if (scanCode == mapping.getInt("scancode")) {
+                    return mapping.getInt("code");
+                }
+            }
+        }
+        catch (Exception error) {
+            LimeLog.warning(
+                    "Unable to parse accessibility key mapping: " +
+                            error.getMessage());
+        }
+        return null;
     }
 
     @Override

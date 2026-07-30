@@ -29,12 +29,13 @@ import android.widget.TextView;
 import com.limelight.utils.UiToast;
 
 import com.google.gson.Gson;
-import com.limelight.Game;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.binding.input.ControllerHandler;
+import com.limelight.binding.input.StreamInputGateway;
 import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.ui.StreamUiActions;
 import com.limelight.ui.gamemenu.GameKeyboardUpdateFragment;
 import com.limelight.ui.gamemenu.GamePadAddFragment;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
@@ -45,6 +46,7 @@ import com.limelight.utils.UiHelper;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE;
 import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE_VALUE;
@@ -77,6 +79,8 @@ public class KeyBoardController {
     private static final boolean _PRINT_DEBUG_INFORMATION = false;
 
     private final ControllerHandler controllerHandler;
+    private final StreamInputGateway inputGateway;
+    private final StreamUiActions uiActions;
 
     ControllerInputContext inputContext = new ControllerInputContext();
 
@@ -127,8 +131,16 @@ public class KeyBoardController {
 
     private boolean isGamePadMode;
 
-    public KeyBoardController(final ControllerHandler controllerHandler, FrameLayout layout, final Activity context,PreferenceConfiguration prefConfig,boolean isGamePadMode) {
+    public KeyBoardController(final ControllerHandler controllerHandler,
+                              FrameLayout layout,
+                              final Activity context,
+                              PreferenceConfiguration prefConfig,
+                              boolean isGamePadMode,
+                              StreamInputGateway inputGateway,
+                              StreamUiActions uiActions) {
         this.controllerHandler = controllerHandler;
+        this.inputGateway = Objects.requireNonNull(inputGateway, "inputGateway");
+        this.uiActions = Objects.requireNonNull(uiActions, "uiActions");
         this.frame_layout = layout;
         this.context = context;
         this.isGamePadMode=isGamePadMode;
@@ -727,14 +739,16 @@ public class KeyBoardController {
     }
 
     public void sendKeyEvent(KeyEvent keyEvent) {
-        if (Game.instance == null || !Game.instance.isSessionConnected()) {
+        if (!inputGateway.isInputReady()) {
             return;
         }
         //1-鼠标 0-按键 2-摇杆 3-十字键
         if (keyEvent.getSource() == 1) {
-            Game.instance.mouseButtonEvent(keyEvent.getKeyCode(), KeyEvent.ACTION_DOWN == keyEvent.getAction());
+            inputGateway.sendMouseButton(
+                    keyEvent.getKeyCode(),
+                    KeyEvent.ACTION_DOWN == keyEvent.getAction());
         } else {
-            Game.instance.onKey(null, keyEvent.getKeyCode(), keyEvent);
+            inputGateway.sendKeyEvent(keyEvent);
         }
         if (prefConfig.enableKeyboardVibrate && vibrator.hasVibrator()&&keyEvent.getSource()!=2) {
             vibrator.vibrate(10);
@@ -742,10 +756,11 @@ public class KeyBoardController {
     }
 
     public void sendMouseMove(int x,int y){
-        if (Game.instance == null || !Game.instance.isSessionConnected()) {
-            return;
-        }
-        Game.instance.mouseMove(x,y);
+        inputGateway.sendRelativeMouseMove(x, y);
+    }
+
+    public void sendHighResolutionScroll(boolean up) {
+        inputGateway.sendHighResolutionScroll(up);
     }
 
     public void sendAssembleKey(String codes,int action){
@@ -761,29 +776,32 @@ public class KeyBoardController {
             int value= Integer.parseInt(keys[4]);
             switch (value){
                 case 7://0 软键盘
-                    if (!Game.instance.hasWindowFocus()) {
-                        new Handler().postDelayed(() -> Game.instance.toggleKeyboard(),10);
-                        return;
-                    }
-                    Game.instance.toggleKeyboard();
+                    uiActions.performStreamUiAction(
+                            StreamUiActions.Action.TOGGLE_SOFT_KEYBOARD);
                     break;
                 case 8://1 虚拟按键
-                    Game.instance.showHideKeyboardController();
+                    uiActions.performStreamUiAction(
+                            StreamUiActions.Action.TOGGLE_VIRTUAL_KEYS);
                     break;
                 case 9://2 全键盘
-                    Game.instance.showHidekeyBoardLayoutController();
+                    uiActions.performStreamUiAction(
+                            StreamUiActions.Action.TOGGLE_FULL_KEYBOARD);
                     break;
                 case 10://3 虚拟手柄
-                    Game.instance.showHideVirtualController();
+                    uiActions.performStreamUiAction(
+                            StreamUiActions.Action.TOGGLE_VIRTUAL_GAMEPAD);
                     break;
                 case 11://4 悬浮球
-                    Game.instance.switchFloatView();
+                    uiActions.performStreamUiAction(
+                            StreamUiActions.Action.TOGGLE_FLOATING_BUTTON);
                     break;
                 case 12://5 性能信息
-                    Game.instance.showHUD();
+                    uiActions.performStreamUiAction(
+                            StreamUiActions.Action.TOGGLE_PERFORMANCE_OVERLAY);
                     break;
                 case 13://6 快捷菜单
-                    Game.instance.showGameMenu(null);
+                    uiActions.performStreamUiAction(
+                            StreamUiActions.Action.OPEN_STREAM_MENU);
                     break;
             }
             return;
@@ -791,7 +809,7 @@ public class KeyBoardController {
         for (int i = 0; i < keys.length; i++) {
             KeyEvent keyEvent = new KeyEvent(action,Integer.parseInt(keys[i]));
             keyEvent.setSource(0);
-            Game.instance.onKey(null, keyEvent.getKeyCode(), keyEvent);
+            inputGateway.sendKeyEvent(keyEvent);
         }
     }
 
