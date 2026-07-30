@@ -20,6 +20,7 @@ import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -104,6 +105,35 @@ public final class TouchscreenTouchpadHandlerTest {
                 event(50, MotionEvent.ACTION_UP, 0, 190, 150)));
         assertEquals(0, connection.mouseMovePackets);
         assertFalse(handler.isHandlingGesture());
+    }
+
+    @Test
+    public void twoFingerGestureProtocolTraceIsStable() {
+        TouchscreenTouchpadHandler handler = createHandler();
+        handler.setSinglePointerRemainderMode(
+                TouchscreenTouchpadHandler.SinglePointerRemainderMode.SUPPRESS);
+
+        handler.handleMotionEvent(eventView,
+                event(0, MotionEvent.ACTION_DOWN, 0, 100, 100));
+        handler.handleMotionEvent(eventView,
+                event(10, MotionEvent.ACTION_POINTER_DOWN, 1,
+                        100, 100, 700, 300));
+        handler.handleMotionEvent(eventView,
+                event(20, MotionEvent.ACTION_MOVE, 0,
+                        120, 110, 720, 310));
+        handler.handleMotionEvent(eventView,
+                event(30, MotionEvent.ACTION_POINTER_UP, 1,
+                        130, 120, 730, 320));
+        handler.handleMotionEvent(eventView,
+                event(40, MotionEvent.ACTION_UP, 0, 130, 120));
+
+        assertEquals(
+                "2:DOWN#0@0.1000,0.2000|DOWN#1@0.7000,0.6000:b0\n" +
+                        "2:MOVE#0@0.1200,0.2200|MOVE#1@0.7200,0.6200:b0\n" +
+                        "2:UP#0@0.1300,0.2400|UP#1@0.7300,0.6400:b0",
+                connection.frameTrace());
+        assertEquals(0, connection.mouseMovePackets);
+        assertEquals(0, connection.mouseButtonPackets);
     }
 
     @Test
@@ -301,14 +331,16 @@ public final class TouchscreenTouchpadHandlerTest {
     private static final class Frame {
         final int contactCount;
         final byte[] eventTypes;
+        final int[] pointerIds;
         final float[] x;
         final float[] y;
         final byte buttonState;
 
-        Frame(int contactCount, byte[] eventTypes,
+        Frame(int contactCount, byte[] eventTypes, int[] pointerIds,
               float[] x, float[] y, byte buttonState) {
             this.contactCount = contactCount;
             this.eventTypes = eventTypes;
+            this.pointerIds = pointerIds;
             this.x = x;
             this.y = y;
             this.buttonState = buttonState;
@@ -339,11 +371,14 @@ public final class TouchscreenTouchpadHandlerTest {
                                           byte buttonState) {
             byte[] copiedEventTypes = new byte[contactCount];
             System.arraycopy(eventTypes, 0, copiedEventTypes, 0, contactCount);
+            int[] copiedPointerIds = new int[contactCount];
+            System.arraycopy(pointerIds, 0, copiedPointerIds, 0, contactCount);
             float[] copiedX = new float[contactCount];
             float[] copiedY = new float[contactCount];
             System.arraycopy(x, 0, copiedX, 0, contactCount);
             System.arraycopy(y, 0, copiedY, 0, contactCount);
             frames.add(new Frame(contactCount, copiedEventTypes,
+                    copiedPointerIds,
                     copiedX, copiedY, buttonState));
             return 0;
         }
@@ -379,6 +414,51 @@ public final class TouchscreenTouchpadHandlerTest {
         @Override
         public void sendMouseButtonUp(byte mouseButton) {
             mouseButtonPackets++;
+        }
+
+        String frameTrace() {
+            StringBuilder trace = new StringBuilder();
+            for (Frame frame : frames) {
+                if (trace.length() != 0) {
+                    trace.append('\n');
+                }
+                trace.append(frame.contactCount).append(':');
+                for (int i = 0; i < frame.contactCount; i++) {
+                    if (i != 0) {
+                        trace.append('|');
+                    }
+                    trace.append(eventTypeName(frame.eventTypes[i]))
+                            .append('#')
+                            .append(frame.pointerIds[i])
+                            .append('@')
+                            .append(String.format(
+                                    Locale.US,
+                                    "%.4f,%.4f",
+                                    frame.x[i],
+                                    frame.y[i]));
+                }
+                trace.append(":b").append(frame.buttonState);
+            }
+            return trace.toString();
+        }
+
+        private static String eventTypeName(byte eventType) {
+            if (eventType == MoonBridge.LI_TOUCH_EVENT_DOWN) {
+                return "DOWN";
+            }
+            if (eventType == MoonBridge.LI_TOUCH_EVENT_MOVE) {
+                return "MOVE";
+            }
+            if (eventType == MoonBridge.LI_TOUCH_EVENT_UP) {
+                return "UP";
+            }
+            if (eventType == MoonBridge.LI_TOUCH_EVENT_CANCEL) {
+                return "CANCEL";
+            }
+            if (eventType == MoonBridge.LI_TOUCH_EVENT_BUTTON_ONLY) {
+                return "BUTTON";
+            }
+            return Byte.toString(eventType);
         }
     }
 }
