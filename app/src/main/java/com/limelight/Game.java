@@ -50,6 +50,7 @@ import com.limelight.ui.clipboard.RemoteClipboardFileTransferController;
 import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.stream.StreamFailureDiagnostics;
+import com.limelight.ui.stream.StreamSessionUiEffects;
 import com.limelight.ui.stream.StreamWifiLockController;
 import com.limelight.ui.GameGestures;
 import com.limelight.ui.NativeCursorOverlayView;
@@ -158,6 +159,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private NvConnection conn;
     private StreamSessionController sessionController;
     private StreamFailureDiagnostics failureDiagnostics;
+    private StreamSessionUiEffects sessionUiEffects;
     private SpinnerDialog spinner;
     private boolean displayedFailureDialog = false;
     private boolean awaitingRecordAudioPermission = false;
@@ -646,6 +648,38 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         443,
                         portFlags),
                 command -> mainHandler.post(command));
+        sessionUiEffects = new StreamSessionUiEffects(
+                new StreamSessionUiEffects.Host() {
+                    @Override
+                    public void setKeepScreenOn(
+                            boolean keepScreenOn) {
+                        if (keepScreenOn) {
+                            getWindow().addFlags(
+                                    WindowManager.LayoutParams
+                                            .FLAG_KEEP_SCREEN_ON);
+                        }
+                        else {
+                            getWindow().clearFlags(
+                                    WindowManager.LayoutParams
+                                            .FLAG_KEEP_SCREEN_ON);
+                        }
+                    }
+
+                    @Override
+                    public void notifyStreamConnecting() {
+                        UiHelper.notifyStreamConnecting(Game.this);
+                    }
+
+                    @Override
+                    public void notifyStreamConnected() {
+                        UiHelper.notifyStreamConnected(Game.this);
+                    }
+
+                    @Override
+                    public void notifyStreamEnded() {
+                        UiHelper.notifyStreamEnded(Game.this);
+                    }
+                });
         sessionController = new StreamSessionController(conn, this);
         TouchInputController touchInputController =
                 new TouchInputController(
@@ -1402,6 +1436,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             sessionController.destroy();
             sessionController = null;
         }
+        if (sessionUiEffects != null) {
+            sessionUiEffects.destroy();
+            sessionUiEffects = null;
+        }
         if (backNavigationRegistration != null) {
             backNavigationRegistration.unregister();
             backNavigationRegistration = null;
@@ -1879,10 +1917,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             audioRenderer = null;
 
             controllerHandler.stop();
-
-            // Update GameManager state to indicate we're no longer in game
-            UiHelper.notifyStreamEnded(this);
-
+            sessionUiEffects.onEnded();
         }
     }
 
@@ -1969,8 +2004,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             if (!canPresentSessionUi()) {
                 return;
             }
-            getWindow().clearFlags(
-                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             controllerHandler.stop();
             setInputGrabState(false);
 
@@ -2134,11 +2167,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     }
                 }, 500);
 
-                // Keep the display on
-                getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
-                // Update GameManager state to indicate we're in game
-                UiHelper.notifyStreamConnected(Game.this);
+                sessionUiEffects.onConnected();
 
                 hideSystemUi(1000);
             }
@@ -2981,6 +3010,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void startConnectionIfReady() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            runOnUiThread(this::startConnectionIfReady);
+            return;
+        }
         if (!sessionDependenciesReady ||
                 sessionController == null ||
                 !sessionController.canStart()) {
@@ -3014,18 +3047,18 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         audioRenderer = new AndroidAudioRenderer(Game.this, controllerHandler, prefConfig.enableAudioFx,
                 prefConfig.enableAudioHaptics, prefConfig.audioHapticsStrength,
                 prefConfig.audioHapticsVoiceFilter, prefConfig.audioHapticsOutputTarget);
-        UiHelper.notifyStreamConnecting(Game.this);
+        sessionUiEffects.onConnecting();
         try {
             if (sessionController.start(audioRenderer, decoderRenderer)) {
                 return;
             }
         } catch (RuntimeException | Error error) {
             audioRenderer = null;
-            UiHelper.notifyStreamEnded(Game.this);
+            sessionUiEffects.onEnded();
             throw error;
         }
         audioRenderer = null;
-        UiHelper.notifyStreamEnded(Game.this);
+        sessionUiEffects.onEnded();
     }
 
     private boolean hasSessionStarted() {

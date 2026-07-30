@@ -49,6 +49,10 @@ invalidated when the Activity is destroyed.
 acquires each mode independently, releases only held locks in reverse order,
 and makes partial failure and repeated destruction safe.
 
-The next migration slices move render/audio resource lifetime and stream UI
-effects behind session-scoped ports. Until those slices are complete, `Game`
-remains the presentation adapter for accepted callbacks.
+`StreamSessionUiEffects` is the idempotent main-thread owner for the
+connecting/connected/ended platform notifications and the keep-screen-on flag.
+Every accepted end path clears the flag and publishes the ended state once.
+
+The next migration slices move render/audio resource lifetime and the remaining
+callback presentation behind session-scoped ports. Until those slices are
+complete, `Game` remains the presentation adapter for accepted callbacks.
