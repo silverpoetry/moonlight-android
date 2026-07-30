@@ -95,8 +95,6 @@ public class PreferenceConfiguration {
     //是否弹出软键盘
     private static final String CHECKBOX_ENABLE_QUIT_DIALOG = "checkbox_enable_quit_dialog";
 
-    //VR模式
-    private static final String CHECKBOX_ENABLE_SBS = "checkbox_enable_sbs";
     //竖屏模式
     public static final String CHECKBOX_ENABLE_PORTRAIT = "checkbox_enable_portrait";
     //屏幕特殊按键
@@ -280,8 +278,6 @@ public class PreferenceConfiguration {
     //启动自定义配置文件
     public boolean enableCustomKeyboardFile;
 
-    //VR模式
-    public boolean enableSbs;
     public boolean bindAllUsb;
     public boolean mouseEmulation;
     public int mouseEmulationGameMenu;
@@ -999,7 +995,6 @@ public class PreferenceConfiguration {
         config.enableLatencyToast = prefs.getBoolean(LATENCY_TOAST_PREF_STRING, DEFAULT_LATENCY_TOAST);
         //软键盘
         config.enableQtDialog = prefs.getBoolean(CHECKBOX_ENABLE_QUIT_DIALOG,false);
-        config.enableSbs = prefs.getBoolean(CHECKBOX_ENABLE_SBS,false);
         config.enablePortrait = prefs.getBoolean(CHECKBOX_ENABLE_PORTRAIT,false);
 
         config.enableKeyboard = prefs.getBoolean(CHECKBOX_ENABLE_KEYBOARD,false);

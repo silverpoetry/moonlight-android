@@ -85,7 +85,6 @@ public class VirtualController {
 //        buttonConfigure = new Button(context);
 //        buttonConfigure.setAlpha(0.25f);
 //        buttonConfigure.setFocusable(false);
-//        buttonConfigure.setBackgroundResource(R.drawable.ic_settings);
 //        buttonConfigure.setOnClickListener(new View.OnClickListener() {
 //            @Override
 //            public void onClick(View v) {

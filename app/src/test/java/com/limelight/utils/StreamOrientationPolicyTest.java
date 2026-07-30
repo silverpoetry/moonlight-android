@@ -49,14 +49,6 @@ public final class StreamOrientationPolicyTest {
     }
 
     @Test
-    public void sbsOnlyRequestsLandscapeForCompactFullscreen() {
-        assertEquals(USER_LANDSCAPE,
-                StreamOrientationPolicy.resolveSbsMode(false));
-        assertEquals(FOLLOW_USER_ALL_ROTATIONS,
-                StreamOrientationPolicy.resolveSbsMode(true));
-    }
-
-    @Test
     public void squarishClassificationRejectsUnknownDimensions() {
         assertFalse(StreamOrientationPolicy.isSquarish(0, 800));
         assertFalse(StreamOrientationPolicy.isSquarish(800, 0));

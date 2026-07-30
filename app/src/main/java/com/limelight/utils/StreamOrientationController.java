@@ -38,13 +38,6 @@ public final class StreamOrientationController {
         apply(activity, mode);
     }
 
-    public static void applySbsOrientation(Activity activity) {
-        Configuration configuration =
-                activity.getResources().getConfiguration();
-        apply(activity, StreamOrientationPolicy.resolveSbsMode(
-                isAdaptiveWindow(activity, configuration)));
-    }
-
     private static boolean isAdaptiveWindow(
             Activity activity, Configuration configuration) {
         if (configuration.smallestScreenWidthDp >=

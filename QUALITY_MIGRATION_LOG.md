@@ -205,10 +205,11 @@ manual release gate.
 
 ## Orientation, large screens, and windowing
 
-- Replaced three scattered `Game` orientation requests and the fixed-landscape
-  `GameSbs` manifest declaration with one policy/controller boundary.
+- Replaced three scattered `Game` orientation requests with one
+  policy/controller boundary. The obsolete alternate-rendering activity and its
+  dedicated orientation branch were subsequently retired.
 - Compact full-screen devices preserve the existing portrait, automatic-rotation,
-  landscape, on-screen-controller, native-resolution, and SBS behavior.
+  landscape, on-screen-controller, and native-resolution behavior.
 - Windows with `smallestScreenWidthDp >= 600`, split/freeform windows, and
   picture-in-picture explicitly follow the user's full orientation preference. The
   policy does not depend on Android honoring a fixed request on Android 16 large
@@ -273,7 +274,7 @@ manual release gate.
   shared navigation boundary.
 - Consolidated Samsung DeX's explicit resizable declaration at application scope.
   Manifest-only optional capabilities are locally suppressed on exactly the
-  `application`, `Game`, and `GameSbs` elements with adjacent runtime rationale.
+  `application` and `Game` elements with adjacent runtime rationale.
 - Moved stream-surface focus behavior to `values-v26` and overlay
   `preferKeepClear` behavior to `values-v33`. API 36 instrumentation verifies the
   selected runtime attributes after inflating the real stream layout.

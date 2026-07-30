@@ -50,12 +50,6 @@ public final class StreamOrientationPolicy {
         return Mode.USER_LANDSCAPE;
     }
 
-    public static Mode resolveSbsMode(boolean adaptiveWindow) {
-        return adaptiveWindow
-                ? Mode.FOLLOW_USER_ALL_ROTATIONS
-                : Mode.USER_LANDSCAPE;
-    }
-
     static boolean isSquarish(int width, int height) {
         if (width <= 0 || height <= 0) {
             return false;

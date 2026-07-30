@@ -278,10 +278,6 @@
     <string name="game_menu_action_hdr">HDR开关</string>
     <string name="game_menu_action_gamepad_mouse">手柄键鼠</string>
     <string name="game_menu_gamepad_buttons">手柄按键</string>
-    <string name="vr_image_size">画面大小</string>
-    <string name="vr_distortion">畸变</string>
-    <string name="vr_edge_padding">填充边缘</string>
-    <string name="vr_single_eye">单眼</string>
     <string name="percentage_format">%1$d%%</string>
     <string name="quick_action_description_format">%1$s\t【%2$s】</string>
     <string name="game_menu_tab_actions">操作</string>
