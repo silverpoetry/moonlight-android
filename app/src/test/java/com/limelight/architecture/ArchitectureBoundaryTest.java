@@ -234,6 +234,22 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void typedControllerSettingsDoNotDependOnAndroidOrLegacyPreferences() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.settings.controller..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "com.limelight.preferences..")
+                .because(
+                        "typed controller settings are immutable domain models")
+                .check(productionClasses);
+    }
+
+    @Test
     public void videoBindingDoesNotDependOnLegacyPreferences() {
         noClasses()
                 .that()
@@ -265,6 +281,37 @@ public final class ArchitectureBoundaryTest {
                 .haveFullyQualifiedName(
                         "com.limelight.preferences.PreferenceConfiguration")
                 .because("input callbacks consume an immutable session snapshot")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void controllerHandlerDoesNotReadPersistenceOrLegacySettings() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.ControllerHandler")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android.preference..",
+                        "com.limelight.preferences..")
+                .because(
+                        "controller callbacks consume one immutable session snapshot")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void controllerHandlerDoesNotDependOnSharedPreferences() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.ControllerHandler")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.content.SharedPreferences")
+                .because(
+                        "controller callbacks cannot perform persistence I/O")
                 .check(productionClasses);
     }
 }

@@ -179,6 +179,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 prefConfig.enableForceStrongVibrations=isChecked;
                 setSetting("enable_force_strong_vibrations",isChecked);
+                notifyControllerSettingsChanged();
             }
         });
         btn_game_rumble_force_stop.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
@@ -186,6 +187,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 prefConfig.enableForceStrongVibrationsStop=isChecked;
                 setSetting("enable_force_strong_vibrations_stop",isChecked);
+                notifyControllerSettingsChanged();
             }
         });
 
@@ -209,6 +211,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
                     saveSetting("checkbox_mouse_emulation",false);
                     prefConfig.mouseEmulationGameMenu=0;
                     saveSetting("ax_quick_game_menu_key",0);
+                    notifyControllerSettingsChanged();
                     return;
                 }
                 //开始键长按
@@ -217,6 +220,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
                     saveSetting("checkbox_mouse_emulation",true);
                     prefConfig.mouseEmulationGameMenu=0;
                     saveSetting("ax_quick_game_menu_key",0);
+                    notifyControllerSettingsChanged();
                     return;
                 }
                 //xbox键单机
@@ -225,6 +229,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
                     saveSetting("checkbox_mouse_emulation",true);
                     prefConfig.mouseEmulationGameMenu=1;
                     saveSetting("ax_quick_game_menu_key",1);
+                    notifyControllerSettingsChanged();
                     return;
                 }
                 //菜单键 长按
@@ -233,6 +238,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
                     saveSetting("checkbox_mouse_emulation",true);
                     prefConfig.mouseEmulationGameMenu=2;
                     saveSetting("ax_quick_game_menu_key",2);
+                    notifyControllerSettingsChanged();
                     return;
                 }
             }
@@ -306,6 +312,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 prefConfig.gameForceGyroLeftTrigger=isChecked;
                 setSetting("gameForceGyroLeftTrigger",isChecked);
+                notifyControllerSettingsChanged();
             }
         });
         btn_game_force_gyro_switch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
@@ -313,6 +320,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 prefConfig.gameForceGyroXYSwitch=isChecked;
                 setSetting("gameForceGyroXYSwitch",isChecked);
+                notifyControllerSettingsChanged();
             }
         });
 
@@ -450,6 +458,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
                 prefConfig.gameForceGyroSensitivity=value;
                 saveSetting("gameForceGyroSensitivity",value);
                 initGyroSensitivity();
+                notifyControllerSettingsChanged();
             }
 
             @Override
@@ -729,6 +738,9 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
 
         default void onInputSettingsChanged() {
         }
+
+        default void onControllerSettingsChanged() {
+        }
     }
 
     public void setOnClick(onClick onClick) {
@@ -738,6 +750,12 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
     private void notifyInputSettingsChanged() {
         if (onClick != null) {
             onClick.onInputSettingsChanged();
+        }
+    }
+
+    private void notifyControllerSettingsChanged() {
+        if (onClick != null) {
+            onClick.onControllerSettingsChanged();
         }
     }
 

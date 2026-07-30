@@ -22,6 +22,8 @@ import static com.limelight.preferences.PreferenceConfiguration.TOUCH_SENSITIVIT
 public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClickListener, SeekBar.OnSeekBarChangeListener {
     public interface Listener {
         void onInputSettingsChanged();
+
+        void onControllerSettingsChanged();
     }
 
     private static final SeekBarValueRange MULTITOUCH_RANGE =
@@ -344,6 +346,7 @@ public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClic
             initViewMouseSCView();
             initViewExternalTouchPadView();
             notifyInputSettingsChanged();
+            notifyControllerSettingsChanged();
 
             return;
         }
@@ -447,7 +450,21 @@ public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClic
             initViewExternalTouchPadView();
         }
 
-        if (fromUser) {
+        if (fromUser &&
+                seekBar == sb_mouse_gamepad_sensitity) {
+            notifyControllerSettingsChanged();
+        }
+        else if (fromUser &&
+                (seekBar == sb_touch_x ||
+                        seekBar == sb_touch_y ||
+                        seekBar == sb_touchpad_x ||
+                        seekBar == sb_touchpad_y ||
+                        seekBar ==
+                                sb_touchpad_equipment_view_x ||
+                        seekBar ==
+                                sb_touchpad_equipment_view_y ||
+                        seekBar ==
+                                sb_touchpad_equipment_amount)) {
             notifyInputSettingsChanged();
         }
     }
@@ -480,6 +497,12 @@ public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClic
     private void notifyInputSettingsChanged() {
         if (listener != null) {
             listener.onInputSettingsChanged();
+        }
+    }
+
+    private void notifyControllerSettingsChanged() {
+        if (listener != null) {
+            listener.onControllerSettingsChanged();
         }
     }
 }

@@ -615,9 +615,19 @@ public class GameMenuFragment extends BaseGameMenuDialog
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle("触控灵敏度");
             fragment.setPrefConfig(host.getStreamPreferences());
-            fragment.setListener(() -> {
-                if (host != null) {
-                    host.applyInputSettingsFromStorage();
+            fragment.setListener(new GameTouchFragment.Listener() {
+                @Override
+                public void onInputSettingsChanged() {
+                    if (host != null) {
+                        host.applyInputSettingsFromStorage();
+                    }
+                }
+
+                @Override
+                public void onControllerSettingsChanged() {
+                    if (host != null) {
+                        host.applyControllerSettingsFromStorage();
+                    }
                 }
             });
             fragment.show(getFragmentManager());
@@ -646,11 +656,22 @@ public class GameMenuFragment extends BaseGameMenuDialog
             GameDisplayDeviceFragment fragment=new GameDisplayDeviceFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle(R.string.game_menu_devices_title);
-            fragment.setListener(() -> {
-                if (host != null) {
-                    host.applyDualSenseTriggerSettings();
-                }
-            });
+            fragment.setListener(
+                    new GameDisplayDeviceFragment.Listener() {
+                        @Override
+                        public void onApplyAdaptiveTrigger() {
+                            if (host != null) {
+                                host.applyDualSenseTriggerSettings();
+                            }
+                        }
+
+                        @Override
+                        public void onControllerSettingsChanged() {
+                            if (host != null) {
+                                host.applyControllerSettingsFromStorage();
+                            }
+                        }
+                    });
             fragment.setPrefConfig(host.getStreamPreferences());
             fragment.show(getFragmentManager());
             return;
@@ -710,6 +731,13 @@ public class GameMenuFragment extends BaseGameMenuDialog
                 public void onInputSettingsChanged() {
                     if (host != null) {
                         host.applyInputSettingsFromStorage();
+                    }
+                }
+
+                @Override
+                public void onControllerSettingsChanged() {
+                    if (host != null) {
+                        host.applyControllerSettingsFromStorage();
                     }
                 }
             });

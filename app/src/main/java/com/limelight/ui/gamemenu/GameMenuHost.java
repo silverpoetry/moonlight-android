@@ -68,6 +68,8 @@ public interface GameMenuHost {
 
     void applyInputSettingsFromStorage();
 
+    void applyControllerSettingsFromStorage();
+
     void applyDualSenseTriggerSettings();
 
     void showFloatView();

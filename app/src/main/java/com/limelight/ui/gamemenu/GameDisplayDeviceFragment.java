@@ -232,11 +232,13 @@ public class GameDisplayDeviceFragment
                     }
                     prefConfig.bindAllUsb = checked;
                     saveBoolean(KEY_USB_BIND_ALL, checked);
+                    notifyControllerSettingsChanged();
                 });
         flipGripRumble.setOnCheckedChangeListener(
                 (button, checked) -> {
                     prefConfig.enableFlipRumbleFF = checked;
                     saveBoolean(KEY_FLIP_RUMBLE, checked);
+                    notifyControllerSettingsChanged();
                 });
         ignoreTriggerDeadzone.setOnCheckedChangeListener(
                 (button, checked) -> {
@@ -244,32 +246,38 @@ public class GameDisplayDeviceFragment
                     saveBoolean(
                             KEY_DISABLE_TRIGGER_DEADZONE,
                             checked);
+                    notifyControllerSettingsChanged();
                 });
         forceDeviceRumble.setOnCheckedChangeListener(
                 (button, checked) -> {
                     prefConfig.enableDeviceRumble = checked;
                     saveBoolean(KEY_DEVICE_RUMBLE, checked);
+                    notifyControllerSettingsChanged();
                 });
         useDeviceGyroscope.setOnCheckedChangeListener(
                 (button, checked) -> {
                     prefConfig.enableVirtualControllerMotion =
                             checked;
                     saveBoolean(KEY_VIRTUAL_MOTION, checked);
+                    notifyControllerSettingsChanged();
                 });
         joyConCompatibility.setOnCheckedChangeListener(
                 (button, checked) -> {
                     prefConfig.enableJoyConFix = checked;
                     saveBoolean(KEY_JOYCON_FIX, checked);
+                    notifyControllerSettingsChanged();
                 });
         reportBattery.setOnCheckedChangeListener(
                 (button, checked) -> {
                     prefConfig.enableBatteryReport = checked;
                     saveBoolean(KEY_BATTERY_REPORT, checked);
+                    notifyControllerSettingsChanged();
                 });
         usbGyroscope.setOnCheckedChangeListener(
                 (button, checked) -> {
                     prefConfig.usbGyroscopeReport = checked;
                     saveBoolean(KEY_USB_GYROSCOPE, checked);
+                    notifyControllerSettingsChanged();
                 });
         linkTriggerRumble.setOnCheckedChangeListener(
                 (button, checked) -> {
@@ -411,7 +419,15 @@ public class GameDisplayDeviceFragment
         this.listener = listener;
     }
 
+    private void notifyControllerSettingsChanged() {
+        if (listener != null) {
+            listener.onControllerSettingsChanged();
+        }
+    }
+
     public interface Listener {
         void onApplyAdaptiveTrigger();
+
+        void onControllerSettingsChanged();
     }
 }

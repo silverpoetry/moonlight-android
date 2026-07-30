@@ -50,7 +50,8 @@ import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.nvstream.input.KeyboardPacket;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.controller.ControllerSettings;
+import com.limelight.settings.controller.ControllerSettingsState;
 import com.limelight.ui.GameGestures;
 import com.limelight.utils.Vector2d;
 
@@ -63,6 +64,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 public class ControllerHandler implements InputManager.InputDeviceListener,
         UsbDriverListener, GamepadInputHandler {
@@ -146,27 +148,38 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private boolean hasGameController;
     private boolean stopped = false;
 
-    private final PreferenceConfiguration prefConfig;
+    private final ControllerSettingsState settingsState;
     private short currentControllers, initialControllers;
 
     private boolean shouldUseControllerAudioHaptics() {
-        return prefConfig.enableAudioHaptics &&
-                "controller".equals(prefConfig.audioHapticsOutputTarget);
+        return shouldUseControllerAudioHaptics(
+                settingsState.get());
     }
 
-    private boolean shouldSuppressControllerRumble(AbstractController controller) {
-        return shouldUseControllerAudioHaptics() &&
-                !prefConfig.audioHapticsKeepControllerRumble;
+    private static boolean shouldUseControllerAudioHaptics(
+            ControllerSettings settings) {
+        return settings.isControllerAudioHapticsEnabled() &&
+                settings.isAudioHapticsTargetController();
+    }
+
+    private boolean shouldSuppressControllerRumble() {
+        ControllerSettings settings = settingsState.get();
+        return shouldUseControllerAudioHaptics(settings) &&
+                !settings
+                        .shouldKeepControllerRumbleWithAudioHaptics();
     }
 
     private boolean shouldSuppressInputDeviceRumble(InputDeviceContext context) {
+        ControllerSettings settings = settingsState.get();
         if (!RazerKishiHapticsDevice.isFeatureEnabled()) {
-            return shouldUseControllerAudioHaptics() &&
-                    !prefConfig.audioHapticsKeepControllerRumble;
+            return shouldUseControllerAudioHaptics(settings) &&
+                    !settings
+                            .shouldKeepControllerRumbleWithAudioHaptics();
         }
 
-        return shouldUseControllerAudioHaptics() &&
-                !prefConfig.audioHapticsKeepControllerRumble &&
+        return shouldUseControllerAudioHaptics(settings) &&
+                !settings
+                        .shouldKeepControllerRumbleWithAudioHaptics() &&
                 RazerKishiHapticsDevice.canUseDevice(context.vendorId, context.productId, context.name);
     }
 
@@ -388,13 +401,19 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         refreshRazerKishiHapticsState();
     }
 
-    public ControllerHandler(Activity activityContext, NvConnection conn, GameGestures gestures, PreferenceConfiguration prefConfig) {
+    public ControllerHandler(
+            Activity activityContext,
+            NvConnection conn,
+            GameGestures gestures,
+            ControllerSettingsState settingsState) {
         this.activityContext = activityContext;
         this.conn = conn;
         this.keyboardInputSink =
                 new NvConnectionKeyboardInputSink(conn);
         this.gestures = gestures;
-        this.prefConfig = prefConfig;
+        this.settingsState = Objects.requireNonNull(
+                settingsState,
+                "settingsState");
         this.usbManager = (UsbManager) activityContext.getSystemService(Context.USB_SERVICE);
         this.deviceVibrator = (Vibrator) activityContext.getSystemService(Context.VIBRATOR_SERVICE);
         this.deviceSensorManager = (SensorManager) activityContext.getSystemService(Context.SENSOR_SERVICE);
@@ -417,7 +436,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         this.sceManager = new SceManager(activityContext);
         this.sceManager.start();
 
-        int deadzonePercentage = prefConfig.deadzonePercentage;
+        int deadzonePercentage =
+                settingsState.get().getStickDeadzonePercent();
 
         int[] ids = InputDevice.getDeviceIds();
         for (int id : ids) {
@@ -469,7 +489,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         // its initial InputEvent, we will move these from this set onto the
         // currentControllers set which will allow them to properly unplug
         // if they are removed.
-        initialControllers = getAttachedControllerMask(activityContext);
+        initialControllers = getAttachedControllerMask(
+                activityContext,
+                settingsState.get());
 
         // Register ourselves for input device notifications
         inputManager.registerInputDeviceListener(this, null);
@@ -625,7 +647,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         return device.getKeyboardType() != InputDevice.KEYBOARD_TYPE_ALPHABETIC;
     }
 
-    public static short getAttachedControllerMask(Context context) {
+    public static short getAttachedControllerMask(
+            Context context,
+            ControllerSettings settings) {
         int count = 0;
         short mask = 0;
 
@@ -644,7 +668,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
 
         // Count all USB devices that match our drivers
-        if (PreferenceConfiguration.readPreferences(context).usbDriver) {
+        if (settings.isUsbDriverEnabled()) {
             UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
             if (usbManager != null) {
                 for (UsbDevice dev : usbManager.getDeviceList().values()) {
@@ -659,7 +683,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             }
         }
 
-        if (PreferenceConfiguration.readPreferences(context).onscreenController) {
+        if (settings.isOnscreenControllerEnabled()) {
             LimeLog.info("Counting OSC gamepad");
             mask |= 1;
         }
@@ -719,6 +743,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             return;
         }
 
+        ControllerSettings settings = settingsState.get();
         if (context instanceof InputDeviceContext) {
             InputDeviceContext devContext = (InputDeviceContext) context;
 
@@ -727,7 +752,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 LimeLog.info("Built-in buttons hardcoded as controller 0");
                 context.controllerNumber = 0;
             }
-            else if (prefConfig.multiController && devContext.hasJoystickAxes) {
+            else if (settings.isMultiControllerEnabled() &&
+                    devContext.hasJoystickAxes) {
                 context.controllerNumber = 0;
 
                 LimeLog.info("Reserving the next available controller number");
@@ -789,12 +815,15 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             }
 
             // If the gamepad doesn't have motion sensors, use the on-device sensors as a fallback for player 1
-            if (prefConfig.gamepadMotionSensorsFallbackToDevice && context.controllerNumber == 0 && devContext.sensorManager == null) {
+            if (settings
+                    .isMotionSensorsFallbackToDeviceEnabled() &&
+                    context.controllerNumber == 0 &&
+                    devContext.sensorManager == null) {
                 devContext.sensorManager = deviceSensorManager;
             }
         }
         else {
-            if (prefConfig.multiController) {
+            if (settings.isMultiControllerEnabled()) {
                 context.controllerNumber = 0;
 
                 LimeLog.info("Reserving the next available controller number");
@@ -838,7 +867,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         context.leftStickDeadzoneRadius = (float) stickDeadzone;
         context.rightStickDeadzoneRadius = (float) stickDeadzone;
         context.triggerDeadzone = 0.13f;
-        if(prefConfig.disableTriggerDeadzone){
+        if (settingsState.get().isTriggerDeadzoneDisabled()) {
             context.triggerDeadzone = 0.0f;
         }
         return context;
@@ -996,7 +1025,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         context.hasPaddles = MoonBridge.guessControllerHasPaddles(context.vendorId, context.productId);
         context.hasShare = MoonBridge.guessControllerHasShareButton(context.vendorId, context.productId);
 
-        if(prefConfig.enableDeviceRumble){
+        if (settingsState.get().isDeviceRumbleEnabled()) {
             context.vibrator = deviceVibrator;
         }else{
             // Try to use the InputDevice's associated vibrators first
@@ -1038,7 +1067,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ||
                 (Build.VERSION.SDK_INT == Build.VERSION_CODES.S &&
                         (context.vendorId == 0x054c || context.vendorId == 0x057e))) && // Sony or Nintendo
-                prefConfig.gamepadMotionSensors) {
+                settingsState.get().areMotionSensorsEnabled()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (dev.getSensorManager().getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null || dev.getSensorManager().getDefaultSensor(Sensor.TYPE_GYROSCOPE) != null) {
                     context.sensorManager = dev.getSensorManager();
@@ -1193,7 +1222,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             // It's important to have a valid deadzone so controller packet batching works properly
             context.triggerDeadzone = Math.max(Math.abs(ltRange.getFlat()), Math.abs(rtRange.getFlat()));
 
-            if(!prefConfig.disableTriggerDeadzone){
+            if (!settingsState.get().isTriggerDeadzoneDisabled()) {
                 // For triggers without (valid) deadzones, we'll use 13% (around XInput's default)
                 if (context.triggerDeadzone < 0.13f ||
                         context.triggerDeadzone > 0.30f)
@@ -1338,8 +1367,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     }
 
     private short getActiveControllerMask() {
-        if (prefConfig.multiController) {
-            return (short)(currentControllers | initialControllers | (prefConfig.onscreenController ? 1 : 0));
+        ControllerSettings settings = settingsState.get();
+        if (settings.isMultiControllerEnabled()) {
+            return (short)(currentControllers | initialControllers |
+                    (settings.isOnscreenControllerEnabled() ? 1 : 0));
         }
         else {
             // Only Player 1 is active with multi-controller disabled
@@ -1722,7 +1753,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
         else {
             //强制体感模拟右摇杆
-            if(PreferenceConfiguration.readPreferences(activityContext).gameForceGyro){
+            if (settingsState.get().isForceGyroEnabled()) {
                 sensorLeftTrigger=leftTrigger;
             }
             conn.sendControllerInput(controllerNumber, getActiveControllerMask(),
@@ -1819,7 +1850,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
 
         //fix joycon-left 十字键
-        if(prefConfig.enableJoyConFix&&context.vendorId == 0x057e && context.productId == 0x2006){
+        if (settingsState.get().isJoyConFixEnabled() &&
+                context.vendorId == 0x057e &&
+                context.productId == 0x2006) {
             switch (event.getScanCode())
             {
                 case 546://十字键
@@ -1843,7 +1876,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             }
         }
         //fix JoyCon-right xy互换
-        if(prefConfig.enableJoyConFix&&context.vendorId == 0x057e && context.productId == 0x2007){
+        if (settingsState.get().isJoyConFixEnabled() &&
+                context.vendorId == 0x057e &&
+                context.productId == 0x2007) {
             switch (event.getScanCode())
             {
                 case 307://XY相反
@@ -2180,6 +2215,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         if (context == null) {
             return false;
         }
+        boolean touchpadAsMouse =
+                settingsState.get().isTouchpadAsMouse();
 
         // When we're working with a mouse source instead of a touchpad, we're quite limited in
         // what useful input we can provide via the controller API. The ABS_X/ABS_Y values are
@@ -2202,7 +2239,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     break;
             }
 
-            return !prefConfig.gamepadTouchpadAsMouse;
+            return !touchpadAsMouse;
         }
 
         byte touchType;
@@ -2238,7 +2275,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && event.getActionButton() == MotionEvent.BUTTON_PRIMARY) {
                     context.inputMap |= ControllerPacket.TOUCHPAD_FLAG;
                     sendControllerInputPacket(context);
-                    return !prefConfig.gamepadTouchpadAsMouse; // Report as unhandled event to trigger mouse handling
+                    return !touchpadAsMouse; // Report as unhandled event to trigger mouse handling
                 }
                 return false;
 
@@ -2246,7 +2283,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && event.getActionButton() == MotionEvent.BUTTON_PRIMARY) {
                     context.inputMap &= ~ControllerPacket.TOUCHPAD_FLAG;
                     sendControllerInputPacket(context);
-                    return !prefConfig.gamepadTouchpadAsMouse; // Report as unhandled event to trigger mouse handling
+                    return !touchpadAsMouse; // Report as unhandled event to trigger mouse handling
                 }
                 return false;
 
@@ -2259,7 +2296,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         // NB: We do this after processing ACTION_BUTTON_PRESS and ACTION_BUTTON_RELEASE
         // because we want to still send the touchpad button via the gamepad even when
         // configured to use the touchpad for mouse control.
-        if (prefConfig.gamepadTouchpadAsMouse) {
+        if (touchpadAsMouse) {
             return false;
         }
 
@@ -2330,7 +2367,11 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         Vector2d vector = new Vector2d();
         vector.initialize(stickX, stickY);
         vector.scalarMultiply(1 / 32766.0f);
-        vector.scalarMultiply(4*prefConfig.mouseGamePadSensitity*0.01f);
+        vector.scalarMultiply(
+                4 *
+                        settingsState.get()
+                                .getMouseSensitivityPercent() *
+                        0.01f);
         if (vector.getMagnitude() > 0) {
             // Move faster as the stick is pressed further from center
             vector.scalarMultiply(Math.pow(vector.getMagnitude(), 2));
@@ -2418,7 +2459,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         // PS3 (USB), and PS4 (USB+BT) controllers on Android 12 Beta 3.
         int[] vibratorIds = vm.getVibratorIds();
         int[] vibratorAmplitudes = new int[2];
-        if(prefConfig.enableFlipRumbleFF){
+        if (settingsState.get().areRumbleMotorsFlipped()) {
             vibratorAmplitudes[0]=lowFreqMotor;
             vibratorAmplitudes[1]=highFreqMotor;
         }else{
@@ -2485,7 +2526,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         int[] vibratorAmplitudes =new int[4];
 
-        if(prefConfig.enableFlipRumbleFF){
+        if (settingsState.get().areRumbleMotorsFlipped()) {
             vibratorAmplitudes[0]=lowFreqMotor;
             vibratorAmplitudes[1]=highFreqMotor;
         }else{
@@ -2515,6 +2556,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     }
 
     private void rumbleSingleVibrator(Vibrator vibrator, short lowFreqMotor, short highFreqMotor) {
+        ControllerSettings settings = settingsState.get();
         // Since we can only use a single amplitude value, compute the desired amplitude
         // by taking 80% of the big motor and 33% of the small motor, then capping to 255.
         // NB: This value is now 0-255 as required by VibrationEffect.
@@ -2528,13 +2570,17 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             // because our simulatedAmplitude could be 0 even though our inputs
             // are not (ex: lowFreqMotor == 0 && highFreqMotor == 1).
             vibrator.cancel();
-            if(vibrator==deviceVibrator&&prefConfig.enableForceStrongVibrationsStop){
+            if (vibrator == deviceVibrator &&
+                    settings
+                            .isForceStrongVibrationsStopPulseEnabled()) {
                 vibrator.vibrate(1);
             }
             return;
         }
         //设备震动马达，并且开启强烈震动
-        if(vibrator==deviceVibrator&&prefConfig.enableForceStrongVibrations){
+        if (vibrator == deviceVibrator &&
+                settings
+                        .isForceStrongVibrationsEnabled()) {
             vibrator.vibrate(60000);
             return;
         }
@@ -2606,7 +2652,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
             if (deviceContext.controllerNumber == controllerNumber) {
                 foundMatchingDevice = vibrated = true;
-                if (!shouldSuppressControllerRumble(deviceContext.device)) {
+                if (!shouldSuppressControllerRumble()) {
                     deviceContext.device.rumble(lowFreqMotor, highFreqMotor);
                 }
             }
@@ -2614,13 +2660,19 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         // We may decide to rumble the device for player 1
         if (controllerNumber == 0) {
+            ControllerSettings settings = settingsState.get();
             // If we didn't find a matching device, it must be the on-screen
             // controls that triggered the rumble. Vibrate the device if
             // the user has requested that behavior.
-            if (!foundMatchingDevice && prefConfig.onscreenController && !prefConfig.onlyL3R3 && PreferenceConfiguration.readPreferences(activityContext).vibrateOsc) {
+            if (!foundMatchingDevice &&
+                    settings.isOnscreenControllerEnabled() &&
+                    !settings.isOnlyL3R3Enabled() &&
+                    settings.isOnscreenRumbleEnabled()) {
                 rumbleSingleVibrator(deviceVibrator, lowFreqMotor, highFreqMotor);
             }
-            else if (foundMatchingDevice && !vibrated && prefConfig.vibrateFallbackToDevice) {
+            else if (foundMatchingDevice &&
+                    !vibrated &&
+                    settings.isFallbackDeviceRumbleEnabled()) {
                 // We found a device to vibrate but it didn't have rumble support. The user
                 // has requested us to vibrate the device in this case.
 
@@ -2628,9 +2680,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 // the preferred strength. The resulting value is capped at 65534 before
                 // we cast it back to a short so it doesn't go above 100%.
                 short lowFreqMotorAdjusted = (short)(Math.min((((lowFreqMotor & 0xffff)
-                        * prefConfig.vibrateFallbackToDeviceStrength) / 100), Short.MAX_VALUE*2));
+                        * settings
+                                .getFallbackDeviceRumbleStrengthPercent()) /
+                        100), Short.MAX_VALUE*2));
                 short highFreqMotorAdjusted = (short)(Math.min((((highFreqMotor & 0xffff)
-                        * prefConfig.vibrateFallbackToDeviceStrength) / 100), Short.MAX_VALUE*2));
+                        * settings
+                                .getFallbackDeviceRumbleStrengthPercent()) /
+                        100), Short.MAX_VALUE*2));
 
                 rumbleSingleVibrator(deviceVibrator, lowFreqMotorAdjusted, highFreqMotorAdjusted);
             }
@@ -2667,7 +2723,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             UsbDeviceContext deviceContext = usbDeviceContexts.valueAt(i);
 
             if (deviceContext.controllerNumber == controllerNumber) {
-                if (!shouldSuppressControllerRumble(deviceContext.device)) {
+                if (!shouldSuppressControllerRumble()) {
                     deviceContext.device.rumbleTriggers(leftTrigger, rightTrigger);
                 }
             }
@@ -2735,9 +2791,11 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     }
                 }
                 //强制体感
-                if (PreferenceConfiguration.readPreferences(activityContext).gameForceGyro) {
+                ControllerSettings settings = settingsState.get();
+                if (settings.isForceGyroEnabled()) {
                     //按下左扳机生效
-                    if((PreferenceConfiguration.readPreferences(activityContext).gameForceGyroLeftTrigger && (sensorLeftTrigger & 0xFF) < 200 )){
+                    if (settings.isForceGyroLeftTriggerRequired() &&
+                            (sensorLeftTrigger & 0xFF) < 200) {
                         context.rightStickX = 0x0000;
                         context.rightStickY = 0x0000;
                         sendControllerInputPacket(context);
@@ -2761,15 +2819,25 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                             gyroY = sensorEvent.values[0];
                         }
                         // 处理用户设置的反转
-                        if (PreferenceConfiguration.readPreferences(activityContext).gameForceGyroXYSwitch) {
+                        if (settings.areForceGyroAxesSwapped()) {
                             float temp = gyroX;
                             gyroX = gyroY;
                             gyroY = temp;
                         }
                         // --- 2. 独立轴向处理逻辑 ---
                         // 核心改动：先处理死区，确保微小信号能活下来，再进行指数放大
-                        float finalX = optimizeAxis(gyroX, 1.2f); // 适当增加横向灵敏度
-                        float finalY = optimizeAxis(gyroY, 1.0f);
+                        float globalSensitivity =
+                                settings
+                                        .getForceGyroSensitivityPercent() *
+                                        0.01f;
+                        float finalX = optimizeAxis(
+                                gyroX,
+                                1.2f,
+                                globalSensitivity); // 适当增加横向灵敏度
+                        float finalY = optimizeAxis(
+                                gyroY,
+                                1.0f,
+                                globalSensitivity);
                         // --- 3. 平滑滤波 (低通) ---
                         // SMOOTH_ALPHA 建议 0.25f 左右
                         filterGyroX = filterGyroX + SMOOTH_ALPHA * (finalX - filterGyroX);
@@ -2811,7 +2879,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     /**
      * 优化单轴算法：死区 -> 线性放大 -> 指数曲线
      */
-    private float optimizeAxis(float raw, float sensitivity) {
+    private float optimizeAxis(
+            float raw,
+            float sensitivity,
+            float globalSensitivity) {
         float absVal = Math.abs(raw);
         float deadzone = 0.015f; // 极小的死区
 
@@ -2823,10 +2894,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         // 2. 响应曲线：1.5 次方比 2.0 次方在小范围更灵敏，不会“肉”
         float curved = (float) Math.pow(normalized, 1.5);
 
-        float GYRO_SENSITIVITY=PreferenceConfiguration.readPreferences(activityContext).gameForceGyroSensitivity*0.01f;
-
         // 3. 基础输出补偿：只要超过死区，就给一个 0.05 的起步分，防止游戏识别不到
-        float out = (curved + 0.05f) * sensitivity * GYRO_SENSITIVITY;
+        float out = (curved + 0.05f) *
+                sensitivity *
+                globalSensitivity;
 
         return raw > 0 ? out : -out;
     }
@@ -2845,7 +2916,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         reportRateHz = (short) Math.min(200, reportRateHz);
 
         //开启虚拟手柄陀螺仪功能
-        if(prefConfig.enableVirtualControllerMotion){
+        if (settingsState.get()
+                .isVirtualControllerMotionEnabled()) {
             enableVirtualControllerMotionType(controllerNumber,motionType,reportRateHz);
         }
 
@@ -2947,13 +3019,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         if (context == null) {
             return true;
         }
+        ControllerSettings settings = settingsState.get();
 
         int keyCode = handleRemapping(context, event);
         if (keyCode < 0) {
             return (keyCode == REMAP_CONSUME);
         }
 
-        if (prefConfig.flipFaceButtons) {
+        if (settings.areFaceButtonsFlipped()) {
             keyCode = handleFlipFaceButtons(keyCode);
         }
 
@@ -2979,9 +3052,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         switch (keyCode) {
         case KeyEvent.KEYCODE_BUTTON_MODE:
-            if(prefConfig.mouseEmulation&&prefConfig.mouseEmulationGameMenu==1){
+            if (settings.isMouseEmulationEnabled() &&
+                    settings.getMouseEmulationButton() == 1) {
                 if ((context.inputMap & ControllerPacket.SPECIAL_BUTTON_FLAG) != 0) {
-                    if(prefConfig.enableQtDialog){
+                    if (settings.doesMouseEmulationOpenGameMenu()) {
                         //todo 展示快捷菜单
                         gestures.showGameMenu(context);
                     }else{
@@ -2996,10 +3070,11 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             // Sometimes we'll get a spurious key up event on controller disconnect.
             // Make sure it's real by checking that the key is actually down before taking
             // any action.
-            if(prefConfig.mouseEmulation&&prefConfig.mouseEmulationGameMenu==0){
+            if (settings.isMouseEmulationEnabled() &&
+                    settings.getMouseEmulationButton() == 0) {
                 if ((context.inputMap & ControllerPacket.PLAY_FLAG) != 0 &&
                         event.getEventTime() - context.startDownTime > ControllerHandler.START_DOWN_TIME_MOUSE_MODE_MS) {
-                    if(prefConfig.enableQtDialog){
+                    if (settings.doesMouseEmulationOpenGameMenu()) {
                         //todo 展示快捷菜单
                         gestures.showGameMenu(context);
                     }else{
@@ -3011,10 +3086,11 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             break;
         case KeyEvent.KEYCODE_BACK:
         case KeyEvent.KEYCODE_BUTTON_SELECT:
-            if(prefConfig.mouseEmulation&&prefConfig.mouseEmulationGameMenu==2){
+            if (settings.isMouseEmulationEnabled() &&
+                    settings.getMouseEmulationButton() == 2) {
                 if ((context.inputMap & ControllerPacket.BACK_FLAG) != 0 &&
                         event.getEventTime() - context.startDownTime > ControllerHandler.START_DOWN_TIME_MOUSE_MODE_MS) {
-                    if(prefConfig.enableQtDialog){
+                    if (settings.doesMouseEmulationOpenGameMenu()) {
                         //todo 展示快捷菜单
                         gestures.showGameMenu(context);
                     }else{
@@ -3218,7 +3294,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             return (keyCode == REMAP_CONSUME);
         }
 
-        if (prefConfig.flipFaceButtons) {
+        if (settingsState.get().areFaceButtonsFlipped()) {
             keyCode = handleFlipFaceButtons(keyCode);
         }
 
@@ -3508,7 +3584,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         if (context == null) {
             return;
         }
-        if(!prefConfig.usbGyroscopeReport){
+        if (!settingsState.get()
+                .isUsbGyroscopeReportingEnabled()) {
             return;
         }
         conn.sendControllerMotionEvent((byte)context.controllerNumber, motionType, motionX, motionY, motionZ);
@@ -3623,12 +3700,20 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 if (!mouseEmulationActive) {
                     return;
                 }
+                ControllerSettings.AnalogStickForScrolling
+                        scrollStick =
+                        settingsState.get()
+                                .getAnalogStickForScrolling();
                 // Send mouse events from analog sticks
-                if (prefConfig.analogStickForScrolling == PreferenceConfiguration.AnalogStickForScrolling.RIGHT) {
+                if (scrollStick ==
+                        ControllerSettings
+                                .AnalogStickForScrolling.RIGHT) {
                     sendEmulatedMouseMove(leftStickX, leftStickY);
                     sendEmulatedMouseScroll(rightStickX, rightStickY);
                 }
-                else if (prefConfig.analogStickForScrolling == PreferenceConfiguration.AnalogStickForScrolling.LEFT) {
+                else if (scrollStick ==
+                        ControllerSettings
+                                .AnalogStickForScrolling.LEFT) {
                     sendEmulatedMouseMove(rightStickX, rightStickY);
                     sendEmulatedMouseScroll(leftStickX, leftStickY);
                 }
@@ -3781,7 +3866,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 }
             }
             //是否上报电池状态
-            if(prefConfig.enableBatteryReport){
+            if (settingsState.get().isBatteryReportingEnabled()) {
                 backgroundThreadHandler.removeCallbacks(batteryStateUpdateRunnable);
             }
         }
@@ -3912,7 +3997,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
             // After reporting arrival to the host, send initial battery state and begin monitoring
             //是否上报电池状态
-            if(prefConfig.enableBatteryReport){
+            if (settingsState.get().isBatteryReportingEnabled()) {
                 backgroundThreadHandler.post(batteryStateUpdateRunnable);
             }
         }
@@ -3949,7 +4034,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
             // Refresh battery state and start the battery state polling again
             //是否上报电池状态
-            if(prefConfig.enableBatteryReport){
+            if (settingsState.get().isBatteryReportingEnabled()) {
                 backgroundThreadHandler.post(batteryStateUpdateRunnable);
             }
         }

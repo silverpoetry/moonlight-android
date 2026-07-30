@@ -45,6 +45,9 @@ import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.preferences.LegacyPreferenceSettingsAdapter;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.controller.ControllerSettings;
+import com.limelight.settings.controller.ControllerSettingsLoader;
+import com.limelight.settings.controller.ControllerSettingsState;
 import com.limelight.settings.input.InputSettings;
 import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.settings.input.InputSettingsState;
@@ -159,6 +162,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private static final int SOFT_KEYBOARD_SHOW_RETRY_MS = 50;
 
     private ControllerHandler controllerHandler;
+    private ControllerSettingsState controllerSettingsState;
     private KeyboardInputController keyboardInputController;
     private KeyBoardController virtualController;
 
@@ -328,6 +332,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         InputSettingsState inputSettingsState =
                 new InputSettingsState(
                         InputSettingsLoader.load(
+                                settingsRepository));
+        controllerSettingsState =
+                new ControllerSettingsState(
+                        ControllerSettingsLoader.load(
                                 settingsRepository));
         tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
         backNavigationRegistration =
@@ -628,14 +636,19 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             }
         }
 
-        int gamepadMask = ControllerHandler.getAttachedControllerMask(this);
-        if (!prefConfig.multiController) {
+        ControllerSettings controllerSettings =
+                controllerSettingsState.get();
+        int gamepadMask =
+                ControllerHandler.getAttachedControllerMask(
+                        this,
+                        controllerSettings);
+        if (!controllerSettings.isMultiControllerEnabled()) {
             // Always set gamepad 1 present for when multi-controller is
             // disabled for games that don't properly support detection
             // of gamepads removed and replugged at runtime.
             gamepadMask = 1;
         }
-        if (prefConfig.onscreenController) {
+        if (controllerSettings.isOnscreenControllerEnabled()) {
             // If we're using OSC, always set at least gamepad 1.
             gamepadMask |= 1;
         }
@@ -937,7 +950,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 }
             });
         }
-        controllerHandler = new ControllerHandler(this, conn, this, prefConfig);
+        controllerHandler = new ControllerHandler(
+                this,
+                conn,
+                this,
+                controllerSettingsState);
         keyboardInputController = new KeyboardInputController(
                 new KeyboardTranslator(),
                 controllerHandler,
@@ -2886,6 +2903,21 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         streamInputController.replaceLiveSettings(updated);
     }
 
+    @Override
+    public void applyControllerSettingsFromStorage() {
+        if (controllerSettingsState == null) {
+            return;
+        }
+
+        SettingsRepository repository =
+                new SharedPreferencesSettingsRepository(
+                        PreferenceManager
+                                .getDefaultSharedPreferences(this));
+        ControllerSettings settings =
+                ControllerSettingsLoader.load(repository);
+        controllerSettingsState.replace(settings);
+    }
+
     private PerformanceOverlayRuntimeState
             createPerformanceOverlayRuntimeState() {
         boolean usbControllerActive =
@@ -3138,6 +3170,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void applyMotionEmulationSettings() {
+        applyControllerSettingsFromStorage();
         setMotionForceGyro();
     }
 
@@ -3449,6 +3482,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     public void setAudioHapticsSettings() {
+        applyControllerSettingsFromStorage();
         if (mediaResourceOwner != null) {
             mediaResourceOwner.updateAudioHapticsSettings(
                     prefConfig.enableAudioHaptics,

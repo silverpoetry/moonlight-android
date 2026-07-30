@@ -13,6 +13,9 @@ import com.limelight.settings.SettingsMigrationRunner;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
 import com.limelight.settings.audio.StreamAudioSettingKeys;
+import com.limelight.settings.controller.ControllerSettingKeys;
+import com.limelight.settings.controller.ControllerSettings;
+import com.limelight.settings.controller.ControllerSettingsLoader;
 import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.input.InputSettings;
 import com.limelight.settings.input.InputSettingsLoader;
@@ -29,12 +32,6 @@ public class PreferenceConfiguration {
         FORCE_HEVC,
         FORCE_H264,
     };
-
-    public enum AnalogStickForScrolling {
-        NONE,
-        RIGHT,
-        LEFT
-    }
 
     private static final String LEGACY_RES_FPS_PREF_STRING =
             StreamResolutionSettingKeys.LEGACY_RESOLUTION_AND_FPS
@@ -54,28 +51,19 @@ public class PreferenceConfiguration {
     private static final String SOPS_PREF_STRING = "checkbox_enable_sops";
     private static final String DISABLE_TOASTS_PREF_STRING = "checkbox_disable_warnings";
     private static final String HOST_AUDIO_PREF_STRING = "checkbox_host_audio";
-    private static final String DEADZONE_PREF_STRING = "seekbar_deadzone";
     public static final String OSC_OPACITY_PREF_STRING = "seekbar_osc_opacity";
     private static final String LANGUAGE_PREF_STRING = "list_languages";
     private static final String SMALL_ICONS_PREF_STRING = "checkbox_small_icon_mode";
-    private static final String MULTI_CONTROLLER_PREF_STRING = "checkbox_multi_controller";
-    private static final String USB_DRIVER_PREF_SRING = "checkbox_usb_driver";
     private static final String VIDEO_FORMAT_PREF_STRING = "video_format";
-    private static final String ONSCREEN_CONTROLLER_PREF_STRING = "checkbox_show_onscreen_controls";
-    private static final String ONLY_L3_R3_PREF_STRING = "checkbox_only_show_L3R3";
     private static final String SHOW_GUIDE_BUTTON_PREF_STRING = "checkbox_show_guide_button";
     private static final String ENABLE_HDR_PREF_STRING = "checkbox_enable_hdr";
     public static final String ENABLE_HDR_HIGH_BRIGHTNESS_PREF_STRING = "checkbox_enable_hdr_high_brightness";
     private static final String ENABLE_PIP_PREF_STRING = "checkbox_enable_pip";
     private static final String ENABLE_PERF_OVERLAY_STRING = "checkbox_enable_perf_overlay";
     private static final String BIND_ALL_USB_STRING = "checkbox_usb_bind_all";
-    private static final String MOUSE_EMULATION_STRING = "checkbox_mouse_emulation";
-    private static final String ANALOG_SCROLLING_PREF_STRING = "analog_scrolling";
     static final String UNLOCK_FPS_STRING = "checkbox_unlock_fps";
-    public static final String VIBRATE_OSC_PREF_STRING = "checkbox_vibrate_osc";
-    private static final String VIBRATE_FALLBACK_PREF_STRING = "checkbox_vibrate_fallback";
-    private static final String VIBRATE_FALLBACK_STRENGTH_PREF_STRING = "seekbar_vibrate_fallback_strength";
-    private static final String FLIP_FACE_BUTTONS_PREF_STRING = "checkbox_flip_face_buttons";
+    public static final String VIBRATE_OSC_PREF_STRING =
+            ControllerSettingKeys.ONSCREEN_RUMBLE.getName();
     private static final String LATENCY_TOAST_PREF_STRING = "checkbox_enable_post_stream_toast";
     public static final String BAROMETER_FORCE_PRESS_PREF_STRING =
             InputSettingKeys.BAROMETER_FORCE_PRESS.getName();
@@ -99,19 +87,12 @@ public class PreferenceConfiguration {
     public static final String CLIPBOARD_FILE_DIRECTORY_PREF_STRING = "clipboard_file_save_directory";
     private static final String DISABLE_ADAPTIVE_INPUT_THROTTLING_PREF_STRING = "checkbox_disable_adaptive_input_throttling";
     private static final String ENABLE_AUDIO_FX_PREF_STRING = "checkbox_enable_audiofx";
-    private static final String ENABLE_AUDIO_HAPTICS_PREF_STRING = "checkbox_enable_audio_haptics";
-    private static final String AUDIO_HAPTICS_OUTPUT_TARGET_PREF_STRING = "list_audio_haptics_output_target";
     private static final String AUDIO_HAPTICS_STRENGTH_PREF_STRING = "seekbar_audio_haptics_strength";
     private static final String AUDIO_HAPTICS_VOICE_FILTER_PREF_STRING = "list_audio_haptics_voice_filter";
-    private static final String AUDIO_HAPTICS_KEEP_CONTROLLER_RUMBLE_PREF_STRING = "checkbox_audio_haptics_keep_controller_rumble";
     private static final String REDUCE_REFRESH_RATE_PREF_STRING = "checkbox_reduce_refresh_rate";
     private static final String FULL_RANGE_PREF_STRING = "checkbox_full_range";
-    private static final String GAMEPAD_TOUCHPAD_AS_MOUSE_PREF_STRING = "checkbox_gamepad_touchpad_as_mouse";
-    private static final String GAMEPAD_MOTION_SENSORS_PREF_STRING = "checkbox_gamepad_motion_sensors";
-    private static final String GAMEPAD_MOTION_FALLBACK_PREF_STRING = "checkbox_gamepad_motion_fallback";
-
-    //是否弹出软键盘
-    private static final String CHECKBOX_ENABLE_QUIT_DIALOG = "checkbox_enable_quit_dialog";
+    private static final String GAMEPAD_MOTION_SENSORS_PREF_STRING =
+            ControllerSettingKeys.MOTION_SENSORS.getName();
 
     //竖屏模式
     public static final String CHECKBOX_ENABLE_PORTRAIT = "checkbox_enable_portrait";
@@ -136,41 +117,24 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_SOPS = true;
     private static final boolean DEFAULT_DISABLE_TOASTS = false;
     private static final boolean DEFAULT_HOST_AUDIO = false;
-    private static final int DEFAULT_DEADZONE = 7;
     private static final int DEFAULT_OPACITY = 38;
     public static final String DEFAULT_LANGUAGE = "default";
-    private static final boolean DEFAULT_MULTI_CONTROLLER = true;
-    private static final boolean DEFAULT_USB_DRIVER = true;
     private static final String DEFAULT_VIDEO_FORMAT = "auto";
 
-    private static final boolean ONSCREEN_CONTROLLER_DEFAULT = false;
-    private static final boolean ONLY_L3_R3_DEFAULT = false;
     private static final boolean SHOW_GUIDE_BUTTON_DEFAULT = true;
     private static final boolean DEFAULT_ENABLE_HDR = false;
     private static final boolean DEFAULT_ENABLE_HDR_HIGH_BRIGHTNESS = false;
     private static final boolean DEFAULT_ENABLE_PIP = false;
     private static final boolean DEFAULT_ENABLE_PERF_OVERLAY = false;
     private static final boolean DEFAULT_BIND_ALL_USB = false;
-    private static final boolean DEFAULT_MOUSE_EMULATION = true;
-    private static final String DEFAULT_ANALOG_STICK_FOR_SCROLLING = "right";
     private static final boolean DEFAULT_UNLOCK_FPS = false;
-    private static final boolean DEFAULT_VIBRATE_OSC = true;
-    private static final boolean DEFAULT_VIBRATE_FALLBACK = false;
-    private static final int DEFAULT_VIBRATE_FALLBACK_STRENGTH = 100;
-    private static final boolean DEFAULT_FLIP_FACE_BUTTONS = false;
     private static final boolean DEFAULT_LATENCY_TOAST = false;
     private static final boolean DEFAULT_DISABLE_ADAPTIVE_INPUT_THROTTLING = true;
     private static final boolean DEFAULT_ENABLE_AUDIO_FX = false;
-    private static final boolean DEFAULT_ENABLE_AUDIO_HAPTICS = false;
-    private static final String DEFAULT_AUDIO_HAPTICS_OUTPUT_TARGET = "phone";
     private static final int DEFAULT_AUDIO_HAPTICS_STRENGTH = 100;
     private static final String DEFAULT_AUDIO_HAPTICS_VOICE_FILTER = "off";
-    private static final boolean DEFAULT_AUDIO_HAPTICS_KEEP_CONTROLLER_RUMBLE = false;
     private static final boolean DEFAULT_REDUCE_REFRESH_RATE = false;
     private static final boolean DEFAULT_FULL_RANGE = false;
-    private static final boolean DEFAULT_GAMEPAD_TOUCHPAD_AS_MOUSE = false;
-    private static final boolean DEFAULT_GAMEPAD_MOTION_SENSORS = true;
-    private static final boolean DEFAULT_GAMEPAD_MOTION_FALLBACK = false;
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
@@ -303,7 +267,6 @@ public class PreferenceConfiguration {
     public boolean bindAllUsb;
     public boolean mouseEmulation;
     public int mouseEmulationGameMenu;
-    public AnalogStickForScrolling analogStickForScrolling;
     public boolean unlockFps;
     public boolean vibrateOsc;
     public boolean vibrateFallbackToDevice;
@@ -717,21 +680,6 @@ public class PreferenceConfiguration {
         }
     }
 
-    private static AnalogStickForScrolling getAnalogStickForScrollingValue(Context context) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-
-        String str = prefs.getString(ANALOG_SCROLLING_PREF_STRING, DEFAULT_ANALOG_STICK_FOR_SCROLLING);
-        if (str.equals("right")) {
-            return AnalogStickForScrolling.RIGHT;
-        }
-        else if (str.equals("left")) {
-            return AnalogStickForScrolling.LEFT;
-        }
-        else {
-            return AnalogStickForScrolling.NONE;
-        }
-    }
-
     public static void resetStreamingSettings(Context context) {
         // We consider resolution, FPS, bitrate, HDR, and video format as "streaming settings" here
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
@@ -799,6 +747,8 @@ public class PreferenceConfiguration {
             // https://cs.android.com/android/_/android/platform/frameworks/base/+/8970010a5e9f3dc5c069f56b4147552accfcbbeb
             prefs.edit().putBoolean(GAMEPAD_MOTION_SENSORS_PREF_STRING, false).apply();
         }
+        ControllerSettings controllerSettings =
+                ControllerSettingsLoader.load(repository);
 
         // This must happen after the preferences migration to ensure the preferences are populated
         config.bitrate = prefs.getInt(BITRATE_PREF_STRING, prefs.getInt(BITRATE_PREF_OLD_STRING, 0) * 1000);
@@ -821,9 +771,8 @@ public class PreferenceConfiguration {
         config.videoFormat = getVideoFormatValue(context);
         config.framePacing = getFramePacingValue(repository);
 
-        config.analogStickForScrolling = getAnalogStickForScrollingValue(context);
-
-        config.deadzonePercentage = prefs.getInt(DEADZONE_PREF_STRING, DEFAULT_DEADZONE);
+        config.deadzonePercentage =
+                controllerSettings.getStickDeadzonePercent();
 
         config.oscOpacity = prefs.getInt(OSC_OPACITY_PREF_STRING, DEFAULT_OPACITY);
 
@@ -835,10 +784,14 @@ public class PreferenceConfiguration {
         config.stretchVideo = prefs.getBoolean(STRETCH_PREF_STRING, DEFAULT_STRETCH);
         config.playHostAudio = prefs.getBoolean(HOST_AUDIO_PREF_STRING, DEFAULT_HOST_AUDIO);
         config.smallIconMode = prefs.getBoolean(SMALL_ICONS_PREF_STRING, getDefaultSmallMode(context));
-        config.multiController = prefs.getBoolean(MULTI_CONTROLLER_PREF_STRING, DEFAULT_MULTI_CONTROLLER);
-        config.usbDriver = prefs.getBoolean(USB_DRIVER_PREF_SRING, DEFAULT_USB_DRIVER);
-        config.onscreenController = prefs.getBoolean(ONSCREEN_CONTROLLER_PREF_STRING, ONSCREEN_CONTROLLER_DEFAULT);
-        config.onlyL3R3 = prefs.getBoolean(ONLY_L3_R3_PREF_STRING, ONLY_L3_R3_DEFAULT);
+        config.multiController =
+                controllerSettings.isMultiControllerEnabled();
+        config.usbDriver =
+                controllerSettings.isUsbDriverEnabled();
+        config.onscreenController =
+                controllerSettings.isOnscreenControllerEnabled();
+        config.onlyL3R3 =
+                controllerSettings.isOnlyL3R3Enabled();
         config.showGuideButton = prefs.getBoolean(SHOW_GUIDE_BUTTON_PREF_STRING, SHOW_GUIDE_BUTTON_DEFAULT);
         config.enableHdr = prefs.getBoolean(ENABLE_HDR_PREF_STRING, DEFAULT_ENABLE_HDR) && !isShieldAtvFirmwareWithBrokenHdr();
         config.enableHdrHighBrightness = prefs.getBoolean(ENABLE_HDR_HIGH_BRIGHTNESS_PREF_STRING,
@@ -848,26 +801,36 @@ public class PreferenceConfiguration {
         config.enablePerfOverlayLite=prefs.getBoolean("checkbox_enable_perf_overlay_lite",DEFAULT_ENABLE_PERF_OVERLAY);
         config.enablePerfOverlayLiteExt=prefs.getBoolean("checkbox_enable_perf_overlay_lite_ext",true);
         config.bindAllUsb = prefs.getBoolean(BIND_ALL_USB_STRING, DEFAULT_BIND_ALL_USB);
-        config.mouseEmulation = prefs.getBoolean(MOUSE_EMULATION_STRING, DEFAULT_MOUSE_EMULATION);
+        config.mouseEmulation =
+                controllerSettings.isMouseEmulationEnabled();
         config.unlockFps = prefs.getBoolean(UNLOCK_FPS_STRING, DEFAULT_UNLOCK_FPS);
-        config.vibrateOsc = prefs.getBoolean(VIBRATE_OSC_PREF_STRING, DEFAULT_VIBRATE_OSC);
-        config.vibrateFallbackToDevice = prefs.getBoolean(VIBRATE_FALLBACK_PREF_STRING, DEFAULT_VIBRATE_FALLBACK);
-        config.vibrateFallbackToDeviceStrength = prefs.getInt(VIBRATE_FALLBACK_STRENGTH_PREF_STRING, DEFAULT_VIBRATE_FALLBACK_STRENGTH);
-        config.flipFaceButtons = prefs.getBoolean(FLIP_FACE_BUTTONS_PREF_STRING, DEFAULT_FLIP_FACE_BUTTONS);
+        config.vibrateOsc =
+                controllerSettings.isOnscreenRumbleEnabled();
+        config.vibrateFallbackToDevice =
+                controllerSettings.isFallbackDeviceRumbleEnabled();
+        config.vibrateFallbackToDeviceStrength =
+                controllerSettings
+                        .getFallbackDeviceRumbleStrengthPercent();
+        config.flipFaceButtons =
+                controllerSettings.areFaceButtonsFlipped();
         config.enableLatencyToast = prefs.getBoolean(LATENCY_TOAST_PREF_STRING, DEFAULT_LATENCY_TOAST);
         //软键盘
-        config.enableQtDialog = prefs.getBoolean(CHECKBOX_ENABLE_QUIT_DIALOG,false);
+        config.enableQtDialog =
+                controllerSettings
+                        .doesMouseEmulationOpenGameMenu();
         config.enablePortrait = prefs.getBoolean(CHECKBOX_ENABLE_PORTRAIT,false);
 
         config.enableKeyboard = prefs.getBoolean(CHECKBOX_ENABLE_KEYBOARD,false);
 
         config.enableKeyboardVibrate=prefs.getBoolean(CHECKBOX_ENABLE_KEYBOARD_VIBRATE,false);
         //兼容joycon手柄
-        config.enableJoyConFix=prefs.getBoolean("checkbox_enable_joyconfix",false);
+        config.enableJoyConFix =
+                controllerSettings.isJoyConFixEnabled();
         //全键盘透明度
         config.oscKeyboardOpacity=prefs.getInt("seekbar_keyboard_axi_opacity",DEFAULT_OPACITY);
 
-        config.enableBatteryReport=prefs.getBoolean("checkbox_gamepad_enable_battery_report",true);
+        config.enableBatteryReport =
+                controllerSettings.isBatteryReportingEnabled();
 
         config.gamepad_skin=prefs.getInt("onscreen_game_pad_skin",0);
 
@@ -900,7 +863,8 @@ public class PreferenceConfiguration {
 
         config.enableClearDefaultSpecial=prefs.getBoolean("checkbox_enable_clear_default_special_button", false);
 
-        config.enableDeviceRumble=prefs.getBoolean("checkbox_enable_device_rumble", false);
+        config.enableDeviceRumble =
+                controllerSettings.isDeviceRumbleEnabled();
 
         config.enableKeyboardSquare=prefs.getBoolean("checkbox_enable_keyboard_square",false);
 
@@ -910,7 +874,9 @@ public class PreferenceConfiguration {
 
         config.senableNewAnalogStickOpacityFixed=prefs.getBoolean("checkbox_enable_analog_stick_new_fixed",false);
 
-        config.enableVirtualControllerMotion=prefs.getBoolean("checkbox_enable_virtual_motion",false);
+        config.enableVirtualControllerMotion =
+                controllerSettings
+                        .isVirtualControllerMotionEnabled();
 
         config.enableCutoutModeVideo=prefs.getBoolean("checkbox_cutout_mode_video",false);
 
@@ -934,9 +900,11 @@ public class PreferenceConfiguration {
         config.enableAXFloating=prefs.getBoolean("checkbox_enable_ax_floating",true);
         config.axFloatingOperate =prefs.getInt("ax_floating_operate",0);
 
-        config.disableTriggerDeadzone=prefs.getBoolean("checkbox_disable_trigger_deadzone",false);
+        config.disableTriggerDeadzone =
+                controllerSettings.isTriggerDeadzoneDisabled();
 
-        config.enableFlipRumbleFF=prefs.getBoolean("checkbox_flip_rumble_ff",false);
+        config.enableFlipRumbleFF =
+                controllerSettings.areRumbleMotorsFlipped();
 
         config.enableAccessibilityShowLog=prefs.getBoolean("checkbox_enable_accessibility_show_log",false);
 
@@ -948,7 +916,8 @@ public class PreferenceConfiguration {
 
         config.screenLabel=prefs.getString("change_screen_label_key","");
 
-        config.mouseEmulationGameMenu=prefs.getInt("ax_quick_game_menu_key",0);
+        config.mouseEmulationGameMenu =
+                controllerSettings.getMouseEmulationButton();
 
         config.audioMute=prefs.getBoolean("ax_audio_mute",false);
 
@@ -958,9 +927,13 @@ public class PreferenceConfiguration {
 
         config.virtualKeyboardFileUsed=prefs.getInt("virtual_Key_board_file_used",0);
 
-        config.enableForceStrongVibrations=prefs.getBoolean("enable_force_strong_vibrations",false);
+        config.enableForceStrongVibrations =
+                controllerSettings
+                        .isForceStrongVibrationsEnabled();
 
-        config.enableForceStrongVibrationsStop=prefs.getBoolean("enable_force_strong_vibrations_stop",false);
+        config.enableForceStrongVibrationsStop =
+                controllerSettings
+                        .isForceStrongVibrationsStopPulseEnabled();
 
         config.showRumbleHUD=prefs.getBoolean("rumble_HUD_show",false);
 
@@ -972,13 +945,16 @@ public class PreferenceConfiguration {
         config.ds5TriggerStart=prefs.getInt("ds5TriggerStart",40);
         config.ds5TriggerEnd=prefs.getInt("ds5TriggerEnd",100);
 
-        config.usbGyroscopeReport=prefs.getBoolean("usbGyroscopeReport",true);
+        config.usbGyroscopeReport =
+                controllerSettings
+                        .isUsbGyroscopeReportingEnabled();
 
         config.virtualGamePadScaleFactor=prefs.getInt("virtualGamePadScaleFactor",100);
 
         config.lowLatencyExperiment=prefs.getBoolean("enable_lowLatency_experiment",true);
 
-        config.mouseGamePadSensitity=prefs.getInt("mouse_gamepad_sensitity",100);
+        config.mouseGamePadSensitity =
+                controllerSettings.getMouseSensitivityPercent();
 
         config.enableGameManagerQuest=prefs.getBoolean("checkbox_enable_game_manager_quest",false);
 
@@ -993,16 +969,28 @@ public class PreferenceConfiguration {
         config.disableAdaptiveInputThrottling = prefs.getBoolean(DISABLE_ADAPTIVE_INPUT_THROTTLING_PREF_STRING,
                 DEFAULT_DISABLE_ADAPTIVE_INPUT_THROTTLING);
         config.enableAudioFx = prefs.getBoolean(ENABLE_AUDIO_FX_PREF_STRING, DEFAULT_ENABLE_AUDIO_FX);
-        config.enableAudioHaptics = prefs.getBoolean(ENABLE_AUDIO_HAPTICS_PREF_STRING, DEFAULT_ENABLE_AUDIO_HAPTICS);
-        config.audioHapticsOutputTarget = prefs.getString(AUDIO_HAPTICS_OUTPUT_TARGET_PREF_STRING, DEFAULT_AUDIO_HAPTICS_OUTPUT_TARGET);
+        config.enableAudioHaptics =
+                controllerSettings
+                        .isControllerAudioHapticsEnabled();
+        config.audioHapticsOutputTarget =
+                controllerSettings
+                        .isAudioHapticsTargetController() ?
+                        "controller" :
+                        "phone";
         config.audioHapticsStrength = prefs.getInt(AUDIO_HAPTICS_STRENGTH_PREF_STRING, DEFAULT_AUDIO_HAPTICS_STRENGTH);
         config.audioHapticsVoiceFilter = prefs.getString(AUDIO_HAPTICS_VOICE_FILTER_PREF_STRING, DEFAULT_AUDIO_HAPTICS_VOICE_FILTER);
-        config.audioHapticsKeepControllerRumble = prefs.getBoolean(AUDIO_HAPTICS_KEEP_CONTROLLER_RUMBLE_PREF_STRING, DEFAULT_AUDIO_HAPTICS_KEEP_CONTROLLER_RUMBLE);
+        config.audioHapticsKeepControllerRumble =
+                controllerSettings
+                        .shouldKeepControllerRumbleWithAudioHaptics();
         config.reduceRefreshRate = prefs.getBoolean(REDUCE_REFRESH_RATE_PREF_STRING, DEFAULT_REDUCE_REFRESH_RATE);
         config.fullRange = prefs.getBoolean(FULL_RANGE_PREF_STRING, DEFAULT_FULL_RANGE);
-        config.gamepadTouchpadAsMouse = prefs.getBoolean(GAMEPAD_TOUCHPAD_AS_MOUSE_PREF_STRING, DEFAULT_GAMEPAD_TOUCHPAD_AS_MOUSE);
-        config.gamepadMotionSensors = prefs.getBoolean(GAMEPAD_MOTION_SENSORS_PREF_STRING, DEFAULT_GAMEPAD_MOTION_SENSORS);
-        config.gamepadMotionSensorsFallbackToDevice = prefs.getBoolean(GAMEPAD_MOTION_FALLBACK_PREF_STRING, DEFAULT_GAMEPAD_MOTION_FALLBACK);
+        config.gamepadTouchpadAsMouse =
+                controllerSettings.isTouchpadAsMouse();
+        config.gamepadMotionSensors =
+                controllerSettings.areMotionSensorsEnabled();
+        config.gamepadMotionSensorsFallbackToDevice =
+                controllerSettings
+                        .isMotionSensorsFallbackToDeviceEnabled();
 
         config.performanceOverlayLiteMaginTop=prefs.getInt("performance_overlayLite_magin_top",4);
 
@@ -1013,11 +1001,17 @@ public class PreferenceConfiguration {
 
         config.mouseSCAmount=prefs.getInt("mouse_sc_amount",5);
 
-        config.gameForceGyroLeftTrigger=prefs.getBoolean("gameForceGyroLeftTrigger",false);
-        config.gameForceGyro=prefs.getBoolean("gameForceGyro",false);
-        config.gameForceGyroXYSwitch=prefs.getBoolean("gameForceGyroXYSwitch",true);
+        config.gameForceGyroLeftTrigger =
+                controllerSettings
+                        .isForceGyroLeftTriggerRequired();
+        config.gameForceGyro =
+                controllerSettings.isForceGyroEnabled();
+        config.gameForceGyroXYSwitch =
+                controllerSettings.areForceGyroAxesSwapped();
 
-        config.gameForceGyroSensitivity=prefs.getInt("gameForceGyroSensitivity",120);
+        config.gameForceGyroSensitivity =
+                controllerSettings
+                        .getForceGyroSensitivityPercent();
 
         config.gameTriggerRumbleLink=prefs.getBoolean("gameTriggerRumbleLink",false);
 
