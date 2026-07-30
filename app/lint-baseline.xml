@@ -366,17 +366,6 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of org.jmdns:jmdns than 3.5.9 is available: 3.6.3"
-        errorLine1="    implementation &apos;org.jmdns:jmdns:3.5.9&apos;"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle"
-            line="158"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
         message="A newer version of com.google.code.gson:gson than 2.10.1 is available: 2.14.0"
         errorLine1="    implementation &apos;com.google.code.gson:gson:2.10.1&apos;"
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">

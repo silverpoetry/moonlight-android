@@ -79,3 +79,15 @@ Both devices were locked during automation, so tests that require a visible acti
 or active stream were not claimed as passed. Predictive-back gestures, double-back
 stream exit, rotation/window transitions, and live input alignment remain in the final
 manual release gate.
+
+## Dependency: JmDNS 3.6.3
+
+- Upgraded `org.jmdns:jmdns` from 3.5.9 to 3.6.3.
+- The Android-specific network-topology delegate remains installed and the `_nvstream`
+  service identity, port, and IPv4/IPv6 accessors retain the API used by discovery.
+- Targeted JmDNS compatibility tests: passed.
+- `verifyLocal`: passed.
+- Lint: no new findings; the matching `GradleDependency` entry was removed, leaving
+  62 reviewed baseline entries.
+- Android 14+ uses the platform `NsdManager`; a live JmDNS discovery check still
+  requires an API 21-33 device and remains a final compatibility-matrix item.
