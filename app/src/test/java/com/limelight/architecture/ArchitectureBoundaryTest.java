@@ -32,7 +32,8 @@ public final class ArchitectureBoundaryTest {
                 .resideInAnyPackage(
                         "com.limelight.ui.gamemenu..",
                         "com.limelight.ui.clipboard..",
-                        "com.limelight.ui.performance..")
+                        "com.limelight.ui.performance..",
+                        "com.limelight.ui.stream..")
                 .should()
                 .dependOnClassesThat()
                 .haveFullyQualifiedName("com.limelight.Game")
@@ -173,6 +174,19 @@ public final class ArchitectureBoundaryTest {
                 .dependOnClassesThat()
                 .resideInAnyPackage("com.limelight.ui..")
                 .because("session lifecycle emits through its listener port")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void streamFailureDiagnosticsDoesNotDependOnConnection() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamFailureDiagnostics")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("com.limelight.nvstream.NvConnection")
+                .because("diagnostics run through an injected probe")
                 .check(productionClasses);
     }
 }

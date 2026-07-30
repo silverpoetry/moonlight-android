@@ -49,6 +49,7 @@ import com.limelight.ui.gamemenu.GameMenuSession;
 import com.limelight.ui.clipboard.RemoteClipboardFileTransferController;
 import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
+import com.limelight.ui.stream.StreamFailureDiagnostics;
 import com.limelight.ui.GameGestures;
 import com.limelight.ui.NativeCursorOverlayView;
 import com.limelight.ui.StreamUiActions;
@@ -156,6 +157,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private NvConnection conn;
     private StreamSessionController sessionController;
+    private StreamFailureDiagnostics failureDiagnostics;
     private SpinnerDialog spinner;
     private boolean displayedFailureDialog = false;
     private boolean awaitingRecordAudioPermission = false;
@@ -170,6 +172,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private long streamStartElapsedMs;
     private NvApp app;
     private float desiredRefreshRate;
+    private volatile boolean sessionDependenciesReady;
 
     private InputCaptureProvider inputCaptureProvider;
     private boolean grabbedInput = true;
@@ -230,6 +233,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private boolean fsrEnabled;
     private boolean fsrInputSurfaceReady;
     private boolean fsrDisplaySurfaceCreated;
+    private volatile boolean streamRenderSurfaceReady;
     private Surface fsrInputSurface;
     private boolean usbPermissionPromptVisible;
     private boolean fsrViewLifecyclePaused;
@@ -650,6 +654,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         prefConfig);
         clipboardFileTransferController =
                 new RemoteClipboardFileTransferController(this, conn);
+        Handler mainHandler = new Handler(Looper.getMainLooper());
+        failureDiagnostics = StreamFailureDiagnostics.create(
+                portFlags -> MoonBridge.testClientConnectivity(
+                        ServerHelper.CONNECTION_TEST_SERVER,
+                        443,
+                        portFlags),
+                command -> mainHandler.post(command));
         sessionController = new StreamSessionController(conn, this);
         TouchInputController touchInputController =
                 new TouchInputController(
@@ -672,7 +683,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 }
             });
         }
-        startConnectionIfReady();
         controllerHandler = new ControllerHandler(this, conn, this, prefConfig);
         keyboardInputController = new KeyboardInputController(
                 new KeyboardTranslator(),
@@ -782,6 +792,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 //        cursorVisible=prefConfig.enableMouseLocalCursor;
 //        initFloatingView();
 
+        sessionDependenciesReady = true;
+        startConnectionIfReady();
     }
 
     private void initKeyboardController(){
@@ -1391,7 +1403,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        sessionDependenciesReady = false;
         unregisterInputGateway();
+        if (failureDiagnostics != null) {
+            failureDiagnostics.destroy();
+            failureDiagnostics = null;
+        }
         if (streamInputController != null) {
             streamInputController.destroy();
             streamInputController = null;
@@ -1888,125 +1905,194 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void stageFailed(final String stage, final int portFlags, final int errorCode) {
-        // Perform a connection test if the failure could be due to a blocked port
-        // This does network I/O, so don't do it on the main thread.
-        final int portTestResult = MoonBridge.testClientConnectivity(ServerHelper.CONNECTION_TEST_SERVER, 443, portFlags);
+        runOnUiThread(() -> {
+            if (!canPresentSessionUi()) {
+                return;
+            }
+            if (spinner != null) {
+                spinner.dismiss();
+                spinner = null;
+            }
 
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (spinner != null) {
-                    spinner.dismiss();
-                    spinner = null;
-                }
+            if (displayedFailureDialog) {
+                return;
+            }
+            displayedFailureDialog = true;
+            LimeLog.severe(stage + " failed: " + errorCode);
 
-                if (!displayedFailureDialog) {
-                    displayedFailureDialog = true;
-                    LimeLog.severe(stage + " failed: " + errorCode);
+            if (stage.contains("video") &&
+                    streamView.getHolder().getSurface().isValid()) {
+                UiToast.makeText(
+                        Game.this,
+                        getResources().getText(
+                                R.string.video_decoder_init_failed),
+                        UiToast.LENGTH_LONG).show();
+            }
 
-                    // If video initialization failed and the surface is still valid, display extra information for the user
-                    if (stage.contains("video") && streamView.getHolder().getSurface().isValid()) {
-                        UiToast.makeText(Game.this, getResources().getText(R.string.video_decoder_init_failed), UiToast.LENGTH_LONG).show();
-                    }
-
-                    String dialogText = getResources().getString(R.string.conn_error_msg) + " " + stage +" (error "+errorCode+")";
-
-                    if (portFlags != 0) {
-                        dialogText += "\n\n" + getResources().getString(R.string.check_ports_msg) + "\n" +
-                                MoonBridge.stringifyPortFlags(portFlags, "\n");
-                    }
-
-                    if (portTestResult != MoonBridge.ML_TEST_RESULT_INCONCLUSIVE && portTestResult != 0)  {
-                        dialogText += "\n\n" + getResources().getString(R.string.nettest_text_blocked);
-                    }
-
-                    Dialog.displayDialog(Game.this, getResources().getString(R.string.conn_error_title), dialogText, true);
-                }
+            StreamFailureDiagnostics diagnostics =
+                    failureDiagnostics;
+            if (diagnostics == null ||
+                    !diagnostics.request(
+                            portFlags,
+                            result -> displayStageFailureDialog(
+                                    stage,
+                                    errorCode,
+                                    result.getPortFlags(),
+                                    result.getProbeResultOr(
+                                            MoonBridge
+                                                    .ML_TEST_RESULT_INCONCLUSIVE)))) {
+                displayStageFailureDialog(
+                        stage,
+                        errorCode,
+                        portFlags,
+                        MoonBridge.ML_TEST_RESULT_INCONCLUSIVE);
             }
         });
     }
 
+    private void displayStageFailureDialog(
+            String stage,
+            int errorCode,
+            int portFlags,
+            int portTestResult) {
+        String dialogText =
+                getResources().getString(R.string.conn_error_msg) +
+                        " " + stage + " (error " + errorCode + ")";
+
+        if (portFlags != 0) {
+            dialogText += "\n\n" +
+                    getResources().getString(R.string.check_ports_msg) +
+                    "\n" +
+                    MoonBridge.stringifyPortFlags(portFlags, "\n");
+        }
+
+        if (isBlockedPortTestResult(portTestResult)) {
+            dialogText += "\n\n" +
+                    getResources().getString(
+                            R.string.nettest_text_blocked);
+        }
+
+        Dialog.displayDialog(
+                this,
+                getResources().getString(R.string.conn_error_title),
+                dialogText,
+                true);
+    }
+
     @Override
     public void connectionTerminated(final int errorCode) {
-        // Perform a connection test if the failure could be due to a blocked port
-        // This does network I/O, so don't do it on the main thread.
         final int portFlags = MoonBridge.getPortFlagsFromTerminationErrorCode(errorCode);
-        final int portTestResult = MoonBridge.testClientConnectivity(ServerHelper.CONNECTION_TEST_SERVER,443, portFlags);
+        runOnUiThread(() -> {
+            if (!canPresentSessionUi()) {
+                return;
+            }
+            getWindow().clearFlags(
+                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            controllerHandler.stop();
+            setInputGrabState(false);
 
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                // Let the display go to sleep now
-                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            if (displayedFailureDialog) {
+                return;
+            }
+            displayedFailureDialog = true;
+            LimeLog.severe("Connection terminated: " + errorCode);
+            stopConnection();
 
-                // Stop processing controller input
-                controllerHandler.stop();
+            if (errorCode ==
+                    MoonBridge.ML_ERROR_GRACEFUL_TERMINATION) {
+                finish();
+                return;
+            }
 
-                // Ungrab input
-                setInputGrabState(false);
-
-                if (!displayedFailureDialog) {
-                    displayedFailureDialog = true;
-                    LimeLog.severe("Connection terminated: " + errorCode);
-                    stopConnection();
-
-                    // Display the error dialog if it was an unexpected termination.
-                    // Otherwise, just finish the activity immediately.
-                    if (errorCode != MoonBridge.ML_ERROR_GRACEFUL_TERMINATION) {
-                        String message;
-
-                        if (portTestResult != MoonBridge.ML_TEST_RESULT_INCONCLUSIVE && portTestResult != 0) {
-                            // If we got a blocked result, that supersedes any other error message
-                            message = getResources().getString(R.string.nettest_text_blocked);
-                        }
-                        else {
-                            switch (errorCode) {
-                                case MoonBridge.ML_ERROR_NO_VIDEO_TRAFFIC:
-                                    message = getResources().getString(R.string.no_video_received_error);
-                                    break;
-
-                                case MoonBridge.ML_ERROR_NO_VIDEO_FRAME:
-                                    message = getResources().getString(R.string.no_frame_received_error);
-                                    break;
-
-                                case MoonBridge.ML_ERROR_UNEXPECTED_EARLY_TERMINATION:
-                                case MoonBridge.ML_ERROR_PROTECTED_CONTENT:
-                                    message = getResources().getString(R.string.early_termination_error);
-                                    break;
-
-                                case MoonBridge.ML_ERROR_FRAME_CONVERSION:
-                                    message = getResources().getString(R.string.frame_conversion_error);
-                                    break;
-
-                                default:
-                                    String errorCodeString;
-                                    // We'll assume large errors are hex values
-                                    if (Math.abs(errorCode) > 1000) {
-                                        errorCodeString = Integer.toHexString(errorCode);
-                                    }
-                                    else {
-                                        errorCodeString = Integer.toString(errorCode);
-                                    }
-                                    message = getResources().getString(R.string.conn_terminated_msg) + "\n\n" +
-                                            getResources().getString(R.string.error_code_prefix) + " " + errorCodeString;
-                                    break;
-                            }
-                        }
-
-                        if (portFlags != 0) {
-                            message += "\n\n" + getResources().getString(R.string.check_ports_msg) + "\n" +
-                                    MoonBridge.stringifyPortFlags(portFlags, "\n");
-                        }
-
-                        Dialog.displayDialog(Game.this, getResources().getString(R.string.conn_terminated_title),
-                                message, true);
-                    }
-                    else {
-                        finish();
-                    }
-                }
+            StreamFailureDiagnostics diagnostics =
+                    failureDiagnostics;
+            if (diagnostics == null ||
+                    !diagnostics.request(
+                            portFlags,
+                            result ->
+                                    displayTerminationFailureDialog(
+                                            errorCode,
+                                            result.getPortFlags(),
+                                            result.getProbeResultOr(
+                                                    MoonBridge
+                                                            .ML_TEST_RESULT_INCONCLUSIVE)))) {
+                displayTerminationFailureDialog(
+                        errorCode,
+                        portFlags,
+                        MoonBridge.ML_TEST_RESULT_INCONCLUSIVE);
             }
         });
+    }
+
+    private void displayTerminationFailureDialog(
+            int errorCode,
+            int portFlags,
+            int portTestResult) {
+        String message;
+        if (isBlockedPortTestResult(portTestResult)) {
+            message = getResources().getString(
+                    R.string.nettest_text_blocked);
+        }
+        else {
+            message = getTerminationErrorMessage(errorCode);
+        }
+
+        if (portFlags != 0) {
+            message += "\n\n" +
+                    getResources().getString(R.string.check_ports_msg) +
+                    "\n" +
+                    MoonBridge.stringifyPortFlags(portFlags, "\n");
+        }
+
+        Dialog.displayDialog(
+                this,
+                getResources().getString(
+                        R.string.conn_terminated_title),
+                message,
+                true);
+    }
+
+    private String getTerminationErrorMessage(int errorCode) {
+        switch (errorCode) {
+            case MoonBridge.ML_ERROR_NO_VIDEO_TRAFFIC:
+                return getResources().getString(
+                        R.string.no_video_received_error);
+
+            case MoonBridge.ML_ERROR_NO_VIDEO_FRAME:
+                return getResources().getString(
+                        R.string.no_frame_received_error);
+
+            case MoonBridge.ML_ERROR_UNEXPECTED_EARLY_TERMINATION:
+            case MoonBridge.ML_ERROR_PROTECTED_CONTENT:
+                return getResources().getString(
+                        R.string.early_termination_error);
+
+            case MoonBridge.ML_ERROR_FRAME_CONVERSION:
+                return getResources().getString(
+                        R.string.frame_conversion_error);
+
+            default:
+                String errorCodeString = Math.abs(errorCode) > 1000
+                        ? Integer.toHexString(errorCode)
+                        : Integer.toString(errorCode);
+                return getResources().getString(
+                        R.string.conn_terminated_msg) +
+                        "\n\n" +
+                        getResources().getString(
+                                R.string.error_code_prefix) +
+                        " " + errorCodeString;
+        }
+    }
+
+    private static boolean isBlockedPortTestResult(
+            int portTestResult) {
+        return portTestResult !=
+                MoonBridge.ML_TEST_RESULT_INCONCLUSIVE &&
+                portTestResult != 0;
+    }
+
+    private boolean canPresentSessionUi() {
+        return !isFinishing() && !isDestroyed();
     }
 
     @Override
@@ -2195,7 +2281,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (fsrEnabled) {
             return;
         }
-        startSessionWithRenderTarget(holder.getSurface());
+        streamRenderSurfaceReady =
+                holder.getSurface().isValid();
+        startConnectionIfReady();
     }
 
     @Override
@@ -2259,6 +2347,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         surfaceCreated = false;
+        streamRenderSurfaceReady = false;
 
         if (hasSessionStarted()) {
             // Let the decoder know immediately that the surface is gone
@@ -2909,13 +2998,27 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void startConnectionIfReady() {
-        if (!fsrEnabled || sessionController == null ||
-                !sessionController.canStart() ||
-                !fsrInputSurfaceReady || !fsrDisplaySurfaceCreated) {
+        if (!sessionDependenciesReady ||
+                sessionController == null ||
+                !sessionController.canStart()) {
             return;
         }
 
-        startSessionWithRenderTarget(fsrInputSurface);
+        if (fsrEnabled) {
+            if (!fsrInputSurfaceReady ||
+                    !fsrDisplaySurfaceCreated) {
+                return;
+            }
+            startSessionWithRenderTarget(fsrInputSurface);
+            return;
+        }
+
+        Surface renderTarget =
+                streamView.getHolder().getSurface();
+        if (streamRenderSurfaceReady &&
+                renderTarget.isValid()) {
+            startSessionWithRenderTarget(renderTarget);
+        }
     }
 
     private void startSessionWithRenderTarget(Surface renderTarget) {

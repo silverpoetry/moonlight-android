@@ -51,6 +51,10 @@ otherwise rejected after their owner is destroyed.
 `stop()` must be safe before start, during start, after failure, and after a
 previous stop.
 
+Connectivity probes triggered by startup or runtime failure execute only on
+the cancelable `StreamFailureDiagnostics` worker. They cannot delay transport
+cleanup, block a connection callback, or publish into a destroyed UI owner.
+
 ### Transfer executor
 
 Clipboard and file work uses a bounded executor independent from input and

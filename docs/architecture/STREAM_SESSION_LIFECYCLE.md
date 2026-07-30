@@ -40,7 +40,11 @@ delivering new callbacks through the session controller.
 
 ## Remaining ownership migration
 
-The controller owns transport state today. The next migration slices move
-failure diagnostics, render/audio resource lifetime, Wi-Fi locks, and stream UI
-effects behind session-scoped ports. Until those slices are complete,
+The controller owns transport state. `StreamFailureDiagnostics` owns the single
+cancelable worker used for connectivity probes; those probes never block the
+connection callback or Android main thread, and their queued results are
+invalidated when the Activity is destroyed.
+
+The next migration slices move render/audio resource lifetime, Wi-Fi locks, and
+stream UI effects behind session-scoped ports. Until those slices are complete,
 `Game` remains the presentation adapter for accepted callbacks.
