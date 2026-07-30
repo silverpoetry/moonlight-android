@@ -56,9 +56,8 @@ import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.binding.input.driver.UsbDriverService;
 import com.limelight.binding.input.evdev.EvdevListener;
 import com.limelight.binding.input.touch.AbsoluteTouchContext;
-import com.limelight.binding.input.touch.BufferedTouchEventDispatcher;
 import com.limelight.binding.input.touch.RelativeTouchContext;
-import com.limelight.binding.input.touch.SoftKeyboardGestureDetector;
+import com.limelight.binding.input.touch.SoftKeyboardGestureCoordinator;
 import com.limelight.binding.input.touch.TouchContext;
 import com.limelight.binding.input.touch.TouchpadGestureState;
 import com.limelight.binding.input.touch.TouchscreenTouchpadHandler;
@@ -107,8 +106,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
 
     // Only 2 touches are supported
     private final TouchContext[] touchContextMap = new TouchContext[2];
-    private SoftKeyboardGestureDetector softKeyboardGestureDetector;
-    private BufferedTouchEventDispatcher bufferedTouchEventDispatcher;
+    private SoftKeyboardGestureCoordinator softKeyboardGestureCoordinator;
     private TouchscreenTouchpadHandler touchscreenTouchpadHandler;
 
     private static final int REFERENCE_HORIZ_RES = 1280;
@@ -200,9 +198,26 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         super.onCreate(savedInstanceState);
 
         instance = this;
-        softKeyboardGestureDetector = new SoftKeyboardGestureDetector(
-                ViewConfiguration.get(this).getScaledTouchSlop());
-        bufferedTouchEventDispatcher = new BufferedTouchEventDispatcher();
+        softKeyboardGestureCoordinator = new SoftKeyboardGestureCoordinator(
+                ViewConfiguration.get(this).getScaledTouchSlop(),
+                new SoftKeyboardGestureCoordinator.Listener() {
+                    @Override
+                    public void dispatchDeferredTouchEvent(
+                            View eventView,
+                            MotionEvent event) {
+                        handleMotionEvent(eventView, event);
+                    }
+
+                    @Override
+                    public void onGesturePrefixDeferred() {
+                        suspendPendingTouchpadPressRecognition();
+                    }
+
+                    @Override
+                    public void onKeyboardGestureRecognized() {
+                        completeSoftKeyboardGesture();
+                    }
+                });
 
         UiHelper.setLocale(this);
 
@@ -980,7 +995,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
 
     @Override
     protected void onDestroy() {
-        bufferedTouchEventDispatcher.cancel();
+        softKeyboardGestureCoordinator.cancel();
         super.onDestroy();
 
         instance = null;
@@ -1445,46 +1460,32 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
     }
 
     private boolean handleSoftKeyboardGesture(View view, MotionEvent event) {
-        if (bufferedTouchEventDispatcher.queueIfReplaying(view, event)) {
-            return true;
+        return softKeyboardGestureCoordinator.onTouchEvent(
+                view,
+                event,
+                getSoftKeyboardGestureFingerCount());
+    }
+
+    private void suspendPendingTouchpadPressRecognition() {
+        if (touchscreenTouchpadHandler != null) {
+            touchscreenTouchpadHandler.suspendPendingPressRecognition();
         }
-
-        int configuredFingerCount = getSoftKeyboardGestureFingerCount();
-        if (configuredFingerCount < 3) {
-            softKeyboardGestureDetector.reset();
-            return false;
+        for (TouchContext touchContext : touchContextMap) {
+            if (touchContext != null) {
+                touchContext.suspendPendingPressRecognition();
+            }
         }
+    }
 
-        SoftKeyboardGestureDetector.Result result =
-                softKeyboardGestureDetector.onTouchEvent(event, configuredFingerCount);
-
-        if (result == SoftKeyboardGestureDetector.Result.STARTED) {
-            return true;
-        }
-
-        if (result == SoftKeyboardGestureDetector.Result.BUFFERING) {
-            return true;
-        }
-
-        if (result == SoftKeyboardGestureDetector.Result.FORWARD) {
-            List<MotionEvent> bufferedEvents = softKeyboardGestureDetector.takeBufferedEvents();
-            bufferedTouchEventDispatcher.dispatch(view, bufferedEvents,
-                    (eventView, bufferedEvent) ->
-                            handleMotionEvent(eventView, bufferedEvent));
-            return true;
-        }
-
-        if (result == SoftKeyboardGestureDetector.Result.TRIGGERED) {
-            cancelNativeTouchpadInput();
-            for (TouchContext touchContext : touchContextMap) {
+    private void completeSoftKeyboardGesture() {
+        cancelNativeTouchpadInput();
+        for (TouchContext touchContext : touchContextMap) {
+            if (touchContext != null) {
                 touchContext.cancelTouch();
                 touchContext.setPointerCount(0);
             }
-            showKeyboard();
-            return true;
         }
-
-        return result == SoftKeyboardGestureDetector.Result.CONSUMED;
+        showKeyboard();
     }
 
     private byte getLiTouchTypeFromEvent(MotionEvent event) {
@@ -2016,7 +2017,9 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                     case MotionEvent.ACTION_POINTER_DOWN:
                     case MotionEvent.ACTION_DOWN:
                         for (TouchContext touchContext : touchContextMap) {
-                            touchContext.setPointerCount(event.getPointerCount());
+                            touchContext.setPointerCount(
+                                    event.getPointerCount(),
+                                    event.getEventTime());
                         }
                         context.touchDownEvent(eventX, eventY, event.getEventTime(), true);
                         break;
@@ -2029,7 +2032,9 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
                         }
 
                         for (TouchContext touchContext : touchContextMap) {
-                            touchContext.setPointerCount(event.getPointerCount() - 1);
+                            touchContext.setPointerCount(
+                                    event.getPointerCount() - 1,
+                                    event.getEventTime());
                         }
                         if (actionIndex == 0 && event.getPointerCount() > 1 && !context.isCancelled()) {
                             // The original secondary touch now becomes primary

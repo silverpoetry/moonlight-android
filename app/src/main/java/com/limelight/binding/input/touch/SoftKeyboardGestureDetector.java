@@ -18,7 +18,7 @@ public final class SoftKeyboardGestureDetector {
     }
 
     private static final int MIN_GESTURE_FINGER_COUNT = 3;
-    private static final int TAP_THRESHOLD_MS = 300;
+    static final int TAP_THRESHOLD_MS = 300;
 
     private static final class PointerOrigin {
         final float x;
@@ -40,6 +40,7 @@ public final class SoftKeyboardGestureDetector {
     private boolean passthrough;
     private boolean suppressRemainder;
     private int configuredFingerCount;
+    private long decisionDeadlineMs;
 
     public SoftKeyboardGestureDetector(int movementThresholdPx) {
         int safeMovementThreshold = Math.max(1, movementThresholdPx);
@@ -47,15 +48,13 @@ public final class SoftKeyboardGestureDetector {
     }
 
     /**
-     * Defers events starting with the third pointer only while they can still
-     * form the configured keyboard tap.
+     * Defers the ambiguous prefix beginning with the second contact while it
+     * can still form the configured keyboard tap.
      *
-     * <p>One- and two-finger input remains on the normal path, which preserves
-     * two-finger long press and force press. The touchpad handoff layer already
-     * holds a stationary two-finger gesture locally, so buffering from the
-     * third contact is still early enough to prevent an exact keyboard tap
-     * from reaching the host. Movement, timeout, an early release, or an
-     * unexpected finger count releases the complete buffer in original order.</p>
+     * <p>The first contact remains on the normal path. Movement, timeout, an
+     * early release, or an unexpected finger count releases every deferred
+     * event in original order. An exact configured-finger tap consumes the
+     * prefix before any multi-contact input reaches the host.</p>
      */
     public Result onTouchEvent(MotionEvent event, int requestedFingerCount) {
         if (passthrough) {
@@ -87,6 +86,7 @@ public final class SoftKeyboardGestureDetector {
                 reset();
                 configuredFingerCount = requestedFingerCount;
                 eligible = true;
+                decisionDeadlineMs = event.getDownTime() + TAP_THRESHOLD_MS;
                 recordPointerOrigin(event, 0);
                 return Result.NONE;
 
@@ -128,6 +128,22 @@ public final class SoftKeyboardGestureDetector {
         return events;
     }
 
+    /**
+     * Ends local arbitration and releases any deferred prefix to normal input.
+     */
+    public Result releasePendingGesture() {
+        if (!buffering) {
+            return Result.NONE;
+        }
+
+        beginPassthrough();
+        return Result.FORWARD;
+    }
+
+    public long getDecisionDeadlineMs() {
+        return decisionDeadlineMs;
+    }
+
     public void reset() {
         recycleBufferedEvents();
         eligible = false;
@@ -136,6 +152,7 @@ public final class SoftKeyboardGestureDetector {
         passthrough = false;
         suppressRemainder = false;
         configuredFingerCount = 0;
+        decisionDeadlineMs = 0;
         pointerOrigins.clear();
     }
 
@@ -155,7 +172,7 @@ public final class SoftKeyboardGestureDetector {
         updateEligibility(event);
 
         boolean started = !buffering;
-        if (event.getPointerCount() >= MIN_GESTURE_FINGER_COUNT) {
+        if (event.getPointerCount() >= MIN_GESTURE_FINGER_COUNT - 1) {
             buffering = true;
             buffer(event);
         }

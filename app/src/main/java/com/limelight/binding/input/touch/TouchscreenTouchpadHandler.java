@@ -4,6 +4,7 @@ import android.graphics.PointF;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.util.SparseArray;
 import android.view.MotionEvent;
@@ -212,7 +213,7 @@ public final class TouchscreenTouchpadHandler {
                     event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER) {
                 updateDeviceDimensions(eventView);
                 observeSingleContact(eventView, event);
-                scheduleLongPress();
+                scheduleLongPress(event.getEventTime());
             }
             return false;
         }
@@ -240,7 +241,7 @@ public final class TouchscreenTouchpadHandler {
                     clearObservedContact();
                     if (beginNativeGesture(eventView, event)) {
                         notifyNativeGestureStarted();
-                        scheduleLongPress();
+                        scheduleLongPress(event.getEventTime());
                         return true;
                     }
                     return false;
@@ -277,6 +278,15 @@ public final class TouchscreenTouchpadHandler {
     public void cancel() {
         cancelNativeContacts();
         resetState();
+    }
+
+    /**
+     * Pauses a press timer while a local multi-finger gesture recognizer owns
+     * the ambiguous two-contact prefix. Replayed input starts the timer again
+     * using the original hardware event time.
+     */
+    public void suspendPendingPressRecognition() {
+        cancelLongPress();
     }
 
     public boolean beginForcePress(int pointerId, int pointerCount) {
@@ -388,11 +398,18 @@ public final class TouchscreenTouchpadHandler {
         return deltaX * deltaX + deltaY * deltaY > pressSlopSquared;
     }
 
-    private void scheduleLongPress() {
+    private void scheduleLongPress(long eventTime) {
         cancelLongPress();
         if (nativePressHandlingEnabled && !barometerForcePressEnabled) {
-            handler.postDelayed(longPressRunnable,
-                    RelativeTouchContext.PHYSICAL_LONG_PRESS_MS);
+            long elapsedMs = Math.max(
+                    0,
+                    SystemClock.uptimeMillis() - eventTime);
+            handler.postDelayed(
+                    longPressRunnable,
+                    Math.max(
+                            0,
+                            RelativeTouchContext.PHYSICAL_LONG_PRESS_MS -
+                                    elapsedMs));
         }
     }
 
@@ -670,7 +687,7 @@ public final class TouchscreenTouchpadHandler {
                     gestureState = GestureState.SUPPRESSED;
                 }
                 else {
-                    scheduleLongPress();
+                    scheduleLongPress(event.getEventTime());
                 }
                 break;
 

@@ -12,12 +12,11 @@ import com.limelight.binding.input.capture.InputCaptureProvider;
 import com.limelight.binding.input.touch.AbsoluteTouchContext;
 import com.limelight.binding.input.touch.AbsoluteTouchSwitchContext;
 import com.limelight.binding.input.touch.BarometerForcePressController;
-import com.limelight.binding.input.touch.BufferedTouchEventDispatcher;
 import com.limelight.binding.input.touch.RelativeTouchContext;
 import com.limelight.binding.input.driver.UsbDriverService;
 import com.limelight.binding.input.evdev.EvdevListener;
 import com.limelight.binding.input.touch.RelativeTouchSwitchContext;
-import com.limelight.binding.input.touch.SoftKeyboardGestureDetector;
+import com.limelight.binding.input.touch.SoftKeyboardGestureCoordinator;
 import com.limelight.binding.input.touch.TouchContext;
 import com.limelight.binding.input.touch.TouchpadGestureState;
 import com.limelight.binding.input.touch.TouchpadMotionSender;
@@ -161,8 +160,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     // Only 2 touches are supported
     private final TouchContext[] touchContextMap = new TouchContext[2];
-    private SoftKeyboardGestureDetector softKeyboardGestureDetector;
-    private BufferedTouchEventDispatcher bufferedTouchEventDispatcher;
+    private SoftKeyboardGestureCoordinator softKeyboardGestureCoordinator;
     private BarometerForcePressController barometerForcePressController;
     private TouchscreenTouchpadHandler touchscreenTouchpadHandler;
     private boolean nativeMultiTouchpadInputEnabled;
@@ -298,9 +296,26 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         super.onCreate(savedInstanceState);
 
         instance=this;
-        softKeyboardGestureDetector = new SoftKeyboardGestureDetector(
-                ViewConfiguration.get(this).getScaledTouchSlop());
-        bufferedTouchEventDispatcher = new BufferedTouchEventDispatcher();
+        softKeyboardGestureCoordinator = new SoftKeyboardGestureCoordinator(
+                ViewConfiguration.get(this).getScaledTouchSlop(),
+                new SoftKeyboardGestureCoordinator.Listener() {
+                    @Override
+                    public void dispatchDeferredTouchEvent(
+                            View eventView,
+                            MotionEvent event) {
+                        handleMotionEvent(eventView, event);
+                    }
+
+                    @Override
+                    public void onGesturePrefixDeferred() {
+                        suspendPendingTouchpadPressRecognition();
+                    }
+
+                    @Override
+                    public void onKeyboardGestureRecognized() {
+                        completeSoftKeyboardGesture();
+                    }
+                });
 
         UiHelper.setLocale(this);
 
@@ -1462,7 +1477,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
-        bufferedTouchEventDispatcher.cancel();
+        softKeyboardGestureCoordinator.cancel();
         clipboardFileTransferGeneration++;
         clipboardFileTransferInProgress = false;
         if (clipboardFileTransferDialog != null) {
@@ -2086,49 +2101,35 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private boolean handleSoftKeyboardGesture(View view, MotionEvent event) {
-        if (bufferedTouchEventDispatcher.queueIfReplaying(view, event)) {
-            return true;
+        return softKeyboardGestureCoordinator.onTouchEvent(
+                view,
+                event,
+                getSoftKeyboardGestureFingerCount());
+    }
+
+    private void suspendPendingTouchpadPressRecognition() {
+        if (touchscreenTouchpadHandler != null) {
+            touchscreenTouchpadHandler.suspendPendingPressRecognition();
         }
-
-        int configuredFingerCount = getSoftKeyboardGestureFingerCount();
-        if (configuredFingerCount < 3) {
-            softKeyboardGestureDetector.reset();
-            return false;
-        }
-
-        SoftKeyboardGestureDetector.Result result =
-                softKeyboardGestureDetector.onTouchEvent(event, configuredFingerCount);
-
-        if (result == SoftKeyboardGestureDetector.Result.STARTED) {
-            return true;
-        }
-
-        if (result == SoftKeyboardGestureDetector.Result.BUFFERING) {
-            return true;
-        }
-
-        if (result == SoftKeyboardGestureDetector.Result.FORWARD) {
-            List<MotionEvent> bufferedEvents = softKeyboardGestureDetector.takeBufferedEvents();
-            bufferedTouchEventDispatcher.dispatch(view, bufferedEvents,
-                    (eventView, bufferedEvent) ->
-                            handleMotionEvent(eventView, bufferedEvent));
-            return true;
-        }
-
-        if (result == SoftKeyboardGestureDetector.Result.TRIGGERED) {
-            if (barometerForcePressController != null) {
-                barometerForcePressController.cancelTouchSession();
+        for (TouchContext touchContext : touchContextMap) {
+            if (touchContext != null) {
+                touchContext.suspendPendingPressRecognition();
             }
-            cancelNativeTouchpadInput();
-            for (TouchContext touchContext : touchContextMap) {
+        }
+    }
+
+    private void completeSoftKeyboardGesture() {
+        if (barometerForcePressController != null) {
+            barometerForcePressController.cancelTouchSession();
+        }
+        cancelNativeTouchpadInput();
+        for (TouchContext touchContext : touchContextMap) {
+            if (touchContext != null) {
                 touchContext.cancelTouch();
                 touchContext.setPointerCount(0);
             }
-            showKeyboard();
-            return true;
         }
-
-        return result == SoftKeyboardGestureDetector.Result.CONSUMED;
+        showKeyboard();
     }
 
     private byte getLiTouchTypeFromEvent(MotionEvent event) {
@@ -2825,7 +2826,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 }
 
                 if (barometerForcePressController != null &&
-                        !bufferedTouchEventDispatcher.isInternalDispatch()) {
+                        !softKeyboardGestureCoordinator
+                                .isDispatchingDeferredEvents()) {
                     barometerForcePressController.onTouchEvent(event);
                 }
 
@@ -2874,7 +2876,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 case MotionEvent.ACTION_POINTER_DOWN:
                 case MotionEvent.ACTION_DOWN:
                     for (TouchContext touchContext : touchContextMap) {
-                        touchContext.setPointerCount(event.getPointerCount());
+                        touchContext.setPointerCount(
+                                event.getPointerCount(),
+                                event.getEventTime());
                     }
                     context.touchDownEvent(eventX, eventY, event.getEventTime(), true);
                     break;
@@ -2888,7 +2892,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     }
 
                     for (TouchContext touchContext : touchContextMap) {
-                        touchContext.setPointerCount(event.getPointerCount() - 1);
+                        touchContext.setPointerCount(
+                                event.getPointerCount() - 1,
+                                event.getEventTime());
                     }
                     if (actionIndex == 0 && event.getPointerCount() > 1 && !context.isCancelled()) {
                         // The original secondary touch now becomes primary
@@ -4127,6 +4133,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public boolean onForcePressDown(int pointerId, int pointerCount) {
+        softKeyboardGestureCoordinator.resolveForCompetingGesture();
         return touchscreenTouchpadHandler != null &&
                 touchscreenTouchpadHandler.beginForcePress(
                         pointerId, pointerCount);

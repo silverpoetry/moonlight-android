@@ -2,6 +2,7 @@ package com.limelight.binding.input.touch;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.view.View;
 
 import com.limelight.nvstream.NvConnection;
@@ -377,18 +378,23 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         clearPrimaryClickState();
     }
 
-    private void enterMultiTouchSession() {
+    private void enterMultiTouchSession(long eventTime) {
         gestureState.beginMultiTouchSession();
         resetPrimaryGestureTracking();
-        beginSecondaryButtonHoldCandidate();
+        beginSecondaryButtonHoldCandidate(eventTime);
     }
 
-    private void beginSecondaryButtonHoldCandidate() {
+    private void beginSecondaryButtonHoldCandidate(long eventTime) {
         cancelSecondaryButtonHoldTimer();
         if (!nativeTouchpadPressHandlingEnabled &&
                 actionIndex == 0 &&
                 pointerCount == 2) {
-            handler.postDelayed(secondaryButtonHoldRunnable, PHYSICAL_LONG_PRESS_MS);
+            long elapsedMs = Math.max(
+                    0,
+                    SystemClock.uptimeMillis() - eventTime);
+            handler.postDelayed(
+                    secondaryButtonHoldRunnable,
+                    Math.max(0, PHYSICAL_LONG_PRESS_MS - elapsedMs));
         }
     }
 
@@ -536,7 +542,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
                     }
                 }
                 else {
-                    enterMultiTouchSession();
+                    enterMultiTouchSession(eventTime);
                 }
             }
         }
@@ -641,15 +647,26 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
 
     @Override
     public void setPointerCount(int pointerCount) {
+        setPointerCount(pointerCount, SystemClock.uptimeMillis());
+    }
+
+    @Override
+    public void setPointerCount(int pointerCount, long eventTime) {
         int oldPointerCount = this.pointerCount;
         this.pointerCount = pointerCount;
 
         if (actionIndex == 0 && oldPointerCount < 2 && pointerCount >= 2) {
-            enterMultiTouchSession();
+            enterMultiTouchSession(eventTime);
         }
         else if (actionIndex == 0 && oldPointerCount >= 2 && pointerCount < 2) {
             finishSecondaryButtonHold();
             cancelSecondaryButtonHoldTimer();
         }
+    }
+
+    @Override
+    public void suspendPendingPressRecognition() {
+        cancelPrimaryLongPressTimer();
+        cancelSecondaryButtonHoldTimer();
     }
 }
