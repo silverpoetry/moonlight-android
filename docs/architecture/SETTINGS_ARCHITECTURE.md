@@ -49,7 +49,7 @@ persistent settings.
 | Domain | Typed snapshot | Runtime storage reads removed | Legacy adapter removed |
 | --- | --- | --- | --- |
 | Stream display/FSR/window | `StreamDisplaySettings` | `Game` no longer reads FSR target, sharpness, HDR mode, or gravity | Pending full stream settings migration |
-| Stream video/decoder | Pending | Pending | Pending |
+| Stream video/decoder | `StreamDecoderSettings` | Decoder and performance-statistics paths no longer receive `PreferenceConfiguration` | Pending full stream settings migration |
 | Input and gestures | Pending | Pending | Pending |
 | Controller and virtual controls | Pending | Pending | Pending |
 | Audio and microphone | Pending | Pending | Pending |

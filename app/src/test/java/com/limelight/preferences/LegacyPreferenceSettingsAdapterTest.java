@@ -4,6 +4,8 @@ import com.limelight.settings.SettingKey;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.stream.StreamDisplaySettingKeys;
 import com.limelight.settings.stream.StreamDisplaySettings;
+import com.limelight.settings.stream.StreamDecoderSettings;
+import com.limelight.nvstream.jni.MoonBridge;
 
 import org.junit.Test;
 
@@ -86,6 +88,43 @@ public class LegacyPreferenceSettingsAdapterTest {
         assertEquals(
                 StreamDisplaySettings.Gravity.DEFAULT,
                 settings.getGravity());
+    }
+
+    @Test
+    public void decoderSnapshotPreservesEveryRendererSetting() {
+        PreferenceConfiguration legacy = new PreferenceConfiguration();
+        legacy.width = 3840;
+        legacy.height = 2160;
+        legacy.fps = 120;
+        legacy.bitrate = 80000;
+        legacy.videoFormat =
+                PreferenceConfiguration.FormatOption.FORCE_AV1;
+        legacy.framePacing =
+                PreferenceConfiguration.FRAME_PACING_CAP_FPS;
+        legacy.fullRange = true;
+        legacy.lowLatencyExperiment = true;
+        legacy.enablePerfOverlay = true;
+        legacy.audioConfiguration =
+                new MoonBridge.AudioConfiguration(6, 0x3F);
+
+        StreamDecoderSettings settings =
+                LegacyPreferenceSettingsAdapter
+                        .loadStreamDecoderSettings(legacy);
+
+        assertEquals(3840, settings.getWidth());
+        assertEquals(2160, settings.getHeight());
+        assertEquals(120, settings.getFps());
+        assertEquals(80000, settings.getBitrateKbps());
+        assertEquals(
+                StreamDecoderSettings.VideoFormat.FORCE_AV1,
+                settings.getVideoFormat());
+        assertEquals(
+                StreamDecoderSettings.FramePacing.CAP_FPS,
+                settings.getFramePacing());
+        assertTrue(settings.isFullRange());
+        assertTrue(settings.isLowLatencyExperimentEnabled());
+        assertTrue(settings.isPerformanceOverlayEnabled());
+        assertEquals(6, settings.getAudioChannelCount());
     }
 
     private static final class InMemoryRepository

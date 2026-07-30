@@ -44,6 +44,7 @@ import com.limelight.preferences.GlPreferences;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.preferences.LegacyPreferenceSettingsAdapter;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.stream.StreamDecoderSettings;
 import com.limelight.settings.stream.StreamDisplaySettings;
 import com.limelight.ui.gamemenu.GameMenuFragment;
 import com.limelight.ui.gamemenu.GameMenuHost;
@@ -163,6 +164,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     public PreferenceConfiguration prefConfig;
     private StreamDisplaySettings streamDisplaySettings;
+    private StreamDecoderSettings streamDecoderSettings;
     private SharedPreferences tombstonePrefs;
 
     private NvConnection conn;
@@ -315,6 +317,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                                         PreferenceManager
                                                 .getDefaultSharedPreferences(
                                                         this)));
+        streamDecoderSettings =
+                LegacyPreferenceSettingsAdapter
+                        .loadStreamDecoderSettings(prefConfig);
         tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
         backNavigationRegistration =
                 BackNavigationRegistration.register(this, this::handleStreamBackPressed);
@@ -555,7 +560,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         MediaCodecDecoderRenderer decoderRenderer =
                 new MediaCodecDecoderRenderer(
                 this,
-                prefConfig,
+                streamDecoderSettings,
                 new CrashListener() {
                     @SuppressLint("ApplySharedPref")
                     @Override

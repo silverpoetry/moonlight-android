@@ -217,4 +217,18 @@ public final class ArchitectureBoundaryTest {
                 .because("typed stream settings are immutable domain models")
                 .check(productionClasses);
     }
+
+    @Test
+    public void videoBindingDoesNotDependOnLegacyPreferences() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.binding.video..")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.PreferenceConfiguration")
+                .because("video binding consumes immutable settings snapshots")
+                .check(productionClasses);
+    }
 }

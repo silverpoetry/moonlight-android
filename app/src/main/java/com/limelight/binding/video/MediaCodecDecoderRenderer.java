@@ -6,6 +6,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -17,7 +18,7 @@ import com.limelight.BuildConfig;
 import com.limelight.LimeLog;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 import com.limelight.nvstream.jni.MoonBridge;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.stream.StreamDecoderSettings;
 
 import android.app.Activity;
 import android.content.Context;
@@ -31,7 +32,6 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
 import android.os.SystemClock;
-import android.preference.PreferenceManager;
 import android.util.Range;
 import android.view.Choreographer;
 import android.view.Surface;
@@ -111,7 +111,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private long lastTimestampUs;
     private int lastFrameNumber;
     private int refreshRate;
-    private PreferenceConfiguration prefs;
+    private final StreamDecoderSettings settings;
 
     private long firstPerfStatsTimestamp;
     private LinkedBlockingQueue<Integer> outputBufferQueue = new LinkedBlockingQueue<>();
@@ -134,9 +134,13 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         return decoder;
     }
 
-    private boolean decoderCanMeetPerformancePoint(MediaCodecInfo.VideoCapabilities caps, PreferenceConfiguration prefs) {
+    private boolean decoderCanMeetPerformancePoint(
+            MediaCodecInfo.VideoCapabilities caps) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            MediaCodecInfo.VideoCapabilities.PerformancePoint targetPerfPoint = new MediaCodecInfo.VideoCapabilities.PerformancePoint(prefs.width, prefs.height, prefs.fps);
+            MediaCodecInfo.VideoCapabilities.PerformancePoint targetPerfPoint = new MediaCodecInfo.VideoCapabilities.PerformancePoint(
+                    settings.getWidth(),
+                    settings.getHeight(),
+                    settings.getFps());
             List<MediaCodecInfo.VideoCapabilities.PerformancePoint> perfPoints = caps.getSupportedPerformancePoints();
             if (perfPoints != null) {
                 for (MediaCodecInfo.VideoCapabilities.PerformancePoint perfPoint : perfPoints) {
@@ -157,9 +161,12 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             try {
                 // We'll ask the decoder what it can do for us at this resolution and see if our
                 // requested frame rate falls below or inside the range of achievable frame rates.
-                Range<Double> fpsRange = caps.getAchievableFrameRatesFor(prefs.width, prefs.height);
+                Range<Double> fpsRange =
+                        caps.getAchievableFrameRatesFor(
+                                settings.getWidth(),
+                                settings.getHeight());
                 if (fpsRange != null) {
-                    return prefs.fps <= fpsRange.getUpper();
+                    return settings.getFps() <= fpsRange.getUpper();
                 }
 
                 // Fall-through to try the Android L API if there's no performance point data
@@ -172,33 +179,48 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         // As a last resort, we will use areSizeAndRateSupported() which is explicitly NOT a
         // performance metric, but it can work at least for the purpose of determining if
         // the codec is going to die when given a stream with the specified settings.
-        return caps.areSizeAndRateSupported(prefs.width, prefs.height, prefs.fps);
+        return caps.areSizeAndRateSupported(
+                settings.getWidth(),
+                settings.getHeight(),
+                settings.getFps());
     }
 
-    private boolean decoderCanMeetPerformancePointWithHevcAndNotAvc(MediaCodecInfo hevcDecoderInfo, MediaCodecInfo avcDecoderInfo, PreferenceConfiguration prefs) {
+    private boolean decoderCanMeetPerformancePointWithHevcAndNotAvc(
+            MediaCodecInfo hevcDecoderInfo,
+            MediaCodecInfo avcDecoderInfo) {
         MediaCodecInfo.VideoCapabilities avcCaps = avcDecoderInfo.getCapabilitiesForType("video/avc").getVideoCapabilities();
         MediaCodecInfo.VideoCapabilities hevcCaps = hevcDecoderInfo.getCapabilitiesForType("video/hevc").getVideoCapabilities();
 
-        return !decoderCanMeetPerformancePoint(avcCaps, prefs) && decoderCanMeetPerformancePoint(hevcCaps, prefs);
+        return !decoderCanMeetPerformancePoint(avcCaps) &&
+                decoderCanMeetPerformancePoint(hevcCaps);
     }
 
-    private boolean decoderCanMeetPerformancePointWithAv1AndNotHevc(MediaCodecInfo av1DecoderInfo, MediaCodecInfo hevcDecoderInfo, PreferenceConfiguration prefs) {
+    private boolean decoderCanMeetPerformancePointWithAv1AndNotHevc(
+            MediaCodecInfo av1DecoderInfo,
+            MediaCodecInfo hevcDecoderInfo) {
         MediaCodecInfo.VideoCapabilities av1Caps = av1DecoderInfo.getCapabilitiesForType("video/av01").getVideoCapabilities();
         MediaCodecInfo.VideoCapabilities hevcCaps = hevcDecoderInfo.getCapabilitiesForType("video/hevc").getVideoCapabilities();
 
-        return !decoderCanMeetPerformancePoint(hevcCaps, prefs) && decoderCanMeetPerformancePoint(av1Caps, prefs);
+        return !decoderCanMeetPerformancePoint(hevcCaps) &&
+                decoderCanMeetPerformancePoint(av1Caps);
     }
 
-    private boolean decoderCanMeetPerformancePointWithAv1AndNotAvc(MediaCodecInfo av1DecoderInfo, MediaCodecInfo avcDecoderInfo, PreferenceConfiguration prefs) {
+    private boolean decoderCanMeetPerformancePointWithAv1AndNotAvc(
+            MediaCodecInfo av1DecoderInfo,
+            MediaCodecInfo avcDecoderInfo) {
         MediaCodecInfo.VideoCapabilities avcCaps = avcDecoderInfo.getCapabilitiesForType("video/avc").getVideoCapabilities();
         MediaCodecInfo.VideoCapabilities av1Caps = av1DecoderInfo.getCapabilitiesForType("video/av01").getVideoCapabilities();
 
-        return !decoderCanMeetPerformancePoint(avcCaps, prefs) && decoderCanMeetPerformancePoint(av1Caps, prefs);
+        return !decoderCanMeetPerformancePoint(avcCaps) &&
+                decoderCanMeetPerformancePoint(av1Caps);
     }
 
-    private MediaCodecInfo findHevcDecoder(PreferenceConfiguration prefs, boolean meteredNetwork, boolean requestedHdr) {
+    private MediaCodecInfo findHevcDecoder(
+            boolean meteredNetwork,
+            boolean requestedHdr) {
         // Don't return anything if H.264 is forced
-        if (prefs.videoFormat == PreferenceConfiguration.FormatOption.FORCE_H264) {
+        if (settings.getVideoFormat() ==
+                StreamDecoderSettings.VideoFormat.FORCE_H264) {
             return null;
         }
 
@@ -213,7 +235,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 LimeLog.info("Found HEVC decoder, but it's not whitelisted - "+hevcDecoderInfo.getName());
 
                 // Force HEVC enabled if the user asked for it
-                if (prefs.videoFormat == PreferenceConfiguration.FormatOption.FORCE_HEVC) {
+                if (settings.getVideoFormat() ==
+                        StreamDecoderSettings.VideoFormat.FORCE_HEVC) {
                     LimeLog.info("Forcing HEVC enabled despite non-whitelisted decoder");
                 }
                 // HDR implies HEVC forced on, since HEVCMain10HDR10 is required for HDR.
@@ -221,11 +244,15 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                     LimeLog.info("Forcing HEVC enabled for HDR streaming");
                 }
                 // > 4K streaming also requires HEVC, so force it on there too.
-                else if (prefs.width > 4096 || prefs.height > 4096) {
+                else if (settings.getWidth() > 4096 ||
+                        settings.getHeight() > 4096) {
                     LimeLog.info("Forcing HEVC enabled for over 4K streaming");
                 }
                 // Use HEVC if the H.264 decoder is unable to meet the performance point
-                else if (avcDecoder != null && decoderCanMeetPerformancePointWithHevcAndNotAvc(hevcDecoderInfo, avcDecoder, prefs)) {
+                else if (avcDecoder != null &&
+                        decoderCanMeetPerformancePointWithHevcAndNotAvc(
+                                hevcDecoderInfo,
+                                avcDecoder)) {
                     LimeLog.info("Using non-whitelisted HEVC decoder to meet performance point");
                 }
                 else {
@@ -237,9 +264,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         return hevcDecoderInfo;
     }
 
-    private MediaCodecInfo findAv1Decoder(PreferenceConfiguration prefs) {
+    private MediaCodecInfo findAv1Decoder() {
         // For now, don't use AV1 unless explicitly requested
-        if (prefs.videoFormat != PreferenceConfiguration.FormatOption.FORCE_AV1) {
+        if (settings.getVideoFormat() !=
+                StreamDecoderSettings.VideoFormat.FORCE_AV1) {
             return null;
         }
 
@@ -249,15 +277,22 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 LimeLog.info("Found AV1 decoder, but it's not whitelisted - "+decoderInfo.getName());
 
                 // Force HEVC enabled if the user asked for it
-                if (prefs.videoFormat == PreferenceConfiguration.FormatOption.FORCE_AV1) {
+                if (settings.getVideoFormat() ==
+                        StreamDecoderSettings.VideoFormat.FORCE_AV1) {
                     LimeLog.info("Forcing AV1 enabled despite non-whitelisted decoder");
                 }
                 // Use AV1 if the HEVC decoder is unable to meet the performance point
-                else if (hevcDecoder != null && decoderCanMeetPerformancePointWithAv1AndNotHevc(decoderInfo, hevcDecoder, prefs)) {
+                else if (hevcDecoder != null &&
+                        decoderCanMeetPerformancePointWithAv1AndNotHevc(
+                                decoderInfo,
+                                hevcDecoder)) {
                     LimeLog.info("Using non-whitelisted AV1 decoder to meet performance point");
                 }
                 // Use AV1 if the H.264 decoder is unable to meet the performance point and we have no HEVC decoder
-                else if (hevcDecoder == null && decoderCanMeetPerformancePointWithAv1AndNotAvc(decoderInfo, avcDecoder, prefs)) {
+                else if (hevcDecoder == null &&
+                        decoderCanMeetPerformancePointWithAv1AndNotAvc(
+                                decoderInfo,
+                                avcDecoder)) {
                     LimeLog.info("Using non-whitelisted AV1 decoder to meet performance point");
                 }
                 else {
@@ -288,15 +323,22 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         }
     }
 
-    public MediaCodecDecoderRenderer(Activity activity, PreferenceConfiguration prefs,
-                                     CrashListener crashListener, int consecutiveCrashCount,
-                                     boolean meteredData, boolean requestedHdr,
-                                     String glRenderer, PerfOverlayListener perfListener) {
+    public MediaCodecDecoderRenderer(
+            Activity activity,
+            StreamDecoderSettings settings,
+            CrashListener crashListener,
+            int consecutiveCrashCount,
+            boolean meteredData,
+            boolean requestedHdr,
+            String glRenderer,
+            PerfOverlayListener perfListener) {
         //dumpDecoders();
 
         this.context = activity;
         this.activity = activity;
-        this.prefs = prefs;
+        this.settings = Objects.requireNonNull(
+                settings,
+                "settings");
         this.crashListener = crashListener;
         this.consecutiveCrashCount = consecutiveCrashCount;
         this.glRenderer = glRenderer;
@@ -314,7 +356,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             LimeLog.warning("No AVC decoder found");
         }
 
-        hevcDecoder = findHevcDecoder(prefs, meteredData, requestedHdr);
+        hevcDecoder = findHevcDecoder(meteredData, requestedHdr);
         if (hevcDecoder != null) {
             LimeLog.info("Selected HEVC decoder: "+hevcDecoder.getName());
         }
@@ -322,7 +364,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             LimeLog.info("No HEVC decoder found");
         }
 
-        av1Decoder = findAv1Decoder(prefs);
+        av1Decoder = findAv1Decoder();
         if (av1Decoder != null) {
             LimeLog.info("Selected AV1 decoder: "+av1Decoder.getName());
         }
@@ -337,7 +379,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         int hevcOptimalSlicesPerFrame = 0;
         if (avcDecoder != null) {
             directSubmit = MediaCodecHelper.decoderCanDirectSubmit(avcDecoder.getName());
-            refFrameInvalidationAvc = MediaCodecHelper.decoderSupportsRefFrameInvalidationAvc(avcDecoder.getName(), prefs.height);
+            refFrameInvalidationAvc =
+                    MediaCodecHelper.decoderSupportsRefFrameInvalidationAvc(
+                            avcDecoder.getName(),
+                            settings.getHeight());
             avcOptimalSlicesPerFrame = MediaCodecHelper.getDecoderOptimalSlicesPerFrame(avcDecoder.getName());
 
             if (directSubmit) {
@@ -437,7 +482,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     }
 
     public int getPreferredColorRange() {
-        if (prefs.fullRange) {
+        if (settings.isFullRange()) {
             return MoonBridge.COLOR_RANGE_FULL;
         }
         else {
@@ -655,7 +700,13 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             MediaFormat mediaFormat = createBaseMediaFormat(mimeType);
             //低延迟模式
             // This will try low latency options until we find one that works (or we give up).
-            boolean newFormat = MediaCodecHelper.setDecoderLowLatencyOptions(mediaFormat, selectedDecoderInfo, tryNumber,prefs.lowLatencyExperiment);
+            boolean newFormat =
+                    MediaCodecHelper.setDecoderLowLatencyOptions(
+                            mediaFormat,
+                            selectedDecoderInfo,
+                            tryNumber,
+                            settings
+                                    .isLowLatencyExperimentEnabled());
             //todo 色彩格式
 //            MediaCodecInfo.CodecCapabilities codecCapabilities = selectedDecoderInfo.getCapabilitiesForType(mimeType);
 //            int[] colorFormats=codecCapabilities.colorFormats;
@@ -1009,7 +1060,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     }
 
     private void startChoreographerThread() {
-        if (prefs.framePacing != PreferenceConfiguration.FRAME_PACING_BALANCED) {
+        if (settings.getFramePacing() !=
+                StreamDecoderSettings.FramePacing.BALANCED) {
             // Not using Choreographer in this pacing mode
             return;
         }
@@ -1045,7 +1097,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                             numFramesOut++;
 
                             // Render the latest frame now if frame pacing isn't in balanced mode
-                            if (prefs.framePacing != PreferenceConfiguration.FRAME_PACING_BALANCED) {
+                            if (settings.getFramePacing() !=
+                                    StreamDecoderSettings.FramePacing
+                                            .BALANCED) {
                                 // Get the last output buffer in the queue
                                 while ((outIndex = videoDecoder.dequeueOutputBuffer(info, 0)) >= 0) {
                                     videoDecoder.releaseOutputBuffer(lastIndex, false);
@@ -1056,8 +1110,13 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                     presentationTimeUs = info.presentationTimeUs;
                                 }
 
-                                if (prefs.framePacing == PreferenceConfiguration.FRAME_PACING_MAX_SMOOTHNESS ||
-                                        prefs.framePacing == PreferenceConfiguration.FRAME_PACING_CAP_FPS) {
+                                if (settings.getFramePacing() ==
+                                        StreamDecoderSettings.FramePacing
+                                                .MAXIMUM_SMOOTHNESS ||
+                                        settings.getFramePacing() ==
+                                                StreamDecoderSettings
+                                                        .FramePacing
+                                                        .CAP_FPS) {
                                     // In max smoothness or cap FPS mode, we want to never drop frames
                                     // Use a PTS that will cause this frame to never be dropped
                                     videoDecoder.releaseOutputBuffer(lastIndex, 0);
@@ -1389,7 +1448,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
         // Flip stats windows roughly every second
         if (SystemClock.uptimeMillis() >= activeWindowVideoStats.measurementStartTimestamp + 1000) {
-            if (prefs.enablePerfOverlay) {
+            if (settings.isPerformanceOverlayEnabled()) {
                 VideoStats lastTwo = new VideoStats();
                 lastTwo.add(lastWindowVideoStats);
                 lastTwo.add(activeWindowVideoStats);
@@ -1427,8 +1486,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 PerfOverlayStats stats = new PerfOverlayStats();
                 stats.width = initialWidth;
                 stats.height = initialHeight;
-                stats.targetBitrateKbps = prefs.bitrate;
-                stats.targetFps = prefs.fps;
+                stats.targetBitrateKbps =
+                        settings.getBitrateKbps();
+                stats.targetFps = settings.getFps();
                 stats.totalFps = fps.totalFps;
                 stats.receivedFps = fps.receivedFps;
                 stats.renderedFps = fps.renderedFps;
@@ -1815,13 +1875,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     }
 
     private float estimateAudioRateKbps() {
-        if (prefs == null || prefs.audioConfiguration == null) {
-            return 128f;
-        }
-        if (prefs.audioConfiguration.channelCount >= 8) {
+        if (settings.getAudioChannelCount() >= 8) {
             return 384f;
         }
-        if (prefs.audioConfiguration.channelCount >= 6) {
+        if (settings.getAudioChannelCount() >= 6) {
             return 256f;
         }
         return 128f;
@@ -1950,7 +2007,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             str += "Fused IDR frames: "+renderer.fusedIdrFrame+DELIMITER;
             str += "Video dimensions: "+renderer.initialWidth+"x"+renderer.initialHeight+DELIMITER;
             str += "FPS target: "+renderer.refreshRate+DELIMITER;
-            str += "Bitrate: "+renderer.prefs.bitrate+" Kbps"+DELIMITER;
+            str += "Bitrate: " +
+                    renderer.settings.getBitrateKbps() +
+                    " Kbps" + DELIMITER;
             str += "CSD stats: "+renderer.numVpsIn+", "+renderer.numSpsIn+", "+renderer.numPpsIn+DELIMITER;
             str += "Frames in-out: "+renderer.numFramesIn+", "+renderer.numFramesOut+DELIMITER;
             str += "Total frames received: "+renderer.globalVideoStats.totalFramesReceived+DELIMITER;
@@ -1958,7 +2017,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             str += "Frame losses: "+renderer.globalVideoStats.framesLost+" in "+renderer.globalVideoStats.frameLossEvents+" loss events"+DELIMITER;
             str += "Average end-to-end client latency: "+renderer.getAverageEndToEndLatency()+"ms"+DELIMITER;
             str += "Average hardware decoder latency: "+renderer.getAverageDecoderLatency()+"ms"+DELIMITER;
-            str += "Frame pacing mode: "+renderer.prefs.framePacing+DELIMITER;
+            str += "Frame pacing mode: " +
+                    renderer.settings.getFramePacing() +
+                    DELIMITER;
 
             if (originalException instanceof CodecException) {
                 CodecException ce = (CodecException) originalException;
