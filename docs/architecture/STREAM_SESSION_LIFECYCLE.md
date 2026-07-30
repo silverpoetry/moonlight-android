@@ -51,7 +51,9 @@ and makes partial failure and repeated destruction safe.
 
 `StreamSessionUiEffects` is the idempotent main-thread owner for the
 connecting/connected/ended platform notifications and the keep-screen-on flag.
-Every accepted end path clears the flag and publishes the ended state once.
+It also owns the delayed input-grab task. Every accepted end path cancels that
+task, releases input capture, clears the flag, and publishes the ended state
+once.
 
 The next migration slices move render/audio resource lifetime and the remaining
 callback presentation behind session-scoped ports. Until those slices are

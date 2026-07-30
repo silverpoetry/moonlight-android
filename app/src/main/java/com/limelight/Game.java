@@ -679,7 +679,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     public void notifyStreamEnded() {
                         UiHelper.notifyStreamEnded(Game.this);
                     }
-                });
+
+                    @Override
+                    public void setInputGrabbed(boolean grabbed) {
+                        setInputGrabState(grabbed);
+                    }
+                },
+                mainHandler);
         sessionController = new StreamSessionController(conn, this);
         TouchInputController touchInputController =
                 new TouchInputController(
@@ -2005,7 +2011,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 return;
             }
             controllerHandler.stop();
-            setInputGrabState(false);
 
             if (displayedFailureDialog) {
                 return;
@@ -2153,19 +2158,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
                 streamStartElapsedMs = SystemClock.elapsedRealtime();
                 updatePipAutoEnter();
-
-                // Hide the mouse cursor now after a short delay.
-                // Doing it before dismissing the spinner seems to be undone
-                // when the spinner gets displayed. On Android Q, even now
-                // is too early to capture. We will delay a second to allow
-                // the spinner to dismiss before capturing.
-                Handler h = new Handler();
-                h.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        setInputGrabState(true);
-                    }
-                }, 500);
 
                 sessionUiEffects.onConnected();
 
