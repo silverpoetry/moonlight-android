@@ -3,7 +3,7 @@ package com.limelight.binding.input.touch;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
-import com.limelight.nvstream.NvConnection;
+import com.limelight.binding.input.PointerInputSink;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.preferences.PreferenceConfiguration;
 
@@ -20,7 +20,7 @@ public class RelativeTouchSwitchContext implements TouchContext {
     private boolean pendingTapDragButtonDown;
     private boolean pendingTapDragUsingHeldTap;
 
-    private final NvConnection conn;
+    private final PointerInputSink inputSink;
     private final int actionIndex;
     private final boolean clickEnabled; // 新增：是否启用点击
     private final TouchpadTapDragTracker tapDragTracker;
@@ -40,28 +40,28 @@ public class RelativeTouchSwitchContext implements TouchContext {
     private static final int TAP_TIME_THRESHOLD = 150;
     private static final int TAP_CLICK_BUTTON_UP_DELAY = 160;
 
-    public RelativeTouchSwitchContext(NvConnection conn, int actionIndex,
+    public RelativeTouchSwitchContext(PointerInputSink inputSink, int actionIndex,
                                       int referenceWidth, int referenceHeight,
                                       View view, PreferenceConfiguration prefConfig,
                                       boolean clickEnabled)
     {
-        this(conn, actionIndex, referenceWidth, referenceHeight, view, prefConfig,
+        this(inputSink, actionIndex, referenceWidth, referenceHeight, view, prefConfig,
                 clickEnabled, new TouchpadGestureState());
     }
 
-    public RelativeTouchSwitchContext(NvConnection conn, int actionIndex,
+    public RelativeTouchSwitchContext(PointerInputSink inputSink, int actionIndex,
                                       int referenceWidth, int referenceHeight,
                                       View view, PreferenceConfiguration prefConfig,
                                       boolean clickEnabled,
                                       TouchpadGestureState gestureState)
     {
-        this.conn = conn;
+        this.inputSink = inputSink;
         this.actionIndex = actionIndex;
         this.clickEnabled = clickEnabled;
         this.tapDragTracker = new TouchpadTapDragTracker();
         this.handler = new Handler(Looper.getMainLooper());
         this.gestureState = gestureState;
-        this.motionSender = new TouchpadMotionSender(conn, referenceWidth, referenceHeight,
+        this.motionSender = new TouchpadMotionSender(inputSink, referenceWidth, referenceHeight,
                 view, prefConfig);
     }
 
@@ -79,7 +79,7 @@ public class RelativeTouchSwitchContext implements TouchContext {
         }
 
         pendingLeftButtonUp = false;
-        conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
+        inputSink.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
         return true;
     }
 
@@ -104,7 +104,7 @@ public class RelativeTouchSwitchContext implements TouchContext {
         pendingTapDragButtonDown = true;
 
         if (!pendingTapDragUsingHeldTap) {
-            conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_LEFT);
+            inputSink.sendMouseButtonDown(MouseButtonPacket.BUTTON_LEFT);
         }
     }
 
@@ -123,7 +123,7 @@ public class RelativeTouchSwitchContext implements TouchContext {
         boolean usingHeldTap = pendingTapDragUsingHeldTap;
         clearPendingTapDragState();
 
-        conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
+        inputSink.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
 
         if (usingHeldTap) {
             sendTapClick();
@@ -132,7 +132,7 @@ public class RelativeTouchSwitchContext implements TouchContext {
 
     private void cancelPendingTapDrag() {
         if (pendingTapDragButtonDown) {
-            conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
+            inputSink.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
         }
 
         clearPendingTapDragState();
@@ -141,7 +141,7 @@ public class RelativeTouchSwitchContext implements TouchContext {
     private void sendTapClick() {
         completePendingTapClick();
 
-        conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_LEFT);
+        inputSink.sendMouseButtonDown(MouseButtonPacket.BUTTON_LEFT);
         pendingLeftButtonUp = true;
         handler.postDelayed(leftButtonUpRunnable, TAP_CLICK_BUTTON_UP_DELAY);
     }
@@ -154,7 +154,7 @@ public class RelativeTouchSwitchContext implements TouchContext {
             gestureState.setMouseButtonActive(true);
         }
         if (!alreadyDown) {
-            conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_LEFT);
+            inputSink.sendMouseButtonDown(MouseButtonPacket.BUTTON_LEFT);
         }
     }
 
@@ -186,7 +186,7 @@ public class RelativeTouchSwitchContext implements TouchContext {
         if (cancelled || actionIndex != 0 || !clickEnabled) return;
 
         if (confirmedDrag) {
-            conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
+            inputSink.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
             confirmedDrag = false;
             gestureState.setMouseButtonActive(false);
             return;
@@ -240,7 +240,7 @@ public class RelativeTouchSwitchContext implements TouchContext {
         releasePendingLeftButtonUp();
         cancelPendingTapDrag();
         if (confirmedDrag) {
-            conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
+            inputSink.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
             confirmedDrag = false;
             gestureState.setMouseButtonActive(false);
         }

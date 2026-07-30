@@ -11,7 +11,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 
-import com.limelight.nvstream.NvConnection;
+import com.limelight.binding.input.PointerInputSink;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.PreferenceConfiguration;
 
@@ -114,11 +114,11 @@ public final class TouchscreenTouchpadHandler {
         }
     };
 
-    public TouchscreenTouchpadHandler(NvConnection connection, View targetView,
+    public TouchscreenTouchpadHandler(PointerInputSink inputSink, View targetView,
                                      int referenceWidth, int referenceHeight,
                                      PreferenceConfiguration prefConfig) {
-        nativeSender = new NativeTouchpadSender(connection);
-        remainderMotionSender = new TouchpadMotionSender(connection,
+        nativeSender = new NativeTouchpadSender(inputSink);
+        remainderMotionSender = new TouchpadMotionSender(inputSink,
                 referenceWidth, referenceHeight,
                 targetView, prefConfig);
         hapticFeedback = new TouchpadHapticFeedback(targetView);
@@ -967,7 +967,7 @@ public final class TouchscreenTouchpadHandler {
     }
 
     private final class NativeTouchpadSender {
-        private final NvConnection connection;
+        private final PointerInputSink inputSink;
         private final byte[] eventTypes = new byte[MoonBridge.LI_TOUCHPAD_MAX_CONTACTS];
         private final int[] pointerIds = new int[MoonBridge.LI_TOUCHPAD_MAX_CONTACTS];
         private final float[] x = new float[MoonBridge.LI_TOUCHPAD_MAX_CONTACTS];
@@ -976,8 +976,8 @@ public final class TouchscreenTouchpadHandler {
         private boolean frameEventsUnsupported;
         private boolean touchpadEventsUnsupported;
 
-        NativeTouchpadSender(NvConnection connection) {
-            this.connection = connection;
+        NativeTouchpadSender(PointerInputSink inputSink) {
+            this.inputSink = inputSink;
         }
 
         boolean sendContacts(List<Contact> contacts, byte buttonState,
@@ -996,7 +996,7 @@ public final class TouchscreenTouchpadHandler {
                     pressure[i] = contact.pressure;
                 }
 
-                int result = connection.sendTouchpadFrameEvent((byte) contacts.size(),
+                int result = inputSink.sendTouchpadFrameEvent((byte) contacts.size(),
                         eventTypes, pointerIds, x, y, pressure, MoonBridge.LI_ROT_UNKNOWN,
                         deviceWidthMm, deviceHeightMm, buttonState);
                 if (result == 0) {
@@ -1015,7 +1015,7 @@ public final class TouchscreenTouchpadHandler {
             }
 
             for (Contact contact : contacts) {
-                int result = connection.sendTouchpadEvent(contact.eventType, contact.pointerId,
+                int result = inputSink.sendTouchpadEvent(contact.eventType, contact.pointerId,
                         contact.x, contact.y, contact.pressure,
                         contact.contactAreaMajor, contact.contactAreaMinor,
                         MoonBridge.LI_ROT_UNKNOWN, deviceWidthMm, deviceHeightMm, buttonState);
@@ -1035,7 +1035,7 @@ public final class TouchscreenTouchpadHandler {
                 return;
             }
 
-            int result = connection.sendTouchpadEvent(MoonBridge.LI_TOUCH_EVENT_CANCEL_ALL,
+            int result = inputSink.sendTouchpadEvent(MoonBridge.LI_TOUCH_EVENT_CANCEL_ALL,
                     0, 0, 0, 0, 0, 0, MoonBridge.LI_ROT_UNKNOWN,
                     deviceWidthMm, deviceHeightMm, (byte) 0);
             if (result == MoonBridge.LI_ERR_UNSUPPORTED) {

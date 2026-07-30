@@ -2,7 +2,7 @@ package com.limelight.binding.input.touch;
 
 import android.os.Handler;
 
-import com.limelight.nvstream.NvConnection;
+import com.limelight.binding.input.PointerInputSink;
 import com.limelight.nvstream.input.MouseButtonPacket;
 
 // Owns mouse-button lifetime for touchpad gestures so the gesture recognizer can
@@ -16,7 +16,7 @@ final class TouchpadButtonController {
     private static final int SECOND_CLICK_UP_DELAY_MS = 80;
     private static final int TAP_CLICK_BUTTON_UP_DELAY_MS = 100;
 
-    private final NvConnection conn;
+    private final PointerInputSink inputSink;
     private final Handler handler;
     private final CancellationProvider cancellationProvider;
     private final boolean[] pendingButtonUp = new boolean[MouseButtonPacket.BUTTON_X2];
@@ -75,9 +75,9 @@ final class TouchpadButtonController {
             }
     };
 
-    TouchpadButtonController(NvConnection conn, Handler handler,
+    TouchpadButtonController(PointerInputSink inputSink, Handler handler,
                              CancellationProvider cancellationProvider) {
-        this.conn = conn;
+        this.inputSink = inputSink;
         this.handler = handler;
         this.cancellationProvider = cancellationProvider;
     }
@@ -101,7 +101,7 @@ final class TouchpadButtonController {
     boolean pressButton(byte buttonIndex) {
         int index = getPendingButtonIndex(buttonIndex);
         if (!heldButtonDown[index]) {
-            conn.sendMouseButtonDown(buttonIndex);
+            inputSink.sendMouseButtonDown(buttonIndex);
             heldButtonDown[index] = true;
             return true;
         }
@@ -111,7 +111,7 @@ final class TouchpadButtonController {
     boolean releaseButton(byte buttonIndex) {
         int index = getPendingButtonIndex(buttonIndex);
         if (heldButtonDown[index]) {
-            conn.sendMouseButtonUp(buttonIndex);
+            inputSink.sendMouseButtonUp(buttonIndex);
             heldButtonDown[index] = false;
             return true;
         }
@@ -144,7 +144,7 @@ final class TouchpadButtonController {
             handler.removeCallbacks(buttonUpRunnables[i]);
             if (pendingButtonUp[i]) {
                 pendingButtonUp[i] = false;
-                conn.sendMouseButtonUp((byte) (i + 1));
+                inputSink.sendMouseButtonUp((byte) (i + 1));
             }
         }
     }

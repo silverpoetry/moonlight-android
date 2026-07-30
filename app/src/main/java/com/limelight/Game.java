@@ -6,10 +6,12 @@ import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.GameInputDevice;
+import com.limelight.binding.input.PointerInputSink;
 import com.limelight.binding.input.KeyboardChordSender;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.binding.input.StreamInputGateway;
 import com.limelight.binding.input.StreamInputGatewayRegistry;
+import com.limelight.binding.input.protocol.NvConnectionPointerInputSink;
 import com.limelight.binding.input.capture.InputCaptureManager;
 import com.limelight.binding.input.capture.InputCaptureProvider;
 import com.limelight.binding.input.touch.AbsoluteTouchContext;
@@ -189,6 +191,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private SharedPreferences tombstonePrefs;
 
     private NvConnection conn;
+    private PointerInputSink pointerInputSink;
     private StreamSessionController sessionController;
     private SpinnerDialog spinner;
     private boolean displayedFailureDialog = false;
@@ -703,11 +706,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 new ComputerDetails.AddressTuple(host, port),
                 httpsPort, uniqueId, config,
                 PlatformBinding.getCryptoProvider(this), serverCert);
+        pointerInputSink = new NvConnectionPointerInputSink(conn);
         clipboardFileTransferController =
                 new RemoteClipboardFileTransferController(this, conn);
         sessionController = new StreamSessionController(conn, this);
         touchscreenTouchpadHandler = new TouchscreenTouchpadHandler(
-                conn, streamView, REFERENCE_HORIZ_RES, REFERENCE_VERT_RES, prefConfig);
+                pointerInputSink, streamView,
+                REFERENCE_HORIZ_RES, REFERENCE_VERT_RES, prefConfig);
         touchscreenTouchpadHandler.setNativeGestureListener(
                 this::cancelLegacyTouchContextsForNativeGesture);
         if (prefConfig.enableNativeCursor) {
@@ -3741,7 +3746,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         TouchpadMotionSender pressedPointerMotionSender =
                 which == MOUSE_MODE_NATIVE_TOUCHPAD
-                        ? new TouchpadMotionSender(conn,
+                        ? new TouchpadMotionSender(pointerInputSink,
                                 REFERENCE_HORIZ_RES,
                                 REFERENCE_VERT_RES,
                                 streamView, prefConfig)
@@ -3759,16 +3764,19 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         for (int i = 0; i < touchContextMap.length; i++) {
             if (!prefConfig.touchscreenTrackpad) {
                 if (which == MOUSE_MODE_ABSOLUTE_SWAPPED) {
-                    touchContextMap[i] = new AbsoluteTouchSwitchContext(conn, i, streamView);
+                    touchContextMap[i] = new AbsoluteTouchSwitchContext(
+                            pointerInputSink, i, streamView);
                 }
                 else {
-                    touchContextMap[i] = new AbsoluteTouchContext(conn, i, streamView);
+                    touchContextMap[i] = new AbsoluteTouchContext(
+                            pointerInputSink, i, streamView);
                 }
             }
             else {
                 if (which == MOUSE_MODE_TOUCHPAD_MOVE_ONLY ||
                         which == MOUSE_MODE_TOUCHPAD_MOVE_AND_CLICK) {
-                    touchContextMap[i] = new RelativeTouchSwitchContext(conn, i,
+                    touchContextMap[i] = new RelativeTouchSwitchContext(
+                            pointerInputSink, i,
                             REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
                             streamView, prefConfig,
                             which != MOUSE_MODE_TOUCHPAD_MOVE_ONLY, touchpadGestureState);
@@ -3776,14 +3784,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 else {
                     if (i == 0 && pressedPointerMotionSender != null) {
                         touchContextMap[i] = new RelativeTouchContext(
-                                conn, i, REFERENCE_HORIZ_RES,
+                                pointerInputSink, i, REFERENCE_HORIZ_RES,
                                 REFERENCE_VERT_RES, streamView,
                                 prefConfig, touchpadGestureState,
                                 pressedPointerMotionSender);
                     }
                     else {
                         touchContextMap[i] = new RelativeTouchContext(
-                                conn, i, REFERENCE_HORIZ_RES,
+                                pointerInputSink, i, REFERENCE_HORIZ_RES,
                                 REFERENCE_VERT_RES, streamView,
                                 prefConfig, touchpadGestureState);
                     }

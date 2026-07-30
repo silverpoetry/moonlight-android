@@ -8,9 +8,7 @@ import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
 
-import com.limelight.nvstream.NvConnection;
-import com.limelight.nvstream.StreamConfiguration;
-import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.binding.input.PointerInputSink;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.PreferenceConfiguration;
 
@@ -30,7 +28,7 @@ import static org.junit.Assert.assertTrue;
 public final class TouchscreenTouchpadHandlerTest {
     private static final long DOWN_TIME_MS = 1_000;
 
-    private FakeConnection connection;
+    private RecordingPointerInputSink connection;
     private View eventView;
     private PreferenceConfiguration prefConfig;
 
@@ -38,7 +36,7 @@ public final class TouchscreenTouchpadHandlerTest {
     public void setUp() {
         Context context =
                 InstrumentationRegistry.getInstrumentation().getTargetContext();
-        connection = new FakeConnection(context);
+        connection = new RecordingPointerInputSink();
         eventView = new View(context);
         eventView.layout(0, 0, 1_000, 500);
         prefConfig = new PreferenceConfiguration();
@@ -347,20 +345,18 @@ public final class TouchscreenTouchpadHandlerTest {
         }
     }
 
-    private static final class FakeConnection extends NvConnection {
+    private static final class RecordingPointerInputSink
+            implements PointerInputSink {
         final List<Frame> frames = new ArrayList<>();
         int mouseMovePackets;
         int relativeMouseMovePackets;
         int absoluteMouseMovePackets;
         int mouseButtonPackets;
 
-        FakeConnection(Context context) {
-            super(context, new ComputerDetails.AddressTuple("127.0.0.1", 47_989),
-                    0, "test",
-                    new StreamConfiguration.Builder()
-                            .setResolution(1_280, 720)
-                            .build(),
-                    null, null);
+        @Override
+        public void sendMousePosition(short x, short y,
+                                      short referenceWidth,
+                                      short referenceHeight) {
         }
 
         @Override
@@ -414,6 +410,10 @@ public final class TouchscreenTouchpadHandlerTest {
         @Override
         public void sendMouseButtonUp(byte mouseButton) {
             mouseButtonPackets++;
+        }
+
+        @Override
+        public void sendMouseHighResScroll(short delta) {
         }
 
         String frameTrace() {

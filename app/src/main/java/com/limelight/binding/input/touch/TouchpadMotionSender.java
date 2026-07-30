@@ -3,7 +3,7 @@ package com.limelight.binding.input.touch;
 import android.util.DisplayMetrics;
 import android.view.View;
 
-import com.limelight.nvstream.NvConnection;
+import com.limelight.binding.input.PointerInputSink;
 import com.limelight.preferences.PreferenceConfiguration;
 
 // Converts physical finger motion into stream mouse packets while keeping acceleration,
@@ -27,7 +27,7 @@ public final class TouchpadMotionSender {
     private static final float MIN_VALID_DPI = 50.0f;
     private static final float MAX_VALID_DPI = 2000.0f;
 
-    private final NvConnection conn;
+    private final PointerInputSink inputSink;
     private final int referenceWidth;
     private final int referenceHeight;
     private final View targetView;
@@ -43,10 +43,10 @@ public final class TouchpadMotionSender {
     private double xRemainder;
     private double yRemainder;
 
-    public TouchpadMotionSender(NvConnection conn, int referenceWidth,
+    public TouchpadMotionSender(PointerInputSink inputSink, int referenceWidth,
                                 int referenceHeight, View targetView,
                                 PreferenceConfiguration prefConfig) {
-        this.conn = conn;
+        this.inputSink = inputSink;
         this.referenceWidth = referenceWidth;
         this.referenceHeight = referenceHeight;
         this.targetView = targetView;
@@ -123,23 +123,23 @@ public final class TouchpadMotionSender {
 
     private void sendSingleMouseMovePacket(short scaledDeltaX, short scaledDeltaY) {
         if (prefConfig.absoluteMouseMode) {
-            conn.sendMouseMoveAsMousePosition(scaledDeltaX, scaledDeltaY,
+            inputSink.sendMouseMoveAsMousePosition(scaledDeltaX, scaledDeltaY,
                     (short) targetView.getWidth(), (short) targetView.getHeight());
         }
         else {
-            conn.sendMouseMove(scaledDeltaX, scaledDeltaY);
+            inputSink.sendMouseMove(scaledDeltaX, scaledDeltaY);
         }
     }
 
     void resendAbsoluteMousePosition() {
         if (prefConfig.absoluteMouseMode) {
-            conn.sendMouseMoveAsMousePosition((short) 0, (short) 0,
+            inputSink.sendMouseMoveAsMousePosition((short) 0, (short) 0,
                     (short) targetView.getWidth(), (short) targetView.getHeight());
         }
     }
 
     void sendHighResScroll(short deltaY) {
-        conn.sendMouseHighResScroll(deltaY);
+        inputSink.sendMouseHighResScroll(deltaY);
     }
 
     private static int scaleTouchDelta(int delta, double factor) {

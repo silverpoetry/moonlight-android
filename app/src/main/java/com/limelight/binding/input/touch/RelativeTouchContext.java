@@ -5,7 +5,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.view.View;
 
-import com.limelight.nvstream.NvConnection;
+import com.limelight.binding.input.PointerInputSink;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.preferences.PreferenceConfiguration;
 
@@ -108,26 +108,26 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
 
     private static final int SCROLL_SPEED_FACTOR = 5;
 
-    public RelativeTouchContext(NvConnection conn, int actionIndex,
+    public RelativeTouchContext(PointerInputSink inputSink, int actionIndex,
                                 int referenceWidth, int referenceHeight,
                                 View view, PreferenceConfiguration prefConfig)
     {
-        this(conn, actionIndex, referenceWidth, referenceHeight, view, prefConfig,
+        this(inputSink, actionIndex, referenceWidth, referenceHeight, view, prefConfig,
                 new TouchpadGestureState());
     }
 
-    public RelativeTouchContext(NvConnection conn, int actionIndex,
+    public RelativeTouchContext(PointerInputSink inputSink, int actionIndex,
                                 int referenceWidth, int referenceHeight,
                                 View view, PreferenceConfiguration prefConfig,
                                 TouchpadGestureState gestureState)
     {
-        this(conn, actionIndex, referenceWidth, referenceHeight, view,
+        this(inputSink, actionIndex, referenceWidth, referenceHeight, view,
                 prefConfig, gestureState,
-                new TouchpadMotionSender(conn, referenceWidth,
+                new TouchpadMotionSender(inputSink, referenceWidth,
                         referenceHeight, view, prefConfig));
     }
 
-    public RelativeTouchContext(NvConnection conn, int actionIndex,
+    public RelativeTouchContext(PointerInputSink inputSink, int actionIndex,
                                 int referenceWidth, int referenceHeight,
                                 View view, PreferenceConfiguration prefConfig,
                                 TouchpadGestureState gestureState,
@@ -138,7 +138,8 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         this.gestureState = gestureState;
         this.motionSender = Objects.requireNonNull(motionSender);
         this.dragPrimer = new TouchpadDragPrimer(handler, motionSender, this);
-        this.buttonController = new TouchpadButtonController(conn, handler, this);
+        this.buttonController =
+                new TouchpadButtonController(inputSink, handler, this);
         this.hapticFeedback = new TouchpadHapticFeedback(view);
     }
 

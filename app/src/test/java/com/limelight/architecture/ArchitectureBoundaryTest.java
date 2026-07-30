@@ -54,4 +54,16 @@ public final class ArchitectureBoundaryTest {
                 .because("input state machines must remain independent from stream UI")
                 .check(productionClasses);
     }
+
+    @Test
+    public void touchInputCoreDoesNotDependOnConcreteConnection() {
+        noClasses()
+                .that()
+                .resideInAnyPackage("com.limelight.binding.input.touch..")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("com.limelight.nvstream.NvConnection")
+                .because("input state machines emit through PointerInputSink")
+                .check(productionClasses);
+    }
 }
