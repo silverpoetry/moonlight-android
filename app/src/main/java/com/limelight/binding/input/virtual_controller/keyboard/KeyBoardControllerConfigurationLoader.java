@@ -526,9 +526,16 @@ public class KeyBoardControllerConfigurationLoader {
 //            }
             //组合按键
             SharedPreferences pref = context.getSharedPreferences(PREF_KEYBOARD_LIST_NAME, Activity.MODE_PRIVATE);
-            Map<String,String> map= (Map<String, String>) pref.getAll();
-            for (Map.Entry<String, String> entry : map.entrySet()) {
-                String value = entry.getValue();
+            Map<String, ?> map = pref.getAll();
+            for (Map.Entry<String, ?> entry : map.entrySet()) {
+                Object storedValue = entry.getValue();
+                if (!(storedValue instanceof String)) {
+                    LimeLog.warning(
+                            "Ignoring non-string keyboard shortcut preference: " +
+                                    entry.getKey());
+                    continue;
+                }
+                String value = (String) storedValue;
                 JSONObject obj = new JSONObject(value);
                 obj.put("type", 4);
                 keystrokeList.put(obj);
