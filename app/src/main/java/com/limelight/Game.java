@@ -50,6 +50,7 @@ import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.stream.StreamFailureDiagnostics;
 import com.limelight.ui.stream.StreamLaunchReporter;
+import com.limelight.ui.stream.StreamMediaResourceOwner;
 import com.limelight.ui.stream.StreamSessionCallbackRouter;
 import com.limelight.ui.stream.StreamSessionUiEffects;
 import com.limelight.ui.stream.StreamWifiLockController;
@@ -183,6 +184,22 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private boolean grabbedInput = true;
     private boolean cursorVisible = false;
     private StreamView streamView;
+    private final Runnable toggleKeyboardWhenFocused =
+            this::toggleKeyboard;
+    private final Runnable showSoftKeyboardRetry = () -> {
+        if (!canPresentSessionUi() ||
+                streamView == null ||
+                !streamView.isImeActive()) {
+            return;
+        }
+        InputMethodManager inputManager =
+                (InputMethodManager) getSystemService(
+                        Context.INPUT_METHOD_SERVICE);
+        streamView.requestFocus();
+        inputManager.showSoftInput(
+                streamView,
+                InputMethodManager.SHOW_IMPLICIT);
+    };
     private NativeCursorOverlayView nativeCursorOverlayView;
     private VideoProcessingGLSurfaceView fsrView;
     private FsrVideoProcessor fsrVideoProcessor;
@@ -193,8 +210,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private StreamPerformanceOverlayController
             performanceOverlayController;
 
-    private MediaCodecDecoderRenderer decoderRenderer;
-    private AndroidAudioRenderer audioRenderer;
+    private StreamMediaResourceOwner mediaResourceOwner;
     private boolean reportedCrash;
     private boolean micToggleInFlight;
     private boolean pendingMicToggleAfterPermission;
@@ -238,7 +254,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private boolean fsrInputSurfaceReady;
     private boolean fsrDisplaySurfaceCreated;
     private volatile boolean streamRenderSurfaceReady;
-    private Surface fsrInputSurface;
     private boolean usbPermissionPromptVisible;
     private boolean fsrViewLifecyclePaused;
     private BackNavigationRegistration backNavigationRegistration;
@@ -320,13 +335,20 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     new VideoProcessingGLSurfaceView.SurfaceListener() {
                         @Override
                         public void onInputSurfaceAvailable(android.graphics.SurfaceTexture surfaceTexture) {
-                            if (fsrInputSurface != null) {
-                                fsrInputSurface.release();
+                            Surface inputSurface =
+                                    new Surface(surfaceTexture);
+                            StreamMediaResourceOwner resources =
+                                    mediaResourceOwner;
+                            if (resources == null) {
+                                inputSurface.release();
+                                return;
                             }
-                            fsrInputSurface = new Surface(surfaceTexture);
+                            resources.replaceFsrInputSurface(
+                                    inputSurface);
                             fsrInputSurfaceReady = true;
                             if (hasSessionStarted()) {
-                                decoderRenderer.setRenderTarget(fsrInputSurface);
+                                resources.setRenderTarget(
+                                        inputSurface);
                             }
                             startConnectionIfReady();
                         }
@@ -334,9 +356,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         @Override
                         public void onInputSurfaceDestroyed() {
                             fsrInputSurfaceReady = false;
-                            if (fsrInputSurface != null) {
-                                fsrInputSurface.release();
-                                fsrInputSurface = null;
+                            if (mediaResourceOwner != null) {
+                                mediaResourceOwner
+                                        .releaseFsrInputSurface();
                             }
                         }
                     });
@@ -501,7 +523,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             }
         }
 
-        decoderRenderer = new MediaCodecDecoderRenderer(
+        MediaCodecDecoderRenderer decoderRenderer =
+                new MediaCodecDecoderRenderer(
                 this,
                 prefConfig,
                 new CrashListener() {
@@ -521,6 +544,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 willStreamHdr,
                 glPrefs.glRenderer,
                 performanceOverlayController);
+        mediaResourceOwner = StreamMediaResourceOwner.create(
+                decoderRenderer,
+                () -> new AndroidAudioRenderer(
+                        Game.this,
+                        controllerHandler,
+                        prefConfig.enableAudioFx,
+                        prefConfig.enableAudioHaptics,
+                        prefConfig.audioHapticsStrength,
+                        prefConfig.audioHapticsVoiceFilter,
+                        prefConfig.audioHapticsOutputTarget));
 
         // Don't stream HDR if the decoder can't support it
         if (willStreamHdr && !decoderRenderer.isHevcMain10Hdr10Supported() && !decoderRenderer.isAv1Main10Supported()) {
@@ -938,7 +971,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             initFloatingView();
         }
 
-        if (!decoderRenderer.isAvcSupported()) {
+        if (!mediaResourceOwner.isAvcSupported()) {
             if (spinner != null) {
                 spinner.dismiss();
                 spinner = null;
@@ -1032,7 +1065,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         switch (action) {
             case TOGGLE_SOFT_KEYBOARD:
                 if (!hasWindowFocus()) {
-                    streamView.postDelayed(this::toggleKeyboard, 10);
+                    streamView.postDelayed(
+                            toggleKeyboardWhenFocused,
+                            10);
                 }
                 else {
                     toggleKeyboard();
@@ -1555,6 +1590,19 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
+    private void cancelPendingUiCallbacks() {
+        View decorView = getWindow().getDecorView();
+        Handler handler = decorView.getHandler();
+        if (handler != null) {
+            handler.removeCallbacks(hideSystemUi);
+            handler.removeCallbacks(toggleGrab);
+        }
+        if (streamView != null) {
+            streamView.removeCallbacks(toggleKeyboardWhenFocused);
+            streamView.removeCallbacks(showSoftKeyboardRetry);
+        }
+    }
+
     @Override
     @RequiresApi(api = Build.VERSION_CODES.N)
     public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
@@ -1567,11 +1615,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // that case here too.
         if (isInMultiWindowMode) {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-            decoderRenderer.notifyVideoBackground();
+            mediaResourceOwner.notifyVideoBackground();
         }
         else {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-            decoderRenderer.notifyVideoForeground();
+            mediaResourceOwner.notifyVideoForeground();
         }
 
         // Correct the system UI visibility flags
@@ -1583,6 +1631,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     protected void onDestroy() {
         sessionDependenciesReady = false;
         unregisterInputGateway();
+        cancelPendingUiCallbacks();
         if (failureDiagnostics != null) {
             failureDiagnostics.destroy();
             failureDiagnostics = null;
@@ -1607,6 +1656,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             sessionUiEffects.destroy();
             sessionUiEffects = null;
         }
+        if (mediaResourceOwner != null) {
+            mediaResourceOwner.destroy();
+            mediaResourceOwner = null;
+        }
         if (backNavigationRegistration != null) {
             backNavigationRegistration.unregister();
             backNavigationRegistration = null;
@@ -1619,8 +1672,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             performanceOverlayController.destroy();
             performanceOverlayController = null;
         }
-        super.onDestroy();
-
         UiHelper.notifyHdrWindowStatus(this, false);
 
         if(presentation!=null){
@@ -1647,13 +1698,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             unbindService(usbDriverServiceConnection);
         }
 
-        if (fsrInputSurface != null) {
-            fsrInputSurface.release();
-            fsrInputSurface = null;
-        }
-
         // Destroy the capture provider
         inputCaptureProvider.destroy();
+        super.onDestroy();
     }
 
     @Override
@@ -1724,7 +1771,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         if (conn != null) {
-            int videoFormat = decoderRenderer.getActiveVideoFormat();
+            int videoFormat =
+                    mediaResourceOwner.getActiveVideoFormat();
 
             displayedFailureDialog = true;
             stopConnection();
@@ -1737,8 +1785,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 },200); // 延时100毫秒
             }
             if (prefConfig.enableLatencyToast) {
-                int averageEndToEndLat = decoderRenderer.getAverageEndToEndLatency();
-                int averageDecoderLat = decoderRenderer.getAverageDecoderLatency();
+                int averageEndToEndLat =
+                        mediaResourceOwner
+                                .getAverageEndToEndLatency();
+                int averageDecoderLat =
+                        mediaResourceOwner.getAverageDecoderLatency();
                 String message = null;
                 if (averageEndToEndLat > 0) {
                     message = getResources().getString(R.string.conn_client_latency)+" "+averageEndToEndLat+" ms";
@@ -1918,16 +1969,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         streamView.requestFocus();
         streamView.setImeActive(true);
         inputManager.restartInput(streamView);
-        if (!inputManager.showSoftInput(streamView, InputMethodManager.SHOW_IMPLICIT)) {
-            streamView.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    if (streamView.isImeActive()) {
-                        streamView.requestFocus();
-                        inputManager.showSoftInput(streamView, InputMethodManager.SHOW_IMPLICIT);
-                    }
-                }
-            }, SOFT_KEYBOARD_SHOW_RETRY_MS);
+        if (!inputManager.showSoftInput(
+                streamView,
+                InputMethodManager.SHOW_IMPLICIT)) {
+            streamView.removeCallbacks(showSoftKeyboardRetry);
+            streamView.postDelayed(
+                    showSoftKeyboardRetry,
+                    SOFT_KEYBOARD_SHOW_RETRY_MS);
         }
     }
 
@@ -2073,7 +2121,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (sessionController != null && sessionController.stop()) {
             UiHelper.notifyHdrWindowStatus(this, false);
             updatePipAutoEnter();
-            audioRenderer = null;
+            mediaResourceOwner.releaseStartResources();
 
             controllerHandler.stop();
             sessionUiEffects.onEnded();
@@ -2363,7 +2411,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             boolean enabled,
             byte[] hdrMetadata) {
         LimeLog.info("Display HDR mode: " + (enabled ? "enabled" : "disabled"));
-        decoderRenderer.setHdrMode(enabled, hdrMetadata);
+        mediaResourceOwner.setHdrMode(enabled, hdrMetadata);
         if (fsrVideoProcessor != null) {
             fsrVideoProcessor.setHdrToneMappingEnabled(enabled);
         }
@@ -2513,7 +2561,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         if (hasSessionStarted()) {
             // Let the decoder know immediately that the surface is gone
-            decoderRenderer.prepareForStop();
+            mediaResourceOwner.prepareVideoForStop();
 
             if (sessionController.getState().needsStop()) {
                 stopConnection();
@@ -3175,7 +3223,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     !fsrDisplaySurfaceCreated) {
                 return;
             }
-            startSessionWithRenderTarget(fsrInputSurface);
+            Surface fsrInputSurface =
+                    mediaResourceOwner.getFsrInputSurface();
+            if (fsrInputSurface != null) {
+                startSessionWithRenderTarget(fsrInputSurface);
+            }
             return;
         }
 
@@ -3193,21 +3245,21 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             return;
         }
 
-        decoderRenderer.setRenderTarget(renderTarget);
-        audioRenderer = new AndroidAudioRenderer(Game.this, controllerHandler, prefConfig.enableAudioFx,
-                prefConfig.enableAudioHaptics, prefConfig.audioHapticsStrength,
-                prefConfig.audioHapticsVoiceFilter, prefConfig.audioHapticsOutputTarget);
+        StreamMediaResourceOwner.StartResources resources =
+                mediaResourceOwner.prepareStart(renderTarget);
         sessionUiEffects.onConnecting();
         try {
-            if (sessionController.start(audioRenderer, decoderRenderer)) {
+            if (sessionController.start(
+                    resources.getAudioRenderer(),
+                    resources.getVideoRenderer())) {
                 return;
             }
         } catch (RuntimeException | Error error) {
-            audioRenderer = null;
+            mediaResourceOwner.releaseStartResources();
             sessionUiEffects.onEnded();
             throw error;
         }
-        audioRenderer = null;
+        mediaResourceOwner.releaseStartResources();
         sessionUiEffects.onEnded();
     }
 
@@ -3342,9 +3394,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     public void setAudioHapticsSettings() {
-        if (audioRenderer != null) {
-            audioRenderer.updateAudioHapticsSettings(prefConfig.enableAudioHaptics,
-                    prefConfig.audioHapticsStrength, prefConfig.audioHapticsVoiceFilter,
+        if (mediaResourceOwner != null) {
+            mediaResourceOwner.updateAudioHapticsSettings(
+                    prefConfig.enableAudioHaptics,
+                    prefConfig.audioHapticsStrength,
+                    prefConfig.audioHapticsVoiceFilter,
                     prefConfig.audioHapticsOutputTarget);
         }
         if (controllerHandler != null) {
