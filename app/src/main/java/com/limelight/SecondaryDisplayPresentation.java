@@ -17,24 +17,20 @@ import com.limelight.ui.StreamView;
 public class SecondaryDisplayPresentation extends Presentation {
 
     private FrameLayout view;
+
     public SecondaryDisplayPresentation(Context context, Display display) {
-        super(context, display);
+        super(context, display, R.style.SecondaryDisplayTheme);
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        view= (FrameLayout) View.inflate(getContext(),R.layout.activity_game_display,null);
+        view = (FrameLayout) View.inflate(getContext(), R.layout.activity_game_display, null);
         setContentView(view);
     }
 
-    public void addView(StreamView streamView){
+    public void addView(StreamView streamView) {
         view.addView(streamView);
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
     }
 
     @Override

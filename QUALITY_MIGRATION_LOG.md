@@ -235,3 +235,33 @@ manual release gate.
 - Both devices were locked. Visible rotation, split/freeform resizing, picture-in-picture,
   and live stream input-coordinate alignment were not claimed as passed and remain in
   the final manual release gate.
+
+## Rendering resources and launcher assets
+
+- Replaced the oversized controller vector paths with compact, equivalent even-odd
+  geometry. The button and directional-pad cutouts remain transparent, and an
+  instrumentation test verifies those semantics rather than relying on file size alone.
+- Corrected the intrinsic size of the computer and settings action icons to `24dp`.
+- Removed two redundant drawable backgrounds. The secondary-display presentation now
+  owns one explicit black window fallback through `SecondaryDisplayTheme`; the stream
+  view remains responsible for rendered content.
+- Added density-specific legacy launcher icons, an Android 8+ adaptive icon, and an
+  Android 13+ monochrome layer. The adaptive foreground stays inside the documented
+  safe zone, which is checked by instrumentation.
+- Added reproducible source artwork and
+  `tools/generate_android_image_assets.ps1` for launcher, TV-banner, and placeholder
+  raster variants. Generated density assets are committed so release builds do not
+  depend on an image tool being present.
+- Lint removed eight reviewed findings: two `Overdraw`, two `VectorRaster`, two
+  controller `VectorPath`, `IconLauncherShape`, and `IconMissingDensityFolder`.
+  The baseline now contains 45 entries pending the intentional-attribute closure.
+- `verifyLocal` prerequisites passed: unit tests, non-root release Lint, Android-test
+  compilation, and both debug APK assemblies.
+- API 36 devices `192.168.3.125:5555`, `192.168.3.3:42815`, and
+  `192.168.3.79:5555`: 39 non-root and 39 root instrumentation tests passed on every
+  device. Root tests were invoked directly with AndroidJUnitRunner after Gradle's UTP
+  wrapper stalled before starting instrumentation; this separates runner evidence
+  from the wrapper failure.
+- The devices were not used for unlocked visual inspection. Launcher shape, TV banner,
+  streaming fallback, overlay appearance, and secondary-display behavior remain in the
+  final manual release gate.

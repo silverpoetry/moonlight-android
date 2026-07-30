@@ -25,6 +25,11 @@
         <item name="android:windowNoTitle">true</item>
     </style>
 
+    <!-- A secondary display has no activity window behind it, so it owns one black fallback. -->
+    <style name="SecondaryDisplayTheme" parent="StreamTheme">
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+
     <declare-styleable name="ApertureViewGroup">
         <attr name="aperture_color1" format="color" />
         <attr name="aperture_color2" format="color" />
