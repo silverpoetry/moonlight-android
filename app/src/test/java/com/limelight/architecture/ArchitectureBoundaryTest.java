@@ -84,4 +84,30 @@ public final class ArchitectureBoundaryTest {
                 .because("the Activity adapts callbacks into the input controller")
                 .check(productionClasses);
     }
+
+    @Test
+    public void streamInputOrchestratorDoesNotDependOnConcreteConnection() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.StreamInputController")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("com.limelight.nvstream.NvConnection")
+                .because("input orchestration dispatches to protocol ports")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void streamInputOrchestratorDoesNotDependOnGameActivity() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.StreamInputController")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .because("the Activity supplies UI policy through a host port")
+                .check(productionClasses);
+    }
 }

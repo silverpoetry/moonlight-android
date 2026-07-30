@@ -63,7 +63,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-public class ControllerHandler implements InputManager.InputDeviceListener, UsbDriverListener {
+public class ControllerHandler implements InputManager.InputDeviceListener,
+        UsbDriverListener, GamepadMotionInputHandler {
     private static final String KISHI_LOG_TAG = "RazerKishiDebug";
 
     private static final int MAXIMUM_BUMPER_UP_DELAY_MS = 100;
@@ -2105,6 +2106,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
                 normalizedX, normalizedY, normalizedPressure) != MoonBridge.LI_ERR_UNSUPPORTED;
     }
 
+    @Override
     public boolean tryHandleTouchpadEvent(MotionEvent event) {
         // Bail if this is not a touchpad or mouse event
         if (event.getSource() != InputDevice.SOURCE_TOUCHPAD &&
@@ -2226,6 +2228,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         }
     }
 
+    @Override
     public boolean handleMotionEvent(MotionEvent event) {
         InputDeviceContext context = getContextForEvent(event);
         if (context == null) {

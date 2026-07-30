@@ -12,6 +12,7 @@ import com.limelight.binding.input.KeyboardChordSender;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.binding.input.StreamInputGateway;
 import com.limelight.binding.input.StreamInputGatewayRegistry;
+import com.limelight.binding.input.StreamInputController;
 import com.limelight.binding.input.protocol.NvConnectionPointerInputSink;
 import com.limelight.binding.input.capture.InputCaptureManager;
 import com.limelight.binding.input.capture.InputCaptureProvider;
@@ -139,9 +140,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 1001;
     private static final long KEY_CHORD_UP_DELAY_MS = 25;
 
-    private TouchInputController touchInputController;
-    private ExternalPointerInputController
-            externalPointerInputController;
+    private StreamInputController streamInputController;
 
     private static final int SOFT_KEYBOARD_SHOW_RETRY_MS = 50;
 
@@ -644,7 +643,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         streamView,
                         pointerInputSink,
                         prefConfig);
-        externalPointerInputController =
+        ExternalPointerInputController externalPointerInputController =
                 new ExternalPointerInputController(
                         streamView,
                         pointerInputSink,
@@ -654,18 +653,19 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         clipboardFileTransferController =
                 new RemoteClipboardFileTransferController(this, conn);
         sessionController = new StreamSessionController(conn, this);
-        touchInputController = new TouchInputController(
-                this,
-                streamView,
-                pointerInputSink,
-                directContactInputController,
-                prefConfig,
-                new TouchInputController.Host() {
-                    @Override
-                    public void showSoftKeyboard() {
-                        Game.this.showKeyboard();
-                    }
-                });
+        TouchInputController touchInputController =
+                new TouchInputController(
+                        this,
+                        streamView,
+                        pointerInputSink,
+                        directContactInputController,
+                        prefConfig,
+                        new TouchInputController.Host() {
+                            @Override
+                            public void showSoftKeyboard() {
+                                Game.this.showKeyboard();
+                            }
+                        });
         if (prefConfig.enableNativeCursor) {
             conn.setMousePositionListener(new NvConnection.MousePositionListener() {
                 @Override
@@ -676,6 +676,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
         startConnectionIfReady();
         controllerHandler = new ControllerHandler(this, conn, this, prefConfig);
+        streamInputController = new StreamInputController(
+                controllerHandler,
+                externalPointerInputController,
+                touchInputController,
+                new StreamInputController.Host() {
+                    @Override
+                    public boolean shouldSuppressTouchscreenInput() {
+                        return isTouchscreenInputSuppressed();
+                    }
+                });
         keyboardTranslator = new KeyboardTranslator();
 
         InputManager inputManager = (InputManager) getSystemService(Context.INPUT_SERVICE);
@@ -1346,9 +1356,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     protected void onDestroy() {
         unregisterInputGateway();
-        if (touchInputController != null) {
-            touchInputController.destroy();
-            touchInputController = null;
+        if (streamInputController != null) {
+            streamInputController.destroy();
+            streamInputController = null;
         }
         if (backNavigationRegistration != null) {
             backNavigationRegistration.unregister();
@@ -1403,8 +1413,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     protected void onResume() {
         super.onResume();
 
-        if (touchInputController != null) {
-            touchInputController.start();
+        if (streamInputController != null) {
+            streamInputController.start();
         }
 
         if (fsrView != null && fsrViewLifecyclePaused) {
@@ -1415,8 +1425,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     protected void onPause() {
-        if (touchInputController != null) {
-            touchInputController.stop();
+        if (streamInputController != null) {
+            streamInputController.stop();
         }
 
         if (fsrView != null && !(usbPermissionPromptVisible && !isFinishing())) {
@@ -2004,52 +2014,33 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     // NB: View is only present if called from a view callback
     private boolean handleMotionEvent(View view, MotionEvent event) {
         // Pass through mouse/touch/joystick input if we're not grabbing
-        if (!grabbedInput) {
+        if (!grabbedInput || streamInputController == null) {
             return false;
         }
 
         if (event.getActionMasked() != MotionEvent.ACTION_HOVER_MOVE) {
             cancelPendingStreamBackExit();
         }
+        return streamInputController.handleMotionEvent(view, event);
+    }
 
-        int eventSource = event.getSource();
-        int deviceSources = event.getDevice() != null ? event.getDevice().getSources() : 0;
-        if ((eventSource & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) {
-            if (controllerHandler.handleMotionEvent(event)) {
-                return true;
-            }
-        }
-        else if ((deviceSources & InputDevice.SOURCE_CLASS_JOYSTICK) != 0 && controllerHandler.tryHandleTouchpadEvent(event)) {
-            return true;
-        }
-        else if (ExternalPointerInputController
-                .isPointerClassEvent(event)) {
-            if (externalPointerInputController.canHandle(event)) {
-                return externalPointerInputController
-                        .handleMotionEvent(view, event);
-            }
+    private boolean isTouchscreenInputSuppressed() {
+        return isControllerLayoutEditing(virtualController) ||
+                isControllerLayoutEditing(keyBoardController);
+    }
 
-            // This case is for fingers.
-            if (virtualController != null &&
-                    (virtualController.getControllerMode() == KeyBoardController.ControllerMode.MoveButtons ||
-                     virtualController.getControllerMode() == KeyBoardController.ControllerMode.ResizeButtons||
-                     virtualController.getControllerMode() == KeyBoardController.ControllerMode.DisableEnableButtons)) {
-                // Ignore presses when the virtual controller is being configured
-                return true;
-            }
-
-            if (keyBoardController != null &&
-                    (keyBoardController.getControllerMode() == KeyBoardController.ControllerMode.MoveButtons ||
-                            keyBoardController.getControllerMode() == KeyBoardController.ControllerMode.ResizeButtons||
-                            keyBoardController.getControllerMode() == KeyBoardController.ControllerMode.DisableEnableButtons)) {
-                // Ignore presses when the virtual controller is being configured
-                return true;
-            }
-            return touchInputController.handleMotionEvent(view, event);
+    private static boolean isControllerLayoutEditing(
+            KeyBoardController controller) {
+        if (controller == null) {
+            return false;
         }
 
-        // Unknown class
-        return false;
+        KeyBoardController.ControllerMode mode =
+                controller.getControllerMode();
+        return mode == KeyBoardController.ControllerMode.MoveButtons ||
+                mode == KeyBoardController.ControllerMode.ResizeButtons ||
+                mode == KeyBoardController.ControllerMode
+                        .DisableEnableButtons;
     }
 
     @Override
@@ -2122,8 +2113,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void stopConnection() {
-        if (touchInputController != null) {
-            touchInputController.cancelActiveInput();
+        if (streamInputController != null) {
+            streamInputController.cancelActiveInput();
         }
         if (sessionController != null && sessionController.stop()) {
             UiHelper.notifyHdrWindowStatus(this, false);
@@ -2758,8 +2749,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     public void switchMouseModel(int which){
         TouchInputMode mode = TouchInputMode.fromPreferenceValue(which);
-        if (mode != null && touchInputController != null) {
-            touchInputController.setMode(mode);
+        if (mode != null && streamInputController != null) {
+            streamInputController.setTouchMode(mode);
         }
     }
 
@@ -2872,11 +2863,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     //画面平移缩放
     public void screenMoveZoom(){
         if(!streamView.isEnableZoomAndPan()){
-            touchInputController.setInputSuspended(true);
+            streamInputController.setTouchInputSuspended(true);
             streamView.setEnableZoomAndPan(true);
             return;
         }
-        touchInputController.setInputSuspended(false);
+        streamInputController.setTouchInputSuspended(false);
         streamView.setEnableZoomAndPan(false);
     }
 
