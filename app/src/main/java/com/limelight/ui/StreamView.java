@@ -37,7 +37,15 @@ public class StreamView extends SurfaceView {
     private int touchSlop;
 
     public void setDesiredAspectRatio(double aspectRatio) {
-        this.desiredAspectRatio = aspectRatio;
+        double safeAspectRatio =
+                Double.isFinite(aspectRatio) && aspectRatio > 0
+                        ? aspectRatio
+                        : 0.0;
+        if (desiredAspectRatio == safeAspectRatio) {
+            return;
+        }
+        desiredAspectRatio = safeAspectRatio;
+        requestLayout();
     }
 
     public void setInputGateway(StreamInputGateway inputGateway) {
@@ -111,16 +119,12 @@ public class StreamView extends SurfaceView {
         int widthSize = MeasureSpec.getSize(widthMeasureSpec);
         int heightSize = MeasureSpec.getSize(heightMeasureSpec);
 
-        int measuredHeight, measuredWidth;
-        if (widthSize > heightSize * desiredAspectRatio) {
-            measuredHeight = heightSize;
-            measuredWidth = (int)(measuredHeight * desiredAspectRatio);
-        } else {
-            measuredWidth = widthSize;
-            measuredHeight = (int)(measuredWidth / desiredAspectRatio);
-        }
-
-        setMeasuredDimension(measuredWidth, measuredHeight);
+        StreamLayoutGeometry.Size measuredSize =
+                StreamLayoutGeometry.fitWithin(
+                        widthSize,
+                        heightSize,
+                        desiredAspectRatio);
+        setMeasuredDimension(measuredSize.width, measuredSize.height);
     }
 
     @Override

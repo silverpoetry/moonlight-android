@@ -56,6 +56,7 @@ import com.limelight.ui.stream.StreamSessionUiEffects;
 import com.limelight.ui.stream.StreamWifiLockController;
 import com.limelight.ui.GameGestures;
 import com.limelight.ui.NativeCursorOverlayView;
+import com.limelight.ui.StreamLayoutGeometry;
 import com.limelight.ui.StreamUiActions;
 import com.limelight.ui.StreamView;
 import com.limelight.ui.floatingview.AXFloatingMagnetView;
@@ -384,8 +385,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 fsrView.setFixedSurfacePixelSize(0, 0);
             }
             else {
-                int[] fsrOutputSize = getFsrOutputSize();
-                fsrView.setFixedSurfacePixelSize(fsrOutputSize[0], fsrOutputSize[1]);
+                StreamLayoutGeometry.Size fsrOutputSize =
+                        getFsrOutputSize();
+                fsrView.setFixedSurfacePixelSize(
+                        fsrOutputSize.width,
+                        fsrOutputSize.height);
             }
         }
 
@@ -1515,28 +1519,36 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             Point screenSize = new Point(0, 0);
             display.getSize(screenSize);
 
-            double screenAspectRatio = ((double)screenSize.y) / screenSize.x;
-            double streamAspectRatio = ((double)prefConfig.height) / prefConfig.width;
-            if (Math.abs(screenAspectRatio - streamAspectRatio) < 0.001) {
+            if (StreamLayoutGeometry.hasCompatibleAspectRatio(
+                    screenSize.x,
+                    screenSize.y,
+                    prefConfig.width,
+                    prefConfig.height,
+                    0.001)) {
                 LimeLog.info("Stream has compatible aspect ratio with output display");
                 aspectRatioMatch = true;
             }
         }
 
+        double desiredAspectRatio =
+                StreamLayoutGeometry.getAspectRatio(
+                        prefConfig.width,
+                        prefConfig.height);
         if (prefConfig.stretchVideo || aspectRatioMatch) {
             // Set the surface to the size of the video
             streamView.getHolder().setFixedSize(prefConfig.width, prefConfig.height);
+            streamView.setDesiredAspectRatio(0.0);
             if (fsrView != null) {
                 fsrView.setDesiredAspectRatio(0.0);
             }
         }
         else {
             // Set the surface to scale based on the aspect ratio of the stream
-            streamView.setDesiredAspectRatio((double)prefConfig.width / (double)prefConfig.height);
+            streamView.setDesiredAspectRatio(desiredAspectRatio);
             if (fsrView != null) {
-                fsrView.setDesiredAspectRatio((double)prefConfig.width / (double)prefConfig.height);
+                fsrView.setDesiredAspectRatio(desiredAspectRatio);
             }
-            LimeLog.info("surfaceChanged-->"+(double)prefConfig.width / (double)prefConfig.height);
+            LimeLog.info("surfaceChanged-->" + desiredAspectRatio);
         }
 
         // Set the desired refresh rate that will get passed into setFrameRate() later
@@ -3129,19 +3141,21 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         return 0.85f;
     }
 
-    private int[] getFsrOutputSize() {
+    private StreamLayoutGeometry.Size getFsrOutputSize() {
         String target = getFsrTarget();
         int targetHeight = "4k".equalsIgnoreCase(target) ? 2160 : 1440;
-        float aspect = prefConfig.width > 0 && prefConfig.height > 0
-                ? (prefConfig.width / (float) prefConfig.height)
-                : (16f / 9f);
-        int targetWidth = Math.round(targetHeight * aspect);
+        int minimumTargetWidth = 0;
         if ("4k".equalsIgnoreCase(target)) {
-            targetWidth = Math.max(targetWidth, 3840);
-        } else if ("2k".equalsIgnoreCase(target)) {
-            targetWidth = Math.max(targetWidth, 2560);
+            minimumTargetWidth = 3840;
         }
-        return new int[] {targetWidth & ~1, targetHeight & ~1};
+        else if ("2k".equalsIgnoreCase(target)) {
+            minimumTargetWidth = 2560;
+        }
+        return StreamLayoutGeometry.getEvenOutputSize(
+                prefConfig.width,
+                prefConfig.height,
+                targetHeight,
+                minimumTargetWidth);
     }
 
     private String getFsrTarget() {

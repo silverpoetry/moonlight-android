@@ -40,6 +40,16 @@ from the device motion ranges rather than an Android `View`.
 `NativeCursorOverlayView` composes both, so cursor position, hotspot, and shape
 scale use the same viewport geometry.
 
+## Layout rules
+
+`StreamLayoutGeometry` is the single pure-Java source for aspect-fit
+measurement, legacy display-aspect compatibility, and fixed FSR output sizing.
+`StreamView` and `VideoProcessingGLSurfaceView` delegate to the same fit
+calculation, so the decoded surface and post-processed output cannot diverge by
+rounding or branch choice. View measurement truncates to Android's historical
+pixel result; FSR surface requests round first and then enforce even
+dimensions.
+
 ## Performance
 
 Mouse-position callbacks reuse preallocated point, basis, and matrix scratch

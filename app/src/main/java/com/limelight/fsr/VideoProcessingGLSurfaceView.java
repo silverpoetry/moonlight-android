@@ -8,8 +8,10 @@ import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.os.Handler;
 import android.os.Looper;
-import com.limelight.DebugLog;
 import android.view.SurfaceHolder;
+
+import com.limelight.DebugLog;
+import com.limelight.ui.StreamLayoutGeometry;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -102,7 +104,14 @@ public class VideoProcessingGLSurfaceView extends GLSurfaceView {
     }
 
     public void setDesiredAspectRatio(double aspectRatio) {
-        desiredAspectRatio = aspectRatio;
+        double safeAspectRatio =
+                Double.isFinite(aspectRatio) && aspectRatio > 0
+                        ? aspectRatio
+                        : 0.0;
+        if (desiredAspectRatio == safeAspectRatio) {
+            return;
+        }
+        desiredAspectRatio = safeAspectRatio;
         requestLayout();
     }
 
@@ -116,18 +125,12 @@ public class VideoProcessingGLSurfaceView extends GLSurfaceView {
         int widthSize = MeasureSpec.getSize(widthMeasureSpec);
         int heightSize = MeasureSpec.getSize(heightMeasureSpec);
 
-        int measuredWidth;
-        int measuredHeight;
-        if (widthSize > heightSize * desiredAspectRatio) {
-            measuredHeight = heightSize;
-            measuredWidth = (int) (measuredHeight * desiredAspectRatio);
-        }
-        else {
-            measuredWidth = widthSize;
-            measuredHeight = (int) (measuredWidth / desiredAspectRatio);
-        }
-
-        setMeasuredDimension(measuredWidth, measuredHeight);
+        StreamLayoutGeometry.Size measuredSize =
+                StreamLayoutGeometry.fitWithin(
+                        widthSize,
+                        heightSize,
+                        desiredAspectRatio);
+        setMeasuredDimension(measuredSize.width, measuredSize.height);
     }
 
     @Override
