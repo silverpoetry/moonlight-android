@@ -202,3 +202,36 @@ manual release gate.
   57 reviewed baseline entries.
 - Visible background, remote custom box art, and credits-avatar rendering remain part
   of the final unlocked-device manual release gate.
+
+## Orientation, large screens, and windowing
+
+- Replaced three scattered `Game` orientation requests and the fixed-landscape
+  `GameSbs` manifest declaration with one policy/controller boundary.
+- Compact full-screen devices preserve the existing portrait, automatic-rotation,
+  landscape, on-screen-controller, native-resolution, and SBS behavior.
+- Windows with `smallestScreenWidthDp >= 600`, split/freeform windows, and
+  picture-in-picture explicitly follow the user's full orientation preference. The
+  policy does not depend on Android honoring a fixed request on Android 16 large
+  screens.
+- Squarish-window decisions now use the activity's current configuration dimensions
+  instead of the physical display mode, so a resized or moved window is not classified
+  using stale full-display geometry.
+- Entering or leaving multi-window and every handled configuration change reapplies the
+  centralized policy. Stream sizing, insets, video aspect ratio, touch mapping, and
+  local cursor mapping continue to derive from the actual stream view bounds.
+- The only fixed-orientation calls are confined to the documented compact full-screen
+  controller method; its Lint suppression is narrow and does not cover activities or
+  manifests globally.
+- Pure JVM tests cover compact regular windows, compact squarish windows, portrait and
+  landscape native streams, automatic rotation, on-screen controller precedence, SBS,
+  invalid dimensions, and adaptive windows.
+- `verifyLocal`: passed.
+- API 36 phone (`192.168.3.125:5555`): 37 non-root and 37 root instrumentation tests
+  passed.
+- API 36 large-screen device (`192.168.3.3:42815`): 37 non-root and 37 root
+  instrumentation tests passed.
+- All three `SourceLockedOrientationActivity` entries and the `DiscouragedApi` manifest
+  entry were removed, leaving 53 reviewed baseline entries.
+- Both devices were locked. Visible rotation, split/freeform resizing, picture-in-picture,
+  and live stream input-coordinate alignment were not claimed as passed and remain in
+  the final manual release gate.

@@ -509,21 +509,6 @@ public class PreferenceConfiguration {
         return longDim / shortDim < 1.3f;
     }
 
-    public static boolean isSquarishScreen(Display display) {
-        int width, height;
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            width = display.getMode().getPhysicalWidth();
-            height = display.getMode().getPhysicalHeight();
-        }
-        else {
-            width = display.getWidth();
-            height = display.getHeight();
-        }
-
-        return isSquarishScreen(width, height);
-    }
-
     private static String convertFromLegacyResolutionString(String resString) {
         if (resString.equalsIgnoreCase("360p")) {
             return RES_360P;

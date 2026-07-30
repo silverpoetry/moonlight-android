@@ -84,6 +84,7 @@ import com.limelight.ui.SBSStreamView;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.ServerHelper;
 import com.limelight.utils.SpinnerDialog;
+import com.limelight.utils.StreamOrientationController;
 import com.limelight.utils.UiHelper;
 
 import java.io.ByteArrayInputStream;
@@ -198,6 +199,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         super.onCreate(savedInstanceState);
 
         instance = this;
+        StreamOrientationController.applySbsOrientation(this);
         softKeyboardGestureCoordinator = new SoftKeyboardGestureCoordinator(
                 ViewConfiguration.get(this).getScaledTouchSlop(),
                 new SoftKeyboardGestureCoordinator.Listener() {
@@ -638,6 +640,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        StreamOrientationController.applySbsOrientation(this);
 
         // Hide on-screen overlays in PiP mode
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -989,6 +992,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
     @RequiresApi(api = Build.VERSION_CODES.N)
     public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
         super.onMultiWindowModeChanged(isInMultiWindowMode);
+        StreamOrientationController.applySbsOrientation(this);
         hideSystemUi(50);
         UiHelper.refreshStreamWindowInsets(this);
     }

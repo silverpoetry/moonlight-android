@@ -59,6 +59,7 @@ import com.limelight.utils.RazerUtils;
 import com.limelight.utils.ServerHelper;
 import com.limelight.utils.ShortcutHelper;
 import com.limelight.utils.SpinnerDialog;
+import com.limelight.utils.StreamOrientationController;
 import com.limelight.utils.UiHelper;
 import android.annotation.SuppressLint;
 import androidx.appcompat.content.res.AppCompatResources;
@@ -358,7 +359,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         backNavigationRegistration =
                 BackNavigationRegistration.register(this, this::handleStreamBackPressed);
 
-        // Enter landscape unless we're on a square screen
+        // Preserve compact-screen preferences while allowing adaptive windows
+        // to follow the user's current orientation.
         setPreferredOrientationForCurrentDisplay();
 
         boolean useEntireDisplay = prefConfig.stretchVideo ||
@@ -898,52 +900,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void setPreferredOrientationForCurrentDisplay() {
-        Display display = getWindowManager().getDefaultDisplay();
-
-        // For semi-square displays, we use more complex logic to determine which orientation to use (if any)
-        if (PreferenceConfiguration.isSquarishScreen(display)) {
-            int desiredOrientation = Configuration.ORIENTATION_UNDEFINED;
-
-            // OSC doesn't properly support portrait displays, so don't use it in portrait mode by default
-            if (prefConfig.onscreenController) {
-                desiredOrientation = Configuration.ORIENTATION_LANDSCAPE;
-            }
-
-            // For native resolution, we will lock the orientation to the one that matches the specified resolution
-            if (prefConfig.isNativeResolution()) {
-                if (prefConfig.width > prefConfig.height) {
-                    desiredOrientation = Configuration.ORIENTATION_LANDSCAPE;
-                }
-                else {
-                    desiredOrientation = Configuration.ORIENTATION_PORTRAIT;
-                }
-            }
-
-            if (desiredOrientation == Configuration.ORIENTATION_LANDSCAPE) {
-                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE);
-            }
-            else if (desiredOrientation == Configuration.ORIENTATION_PORTRAIT) {
-                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT);
-            }
-            else {
-                // If we don't have a reason to lock to portrait or landscape, allow any orientation
-                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_USER);
-            }
-        }
-        else {
-            //强制竖屏模式
-            if(prefConfig.enablePortrait|| isPortrait){
-                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
-                return;
-            }
-            //解锁横竖屏切换
-            if(prefConfig.autoScreenOrientation){
-                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
-                return;
-            }
-            // For regular displays, we always request landscape
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE);
-        }
+        StreamOrientationController.applyGameOrientation(
+                this, prefConfig, isPortrait);
     }
 
     @Override
@@ -1434,6 +1392,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @RequiresApi(api = Build.VERSION_CODES.N)
     public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
         super.onMultiWindowModeChanged(isInMultiWindowMode);
+        setPreferredOrientationForCurrentDisplay();
 
         // In multi-window, we don't want to use the full-screen layout
         // flag. It will cause us to collide with the system UI.
@@ -4274,13 +4233,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     //横竖屏切换
     public void switchLandscapePortraitScreen(){
-        if(getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE){
-            isPortrait =true;
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
-        }else{
-            isPortrait =false;
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE);
-        }
+        isPortrait = getResources().getConfiguration().orientation ==
+                Configuration.ORIENTATION_LANDSCAPE;
+        setPreferredOrientationForCurrentDisplay();
     }
 
     //画面平移缩放
