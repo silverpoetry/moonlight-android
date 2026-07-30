@@ -57,6 +57,7 @@ import com.limelight.ui.stream.StreamWifiLockController;
 import com.limelight.ui.GameGestures;
 import com.limelight.ui.NativeCursorOverlayView;
 import com.limelight.ui.StreamLayoutGeometry;
+import com.limelight.ui.StreamWindowPolicy;
 import com.limelight.ui.StreamUiActions;
 import com.limelight.ui.StreamView;
 import com.limelight.ui.floatingview.AXFloatingMagnetView;
@@ -71,6 +72,7 @@ import com.limelight.utils.ShortcutHelper;
 import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.StreamOrientationController;
 import com.limelight.utils.UiHelper;
+import com.limelight.utils.ViewWindowGeometry;
 import android.annotation.SuppressLint;
 import androidx.annotation.RequiresApi;
 import android.app.Activity;
@@ -260,6 +262,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private BackNavigationRegistration backNavigationRegistration;
     private StreamInputGatewayRegistry.Registration inputGatewayRegistration;
     private boolean showSoftKeyboardWhenFocused;
+    private final int[] windowLocationScratch = new int[2];
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -308,9 +311,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // to follow the user's current orientation.
         setPreferredOrientationForCurrentDisplay();
 
-        boolean useEntireDisplay = prefConfig.stretchVideo ||
-                prefConfig.enableCutoutModeVideo ||
-                shouldIgnoreInsetsForResolution(prefConfig.width, prefConfig.height);
+        boolean useEntireDisplay =
+                StreamWindowPolicy.shouldUseEntireDisplay(
+                        prefConfig.stretchVideo,
+                        prefConfig.enableCutoutModeVideo,
+                        prefConfig.isNativeResolution(),
+                        matchesPhysicalDisplayMode(
+                                prefConfig.width,
+                                prefConfig.height));
         UiHelper.configureStreamWindowInsets(this, useEntireDisplay);
         // Listen for non-touch events on the game surface
         streamView = findViewById(R.id.surfaceView);
@@ -1186,10 +1194,17 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private PictureInPictureParams getPictureInPictureParams(boolean autoEnter) {
         PictureInPictureParams.Builder builder =
                 new PictureInPictureParams.Builder()
-                        .setAspectRatio(new Rational(prefConfig.width, prefConfig.height))
-                        .setSourceRectHint(new Rect(
-                                streamView.getLeft(), streamView.getTop(),
-                                streamView.getRight(), streamView.getBottom()));
+                        .setAspectRatio(new Rational(
+                                prefConfig.width,
+                                prefConfig.height));
+        Rect sourceBounds = new Rect();
+        if (ViewWindowGeometry.getVisibleBoundsInWindow(
+                streamView,
+                getWindow().getDecorView(),
+                sourceBounds,
+                windowLocationScratch)) {
+            builder.setSourceRectHint(sourceBounds);
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             builder.setAutoEnterEnabled(autoEnter);
@@ -1318,18 +1333,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 Math.round(refreshRate) % prefConfig.fps <= 3;
     }
 
-    private boolean shouldIgnoreInsetsForResolution(int width, int height) {
-        // Never ignore insets for non-native resolutions
-        if (!prefConfig.isNativeResolution()) {
-            return false;
-        }
-
+    private boolean matchesPhysicalDisplayMode(int width, int height) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Display display = getWindowManager().getDefaultDisplay();
             for (Display.Mode candidate : display.getSupportedModes()) {
-                // Ignore insets if this is an exact match for the display resolution
-                if ((width == candidate.getPhysicalWidth() && height == candidate.getPhysicalHeight()) ||
-                        (height == candidate.getPhysicalWidth() && width == candidate.getPhysicalHeight())) {
+                if (StreamWindowPolicy.matchesPhysicalResolution(
+                        width,
+                        height,
+                        candidate.getPhysicalWidth(),
+                        candidate.getPhysicalHeight())) {
                     return true;
                 }
             }

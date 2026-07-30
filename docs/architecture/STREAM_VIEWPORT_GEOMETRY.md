@@ -16,6 +16,8 @@ status-bar, cutout, or navigation-bar offset independently.
 `UiHelper.configureStreamWindowInsets()` applies safe-area padding only to the
 shared content root. Video, input surfaces, and the cursor overlay therefore
 move together; child components never add those insets again.
+`StreamWindowPolicy` owns the pure decision to use the entire physical display;
+the Activity adapter only supplies Android display-mode observations.
 
 ## Mapping rules
 
@@ -44,6 +46,9 @@ hardware-reported coordinate space because their reference dimensions come
 from the device motion ranges rather than an Android `View`.
 `NativeCursorOverlayView` composes both, so cursor position, hotspot, and shape
 scale use the same viewport geometry.
+`ViewWindowGeometry` is the only adapter that publishes transformed View bounds
+in window coordinates, including the source rectangle used by picture-in-picture
+transitions.
 
 ## Layout rules
 
@@ -59,3 +64,16 @@ dimensions.
 
 Mouse-position callbacks reuse preallocated point, basis, and matrix scratch
 objects. No collection or geometry object is allocated per cursor movement.
+
+## View hierarchy invariant
+
+The primary stream View, background input View, FSR output, and cursor overlay
+are direct siblings under one untransformed content parent. The parent may be
+translated by the single inset policy, but it is not scaled or rotated.
+`ViewCoordinateMapper` verifies the sibling relationship and rejects mapping
+rather than guessing when that invariant is not satisfied.
+
+Moving rendering into another window, such as an external-display
+`Presentation`, is a render-ownership transition. It must move the complete
+render/overlay ownership set and provide an explicit cross-window input policy;
+reparenting only the decoder View is not a coordinate conversion.
