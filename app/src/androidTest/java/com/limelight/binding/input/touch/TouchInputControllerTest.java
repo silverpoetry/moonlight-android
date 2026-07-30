@@ -11,7 +11,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.limelight.binding.input.PointerInputSink;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsState;
 
 import org.junit.After;
 import org.junit.Before;
@@ -26,7 +27,7 @@ public final class TouchInputControllerTest {
     private RecordingPointerInputSink inputSink;
     private RecordingHost host;
     private View streamView;
-    private PreferenceConfiguration preferences;
+    private InputSettingsState settingsState;
     private TouchInputController controller;
     private long downTimeMs;
 
@@ -40,23 +41,19 @@ public final class TouchInputControllerTest {
         host = new RecordingHost();
         streamView = new View(context);
         streamView.layout(0, 0, 1_000, 500);
-        preferences = new PreferenceConfiguration();
-        preferences.mouseTouchPadSensitityX = 100;
-        preferences.mouseTouchPadSensitityY = 100;
-        preferences.quickSoftKeyboardFingers = 0;
-        preferences.barometerForcePressThresholdHpa = 0.18f;
-        preferences.barometerForcePressMinimumDurationMs = 100;
+        settingsState = new InputSettingsState(
+                InputSettings.builder().build());
         DirectContactInputController directContactInputController =
                 new DirectContactInputController(
                         streamView,
                         inputSink,
-                        preferences);
+                        settingsState);
         controller = new TouchInputController(
                 context,
                 streamView,
                 inputSink,
                 directContactInputController,
-                preferences,
+                settingsState,
                 host);
     }
 

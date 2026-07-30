@@ -71,6 +71,23 @@ public final class SettingKey<T> {
                 value -> Math.max(minimum, Math.min(maximum, value)));
     }
 
+    public static SettingKey<Integer> integerSetKey(
+            String name,
+            int defaultValue,
+            int... allowedValues) {
+        int[] allowed = requireAllowedValues(
+                defaultValue,
+                allowedValues);
+        return new SettingKey<>(
+                name,
+                StorageType.INTEGER,
+                Integer.class,
+                defaultValue,
+                value -> contains(allowed, value)
+                        ? value
+                        : defaultValue);
+    }
+
     public static SettingKey<Long> longKey(
             String name,
             long defaultValue,
@@ -119,6 +136,23 @@ public final class SettingKey<T> {
                 value -> value);
     }
 
+    public static SettingKey<String> stringSetKey(
+            String name,
+            String defaultValue,
+            String... allowedValues) {
+        String[] allowed = requireAllowedValues(
+                defaultValue,
+                allowedValues);
+        return new SettingKey<>(
+                name,
+                StorageType.STRING,
+                String.class,
+                defaultValue,
+                value -> contains(allowed, value)
+                        ? value
+                        : defaultValue);
+    }
+
     public String getName() {
         return name;
     }
@@ -159,5 +193,52 @@ public final class SettingKey<T> {
                     "Setting name cannot be empty");
         }
         return name;
+    }
+
+    private static int[] requireAllowedValues(
+            int defaultValue,
+            int[] allowedValues) {
+        Objects.requireNonNull(allowedValues, "allowedValues");
+        int[] copy = allowedValues.clone();
+        if (copy.length == 0 || !contains(copy, defaultValue)) {
+            throw new IllegalArgumentException(
+                    "Allowed values must contain the default");
+        }
+        return copy;
+    }
+
+    private static String[] requireAllowedValues(
+            String defaultValue,
+            String[] allowedValues) {
+        Objects.requireNonNull(allowedValues, "allowedValues");
+        String[] copy = allowedValues.clone();
+        for (String value : copy) {
+            Objects.requireNonNull(value, "allowedValue");
+        }
+        if (copy.length == 0 || !contains(copy, defaultValue)) {
+            throw new IllegalArgumentException(
+                    "Allowed values must contain the default");
+        }
+        return copy;
+    }
+
+    private static boolean contains(int[] values, int candidate) {
+        for (int value : values) {
+            if (value == candidate) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean contains(
+            String[] values,
+            String candidate) {
+        for (String value : values) {
+            if (value.equals(candidate)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

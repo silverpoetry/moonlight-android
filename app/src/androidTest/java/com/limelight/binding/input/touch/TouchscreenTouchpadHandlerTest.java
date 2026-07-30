@@ -10,7 +10,8 @@ import android.view.View;
 
 import com.limelight.binding.input.PointerInputSink;
 import com.limelight.nvstream.jni.MoonBridge;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsState;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -30,7 +31,7 @@ public final class TouchscreenTouchpadHandlerTest {
 
     private RecordingPointerInputSink connection;
     private View eventView;
-    private PreferenceConfiguration prefConfig;
+    private InputSettingsState settingsState;
 
     @Before
     public void setUp() {
@@ -39,9 +40,8 @@ public final class TouchscreenTouchpadHandlerTest {
         connection = new RecordingPointerInputSink();
         eventView = new View(context);
         eventView.layout(0, 0, 1_000, 500);
-        prefConfig = new PreferenceConfiguration();
-        prefConfig.mouseTouchPadSensitityX = 100;
-        prefConfig.mouseTouchPadSensitityY = 100;
+        settingsState = new InputSettingsState(
+                InputSettings.builder().build());
     }
 
     @Test
@@ -194,14 +194,19 @@ public final class TouchscreenTouchpadHandlerTest {
 
     @Test
     public void forcePressUsesNativeTouchpadButtonStateForSameContact() {
-        prefConfig.absoluteMouseMode = true;
+        settingsState.replace(
+                settingsState.get()
+                        .toBuilder()
+                        .setAbsoluteMouseMode(true)
+                        .build());
         TouchscreenTouchpadHandler handler = createHandler();
         TouchpadMotionSender sharedMotionSender =
                 new TouchpadMotionSender(connection, 1_280, 720,
-                        eventView, prefConfig);
+                        eventView, settingsState);
         RelativeTouchContext primaryTouchContext =
                 new RelativeTouchContext(connection, 0, 1_280, 720,
-                        eventView, prefConfig, new TouchpadGestureState(),
+                        eventView, settingsState,
+                        new TouchpadGestureState(),
                         sharedMotionSender);
         primaryTouchContext.setNativeTouchpadPressHandlingEnabled(true);
         final int[] ownershipTransitions = {0};
@@ -268,7 +273,7 @@ public final class TouchscreenTouchpadHandlerTest {
         handler.configureNativePressHandling(
                 true, false,
                 new TouchpadMotionSender(connection, 1_280, 720,
-                        eventView, prefConfig));
+                        eventView, settingsState));
 
         assertFalse(handler.handleMotionEvent(eventView,
                 event(0, MotionEvent.ACTION_DOWN, 0, 100, 100)));
@@ -287,7 +292,7 @@ public final class TouchscreenTouchpadHandlerTest {
 
     private TouchscreenTouchpadHandler createHandler() {
         return new TouchscreenTouchpadHandler(connection, eventView,
-                1_280, 720, prefConfig);
+                1_280, 720, settingsState);
     }
 
     private static MotionEvent event(long elapsedMs, int actionMasked, int actionIndex,

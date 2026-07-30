@@ -244,21 +244,25 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
                 if(checkedId==R.id.rbt_game_setting_touch_1){
                     prefConfig.quickSoftKeyboardFingers=0;
                     saveSetting("touch_number_quick_soft_keyboard",0);
+                    notifyInputSettingsChanged();
                     return;
                 }
                 if(checkedId==R.id.rbt_game_setting_touch_2){
                     prefConfig.quickSoftKeyboardFingers=3;
                     saveSetting("touch_number_quick_soft_keyboard",3);
+                    notifyInputSettingsChanged();
                     return;
                 }
                 if(checkedId==R.id.rbt_game_setting_touch_3){
                     prefConfig.quickSoftKeyboardFingers=4;
                     saveSetting("touch_number_quick_soft_keyboard",4);
+                    notifyInputSettingsChanged();
                     return;
                 }
                 if(checkedId==R.id.rbt_game_setting_touch_4){
                     prefConfig.quickSoftKeyboardFingers=5;
                     saveSetting("touch_number_quick_soft_keyboard",5);
+                    notifyInputSettingsChanged();
                     return;
                 }
             }
@@ -722,10 +726,19 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
 
     public interface onClick{
         void click(int index,boolean flag);
+
+        default void onInputSettingsChanged() {
+        }
     }
 
     public void setOnClick(onClick onClick) {
         this.onClick = onClick;
+    }
+
+    private void notifyInputSettingsChanged() {
+        if (onClick != null) {
+            onClick.onInputSettingsChanged();
+        }
     }
 
 }

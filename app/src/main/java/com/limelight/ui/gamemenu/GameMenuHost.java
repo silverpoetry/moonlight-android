@@ -66,6 +66,8 @@ public interface GameMenuHost {
 
     void switchMouseModel(int mode);
 
+    void applyInputSettingsFromStorage();
+
     void applyDualSenseTriggerSettings();
 
     void showFloatView();

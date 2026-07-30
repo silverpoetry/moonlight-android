@@ -7,7 +7,7 @@ import android.view.View;
 
 import com.limelight.binding.input.PointerInputSink;
 import com.limelight.nvstream.input.MouseButtonPacket;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.input.InputSettingsState;
 
 import java.util.Objects;
 
@@ -110,26 +110,26 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
 
     public RelativeTouchContext(PointerInputSink inputSink, int actionIndex,
                                 int referenceWidth, int referenceHeight,
-                                View view, PreferenceConfiguration prefConfig)
+                                View view, InputSettingsState settingsState)
     {
-        this(inputSink, actionIndex, referenceWidth, referenceHeight, view, prefConfig,
+        this(inputSink, actionIndex, referenceWidth, referenceHeight, view, settingsState,
                 new TouchpadGestureState());
     }
 
     public RelativeTouchContext(PointerInputSink inputSink, int actionIndex,
                                 int referenceWidth, int referenceHeight,
-                                View view, PreferenceConfiguration prefConfig,
+                                View view, InputSettingsState settingsState,
                                 TouchpadGestureState gestureState)
     {
         this(inputSink, actionIndex, referenceWidth, referenceHeight, view,
-                prefConfig, gestureState,
+                settingsState, gestureState,
                 new TouchpadMotionSender(inputSink, referenceWidth,
-                        referenceHeight, view, prefConfig));
+                        referenceHeight, view, settingsState));
     }
 
     public RelativeTouchContext(PointerInputSink inputSink, int actionIndex,
                                 int referenceWidth, int referenceHeight,
-                                View view, PreferenceConfiguration prefConfig,
+                                View view, InputSettingsState settingsState,
                                 TouchpadGestureState gestureState,
                                 TouchpadMotionSender motionSender)
     {

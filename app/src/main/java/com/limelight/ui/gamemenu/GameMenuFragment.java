@@ -615,6 +615,11 @@ public class GameMenuFragment extends BaseGameMenuDialog
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle("触控灵敏度");
             fragment.setPrefConfig(host.getStreamPreferences());
+            fragment.setListener(() -> {
+                if (host != null) {
+                    host.applyInputSettingsFromStorage();
+                }
+            });
             fragment.show(getFragmentManager());
             return;
         }
@@ -699,7 +704,13 @@ public class GameMenuFragment extends BaseGameMenuDialog
                         host.applyAudioHapticsSettings();
                         return;
                     }
+                }
 
+                @Override
+                public void onInputSettingsChanged() {
+                    if (host != null) {
+                        host.applyInputSettingsFromStorage();
+                    }
                 }
             });
             fragment.setPrefConfig(host.getStreamPreferences());

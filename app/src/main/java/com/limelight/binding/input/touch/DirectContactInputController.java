@@ -9,7 +9,8 @@ import android.view.View;
 import com.limelight.binding.input.PointerInputCompat;
 import com.limelight.binding.input.PointerInputSink;
 import com.limelight.nvstream.jni.MoonBridge;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsState;
 import com.limelight.utils.ViewCoordinateMapper;
 
 import java.util.Objects;
@@ -25,7 +26,7 @@ import java.util.Objects;
 public final class DirectContactInputController {
     private final View streamView;
     private final PointerInputSink inputSink;
-    private final PreferenceConfiguration preferences;
+    private final InputSettingsState settingsState;
     private final SparseArray<SensitivityState> sensitivityStates =
             new SparseArray<>();
     private final ContactGeometry geometry = new ContactGeometry();
@@ -36,14 +37,14 @@ public final class DirectContactInputController {
     public DirectContactInputController(
             View streamView,
             PointerInputSink inputSink,
-            PreferenceConfiguration preferences) {
+            InputSettingsState settingsState) {
         this.streamView = Objects.requireNonNull(
                 streamView,
                 "streamView");
         this.inputSink = Objects.requireNonNull(inputSink, "inputSink");
-        this.preferences = Objects.requireNonNull(
-                preferences,
-                "preferences");
+        this.settingsState = Objects.requireNonNull(
+                settingsState,
+                "settingsState");
     }
 
     public void cancel() {
@@ -270,15 +271,17 @@ public final class DirectContactInputController {
             y = mappedPosition[1];
         }
 
+        InputSettings settings = settingsState.get();
         if (touchEvent &&
-                preferences.enableTouchSensitivity &&
-                (preferences.touchSensitivityX != 100 ||
-                        preferences.touchSensitivityY != 100)) {
+                settings.isDirectTouchSensitivityEnabled() &&
+                (settings.getDirectTouchSensitivityX() != 100 ||
+                        settings.getDirectTouchSensitivityY() != 100)) {
             updateSensitivityCoordinates(
                     event,
                     pointerIndex,
                     x,
-                    y);
+                    y,
+                    settings);
             x = geometry.x;
             y = geometry.y;
         }
@@ -294,7 +297,8 @@ public final class DirectContactInputController {
             MotionEvent event,
             int pointerIndex,
             float rawX,
-            float rawY) {
+            float rawY,
+            InputSettings settings) {
         int pointerId = event.getPointerId(pointerIndex);
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_DOWN ||
@@ -315,7 +319,7 @@ public final class DirectContactInputController {
         }
 
         SensitivityState state = sensitivityStates.get(pointerId);
-        if (!preferences.touchSensitivityGlobal &&
+        if (!settings.isDirectTouchSensitivityGlobal() &&
                 (state == null ||
                         state.startDownX <
                                 streamView.getWidth() / 2f)) {
@@ -329,14 +333,16 @@ public final class DirectContactInputController {
         float deltaY = 0;
         if (state.lastAbsoluteX != -1) {
             deltaX = (rawX - state.lastAbsoluteX) *
-                    0.01f * preferences.touchSensitivityX;
+                    0.01f *
+                    settings.getDirectTouchSensitivityX();
             deltaY = (rawY - state.lastAbsoluteY) *
-                    0.01f * preferences.touchSensitivityY;
+                    0.01f *
+                    settings.getDirectTouchSensitivityY();
             geometry.x = state.lastRelativeX + deltaX;
             geometry.y = state.lastRelativeY + deltaY;
         }
 
-        if (preferences.touchSensitivityRotationAuto &&
+        if (settings.isDirectTouchRecenterEnabled() &&
                 (geometry.x > streamView.getWidth() ||
                         geometry.x < 0 ||
                         geometry.y > streamView.getHeight() ||

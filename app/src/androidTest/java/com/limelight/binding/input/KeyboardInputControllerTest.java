@@ -9,7 +9,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.limelight.nvstream.input.KeyboardPacket;
 import com.limelight.nvstream.input.MouseButtonPacket;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsState;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -28,7 +29,6 @@ public final class KeyboardInputControllerTest {
     private RecordingKeyboardInputSink keyboardSink;
     private RecordingPointerInputSink pointerSink;
     private RecordingHost host;
-    private PreferenceConfiguration preferences;
     private KeyboardInputController controller;
     private long downTimeMs;
 
@@ -40,13 +40,13 @@ public final class KeyboardInputControllerTest {
         pointerSink = new RecordingPointerInputSink();
         host = new RecordingHost();
         host.inputGrabbed = true;
-        preferences = new PreferenceConfiguration();
         controller = new KeyboardInputController(
                 new KeyboardTranslator(),
                 gamepadHandler,
                 keyboardSink,
                 pointerSink,
-                preferences,
+                new InputSettingsState(
+                        InputSettings.builder().build()),
                 host);
     }
 

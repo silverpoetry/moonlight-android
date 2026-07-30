@@ -14,7 +14,8 @@ import com.limelight.binding.input.pointer.ExternalPointerInputController;
 import com.limelight.binding.input.touch.DirectContactInputController;
 import com.limelight.binding.input.touch.TouchInputController;
 import com.limelight.binding.input.touch.TouchInputMode;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsState;
 
 import org.junit.After;
 import org.junit.Before;
@@ -43,22 +44,15 @@ public final class StreamInputControllerTest {
         streamView = new View(context);
         streamView.layout(0, 0, 1_000, 500);
         inputSink = new RecordingPointerInputSink();
-        PreferenceConfiguration preferences =
-                new PreferenceConfiguration();
-        preferences.mouseTouchPadSensitityX = 100;
-        preferences.mouseTouchPadSensitityY = 100;
-        preferences.externalTouchPadSensitityX = 100;
-        preferences.externalTouchPadSensitityY = 100;
-        preferences.externalTouchPadScrollAmount = 5;
-        preferences.quickSoftKeyboardFingers = 0;
-        preferences.barometerForcePressThresholdHpa = 0.18f;
-        preferences.barometerForcePressMinimumDurationMs = 100;
+        InputSettingsState settingsState =
+                new InputSettingsState(
+                        InputSettings.builder().build());
 
         DirectContactInputController directContactInputController =
                 new DirectContactInputController(
                         streamView,
                         inputSink,
-                        preferences);
+                        settingsState);
         InputCaptureProvider inputCaptureProvider =
                 new InputCaptureProvider() {
                 };
@@ -70,14 +64,14 @@ public final class StreamInputControllerTest {
                         inputSink,
                         inputCaptureProvider,
                         directContactInputController,
-                        preferences);
+                        settingsState);
         TouchInputController touchInputController =
                 new TouchInputController(
                         context,
                         streamView,
                         inputSink,
                         directContactInputController,
-                        preferences,
+                        settingsState,
                         new TouchInputController.Host() {
                             @Override
                             public void showSoftKeyboard() {
@@ -89,6 +83,7 @@ public final class StreamInputControllerTest {
                 gamepadHandler,
                 externalPointerInputController,
                 touchInputController,
+                settingsState,
                 host);
     }
 
@@ -169,6 +164,69 @@ public final class StreamInputControllerTest {
         assertEquals(1, inputSink.absolutePositionCount);
         assertEquals(250, inputSink.lastX);
         assertEquals(125, inputSink.lastY);
+    }
+
+    @Test
+    public void touchModeUpdatePublishesOneCoherentSettingsSnapshot() {
+        InputSettings before = controller.getSettings();
+
+        controller.setTouchMode(TouchInputMode.ABSOLUTE_MOUSE);
+
+        InputSettings after = controller.getSettings();
+        assertEquals(
+                TouchInputMode.ABSOLUTE_MOUSE.getPreferenceValue(),
+                after.getTouchModePreferenceValue());
+        assertEquals(
+                before.isAbsoluteMouseMode(),
+                after.isAbsoluteMouseMode());
+        assertEquals(
+                before.getTouchpadPointerSensitivityX(),
+                after.getTouchpadPointerSensitivityX());
+    }
+
+    @Test
+    public void liveSettingsReplacementIsAtomicAndExplicit() {
+        InputSettings replacement =
+                controller.getSettings()
+                        .toBuilder()
+                        .setAbsoluteMouseMode(true)
+                        .setDirectTouchSensitivityEnabled(true)
+                        .setExternalTouchpadSensitivity(175, 125)
+                        .build();
+
+        controller.replaceLiveSettings(replacement);
+
+        assertTrue(controller.getSettings().isAbsoluteMouseMode());
+        assertTrue(
+                controller.getSettings()
+                        .isDirectTouchSensitivityEnabled());
+        assertEquals(
+                175,
+                controller.getSettings()
+                        .getExternalTouchpadSensitivityX());
+        assertEquals(
+                125,
+                controller.getSettings()
+                        .getExternalTouchpadSensitivityY());
+    }
+
+    @Test
+    public void targetedLiveUpdatePreservesUnrelatedInputSettings() {
+        InputSettings initial =
+                controller.getSettings()
+                        .toBuilder()
+                        .setExternalTouchpadSensitivity(175, 125)
+                        .setSoftKeyboardGestureFingers(4)
+                        .build();
+        controller.replaceLiveSettings(initial);
+
+        controller.setAbsoluteMouseMode(true);
+
+        InputSettings after = controller.getSettings();
+        assertTrue(after.isAbsoluteMouseMode());
+        assertEquals(175, after.getExternalTouchpadSensitivityX());
+        assertEquals(125, after.getExternalTouchpadSensitivityY());
+        assertEquals(4, after.getSoftKeyboardGestureFingers());
     }
 
     @Test

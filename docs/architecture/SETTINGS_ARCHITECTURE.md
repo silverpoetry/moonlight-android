@@ -64,7 +64,7 @@ persistent settings.
 | --- | --- | --- | --- |
 | Stream display/FSR/window | `StreamDisplaySettings` | `Game` no longer reads FSR target, sharpness, HDR mode, or gravity | Pending full stream settings migration |
 | Stream video/decoder | `StreamDecoderSettings`; typed resolution aggregate | Decoder and performance-statistics paths no longer receive `PreferenceConfiguration`; resolution/FPS parsing and repair have one safe codec | Pending remaining stream settings migration |
-| Input and gestures | Pending | Pending | Pending |
+| Input and gestures | `InputSettings` with one atomic `InputSettingsState` per stream | Pointer, touchscreen/touchpad, gesture, and keyboard runtime paths no longer read storage or receive `PreferenceConfiguration`; explicitly live settings publish one replacement snapshot | Controller/virtual-control settings and the temporary legacy UI fields remain to be migrated |
 | Controller and virtual controls | Pending | Pending | Pending |
 | Audio and microphone | Pending | Pending | Pending |
 | Clipboard and transfer | Pending | Pending | Pending |

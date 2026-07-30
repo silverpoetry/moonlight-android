@@ -11,7 +11,8 @@ import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.limelight.binding.input.PointerInputSink;
 import com.limelight.nvstream.jni.MoonBridge;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsState;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -27,7 +28,7 @@ public final class DirectContactInputControllerTest {
 
     private View streamView;
     private RecordingPointerInputSink inputSink;
-    private PreferenceConfiguration preferences;
+    private InputSettingsState settingsState;
     private DirectContactInputController controller;
 
     @Before
@@ -38,11 +39,12 @@ public final class DirectContactInputControllerTest {
         streamView = new View(context);
         streamView.layout(0, 0, 1_000, 500);
         inputSink = new RecordingPointerInputSink();
-        preferences = new PreferenceConfiguration();
+        settingsState = new InputSettingsState(
+                InputSettings.builder().build());
         controller = new DirectContactInputController(
                 streamView,
                 inputSink,
-                preferences);
+                settingsState);
     }
 
     @Test
@@ -162,10 +164,13 @@ public final class DirectContactInputControllerTest {
         parent.addView(streamView);
         containingView.layout(0, 0, 1_200, 700);
         streamView.layout(-200, 0, 800, 500);
-        preferences.enableTouchSensitivity = true;
-        preferences.touchSensitivityGlobal = false;
-        preferences.touchSensitivityX = 200;
-        preferences.touchSensitivityY = 100;
+        settingsState.replace(
+                settingsState.get()
+                        .toBuilder()
+                        .setDirectTouchSensitivityEnabled(true)
+                        .setDirectTouchSensitivityGlobal(false)
+                        .setDirectTouchSensitivity(200, 100)
+                        .build());
 
         assertTrue(controller.trySendTouchEvent(
                 containingView,

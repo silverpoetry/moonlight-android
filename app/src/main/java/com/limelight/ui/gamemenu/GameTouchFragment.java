@@ -20,6 +20,10 @@ import static com.limelight.preferences.PreferenceConfiguration.TOUCH_SENSITIVIT
  * Time: 16:07
  */
 public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClickListener, SeekBar.OnSeekBarChangeListener {
+    public interface Listener {
+        void onInputSettingsChanged();
+    }
+
     private static final SeekBarValueRange MULTITOUCH_RANGE =
             new SeekBarValueRange(10, 800);
     private static final SeekBarValueRange SENSITIVITY_RANGE =
@@ -339,6 +343,7 @@ public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClic
             initViewMouseGamePadView();
             initViewMouseSCView();
             initViewExternalTouchPadView();
+            notifyInputSettingsChanged();
 
             return;
         }
@@ -346,6 +351,7 @@ public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClic
             prefConfig.enableTouchSensitivity=!prefConfig.enableTouchSensitivity;
             saveSetting("checkbox_enable_touch_sensitivity",prefConfig.enableTouchSensitivity);
             initViewData();
+            notifyInputSettingsChanged();
             return;
         }
 
@@ -353,6 +359,7 @@ public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClic
             prefConfig.touchSensitivityRotationAuto=!prefConfig.touchSensitivityRotationAuto;
             saveSetting("checkbox_enable_touch_sensitivity_rotation_auto",prefConfig.touchSensitivityRotationAuto);
             initViewData();
+            notifyInputSettingsChanged();
             return;
         }
 
@@ -360,14 +367,20 @@ public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClic
             prefConfig.touchSensitivityGlobal=!prefConfig.touchSensitivityGlobal;
             saveSetting("checkbox_enable_global_touch_sensitivity",prefConfig.touchSensitivityGlobal);
             initViewData();
+            notifyInputSettingsChanged();
             return;
         }
     }
 
     private PreferenceConfiguration prefConfig;
+    private Listener listener;
 
     public void setPrefConfig(PreferenceConfiguration prefConfig) {
         this.prefConfig = prefConfig;
+    }
+
+    public void setListener(Listener listener) {
+        this.listener = listener;
     }
 
     @Override
@@ -434,6 +447,9 @@ public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClic
             initViewExternalTouchPadView();
         }
 
+        if (fromUser) {
+            notifyInputSettingsChanged();
+        }
     }
 
     @Override
@@ -459,5 +475,11 @@ public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClic
                 .edit()
                 .putBoolean(name,value)
                 .apply();
+    }
+
+    private void notifyInputSettingsChanged() {
+        if (listener != null) {
+            listener.onInputSettingsChanged();
+        }
     }
 }

@@ -219,6 +219,21 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void typedInputSettingsDoNotDependOnAndroidOrLegacyPreferences() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.settings.input..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "com.limelight.preferences..")
+                .because("typed input settings are immutable domain models")
+                .check(productionClasses);
+    }
+
+    @Test
     public void videoBindingDoesNotDependOnLegacyPreferences() {
         noClasses()
                 .that()
@@ -229,6 +244,27 @@ public final class ArchitectureBoundaryTest {
                 .haveFullyQualifiedName(
                         "com.limelight.preferences.PreferenceConfiguration")
                 .because("video binding consumes immutable settings snapshots")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void migratedInputRuntimeDoesNotDependOnLegacyPreferences() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.binding.input.pointer..",
+                        "com.limelight.binding.input.touch..")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.KeyboardInputController")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.StreamInputController")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.PreferenceConfiguration")
+                .because("input callbacks consume an immutable session snapshot")
                 .check(productionClasses);
     }
 }

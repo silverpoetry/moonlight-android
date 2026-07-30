@@ -13,6 +13,9 @@ import com.limelight.settings.SettingsMigrationRunner;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
 import com.limelight.settings.audio.StreamAudioSettingKeys;
+import com.limelight.settings.input.InputSettingKeys;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.stream.StreamResolutionCodec;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
@@ -68,25 +71,29 @@ public class PreferenceConfiguration {
     private static final String BIND_ALL_USB_STRING = "checkbox_usb_bind_all";
     private static final String MOUSE_EMULATION_STRING = "checkbox_mouse_emulation";
     private static final String ANALOG_SCROLLING_PREF_STRING = "analog_scrolling";
-    private static final String MOUSE_NAV_BUTTONS_STRING = "checkbox_mouse_nav_buttons";
     static final String UNLOCK_FPS_STRING = "checkbox_unlock_fps";
     public static final String VIBRATE_OSC_PREF_STRING = "checkbox_vibrate_osc";
     private static final String VIBRATE_FALLBACK_PREF_STRING = "checkbox_vibrate_fallback";
     private static final String VIBRATE_FALLBACK_STRENGTH_PREF_STRING = "seekbar_vibrate_fallback_strength";
     private static final String FLIP_FACE_BUTTONS_PREF_STRING = "checkbox_flip_face_buttons";
-    static final String TOUCHSCREEN_TRACKPAD_PREF_STRING = "checkbox_touchscreen_trackpad";
     private static final String LATENCY_TOAST_PREF_STRING = "checkbox_enable_post_stream_toast";
-    private static final String ABSOLUTE_MOUSE_MODE_PREF_STRING = "checkbox_absolute_mouse_mode";
     public static final String BAROMETER_FORCE_PRESS_PREF_STRING =
-            "checkbox_barometer_force_press";
+            InputSettingKeys.BAROMETER_FORCE_PRESS.getName();
     public static final String BAROMETER_FORCE_PRESS_THRESHOLD_PREF_STRING =
-            "seekbar_barometer_force_press_threshold";
+            InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD.getName();
     public static final String BAROMETER_FORCE_PRESS_MIN_DURATION_PREF_STRING =
-            "seekbar_barometer_force_press_min_duration";
-    public static final int MIN_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA = 50;
-    public static final int MAX_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA = 1000;
-    public static final int DEFAULT_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA = 180;
-    public static final int DEFAULT_BAROMETER_FORCE_PRESS_MIN_DURATION_MS = 100;
+            InputSettingKeys
+                    .BAROMETER_FORCE_PRESS_MINIMUM_DURATION
+                    .getName();
+    public static final int MIN_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA =
+            InputSettingKeys.MIN_FORCE_PRESS_THRESHOLD_MILLI_HPA;
+    public static final int MAX_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA =
+            InputSettingKeys.MAX_FORCE_PRESS_THRESHOLD_MILLI_HPA;
+    public static final int DEFAULT_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA =
+            InputSettingKeys.DEFAULT_FORCE_PRESS_THRESHOLD_MILLI_HPA;
+    public static final int DEFAULT_BAROMETER_FORCE_PRESS_MIN_DURATION_MS =
+            InputSettingKeys
+                    .DEFAULT_FORCE_PRESS_MINIMUM_DURATION_MS;
     public static final String CLIPBOARD_SYNC_PREF_STRING =
             TransferSettingKeys.CLIPBOARD_SYNC.getName();
     public static final String CLIPBOARD_FILE_DIRECTORY_PREF_STRING = "clipboard_file_save_directory";
@@ -118,7 +125,8 @@ public class PreferenceConfiguration {
     private static final String CHECKBOX_CHECKBOX_ENABLE_ANALOG_STICK_NEW="checkbox_enable_analog_stick_new";
 
     //触控屏幕灵敏度
-    public static final String TOUCH_SENSITIVITY="seekbar_touch_sensitivity_opacity_x";
+    public static final String TOUCH_SENSITIVITY =
+            InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_X.getName();
 
     static final String DEFAULT_RESOLUTION =
             StreamResolutionCodec.DEFAULT_RESOLUTION;
@@ -145,15 +153,12 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_BIND_ALL_USB = false;
     private static final boolean DEFAULT_MOUSE_EMULATION = true;
     private static final String DEFAULT_ANALOG_STICK_FOR_SCROLLING = "right";
-    private static final boolean DEFAULT_MOUSE_NAV_BUTTONS = false;
     private static final boolean DEFAULT_UNLOCK_FPS = false;
     private static final boolean DEFAULT_VIBRATE_OSC = true;
     private static final boolean DEFAULT_VIBRATE_FALLBACK = false;
     private static final int DEFAULT_VIBRATE_FALLBACK_STRENGTH = 100;
     private static final boolean DEFAULT_FLIP_FACE_BUTTONS = false;
-    private static final boolean DEFAULT_TOUCHSCREEN_TRACKPAD = true;
     private static final boolean DEFAULT_LATENCY_TOAST = false;
-    private static final boolean DEFAULT_ABSOLUTE_MOUSE_MODE = false;
     private static final boolean DEFAULT_DISABLE_ADAPTIVE_INPUT_THROTTLING = true;
     private static final boolean DEFAULT_ENABLE_AUDIO_FX = false;
     private static final boolean DEFAULT_ENABLE_AUDIO_HAPTICS = false;
@@ -270,9 +275,6 @@ public class PreferenceConfiguration {
     public int externalTouchPadSensitityY;
     public int externalTouchPadScrollAmount;
 
-    //多点触控模式
-    public boolean enableMultiTouchScreen;
-
     //物理光标捕获
     public boolean enableMouseLocalCursor;
 
@@ -302,19 +304,14 @@ public class PreferenceConfiguration {
     public boolean mouseEmulation;
     public int mouseEmulationGameMenu;
     public AnalogStickForScrolling analogStickForScrolling;
-    public boolean mouseNavButtons;
     public boolean unlockFps;
     public boolean vibrateOsc;
     public boolean vibrateFallbackToDevice;
     public int vibrateFallbackToDeviceStrength;
-    public boolean touchscreenTrackpad;
     public MoonBridge.AudioConfiguration audioConfiguration;
     public int framePacing;
     public boolean absoluteMouseMode;
     public boolean enableNativeCursor;
-    public boolean enableBarometerForcePress;
-    public float barometerForcePressThresholdHpa;
-    public int barometerForcePressMinimumDurationMs;
     public boolean enableClipboardSync;
     public boolean disableAdaptiveInputThrottling;
     public boolean enableAudioFx;
@@ -785,6 +782,8 @@ public class PreferenceConfiguration {
                         : ResolutionSelection.CUSTOM_OR_NATIVE;
         config.resolutionAspectRatio =
                 resolution.getCanonicalAspectRatio();
+        InputSettings inputSettings =
+                InputSettingsLoader.load(repository);
 
         if (!prefs.contains(SMALL_ICONS_PREF_STRING)) {
             // We need to write small icon mode's default to disk for the settings page to display
@@ -850,27 +849,11 @@ public class PreferenceConfiguration {
         config.enablePerfOverlayLiteExt=prefs.getBoolean("checkbox_enable_perf_overlay_lite_ext",true);
         config.bindAllUsb = prefs.getBoolean(BIND_ALL_USB_STRING, DEFAULT_BIND_ALL_USB);
         config.mouseEmulation = prefs.getBoolean(MOUSE_EMULATION_STRING, DEFAULT_MOUSE_EMULATION);
-        config.mouseNavButtons = prefs.getBoolean(MOUSE_NAV_BUTTONS_STRING, DEFAULT_MOUSE_NAV_BUTTONS);
         config.unlockFps = prefs.getBoolean(UNLOCK_FPS_STRING, DEFAULT_UNLOCK_FPS);
         config.vibrateOsc = prefs.getBoolean(VIBRATE_OSC_PREF_STRING, DEFAULT_VIBRATE_OSC);
         config.vibrateFallbackToDevice = prefs.getBoolean(VIBRATE_FALLBACK_PREF_STRING, DEFAULT_VIBRATE_FALLBACK);
         config.vibrateFallbackToDeviceStrength = prefs.getInt(VIBRATE_FALLBACK_STRENGTH_PREF_STRING, DEFAULT_VIBRATE_FALLBACK_STRENGTH);
         config.flipFaceButtons = prefs.getBoolean(FLIP_FACE_BUTTONS_PREF_STRING, DEFAULT_FLIP_FACE_BUTTONS);
-        config.touchscreenTrackpad = prefs.getBoolean(TOUCHSCREEN_TRACKPAD_PREF_STRING, DEFAULT_TOUCHSCREEN_TRACKPAD);
-        config.enableBarometerForcePress = prefs.getBoolean(
-                BAROMETER_FORCE_PRESS_PREF_STRING, false);
-        int barometerThresholdMilliHpa = prefs.getInt(
-                BAROMETER_FORCE_PRESS_THRESHOLD_PREF_STRING,
-                DEFAULT_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA);
-        config.barometerForcePressThresholdHpa = Math.max(
-                MIN_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA,
-                Math.min(MAX_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA,
-                        barometerThresholdMilliHpa)) / 1000.0f;
-        config.barometerForcePressMinimumDurationMs = Math.max(
-                0,
-                Math.min(500, prefs.getInt(
-                        BAROMETER_FORCE_PRESS_MIN_DURATION_PREF_STRING,
-                        DEFAULT_BAROMETER_FORCE_PRESS_MIN_DURATION_MS)));
         config.enableLatencyToast = prefs.getBoolean(LATENCY_TOAST_PREF_STRING, DEFAULT_LATENCY_TOAST);
         //软键盘
         config.enableQtDialog = prefs.getBoolean(CHECKBOX_ENABLE_QUIT_DIALOG,false);
@@ -896,15 +879,20 @@ public class PreferenceConfiguration {
 
         config.enableExDisplay=prefs.getBoolean("checkbox_enable_exdisplay",false);
 
-        config.touchSensitivityX =prefs.getInt(TOUCH_SENSITIVITY,100);
+        config.touchSensitivityX =
+                inputSettings.getDirectTouchSensitivityX();
 
-        config.touchSensitivityY=prefs.getInt("seekbar_touch_sensitivity_opacity_y",100);
+        config.touchSensitivityY =
+                inputSettings.getDirectTouchSensitivityY();
 
-        config.touchSensitivityRotationAuto=prefs.getBoolean("checkbox_enable_touch_sensitivity_rotation_auto",true);
+        config.touchSensitivityRotationAuto =
+                inputSettings.isDirectTouchRecenterEnabled();
 
-        config.touchSensitivityGlobal=prefs.getBoolean("checkbox_enable_global_touch_sensitivity",false);
+        config.touchSensitivityGlobal =
+                inputSettings.isDirectTouchSensitivityGlobal();
 
-        config.enableTouchSensitivity=prefs.getBoolean("checkbox_enable_touch_sensitivity",false);
+        config.enableTouchSensitivity =
+                inputSettings.isDirectTouchSensitivityEnabled();
 
         config.enableMouseLocalCursor=prefs.getBoolean("checkbox_mouse_local_cursor",false);
 
@@ -928,14 +916,20 @@ public class PreferenceConfiguration {
 
         config.enableCustomKeyboardFile=prefs.getBoolean("checkbox_enable_custom_axi_keyboard_file",false);
 
-        config.mouseTouchPadSensitityX=prefs.getInt("seekbar_mouse_touchpad_sensitivity_x_opacity",100);
-        config.mouseTouchPadSensitityY=prefs.getInt("seekbar_mouse_touchpad_sensitivity_y_opacity",100);
-        config.externalTouchPadSensitityX=prefs.getInt("touchpad_equipment_view_x",100);
-        config.externalTouchPadSensitityY=prefs.getInt("touchpad_equipment_view_y",100);
-        config.externalTouchPadScrollAmount=prefs.getInt("touchpad_equipment_amount",5);
+        config.mouseTouchPadSensitityX =
+                inputSettings.getTouchpadPointerSensitivityX();
+        config.mouseTouchPadSensitityY =
+                inputSettings.getTouchpadPointerSensitivityY();
+        config.externalTouchPadSensitityX =
+                inputSettings.getExternalTouchpadSensitivityX();
+        config.externalTouchPadSensitityY =
+                inputSettings.getExternalTouchpadSensitivityY();
+        config.externalTouchPadScrollAmount =
+                inputSettings.getExternalTouchpadScrollAmount();
 
         config.uiThemeColorWhite=prefs.getBoolean("checkbox_ui_theme_white",true);
-        config.quickSoftKeyboardFingers=prefs.getInt("touch_number_quick_soft_keyboard",0);
+        config.quickSoftKeyboardFingers =
+                inputSettings.getSoftKeyboardGestureFingers();
 
         config.enableAXFloating=prefs.getBoolean("checkbox_enable_ax_floating",true);
         config.axFloatingOperate =prefs.getInt("ax_floating_operate",0);
@@ -991,7 +985,8 @@ public class PreferenceConfiguration {
         config.disableRockerClickL3R3=prefs.getBoolean("checkbox_rocker_click_L3R3",false);
 
         config.enforceDisplayMode=prefs.getBoolean("checkbox_enforce_display_mode",false);
-        config.absoluteMouseMode = prefs.getBoolean(ABSOLUTE_MOUSE_MODE_PREF_STRING, DEFAULT_ABSOLUTE_MOUSE_MODE);
+        config.absoluteMouseMode =
+                inputSettings.isAbsoluteMouseMode();
         config.enableNativeCursor = config.absoluteMouseMode;
         config.enableClipboardSync = repository.get(
                 TransferSettingKeys.CLIPBOARD_SYNC);

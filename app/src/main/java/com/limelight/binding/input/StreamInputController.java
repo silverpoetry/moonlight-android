@@ -7,6 +7,8 @@ import android.view.View;
 import com.limelight.binding.input.pointer.ExternalPointerInputController;
 import com.limelight.binding.input.touch.TouchInputController;
 import com.limelight.binding.input.touch.TouchInputMode;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsState;
 
 import java.util.Objects;
 
@@ -25,6 +27,7 @@ public final class StreamInputController {
     private final ExternalPointerInputController
             externalPointerInputController;
     private final TouchInputController touchInputController;
+    private final InputSettingsState settingsState;
     private final Host host;
 
     public StreamInputController(
@@ -32,6 +35,7 @@ public final class StreamInputController {
             ExternalPointerInputController
                     externalPointerInputController,
             TouchInputController touchInputController,
+            InputSettingsState settingsState,
             Host host) {
         this.gamepadInputHandler = Objects.requireNonNull(
                 gamepadInputHandler,
@@ -42,6 +46,9 @@ public final class StreamInputController {
         this.touchInputController = Objects.requireNonNull(
                 touchInputController,
                 "touchInputController");
+        this.settingsState = Objects.requireNonNull(
+                settingsState,
+                "settingsState");
         this.host = Objects.requireNonNull(host, "host");
     }
 
@@ -62,7 +69,39 @@ public final class StreamInputController {
     }
 
     public void setTouchMode(TouchInputMode mode) {
+        Objects.requireNonNull(mode, "mode");
         touchInputController.setMode(mode);
+        settingsState.replace(
+                settingsState.get()
+                        .toBuilder()
+                        .setTouchModePreferenceValue(
+                                mode.getPreferenceValue())
+                        .build());
+    }
+
+    public InputSettings getSettings() {
+        return settingsState.get();
+    }
+
+    public void replaceLiveSettings(InputSettings settings) {
+        settingsState.replace(settings);
+    }
+
+    public void setAbsoluteMouseMode(boolean enabled) {
+        settingsState.replace(
+                settingsState.get()
+                        .toBuilder()
+                        .setAbsoluteMouseMode(enabled)
+                        .build());
+    }
+
+    public void setDirectTouchSensitivityEnabled(
+            boolean enabled) {
+        settingsState.replace(
+                settingsState.get()
+                        .toBuilder()
+                        .setDirectTouchSensitivityEnabled(enabled)
+                        .build());
     }
 
     public void setTouchInputSuspended(boolean suspended) {

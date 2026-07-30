@@ -15,7 +15,8 @@ import com.limelight.binding.input.PointerInputSink;
 import com.limelight.binding.input.capture.InputCaptureProvider;
 import com.limelight.binding.input.touch.DirectContactInputController;
 import com.limelight.nvstream.input.MouseButtonPacket;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsState;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -29,7 +30,7 @@ import static org.junit.Assert.assertTrue;
 public final class ExternalPointerInputControllerTest {
     private RecordingPointerInputSink inputSink;
     private FakeInputCaptureProvider captureProvider;
-    private PreferenceConfiguration preferences;
+    private InputSettingsState settingsState;
     private View streamView;
     private ExternalPointerInputController controller;
     private long downTimeMs;
@@ -43,10 +44,8 @@ public final class ExternalPointerInputControllerTest {
         inputSink = new RecordingPointerInputSink();
         captureProvider = new FakeInputCaptureProvider();
         captureProvider.enableCapture();
-        preferences = new PreferenceConfiguration();
-        preferences.externalTouchPadSensitityX = 100;
-        preferences.externalTouchPadSensitityY = 100;
-        preferences.externalTouchPadScrollAmount = 5;
+        settingsState = new InputSettingsState(
+                InputSettings.builder().build());
         streamView = new View(context);
         streamView.layout(0, 0, 1_000, 500);
 
@@ -54,13 +53,13 @@ public final class ExternalPointerInputControllerTest {
                 new DirectContactInputController(
                         streamView,
                         inputSink,
-                        preferences);
+                        settingsState);
         controller = new ExternalPointerInputController(
                 streamView,
                 inputSink,
                 captureProvider,
                 directContactInputController,
-                preferences);
+                settingsState);
     }
 
     @Test
@@ -105,8 +104,11 @@ public final class ExternalPointerInputControllerTest {
 
     @Test
     public void relativeMotionAppliesConfiguredSensitivity() {
-        preferences.externalTouchPadSensitityX = 200;
-        preferences.externalTouchPadSensitityY = 50;
+        settingsState.replace(
+                settingsState.get()
+                        .toBuilder()
+                        .setExternalTouchpadSensitivity(200, 50)
+                        .build());
         captureProvider.hasRelativeAxes = true;
         captureProvider.relativeX = 3;
         captureProvider.relativeY = -4;
@@ -128,7 +130,11 @@ public final class ExternalPointerInputControllerTest {
 
     @Test
     public void absoluteMouseModeUsesRelativePositionProtocol() {
-        preferences.absoluteMouseMode = true;
+        settingsState.replace(
+                settingsState.get()
+                        .toBuilder()
+                        .setAbsoluteMouseMode(true)
+                        .build());
         captureProvider.hasRelativeAxes = true;
         captureProvider.relativeX = 4;
         captureProvider.relativeY = 2;

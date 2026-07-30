@@ -5,7 +5,7 @@ import android.os.Looper;
 import android.view.View;
 import com.limelight.binding.input.PointerInputSink;
 import com.limelight.nvstream.input.MouseButtonPacket;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.input.InputSettingsState;
 
 public class RelativeTouchSwitchContext implements TouchContext {
     private int lastTouchX = 0;
@@ -42,16 +42,16 @@ public class RelativeTouchSwitchContext implements TouchContext {
 
     public RelativeTouchSwitchContext(PointerInputSink inputSink, int actionIndex,
                                       int referenceWidth, int referenceHeight,
-                                      View view, PreferenceConfiguration prefConfig,
+                                      View view, InputSettingsState settingsState,
                                       boolean clickEnabled)
     {
-        this(inputSink, actionIndex, referenceWidth, referenceHeight, view, prefConfig,
+        this(inputSink, actionIndex, referenceWidth, referenceHeight, view, settingsState,
                 clickEnabled, new TouchpadGestureState());
     }
 
     public RelativeTouchSwitchContext(PointerInputSink inputSink, int actionIndex,
                                       int referenceWidth, int referenceHeight,
-                                      View view, PreferenceConfiguration prefConfig,
+                                      View view, InputSettingsState settingsState,
                                       boolean clickEnabled,
                                       TouchpadGestureState gestureState)
     {
@@ -62,7 +62,7 @@ public class RelativeTouchSwitchContext implements TouchContext {
         this.handler = new Handler(Looper.getMainLooper());
         this.gestureState = gestureState;
         this.motionSender = new TouchpadMotionSender(inputSink, referenceWidth, referenceHeight,
-                view, prefConfig);
+                view, settingsState);
     }
 
     @Override

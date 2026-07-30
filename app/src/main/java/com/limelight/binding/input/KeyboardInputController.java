@@ -8,7 +8,7 @@ import android.view.KeyEvent;
 import com.limelight.nvstream.input.KeyboardPacket;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.input.InputSettingsState;
 
 import java.util.Objects;
 
@@ -36,7 +36,7 @@ public final class KeyboardInputController
     private final GamepadInputHandler gamepadInputHandler;
     private final KeyboardInputSink keyboardInputSink;
     private final PointerInputSink pointerInputSink;
-    private final PreferenceConfiguration preferences;
+    private final InputSettingsState settingsState;
     private final Host host;
 
     private int modifierFlags;
@@ -48,7 +48,7 @@ public final class KeyboardInputController
             GamepadInputHandler gamepadInputHandler,
             KeyboardInputSink keyboardInputSink,
             PointerInputSink pointerInputSink,
-            PreferenceConfiguration preferences,
+            InputSettingsState settingsState,
             Host host) {
         this.translator = Objects.requireNonNull(
                 translator,
@@ -62,9 +62,9 @@ public final class KeyboardInputController
         this.pointerInputSink = Objects.requireNonNull(
                 pointerInputSink,
                 "pointerInputSink");
-        this.preferences = Objects.requireNonNull(
-                preferences,
-                "preferences");
+        this.settingsState = Objects.requireNonNull(
+                settingsState,
+                "settingsState");
         this.host = Objects.requireNonNull(host, "host");
     }
 
@@ -83,7 +83,8 @@ public final class KeyboardInputController
         }
 
         if (isSyntheticMouseBack(event)) {
-            if (!preferences.mouseNavButtons) {
+            if (!settingsState.get()
+                    .areMouseNavigationButtonsEnabled()) {
                 pointerInputSink.sendMouseButtonDown(
                         MouseButtonPacket.BUTTON_RIGHT);
             }
@@ -138,7 +139,8 @@ public final class KeyboardInputController
         }
 
         if (isSyntheticMouseBack(event)) {
-            if (!preferences.mouseNavButtons) {
+            if (!settingsState.get()
+                    .areMouseNavigationButtonsEnabled()) {
                 pointerInputSink.sendMouseButtonUp(
                         MouseButtonPacket.BUTTON_RIGHT);
             }

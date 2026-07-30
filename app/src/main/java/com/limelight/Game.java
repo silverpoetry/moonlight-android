@@ -43,7 +43,11 @@ import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.GlPreferences;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.preferences.LegacyPreferenceSettingsAdapter;
+import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsLoader;
+import com.limelight.settings.input.InputSettingsState;
 import com.limelight.settings.stream.StreamDecoderSettings;
 import com.limelight.settings.stream.StreamDisplaySettings;
 import com.limelight.ui.gamemenu.GameMenuFragment;
@@ -309,17 +313,22 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         // Read the stream preferences
         prefConfig = PreferenceConfiguration.readPreferences(this);
+        SettingsRepository settingsRepository =
+                new SharedPreferencesSettingsRepository(
+                        PreferenceManager
+                                .getDefaultSharedPreferences(this));
         streamDisplaySettings =
                 LegacyPreferenceSettingsAdapter
                         .loadStreamDisplaySettings(
                                 prefConfig,
-                                new SharedPreferencesSettingsRepository(
-                                        PreferenceManager
-                                                .getDefaultSharedPreferences(
-                                                        this)));
+                                settingsRepository);
         streamDecoderSettings =
                 LegacyPreferenceSettingsAdapter
                         .loadStreamDecoderSettings(prefConfig);
+        InputSettingsState inputSettingsState =
+                new InputSettingsState(
+                        InputSettingsLoader.load(
+                                settingsRepository));
         tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
         backNavigationRegistration =
                 BackNavigationRegistration.register(this, this::handleStreamBackPressed);
@@ -701,14 +710,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 new DirectContactInputController(
                         streamView,
                         pointerInputSink,
-                        prefConfig);
+                        inputSettingsState);
         ExternalPointerInputController externalPointerInputController =
                 new ExternalPointerInputController(
                         streamView,
                         pointerInputSink,
                         inputCaptureProvider,
                         directContactInputController,
-                        prefConfig);
+                        inputSettingsState);
         clipboardFileTransferController =
                 new RemoteClipboardFileTransferController(this, conn);
         Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -913,7 +922,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         streamView,
                         pointerInputSink,
                         directContactInputController,
-                        prefConfig,
+                        inputSettingsState,
                         new TouchInputController.Host() {
                             @Override
                             public void showSoftKeyboard() {
@@ -934,7 +943,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 controllerHandler,
                 keyboardInputSink,
                 pointerInputSink,
-                prefConfig,
+                inputSettingsState,
                 new KeyboardInputController.Host() {
                     @Override
                     public boolean isInputGrabbed() {
@@ -969,6 +978,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 controllerHandler,
                 externalPointerInputController,
                 touchInputController,
+                inputSettingsState,
                 new StreamInputController.Host() {
                     @Override
                     public boolean shouldSuppressTouchscreenInput() {
@@ -981,8 +991,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 null);
 
         //鼠标触控模式
-        String mouseModel=PreferenceManager.getDefaultSharedPreferences(this).getString("mouse_model_list_axi", "0");
-        switchMouseModel(Integer.parseInt(mouseModel));
+        switchMouseModel(
+                inputSettingsState.get()
+                        .getTouchModePreferenceValue());
 
         if (prefConfig.onscreenController) {
             // create virtual onscreen controller
@@ -2841,11 +2852,38 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     public boolean toggleAbsoluteMouseMode() {
-        prefConfig.absoluteMouseMode = !prefConfig.absoluteMouseMode;
+        boolean enabled = !streamInputController
+                .getSettings()
+                .isAbsoluteMouseMode();
+        streamInputController.setAbsoluteMouseMode(enabled);
+        prefConfig.absoluteMouseMode = enabled;
         if (conn != null) {
-            conn.setAbsoluteMousePositionMode(prefConfig.absoluteMouseMode);
+            conn.setAbsoluteMousePositionMode(enabled);
         }
-        return prefConfig.absoluteMouseMode;
+        return enabled;
+    }
+
+    @Override
+    public void applyInputSettingsFromStorage() {
+        if (streamInputController == null) {
+            return;
+        }
+
+        InputSettings current =
+                streamInputController.getSettings();
+        SettingsRepository repository =
+                new SharedPreferencesSettingsRepository(
+                        PreferenceManager
+                                .getDefaultSharedPreferences(this));
+        InputSettings updated = InputSettingsLoader
+                .load(repository)
+                .toBuilder()
+                .setTouchModePreferenceValue(
+                        current.getTouchModePreferenceValue())
+                .setAbsoluteMouseMode(
+                        current.isAbsoluteMouseMode())
+                .build();
+        streamInputController.replaceLiveSettings(updated);
     }
 
     private PerformanceOverlayRuntimeState
@@ -2886,7 +2924,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     //切换触控灵敏度开关
     public void switchTouchSensitivity(){
-        prefConfig.enableTouchSensitivity=!prefConfig.enableTouchSensitivity;
+        boolean enabled = !streamInputController
+                .getSettings()
+                .isDirectTouchSensitivityEnabled();
+        streamInputController
+                .setDirectTouchSensitivityEnabled(enabled);
+        prefConfig.enableTouchSensitivity = enabled;
     }
 
     //更新虚拟布局视图

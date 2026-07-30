@@ -8,7 +8,8 @@ import android.view.View;
 import android.view.ViewConfiguration;
 
 import com.limelight.binding.input.PointerInputSink;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsState;
 import com.limelight.utils.ViewCoordinateMapper;
 
 import java.util.Objects;
@@ -37,17 +38,20 @@ public final class TouchInputController {
     private final View streamView;
     private final PointerInputSink inputSink;
     private final DirectContactInputController directContactInputController;
-    private final PreferenceConfiguration preferences;
+    private final InputSettingsState settingsState;
     private final Host host;
     private final TouchContext[] touchContexts =
             new TouchContext[MAX_LEGACY_CONTACTS];
     private final SoftKeyboardGestureCoordinator keyboardGestureCoordinator;
     private final BarometerForcePressController forcePressController;
     private final TouchscreenTouchpadHandler nativeTouchpadHandler;
+    private final boolean barometerForcePressEnabled;
     private final float[] mappedLegacyPosition = new float[2];
     private final Matrix streamViewInverse = new Matrix();
 
     private boolean nativeTouchpadInputEnabled;
+    private boolean directContactInputEnabled;
+    private boolean legacyTouchpadInputEnabled;
     private boolean disabled = true;
     private boolean inputSuspended;
     private boolean destroyed;
@@ -57,16 +61,16 @@ public final class TouchInputController {
             View streamView,
             PointerInputSink inputSink,
             DirectContactInputController directContactInputController,
-            PreferenceConfiguration preferences,
+            InputSettingsState settingsState,
             Host host) {
         this.streamView = Objects.requireNonNull(streamView, "streamView");
         this.inputSink = Objects.requireNonNull(inputSink, "inputSink");
         this.directContactInputController = Objects.requireNonNull(
                 directContactInputController,
                 "directContactInputController");
-        this.preferences = Objects.requireNonNull(
-                preferences,
-                "preferences");
+        this.settingsState = Objects.requireNonNull(
+                settingsState,
+                "settingsState");
         this.host = Objects.requireNonNull(host, "host");
 
         nativeTouchpadHandler = new TouchscreenTouchpadHandler(
@@ -74,7 +78,7 @@ public final class TouchInputController {
                 streamView,
                 REFERENCE_WIDTH,
                 REFERENCE_HEIGHT,
-                preferences);
+                settingsState);
         nativeTouchpadHandler.setNativeGestureListener(
                 this::cancelLegacyTouchContextsForNativeGesture);
 
@@ -124,12 +128,13 @@ public final class TouchInputController {
                                 !cancelled);
                     }
                 });
+        InputSettings settings = settingsState.get();
         forcePressController.setThresholdHpa(
-                preferences.barometerForcePressThresholdHpa);
+                settings.getBarometerForcePressThresholdHpa());
         forcePressController.setMinimumTouchDurationMs(
-                preferences.barometerForcePressMinimumDurationMs);
-        preferences.enableBarometerForcePress =
-                preferences.enableBarometerForcePress &&
+                settings.getBarometerForcePressMinimumDurationMs());
+        barometerForcePressEnabled =
+                settings.isBarometerForcePressEnabled() &&
                         forcePressController.isAvailable();
     }
 
@@ -184,24 +189,22 @@ public final class TouchInputController {
         forcePressController.setEnabled(false);
         disabled = false;
         nativeTouchpadInputEnabled = false;
+        directContactInputEnabled = false;
+        legacyTouchpadInputEnabled = false;
 
         switch (mode) {
             case MULTI_TOUCH:
-                preferences.enableMultiTouchScreen = true;
-                preferences.touchscreenTrackpad = false;
+                directContactInputEnabled = true;
                 break;
 
             case ABSOLUTE_MOUSE:
             case ABSOLUTE_MOUSE_SWAPPED:
-                preferences.enableMultiTouchScreen = false;
-                preferences.touchscreenTrackpad = false;
                 nativeTouchpadInputEnabled = true;
                 break;
 
             case NATIVE_TOUCHPAD:
-                preferences.enableMultiTouchScreen = false;
-                preferences.touchscreenTrackpad = true;
                 nativeTouchpadInputEnabled = true;
+                legacyTouchpadInputEnabled = true;
                 break;
 
             case DISABLED:
@@ -210,8 +213,7 @@ public final class TouchInputController {
 
             case TOUCHPAD_MOVE_ONLY:
             case TOUCHPAD_MOVE_AND_CLICK:
-                preferences.enableMultiTouchScreen = false;
-                preferences.touchscreenTrackpad = true;
+                legacyTouchpadInputEnabled = true;
                 break;
 
             default:
@@ -225,7 +227,7 @@ public final class TouchInputController {
                                 REFERENCE_WIDTH,
                                 REFERENCE_HEIGHT,
                                 streamView,
-                                preferences)
+                                settingsState)
                         : null;
         nativeTouchpadHandler.setSinglePointerRemainderMode(
                 mode == TouchInputMode.ABSOLUTE_MOUSE ||
@@ -236,7 +238,7 @@ public final class TouchInputController {
                                 .SinglePointerRemainderMode.RELATIVE);
         nativeTouchpadHandler.configureNativePressHandling(
                 mode == TouchInputMode.NATIVE_TOUCHPAD,
-                preferences.enableBarometerForcePress,
+                barometerForcePressEnabled,
                 pressedPointerMotionSender);
 
         TouchpadGestureState gestureState = new TouchpadGestureState();
@@ -250,7 +252,7 @@ public final class TouchInputController {
 
         forcePressController.setEnabled(
                 mode == TouchInputMode.NATIVE_TOUCHPAD &&
-                        preferences.enableBarometerForcePress);
+                        barometerForcePressEnabled);
     }
 
     /**
@@ -269,7 +271,8 @@ public final class TouchInputController {
         if (keyboardGestureCoordinator.onTouchEvent(
                 eventView,
                 event,
-                preferences.quickSoftKeyboardFingers)) {
+                settingsState.get()
+                        .getSoftKeyboardGestureFingers())) {
             return true;
         }
 
@@ -280,8 +283,7 @@ public final class TouchInputController {
             return true;
         }
 
-        if (preferences.enableMultiTouchScreen &&
-                !preferences.touchscreenTrackpad &&
+        if (directContactInputEnabled &&
                 directContactInputController.trySendTouchEvent(
                         eventView,
                         event)) {
@@ -292,7 +294,7 @@ public final class TouchInputController {
                 eventView,
                 event,
                 eventView != streamView &&
-                        !preferences.touchscreenTrackpad);
+                        !legacyTouchpadInputEnabled);
     }
 
     private TouchContext createTouchContext(
@@ -300,7 +302,7 @@ public final class TouchInputController {
             int actionIndex,
             TouchpadGestureState gestureState,
             TouchpadMotionSender pressedPointerMotionSender) {
-        if (!preferences.touchscreenTrackpad) {
+        if (!legacyTouchpadInputEnabled) {
             if (mode == TouchInputMode.ABSOLUTE_MOUSE_SWAPPED) {
                 return new AbsoluteTouchSwitchContext(
                         inputSink,
@@ -321,7 +323,7 @@ public final class TouchInputController {
                     REFERENCE_WIDTH,
                     REFERENCE_HEIGHT,
                     streamView,
-                    preferences,
+                    settingsState,
                     mode == TouchInputMode.TOUCHPAD_MOVE_AND_CLICK,
                     gestureState);
         }
@@ -334,7 +336,7 @@ public final class TouchInputController {
                     REFERENCE_WIDTH,
                     REFERENCE_HEIGHT,
                     streamView,
-                    preferences,
+                    settingsState,
                     gestureState,
                     pressedPointerMotionSender);
         }
@@ -345,7 +347,7 @@ public final class TouchInputController {
                     REFERENCE_WIDTH,
                     REFERENCE_HEIGHT,
                     streamView,
-                    preferences,
+                    settingsState,
                     gestureState);
         }
         touchContext.setNativeTouchpadPressHandlingEnabled(

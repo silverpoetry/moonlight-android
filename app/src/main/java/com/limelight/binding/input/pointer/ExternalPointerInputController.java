@@ -11,7 +11,8 @@ import com.limelight.binding.input.PointerInputSink;
 import com.limelight.binding.input.capture.InputCaptureProvider;
 import com.limelight.binding.input.touch.DirectContactInputController;
 import com.limelight.nvstream.input.MouseButtonPacket;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsState;
 import com.limelight.utils.ViewCoordinateMapper;
 
 import java.util.Locale;
@@ -37,7 +38,7 @@ public final class ExternalPointerInputController {
     private final PointerInputSink inputSink;
     private final InputCaptureProvider inputCaptureProvider;
     private final DirectContactInputController directContactInputController;
-    private final PreferenceConfiguration preferences;
+    private final InputSettingsState settingsState;
     private final float[] mappedPosition = new float[2];
     private final Matrix streamViewInverse = new Matrix();
 
@@ -58,7 +59,7 @@ public final class ExternalPointerInputController {
             PointerInputSink inputSink,
             InputCaptureProvider inputCaptureProvider,
             DirectContactInputController directContactInputController,
-            PreferenceConfiguration preferences) {
+            InputSettingsState settingsState) {
         this.streamView = Objects.requireNonNull(
                 streamView,
                 "streamView");
@@ -69,9 +70,9 @@ public final class ExternalPointerInputController {
         this.directContactInputController = Objects.requireNonNull(
                 directContactInputController,
                 "directContactInputController");
-        this.preferences = Objects.requireNonNull(
-                preferences,
-                "preferences");
+        this.settingsState = Objects.requireNonNull(
+                settingsState,
+                "settingsState");
     }
 
     public static boolean isPointerClassEvent(MotionEvent event) {
@@ -220,17 +221,18 @@ public final class ExternalPointerInputController {
     private void sendRelativeMotion(
             MotionEvent event,
             int source) {
+        InputSettings settings = settingsState.get();
         float rawDeltaX =
                 inputCaptureProvider.getRelativeAxisX(event);
         float rawDeltaY =
                 inputCaptureProvider.getRelativeAxisY(event);
         short deltaX = (short) (
                 rawDeltaX *
-                        preferences.externalTouchPadSensitityX *
+                        settings.getExternalTouchpadSensitivityX() *
                         0.01f);
         short deltaY = (short) (
                 rawDeltaY *
-                        preferences.externalTouchPadSensitityY *
+                        settings.getExternalTouchpadSensitivityY() *
                         0.01f);
         if (deltaX == 0 && deltaY == 0) {
             return;
@@ -245,7 +247,7 @@ public final class ExternalPointerInputController {
 
         relativeScrollRemainderX = 0;
         relativeScrollRemainderY = 0;
-        if (preferences.absoluteMouseMode) {
+        if (settings.isAbsoluteMouseMode()) {
             inputSink.sendMouseMoveAsMousePosition(
                     deltaX,
                     deltaY,
@@ -269,7 +271,7 @@ public final class ExternalPointerInputController {
             float rawDeltaX,
             float rawDeltaY) {
         float scrollFactor =
-                preferences.externalTouchPadScrollAmount *
+                settingsState.get().getExternalTouchpadScrollAmount() *
                         TOUCHPAD_SCROLL_FACTOR;
         relativeScrollRemainderX += -rawDeltaX * scrollFactor;
         relativeScrollRemainderY += -rawDeltaY * scrollFactor;
@@ -491,7 +493,8 @@ public final class ExternalPointerInputController {
                         PointerInputCompat.BUTTON_STYLUS_SECONDARY,
                 MouseButtonPacket.BUTTON_MIDDLE);
 
-        if (preferences.mouseNavButtons) {
+        if (settingsState.get()
+                .areMouseNavigationButtonsEnabled()) {
             sendChangedButton(
                     changedButtons,
                     buttonState,

@@ -13,7 +13,7 @@ import android.view.ViewConfiguration;
 
 import com.limelight.binding.input.PointerInputSink;
 import com.limelight.nvstream.jni.MoonBridge;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.input.InputSettingsState;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -116,11 +116,11 @@ public final class TouchscreenTouchpadHandler {
 
     public TouchscreenTouchpadHandler(PointerInputSink inputSink, View targetView,
                                      int referenceWidth, int referenceHeight,
-                                     PreferenceConfiguration prefConfig) {
+                                     InputSettingsState settingsState) {
         nativeSender = new NativeTouchpadSender(inputSink);
         remainderMotionSender = new TouchpadMotionSender(inputSink,
                 referenceWidth, referenceHeight,
-                targetView, prefConfig);
+                targetView, settingsState);
         hapticFeedback = new TouchpadHapticFeedback(targetView);
         int touchSlop = ViewConfiguration.get(targetView.getContext())
                 .getScaledTouchSlop();

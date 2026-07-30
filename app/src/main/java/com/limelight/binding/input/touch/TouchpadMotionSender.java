@@ -4,7 +4,8 @@ import android.util.DisplayMetrics;
 import android.view.View;
 
 import com.limelight.binding.input.PointerInputSink;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsState;
 
 // Converts physical finger motion into stream mouse packets while keeping acceleration,
 // sub-pixel accumulation, sensitivity, and absolute-mouse transport in one place.
@@ -31,7 +32,7 @@ public final class TouchpadMotionSender {
     private final int referenceWidth;
     private final int referenceHeight;
     private final View targetView;
-    private final PreferenceConfiguration prefConfig;
+    private final InputSettingsState settingsState;
     private final TouchpadPointerAcceleration pointerAcceleration =
             new TouchpadPointerAcceleration();
     private final MotionDelta pendingMotionDelta = new MotionDelta();
@@ -45,12 +46,12 @@ public final class TouchpadMotionSender {
 
     public TouchpadMotionSender(PointerInputSink inputSink, int referenceWidth,
                                 int referenceHeight, View targetView,
-                                PreferenceConfiguration prefConfig) {
+                                InputSettingsState settingsState) {
         this.inputSink = inputSink;
         this.referenceWidth = referenceWidth;
         this.referenceHeight = referenceHeight;
         this.targetView = targetView;
-        this.prefConfig = prefConfig;
+        this.settingsState = settingsState;
 
         DisplayMetrics metrics = targetView.getResources().getDisplayMetrics();
         xDpi = sanitizeDpi(metrics.xdpi, metrics.densityDpi);
@@ -92,10 +93,13 @@ public final class TouchpadMotionSender {
                 touchDeltaY * MILLIMETERS_PER_INCH / yDpi,
                 eventTime);
 
+        InputSettings settings = settingsState.get();
         xRemainder += touchDeltaX * xFactor *
-                prefConfig.mouseTouchPadSensitityX * 0.01 * acceleration;
+                settings.getTouchpadPointerSensitivityX() *
+                0.01 * acceleration;
         yRemainder += touchDeltaY * yFactor *
-                prefConfig.mouseTouchPadSensitityY * 0.01 * acceleration;
+                settings.getTouchpadPointerSensitivityY() *
+                0.01 * acceleration;
 
         int mouseDeltaX = takeIntegralPart(xRemainder);
         int mouseDeltaY = takeIntegralPart(yRemainder);
@@ -122,7 +126,7 @@ public final class TouchpadMotionSender {
     }
 
     private void sendSingleMouseMovePacket(short scaledDeltaX, short scaledDeltaY) {
-        if (prefConfig.absoluteMouseMode) {
+        if (settingsState.get().isAbsoluteMouseMode()) {
             inputSink.sendMouseMoveAsMousePosition(scaledDeltaX, scaledDeltaY,
                     (short) targetView.getWidth(), (short) targetView.getHeight());
         }
@@ -132,7 +136,7 @@ public final class TouchpadMotionSender {
     }
 
     void resendAbsoluteMousePosition() {
-        if (prefConfig.absoluteMouseMode) {
+        if (settingsState.get().isAbsoluteMouseMode()) {
             inputSink.sendMouseMoveAsMousePosition((short) 0, (short) 0,
                     (short) targetView.getWidth(), (short) targetView.getHeight());
         }

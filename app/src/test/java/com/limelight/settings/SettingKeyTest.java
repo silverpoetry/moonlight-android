@@ -38,4 +38,37 @@ public class SettingKeyTest {
                 key.normalizeStoredValue(Float.NaN),
                 0f);
     }
+
+    @Test
+    public void discreteIntegerRejectsValuesBetweenOptions() {
+        SettingKey<Integer> key =
+                SettingKey.integerSetKey(
+                        "fingers",
+                        0,
+                        0,
+                        3,
+                        4,
+                        5);
+
+        assertEquals(
+                Integer.valueOf(0),
+                key.normalizeStoredValue(2));
+        assertEquals(
+                Integer.valueOf(4),
+                key.normalizeStoredValue(4));
+    }
+
+    @Test
+    public void discreteStringRejectsUnknownOption() {
+        SettingKey<String> key =
+                SettingKey.stringSetKey(
+                        "mode",
+                        "auto",
+                        "auto",
+                        "on",
+                        "off");
+
+        assertEquals("auto", key.normalizeStoredValue("future"));
+        assertEquals("on", key.normalizeStoredValue("on"));
+    }
 }
