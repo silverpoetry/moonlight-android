@@ -27,6 +27,7 @@ public final class DirectContactInputControllerTest {
 
     private View streamView;
     private RecordingPointerInputSink inputSink;
+    private PreferenceConfiguration preferences;
     private DirectContactInputController controller;
 
     @Before
@@ -37,8 +38,7 @@ public final class DirectContactInputControllerTest {
         streamView = new View(context);
         streamView.layout(0, 0, 1_000, 500);
         inputSink = new RecordingPointerInputSink();
-        PreferenceConfiguration preferences =
-                new PreferenceConfiguration();
+        preferences = new PreferenceConfiguration();
         controller = new DirectContactInputController(
                 streamView,
                 inputSink,
@@ -113,6 +113,86 @@ public final class DirectContactInputControllerTest {
                         0)));
 
         assertEquals(0.25f, inputSink.lastX, 0.0001f);
+        assertEquals(0.2f, inputSink.lastY, 0.0001f);
+    }
+
+    @Test
+    public void contactAreaUsesDisplayPixelsInStreamReferenceSpace() {
+        Context context = streamView.getContext();
+        FrameLayout parent = new FrameLayout(context);
+        View containingView = new View(context);
+        parent.addView(containingView);
+        parent.addView(streamView);
+        containingView.layout(0, 0, 1_200, 700);
+        containingView.setPivotX(0);
+        containingView.setPivotY(0);
+        containingView.setScaleX(2);
+        containingView.setScaleY(2);
+        streamView.layout(100, 50, 1_100, 550);
+        streamView.setPivotX(0);
+        streamView.setPivotY(0);
+        streamView.setScaleX(0.5f);
+        streamView.setScaleY(0.5f);
+
+        assertTrue(controller.trySendTouchEvent(
+                containingView,
+                event(
+                        MotionEvent.ACTION_DOWN,
+                        MotionEvent.TOOL_TYPE_FINGER,
+                        175,
+                        75,
+                        0)));
+
+        assertEquals(
+                0.06324555f,
+                inputSink.lastContactAreaMajor,
+                0.000001f);
+        assertEquals(
+                0.05059644f,
+                inputSink.lastContactAreaMinor,
+                0.000001f);
+    }
+
+    @Test
+    public void sensitivityStateUsesMappedStreamCoordinates() {
+        Context context = streamView.getContext();
+        FrameLayout parent = new FrameLayout(context);
+        View containingView = new View(context);
+        parent.addView(containingView);
+        parent.addView(streamView);
+        containingView.layout(0, 0, 1_200, 700);
+        streamView.layout(-200, 0, 800, 500);
+        preferences.enableTouchSensitivity = true;
+        preferences.touchSensitivityGlobal = false;
+        preferences.touchSensitivityX = 200;
+        preferences.touchSensitivityY = 100;
+
+        assertTrue(controller.trySendTouchEvent(
+                containingView,
+                event(
+                        MotionEvent.ACTION_DOWN,
+                        MotionEvent.TOOL_TYPE_FINGER,
+                        400,
+                        100,
+                        0)));
+        assertTrue(controller.trySendTouchEvent(
+                containingView,
+                event(
+                        MotionEvent.ACTION_MOVE,
+                        MotionEvent.TOOL_TYPE_FINGER,
+                        410,
+                        100,
+                        0)));
+        assertTrue(controller.trySendTouchEvent(
+                containingView,
+                event(
+                        MotionEvent.ACTION_MOVE,
+                        MotionEvent.TOOL_TYPE_FINGER,
+                        420,
+                        100,
+                        0)));
+
+        assertEquals(0.63f, inputSink.lastX, 0.0001f);
         assertEquals(0.2f, inputSink.lastY, 0.0001f);
     }
 
@@ -217,6 +297,8 @@ public final class DirectContactInputControllerTest {
         byte lastPenButtons;
         float lastX;
         float lastY;
+        float lastContactAreaMajor;
+        float lastContactAreaMinor;
         short lastRotation;
 
         @Override
@@ -270,6 +352,8 @@ public final class DirectContactInputControllerTest {
             lastPointerId = pointerId;
             lastX = x;
             lastY = y;
+            lastContactAreaMajor = contactAreaMajor;
+            lastContactAreaMinor = contactAreaMinor;
             lastRotation = rotation;
             return touchResult;
         }
@@ -292,6 +376,8 @@ public final class DirectContactInputControllerTest {
             lastPenButtons = penButtons;
             lastX = x;
             lastY = y;
+            lastContactAreaMajor = contactAreaMajor;
+            lastContactAreaMinor = contactAreaMinor;
             lastRotation = rotation;
             return 0;
         }

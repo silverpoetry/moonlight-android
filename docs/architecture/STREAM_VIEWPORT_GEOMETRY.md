@@ -27,6 +27,11 @@ move together; child components never add those insets again.
 - The complete Android `View` matrix maps points and basis vectors between the
   stream and overlay siblings. Layout translation affects positions but not
   lengths; scale and rotation affect both.
+- Android reports touch/tool major and minor axes in display pixels even after
+  it transforms event positions and orientation into a child `View`. Direct
+  contact input therefore reconstructs physical axis directions through the
+  event source matrix, normalizes them in display space, and transforms them
+  into the stream view before protocol normalization.
 - Invalid protocol coordinates are clamped. Invalid dimensions reject the
   update or use an identity dimension scale; they never introduce NaN or
   infinity.

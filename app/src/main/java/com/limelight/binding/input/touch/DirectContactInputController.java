@@ -30,6 +30,7 @@ public final class DirectContactInputController {
             new SparseArray<>();
     private final ContactGeometry geometry = new ContactGeometry();
     private final float[] mappedPosition = new float[2];
+    private final float[] contactBasis = new float[4];
     private final Matrix streamViewInverse = new Matrix();
 
     public DirectContactInputController(
@@ -176,7 +177,12 @@ public final class DirectContactInputController {
                 true)) {
             return false;
         }
-        updateNormalizedContactArea(event, pointerIndex);
+        if (!updateNormalizedContactGeometry(
+                eventView,
+                event,
+                pointerIndex)) {
+            return false;
+        }
         return inputSink.sendTouchEvent(
                 eventType,
                 event.getPointerId(pointerIndex),
@@ -185,7 +191,7 @@ public final class DirectContactInputController {
                 getPressureOrDistance(event, pointerIndex),
                 geometry.contactAreaMajor,
                 geometry.contactAreaMinor,
-                getRotationDegrees(event, pointerIndex)) !=
+                geometry.rotation) !=
                 MoonBridge.LI_ERR_UNSUPPORTED;
     }
 
@@ -224,7 +230,12 @@ public final class DirectContactInputController {
                 false)) {
             return false;
         }
-        updateNormalizedContactArea(event, pointerIndex);
+        if (!updateNormalizedContactGeometry(
+                eventView,
+                event,
+                pointerIndex)) {
+            return false;
+        }
         return inputSink.sendPenEvent(
                 eventType,
                 toolType,
@@ -234,7 +245,7 @@ public final class DirectContactInputController {
                 getPressureOrDistance(event, pointerIndex),
                 geometry.contactAreaMajor,
                 geometry.contactAreaMinor,
-                getRotationDegrees(event, pointerIndex),
+                geometry.rotation,
                 tiltDegrees) != MoonBridge.LI_ERR_UNSUPPORTED;
     }
 
@@ -245,19 +256,6 @@ public final class DirectContactInputController {
             boolean touchEvent) {
         float x = event.getX(pointerIndex);
         float y = event.getY(pointerIndex);
-        if (touchEvent &&
-                preferences.enableTouchSensitivity &&
-                (preferences.touchSensitivityX != 100 ||
-                        preferences.touchSensitivityY != 100)) {
-            updateSensitivityCoordinates(
-                    event,
-                    pointerIndex,
-                    x,
-                    y);
-            x = geometry.x;
-            y = geometry.y;
-        }
-
         if (eventView != streamView) {
             mappedPosition[0] = x;
             mappedPosition[1] = y;
@@ -270,6 +268,19 @@ public final class DirectContactInputController {
             }
             x = mappedPosition[0];
             y = mappedPosition[1];
+        }
+
+        if (touchEvent &&
+                preferences.enableTouchSensitivity &&
+                (preferences.touchSensitivityX != 100 ||
+                        preferences.touchSensitivityY != 100)) {
+            updateSensitivityCoordinates(
+                    event,
+                    pointerIndex,
+                    x,
+                    y);
+            x = geometry.x;
+            y = geometry.y;
         }
 
         geometry.x = clamp(x, 0, streamView.getWidth()) /
@@ -362,19 +373,23 @@ public final class DirectContactInputController {
         state.lastRelativeY = geometry.y;
     }
 
-    private void updateNormalizedContactArea(
+    private boolean updateNormalizedContactGeometry(
+            View eventView,
             MotionEvent event,
             int pointerIndex) {
         float orientation;
+        boolean orientationKnown;
         InputDevice device = event.getDevice();
         if (device == null ||
                 device.getMotionRange(
                         MotionEvent.AXIS_ORIENTATION,
                         event.getSource()) == null) {
             orientation = (float) (Math.PI / 4);
+            orientationKnown = false;
         }
         else {
             orientation = event.getOrientation(pointerIndex);
+            orientationKnown = true;
         }
 
         float contactAreaMajor;
@@ -393,34 +408,83 @@ public final class DirectContactInputController {
                 break;
         }
 
-        float majorX = (float) (
-                contactAreaMajor * Math.cos(orientation));
-        float majorY = (float) (
-                contactAreaMajor * Math.sin(orientation));
+        // Android transforms event X/Y and orientation into the receiving
+        // View's local coordinates, but TOUCH/TOOL_MAJOR and MINOR remain in
+        // display pixels. Reconstruct each physical direction through the
+        // source View, normalize it to one display pixel, then transform that
+        // vector into stream-local coordinates. This keeps position, contact
+        // area, and rotation in the same reference space.
+        contactBasis[0] = (float) Math.cos(orientation);
+        contactBasis[1] = (float) Math.sin(orientation);
         float minorOrientation =
                 (float) (orientation + Math.PI / 2);
-        float minorX = (float) (
-                contactAreaMinor * Math.cos(minorOrientation));
-        float minorY = (float) (
-                contactAreaMinor * Math.sin(minorOrientation));
+        contactBasis[2] = (float) Math.cos(minorOrientation);
+        contactBasis[3] = (float) Math.sin(minorOrientation);
 
-        majorX = Math.min(
-                Math.abs(majorX) / streamView.getScaleX(),
-                streamView.getWidth()) / streamView.getWidth();
-        majorY = Math.min(
-                Math.abs(majorY) / streamView.getScaleY(),
-                streamView.getHeight()) / streamView.getHeight();
-        minorX = Math.min(
-                Math.abs(minorX) / streamView.getScaleX(),
-                streamView.getWidth()) / streamView.getWidth();
-        minorY = Math.min(
-                Math.abs(minorY) / streamView.getScaleY(),
-                streamView.getHeight()) / streamView.getHeight();
+        eventView.getMatrix().mapVectors(contactBasis);
+        if (!normalizeDirection(contactBasis, 0) ||
+                !normalizeDirection(contactBasis, 2) ||
+                !streamView.getMatrix().invert(streamViewInverse)) {
+            return false;
+        }
+        streamViewInverse.mapVectors(contactBasis);
 
-        geometry.contactAreaMajor = (float) Math.sqrt(
-                Math.pow(majorX, 2) + Math.pow(majorY, 2));
-        geometry.contactAreaMinor = (float) Math.sqrt(
-                Math.pow(minorX, 2) + Math.pow(minorY, 2));
+        geometry.rotation = orientationKnown
+                ? rotationDegrees(contactBasis[0], contactBasis[1])
+                : MoonBridge.LI_ROT_UNKNOWN;
+
+        contactAreaMajor = sanitizeContactLength(contactAreaMajor);
+        contactAreaMinor = sanitizeContactLength(contactAreaMinor);
+        float majorX = normalizedContactComponent(
+                contactBasis[0] * contactAreaMajor,
+                streamView.getWidth());
+        float majorY = normalizedContactComponent(
+                contactBasis[1] * contactAreaMajor,
+                streamView.getHeight());
+        float minorX = normalizedContactComponent(
+                contactBasis[2] * contactAreaMinor,
+                streamView.getWidth());
+        float minorY = normalizedContactComponent(
+                contactBasis[3] * contactAreaMinor,
+                streamView.getHeight());
+
+        geometry.contactAreaMajor =
+                (float) Math.hypot(majorX, majorY);
+        geometry.contactAreaMinor =
+                (float) Math.hypot(minorX, minorY);
+        return true;
+    }
+
+    private static boolean normalizeDirection(
+            float[] vectors,
+            int offset) {
+        float magnitude = (float) Math.hypot(
+                vectors[offset],
+                vectors[offset + 1]);
+        if (!Float.isFinite(magnitude) || magnitude <= 0) {
+            return false;
+        }
+        vectors[offset] /= magnitude;
+        vectors[offset + 1] /= magnitude;
+        return true;
+    }
+
+    private static float sanitizeContactLength(float value) {
+        return Float.isFinite(value) && value > 0 ? value : 0;
+    }
+
+    private static float normalizedContactComponent(
+            float component,
+            int extent) {
+        return Math.min(Math.abs(component), extent) / extent;
+    }
+
+    private static short rotationDegrees(float x, float y) {
+        short degrees = (short) Math.toDegrees(Math.atan2(y, x));
+        if (degrees < 0) {
+            degrees += 360;
+        }
+        return degrees;
     }
 
     private boolean isStreamViewReady() {
@@ -493,24 +557,6 @@ public final class DirectContactInputController {
         }
     }
 
-    private static short getRotationDegrees(
-            MotionEvent event,
-            int pointerIndex) {
-        InputDevice device = event.getDevice();
-        if (device != null &&
-                device.getMotionRange(
-                        MotionEvent.AXIS_ORIENTATION,
-                        event.getSource()) != null) {
-            short rotationDegrees = (short) Math.toDegrees(
-                    event.getOrientation(pointerIndex));
-            if (rotationDegrees < 0) {
-                rotationDegrees += 360;
-            }
-            return rotationDegrees;
-        }
-        return MoonBridge.LI_ROT_UNKNOWN;
-    }
-
     private static byte getStylusToolType(
             MotionEvent event,
             int pointerIndex) {
@@ -541,6 +587,7 @@ public final class DirectContactInputController {
         private float y;
         private float contactAreaMajor;
         private float contactAreaMinor;
+        private short rotation;
     }
 
     private static final class SensitivityState {
