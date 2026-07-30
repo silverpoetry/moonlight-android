@@ -332,17 +332,6 @@
     </issue>
 
     <issue
-        id="GradleDependency"
-        message="A newer version of com.github.bumptech.glide:glide than 3.8.0 is available: 5.0.5"
-        errorLine1="    implementation &apos;com.github.bumptech.glide:glide:3.8.0&apos;"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle"
-            line="162"
-            column="20"/>
-    </issue>
-
-    <issue
         id="SourceLockedOrientationActivity"
         message="You should not lock orientation of your activities, so that you can support a good user experience for any device or orientation"
         errorLine1="                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT);"

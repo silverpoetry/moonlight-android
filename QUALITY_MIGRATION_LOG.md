@@ -176,3 +176,29 @@ manual release gate.
 - Live host discovery, pairing, streaming, clipboard, and file-transfer requests remain
   part of the final manual release gate because the automated checks do not establish
   an active Sunshine session.
+
+## Dependency: Glide 5.0.7
+
+- Upgraded `com.github.bumptech.glide:glide` from the unmaintained 3.8.0 release to
+  5.0.7 and migrated the custom-image listener to the current `Drawable`,
+  `GlideException`, and `DataSource` API.
+- Removed the Glide 3-only `GlideBitmapDrawable` branch. Glide 5 returns the platform
+  `BitmapDrawable`, which was already the primary extraction path.
+- Added the canonical generated `AppGlideModule` configuration and disabled obsolete
+  manifest module discovery.
+- Preserved Glide 3's opaque-image `RGB_565` preference so full-screen backgrounds and
+  image grids do not silently double their bitmap memory use after the upgrade.
+- Removed the temporary Jetifier configuration. The release runtime dependency graph
+  contains no `com.android.support` artifacts.
+- Device tests verify that the generated module is active, opaque JPEGs decode to
+  `RGB_565` when hardware bitmaps are disabled, and drawable requests return the
+  platform `BitmapDrawable`.
+- `verifyLocal`: passed.
+- API 36 phone (`192.168.3.125:5555`): 37 non-root and 37 root instrumentation tests
+  passed.
+- API 36 large-screen device (`192.168.3.3:42815`): 37 non-root and 37 root
+  instrumentation tests passed.
+- Lint: no new findings; the matching `GradleDependency` entry was removed, leaving
+  57 reviewed baseline entries.
+- Visible background, remote custom box art, and credits-avatar rendering remain part
+  of the final unlocked-device manual release gate.

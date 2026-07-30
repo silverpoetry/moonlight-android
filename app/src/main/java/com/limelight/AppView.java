@@ -9,7 +9,6 @@ import java.util.List;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
-import com.bumptech.glide.load.resource.bitmap.GlideBitmapDrawable;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.grid.AppGridAdapter;
@@ -662,11 +661,6 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
             BitmapDrawable drawable = (BitmapDrawable) appImageView.getDrawable();
             return drawable.getBitmap();
         }
-        else if (appImageView.getDrawable() instanceof GlideBitmapDrawable) {
-            GlideBitmapDrawable drawable = (GlideBitmapDrawable) appImageView.getDrawable();
-            return drawable.getBitmap();
-        }
-
         return null;
     }
 
