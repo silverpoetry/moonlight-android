@@ -62,6 +62,13 @@ and is canceled when the Activity is destroyed. Its helpers depend on
 application-safe `Context` unless an operation explicitly requires an
 `Activity`.
 
-The next migration slices move render/audio resource lifetime and the remaining
-callback presentation behind session-scoped ports. Until those slices are
-complete, `Game` remains the presentation adapter for accepted callbacks.
+`StreamSessionCallbackRouter` is the only UI-layer implementation of
+`NvConnectionListener`. It serializes presentation, window, HDR, and cursor
+callbacks on the main thread; snapshots mutable native payloads before crossing
+that asynchronous boundary; and leaves controller feedback on the immediate
+low-latency path. Destruction atomically rejects new callbacks and removes
+queued presentation work. `Game` now supplies narrow UI and feedback hosts
+instead of implementing the transport listener.
+
+The next migration slices move render/audio resource lifetime behind a
+session-scoped owner and finish teardown ordering.

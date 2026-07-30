@@ -178,6 +178,19 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void gameActivityDoesNotImplementTransportCallbacks() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.NvConnectionListener")
+                .because("transport callbacks are owned by the session router")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamFailureDiagnosticsDoesNotDependOnConnection() {
         noClasses()
                 .that()

@@ -33,7 +33,6 @@ import com.limelight.fsr.FsrVideoProcessor;
 import com.limelight.fsr.VideoProcessingGLSurfaceView;
 import com.limelight.nvstream.MicUplinkConnection;
 import com.limelight.nvstream.NvConnection;
-import com.limelight.nvstream.NvConnectionListener;
 import com.limelight.nvstream.StreamConfiguration;
 import com.limelight.nvstream.StreamSessionController;
 import com.limelight.nvstream.http.ComputerDetails;
@@ -51,6 +50,7 @@ import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.stream.StreamFailureDiagnostics;
 import com.limelight.ui.stream.StreamLaunchReporter;
+import com.limelight.ui.stream.StreamSessionCallbackRouter;
 import com.limelight.ui.stream.StreamSessionUiEffects;
 import com.limelight.ui.stream.StreamWifiLockController;
 import com.limelight.ui.GameGestures;
@@ -135,7 +135,7 @@ import java.util.Locale;
 
 
 public class Game extends Activity implements SurfaceHolder.Callback,
-        OnGenericMotionListener, OnTouchListener, NvConnectionListener, EvdevListener,
+        OnGenericMotionListener, OnTouchListener, EvdevListener,
         OnSystemUiVisibilityChangeListener, GameGestures, StreamInputGateway,
         StreamUiActions, GameMenuHost,
         UsbDriverService.UsbDriverStateListener, View.OnKeyListener {
@@ -159,6 +159,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private NvConnection conn;
     private StreamSessionController sessionController;
+    private StreamSessionCallbackRouter sessionCallbackRouter;
     private StreamFailureDiagnostics failureDiagnostics;
     private StreamLaunchReporter launchReporter;
     private StreamSessionUiEffects sessionUiEffects;
@@ -704,7 +705,141 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     }
                 },
                 mainHandler);
-        sessionController = new StreamSessionController(conn, this);
+        sessionCallbackRouter = new StreamSessionCallbackRouter(
+                new StreamSessionCallbackRouter.UiHost() {
+                    @Override
+                    public void onStageStarting(String stage) {
+                        handleStageStarting(stage);
+                    }
+
+                    @Override
+                    public void onStageFailed(
+                            String stage,
+                            int portFlags,
+                            int errorCode) {
+                        handleStageFailed(
+                                stage,
+                                portFlags,
+                                errorCode);
+                    }
+
+                    @Override
+                    public void onConnectionStarted() {
+                        handleConnectionStarted();
+                    }
+
+                    @Override
+                    public void onConnectionTerminated(int errorCode) {
+                        handleConnectionTerminated(errorCode);
+                    }
+
+                    @Override
+                    public void onConnectionStatusUpdate(
+                            int connectionStatus) {
+                        handleConnectionStatusUpdate(connectionStatus);
+                    }
+
+                    @Override
+                    public void onMessage(
+                            String message,
+                            boolean transientMessage) {
+                        if (transientMessage) {
+                            displayTransientMessage(message);
+                        }
+                        else {
+                            handleStreamMessage(message);
+                        }
+                    }
+
+                    @Override
+                    public void onHdrModeChanged(
+                            boolean enabled,
+                            byte[] hdrMetadata) {
+                        handleHdrModeChanged(enabled, hdrMetadata);
+                    }
+
+                    @Override
+                    public void onNativeCursor(
+                            boolean visible,
+                            boolean shapeChanged,
+                            int format,
+                            int x,
+                            int y,
+                            int width,
+                            int height,
+                            int hotspotX,
+                            int hotspotY,
+                            int shapeId,
+                            int scaleX,
+                            int scaleY,
+                            byte[] imageData) {
+                        handleNativeCursor(
+                                visible,
+                                shapeChanged,
+                                format,
+                                x,
+                                y,
+                                width,
+                                height,
+                                hotspotX,
+                                hotspotY,
+                                shapeId,
+                                scaleX,
+                                scaleY,
+                                imageData);
+                    }
+                },
+                new StreamSessionCallbackRouter.FeedbackHost() {
+                    @Override
+                    public void onRumble(
+                            short controllerNumber,
+                            short lowFreqMotor,
+                            short highFreqMotor) {
+                        handleRumble(
+                                controllerNumber,
+                                lowFreqMotor,
+                                highFreqMotor);
+                    }
+
+                    @Override
+                    public void onRumbleTriggers(
+                            short controllerNumber,
+                            short leftTrigger,
+                            short rightTrigger) {
+                        handleRumbleTriggers(
+                                controllerNumber,
+                                leftTrigger,
+                                rightTrigger);
+                    }
+
+                    @Override
+                    public void onMotionEventState(
+                            short controllerNumber,
+                            byte motionType,
+                            short reportRateHz) {
+                        handleMotionEventState(
+                                controllerNumber,
+                                motionType,
+                                reportRateHz);
+                    }
+
+                    @Override
+                    public void onControllerLed(
+                            short controllerNumber,
+                            byte red,
+                            byte green,
+                            byte blue) {
+                        handleControllerLed(
+                                controllerNumber,
+                                red,
+                                green,
+                                blue);
+                    }
+                },
+                mainHandler);
+        sessionController = new StreamSessionController(
+                conn,
+                sessionCallbackRouter);
         TouchInputController touchInputController =
                 new TouchInputController(
                         this,
@@ -1464,6 +1599,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             sessionController.destroy();
             sessionController = null;
         }
+        if (sessionCallbackRouter != null) {
+            sessionCallbackRouter.destroy();
+            sessionCallbackRouter = null;
+        }
         if (sessionUiEffects != null) {
             sessionUiEffects.destroy();
             sessionUiEffects = null;
@@ -1919,20 +2058,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         return handleMotionEvent(view, event);
     }
 
-    @Override
-    public void stageStarting(final String stage) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (spinner != null) {
-                    spinner.setMessage(getResources().getString(R.string.conn_starting) + " " + stage);
-                }
-            }
-        });
-    }
-
-    @Override
-    public void stageComplete(String stage) {
+    private void handleStageStarting(String stage) {
+        if (spinner != null) {
+            spinner.setMessage(
+                    getResources().getString(R.string.conn_starting) +
+                            " " + stage);
+        }
     }
 
     private void stopConnection() {
@@ -1949,51 +2080,51 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
-    @Override
-    public void stageFailed(final String stage, final int portFlags, final int errorCode) {
-        runOnUiThread(() -> {
-            if (!canPresentSessionUi()) {
-                return;
-            }
-            if (spinner != null) {
-                spinner.dismiss();
-                spinner = null;
-            }
+    private void handleStageFailed(
+            String stage,
+            int portFlags,
+            int errorCode) {
+        if (!canPresentSessionUi()) {
+            return;
+        }
+        if (spinner != null) {
+            spinner.dismiss();
+            spinner = null;
+        }
 
-            if (displayedFailureDialog) {
-                return;
-            }
-            displayedFailureDialog = true;
-            LimeLog.severe(stage + " failed: " + errorCode);
+        if (displayedFailureDialog) {
+            return;
+        }
+        displayedFailureDialog = true;
+        LimeLog.severe(stage + " failed: " + errorCode);
 
-            if (stage.contains("video") &&
-                    streamView.getHolder().getSurface().isValid()) {
-                UiToast.makeText(
-                        Game.this,
-                        getResources().getText(
-                                R.string.video_decoder_init_failed),
-                        UiToast.LENGTH_LONG).show();
-            }
+        if (stage.contains("video") &&
+                streamView.getHolder().getSurface().isValid()) {
+            UiToast.makeText(
+                    Game.this,
+                    getResources().getText(
+                            R.string.video_decoder_init_failed),
+                    UiToast.LENGTH_LONG).show();
+        }
 
-            StreamFailureDiagnostics diagnostics =
-                    failureDiagnostics;
-            if (diagnostics == null ||
-                    !diagnostics.request(
-                            portFlags,
-                            result -> displayStageFailureDialog(
-                                    stage,
-                                    errorCode,
-                                    result.getPortFlags(),
-                                    result.getProbeResultOr(
-                                            MoonBridge
-                                                    .ML_TEST_RESULT_INCONCLUSIVE)))) {
-                displayStageFailureDialog(
-                        stage,
-                        errorCode,
+        StreamFailureDiagnostics diagnostics =
+                failureDiagnostics;
+        if (diagnostics == null ||
+                !diagnostics.request(
                         portFlags,
-                        MoonBridge.ML_TEST_RESULT_INCONCLUSIVE);
-            }
-        });
+                        result -> displayStageFailureDialog(
+                                stage,
+                                errorCode,
+                                result.getPortFlags(),
+                                result.getProbeResultOr(
+                                        MoonBridge
+                                                .ML_TEST_RESULT_INCONCLUSIVE)))) {
+            displayStageFailureDialog(
+                    stage,
+                    errorCode,
+                    portFlags,
+                    MoonBridge.ML_TEST_RESULT_INCONCLUSIVE);
+        }
     }
 
     private void displayStageFailureDialog(
@@ -2025,46 +2156,44 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 true);
     }
 
-    @Override
-    public void connectionTerminated(final int errorCode) {
-        final int portFlags = MoonBridge.getPortFlagsFromTerminationErrorCode(errorCode);
-        runOnUiThread(() -> {
-            if (!canPresentSessionUi()) {
-                return;
-            }
-            controllerHandler.stop();
+    private void handleConnectionTerminated(int errorCode) {
+        int portFlags =
+                MoonBridge.getPortFlagsFromTerminationErrorCode(errorCode);
+        if (!canPresentSessionUi()) {
+            return;
+        }
+        controllerHandler.stop();
 
-            if (displayedFailureDialog) {
-                return;
-            }
-            displayedFailureDialog = true;
-            LimeLog.severe("Connection terminated: " + errorCode);
-            stopConnection();
+        if (displayedFailureDialog) {
+            return;
+        }
+        displayedFailureDialog = true;
+        LimeLog.severe("Connection terminated: " + errorCode);
+        stopConnection();
 
-            if (errorCode ==
-                    MoonBridge.ML_ERROR_GRACEFUL_TERMINATION) {
-                finish();
-                return;
-            }
+        if (errorCode ==
+                MoonBridge.ML_ERROR_GRACEFUL_TERMINATION) {
+            finish();
+            return;
+        }
 
-            StreamFailureDiagnostics diagnostics =
-                    failureDiagnostics;
-            if (diagnostics == null ||
-                    !diagnostics.request(
-                            portFlags,
-                            result ->
-                                    displayTerminationFailureDialog(
-                                            errorCode,
-                                            result.getPortFlags(),
-                                            result.getProbeResultOr(
-                                                    MoonBridge
-                                                            .ML_TEST_RESULT_INCONCLUSIVE)))) {
-                displayTerminationFailureDialog(
-                        errorCode,
+        StreamFailureDiagnostics diagnostics =
+                failureDiagnostics;
+        if (diagnostics == null ||
+                !diagnostics.request(
                         portFlags,
-                        MoonBridge.ML_TEST_RESULT_INCONCLUSIVE);
-            }
-        });
+                        result ->
+                                displayTerminationFailureDialog(
+                                        errorCode,
+                                        result.getPortFlags(),
+                                        result.getProbeResultOr(
+                                                MoonBridge
+                                                        .ML_TEST_RESULT_INCONCLUSIVE)))) {
+            displayTerminationFailureDialog(
+                    errorCode,
+                    portFlags,
+                    MoonBridge.ML_TEST_RESULT_INCONCLUSIVE);
+        }
     }
 
     private void displayTerminationFailureDialog(
@@ -2138,88 +2267,80 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         return !isFinishing() && !isDestroyed();
     }
 
-    @Override
-    public void connectionStatusUpdate(final int connectionStatus) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (prefConfig.disableWarnings) {
-                    return;
-                }
+    private void handleConnectionStatusUpdate(int connectionStatus) {
+        if (prefConfig.disableWarnings) {
+            return;
+        }
 
-                if (connectionStatus == MoonBridge.CONN_STATUS_POOR) {
-                    if (prefConfig.bitrate > 5000) {
-                        notificationOverlayView.setText(getResources().getString(R.string.slow_connection_msg));
-                    }
-                    else {
-                        notificationOverlayView.setText(getResources().getString(R.string.poor_connection_msg));
-                    }
-
-                    requestedNotificationOverlayVisibility = View.VISIBLE;
-                }
-                else if (connectionStatus == MoonBridge.CONN_STATUS_OKAY) {
-                    requestedNotificationOverlayVisibility = View.GONE;
-                }
-
-                if (!isHidingOverlays) {
-                    notificationOverlayView.setVisibility(requestedNotificationOverlayVisibility);
-                }
+        if (connectionStatus == MoonBridge.CONN_STATUS_POOR) {
+            if (prefConfig.bitrate > 5000) {
+                notificationOverlayView.setText(
+                        getResources().getString(
+                                R.string.slow_connection_msg));
             }
-        });
-    }
-
-    @Override
-    public void connectionStarted() {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (spinner != null) {
-                    spinner.dismiss();
-                    spinner = null;
-                }
-
-                streamStartElapsedMs = SystemClock.elapsedRealtime();
-                updatePipAutoEnter();
-
-                sessionUiEffects.onConnected();
-                if (launchReporter != null) {
-                    launchReporter.reportOnce();
-                }
-
-                hideSystemUi(1000);
+            else {
+                notificationOverlayView.setText(
+                        getResources().getString(
+                                R.string.poor_connection_msg));
             }
-        });
-    }
 
-    @Override
-    public void displayMessage(final String message) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                UiToast.makeText(Game.this, message, UiToast.LENGTH_LONG).show();
-            }
-        });
-    }
+            requestedNotificationOverlayVisibility = View.VISIBLE;
+        }
+        else if (connectionStatus == MoonBridge.CONN_STATUS_OKAY) {
+            requestedNotificationOverlayVisibility = View.GONE;
+        }
 
-    @Override
-    public void displayTransientMessage(final String message) {
-        if (!prefConfig.disableWarnings) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    UiToast.makeText(Game.this, message, UiToast.LENGTH_LONG).show();
-                }
-            });
+        if (!isHidingOverlays) {
+            notificationOverlayView.setVisibility(
+                    requestedNotificationOverlayVisibility);
         }
     }
 
-    @Override
-    public void rumble(short controllerNumber, short lowFreqMotor, short highFreqMotor) {
+    private void handleConnectionStarted() {
+        if (spinner != null) {
+            spinner.dismiss();
+            spinner = null;
+        }
+
+        streamStartElapsedMs = SystemClock.elapsedRealtime();
+        updatePipAutoEnter();
+
+        sessionUiEffects.onConnected();
+        if (launchReporter != null) {
+            launchReporter.reportOnce();
+        }
+
+        hideSystemUi(1000);
+    }
+
+    private void handleStreamMessage(String message) {
+        UiToast.makeText(
+                Game.this,
+                message,
+                UiToast.LENGTH_LONG).show();
+    }
+
+    private void displayTransientMessage(String message) {
+        if (!prefConfig.disableWarnings) {
+            UiToast.makeText(
+                    Game.this,
+                    message,
+                    UiToast.LENGTH_LONG).show();
+        }
+    }
+
+    private void handleRumble(
+            short controllerNumber,
+            short lowFreqMotor,
+            short highFreqMotor) {
         LimeLog.info(String.format((Locale)null, "Rumble on gamepad %d: %04x %04x", controllerNumber, lowFreqMotor, highFreqMotor));
         controllerHandler.handleRumble(controllerNumber, lowFreqMotor, highFreqMotor);
         //联动扳机震动
         if(prefConfig.gameTriggerRumbleLink){
-            rumbleTriggers(controllerNumber,lowFreqMotor,highFreqMotor);
+            handleRumbleTriggers(
+                    controllerNumber,
+                    lowFreqMotor,
+                    highFreqMotor);
         }
         if (performanceOverlayController != null) {
             performanceOverlayController.updateRumble(
@@ -2229,15 +2350,18 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
-    @Override
-    public void rumbleTriggers(short controllerNumber, short leftTrigger, short rightTrigger) {
+    private void handleRumbleTriggers(
+            short controllerNumber,
+            short leftTrigger,
+            short rightTrigger) {
         LimeLog.info(String.format((Locale)null, "Rumble on gamepad triggers %d: %04x %04x", controllerNumber, leftTrigger, rightTrigger));
 
         controllerHandler.handleRumbleTriggers(controllerNumber, leftTrigger, rightTrigger);
     }
 
-    @Override
-    public void setHdrMode(boolean enabled, byte[] hdrMetadata) {
+    private void handleHdrModeChanged(
+            boolean enabled,
+            byte[] hdrMetadata) {
         LimeLog.info("Display HDR mode: " + (enabled ? "enabled" : "disabled"));
         decoderRenderer.setHdrMode(enabled, hdrMetadata);
         if (fsrVideoProcessor != null) {
@@ -2246,43 +2370,63 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         UiHelper.notifyHdrWindowStatus(this, enabled);
     }
 
-    @Override
-    public void setMotionEventState(short controllerNumber, byte motionType, short reportRateHz) {
+    private void handleMotionEventState(
+            short controllerNumber,
+            byte motionType,
+            short reportRateHz) {
         LimeLog.info("axi-->: controllerNumber" + controllerNumber+"-motionType:"+motionType+"-reportRateHz:"+reportRateHz);
         controllerHandler.handleSetMotionEventState(controllerNumber, motionType, reportRateHz);
     }
 
-    @Override
-    public void setControllerLED(short controllerNumber, byte r, byte g, byte b) {
+    private void handleControllerLed(
+            short controllerNumber,
+            byte r,
+            byte g,
+            byte b) {
         controllerHandler.handleSetControllerLED(controllerNumber, r, g, b);
     }
 
-    @Override
-    public void nativeCursor(boolean visible, boolean shapeChanged, int format, int x, int y,
-                             int width, int height, int hotspotX, int hotspotY,
-                             int shapeId, int scaleX, int scaleY, byte[] imageData) {
+    private void handleNativeCursor(
+            boolean visible,
+            boolean shapeChanged,
+            int format,
+            int x,
+            int y,
+            int width,
+            int height,
+            int hotspotX,
+            int hotspotY,
+            int shapeId,
+            int scaleX,
+            int scaleY,
+            byte[] imageData) {
         if (nativeCursorOverlayView == null) {
             return;
         }
 
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                float encodedToViewX = prefConfig.width > 0
-                        ? streamView.getWidth() / (float)prefConfig.width
-                        : 1f;
-                float encodedToViewY = prefConfig.height > 0
-                        ? streamView.getHeight() / (float)prefConfig.height
-                        : 1f;
-                float captureToEncodedX = scaleX > 0 ? scaleX / 65536f : 1f;
-                float captureToEncodedY = scaleY > 0 ? scaleY / 65536f : 1f;
-                nativeCursorOverlayView.setCursorScale(
-                        captureToEncodedX * encodedToViewX,
-                        captureToEncodedY * encodedToViewY);
-                nativeCursorOverlayView.updateCursor(visible, shapeChanged, format,
-                        width, height, hotspotX, hotspotY, shapeId, imageData);
-            }
-        });
+        float encodedToViewX = prefConfig.width > 0
+                ? streamView.getWidth() / (float)prefConfig.width
+                : 1f;
+        float encodedToViewY = prefConfig.height > 0
+                ? streamView.getHeight() / (float)prefConfig.height
+                : 1f;
+        float captureToEncodedX =
+                scaleX > 0 ? scaleX / 65536f : 1f;
+        float captureToEncodedY =
+                scaleY > 0 ? scaleY / 65536f : 1f;
+        nativeCursorOverlayView.setCursorScale(
+                captureToEncodedX * encodedToViewX,
+                captureToEncodedY * encodedToViewY);
+        nativeCursorOverlayView.updateCursor(
+                visible,
+                shapeChanged,
+                format,
+                width,
+                height,
+                hotspotX,
+                hotspotY,
+                shapeId,
+                imageData);
     }
 
     @Override
