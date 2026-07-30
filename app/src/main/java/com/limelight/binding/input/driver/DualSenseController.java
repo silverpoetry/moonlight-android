@@ -2,7 +2,7 @@ package com.limelight.binding.input.driver;
 
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
-import android.util.Log;
+import com.limelight.DebugLog;
 
 import com.limelight.nvstream.input.ControllerPacket;
 
@@ -49,7 +49,9 @@ public class DualSenseController extends AbstractDualSenseController {
    @Override
    protected boolean handleRead(ByteBuffer buffer) {
       if (buffer.remaining() != 64) {
-         Log.d("DualController", "No Daulsense input: " + buffer.remaining());
+         if (DebugLog.isEnabled()) {
+            DebugLog.debug("DualController", "No DualSense input: " + buffer.remaining());
+         }
          return false;
       }
 
@@ -182,7 +184,7 @@ public class DualSenseController extends AbstractDualSenseController {
 
    @Override
    protected boolean doInit() {
-      Log.d("DualController", "doInit");
+      DebugLog.debug("DualController", "doInit");
       sendCommand(getDualSenseInit());
       return true;
    }
@@ -252,12 +254,14 @@ public class DualSenseController extends AbstractDualSenseController {
 
    @Override
    public void sendCommand(byte[] data) {
-      Log.d("DualController", "sendCommand");
+      if (DebugLog.isEnabled()) {
+         DebugLog.debug("DualController", "sendCommand");
+      }
       updateAdvancedAudioHapticsTriggerCache(data);
       int res = connection.bulkTransfer(outEndpt, data, data.length, 1000);
-      Log.e("DualController", "Command transfer result: " + res);
       if (res != data.length) {
-         Log.d("DualController", "Command set transfer failed: " + res);
+         DebugLog.warning("DualController",
+                 "Command transfer failed: result=" + res + " expected=" + data.length);
       }
       else if (data.length > 0 && data[0] == 0x02) {
          invalidateAdvancedAudioHapticsPrime();

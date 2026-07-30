@@ -3,7 +3,6 @@ package com.limelight.utils;
 import android.content.Context;
 import android.graphics.Point;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.WindowManager;
 
 import com.limelight.LimeLog;

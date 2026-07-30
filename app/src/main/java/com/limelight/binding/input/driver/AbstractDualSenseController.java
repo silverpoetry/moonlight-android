@@ -6,7 +6,7 @@ import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbEndpoint;
 import android.hardware.usb.UsbInterface;
 import android.os.SystemClock;
-import android.util.Log;
+import com.limelight.DebugLog;
 
 import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.nvstream.jni.MoonBridge;
@@ -107,7 +107,7 @@ public abstract class AbstractDualSenseController extends AbstractController {
                         }
 
                         if (res == -1 && SystemClock.uptimeMillis() - lastMillis < 1000) {
-                            Log.d("DualSenseController", "Detected device I/O error");
+                            DebugLog.debug("DualSenseController", "Detected device I/O error");
                             AbstractDualSenseController.this.stop();
                             break;
                         }
@@ -132,7 +132,7 @@ public abstract class AbstractDualSenseController extends AbstractController {
         for (int i = 0; i < count; i++) {
             UsbInterface intf = device.getInterface(i);
             if (intf.getInterfaceClass() == UsbConstants.USB_CLASS_HID && intf.getEndpointCount()>=2) {
-                Log.d("DualSenseController", "Found HID interface: " + i);
+                DebugLog.debug("DualSenseController", "Found HID interface: " + i);
                 return intf;
             }
         }
@@ -157,7 +157,7 @@ public abstract class AbstractDualSenseController extends AbstractController {
                         endpt.getMaxPacketSize() == HAPTIC_AUDIO_ENDPOINT_PACKET_SIZE) {
                     hapticIface = intf;
                     hapticEndpt = endpt;
-                    Log.d("DualSenseController", "Found advanced haptics endpoint iface=" +
+                    DebugLog.debug("DualSenseController", "Found advanced haptics endpoint iface=" +
                             intf.getId() + " alt=" + intf.getAlternateSetting() +
                             " addr=" + endpt.getAddress());
                     return;
@@ -176,26 +176,26 @@ public abstract class AbstractDualSenseController extends AbstractController {
         outEndpt = null;
         hapticIface = null;
         hapticEndpt = null;
-        Log.d("DualSenseController", "start");
+        DebugLog.debug("DualSenseController", "start");
         // Force claim all interfaces
         for (int i = 0; i < device.getInterfaceCount(); i++) {
             UsbInterface iface = device.getInterface(i);
 
             if (!connection.claimInterface(iface, true)) {
-                Log.d("DualSenseController", "Failed to claim interfaces");
+                DebugLog.debug("DualSenseController", "Failed to claim interfaces");
                 return false;
             }else{
                 ifaces.add(iface);
             }
         }
-        Log.d("DualSenseController", "getInterfaceCount:" + device.getInterfaceCount());
+        DebugLog.debug("DualSenseController", "getInterfaceCount:" + device.getInterfaceCount());
         detectHapticEndpoint();
 
         // Find the endpoints
         UsbInterface iface = findInterface(device);
 
         if (iface == null) {
-            Log.e("DualSenseController", "Failed to find interface");
+            DebugLog.error("DualSenseController", "Failed to find interface");
             return false;
         }
 
@@ -203,23 +203,23 @@ public abstract class AbstractDualSenseController extends AbstractController {
             UsbEndpoint endpt = iface.getEndpoint(i);
             if (endpt.getDirection() == UsbConstants.USB_DIR_OUT) {
                 if (outEndpt != null) {
-                    Log.d("DualSenseController", "Found duplicate OUT endpoint");
+                    DebugLog.debug("DualSenseController", "Found duplicate OUT endpoint");
                     return false;
                 }
                 outEndpt = endpt;
             } else if (endpt.getDirection() == UsbConstants.USB_DIR_IN) {
                 if (inEndpt != null) {
-                    Log.d("DualSenseController", "Found duplicate IN endpoint");
+                    DebugLog.debug("DualSenseController", "Found duplicate IN endpoint");
                     return false;
                 }
                 inEndpt = endpt;
             }
         }
-        Log.d("DualSenseController", "inEndpt: " + inEndpt);
-        Log.d("DualSenseController", "outEndpt: " + outEndpt);
+        DebugLog.debug("DualSenseController", "inEndpt: " + inEndpt);
+        DebugLog.debug("DualSenseController", "outEndpt: " + outEndpt);
         // Make sure the required endpoints were present
         if (inEndpt == null || outEndpt == null) {
-            Log.d("DualSenseController", "Missing required endpoin");
+            DebugLog.debug("DualSenseController", "Missing required endpoin");
             return false;
         }
         // Run the init function
@@ -277,13 +277,13 @@ public abstract class AbstractDualSenseController extends AbstractController {
         }
 
         if (!hasAdvancedAudioHapticsSupport()) {
-            Log.d("DualSenseController", "Advanced audio haptics endpoint not available");
+            DebugLog.debug("DualSenseController", "Advanced audio haptics endpoint not available");
             return false;
         }
 
         final int fd = connection.getFileDescriptor();
         if (fd < 0) {
-            Log.d("DualSenseController", "Invalid USB file descriptor for advanced haptics");
+            DebugLog.debug("DualSenseController", "Invalid USB file descriptor for advanced haptics");
             return false;
         }
 
@@ -303,7 +303,7 @@ public abstract class AbstractDualSenseController extends AbstractController {
         advancedAudioHapticsSender.start();
         advancedAudioHapticsRequested = true;
         advancedAudioHapticsPrimed = false;
-        Log.d("DualSenseController", "Advanced audio haptics requested");
+        DebugLog.debug("DualSenseController", "Advanced audio haptics requested");
         return true;
     }
 
@@ -393,7 +393,7 @@ public abstract class AbstractDualSenseController extends AbstractController {
             return true;
         }
 
-        Log.w("DualSenseController", "Advanced haptics prime failed: " + res);
+        DebugLog.warning("DualSenseController", "Advanced haptics prime failed: " + res);
         return false;
     }
 

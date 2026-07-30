@@ -2,7 +2,7 @@ package com.limelight.binding.input.driver;
 
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
-import android.util.Log;
+import com.limelight.DebugLog;
 
 import com.limelight.LimeLog;
 import com.limelight.nvstream.input.ControllerPacket;
@@ -47,7 +47,10 @@ public class Dualshock4Controller extends AbstractDualSenseController {
    protected boolean handleRead(ByteBuffer buffer) {
       //https://www.psdevwiki.com/ps4/DS4-USB 参考
       if (buffer.remaining() != 64) {
-         Log.d("Dualshock4Controller", "No Dualshock4Controller input: " + buffer.remaining());
+         if (DebugLog.isEnabled()) {
+            DebugLog.debug("Dualshock4Controller",
+                    "No DualShock 4 input: " + buffer.remaining());
+         }
          return false;
       }
 
@@ -181,7 +184,7 @@ public class Dualshock4Controller extends AbstractDualSenseController {
 
    @Override
    protected boolean doInit() {
-      Log.d("Dualshock4Controller", "doInit");
+      DebugLog.debug("Dualshock4Controller", "doInit");
       sendCommand(getInitData());
       return true;
    }
@@ -212,11 +215,13 @@ public class Dualshock4Controller extends AbstractDualSenseController {
 
    @Override
    public void sendCommand(byte[] data) {
-      Log.d("Dualshock4Controller", "sendCommand");
+      if (DebugLog.isEnabled()) {
+         DebugLog.debug("Dualshock4Controller", "sendCommand");
+      }
       int res = connection.bulkTransfer(outEndpt, data, data.length, 1000);
-      Log.e("Dualshock4Controller", "Command transfer result: " + res);
       if (res != data.length) {
-         Log.d("Dualshock4Controller", "Command set transfer failed: " + res);
+         DebugLog.warning("Dualshock4Controller",
+                 "Command transfer failed: result=" + res + " expected=" + data.length);
       }
    }
 

@@ -1,4 +1,5 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:height="24dp" android:viewportHeight="1024" android:viewportWidth="1024" android:width="24dp">
+<!-- Static 24dp action glyph; keeping it vector avoids density copies and visual drift. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools" android:height="24dp" android:viewportHeight="1024" android:viewportWidth="1024" android:width="24dp" tools:ignore="VectorPath">
       
     <path android:fillColor="#ffffff" android:pathData="M928,76.8h-832c-19.2,0 -32,12.8 -32,32v582.4c0,19.2 12.8,32 32,32H256c19.2,0 32,-12.8 32,-32s-12.8,-32 -32,-32H128V140.8h768v518.4H512c-19.2,0 -32,12.8 -32,32v192H320c-19.2,0 -32,12.8 -32,32s12.8,32 32,32h371.2c19.2,0 32,-12.8 32,-32s-12.8,-32 -32,-32H544v-160h384c19.2,0 32,-12.8 32,-32V108.8c0,-19.2 -12.8,-32 -32,-32z"/>
       

@@ -4,7 +4,7 @@ import android.content.Context;
 import android.opengl.EGL14;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
-import android.util.Log;
+import com.limelight.DebugLog;
 
 import java.io.IOException;
 import java.nio.FloatBuffer;
@@ -77,15 +77,15 @@ public final class FsrVideoProcessor implements VideoProcessingGLSurfaceView.Vid
                 preferredNeedInputSize = false;
             }
         } else if (glMajorVersion >= 3) {
-            Log.w(TAG, "GLES3 context without GL_OES_EGL_image_external_essl3, forcing FSR 2.0 shaders");
+            DebugLog.warning(TAG, "GLES3 context without GL_OES_EGL_image_external_essl3, forcing FSR 2.0 shaders");
         }
 
-        Log.i(TAG, "FSR preferred shader dir=" + preferredDir
+        DebugLog.info(TAG, "FSR preferred shader dir=" + preferredDir
                 + ", GLES=" + glMajorVersion + "." + glMinorVersion);
         boolean tryTwoPassPreferred = ENABLE_TWO_PASS_PIPELINE
                 && (!SHADER_DIR_31.equals(preferredDir) || ENABLE_TWO_PASS_FOR_31);
         if (SHADER_DIR_31.equals(preferredDir) && !ENABLE_TWO_PASS_FOR_31) {
-            Log.w(TAG, "Skip FSR 3.1 two-pass for driver stability; use 3.1 mobile path first");
+            DebugLog.warning(TAG, "Skip FSR 3.1 two-pass for driver stability; use 3.1 mobile path first");
         }
         if (tryTwoPassPreferred
                 && (tryInitTwoPass(preferredDir, preferredNeedInputSize)
@@ -102,7 +102,7 @@ public final class FsrVideoProcessor implements VideoProcessingGLSurfaceView.Vid
 
         pipelineMode = PIPELINE_NONE;
         activeShaderDir = "none";
-        Log.e(TAG, "All FSR pipelines failed; passthrough only");
+        DebugLog.error(TAG, "All FSR pipelines failed; passthrough only");
     }
 
     @Override
@@ -162,14 +162,14 @@ public final class FsrVideoProcessor implements VideoProcessingGLSurfaceView.Vid
 
     public void setHdrToneMappingEnabled(boolean enabled) {
         hdrToneMappingEnabled = enabled;
-        Log.i(TAG, "HDR tone mapping requested=" + enabled);
+        DebugLog.info(TAG, "HDR tone mapping requested=" + enabled);
     }
 
     public void setSharpness(float sharpness) {
         float clamped = Math.max(0.0f, Math.min(2.0f, sharpness));
         mobileSharpness = clamped;
         rcasSharpness = 2.0f - clamped;
-        Log.i(TAG, "Sharpness=" + clamped + ", mobile=" + mobileSharpness + ", rcas=" + rcasSharpness);
+        DebugLog.info(TAG, "Sharpness=" + clamped + ", mobile=" + mobileSharpness + ", rcas=" + rcasSharpness);
     }
 
     public void setHdrWhiteScale(float hdrWhiteScale) {
@@ -195,10 +195,10 @@ public final class FsrVideoProcessor implements VideoProcessingGLSurfaceView.Vid
             if (outputWidth > 0 && outputHeight > 0) {
                 createFramebuffer();
             }
-            Log.i(TAG, "FSR pipeline active: two-pass, shaderDir=" + shaderDir);
+            DebugLog.info(TAG, "FSR pipeline active: two-pass, shaderDir=" + shaderDir);
             return true;
         } catch (IOException | GlUtil.GlException e) {
-            Log.e(TAG, "Failed to initialize two-pass FSR from " + shaderDir, e);
+            DebugLog.error(TAG, "Failed to initialize two-pass FSR from " + shaderDir, e);
             safeDeleteProgram(easu);
             safeDeleteProgram(rcas);
             return false;
@@ -219,10 +219,10 @@ public final class FsrVideoProcessor implements VideoProcessingGLSurfaceView.Vid
             pipelineMode = PIPELINE_MOBILE_SINGLE_PASS;
             activeShaderDir = shaderDir;
             deleteFramebuffer();
-            Log.i(TAG, "FSR pipeline active: mobile single-pass, shaderDir=" + shaderDir);
+            DebugLog.info(TAG, "FSR pipeline active: mobile single-pass, shaderDir=" + shaderDir);
             return true;
         } catch (IOException | GlUtil.GlException e) {
-            Log.e(TAG, "Failed to initialize mobile FSR from " + shaderDir, e);
+            DebugLog.error(TAG, "Failed to initialize mobile FSR from " + shaderDir, e);
             safeDeleteProgram(program);
             return false;
         }
@@ -251,7 +251,7 @@ public final class FsrVideoProcessor implements VideoProcessingGLSurfaceView.Vid
             easuProgram.setFloatsUniform("outputTextureSize", outputSize);
             easuProgram.bindAttributesAndUniforms();
         } catch (GlUtil.GlException e) {
-            Log.e(TAG, "Failed to bind EASU shader (" + activeShaderDir + ")", e);
+            DebugLog.error(TAG, "Failed to bind EASU shader (" + activeShaderDir + ")", e);
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
             fallbackToMobileSinglePass("bind-easu");
             draw(frameTexture, 0L, frameWidth, frameHeight, transformMatrix);
@@ -276,7 +276,7 @@ public final class FsrVideoProcessor implements VideoProcessingGLSurfaceView.Vid
             rcasProgram.setFloatUniform("sharpness", rcasSharpness);
             rcasProgram.bindAttributesAndUniforms();
         } catch (GlUtil.GlException e) {
-            Log.e(TAG, "Failed to bind RCAS shader (" + activeShaderDir + ")", e);
+            DebugLog.error(TAG, "Failed to bind RCAS shader (" + activeShaderDir + ")", e);
             fallbackToMobileSinglePass("bind-rcas");
             draw(frameTexture, 0L, frameWidth, frameHeight, transformMatrix);
             return;
@@ -305,7 +305,7 @@ public final class FsrVideoProcessor implements VideoProcessingGLSurfaceView.Vid
             }
             mobileProgram.bindAttributesAndUniforms();
         } catch (GlUtil.GlException e) {
-            Log.e(TAG, "Failed to bind mobile FSR shader (" + activeShaderDir + ")", e);
+            DebugLog.error(TAG, "Failed to bind mobile FSR shader (" + activeShaderDir + ")", e);
             drawPassthrough(frameTexture, transformMatrix);
             return;
         }
@@ -322,7 +322,7 @@ public final class FsrVideoProcessor implements VideoProcessingGLSurfaceView.Vid
             program.setFloatUniform("uHdrToneMap", shouldApplySoftwareHdrToneMap() ? 1.0f : 0.0f);
             program.bindAttributesAndUniforms();
         } catch (IOException | GlUtil.GlException e) {
-            Log.e(TAG, "Failed to bind passthrough shader", e);
+            DebugLog.error(TAG, "Failed to bind passthrough shader", e);
             return;
         }
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
@@ -400,7 +400,7 @@ public final class FsrVideoProcessor implements VideoProcessingGLSurfaceView.Vid
 
         int status = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER);
         if (status != GLES20.GL_FRAMEBUFFER_COMPLETE) {
-            Log.e(TAG, "Framebuffer incomplete: " + status);
+            DebugLog.error(TAG, "Framebuffer incomplete: " + status);
             deleteFramebuffer();
         }
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
@@ -425,7 +425,7 @@ public final class FsrVideoProcessor implements VideoProcessingGLSurfaceView.Vid
         String failedDir = activeShaderDir;
         boolean failedNeedInputSize = needInputSize;
         if (!twoPassFailureLogged) {
-            Log.w(TAG, "Switch FSR two-pass to mobile single-pass, reason=" + reason
+            DebugLog.warning(TAG, "Switch FSR two-pass to mobile single-pass, reason=" + reason
                     + ", shaderDir=" + failedDir);
             twoPassFailureLogged = true;
         }
@@ -466,7 +466,7 @@ public final class FsrVideoProcessor implements VideoProcessingGLSurfaceView.Vid
             GlUtil.checkGlError(label);
             return true;
         } catch (GlUtil.GlException e) {
-            Log.e(TAG, "GL error at " + label, e);
+            DebugLog.error(TAG, "GL error at " + label, e);
             return false;
         }
     }
@@ -494,7 +494,7 @@ public final class FsrVideoProcessor implements VideoProcessingGLSurfaceView.Vid
         if (EGL14.eglQuerySurface(display, drawSurface, EGL_GL_COLORSPACE_KHR, colorspace, 0)) {
             usingPqWindow = colorspace[0] == EGL_GL_COLORSPACE_BT2020_PQ_EXT;
         }
-        Log.i(TAG, "HDR surface state: usingPqWindow=" + usingPqWindow);
+        DebugLog.info(TAG, "HDR surface state: usingPqWindow=" + usingPqWindow);
     }
 
     private void safeDeleteProgram(GlProgram program) {
@@ -504,7 +504,7 @@ public final class FsrVideoProcessor implements VideoProcessingGLSurfaceView.Vid
         try {
             program.delete();
         } catch (RuntimeException e) {
-            Log.w(TAG, "Failed to delete GL program", e);
+            DebugLog.warning(TAG, "Failed to delete GL program", e);
         }
     }
 }

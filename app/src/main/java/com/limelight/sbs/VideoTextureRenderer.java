@@ -12,7 +12,7 @@ import android.graphics.*;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
-import android.util.Log;
+import com.limelight.DebugLog;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -143,7 +143,7 @@ public class VideoTextureRenderer extends TextureSurfaceRenderer implements Surf
         GLES20.glGetProgramiv(shaderProgram, GLES20.GL_LINK_STATUS, status, 0);
         if (status[0] != GLES20.GL_TRUE) {
             String error = GLES20.glGetProgramInfoLog(shaderProgram);
-            Log.e("SurfaceTest", "Error while linking program:\n" + error);
+            DebugLog.error("SurfaceTest", "Error while linking program:\n" + error);
         }
 
     }
@@ -323,7 +323,7 @@ public class VideoTextureRenderer extends TextureSurfaceRenderer implements Surf
     {
         int error;
         while ((error = GLES20.glGetError()) != GLES20.GL_NO_ERROR) {
-            Log.e("SurfaceTest", op + ": glError " + GLUtils.getEGLErrorString(error));
+            DebugLog.error("SurfaceTest", op + ": glError " + GLUtils.getEGLErrorString(error));
         }
     }
 

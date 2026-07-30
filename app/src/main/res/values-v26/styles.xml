@@ -1,0 +1,8 @@
+<resources>
+
+    <style name="StreamSurfacePlatformBehavior">
+        <item name="android:focusedByDefault">true</item>
+        <item name="android:defaultFocusHighlightEnabled">false</item>
+    </style>
+
+</resources>

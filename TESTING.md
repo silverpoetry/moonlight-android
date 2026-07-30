@@ -15,10 +15,10 @@ This runs:
 - Android Lint for every variant;
 - both root and non-root Release builds, including release-critical Lint checks.
 
-Lint uses a checked-in baseline for reviewed legacy findings and treats every finding
-outside that baseline as an error. Do not regenerate the baseline merely to make a build
-pass: fix new findings, or document why a baseline change is necessary and review the
-baseline diff with the code change.
+Lint has no baseline and treats every finding as an error. Intentional exceptions are
+scoped to the exact manifest element or resource that needs them and include an adjacent
+rationale. `MissingTranslation` remains the sole project-level disabled check because
+community translations are intentionally incomplete.
 
 ## Connected-device verification
 

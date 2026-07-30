@@ -1,0 +1,7 @@
+<resources>
+
+    <style name="StreamOverlayPlatformBehavior">
+        <item name="android:preferKeepClear">true</item>
+    </style>
+
+</resources>

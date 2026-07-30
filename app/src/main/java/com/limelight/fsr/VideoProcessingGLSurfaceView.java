@@ -8,7 +8,7 @@ import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
+import com.limelight.DebugLog;
 import android.view.SurfaceHolder;
 
 import java.util.concurrent.CountDownLatch;
@@ -417,10 +417,10 @@ public class VideoProcessingGLSurfaceView extends GLSurfaceView {
                 EGLSurface hdrSurface = egl.eglCreateWindowSurface(display, config, nativeWindow, hdrAttribs);
                 int error = egl.eglGetError();
                 if (hdrSurface != null && hdrSurface != EGL10.EGL_NO_SURFACE && error == EGL10.EGL_SUCCESS) {
-                    Log.i(TAG, "HDR validation: GLES EGL surface colorspace=BT2020_PQ");
+                    DebugLog.info(TAG, "HDR validation: GLES EGL surface colorspace=BT2020_PQ");
                     return hdrSurface;
                 }
-                Log.w(TAG, "Failed to create GLES HDR EGL surface, error=0x"
+                DebugLog.warning(TAG, "Failed to create GLES HDR EGL surface, error=0x"
                         + Integer.toHexString(error) + "; falling back to default colorspace");
             }
 
@@ -428,7 +428,7 @@ public class VideoProcessingGLSurfaceView extends GLSurfaceView {
                     ? new int[] {EGL_PROTECTED_CONTENT_EXT, EGL14.EGL_TRUE, EGL10.EGL_NONE}
                     : new int[] {EGL10.EGL_NONE};
             EGLSurface surface = egl.eglCreateWindowSurface(display, config, nativeWindow, attribList);
-            Log.i(TAG, "HDR validation: GLES EGL surface colorspace=DEFAULT, hdrRequested=" + hdrOutputEnabled);
+            DebugLog.info(TAG, "HDR validation: GLES EGL surface colorspace=DEFAULT, hdrRequested=" + hdrOutputEnabled);
             return surface;
         }
 

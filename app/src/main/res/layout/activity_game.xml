@@ -13,13 +13,12 @@
 
     <com.limelight.ui.StreamView
         android:id="@+id/surfaceView"
+        style="@style/StreamSurfacePlatformBehavior"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_gravity="center"
         android:focusable="true"
-        android:focusableInTouchMode="true"
-        android:focusedByDefault="true"
-        android:defaultFocusHighlightEnabled="false">
+        android:focusableInTouchMode="true">
         <requestFocus />
     </com.limelight.ui.StreamView>
 
@@ -38,6 +37,7 @@
 
     <TextView
         android:id="@+id/notificationOverlay"
+        style="@style/StreamOverlayPlatformBehavior"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="10dp"
@@ -46,7 +46,6 @@
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:gravity="end"
         android:background="#80000000"
-        android:preferKeepClear="true"
         android:visibility="gone" />
 
     <LinearLayout
@@ -57,6 +56,7 @@
 
         <LinearLayout
             android:id="@+id/performanceOverlayBig"
+            style="@style/StreamOverlayPlatformBehavior"
             android:layout_width="228dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
@@ -65,7 +65,6 @@
             android:background="@drawable/bg_stream_panel_soft"
             android:orientation="vertical"
             android:padding="14dp"
-            android:preferKeepClear="true"
             android:visibility="gone">
 
             <TextView
@@ -117,6 +116,7 @@
 
         <TextView
             android:id="@+id/performanceRumble"
+            style="@style/StreamOverlayPlatformBehavior"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="5dp"
@@ -126,7 +126,6 @@
             android:textAppearance="?android:attr/textAppearanceSmall"
             android:layout_gravity="center_horizontal"
             android:background="@drawable/ic_hud_bg"
-            android:preferKeepClear="true"
             android:visibility="gone" />
 
     </LinearLayout>

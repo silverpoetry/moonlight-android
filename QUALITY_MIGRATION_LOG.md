@@ -265,3 +265,51 @@ manual release gate.
 - The devices were not used for unlocked visual inspection. Launcher shape, TV banner,
   streaming fallback, overlay appearance, and secondary-display behavior remain in the
   final manual release gate.
+
+## Intentional attributes, baseline closure, and release gate
+
+- Removed redundant per-activity predictive-back opt-ins. Target API 36 enables
+  predictive back by default, while the supported callback registration remains in the
+  shared navigation boundary.
+- Consolidated Samsung DeX's explicit resizable declaration at application scope.
+  Manifest-only optional capabilities are locally suppressed on exactly the
+  `application`, `Game`, and `GameSbs` elements with adjacent runtime rationale.
+- Moved stream-surface focus behavior to `values-v26` and overlay
+  `preferKeepClear` behavior to `values-v33`. API 36 instrumentation verifies the
+  selected runtime attributes after inflating the real stream layout.
+- Retained 16 small, static 12–24dp action vectors. Each resource has its own adjacent
+  `VectorPath` rationale; the previously pathological controller path was simplified
+  rather than suppressed.
+- Lint reported zero errors or warnings while the old baseline was still present and
+  identified all 45 records as obsolete. The baseline file and Gradle baseline
+  configuration were then deleted. `warningsAsErrors` remains enabled, with no Lint
+  baseline.
+- Replaced every direct application call to `android.util.Log` with the centralized
+  `DebugLog` facade. Only that facade imports the platform logger, and it is gated by
+  `BuildConfig.DEBUG`. Release unit tests prove both tagged logging and `LimeLog` emit
+  no records; this includes render, controller-input, audio-haptics, microphone, and
+  clipboard paths.
+- `verifyLocal`: passed with 148 JVM tests across all four build variants, zero
+  failures, errors, or skips; all four Lint variants passed with no baseline; both
+  unminified Release APKs built.
+- `verifyConnected` with `ANDROID_SERIAL=192.168.3.125:5555`: passed 40 non-root and
+  40 root instrumentation tests. Direct AndroidJUnitRunner verification also passed
+  the same 40 tests for both variants on `192.168.3.3:42815` and
+  `192.168.3.79:5555`.
+- Release upgrade/install checks passed on all three devices. Non-root Release upgraded
+  in place with unchanged `firstInstallTime`; Root Release installed cleanly. Every
+  installed package reports version code 314, version name `12.1-260725`, and target
+  API 36.
+
+Final Release artifacts:
+
+| Flavor | Size | SHA-256 |
+| --- | ---: | --- |
+| `nonRootRelease` | 15,966,413 bytes | `C4EA081E1654D94F41F9661A123CD3CB25BFA7F3BAF03415E3939F1FADDDD6A3` |
+| `rootRelease` | 15,987,524 bytes | `91BE46C30E24A5223EE9F0BFEC72B1D66AF779170A7D4FF87EF365961560B5A3` |
+
+All three devices reported `NotificationShade` as the focused window and a dreaming
+lockscreen during the final gate. Visible launcher/vendor-mask comparison, TV launcher,
+secondary-display presentation, split/freeform/PiP transitions, and a live Sunshine
+stream covering input, microphone, and bidirectional clipboard remain manual release
+checks. They are not represented as passed by the automated evidence above.

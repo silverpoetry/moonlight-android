@@ -30,6 +30,12 @@
         <item name="android:windowBackground">@android:color/black</item>
     </style>
 
+    <!-- API-specific stream-view behavior is added by version-qualified styles. -->
+    <style name="StreamSurfacePlatformBehavior" />
+
+    <!-- API 33+ asks the window manager to keep important overlays unobscured. -->
+    <style name="StreamOverlayPlatformBehavior" />
+
     <declare-styleable name="ApertureViewGroup">
         <attr name="aperture_color1" format="color" />
         <attr name="aperture_color2" format="color" />

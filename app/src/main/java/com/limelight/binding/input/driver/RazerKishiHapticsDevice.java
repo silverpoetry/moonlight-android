@@ -5,7 +5,7 @@ import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbEndpoint;
 import android.hardware.usb.UsbInterface;
-import android.util.Log;
+import com.limelight.DebugLog;
 
 import com.limelight.LimeLog;
 
@@ -112,33 +112,33 @@ public final class RazerKishiHapticsDevice {
 
     public boolean start() {
         if (started) {
-            Log.d(TAG, "start() skipped because device already started: pid=0x" +
+            DebugLog.debug(TAG, "start() skipped because device already started: pid=0x" +
                     Integer.toHexString(device.getProductId()));
             return true;
         }
 
-        Log.i(TAG, "Starting Kishi haptics device: vid=0x" +
+        DebugLog.info(TAG, "Starting Kishi haptics device: vid=0x" +
                 Integer.toHexString(device.getVendorId()) + " pid=0x" +
                 Integer.toHexString(device.getProductId()) + " name=" + device.getProductName() +
                 " interfaces=" + device.getInterfaceCount());
         detectHapticEndpoint();
         if (hapticInterface == null || hapticEndpoint == null) {
             LimeLog.warning("Razer Kishi haptic interface not found");
-            Log.e(TAG, "No Kishi haptic endpoint found");
+            DebugLog.error(TAG, "No Kishi haptic endpoint found");
             return false;
         }
 
-        Log.i(TAG, "Using haptic interface id=" + hapticInterface.getId() +
+        DebugLog.info(TAG, "Using haptic interface id=" + hapticInterface.getId() +
                 " endpoint=0x" + Integer.toHexString(hapticEndpoint.getAddress()) +
                 " maxPacket=" + hapticEndpoint.getMaxPacketSize());
         if (!connection.claimInterface(hapticInterface, true)) {
             LimeLog.warning("Failed to claim Razer Kishi haptic interface");
-            Log.e(TAG, "Failed to claim haptic interface id=" + hapticInterface.getId());
+            DebugLog.error(TAG, "Failed to claim haptic interface id=" + hapticInterface.getId());
             return false;
         }
 
         if (!sendHapticStateControl(true)) {
-            Log.e(TAG, "Failed to enable Kishi haptic state");
+            DebugLog.error(TAG, "Failed to enable Kishi haptic state");
             connection.releaseInterface(hapticInterface);
             return false;
         }
@@ -148,17 +148,17 @@ public final class RazerKishiHapticsDevice {
         hapticSender.start(hapticEndpoint);
         submittedFrameCount = 0;
         started = true;
-        Log.i(TAG, "Kishi haptics started successfully");
+        DebugLog.info(TAG, "Kishi haptics started successfully");
         return true;
     }
 
     public void stop() {
         if (!started) {
-            Log.d(TAG, "stop() ignored because device was not started");
+            DebugLog.debug(TAG, "stop() ignored because device was not started");
             return;
         }
 
-        Log.i(TAG, "Stopping Kishi haptics device pid=0x" +
+        DebugLog.info(TAG, "Stopping Kishi haptics device pid=0x" +
                 Integer.toHexString(device.getProductId()));
         if (hapticSender != null) {
             hapticSender.stop();
@@ -191,15 +191,18 @@ public final class RazerKishiHapticsDevice {
 
     public boolean submitFrame(byte[] frame, float intensityGain) {
         if (!started || hapticSender == null || frame == null || frame.length == 0) {
-            Log.w(TAG, "submitFrame rejected: started=" + started +
-                    " sender=" + (hapticSender != null) +
-                    " frameLength=" + (frame == null ? -1 : frame.length));
+            if (DebugLog.isEnabled()) {
+                DebugLog.warning(TAG, "submitFrame rejected: started=" + started +
+                        " sender=" + (hapticSender != null) +
+                        " frameLength=" + (frame == null ? -1 : frame.length));
+            }
             return false;
         }
 
         submittedFrameCount++;
-        if (submittedFrameCount <= 5 || submittedFrameCount % 50 == 0) {
-            Log.d(TAG, "submitFrame #" + submittedFrameCount +
+        if (DebugLog.isEnabled() &&
+                (submittedFrameCount <= 5 || submittedFrameCount % 50 == 0)) {
+            DebugLog.debug(TAG, "submitFrame #" + submittedFrameCount +
                     " bytes=" + frame.length + " gain=" + intensityGain);
         }
         enqueueHapticData(frame, intensityGain);
@@ -214,7 +217,7 @@ public final class RazerKishiHapticsDevice {
             UsbInterface candidate = device.getInterface(HAPTIC_INTERFACE_INDEX);
             UsbEndpoint endpoint = findInterruptOutEndpoint(candidate);
             if (endpoint != null) {
-                Log.d(TAG, "Found preferred interface 3 for Kishi haptics");
+                DebugLog.debug(TAG, "Found preferred interface 3 for Kishi haptics");
                 hapticInterface = candidate;
                 hapticEndpoint = endpoint;
                 return;
@@ -225,7 +228,7 @@ public final class RazerKishiHapticsDevice {
             UsbInterface candidate = device.getInterface(i);
             UsbEndpoint endpoint = findInterruptOutEndpoint(candidate);
             if (endpoint != null) {
-                Log.d(TAG, "Found fallback haptic interface id=" + candidate.getId() +
+                DebugLog.debug(TAG, "Found fallback haptic interface id=" + candidate.getId() +
                         " endpoint=0x" + Integer.toHexString(endpoint.getAddress()));
                 hapticInterface = candidate;
                 hapticEndpoint = endpoint;
@@ -243,7 +246,7 @@ public final class RazerKishiHapticsDevice {
             UsbEndpoint endpoint = iface.getEndpoint(i);
             if (endpoint.getType() == UsbConstants.USB_ENDPOINT_XFER_INT &&
                     endpoint.getDirection() == UsbConstants.USB_DIR_OUT) {
-                Log.d(TAG, "Interrupt OUT endpoint match: iface=" + iface.getId() +
+                DebugLog.debug(TAG, "Interrupt OUT endpoint match: iface=" + iface.getId() +
                         " endpoint=0x" + Integer.toHexString(endpoint.getAddress()) +
                         " maxPacket=" + endpoint.getMaxPacketSize());
                 return endpoint;
@@ -259,7 +262,7 @@ public final class RazerKishiHapticsDevice {
         byte[] rightCmd = new byte[] {0x00, 0x02, state};
         boolean leftOk = sendControlCommand("SetHapticStateControl-L", leftCmd);
         boolean rightOk = sendControlCommand("SetHapticStateControl-R", rightCmd);
-        Log.i(TAG, "sendHapticStateControl(" + enable + ") left=" + leftOk + " right=" + rightOk);
+        DebugLog.info(TAG, "sendHapticStateControl(" + enable + ") left=" + leftOk + " right=" + rightOk);
         return leftOk && rightOk;
     }
 
@@ -268,13 +271,13 @@ public final class RazerKishiHapticsDevice {
         byte[] rightCmd = new byte[] {0x00, 0x02, intensity};
         boolean leftOk = sendControlCommand("SetHapticIntensity-L", leftCmd);
         boolean rightOk = sendControlCommand("SetHapticIntensity-R", rightCmd);
-        Log.i(TAG, "sendHapticIntensity(0x" + Integer.toHexString(intensity & 0xFF) +
+        DebugLog.info(TAG, "sendHapticIntensity(0x" + Integer.toHexString(intensity & 0xFF) +
                 ") left=" + leftOk + " right=" + rightOk);
     }
 
     private boolean sendControlCommand(String name, byte[] data) {
         if (hapticInterface == null || data == null) {
-            Log.w(TAG, "sendControlCommand(" + name + ") skipped because interface/data missing");
+            DebugLog.warning(TAG, "sendControlCommand(" + name + ") skipped because interface/data missing");
             return false;
         }
 
@@ -283,7 +286,7 @@ public final class RazerKishiHapticsDevice {
         int value = (HID_REPORT_TYPE_FEATURE << 8);
         int index = hapticInterface.getId();
         int result = connection.controlTransfer(requestType, request, value, index, data, data.length, CONTROL_TIMEOUT_MS);
-        Log.d(TAG, "controlTransfer " + name + " result=" + result +
+        DebugLog.debug(TAG, "controlTransfer " + name + " result=" + result +
                 " expected=" + data.length + " interface=" + index);
         return result == data.length;
     }
@@ -298,8 +301,9 @@ public final class RazerKishiHapticsDevice {
 
         short[] resampled = resample3kTo4k(inputSamples);
         float clampedGain = clampGain(gain);
-        if (submittedFrameCount <= 5 || submittedFrameCount % 50 == 0) {
-            Log.d(TAG, "enqueueHapticData inputSamples=" + inputSamples.length +
+        if (DebugLog.isEnabled() &&
+                (submittedFrameCount <= 5 || submittedFrameCount % 50 == 0)) {
+            DebugLog.debug(TAG, "enqueueHapticData inputSamples=" + inputSamples.length +
                     " resampled=" + resampled.length + " gain=" + clampedGain);
         }
         if (clampedGain != 1.0f) {

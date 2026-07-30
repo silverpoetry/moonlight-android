@@ -95,6 +95,7 @@
 
     <TextView
         android:id="@+id/notificationOverlay"
+        style="@style/StreamOverlayPlatformBehavior"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="10dp"
@@ -103,12 +104,12 @@
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:gravity="end"
         android:background="#80000000"
-        android:preferKeepClear="true"
         android:visibility="gone" />
 
 
     <TextView
         android:id="@+id/performanceOverlay"
+        style="@style/StreamOverlayPlatformBehavior"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="10dp"
@@ -117,7 +118,6 @@
         android:textAppearance="?android:attr/textAppearanceSmall"
         android:gravity="start"
         android:background="#80000000"
-        android:preferKeepClear="true"
         android:visibility="gone" />
 
 </RelativeLayout>

@@ -103,7 +103,6 @@ import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.format.Formatter;
 import android.text.style.ForegroundColorSpan;
-import android.util.Log;
 import android.util.Rational;
 import android.util.TypedValue;
 import android.view.Display;

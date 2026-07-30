@@ -5,6 +5,15 @@ debt without mixing unrelated compatibility, dependency, UI, and resource change
 Each phase must be independently reviewable, testable, and revertible. A phase does
 not advance until its exit gate passes.
 
+## Completion status
+
+All six implementation phases and their automated gates were completed on 2026-07-30.
+The final `verifyConnected` gate passed on an API 36 phone, with additional direct
+AndroidJUnitRunner coverage on two more API 36 devices. The devices were locked during
+the final run, so the unlocked visual and live-stream checks listed in the regression
+matrix remain explicitly recorded as manual release checks rather than being claimed as
+automated passes.
+
 ## Invariants
 
 - Preserve both `root` and `nonRoot` product flavors.

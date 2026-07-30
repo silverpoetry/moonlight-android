@@ -1,6 +1,7 @@
 package com.limelight;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -10,10 +11,15 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.drawable.AdaptiveIconDrawable;
 import android.graphics.drawable.Drawable;
+import android.view.ContextThemeWrapper;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.FrameLayout;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -67,6 +73,25 @@ public class RenderingResourcesTest {
         finally {
             controller.recycle();
         }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 33)
+    public void streamLayoutAppliesVersionQualifiedPlatformBehavior() {
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            Context context = new ContextThemeWrapper(
+                    ApplicationProvider.getApplicationContext(),
+                    R.style.StreamTheme);
+            FrameLayout root = new FrameLayout(context);
+            LayoutInflater.from(context).inflate(R.layout.activity_game, root, true);
+
+            View surface = root.findViewById(R.id.surfaceView);
+            assertTrue(surface.isFocusedByDefault());
+            assertFalse(surface.getDefaultFocusHighlightEnabled());
+            assertTrue(root.findViewById(R.id.notificationOverlay).isPreferKeepClear());
+            assertTrue(root.findViewById(R.id.performanceOverlayBig).isPreferKeepClear());
+            assertTrue(root.findViewById(R.id.performanceRumble).isPreferKeepClear());
+        });
     }
 
     private static Bitmap renderDrawable(Drawable drawable, int width, int height) {

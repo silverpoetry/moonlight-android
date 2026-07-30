@@ -15,7 +15,7 @@ import javax.microedition.khronos.egl.EGLDisplay;
 import javax.microedition.khronos.egl.EGLSurface;
 
 import android.opengl.GLUtils;
-import android.util.Log;
+import com.limelight.DebugLog;
 
 import javax.microedition.khronos.egl.EGL10;
 
@@ -63,7 +63,7 @@ public abstract class TextureSurfaceRenderer implements Runnable
     {
         initGL();
         initGLComponents();
-        Log.d(LOG_TAG, "OpenGL init OK.");
+        DebugLog.debug(LOG_TAG, "OpenGL init OK.");
 
         if(this.onGlReadyListener != null) {
             this.onGlReadyListener.onGlReady();
@@ -114,6 +114,10 @@ public abstract class TextureSurfaceRenderer implements Runnable
     private int frames;
     private void pingFps()
     {
+        if (!DebugLog.isEnabled()) {
+            return;
+        }
+
         if (lastFpsOutput == 0)
             lastFpsOutput = System.currentTimeMillis();
 
@@ -121,7 +125,7 @@ public abstract class TextureSurfaceRenderer implements Runnable
 
         if (System.currentTimeMillis() - lastFpsOutput > 1000)
         {
-            Log.d(LOG_TAG, "FPS: " + frames);
+            DebugLog.debug(LOG_TAG, "FPS: " + frames);
             lastFpsOutput = System.currentTimeMillis();
             frames = 0;
         }
@@ -167,7 +171,7 @@ public abstract class TextureSurfaceRenderer implements Runnable
         egl.eglDestroySurface(eglDisplay, eglSurface);
         egl.eglDestroyContext(eglDisplay, eglContext);
         egl.eglTerminate(eglDisplay);
-        Log.d(LOG_TAG, "OpenGL deinit OK.");
+        DebugLog.debug(LOG_TAG, "OpenGL deinit OK.");
     }
 
     private EGLContext createContext(EGL10 egl, EGLDisplay eglDisplay, EGLConfig eglConfig)
