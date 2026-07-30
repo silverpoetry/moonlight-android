@@ -396,7 +396,7 @@ public class KeyBoardLayoutController {
     }
 
     public void sendKeyEvent(KeyEvent keyEvent) {
-        if (Game.instance == null || !Game.instance.connected) {
+        if (Game.instance == null || !Game.instance.isSessionConnected()) {
             return;
         }
         //1-鼠标 0-按键 2-摇杆 3-十字键

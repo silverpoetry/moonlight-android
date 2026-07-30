@@ -21,7 +21,6 @@ import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.Semaphore;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -40,7 +39,7 @@ import com.limelight.nvstream.http.PairingManager;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 
-public class NvConnection {
+public class NvConnection implements StreamSessionConnection {
     public interface ClipboardFileDownloadListener {
         void onProgress(long transferredBytes, long totalBytes);
         void onComplete(int topLevelItemCount);
@@ -63,16 +62,22 @@ public class NvConnection {
     private LimelightCryptoProvider cryptoProvider;
     private String uniqueId;
     private ConnectionContext context;
-    private static Semaphore connectionAllowed = new Semaphore(1);
+    private static final ConnectionLeaseManager CONNECTION_LEASES =
+            new ConnectionLeaseManager();
     private final boolean isMonkey;
     private final Context appContext;
+    private final Object connectionLifecycleLock = new Object();
     private final Object mousePositionLock = new Object();
+    private boolean startRequested;
+    private boolean stopRequested;
+    private Thread startThread;
+    private ConnectionLeaseManager.Lease bridgeLease;
     private volatile boolean useAbsoluteMousePosition;
     private MicUplinkConnection micUplinkConnection;
     private volatile MicUplinkState micUplinkState = MicUplinkState.OFF;
     private volatile String lastMicUplinkMessage;
     private volatile MousePositionListener mousePositionListener;
-    private ClipboardSyncController clipboardSyncController;
+    private volatile ClipboardSyncController clipboardSyncController;
 
     public void downloadRemoteClipboardFiles(android.net.Uri destinationTree,
                                              ClipboardFileDownloadListener listener) {
@@ -145,26 +150,110 @@ public class NvConnection {
         return new SecureRandom().nextInt();
     }
 
+    @Override
     public void stop() {
-        if (clipboardSyncController != null) {
-            clipboardSyncController.stop();
-            clipboardSyncController = null;
+        Thread pendingStart;
+        ConnectionLeaseManager.Lease ownedLease;
+        synchronized (connectionLifecycleLock) {
+            if (stopRequested) {
+                return;
+            }
+            stopRequested = true;
+            pendingStart = startThread;
+            ownedLease = bridgeLease;
+        }
+
+        if (pendingStart != null &&
+                pendingStart != Thread.currentThread()) {
+            pendingStart.interrupt();
         }
 
         stopMicUplink();
 
-        // Interrupt any pending connection. This is thread-safe.
-        MoonBridge.interruptConnection();
+        if (ownedLease != null) {
+            // Only the NvConnection that owns the common-c lease may interrupt
+            // or stop the process-global bridge.
+            MoonBridge.interruptConnection();
 
-        // Moonlight-core is not thread-safe with respect to connection start and stop, so
-        // we must not invoke that functionality in parallel.
-        synchronized (MoonBridge.class) {
-            MoonBridge.stopConnection();
-            MoonBridge.cleanupBridge();
+            synchronized (MoonBridge.class) {
+                if (ownsBridgeLease(ownedLease)) {
+                    stopClipboardSync();
+                    MoonBridge.stopConnection();
+                    MoonBridge.cleanupBridge();
+                    releaseBridgeLease(ownedLease);
+                }
+            }
+        }
+        else {
+            stopClipboardSync();
         }
 
-        // Now a pending connection can be processed
-        connectionAllowed.release();
+        waitForStartThread(pendingStart);
+    }
+
+    private void stopClipboardSync() {
+        ClipboardSyncController controller;
+        synchronized (connectionLifecycleLock) {
+            controller = clipboardSyncController;
+            clipboardSyncController = null;
+        }
+        if (controller != null) {
+            controller.stop();
+        }
+    }
+
+    private boolean isStopRequested() {
+        synchronized (connectionLifecycleLock) {
+            return stopRequested;
+        }
+    }
+
+    private boolean installBridgeLease(
+            ConnectionLeaseManager.Lease acquiredLease) {
+        synchronized (connectionLifecycleLock) {
+            if (stopRequested) {
+                return false;
+            }
+            bridgeLease = acquiredLease;
+            return true;
+        }
+    }
+
+    private boolean ownsBridgeLease(
+            ConnectionLeaseManager.Lease expectedLease) {
+        synchronized (connectionLifecycleLock) {
+            return bridgeLease == expectedLease;
+        }
+    }
+
+    private void releaseBridgeLease(
+            ConnectionLeaseManager.Lease expectedLease) {
+        synchronized (connectionLifecycleLock) {
+            if (bridgeLease != expectedLease) {
+                return;
+            }
+            bridgeLease = null;
+        }
+        expectedLease.close();
+    }
+
+    private void waitForStartThread(Thread pendingStart) {
+        if (pendingStart == null ||
+                pendingStart == Thread.currentThread()) {
+            return;
+        }
+
+        boolean interrupted = false;
+        while (pendingStart.isAlive()) {
+            try {
+                pendingStart.join();
+            } catch (InterruptedException error) {
+                interrupted = true;
+            }
+        }
+        if (interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     public String getLastMicUplinkMessage() {
@@ -547,92 +636,161 @@ public class NvConnection {
         return true;
     }
 
-    public void start(final AudioRenderer audioRenderer, final VideoDecoderRenderer videoDecoderRenderer, final NvConnectionListener connectionListener)
-    {
-        new Thread(new Runnable() {
-            public void run() {
-                context.connListener = connectionListener;
-                context.videoCapabilities = videoDecoderRenderer.getCapabilities();
+    @Override
+    public void start(final AudioRenderer audioRenderer,
+                      final VideoDecoderRenderer videoDecoderRenderer,
+                      final NvConnectionListener connectionListener) {
+        Thread worker = new Thread(
+                () -> runConnectionStart(audioRenderer,
+                        videoDecoderRenderer, connectionListener),
+                "NvConnectionStart");
+        synchronized (connectionLifecycleLock) {
+            if (startRequested || stopRequested) {
+                throw new IllegalStateException(
+                        "NvConnection instances are single-use");
+            }
+            startRequested = true;
+            startThread = worker;
+        }
+        worker.start();
+    }
 
-                String appName = context.streamConfig.getApp().getAppName();
+    private void runConnectionStart(
+            AudioRenderer audioRenderer,
+            VideoDecoderRenderer videoDecoderRenderer,
+            NvConnectionListener connectionListener) {
+        try {
+            context.connListener = connectionListener;
+            context.videoCapabilities =
+                    videoDecoderRenderer.getCapabilities();
 
-                context.connListener.stageStarting(appName);
+            String appName =
+                    context.streamConfig.getApp().getAppName();
+            if (isStopRequested()) {
+                return;
+            }
+            context.connListener.stageStarting(appName);
 
-                NvHTTP sessionHttp;
-                try {
-                    sessionHttp = startApp();
-                    if (sessionHttp == null) {
-                        context.connListener.stageFailed(appName, 0, 0);
-                        return;
-                    }
-                    context.connListener.stageComplete(appName);
-                } catch (HostHttpResponseException e) {
-                    e.printStackTrace();
-                    context.connListener.displayMessage(e.getMessage());
-                    context.connListener.stageFailed(appName, 0, e.getErrorCode());
-                    return;
-                } catch (XmlPullParserException | IOException e) {
-                    e.printStackTrace();
-                    context.connListener.displayMessage(e.getMessage());
-                    context.connListener.stageFailed(appName, MoonBridge.ML_PORT_FLAG_TCP_47984 | MoonBridge.ML_PORT_FLAG_TCP_47989, 0);
+            NvHTTP sessionHttp;
+            try {
+                sessionHttp = startApp();
+                if (isStopRequested()) {
                     return;
                 }
-
-                ByteBuffer ib = ByteBuffer.allocate(16);
-                ib.putInt(context.riKeyId);
-
-                // Acquire the connection semaphore to ensure we only have one
-                // connection going at once.
-                try {
-                    connectionAllowed.acquire();
-                } catch (InterruptedException e) {
-                    context.connListener.displayMessage(e.getMessage());
+                if (sessionHttp == null) {
                     context.connListener.stageFailed(appName, 0, 0);
                     return;
                 }
+                context.connListener.stageComplete(appName);
+            } catch (HostHttpResponseException error) {
+                if (!isStopRequested()) {
+                    error.printStackTrace();
+                    context.connListener.displayMessage(error.getMessage());
+                    context.connListener.stageFailed(
+                            appName, 0, error.getErrorCode());
+                }
+                return;
+            } catch (XmlPullParserException | IOException error) {
+                if (!isStopRequested()) {
+                    error.printStackTrace();
+                    context.connListener.displayMessage(error.getMessage());
+                    context.connListener.stageFailed(
+                            appName,
+                            MoonBridge.ML_PORT_FLAG_TCP_47984 |
+                                    MoonBridge.ML_PORT_FLAG_TCP_47989,
+                            0);
+                }
+                return;
+            }
 
-                // Moonlight-core is not thread-safe with respect to connection start and stop, so
-                // we must not invoke that functionality in parallel.
-                synchronized (MoonBridge.class) {
-                    MoonBridge.setupBridge(videoDecoderRenderer, audioRenderer, connectionListener);
-                    if (context.streamConfig.getClipboardProtocolEnabled()) {
-                        clipboardSyncController = new ClipboardSyncController(
-                                appContext,
-                                sessionHttp);
+            ByteBuffer iv = ByteBuffer.allocate(16);
+            iv.putInt(context.riKeyId);
+
+            ConnectionLeaseManager.Lease acquiredLease;
+            try {
+                acquiredLease = CONNECTION_LEASES.acquire();
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+                if (!isStopRequested()) {
+                    context.connListener.displayMessage(
+                            error.getMessage());
+                    context.connListener.stageFailed(appName, 0, 0);
+                }
+                return;
+            }
+
+            if (!installBridgeLease(acquiredLease)) {
+                acquiredLease.close();
+                return;
+            }
+
+            // Moonlight-core and the Java callback bridge are process-global.
+            // The lease establishes ownership across the whole streaming
+            // lifetime, while this monitor serializes setup and teardown.
+            synchronized (MoonBridge.class) {
+                if (isStopRequested()) {
+                    releaseBridgeLease(acquiredLease);
+                    return;
+                }
+
+                boolean bridgeStarted = false;
+                try {
+                    MoonBridge.setupBridge(videoDecoderRenderer,
+                            audioRenderer, connectionListener);
+                    if (context.streamConfig
+                            .getClipboardProtocolEnabled()) {
+                        clipboardSyncController =
+                                new ClipboardSyncController(
+                                        appContext, sessionHttp);
                         clipboardSyncController.start();
                     }
-                    int ret = MoonBridge.startConnection(context.serverAddress.address,
-                            context.serverAppVersion, context.serverGfeVersion, context.rtspSessionUrl,
+                    int result = MoonBridge.startConnection(
+                            context.serverAddress.address,
+                            context.serverAppVersion,
+                            context.serverGfeVersion,
+                            context.rtspSessionUrl,
                             context.serverCodecModeSupport,
-                            context.negotiatedWidth, context.negotiatedHeight,
-                            context.streamConfig.getRefreshRate(), context.streamConfig.getBitrate(),
-                            context.negotiatedPacketSize, context.negotiatedRemoteStreaming,
-                            context.streamConfig.getAudioConfiguration().toInt(),
-                            context.streamConfig.getSupportedVideoFormats(),
-                            context.streamConfig.getClientRefreshRateX100(),
-                            context.riKey.getEncoded(), ib.array(),
+                            context.negotiatedWidth,
+                            context.negotiatedHeight,
+                            context.streamConfig.getRefreshRate(),
+                            context.streamConfig.getBitrate(),
+                            context.negotiatedPacketSize,
+                            context.negotiatedRemoteStreaming,
+                            context.streamConfig.getAudioConfiguration()
+                                    .toInt(),
+                            context.streamConfig
+                                    .getSupportedVideoFormats(),
+                            context.streamConfig
+                                    .getClientRefreshRateX100(),
+                            context.riKey.getEncoded(), iv.array(),
                             context.videoCapabilities,
                             context.streamConfig.getColorSpace(),
                             context.streamConfig.getColorRange(),
-                            context.streamConfig.getNativeCursorEnabled(),
-                            context.streamConfig.getClipboardProtocolEnabled(),
-                            context.streamConfig.getClipboardCapabilities(),
-                            context.streamConfig.getAdaptiveInputThrottlingDisabled());
-                    if (ret != 0) {
-                        if (clipboardSyncController != null) {
-                            clipboardSyncController.stop();
-                            clipboardSyncController = null;
-                        }
-                        // LiStartConnection() failed, so the caller is not expected
-                        // to stop the connection themselves. We need to release their
-                        // semaphore count for them.
-                        connectionAllowed.release();
-                        return;
+                            context.streamConfig
+                                    .getNativeCursorEnabled(),
+                            context.streamConfig
+                                    .getClipboardProtocolEnabled(),
+                            context.streamConfig
+                                    .getClipboardCapabilities(),
+                            context.streamConfig
+                                    .getAdaptiveInputThrottlingDisabled());
+                    bridgeStarted = result == 0;
+                } finally {
+                    if (!bridgeStarted &&
+                            ownsBridgeLease(acquiredLease)) {
+                        stopClipboardSync();
+                        MoonBridge.cleanupBridge();
+                        releaseBridgeLease(acquiredLease);
                     }
                 }
-
             }
-        }).start();
+        } finally {
+            synchronized (connectionLifecycleLock) {
+                if (startThread == Thread.currentThread()) {
+                    startThread = null;
+                }
+            }
+        }
     }
 
     public void sendMouseMove(final short deltaX, final short deltaY)

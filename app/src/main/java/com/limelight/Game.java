@@ -35,6 +35,7 @@ import com.limelight.nvstream.MicUplinkConnection;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.NvConnectionListener;
 import com.limelight.nvstream.StreamConfiguration;
+import com.limelight.nvstream.StreamSessionController;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
@@ -197,10 +198,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private SharedPreferences tombstonePrefs;
 
     private NvConnection conn;
+    private StreamSessionController sessionController;
     private SpinnerDialog spinner;
     private boolean displayedFailureDialog = false;
-    private boolean connecting = false;
-    public boolean connected = false;
     private boolean awaitingRecordAudioPermission = false;
     private boolean selectingClipboardFileDirectory = false;
     private AlertDialog clipboardFileTransferDialog;
@@ -208,7 +208,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private boolean clipboardFileTransferInProgress;
     private boolean autoEnterPip = false;
     private boolean surfaceCreated = false;
-    private boolean attemptedConnection = false;
     private int suppressPipRefCount = 0;
     private String pcName;
     private String appName;
@@ -407,7 +406,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                             }
                             fsrInputSurface = new Surface(surfaceTexture);
                             fsrInputSurfaceReady = true;
-                            if (attemptedConnection) {
+                            if (hasSessionStarted()) {
                                 decoderRenderer.setRenderTarget(fsrInputSurface);
                             }
                             startConnectionIfReady();
@@ -741,6 +740,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 new ComputerDetails.AddressTuple(host, port),
                 httpsPort, uniqueId, config,
                 PlatformBinding.getCryptoProvider(this), serverCert);
+        sessionController = new StreamSessionController(conn, this);
         touchscreenTouchpadHandler = new TouchscreenTouchpadHandler(
                 conn, streamView, REFERENCE_HORIZ_RES, REFERENCE_VERT_RES, prefConfig);
         touchscreenTouchpadHandler.setNativeGestureListener(
@@ -1016,7 +1016,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             return;
         }
 
-        boolean autoEnter = connected && suppressPipRefCount == 0;
+        boolean autoEnter = isSessionConnected() &&
+                suppressPipRefCount == 0;
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             setPictureInPictureParams(getPictureInPictureParams(autoEnter));
@@ -3063,8 +3064,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private void stopConnection() {
         cancelNativeTouchpadInput();
-        if (connecting || connected) {
-            connecting = connected = false;
+        if (sessionController != null && sessionController.stop()) {
             UiHelper.notifyHdrWindowStatus(this, false);
             updatePipAutoEnter();
             audioRenderer = null;
@@ -3074,16 +3074,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             // Update GameManager state to indicate we're no longer in game
             UiHelper.notifyStreamEnded(this);
 
-            // Stop may take a few hundred ms to do some network I/O to tell
-            // the server we're going away and clean up. Let it run in a separate
-            // thread to keep things smooth for the UI. Inside moonlight-common,
-            // we prevent another thread from starting a connection before and
-            // during the process of stopping this one.
-            new Thread() {
-                public void run() {
-                    conn.stop();
-                }
-            }.start();
         }
     }
 
@@ -3250,8 +3240,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     spinner = null;
                 }
 
-                connected = true;
-                connecting = false;
                 streamStartElapsedMs = SystemClock.elapsedRealtime();
                 updatePipAutoEnter();
 
@@ -3401,19 +3389,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (fsrEnabled) {
             return;
         }
-        if (!attemptedConnection) {
-            attemptedConnection = true;
-
-            // Update GameManager state to indicate we're "loading" while connecting
-            UiHelper.notifyStreamConnecting(Game.this);
-
-            decoderRenderer.setRenderTarget(holder.getSurface());
-            audioRenderer = new AndroidAudioRenderer(Game.this, controllerHandler, prefConfig.enableAudioFx,
-                    prefConfig.enableAudioHaptics, prefConfig.audioHapticsStrength,
-                    prefConfig.audioHapticsVoiceFilter, prefConfig.audioHapticsOutputTarget);
-            conn.start(audioRenderer,
-                    decoderRenderer, Game.this);
-        }
+        startSessionWithRenderTarget(holder.getSurface());
     }
 
     @Override
@@ -3478,11 +3454,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         surfaceCreated = false;
 
-        if (attemptedConnection) {
+        if (hasSessionStarted()) {
             // Let the decoder know immediately that the surface is gone
             decoderRenderer.prepareForStop();
 
-            if (connected) {
+            if (sessionController.getState().needsStop()) {
                 stopConnection();
             }
         }
@@ -3585,7 +3561,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     public void onSystemUiVisibilityChange(int visibility) {
         // Don't do anything if we're not connected
-        if (!connected) {
+        if (!isSessionConnected()) {
             return;
         }
 
@@ -4396,18 +4372,47 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void startConnectionIfReady() {
-        if (!fsrEnabled || attemptedConnection || conn == null || !fsrInputSurfaceReady || !fsrDisplaySurfaceCreated) {
+        if (!fsrEnabled || sessionController == null ||
+                sessionController.getState().hasStarted() ||
+                !fsrInputSurfaceReady || !fsrDisplaySurfaceCreated) {
             return;
         }
 
-        attemptedConnection = true;
-        UiHelper.notifyStreamConnecting(Game.this);
-        decoderRenderer.setRenderTarget(fsrInputSurface);
+        startSessionWithRenderTarget(fsrInputSurface);
+    }
+
+    private void startSessionWithRenderTarget(Surface renderTarget) {
+        if (sessionController == null ||
+                sessionController.getState().hasStarted()) {
+            return;
+        }
+
+        decoderRenderer.setRenderTarget(renderTarget);
         audioRenderer = new AndroidAudioRenderer(Game.this, controllerHandler, prefConfig.enableAudioFx,
                 prefConfig.enableAudioHaptics, prefConfig.audioHapticsStrength,
                 prefConfig.audioHapticsVoiceFilter, prefConfig.audioHapticsOutputTarget);
-        conn.start(audioRenderer,
-                decoderRenderer, Game.this);
+        UiHelper.notifyStreamConnecting(Game.this);
+        try {
+            if (sessionController.start(audioRenderer, decoderRenderer)) {
+                return;
+            }
+        } catch (RuntimeException | Error error) {
+            audioRenderer = null;
+            UiHelper.notifyStreamEnded(Game.this);
+            throw error;
+        }
+        audioRenderer = null;
+        UiHelper.notifyStreamEnded(Game.this);
+    }
+
+    private boolean hasSessionStarted() {
+        return sessionController != null &&
+                sessionController.getState().hasStarted();
+    }
+
+    public boolean isSessionConnected() {
+        return sessionController != null &&
+                sessionController.getState().isStreaming();
     }
 
     private boolean isRecordAudioPermissionGranted() {

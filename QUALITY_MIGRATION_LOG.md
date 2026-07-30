@@ -314,3 +314,34 @@ lockscreen during the final gate. Visible launcher/vendor-mask comparison, TV la
 secondary-display presentation, split/freeform/PiP transitions, and a live Sunshine
 stream covering input, microphone, and bidirectional clipboard remain manual release
 checks. They are not represented as passed by the automated evidence above.
+
+## Stream session lifecycle boundary
+
+- Added a single-use `StreamSessionController` and explicit `SessionState` model for
+  `CREATED`, `STARTING`, `STREAMING`, `TERMINATED`, `STOPPING`, `STOPPED`, and
+  `FAILED`.
+- Removed `Game`'s independent `attemptedConnection`, `connecting`, and `connected`
+  flags. Surface readiness, picture-in-picture eligibility, input availability, and
+  cleanup now query the same state machine.
+- A connection that is stopped while the HTTP launch is running, while waiting for
+  another common-c session, or while native startup is running can no longer publish a
+  late `connectionStarted` callback back into the Activity.
+- Replaced the process-global raw `Semaphore` with ownership-bearing, idempotent
+  leases. Only the `NvConnection` that acquired the common-c lease may interrupt,
+  stop, clean up, or release the process-global bridge.
+- `NvConnection.stop()` now interrupts and joins its own pending startup worker before
+  reporting cleanup complete. It never releases another connection's permit.
+- Pure JVM tests cover single-use startup, exactly-once stop scheduling, late callback
+  rejection, cleanup after termination/failure, exclusive lease ownership, and
+  idempotent lease close.
+
+Verification on 2026-07-30:
+
+- Targeted session lifecycle and lease tests: passed.
+- `verifyLocal`: passed with 180 JVM test executions across all four build variants,
+  zero failures, errors, or skips.
+- All four root/non-root debug/release Lint variants: passed with no findings.
+- Both unminified root and non-root Release APKs: built successfully.
+- Live cancellation during HTTP launch, native startup, and an active stream remains a
+  manual device regression gate; the automated tests do not claim those host-dependent
+  paths were exercised.

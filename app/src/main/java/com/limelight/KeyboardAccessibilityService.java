@@ -50,7 +50,8 @@ public class KeyboardAccessibilityService extends AccessibilityService {
         Uri uri= FileProvider.getUriForFile(this,authority,dataBaseFile);
         String result= FileUriUtils.openUriForRead(this,uri);
         //主要解决系统自带快捷键在pc端无法使用问题 home键 scancode=172 code- 3
-        if (Game.instance != null && Game.instance.connected && !BLACKLIST_KEYS.contains(keyCode)) {
+        if (Game.instance != null && Game.instance.isSessionConnected() &&
+                !BLACKLIST_KEYS.contains(keyCode)) {
 
             if (action == KeyEvent.ACTION_DOWN) {
                 //fix 小米平板esc键按钮映射错误 KEYCODE_BACK=4
