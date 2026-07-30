@@ -26,6 +26,7 @@ import com.limelight.nvstream.input.KeyboardPacket;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
+import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.UiHelper;
 
 import java.util.HashMap;
@@ -38,6 +39,7 @@ import java.util.Map;
  * Time: 16:07
  */
 public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClickListener{
+    private BackNavigationRegistration backNavigationRegistration;
 
     private void refreshMicButton() {
         if (btn_mic != null && game != null) {
@@ -49,19 +51,38 @@ public class GameMenuFragment extends BaseGameMenuDialog implements View.OnClick
     public void onResume() {
         super.onResume();
         if (getDialog() != null) {
+            if (backNavigationRegistration == null) {
+                backNavigationRegistration = BackNavigationRegistration.register(
+                        getDialog(), this::handleStreamBack);
+            }
             getDialog().setOnKeyListener(new DialogInterface.OnKeyListener() {
                 @Override
                 public boolean onKey(DialogInterface dialog, int keyCode, KeyEvent event) {
                     if (keyCode != KeyEvent.KEYCODE_BACK) {
                         return false;
                     }
-                    if (event.getAction() == KeyEvent.ACTION_UP && game != null) {
-                        game.handleStreamBackPressed();
+                    if (event.getAction() == KeyEvent.ACTION_UP) {
+                        handleStreamBack();
                     }
                     return true;
                 }
             });
         }
+    }
+
+    private void handleStreamBack() {
+        if (game != null) {
+            game.handleStreamBackPressed();
+        }
+    }
+
+    @Override
+    public void onPause() {
+        if (backNavigationRegistration != null) {
+            backNavigationRegistration.unregister();
+            backNavigationRegistration = null;
+        }
+        super.onPause();
     }
 
     @Override

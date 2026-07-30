@@ -60,7 +60,6 @@
         android:installLocation="auto"
         android:gwpAsanMode="always"
         android:localeConfig="@xml/locales_config"
-        android:enableOnBackInvokedCallback="false"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
@@ -150,7 +149,6 @@
             android:noHistory="true"
             android:supportsPictureInPicture="true"
             android:resizeableActivity="true"
-            android:enableOnBackInvokedCallback="false"
             android:launchMode="singleTask"
             android:excludeFromRecents="true"
             android:theme="@style/StreamTheme"
@@ -195,7 +193,6 @@
             android:screenOrientation="landscape"
             android:supportsPictureInPicture="true"
             android:resizeableActivity="true"
-            android:enableOnBackInvokedCallback="false"
             android:launchMode="singleTask"
             android:excludeFromRecents="true"
             android:theme="@style/StreamTheme"

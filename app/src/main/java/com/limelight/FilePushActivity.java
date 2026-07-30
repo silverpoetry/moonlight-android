@@ -21,6 +21,7 @@ import com.limelight.computers.IdentityManager;
 import com.limelight.nvstream.filetransfer.DesktopFileUploader;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvHTTP;
+import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.UiHelper;
 
 import java.util.ArrayList;
@@ -42,6 +43,7 @@ public class FilePushActivity extends Activity {
     private List<Uri> sharedUris;
     private Future<?> uploadTask;
     private boolean uploadInProgress;
+    private BackNavigationRegistration backNavigationRegistration;
 
     private TextView titleView;
     private TextView subtitleView;
@@ -65,6 +67,8 @@ public class FilePushActivity extends Activity {
         setContentView(R.layout.activity_file_push);
         UiHelper.notifyNewRootView(this);
         UiHelper.setStatusBarLightMode(getWindow(), false);
+        backNavigationRegistration =
+                BackNavigationRegistration.register(this, this::handleBackNavigation);
 
         bindViews();
         constrainPanelWidth();
@@ -83,6 +87,10 @@ public class FilePushActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (backNavigationRegistration != null) {
+            backNavigationRegistration.unregister();
+            backNavigationRegistration = null;
+        }
         if (uploadTask != null && !uploadTask.isDone()) {
             uploadTask.cancel(true);
         }
@@ -92,12 +100,16 @@ public class FilePushActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        handleBackNavigation();
+    }
+
+    private void handleBackNavigation() {
         if (uploadInProgress) {
             UiToast.makeText(this, R.string.file_push_in_progress,
                     UiToast.LENGTH_SHORT).show();
             return;
         }
-        super.onBackPressed();
+        finish();
     }
 
     private void bindViews() {

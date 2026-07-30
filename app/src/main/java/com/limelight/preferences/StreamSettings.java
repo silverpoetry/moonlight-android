@@ -52,8 +52,6 @@ import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
 import com.limelight.utils.UiToast;
-import android.window.OnBackInvokedCallback;
-import android.window.OnBackInvokedDispatcher;
 
 import com.limelight.AboutActivity;
 import com.limelight.LimeLog;
@@ -63,6 +61,7 @@ import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControlle
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.computers.ComputerDatabaseManager;
 import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.FileUriUtils;
 import com.limelight.utils.HelpLauncher;
@@ -122,7 +121,7 @@ public class StreamSettings extends Activity {
     private boolean nativeFramerateShown;
     private boolean wideLayout;
     private boolean sectionActivity;
-    private Object backInvokedCallback;
+    private BackNavigationRegistration backNavigationRegistration;
 
     // HACK for Android 9
     static DisplayCutout displayCutoutP;
@@ -211,19 +210,16 @@ public class StreamSettings extends Activity {
 
     @Override
     protected void onDestroy() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && backInvokedCallback != null) {
-            Api33BackNavigation.unregister(this, backInvokedCallback);
-            backInvokedCallback = null;
+        if (backNavigationRegistration != null) {
+            backNavigationRegistration.unregister();
+            backNavigationRegistration = null;
         }
         super.onDestroy();
     }
 
     private void registerBackCallback() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            return;
-        }
-
-        backInvokedCallback = Api33BackNavigation.register(this);
+        backNavigationRegistration =
+                BackNavigationRegistration.register(this, this::handleBackNavigation);
     }
 
     private void handleBackNavigation() {
@@ -272,7 +268,7 @@ public class StreamSettings extends Activity {
         backButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                onBackPressed();
+                handleBackNavigation();
             }
         });
 
@@ -1785,24 +1781,6 @@ public class StreamSettings extends Activity {
                 e.printStackTrace();
                 UiToast.makeText(this, "出错啦~" + e.getMessage(), UiToast.LENGTH_SHORT).show();
             }
-        }
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
-    private static final class Api33BackNavigation {
-        private Api33BackNavigation() {
-        }
-
-        static Object register(StreamSettings activity) {
-            OnBackInvokedCallback callback = activity::handleBackNavigation;
-            activity.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                    OnBackInvokedDispatcher.PRIORITY_DEFAULT, callback);
-            return callback;
-        }
-
-        static void unregister(StreamSettings activity, Object callback) {
-            activity.getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(
-                    (OnBackInvokedCallback) callback);
         }
     }
 

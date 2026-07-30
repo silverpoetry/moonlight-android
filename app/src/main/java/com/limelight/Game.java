@@ -52,6 +52,7 @@ import com.limelight.ui.floatingview.AXFloatingMagnetView;
 import com.limelight.ui.floatingview.AXFloatingView;
 import com.limelight.ui.floatingview.AXFloatingViewListener;
 import com.limelight.utils.AutoReconnectHelper;
+import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.FileUriUtils;
 import com.limelight.utils.RazerUtils;
@@ -289,6 +290,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private Surface fsrInputSurface;
     private boolean usbPermissionPromptVisible;
     private boolean fsrViewLifecyclePaused;
+    private BackNavigationRegistration backNavigationRegistration;
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -352,6 +354,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // Read the stream preferences
         prefConfig = PreferenceConfiguration.readPreferences(this);
         tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
+        backNavigationRegistration =
+                BackNavigationRegistration.register(this, this::handleStreamBackPressed);
 
         // Enter landscape unless we're on a square screen
         setPreferredOrientationForCurrentDisplay();
@@ -1449,6 +1453,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     protected void onDestroy() {
         softKeyboardGestureCoordinator.cancel();
+        if (backNavigationRegistration != null) {
+            backNavigationRegistration.unregister();
+            backNavigationRegistration = null;
+        }
         clipboardFileTransferGeneration++;
         clipboardFileTransferInProgress = false;
         if (clipboardFileTransferDialog != null) {
