@@ -66,4 +66,16 @@ public final class ArchitectureBoundaryTest {
                 .because("input state machines emit through PointerInputSink")
                 .check(productionClasses);
     }
+
+    @Test
+    public void touchInputCoreDoesNotDependOnGameActivity() {
+        noClasses()
+                .that()
+                .resideInAnyPackage("com.limelight.binding.input.touch..")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .because("the Activity adapts callbacks into the input controller")
+                .check(productionClasses);
+    }
 }

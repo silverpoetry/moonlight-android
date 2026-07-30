@@ -14,18 +14,10 @@ import com.limelight.binding.input.StreamInputGatewayRegistry;
 import com.limelight.binding.input.protocol.NvConnectionPointerInputSink;
 import com.limelight.binding.input.capture.InputCaptureManager;
 import com.limelight.binding.input.capture.InputCaptureProvider;
-import com.limelight.binding.input.touch.AbsoluteTouchContext;
-import com.limelight.binding.input.touch.AbsoluteTouchSwitchContext;
-import com.limelight.binding.input.touch.BarometerForcePressController;
-import com.limelight.binding.input.touch.RelativeTouchContext;
 import com.limelight.binding.input.driver.UsbDriverService;
 import com.limelight.binding.input.evdev.EvdevListener;
-import com.limelight.binding.input.touch.RelativeTouchSwitchContext;
-import com.limelight.binding.input.touch.SoftKeyboardGestureCoordinator;
-import com.limelight.binding.input.touch.TouchContext;
-import com.limelight.binding.input.touch.TouchpadGestureState;
-import com.limelight.binding.input.touch.TouchpadMotionSender;
-import com.limelight.binding.input.touch.TouchscreenTouchpadHandler;
+import com.limelight.binding.input.touch.TouchInputController;
+import com.limelight.binding.input.touch.TouchInputMode;
 import com.limelight.binding.input.virtual_controller.VirtualController;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardLayoutController;
@@ -118,7 +110,6 @@ import android.view.View.OnTouchListener;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.view.ViewParent;
-import android.view.ViewConfiguration;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
@@ -143,8 +134,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         OnGenericMotionListener, OnTouchListener, NvConnectionListener, EvdevListener,
         OnSystemUiVisibilityChangeListener, GameGestures, StreamInputGateway,
         StreamUiActions, GameMenuHost,
-        UsbDriverService.UsbDriverStateListener, View.OnKeyListener,
-        BarometerForcePressController.Listener {
+        UsbDriverService.UsbDriverStateListener, View.OnKeyListener {
     private static final float EXTERNAL_TOUCHPAD_SCROLL_FACTOR = 0.15f;
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 1001;
     private static final long KEY_CHORD_UP_DELAY_MS = 25;
@@ -154,22 +144,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private float lastX = -1f;
     private float lastY = -1f;
 
-    // Only 2 touches are supported
-    private final TouchContext[] touchContextMap = new TouchContext[2];
-    private SoftKeyboardGestureCoordinator softKeyboardGestureCoordinator;
-    private BarometerForcePressController barometerForcePressController;
-    private TouchscreenTouchpadHandler touchscreenTouchpadHandler;
-    private boolean nativeMultiTouchpadInputEnabled;
-
-    private static final int REFERENCE_HORIZ_RES = 1280;
-    private static final int REFERENCE_VERT_RES = 720;
-    private static final int MOUSE_MODE_MULTI_TOUCH = 0;
-    private static final int MOUSE_MODE_ABSOLUTE = 1;
-    private static final int MOUSE_MODE_NATIVE_TOUCHPAD = 2;
-    private static final int MOUSE_MODE_DISABLED = 3;
-    private static final int MOUSE_MODE_ABSOLUTE_SWAPPED = 4;
-    private static final int MOUSE_MODE_TOUCHPAD_MOVE_ONLY = 5;
-    private static final int MOUSE_MODE_TOUCHPAD_MOVE_AND_CLICK = 6;
+    private TouchInputController touchInputController;
 
     private static final int STYLUS_DOWN_DEAD_ZONE_DELAY = 100;
     private static final int STYLUS_DOWN_DEAD_ZONE_RADIUS = 20;
@@ -191,7 +166,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private SharedPreferences tombstonePrefs;
 
     private NvConnection conn;
-    private PointerInputSink pointerInputSink;
     private StreamSessionController sessionController;
     private SpinnerDialog spinner;
     private boolean displayedFailureDialog = false;
@@ -286,27 +260,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        softKeyboardGestureCoordinator = new SoftKeyboardGestureCoordinator(
-                ViewConfiguration.get(this).getScaledTouchSlop(),
-                new SoftKeyboardGestureCoordinator.Listener() {
-                    @Override
-                    public void dispatchDeferredTouchEvent(
-                            View eventView,
-                            MotionEvent event) {
-                        handleMotionEvent(eventView, event);
-                    }
-
-                    @Override
-                    public void onGesturePrefixDeferred() {
-                        suspendPendingTouchpadPressRecognition();
-                    }
-
-                    @Override
-                    public void onKeyboardGestureRecognized() {
-                        completeSoftKeyboardGesture();
-                    }
-                });
-
         UiHelper.setLocale(this);
 
         // We don't want a title bar
@@ -358,15 +311,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         streamView.setOnGenericMotionListener(this);
         streamView.setOnKeyListener(this);
         streamView.setInputGateway(this);
-        barometerForcePressController =
-                new BarometerForcePressController(this, this);
-        barometerForcePressController.setThresholdHpa(
-                prefConfig.barometerForcePressThresholdHpa);
-        barometerForcePressController.setMinimumTouchDurationMs(
-                prefConfig.barometerForcePressMinimumDurationMs);
-        prefConfig.enableBarometerForcePress =
-                prefConfig.enableBarometerForcePress &&
-                        barometerForcePressController.isAvailable();
 
         fsrEnabled = isFsrEnabled();
         configureFsrWindowColorMode();
@@ -706,15 +650,29 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 new ComputerDetails.AddressTuple(host, port),
                 httpsPort, uniqueId, config,
                 PlatformBinding.getCryptoProvider(this), serverCert);
-        pointerInputSink = new NvConnectionPointerInputSink(conn);
+        PointerInputSink pointerInputSink =
+                new NvConnectionPointerInputSink(conn);
         clipboardFileTransferController =
                 new RemoteClipboardFileTransferController(this, conn);
         sessionController = new StreamSessionController(conn, this);
-        touchscreenTouchpadHandler = new TouchscreenTouchpadHandler(
-                pointerInputSink, streamView,
-                REFERENCE_HORIZ_RES, REFERENCE_VERT_RES, prefConfig);
-        touchscreenTouchpadHandler.setNativeGestureListener(
-                this::cancelLegacyTouchContextsForNativeGesture);
+        touchInputController = new TouchInputController(
+                this,
+                streamView,
+                pointerInputSink,
+                prefConfig,
+                new TouchInputController.Host() {
+                    @Override
+                    public boolean trySendDirectTouchEvent(
+                            View eventView,
+                            MotionEvent event) {
+                        return trySendTouchEvent(eventView, event);
+                    }
+
+                    @Override
+                    public void showSoftKeyboard() {
+                        Game.this.showKeyboard();
+                    }
+                });
         if (prefConfig.enableNativeCursor) {
             conn.setMousePositionListener(new NvConnection.MousePositionListener() {
                 @Override
@@ -730,17 +688,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         InputManager inputManager = (InputManager) getSystemService(Context.INPUT_SERVICE);
         inputManager.registerInputDeviceListener(keyboardTranslator, null);
 
-        // Initialize touch contexts
-//        for (int i = 0; i < touchContextMap.length; i++) {
-//            if (!prefConfig.touchscreenTrackpad) {
-//                touchContextMap[i] = new AbsoluteTouchContext(conn, i, streamView);
-//            }
-//            else {
-//                touchContextMap[i] = new RelativeTouchContext(conn, i,
-//                        REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
-//                        streamView, prefConfig);
-//            }
-//        }
         //鼠标触控模式
         String mouseModel=PreferenceManager.getDefaultSharedPreferences(this).getString("mouse_model_list_axi", "0");
         switchMouseModel(Integer.parseInt(mouseModel));
@@ -1406,7 +1353,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     protected void onDestroy() {
         unregisterInputGateway();
-        softKeyboardGestureCoordinator.cancel();
+        if (touchInputController != null) {
+            touchInputController.destroy();
+            touchInputController = null;
+        }
         if (backNavigationRegistration != null) {
             backNavigationRegistration.unregister();
             backNavigationRegistration = null;
@@ -1460,8 +1410,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     protected void onResume() {
         super.onResume();
 
-        if (barometerForcePressController != null) {
-            barometerForcePressController.start();
+        if (touchInputController != null) {
+            touchInputController.start();
         }
 
         if (fsrView != null && fsrViewLifecyclePaused) {
@@ -1472,8 +1422,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     protected void onPause() {
-        if (barometerForcePressController != null) {
-            barometerForcePressController.stop();
+        if (touchInputController != null) {
+            touchInputController.stop();
         }
 
         if (fsrView != null && !(usbPermissionPromptVisible && !isFinishing())) {
@@ -1987,16 +1937,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
-    private TouchContext getTouchContext(int actionIndex)
-    {
-        if (actionIndex < touchContextMap.length) {
-            return touchContextMap[actionIndex];
-        }
-        else {
-            return null;
-        }
-    }
-
     @Override
     public void toggleKeyboard() {
         LimeLog.info("Toggling keyboard overlay");
@@ -2035,17 +1975,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         inputManager.restartInput(streamView);
     }
 
-    private int getSoftKeyboardGestureFingerCount() {
-        return prefConfig.quickSoftKeyboardFingers;
-    }
-
-    private boolean handleSoftKeyboardGesture(View view, MotionEvent event) {
-        return softKeyboardGestureCoordinator.onTouchEvent(
-                view,
-                event,
-                getSoftKeyboardGestureFingerCount());
-    }
-
     private void unregisterInputGateway() {
         if (inputGatewayRegistration != null) {
             inputGatewayRegistration.unregister();
@@ -2078,31 +2007,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             default:
                 return defaultGravity;
         }
-    }
-
-    private void suspendPendingTouchpadPressRecognition() {
-        if (touchscreenTouchpadHandler != null) {
-            touchscreenTouchpadHandler.suspendPendingPressRecognition();
-        }
-        for (TouchContext touchContext : touchContextMap) {
-            if (touchContext != null) {
-                touchContext.suspendPendingPressRecognition();
-            }
-        }
-    }
-
-    private void completeSoftKeyboardGesture() {
-        if (barometerForcePressController != null) {
-            barometerForcePressController.cancelTouchSession();
-        }
-        cancelNativeTouchpadInput();
-        for (TouchContext touchContext : touchContextMap) {
-            if (touchContext != null) {
-                touchContext.cancelTouch();
-                touchContext.setPointerCount(0);
-            }
-        }
-        showKeyboard();
     }
 
     private byte getLiTouchTypeFromEvent(MotionEvent event) {
@@ -2793,128 +2697,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     // Ignore presses when the virtual controller is being configured
                     return true;
                 }
-                //禁用鼠标
-                if(disableMouseModel){
-                    return true;
-                }
-
-                if (barometerForcePressController != null &&
-                        !softKeyboardGestureCoordinator
-                                .isDispatchingDeferredEvents()) {
-                    barometerForcePressController.onTouchEvent(event);
-                }
-
-                // If this is the parent view, we'll offset our coordinates to appear as if they
-                // are relative to the StreamView like our StreamView touch events are.
-                float xOffset, yOffset;
-                if (view != streamView && !prefConfig.touchscreenTrackpad) {
-                    xOffset = -streamView.getX();
-                    yOffset = -streamView.getY();
-                }
-                else {
-                    xOffset = 0.f;
-                    yOffset = 0.f;
-                }
-
-                if (handleSoftKeyboardGesture(view, event)) {
-                    return true;
-                }
-
-                if (tryHandleNativeTouchpadInput(view, event)) {
-                    return true;
-                }
-
-                // TODO: Re-enable native touch when have a better solution for handling
-                // cancelled touches from Android gestures and 3 finger taps to activate the software keyboard.
-                if(prefConfig.enableMultiTouchScreen){
-                    if (!prefConfig.touchscreenTrackpad && trySendTouchEvent(view, event)) {
-                        // If this host supports touch events and absolute touch is enabled,
-                        // send it directly as a touch event.
-                        return true;
-                    }
-                }
-
-                int actionIndex = event.getActionIndex();
-
-                int eventX = (int)(event.getX(actionIndex) + xOffset);
-                int eventY = (int)(event.getY(actionIndex) + yOffset);
-
-                TouchContext context = getTouchContext(actionIndex);
-                if (context == null) {
-                    return false;
-                }
-
-                switch (event.getActionMasked())
-                {
-                case MotionEvent.ACTION_POINTER_DOWN:
-                case MotionEvent.ACTION_DOWN:
-                    for (TouchContext touchContext : touchContextMap) {
-                        touchContext.setPointerCount(
-                                event.getPointerCount(),
-                                event.getEventTime());
-                    }
-                    context.touchDownEvent(eventX, eventY, event.getEventTime(), true);
-                    break;
-                case MotionEvent.ACTION_POINTER_UP:
-                case MotionEvent.ACTION_UP:
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && (event.getFlags() & MotionEvent.FLAG_CANCELED) != 0) {
-                        context.cancelTouch();
-                    }
-                    else {
-                        context.touchUpEvent(eventX, eventY, event.getEventTime());
-                    }
-
-                    for (TouchContext touchContext : touchContextMap) {
-                        touchContext.setPointerCount(
-                                event.getPointerCount() - 1,
-                                event.getEventTime());
-                    }
-                    if (actionIndex == 0 && event.getPointerCount() > 1 && !context.isCancelled()) {
-                        // The original secondary touch now becomes primary
-                        context.touchDownEvent(
-                                (int)(event.getX(1) + xOffset),
-                                (int)(event.getY(1) + yOffset),
-                                event.getEventTime(), false);
-                    }
-                    break;
-                case MotionEvent.ACTION_MOVE:
-                    // ACTION_MOVE is special because it always has actionIndex == 0
-                    // We'll call the move handlers for all indexes manually
-
-                    // First process the historical events
-                    for (int i = 0; i < event.getHistorySize(); i++) {
-                        for (TouchContext aTouchContextMap : touchContextMap) {
-                            if (aTouchContextMap.getActionIndex() < event.getPointerCount())
-                            {
-                                aTouchContextMap.touchMoveEvent(
-                                        (int)(event.getHistoricalX(aTouchContextMap.getActionIndex(), i) + xOffset),
-                                        (int)(event.getHistoricalY(aTouchContextMap.getActionIndex(), i) + yOffset),
-                                        event.getHistoricalEventTime(i));
-                            }
-                        }
-                    }
-
-                    // Now process the current values
-                    for (TouchContext aTouchContextMap : touchContextMap) {
-                        if (aTouchContextMap.getActionIndex() < event.getPointerCount())
-                        {
-                            aTouchContextMap.touchMoveEvent(
-                                    (int)(event.getX(aTouchContextMap.getActionIndex()) + xOffset),
-                                    (int)(event.getY(aTouchContextMap.getActionIndex()) + yOffset),
-                                    event.getEventTime());
-                        }
-                    }
-                    break;
-                case MotionEvent.ACTION_CANCEL:
-                    for (TouchContext aTouchContext : touchContextMap) {
-                        aTouchContext.cancelTouch();
-                        aTouchContext.setPointerCount(0);
-                    }
-                    break;
-                default:
-                    return false;
-                }
-
+                return touchInputController.handleMotionEvent(view, event);
             }
 
             // Handled a known source
@@ -3068,7 +2851,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void stopConnection() {
-        cancelNativeTouchpadInput();
+        if (touchInputController != null) {
+            touchInputController.cancelActiveInput();
+        }
         if (sessionController != null && sessionController.stop()) {
             UiHelper.notifyHdrWindowStatus(this, false);
             updatePipAutoEnter();
@@ -3670,9 +3455,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
-    //禁用鼠标
-    private boolean disableMouseModel;
-
     public void switchMouseModel(){
         String[] strings=getResources().getStringArray(R.array.mouse_model_names_axi);
         String[] items =Arrays.copyOf(strings,strings.length+1);
@@ -3704,125 +3486,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     public void switchMouseModel(int which){
-        cancelNativeTouchpadInput();
-        if (barometerForcePressController != null) {
-            barometerForcePressController.setEnabled(false);
-        }
-        disableMouseModel = false;
-        nativeMultiTouchpadInputEnabled = false;
-
-        switch (which) {
-            case MOUSE_MODE_MULTI_TOUCH:
-                prefConfig.enableMultiTouchScreen = true;
-                prefConfig.touchscreenTrackpad = false;
-                break;
-
-            case MOUSE_MODE_ABSOLUTE:
-            case MOUSE_MODE_ABSOLUTE_SWAPPED:
-                prefConfig.enableMultiTouchScreen = false;
-                prefConfig.touchscreenTrackpad = false;
-                nativeMultiTouchpadInputEnabled = true;
-                break;
-
-            case MOUSE_MODE_NATIVE_TOUCHPAD:
-                prefConfig.enableMultiTouchScreen = false;
-                prefConfig.touchscreenTrackpad = true;
-                nativeMultiTouchpadInputEnabled = true;
-                break;
-
-            case MOUSE_MODE_DISABLED:
-                disableMouseModel = true;
-                return;
-
-            case MOUSE_MODE_TOUCHPAD_MOVE_ONLY:
-            case MOUSE_MODE_TOUCHPAD_MOVE_AND_CLICK:
-                prefConfig.enableMultiTouchScreen = false;
-                prefConfig.touchscreenTrackpad = true;
-                break;
-
-            default:
-                return;
-        }
-
-        TouchpadMotionSender pressedPointerMotionSender =
-                which == MOUSE_MODE_NATIVE_TOUCHPAD
-                        ? new TouchpadMotionSender(pointerInputSink,
-                                REFERENCE_HORIZ_RES,
-                                REFERENCE_VERT_RES,
-                                streamView, prefConfig)
-                        : null;
-        touchscreenTouchpadHandler.setSinglePointerRemainderMode(
-                which == MOUSE_MODE_ABSOLUTE || which == MOUSE_MODE_ABSOLUTE_SWAPPED
-                        ? TouchscreenTouchpadHandler.SinglePointerRemainderMode.SUPPRESS
-                        : TouchscreenTouchpadHandler.SinglePointerRemainderMode.RELATIVE);
-        touchscreenTouchpadHandler.configureNativePressHandling(
-                which == MOUSE_MODE_NATIVE_TOUCHPAD,
-                prefConfig.enableBarometerForcePress,
-                pressedPointerMotionSender);
-
-        TouchpadGestureState touchpadGestureState = new TouchpadGestureState();
-        for (int i = 0; i < touchContextMap.length; i++) {
-            if (!prefConfig.touchscreenTrackpad) {
-                if (which == MOUSE_MODE_ABSOLUTE_SWAPPED) {
-                    touchContextMap[i] = new AbsoluteTouchSwitchContext(
-                            pointerInputSink, i, streamView);
-                }
-                else {
-                    touchContextMap[i] = new AbsoluteTouchContext(
-                            pointerInputSink, i, streamView);
-                }
-            }
-            else {
-                if (which == MOUSE_MODE_TOUCHPAD_MOVE_ONLY ||
-                        which == MOUSE_MODE_TOUCHPAD_MOVE_AND_CLICK) {
-                    touchContextMap[i] = new RelativeTouchSwitchContext(
-                            pointerInputSink, i,
-                            REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
-                            streamView, prefConfig,
-                            which != MOUSE_MODE_TOUCHPAD_MOVE_ONLY, touchpadGestureState);
-                }
-                else {
-                    if (i == 0 && pressedPointerMotionSender != null) {
-                        touchContextMap[i] = new RelativeTouchContext(
-                                pointerInputSink, i, REFERENCE_HORIZ_RES,
-                                REFERENCE_VERT_RES, streamView,
-                                prefConfig, touchpadGestureState,
-                                pressedPointerMotionSender);
-                    }
-                    else {
-                        touchContextMap[i] = new RelativeTouchContext(
-                                pointerInputSink, i, REFERENCE_HORIZ_RES,
-                                REFERENCE_VERT_RES, streamView,
-                                prefConfig, touchpadGestureState);
-                    }
-                }
-
-                ((RelativeTouchContext) touchContextMap[i])
-                        .setNativeTouchpadPressHandlingEnabled(
-                                which == MOUSE_MODE_NATIVE_TOUCHPAD);
-            }
-        }
-
-        if (barometerForcePressController != null) {
-            barometerForcePressController.setEnabled(
-                    which == MOUSE_MODE_NATIVE_TOUCHPAD &&
-                            prefConfig.enableBarometerForcePress);
-        }
-    }
-
-    @Override
-    public boolean onForcePressDown(int pointerId, int pointerCount) {
-        softKeyboardGestureCoordinator.resolveForCompetingGesture();
-        return touchscreenTouchpadHandler != null &&
-                touchscreenTouchpadHandler.beginForcePress(
-                        pointerId, pointerCount);
-    }
-
-    @Override
-    public void onForcePressUp(int pointerId, boolean cancelled) {
-        if (touchscreenTouchpadHandler != null) {
-            touchscreenTouchpadHandler.endForcePress(
-                    pointerId, !cancelled);
+        TouchInputMode mode = TouchInputMode.fromPreferenceValue(which);
+        if (mode != null && touchInputController != null) {
+            touchInputController.setMode(mode);
         }
     }
 
@@ -3832,32 +3498,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             conn.setAbsoluteMousePositionMode(prefConfig.absoluteMouseMode);
         }
         return prefConfig.absoluteMouseMode;
-    }
-
-    private void cancelNativeTouchpadInput() {
-        if (touchscreenTouchpadHandler != null) {
-            touchscreenTouchpadHandler.cancel();
-        }
-    }
-
-    private boolean tryHandleNativeTouchpadInput(View view, MotionEvent event) {
-        if (!nativeMultiTouchpadInputEnabled || touchscreenTouchpadHandler == null) {
-            return false;
-        }
-
-        return touchscreenTouchpadHandler.handleMotionEvent(view, event);
-    }
-
-    private void cancelLegacyTouchContextsForNativeGesture() {
-        // Native touchpad ownership starts exactly once, either when a second contact arrives
-        // or when a physical press promotes the standalone contact. End the legacy path before
-        // it can emit a duplicate click or leave one of its delayed button timers armed.
-        for (TouchContext touchContext : touchContextMap) {
-            if (touchContext != null) {
-                touchContext.cancelTouch();
-                touchContext.setPointerCount(0);
-            }
-        }
     }
 
     private PerformanceOverlayRuntimeState
@@ -3961,11 +3601,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     //画面平移缩放
     public void screenMoveZoom(){
         if(!streamView.isEnableZoomAndPan()){
-            disableMouseModel=true;
+            touchInputController.setInputSuspended(true);
             streamView.setEnableZoomAndPan(true);
             return;
         }
-        disableMouseModel=false;
+        touchInputController.setInputSuspended(false);
         streamView.setEnableZoomAndPan(false);
     }
 
