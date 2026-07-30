@@ -41,6 +41,12 @@ custom dimensions retain their mode when only textual canonicalization is
 required, while named legacy presets and malformed values follow explicit,
 tested migration rules.
 
+`SettingsMigrationRunner` owns the ordered schema version. Version 1 removes
+the old 5.1-audio, never-drop-frames, and image-only clipboard switches in one
+transaction while preserving their user-visible choices. It also detects
+legacy values reintroduced by a downgrade without ever reducing a newer stored
+schema version.
+
 ## Snapshot lifecycle
 
 A stream session receives one snapshot during composition. A setting that

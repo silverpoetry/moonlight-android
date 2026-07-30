@@ -9,11 +9,15 @@ import android.view.Display;
 import android.view.WindowManager;
 
 import com.limelight.nvstream.jni.MoonBridge;
+import com.limelight.settings.SettingsMigrationRunner;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.audio.StreamAudioSettingKeys;
+import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.stream.StreamResolutionCodec;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.settings.stream.StreamResolutionSettingsLoader;
+import com.limelight.settings.transfer.TransferSettingKeys;
 
 public class PreferenceConfiguration {
     public enum FormatOption {
@@ -32,7 +36,6 @@ public class PreferenceConfiguration {
     private static final String LEGACY_RES_FPS_PREF_STRING =
             StreamResolutionSettingKeys.LEGACY_RESOLUTION_AND_FPS
                     .getName();
-    private static final String LEGACY_ENABLE_51_SURROUND_PREF_STRING = "checkbox_51_surround";
 
     public static final String RESOLUTION_PREF_STRING =
             StreamResolutionSettingKeys.RESOLUTION.getName();
@@ -53,13 +56,11 @@ public class PreferenceConfiguration {
     private static final String LANGUAGE_PREF_STRING = "list_languages";
     private static final String SMALL_ICONS_PREF_STRING = "checkbox_small_icon_mode";
     private static final String MULTI_CONTROLLER_PREF_STRING = "checkbox_multi_controller";
-    static final String AUDIO_CONFIG_PREF_STRING = "list_audio_config";
     private static final String USB_DRIVER_PREF_SRING = "checkbox_usb_driver";
     private static final String VIDEO_FORMAT_PREF_STRING = "video_format";
     private static final String ONSCREEN_CONTROLLER_PREF_STRING = "checkbox_show_onscreen_controls";
     private static final String ONLY_L3_R3_PREF_STRING = "checkbox_only_show_L3R3";
     private static final String SHOW_GUIDE_BUTTON_PREF_STRING = "checkbox_show_guide_button";
-    private static final String LEGACY_DISABLE_FRAME_DROP_PREF_STRING = "checkbox_disable_frame_drop";
     private static final String ENABLE_HDR_PREF_STRING = "checkbox_enable_hdr";
     public static final String ENABLE_HDR_HIGH_BRIGHTNESS_PREF_STRING = "checkbox_enable_hdr_high_brightness";
     private static final String ENABLE_PIP_PREF_STRING = "checkbox_enable_pip";
@@ -75,7 +76,6 @@ public class PreferenceConfiguration {
     private static final String FLIP_FACE_BUTTONS_PREF_STRING = "checkbox_flip_face_buttons";
     static final String TOUCHSCREEN_TRACKPAD_PREF_STRING = "checkbox_touchscreen_trackpad";
     private static final String LATENCY_TOAST_PREF_STRING = "checkbox_enable_post_stream_toast";
-    private static final String FRAME_PACING_PREF_STRING = "frame_pacing";
     private static final String ABSOLUTE_MOUSE_MODE_PREF_STRING = "checkbox_absolute_mouse_mode";
     public static final String BAROMETER_FORCE_PRESS_PREF_STRING =
             "checkbox_barometer_force_press";
@@ -87,8 +87,8 @@ public class PreferenceConfiguration {
     public static final int MAX_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA = 1000;
     public static final int DEFAULT_BAROMETER_FORCE_PRESS_THRESHOLD_MILLI_HPA = 180;
     public static final int DEFAULT_BAROMETER_FORCE_PRESS_MIN_DURATION_MS = 100;
-    public static final String CLIPBOARD_SYNC_PREF_STRING = "checkbox_clipboard_sync";
-    private static final String LEGACY_CLIPBOARD_IMAGE_SYNC_PREF_STRING = "checkbox_clipboard_image_sync";
+    public static final String CLIPBOARD_SYNC_PREF_STRING =
+            TransferSettingKeys.CLIPBOARD_SYNC.getName();
     public static final String CLIPBOARD_FILE_DIRECTORY_PREF_STRING = "clipboard_file_save_directory";
     private static final String DISABLE_ADAPTIVE_INPUT_THROTTLING_PREF_STRING = "checkbox_disable_adaptive_input_throttling";
     private static final String ENABLE_AUDIO_FX_PREF_STRING = "checkbox_enable_audiofx";
@@ -152,11 +152,8 @@ public class PreferenceConfiguration {
     private static final int DEFAULT_VIBRATE_FALLBACK_STRENGTH = 100;
     private static final boolean DEFAULT_FLIP_FACE_BUTTONS = false;
     private static final boolean DEFAULT_TOUCHSCREEN_TRACKPAD = true;
-    private static final String DEFAULT_AUDIO_CONFIG = "2"; // Stereo
     private static final boolean DEFAULT_LATENCY_TOAST = false;
-    private static final String DEFAULT_FRAME_PACING = "latency";
     private static final boolean DEFAULT_ABSOLUTE_MOUSE_MODE = false;
-    private static final boolean DEFAULT_CLIPBOARD_SYNC = false;
     private static final boolean DEFAULT_DISABLE_ADAPTIVE_INPUT_THROTTLING = true;
     private static final boolean DEFAULT_ENABLE_AUDIO_FX = false;
     private static final boolean DEFAULT_ENABLE_AUDIO_HAPTICS = false;
@@ -701,19 +698,10 @@ public class PreferenceConfiguration {
         }
     }
 
-    private static int getFramePacingValue(Context context) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-
-        // Migrate legacy never drop frames option to the new location
-        if (prefs.contains(LEGACY_DISABLE_FRAME_DROP_PREF_STRING)) {
-            boolean legacyNeverDropFrames = prefs.getBoolean(LEGACY_DISABLE_FRAME_DROP_PREF_STRING, false);
-            prefs.edit()
-                    .remove(LEGACY_DISABLE_FRAME_DROP_PREF_STRING)
-                    .putString(FRAME_PACING_PREF_STRING, legacyNeverDropFrames ? "balanced" : "latency")
-                    .apply();
-        }
-
-        String str = prefs.getString(FRAME_PACING_PREF_STRING, DEFAULT_FRAME_PACING);
+    private static int getFramePacingValue(
+            SettingsRepository repository) {
+        String str = repository.get(
+                StreamDecoderSettingKeys.FRAME_PACING);
         if (str.equals("latency")) {
             return FRAME_PACING_MIN_LATENCY;
         }
@@ -780,17 +768,8 @@ public class PreferenceConfiguration {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         SettingsRepository repository =
                 new SharedPreferencesSettingsRepository(prefs);
+        SettingsMigrationRunner.migrate(repository);
         PreferenceConfiguration config = new PreferenceConfiguration();
-
-        // Migrate legacy preferences to the new locations
-        if (prefs.contains(LEGACY_ENABLE_51_SURROUND_PREF_STRING)) {
-            if (prefs.getBoolean(LEGACY_ENABLE_51_SURROUND_PREF_STRING, false)) {
-                prefs.edit()
-                        .remove(LEGACY_ENABLE_51_SURROUND_PREF_STRING)
-                        .putString(AUDIO_CONFIG_PREF_STRING, "51")
-                        .apply();
-            }
-        }
 
         StreamResolutionCodec.Result resolution =
                 StreamResolutionSettingsLoader.load(
@@ -828,7 +807,8 @@ public class PreferenceConfiguration {
             config.bitrate = getDefaultBitrate(context);
         }
 
-        String audioConfig = prefs.getString(AUDIO_CONFIG_PREF_STRING, DEFAULT_AUDIO_CONFIG);
+        String audioConfig = repository.get(
+                StreamAudioSettingKeys.CHANNEL_CONFIGURATION);
         if (audioConfig.equals("71")) {
             config.audioConfiguration = MoonBridge.AUDIO_CONFIGURATION_71_SURROUND;
         }
@@ -840,7 +820,7 @@ public class PreferenceConfiguration {
         }
 
         config.videoFormat = getVideoFormatValue(context);
-        config.framePacing = getFramePacingValue(context);
+        config.framePacing = getFramePacingValue(repository);
 
         config.analogStickForScrolling = getAnalogStickForScrollingValue(context);
 
@@ -1013,15 +993,8 @@ public class PreferenceConfiguration {
         config.enforceDisplayMode=prefs.getBoolean("checkbox_enforce_display_mode",false);
         config.absoluteMouseMode = prefs.getBoolean(ABSOLUTE_MOUSE_MODE_PREF_STRING, DEFAULT_ABSOLUTE_MOUSE_MODE);
         config.enableNativeCursor = config.absoluteMouseMode;
-        config.enableClipboardSync =
-                prefs.getBoolean(CLIPBOARD_SYNC_PREF_STRING, DEFAULT_CLIPBOARD_SYNC) ||
-                prefs.getBoolean(LEGACY_CLIPBOARD_IMAGE_SYNC_PREF_STRING, false);
-        if (prefs.contains(LEGACY_CLIPBOARD_IMAGE_SYNC_PREF_STRING)) {
-            prefs.edit()
-                    .putBoolean(CLIPBOARD_SYNC_PREF_STRING, config.enableClipboardSync)
-                    .remove(LEGACY_CLIPBOARD_IMAGE_SYNC_PREF_STRING)
-                    .apply();
-        }
+        config.enableClipboardSync = repository.get(
+                TransferSettingKeys.CLIPBOARD_SYNC);
         config.disableAdaptiveInputThrottling = prefs.getBoolean(DISABLE_ADAPTIVE_INPUT_THROTTLING_PREF_STRING,
                 DEFAULT_DISABLE_ADAPTIVE_INPUT_THROTTLING);
         config.enableAudioFx = prefs.getBoolean(ENABLE_AUDIO_FX_PREF_STRING, DEFAULT_ENABLE_AUDIO_FX);

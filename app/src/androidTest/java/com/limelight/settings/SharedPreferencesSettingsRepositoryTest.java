@@ -84,4 +84,44 @@ public class SharedPreferencesSettingsRepositoryTest {
         assertTrue(rejected);
         assertFalse(preferences.contains("enabled"));
     }
+
+    @Test
+    public void versionedMigrationRepairsRealSharedPreferences() {
+        preferences.edit()
+                .putBoolean("checkbox_51_surround", true)
+                .putBoolean(
+                        "checkbox_disable_frame_drop",
+                        true)
+                .putBoolean(
+                        "checkbox_clipboard_image_sync",
+                        true)
+                .commit();
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertEquals(
+                SettingsSchema.CURRENT_VERSION,
+                preferences.getInt(
+                        "settings_schema_version",
+                        -1));
+        assertEquals(
+                "51",
+                preferences.getString(
+                        "list_audio_config",
+                        null));
+        assertEquals(
+                "balanced",
+                preferences.getString(
+                        "frame_pacing",
+                        null));
+        assertTrue(preferences.getBoolean(
+                "checkbox_clipboard_sync",
+                false));
+        assertFalse(preferences.contains(
+                "checkbox_51_surround"));
+        assertFalse(preferences.contains(
+                "checkbox_disable_frame_drop"));
+        assertFalse(preferences.contains(
+                "checkbox_clipboard_image_sync"));
+    }
 }

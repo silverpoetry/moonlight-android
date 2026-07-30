@@ -150,7 +150,7 @@ A slice is incomplete if callers can still bypass the new boundary.
 
 ## Phase 4 — Window, viewport, render, and coordinate geometry
 
-**Status:** in progress.
+**Status:** complete.
 
 ### Deliverables
 
@@ -186,7 +186,7 @@ A slice is incomplete if callers can still bypass the new boundary.
 
 ## Phase 5 — Typed settings and persistence
 
-**Status:** pending.
+**Status:** in progress.
 
 ### Problems to remove
 
