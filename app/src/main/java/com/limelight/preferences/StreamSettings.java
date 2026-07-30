@@ -728,6 +728,7 @@ public class StreamSettings extends Activity {
     private View createControlView(final SettingsItem item) {
         if (item.type == SettingsItem.Type.SWITCH) {
             SwitchCompat switchView = new SwitchCompat(this);
+            switchView.setShowText(false);
             switchView.setChecked(store.getBoolean(item));
             switchView.setEnabled(item.isEnabled(store));
             tintSwitch(switchView);
