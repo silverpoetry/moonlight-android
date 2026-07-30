@@ -32,7 +32,8 @@ move together; child components never add those insets again.
   infinity.
 
 `StreamViewportGeometry` owns the pure pixel-grid math.
-`ViewCoordinateMapper` owns Android sibling transforms.
+`ViewCoordinateMapper` owns Android sibling transforms and is shared by cursor
+rendering and direct touch/pen input.
 `NativeCursorOverlayView` composes both, so cursor position, hotspot, and shape
 scale use the same viewport geometry.
 

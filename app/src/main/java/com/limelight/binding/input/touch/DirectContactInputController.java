@@ -1,5 +1,6 @@
 package com.limelight.binding.input.touch;
 
+import android.graphics.Matrix;
 import android.util.SparseArray;
 import android.view.InputDevice;
 import android.view.MotionEvent;
@@ -9,6 +10,7 @@ import com.limelight.binding.input.PointerInputCompat;
 import com.limelight.binding.input.PointerInputSink;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.utils.ViewCoordinateMapper;
 
 import java.util.Objects;
 
@@ -27,8 +29,8 @@ public final class DirectContactInputController {
     private final SparseArray<SensitivityState> sensitivityStates =
             new SparseArray<>();
     private final ContactGeometry geometry = new ContactGeometry();
-    private final int[] eventViewLocation = new int[2];
-    private final int[] streamViewLocation = new int[2];
+    private final float[] mappedPosition = new float[2];
+    private final Matrix streamViewInverse = new Matrix();
 
     public DirectContactInputController(
             View streamView,
@@ -167,11 +169,13 @@ public final class DirectContactInputController {
             MotionEvent event,
             byte eventType,
             int pointerIndex) {
-        updateNormalizedCoordinates(
+        if (!updateNormalizedCoordinates(
                 eventView,
                 event,
                 pointerIndex,
-                true);
+                true)) {
+            return false;
+        }
         updateNormalizedContactArea(event, pointerIndex);
         return inputSink.sendTouchEvent(
                 eventType,
@@ -213,11 +217,13 @@ public final class DirectContactInputController {
                             pointerIndex));
         }
 
-        updateNormalizedCoordinates(
+        if (!updateNormalizedCoordinates(
                 eventView,
                 event,
                 pointerIndex,
-                false);
+                false)) {
+            return false;
+        }
         updateNormalizedContactArea(event, pointerIndex);
         return inputSink.sendPenEvent(
                 eventType,
@@ -232,7 +238,7 @@ public final class DirectContactInputController {
                 tiltDegrees) != MoonBridge.LI_ERR_UNSUPPORTED;
     }
 
-    private void updateNormalizedCoordinates(
+    private boolean updateNormalizedCoordinates(
             View eventView,
             MotionEvent event,
             int pointerIndex,
@@ -253,26 +259,24 @@ public final class DirectContactInputController {
         }
 
         if (eventView != streamView) {
-            if (streamView.getScaleX() > 1) {
-                eventView.getLocationInWindow(eventViewLocation);
-                streamView.getLocationInWindow(streamViewLocation);
-                int deltaX =
-                        streamViewLocation[0] - eventViewLocation[0];
-                int deltaY =
-                        streamViewLocation[1] - eventViewLocation[1];
-                x = (x - deltaX) / streamView.getScaleX();
-                y = (y - deltaY) / streamView.getScaleY();
+            mappedPosition[0] = x;
+            mappedPosition[1] = y;
+            if (!ViewCoordinateMapper.mapPointBetweenSiblings(
+                    eventView,
+                    streamView,
+                    mappedPosition,
+                    streamViewInverse)) {
+                return false;
             }
-            else {
-                x -= streamView.getX();
-                y -= streamView.getY();
-            }
+            x = mappedPosition[0];
+            y = mappedPosition[1];
         }
 
         geometry.x = clamp(x, 0, streamView.getWidth()) /
                 streamView.getWidth();
         geometry.y = clamp(y, 0, streamView.getHeight()) /
                 streamView.getHeight();
+        return true;
     }
 
     private void updateSensitivityCoordinates(

@@ -8,6 +8,8 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.view.View;
 
+import com.limelight.utils.ViewCoordinateMapper;
+
 public class NativeCursorOverlayView extends View {
     public static final int CURSOR_FORMAT_BGRA = 1;
 

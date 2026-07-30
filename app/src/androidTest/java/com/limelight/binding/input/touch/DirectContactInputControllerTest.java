@@ -4,6 +4,7 @@ import android.content.Context;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.FrameLayout;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -66,7 +67,10 @@ public final class DirectContactInputControllerTest {
     @Test
     public void containingViewCoordinatesUseStreamViewOrigin() {
         Context context = streamView.getContext();
+        FrameLayout parent = new FrameLayout(context);
         View containingView = new View(context);
+        parent.addView(containingView);
+        parent.addView(streamView);
         containingView.layout(0, 0, 1_200, 700);
         streamView.layout(100, 50, 1_100, 550);
 
@@ -77,6 +81,35 @@ public final class DirectContactInputControllerTest {
                         MotionEvent.TOOL_TYPE_FINGER,
                         350,
                         150,
+                        0)));
+
+        assertEquals(0.25f, inputSink.lastX, 0.0001f);
+        assertEquals(0.2f, inputSink.lastY, 0.0001f);
+    }
+
+    @Test
+    public void containingViewCoordinatesUseCompleteStreamTransform() {
+        Context context = streamView.getContext();
+        FrameLayout parent = new FrameLayout(context);
+        View containingView = new View(context);
+        parent.addView(containingView);
+        parent.addView(streamView);
+        containingView.layout(0, 0, 1_200, 700);
+        streamView.layout(100, 50, 1_100, 550);
+        streamView.setPivotX(0f);
+        streamView.setPivotY(0f);
+        streamView.setScaleX(0.5f);
+        streamView.setScaleY(0.5f);
+        streamView.setTranslationX(30f);
+        streamView.setTranslationY(20f);
+
+        assertTrue(controller.trySendTouchEvent(
+                containingView,
+                event(
+                        MotionEvent.ACTION_DOWN,
+                        MotionEvent.TOOL_TYPE_FINGER,
+                        255,
+                        120,
                         0)));
 
         assertEquals(0.25f, inputSink.lastX, 0.0001f);

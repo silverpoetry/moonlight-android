@@ -8,6 +8,8 @@ import android.widget.FrameLayout;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.limelight.utils.ViewCoordinateMapper;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 

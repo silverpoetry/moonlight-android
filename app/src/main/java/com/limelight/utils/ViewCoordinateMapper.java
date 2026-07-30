@@ -1,23 +1,26 @@
-package com.limelight.ui;
+package com.limelight.utils;
 
 import android.graphics.Matrix;
 import android.view.View;
 
 /**
- * Maps points between two direct sibling views through their shared parent.
+ * Maps points and basis vectors between two direct sibling views.
  *
- * This keeps layout position, translation, scaling, and rotation in one
- * coordinate conversion and avoids treating window insets as cursor offsets.
+ * <p>The shared-parent transform keeps layout position, translation, scaling,
+ * and rotation in one conversion. Window insets are deliberately absent
+ * because the siblings already share the inset content rectangle.</p>
  */
-final class ViewCoordinateMapper {
+public final class ViewCoordinateMapper {
     private ViewCoordinateMapper() {
     }
 
-    static boolean mapPointBetweenSiblings(View source,
-                                           View target,
-                                           float[] point,
-                                           Matrix targetInverse) {
-        if (source.getParent() == null ||
+    public static boolean mapPointBetweenSiblings(
+            View source,
+            View target,
+            float[] point,
+            Matrix targetInverse) {
+        if (point.length < 2 ||
+                source.getParent() == null ||
                 source.getParent() != target.getParent()) {
             return false;
         }
@@ -35,7 +38,7 @@ final class ViewCoordinateMapper {
         return true;
     }
 
-    static boolean mapBasisBetweenSiblings(
+    public static boolean mapBasisBetweenSiblings(
             View source,
             View target,
             float[] basis,
