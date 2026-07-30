@@ -2938,17 +2938,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
-    private void updateNativeCursorOverlayPosition(float videoX, float videoY) {
-        if (nativeCursorOverlayView == null) {
-            return;
-        }
-
-        float clampedVideoX = Math.min(Math.max(videoX, 0), streamView.getWidth());
-        float clampedVideoY = Math.min(Math.max(videoY, 0), streamView.getHeight());
-        nativeCursorOverlayView.setCursorPosition(streamView.getX() + clampedVideoX,
-                streamView.getY() + clampedVideoY);
-    }
-
     private void setNativeCursorOverlayFromReference(short x, short y, short referenceWidth, short referenceHeight) {
         if (referenceWidth <= 1 || referenceHeight <= 1) {
             return;
@@ -2957,9 +2946,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         runNativeCursorOverlayUpdate(new Runnable() {
             @Override
             public void run() {
-                updateNativeCursorOverlayPosition(
-                        x * streamView.getWidth() / (float) (referenceWidth - 1),
-                        y * streamView.getHeight() / (float) (referenceHeight - 1));
+                nativeCursorOverlayView.setCursorPositionFromReference(
+                        streamView, x, y, referenceWidth, referenceHeight);
             }
         });
     }

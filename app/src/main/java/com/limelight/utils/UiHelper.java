@@ -17,6 +17,7 @@ import android.os.LocaleList;
 import android.preference.PreferenceManager;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.core.view.WindowCompat;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.Window;
@@ -34,6 +35,26 @@ public class UiHelper {
 
     private static final int TV_VERTICAL_PADDING_DP = 15;
     private static final int TV_HORIZONTAL_PADDING_DP = 15;
+
+    private static final class ViewPadding {
+        final int left;
+        final int top;
+        final int right;
+        final int bottom;
+
+        ViewPadding(View view) {
+            left = view.getPaddingLeft();
+            top = view.getPaddingTop();
+            right = view.getPaddingRight();
+            bottom = view.getPaddingBottom();
+        }
+
+        void apply(View view, int extraLeft, int extraTop,
+                   int extraRight, int extraBottom) {
+            view.setPadding(left + extraLeft, top + extraTop,
+                    right + extraRight, bottom + extraBottom);
+        }
+    }
 
     private static void setGameModeStatus(Context context, boolean streaming, boolean interruptible) {
         //禁用游戏模式
@@ -187,7 +208,7 @@ public class UiHelper {
                 toEdgeInsets(windowInsets.getInsets(WindowInsets.Type.systemBars()));
         WindowInsetsPolicy.EdgeInsets displayCutout =
                 toEdgeInsets(windowInsets.getInsets(WindowInsets.Type.displayCutout()));
-        return WindowInsetsPolicy.max(systemBars, displayCutout);
+        return WindowInsetsPolicy.resolveSafeContentInsets(systemBars, displayCutout);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.R)
@@ -208,6 +229,46 @@ public class UiHelper {
                     ? WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
                     : WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
             activity.getWindow().setAttributes(layoutParams);
+        }
+    }
+
+    private static UiModeManager prepareNonStreamingWindow(Activity activity) {
+        setGameModeStatus(activity, false, false);
+        configureNonStreamingCutoutMode(activity);
+        WindowCompat.setDecorFitsSystemWindows(activity.getWindow(), false);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            activity.getWindow().setNavigationBarContrastEnforced(false);
+        }
+        return (UiModeManager) activity.getSystemService(Context.UI_MODE_SERVICE);
+    }
+
+    private static boolean applyTelevisionPadding(Activity activity,
+                                                  View rootView,
+                                                  UiModeManager modeManager) {
+        if (modeManager.getCurrentModeType() !=
+                Configuration.UI_MODE_TYPE_TELEVISION) {
+            return false;
+        }
+
+        float scale = activity.getResources().getDisplayMetrics().density;
+        int verticalPaddingPixels =
+                (int) (TV_VERTICAL_PADDING_DP * scale + 0.5f);
+        int horizontalPaddingPixels =
+                (int) (TV_HORIZONTAL_PADDING_DP * scale + 0.5f);
+        rootView.setPadding(horizontalPaddingPixels, verticalPaddingPixels,
+                horizontalPaddingPixels, verticalPaddingPixels);
+        return true;
+    }
+
+    private static void updateNavigationBarScrim(Activity activity,
+                                                  int tappableBottom) {
+        if (tappableBottom != 0) {
+            activity.getWindow().addFlags(
+                    WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
+        }
+        else {
+            activity.getWindow().clearFlags(
+                    WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
         }
     }
 
@@ -265,30 +326,15 @@ public class UiHelper {
     public static void notifyNewRootView(final Activity activity)
     {
         View rootView = activity.findViewById(android.R.id.content);
-        UiModeManager modeMgr = (UiModeManager) activity.getSystemService(Context.UI_MODE_SERVICE);
-
-        // Set GameState.MODE_NONE initially for all activities
-        setGameModeStatus(activity, false, false);
-
-        configureNonStreamingCutoutMode(activity);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            activity.getWindow().setDecorFitsSystemWindows(false);
+        UiModeManager modeManager = prepareNonStreamingWindow(activity);
+        if (applyTelevisionPadding(activity, rootView, modeManager) ||
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return;
         }
 
-        if (modeMgr.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION) {
-            // Increase view padding on TVs
-            float scale = activity.getResources().getDisplayMetrics().density;
-            int verticalPaddingPixels = (int) (TV_VERTICAL_PADDING_DP*scale + 0.5f);
-            int horizontalPaddingPixels = (int) (TV_HORIZONTAL_PADDING_DP*scale + 0.5f);
-
-            rootView.setPadding(horizontalPaddingPixels, verticalPaddingPixels,
-                    horizontalPaddingPixels, verticalPaddingPixels);
-        }
-        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Draw under the status bar on Android Q devices
-
-            // Using getDecorView() here breaks the translucent status/navigation bar when gestures are disabled
-            activity.findViewById(android.R.id.content).setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+        final ViewPadding initialPadding = new ViewPadding(rootView);
+        rootView.setOnApplyWindowInsetsListener(
+                new View.OnApplyWindowInsetsListener() {
                 @Override
                 public WindowInsets onApplyWindowInsets(View view, WindowInsets windowInsets) {
                     WindowInsetsPolicy.EdgeInsets contentInsets;
@@ -304,26 +350,78 @@ public class UiHelper {
                                 tappableInsets.right, tappableInsets.bottom);
                         tappableBottom = tappableInsets.bottom;
                     }
-                    view.setPadding(contentInsets.left,
-                            contentInsets.top,
-                            contentInsets.right,
-                            0);
-
-                    // Show a translucent navigation bar if we can't tap there
-                    if (tappableBottom != 0) {
-                        activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
-                    }
-                    else {
-                        activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
-                    }
+                    initialPadding.apply(view, contentInsets.left,
+                            contentInsets.top, contentInsets.right, 0);
+                    updateNavigationBarScrim(activity, tappableBottom);
 
                     return windowInsets;
                 }
-            });
-            rootView.requestApplyInsets();
+        });
+        rootView.requestApplyInsets();
+    }
 
-            activity.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+    /**
+     * Configures an edge-to-edge non-streaming screen whose background should fill
+     * the physical display while its foreground controls remain inside safe areas.
+     *
+     * The content root itself is deliberately never inset. Applying safe-area
+     * padding there would also move the screen background and expose the decor
+     * behind a landscape display cutout. Instead, the header and body receive
+     * their applicable insets from their immutable layout padding.
+     */
+    public static void notifyNewEdgeToEdgeRootView(final Activity activity,
+                                                   int headerViewId,
+                                                   int bodyViewId) {
+        final View contentRoot = activity.findViewById(android.R.id.content);
+        final View headerView = activity.findViewById(headerViewId);
+        final View bodyView = activity.findViewById(bodyViewId);
+        if (headerView == null || bodyView == null) {
+            throw new IllegalArgumentException(
+                    "Edge-to-edge foreground views must exist in the activity layout");
         }
+
+        UiModeManager modeManager = prepareNonStreamingWindow(activity);
+        if (applyTelevisionPadding(activity, contentRoot, modeManager) ||
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return;
+        }
+
+        // android.R.id.content survives setContentView(), so clear any inset padding
+        // left by an earlier layout before installing the new foreground policy.
+        contentRoot.setPadding(0, 0, 0, 0);
+        final ViewPadding headerPadding = new ViewPadding(headerView);
+        final ViewPadding bodyPadding = new ViewPadding(bodyView);
+        contentRoot.setOnApplyWindowInsetsListener(
+                new View.OnApplyWindowInsetsListener() {
+                    @Override
+                    public WindowInsets onApplyWindowInsets(View view,
+                                                            WindowInsets windowInsets) {
+                        WindowInsetsPolicy.EdgeInsets contentInsets;
+                        int tappableBottom;
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            contentInsets = getSafeContentInsets(windowInsets);
+                            tappableBottom = getTappableInsets(windowInsets).bottom;
+                        }
+                        else {
+                            Insets tappableInsets =
+                                    windowInsets.getTappableElementInsets();
+                            contentInsets = new WindowInsetsPolicy.EdgeInsets(
+                                    tappableInsets.left, tappableInsets.top,
+                                    tappableInsets.right, tappableInsets.bottom);
+                            tappableBottom = tappableInsets.bottom;
+                        }
+
+                        headerPadding.apply(headerView,
+                                contentInsets.left, contentInsets.top,
+                                contentInsets.right, 0);
+                        bodyPadding.apply(bodyView,
+                                contentInsets.left, 0,
+                                contentInsets.right, contentInsets.bottom);
+                        updateNavigationBarScrim(activity, tappableBottom);
+                        return windowInsets;
+                    }
+                });
+        contentRoot.requestApplyInsets();
     }
 
     public static void showDecoderCrashDialog(Activity activity) {
@@ -437,71 +535,4 @@ public class UiHelper {
         }
     }
 
-    public static void notifyNewRootViewImmersive(final Activity activity)
-    {
-        View rootView = activity.findViewById(android.R.id.content);
-        UiModeManager modeMgr = (UiModeManager) activity.getSystemService(Context.UI_MODE_SERVICE);
-
-        // Set GameState.MODE_NONE initially for all activities
-        setGameModeStatus(activity, false, false);
-
-        configureNonStreamingCutoutMode(activity);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            activity.getWindow().setDecorFitsSystemWindows(false);
-        }
-
-        if (modeMgr.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION) {
-            // Increase view padding on TVs
-            float scale = activity.getResources().getDisplayMetrics().density;
-            int verticalPaddingPixels = (int) (TV_VERTICAL_PADDING_DP*scale + 0.5f);
-            int horizontalPaddingPixels = (int) (TV_HORIZONTAL_PADDING_DP*scale + 0.5f);
-
-            rootView.setPadding(horizontalPaddingPixels, verticalPaddingPixels,
-                    horizontalPaddingPixels, verticalPaddingPixels);
-        }
-        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Draw under the status bar on Android Q devices
-
-            // Using getDecorView() here breaks the translucent status/navigation bar when gestures are disabled
-            activity.findViewById(android.R.id.content).setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
-                @Override
-                public WindowInsets onApplyWindowInsets(View view, WindowInsets windowInsets) {
-                    WindowInsetsPolicy.EdgeInsets contentInsets;
-                    int tappableBottom;
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        contentInsets = getSafeContentInsets(windowInsets);
-                        tappableBottom = getTappableInsets(windowInsets).bottom;
-                    }
-                    else {
-                        Insets tappableInsets = windowInsets.getTappableElementInsets();
-                        contentInsets = new WindowInsetsPolicy.EdgeInsets(
-                                tappableInsets.left, tappableInsets.top,
-                                tappableInsets.right, tappableInsets.bottom);
-                        tappableBottom = tappableInsets.bottom;
-                    }
-                    view.setPadding(contentInsets.left, 0, contentInsets.right, 0);
-                    View topView = activity.findViewById(R.id.rv_top_view);
-                    if (topView != null) {
-                        topView.setPadding(topView.getPaddingLeft(),
-                                contentInsets.top,
-                                topView.getPaddingRight(),
-                                topView.getPaddingBottom());
-                    }
-
-                    // Show a translucent navigation bar if we can't tap there
-                    if (tappableBottom != 0) {
-                        activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
-                    }
-                    else {
-                        activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
-                    }
-
-                    return windowInsets;
-                }
-            });
-            rootView.requestApplyInsets();
-
-            activity.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
-        }
-    }
 }

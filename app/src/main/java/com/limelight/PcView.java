@@ -136,7 +136,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
     private void initializeViews() {
         setContentView(R.layout.activity_pc_view_new);
-        UiHelper.notifyNewRootViewImmersive(this);
+        UiHelper.notifyNewEdgeToEdgeRootView(
+                this, R.id.rv_top_view, R.id.pcFragmentContainer);
         // Allow floating expanded PiP overlays while browsing PCs
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             setShouldDockBigOverlays(false);

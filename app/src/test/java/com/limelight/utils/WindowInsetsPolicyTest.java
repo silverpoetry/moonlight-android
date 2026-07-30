@@ -37,4 +37,11 @@ public class WindowInsetsPolicyTest {
                 WindowInsetsPolicy.resolveStreamInsets(
                         true, false, SYSTEM_BARS, DISPLAY_CUTOUT));
     }
+
+    @Test
+    public void safeForegroundUsesMaximumInsetOnEveryEdge() {
+        assertEquals(new WindowInsetsPolicy.EdgeInsets(40, 24, 12, 36),
+                WindowInsetsPolicy.resolveSafeContentInsets(
+                        SYSTEM_BARS, DISPLAY_CUTOUT));
+    }
 }

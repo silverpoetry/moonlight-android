@@ -3,6 +3,7 @@ package com.limelight.ui;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.view.View;
@@ -11,6 +12,8 @@ public class NativeCursorOverlayView extends View {
     public static final int CURSOR_FORMAT_BGRA = 1;
 
     private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final float[] mappedPosition = new float[2];
+    private final Matrix targetInverse = new Matrix();
 
     private Bitmap cursorBitmap;
     private Bitmap scaledCursorBitmap;
@@ -76,12 +79,42 @@ public class NativeCursorOverlayView extends View {
         }
     }
 
-    public void setCursorPosition(float x, float y) {
+    private void setCursorPosition(float x, float y) {
         invalidateCursorBounds();
         this.x = x;
         this.y = y;
         this.hasPosition = true;
         invalidateCursorBounds();
+    }
+
+    public boolean setCursorPositionFromView(View source, float sourceX,
+                                             float sourceY) {
+        mappedPosition[0] = sourceX;
+        mappedPosition[1] = sourceY;
+        if (!ViewCoordinateMapper.mapPointBetweenSiblings(
+                source, this, mappedPosition, targetInverse)) {
+            return false;
+        }
+
+        setCursorPosition(mappedPosition[0], mappedPosition[1]);
+        return true;
+    }
+
+    public boolean setCursorPositionFromReference(View source,
+                                                  int referenceX,
+                                                  int referenceY,
+                                                  int referenceWidth,
+                                                  int referenceHeight) {
+        if (referenceWidth <= 1 || referenceHeight <= 1 ||
+                source.getWidth() <= 0 || source.getHeight() <= 0) {
+            return false;
+        }
+
+        float sourceX = CursorGeometry.mapReferenceCoordinate(
+                referenceX, referenceWidth, source.getWidth());
+        float sourceY = CursorGeometry.mapReferenceCoordinate(
+                referenceY, referenceHeight, source.getHeight());
+        return setCursorPositionFromView(source, sourceX, sourceY);
     }
 
     public void clearCursor() {

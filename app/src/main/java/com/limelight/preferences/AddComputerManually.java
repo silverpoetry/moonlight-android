@@ -274,7 +274,6 @@ public class AddComputerManually extends Activity {
         setContentView(R.layout.activity_add_computer_manually);
 
         UiHelper.notifyNewRootView(this);
-        UiHelper.notifyNewRootViewImmersive(this);
 
         this.hostText = findViewById(R.id.hostTextView);
         hostText.setImeOptions(EditorInfo.IME_ACTION_DONE);

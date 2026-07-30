@@ -25,6 +25,11 @@ final class WindowInsetsPolicy {
         return result;
     }
 
+    static EdgeInsets resolveSafeContentInsets(EdgeInsets systemBars,
+                                               EdgeInsets displayCutout) {
+        return max(systemBars, displayCutout);
+    }
+
     static EdgeInsets max(EdgeInsets first, EdgeInsets second) {
         return new EdgeInsets(
                 Math.max(first.left, second.left),
