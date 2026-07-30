@@ -4247,10 +4247,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private GameMenuFragment dialogGameMenu;
     @Override
     public void showGameMenu(GameInputDevice device) {
-        if(!prefConfig.enableGameMenuNew){
-            new GameMenu(this,conn,device);
-            return;
-        }
         if(dialogGameMenu!=null){
             dialogGameMenu=null;
         }

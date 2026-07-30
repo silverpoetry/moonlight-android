@@ -2195,7 +2195,7 @@ public class StreamSettings extends Activity {
                     "performance_overlayLite_magin_top".equals(key)) return R.drawable.ic_axi_performance;
             if ("checkbox_enable_post_stream_toast".equals(key)) return R.drawable.ic_axi_app_about;
 
-            if ("checkbox_enable_quit_dialog".equals(key) || "checkbox_enable_game_menu_new".equals(key)) return R.drawable.ic_axi_menu;
+            if ("checkbox_enable_quit_dialog".equals(key)) return R.drawable.ic_axi_menu;
             if ("edit_diy_w_h".equals(key)) return R.drawable.ic_axi_game_pad_display;
             if ("checkbox_enable_portrait".equals(key)) return R.drawable.ic_axi_switch_screen;
             if ("checkbox_enable_joyconfix".equals(key)) return R.drawable.ic_axi_ns;

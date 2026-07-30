@@ -470,12 +470,6 @@
             \n软键盘、性能信息、触控模式切换、发送特殊按键"
             android:defaultValue="true"/>
 
-        <CheckBoxPreference
-            android:key="checkbox_enable_game_menu_new"
-            android:title="使用新版游戏菜单"
-            android:summary="替换之前对话框菜单，采用新UI样式。"
-            android:defaultValue="true"/>
-
         <EditTextPreference
             android:key="edit_diy_w_h"
             android:defaultValue="1920x1080"

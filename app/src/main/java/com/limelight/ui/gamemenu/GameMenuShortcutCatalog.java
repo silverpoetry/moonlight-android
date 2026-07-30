@@ -6,7 +6,6 @@ import android.content.SharedPreferences;
 import android.text.TextUtils;
 
 import com.google.gson.Gson;
-import com.limelight.GameMenu;
 import com.limelight.LimeLog;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
@@ -29,6 +28,10 @@ import java.util.Map;
  * with stable IDs suitable for storing references in the game menu layout.
  */
 final class GameMenuShortcutCatalog {
+    private static final String IMPORTED_SHORTCUT_PREFERENCES =
+            "specialPrefs";
+    private static final String IMPORTED_SHORTCUT_KEY = "special_key";
+
     static final class Entry {
         final String id;
         final GameMenuQuickBean shortcut;
@@ -148,8 +151,8 @@ final class GameMenuShortcutCatalog {
     private static void addImportedShortcuts(
             Context context, Map<String, Entry> destination) {
         SharedPreferences preferences = context.getSharedPreferences(
-                GameMenu.PREF_NAME, Activity.MODE_PRIVATE);
-        String value = preferences.getString(GameMenu.KEY_NAME, "");
+                IMPORTED_SHORTCUT_PREFERENCES, Activity.MODE_PRIVATE);
+        String value = preferences.getString(IMPORTED_SHORTCUT_KEY, "");
         if (TextUtils.isEmpty(value)) {
             return;
         }

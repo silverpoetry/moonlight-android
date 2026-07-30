@@ -1,9 +1,5 @@
 package com.limelight.binding.input;
 
-import com.limelight.GameMenu;
-
-import java.util.List;
-
 /**
  * Description
  * Date: 2024-01-16
@@ -12,7 +8,7 @@ import java.util.List;
 public interface GameInputDevice {
 
     /**
-     * @return list of device specific game menu options, e.g. configure a controller's mouse mode
+     * Toggles mouse emulation for this input device.
      */
-    List<GameMenu.MenuOption> getGameMenuOptions();
+    void toggleMouseEmulation();
 }
