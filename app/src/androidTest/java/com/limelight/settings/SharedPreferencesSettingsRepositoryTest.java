@@ -46,8 +46,10 @@ public class SharedPreferencesSettingsRepositoryTest {
         SettingKey<Integer> count =
                 SettingKey.integerKey("count", 4, 0, 10);
 
+        assertFalse(repository.contains(count));
         assertEquals(Integer.valueOf(4), repository.get(count));
         preferences.edit().putString("count", "9").commit();
+        assertTrue(repository.contains(count));
         assertEquals(Integer.valueOf(4), repository.get(count));
     }
 

@@ -22,6 +22,12 @@ public final class SharedPreferencesSettingsRepository
     }
 
     @Override
+    public boolean contains(SettingKey<?> key) {
+        return preferences.contains(
+                Objects.requireNonNull(key, "key").getName());
+    }
+
+    @Override
     public <T> T get(SettingKey<T> key) {
         Objects.requireNonNull(key, "key");
         Object value;

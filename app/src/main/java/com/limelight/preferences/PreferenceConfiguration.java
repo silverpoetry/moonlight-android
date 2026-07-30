@@ -9,6 +9,11 @@ import android.view.Display;
 import android.view.WindowManager;
 
 import com.limelight.nvstream.jni.MoonBridge;
+import com.limelight.settings.SettingsRepository;
+import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.stream.StreamResolutionCodec;
+import com.limelight.settings.stream.StreamResolutionSettingKeys;
+import com.limelight.settings.stream.StreamResolutionSettingsLoader;
 
 public class PreferenceConfiguration {
     public enum FormatOption {
@@ -24,13 +29,19 @@ public class PreferenceConfiguration {
         LEFT
     }
 
-    private static final String LEGACY_RES_FPS_PREF_STRING = "list_resolution_fps";
+    private static final String LEGACY_RES_FPS_PREF_STRING =
+            StreamResolutionSettingKeys.LEGACY_RESOLUTION_AND_FPS
+                    .getName();
     private static final String LEGACY_ENABLE_51_SURROUND_PREF_STRING = "checkbox_51_surround";
 
-    public static final String RESOLUTION_PREF_STRING = "list_resolution";
-    public static final String RESOLUTION_SELECTION_PREF_STRING = "list_resolution_selection";
-    public static final String RESOLUTION_ASPECT_RATIO_PREF_STRING = "list_resolution_aspect_ratio";
-    public static final String FPS_PREF_STRING = "list_fps";
+    public static final String RESOLUTION_PREF_STRING =
+            StreamResolutionSettingKeys.RESOLUTION.getName();
+    public static final String RESOLUTION_SELECTION_PREF_STRING =
+            StreamResolutionSettingKeys.SELECTION.getName();
+    public static final String RESOLUTION_ASPECT_RATIO_PREF_STRING =
+            StreamResolutionSettingKeys.ASPECT_RATIO.getName();
+    public static final String FPS_PREF_STRING =
+            StreamResolutionSettingKeys.FPS.getName();
     public static final String BITRATE_PREF_STRING = "seekbar_bitrate_kbps";
     public static final String BITRATE_PREF_OLD_STRING = "seekbar_bitrate";
     private static final String STRETCH_PREF_STRING = "checkbox_stretch_video";
@@ -109,8 +120,10 @@ public class PreferenceConfiguration {
     //触控屏幕灵敏度
     public static final String TOUCH_SENSITIVITY="seekbar_touch_sensitivity_opacity_x";
 
-    static final String DEFAULT_RESOLUTION = "1280x720";
-    static final String DEFAULT_FPS = "60";
+    static final String DEFAULT_RESOLUTION =
+            StreamResolutionCodec.DEFAULT_RESOLUTION;
+    static final String DEFAULT_FPS =
+            StreamResolutionCodec.DEFAULT_FPS;
     private static final boolean DEFAULT_STRETCH = false;
     private static final boolean DEFAULT_SOPS = true;
     private static final boolean DEFAULT_DISABLE_TOASTS = false;
@@ -162,12 +175,18 @@ public class PreferenceConfiguration {
     public static final int FRAME_PACING_CAP_FPS = 2;
     public static final int FRAME_PACING_MAX_SMOOTHNESS = 3;
 
-    public static final String RES_360P = "640x360";
-    public static final String RES_480P = "854x480";
-    public static final String RES_720P = "1280x720";
-    public static final String RES_1080P = "1920x1080";
-    public static final String RES_1440P = "2560x1440";
-    public static final String RES_4K = "3840x2160";
+    public static final String RES_360P =
+            StreamResolutionCodec.RESOLUTION_360P;
+    public static final String RES_480P =
+            StreamResolutionCodec.RESOLUTION_480P;
+    public static final String RES_720P =
+            StreamResolutionCodec.RESOLUTION_720P;
+    public static final String RES_1080P =
+            StreamResolutionCodec.RESOLUTION_1080P;
+    public static final String RES_1440P =
+            StreamResolutionCodec.RESOLUTION_1440P;
+    public static final String RES_4K =
+            StreamResolutionCodec.RESOLUTION_4K;
     public static final String RES_NATIVE = "Native";
 
     public enum ResolutionSelection {
@@ -175,10 +194,14 @@ public class PreferenceConfiguration {
         CUSTOM_OR_NATIVE
     }
 
-    public static final String RESOLUTION_SELECTION_PRESET = "preset";
-    public static final String RESOLUTION_SELECTION_CUSTOM_OR_NATIVE = "custom_or_native";
-    public static final String RESOLUTION_ASPECT_RATIO_16_9 = "16_9";
-    public static final String RESOLUTION_ASPECT_RATIO_NATIVE = "native";
+    public static final String RESOLUTION_SELECTION_PRESET =
+            StreamResolutionCodec.SELECTION_PRESET;
+    public static final String RESOLUTION_SELECTION_CUSTOM_OR_NATIVE =
+            StreamResolutionCodec.SELECTION_CUSTOM_OR_NATIVE;
+    public static final String RESOLUTION_ASPECT_RATIO_16_9 =
+            StreamResolutionCodec.ASPECT_RATIO_16_9;
+    public static final String RESOLUTION_ASPECT_RATIO_NATIVE =
+            StreamResolutionCodec.ASPECT_RATIO_NATIVE;
 
     public ResolutionSelection resolutionSelection;
     public String resolutionAspectRatio;
@@ -447,12 +470,8 @@ public class PreferenceConfiguration {
     public boolean keyboard_axi_combination;
 
     public static boolean isStandardResolutionPreset(String resString) {
-        return RES_360P.equals(resString) ||
-                RES_480P.equals(resString) ||
-                RES_720P.equals(resString) ||
-                RES_1080P.equals(resString) ||
-                RES_1440P.equals(resString) ||
-                RES_4K.equals(resString);
+        return StreamResolutionCodec.isStandardResolutionPreset(
+                resString);
     }
 
     public static ResolutionSelection getResolutionSelectionFromString(String value) {
@@ -502,48 +521,13 @@ public class PreferenceConfiguration {
         return longDim / shortDim < 1.3f;
     }
 
-    private static String convertFromLegacyResolutionString(String resString) {
-        if (resString.equalsIgnoreCase("360p")) {
-            return RES_360P;
-        }
-        else if (resString.equalsIgnoreCase("480p")) {
-            return RES_480P;
-        }
-        else if (resString.equalsIgnoreCase("720p")) {
-            return RES_720P;
-        }
-        else if (resString.equalsIgnoreCase("1080p")) {
-            return RES_1080P;
-        }
-        else if (resString.equalsIgnoreCase("1440p")) {
-            return RES_1440P;
-        }
-        else if (resString.equalsIgnoreCase("4K")) {
-            return RES_4K;
-        }
-        else {
-            // Should be unreachable
-            return RES_720P;
-        }
-    }
-
-    private static int getWidthFromResolutionString(String resString) {
-        return Integer.parseInt(resString.split("x")[0]);
-    }
-
-    private static int getHeightFromResolutionString(String resString) {
-        return Integer.parseInt(resString.split("x")[1]);
-    }
-
-    private static int roundToEven(int value) {
-        return value & ~1;
-    }
-
-    private static int getDisplayAspectPresetHeight(Context context, int fixedWidth) {
+    private static StreamResolutionCodec.DisplayAspect getDisplayAspect(
+            Context context) {
         int displayWidth = 16;
         int displayHeight = 9;
 
-        WindowManager windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+        WindowManager windowManager = (WindowManager)
+                context.getSystemService(Context.WINDOW_SERVICE);
         if (windowManager != null) {
             Display display = windowManager.getDefaultDisplay();
             if (display != null) {
@@ -559,57 +543,30 @@ public class PreferenceConfiguration {
             }
         }
 
-        int longSide = Math.max(displayWidth, displayHeight);
-        int shortSide = Math.min(displayWidth, displayHeight);
-        return roundToEven(Math.round((float) fixedWidth * shortSide / longSide));
-    }
-
-    private static int getPresetHeight(Context context, String resString) {
-        return getPresetHeight(context, resString, RESOLUTION_ASPECT_RATIO_16_9);
-    }
-
-    private static int getPresetHeight(Context context, String resString, String aspectRatio) {
-        if (RESOLUTION_ASPECT_RATIO_NATIVE.equals(aspectRatio)) {
-            return getDisplayAspectPresetHeight(context, getWidthFromResolutionString(resString));
-        }
-
-        return getHeightFromResolutionString(resString);
-    }
-
-    private static int getResolvedHeightFromResolutionString(Context context, String resString,
-                                                            ResolutionSelection selection,
-                                                            String aspectRatio) {
-        if (selection == ResolutionSelection.PRESET && isStandardResolutionPreset(resString)) {
-            return getPresetHeight(context, resString, aspectRatio);
-        }
-
-        return getHeightFromResolutionString(resString);
-    }
-
-    private static String getResolutionString(int width, int height) {
-        switch (width) {
-            case 640:
-                return RES_360P;
-            case 854:
-                return RES_480P;
-            default:
-            case 1280:
-                return RES_720P;
-            case 1920:
-                return RES_1080P;
-            case 2560:
-                return RES_1440P;
-            case 3840:
-                return RES_4K;
-        }
+        return new StreamResolutionCodec.DisplayAspect(
+                displayWidth,
+                displayHeight);
     }
 
     public static int getDefaultBitrate(Context context, String resString, String fpsString,
                                         ResolutionSelection selection, String aspectRatio) {
-        int width = getWidthFromResolutionString(resString);
-        int height = getResolvedHeightFromResolutionString(context, resString, selection, aspectRatio);
-        int fps = Integer.parseInt(fpsString);
+        StreamResolutionCodec.Result resolution =
+                StreamResolutionCodec.decode(
+                        resString,
+                        getResolutionSelectionString(selection),
+                        aspectRatio,
+                        fpsString,
+                        getDisplayAspect(context));
+        return calculateDefaultBitrate(
+                resolution.getWidth(),
+                resolution.getHeight(),
+                resolution.getFps());
+    }
 
+    private static int calculateDefaultBitrate(
+            int width,
+            int height,
+            int fps) {
         // This logic is shamelessly stolen from Moonlight Qt:
         // https://github.com/moonlight-stream/moonlight-qt/blob/master/app/settings/streamingpreferences.cpp
 
@@ -669,12 +626,21 @@ public class PreferenceConfiguration {
     }
 
     public static int getDefaultBitrate(Context context, String resString, String fpsString) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        SettingsRepository repository =
+                new SharedPreferencesSettingsRepository(
+                        PreferenceManager.getDefaultSharedPreferences(
+                                context));
+        String selectionValue = repository.contains(
+                StreamResolutionSettingKeys.SELECTION)
+                ? repository.get(
+                        StreamResolutionSettingKeys.SELECTION)
+                : isStandardResolutionPreset(resString)
+                        ? RESOLUTION_SELECTION_PRESET
+                        : RESOLUTION_SELECTION_CUSTOM_OR_NATIVE;
         ResolutionSelection selection = getResolutionSelectionFromString(
-                prefs.getString(RESOLUTION_SELECTION_PREF_STRING,
-                        isStandardResolutionPreset(resString) ?
-                                RESOLUTION_SELECTION_PRESET : RESOLUTION_SELECTION_CUSTOM_OR_NATIVE));
-        String aspectRatio = prefs.getString(RESOLUTION_ASPECT_RATIO_PREF_STRING, RESOLUTION_ASPECT_RATIO_16_9);
+                selectionValue);
+        String aspectRatio = repository.get(
+                StreamResolutionSettingKeys.ASPECT_RATIO);
         return getDefaultBitrate(context, resString, fpsString, selection, aspectRatio);
     }
 
@@ -699,11 +665,18 @@ public class PreferenceConfiguration {
     }
 
     public static int getDefaultBitrate(Context context) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        return getDefaultBitrate(
-                context,
-                prefs.getString(RESOLUTION_PREF_STRING, DEFAULT_RESOLUTION),
-                prefs.getString(FPS_PREF_STRING, DEFAULT_FPS));
+        SettingsRepository repository =
+                new SharedPreferencesSettingsRepository(
+                        PreferenceManager.getDefaultSharedPreferences(
+                                context));
+        StreamResolutionCodec.Result resolution =
+                StreamResolutionSettingsLoader.load(
+                        repository,
+                        getDisplayAspect(context));
+        return calculateDefaultBitrate(
+                resolution.getWidth(),
+                resolution.getHeight(),
+                resolution.getFps());
     }
 
     private static FormatOption getVideoFormatValue(Context context) {
@@ -805,6 +778,8 @@ public class PreferenceConfiguration {
 
     public static PreferenceConfiguration readPreferences(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        SettingsRepository repository =
+                new SharedPreferencesSettingsRepository(prefs);
         PreferenceConfiguration config = new PreferenceConfiguration();
 
         // Migrate legacy preferences to the new locations
@@ -817,93 +792,20 @@ public class PreferenceConfiguration {
             }
         }
 
-        String str = prefs.getString(LEGACY_RES_FPS_PREF_STRING, null);
-        if (str != null) {
-            if (str.equals("360p30")) {
-                config.width = 640;
-                config.height = 360;
-                config.fps = 30;
-            }
-            else if (str.equals("360p60")) {
-                config.width = 640;
-                config.height = 360;
-                config.fps = 60;
-            }
-            else if (str.equals("720p30")) {
-                config.width = 1280;
-                config.height = 720;
-                config.fps = 30;
-            }
-            else if (str.equals("720p60")) {
-                config.width = 1280;
-                config.height = 720;
-                config.fps = 60;
-            }
-            else if (str.equals("1080p30")) {
-                config.width = 1920;
-                config.height = 1080;
-                config.fps = 30;
-            }
-            else if (str.equals("1080p60")) {
-                config.width = 1920;
-                config.height = 1080;
-                config.fps = 60;
-            }
-            else if (str.equals("4K30")) {
-                config.width = 3840;
-                config.height = 2160;
-                config.fps = 30;
-            }
-            else if (str.equals("4K60")) {
-                config.width = 3840;
-                config.height = 2160;
-                config.fps = 60;
-            }
-            else {
-                // Should never get here
-                config.width = 1280;
-                config.height = 720;
-                config.fps = 60;
-            }
-
-            config.resolutionSelection = ResolutionSelection.PRESET;
-            config.resolutionAspectRatio = RESOLUTION_ASPECT_RATIO_16_9;
-
-            prefs.edit()
-                    .remove(LEGACY_RES_FPS_PREF_STRING)
-                    .putString(RESOLUTION_PREF_STRING, getResolutionString(config.width, config.height))
-                    .putString(RESOLUTION_SELECTION_PREF_STRING, RESOLUTION_SELECTION_PRESET)
-                    .putString(RESOLUTION_ASPECT_RATIO_PREF_STRING, RESOLUTION_ASPECT_RATIO_16_9)
-                    .putString(FPS_PREF_STRING, ""+config.fps)
-                    .apply();
-        }
-        else {
-            // Use the new preference location
-            String resStr = prefs.getString(RESOLUTION_PREF_STRING, PreferenceConfiguration.DEFAULT_RESOLUTION);
-
-            // Convert legacy resolution strings to the new style
-            if (!resStr.contains("x")) {
-                resStr = PreferenceConfiguration.convertFromLegacyResolutionString(resStr);
-                prefs.edit()
-                        .putString(RESOLUTION_PREF_STRING, resStr)
-                        .putString(RESOLUTION_SELECTION_PREF_STRING, RESOLUTION_SELECTION_PRESET)
-                        .putString(RESOLUTION_ASPECT_RATIO_PREF_STRING, RESOLUTION_ASPECT_RATIO_16_9)
-                        .apply();
-            }
-
-            ResolutionSelection resolutionSelection = getResolutionSelectionFromString(
-                    prefs.getString(RESOLUTION_SELECTION_PREF_STRING,
-                            isStandardResolutionPreset(resStr) ?
-                                    RESOLUTION_SELECTION_PRESET : RESOLUTION_SELECTION_CUSTOM_OR_NATIVE));
-            String aspectRatio = prefs.getString(RESOLUTION_ASPECT_RATIO_PREF_STRING, RESOLUTION_ASPECT_RATIO_16_9);
-
-            config.width = PreferenceConfiguration.getWidthFromResolutionString(resStr);
-            config.height = PreferenceConfiguration.getResolvedHeightFromResolutionString(context, resStr,
-                    resolutionSelection, aspectRatio);
-            config.resolutionSelection = resolutionSelection;
-            config.resolutionAspectRatio = aspectRatio;
-            config.fps = Integer.parseInt(prefs.getString(FPS_PREF_STRING, PreferenceConfiguration.DEFAULT_FPS));
-        }
+        StreamResolutionCodec.Result resolution =
+                StreamResolutionSettingsLoader.load(
+                        repository,
+                        getDisplayAspect(context));
+        config.width = resolution.getWidth();
+        config.height = resolution.getHeight();
+        config.fps = resolution.getFps();
+        config.resolutionSelection =
+                resolution.getSelection() ==
+                        StreamResolutionCodec.Selection.PRESET
+                        ? ResolutionSelection.PRESET
+                        : ResolutionSelection.CUSTOM_OR_NATIVE;
+        config.resolutionAspectRatio =
+                resolution.getCanonicalAspectRatio();
 
         if (!prefs.contains(SMALL_ICONS_PREF_STRING)) {
             // We need to write small icon mode's default to disk for the settings page to display

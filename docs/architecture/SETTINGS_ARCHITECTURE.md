@@ -33,6 +33,14 @@ It does not duplicate parsing or defaults.
 - Downgrade/forward-compatibility behavior for an unknown enum string is
   explicit in the domain codec; it is never an accidental `else` branch.
 
+The resolution aggregate is the first migrated compound setting. Resolution,
+selection mode, aspect policy, and FPS are decoded together by
+`StreamResolutionCodec`; `StreamResolutionSettingsLoader` replaces the former
+scattered parsing and commits all repairs in one editor transaction. Valid
+custom dimensions retain their mode when only textual canonicalization is
+required, while named legacy presets and malformed values follow explicit,
+tested migration rules.
+
 ## Snapshot lifecycle
 
 A stream session receives one snapshot during composition. A setting that
@@ -49,7 +57,7 @@ persistent settings.
 | Domain | Typed snapshot | Runtime storage reads removed | Legacy adapter removed |
 | --- | --- | --- | --- |
 | Stream display/FSR/window | `StreamDisplaySettings` | `Game` no longer reads FSR target, sharpness, HDR mode, or gravity | Pending full stream settings migration |
-| Stream video/decoder | `StreamDecoderSettings` | Decoder and performance-statistics paths no longer receive `PreferenceConfiguration` | Pending full stream settings migration |
+| Stream video/decoder | `StreamDecoderSettings`; typed resolution aggregate | Decoder and performance-statistics paths no longer receive `PreferenceConfiguration`; resolution/FPS parsing and repair have one safe codec | Pending remaining stream settings migration |
 | Input and gestures | Pending | Pending | Pending |
 | Controller and virtual controls | Pending | Pending | Pending |
 | Audio and microphone | Pending | Pending | Pending |

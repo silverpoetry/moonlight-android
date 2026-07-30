@@ -136,6 +136,11 @@ public class LegacyPreferenceSettingsAdapterTest {
         }
 
         @Override
+        public boolean contains(SettingKey<?> key) {
+            return values.containsKey(key.getName());
+        }
+
+        @Override
         public <T> T get(SettingKey<T> key) {
             return key.normalizeStoredValue(
                     values.get(key.getName()));
