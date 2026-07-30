@@ -1,6 +1,6 @@
 package com.limelight.utils;
 
-import android.annotation.TargetApi;
+import android.support.annotation.RequiresApi;
 import android.app.Activity;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
@@ -33,7 +33,7 @@ public class ShortcutHelper {
         this.tvChannelHelper = new TvChannelHelper(context);
     }
 
-    @TargetApi(Build.VERSION_CODES.N_MR1)
+    @RequiresApi(api = Build.VERSION_CODES.N_MR1)
     private void reapShortcutsForDynamicAdd() {
         List<ShortcutInfo> dynamicShortcuts = sm.getDynamicShortcuts();
         while (!dynamicShortcuts.isEmpty() && dynamicShortcuts.size() >= sm.getMaxShortcutCountPerActivity()) {
@@ -47,7 +47,7 @@ public class ShortcutHelper {
         }
     }
 
-    @TargetApi(Build.VERSION_CODES.N_MR1)
+    @RequiresApi(api = Build.VERSION_CODES.N_MR1)
     private List<ShortcutInfo> getAllShortcuts() {
         LinkedList<ShortcutInfo> list = new LinkedList<>();
         list.addAll(sm.getDynamicShortcuts());
@@ -55,7 +55,7 @@ public class ShortcutHelper {
         return list;
     }
 
-    @TargetApi(Build.VERSION_CODES.N_MR1)
+    @RequiresApi(api = Build.VERSION_CODES.N_MR1)
     private ShortcutInfo getInfoForId(String id) {
         List<ShortcutInfo> shortcuts = getAllShortcuts();
 
@@ -68,7 +68,7 @@ public class ShortcutHelper {
         return null;
     }
 
-    @TargetApi(Build.VERSION_CODES.N_MR1)
+    @RequiresApi(api = Build.VERSION_CODES.N_MR1)
     private boolean isExistingDynamicShortcut(String id) {
         for (ShortcutInfo si : sm.getDynamicShortcuts()) {
             if (si.getId().equals(id)) {
@@ -145,7 +145,7 @@ public class ShortcutHelper {
         return computer.uuid + app.getAppId();
     }
 
-    @TargetApi(Build.VERSION_CODES.O)
+    @RequiresApi(api = Build.VERSION_CODES.O)
     public boolean createPinnedGameShortcut(ComputerDetails computer, NvApp app, Bitmap iconBits) {
         if (sm.isRequestPinShortcutSupported()) {
             Icon appIcon;

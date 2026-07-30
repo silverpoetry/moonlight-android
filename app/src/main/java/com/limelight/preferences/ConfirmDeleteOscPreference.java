@@ -1,6 +1,5 @@
 package com.limelight.preferences;
 
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Build;

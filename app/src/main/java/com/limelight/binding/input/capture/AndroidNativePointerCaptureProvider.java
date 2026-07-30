@@ -1,10 +1,10 @@
 package com.limelight.binding.input.capture;
 
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.hardware.input.InputManager;
 import android.os.Build;
 import android.os.Handler;
+import android.support.annotation.RequiresApi;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
@@ -13,7 +13,7 @@ import android.view.View;
 // We extend AndroidPointerIconCaptureProvider because we want to also get the
 // pointer icon hiding behavior over our stream view just in case pointer capture
 // is unavailable on this system (ex: DeX, ChromeOS)
-@TargetApi(Build.VERSION_CODES.O)
+@RequiresApi(api = Build.VERSION_CODES.O)
 public class AndroidNativePointerCaptureProvider extends AndroidPointerIconCaptureProvider implements InputManager.InputDeviceListener {
     private final InputManager inputManager;
     private final View targetView;
@@ -22,10 +22,6 @@ public class AndroidNativePointerCaptureProvider extends AndroidPointerIconCaptu
         super(activity, targetView);
         this.inputManager = activity.getSystemService(InputManager.class);
         this.targetView = targetView;
-    }
-
-    public static boolean isCaptureProviderSupported() {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
     }
 
     // We only capture the pointer if we have a compatible InputDevice

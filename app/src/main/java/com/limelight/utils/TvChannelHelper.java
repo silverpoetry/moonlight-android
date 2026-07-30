@@ -1,6 +1,6 @@
 package com.limelight.utils;
 
-import android.annotation.TargetApi;
+import android.support.annotation.RequiresApi;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.ContentUris;
@@ -100,7 +100,7 @@ public class TvChannelHelper {
         }
     }
 
-    @TargetApi(Build.VERSION_CODES.O)
+    @RequiresApi(api = Build.VERSION_CODES.O)
     private void updateChannelIcon(long channelId) {
         Bitmap logo = drawableToBitmap(context.getResources().getDrawable(R.drawable.ic_channel));
         try {
@@ -208,7 +208,7 @@ public class TvChannelHelper {
         }
     }
 
-    @TargetApi(Build.VERSION_CODES.O)
+    @RequiresApi(api = Build.VERSION_CODES.O)
     private Long getChannelId(String computerUuid) {
         try (Cursor cursor = context.getContentResolver().query(
                 TvContract.Channels.CONTENT_URI,
@@ -230,7 +230,7 @@ public class TvChannelHelper {
         }
     }
 
-    @TargetApi(Build.VERSION_CODES.O)
+    @RequiresApi(api = Build.VERSION_CODES.O)
     private Long getProgramId(long channelId, String appId) {
         try (Cursor cursor = context.getContentResolver().query(
                 TvContract.buildPreviewProgramsUriForChannel(channelId),
@@ -271,12 +271,12 @@ public class TvChannelHelper {
         return intent == null ? null : intent.toUri(Intent.URI_INTENT_SCHEME);
     }
 
-    @TargetApi(Build.VERSION_CODES.O)
+    @RequiresApi(api = Build.VERSION_CODES.O)
     private boolean isAndroidTV() {
         return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
     }
 
-    @TargetApi(Build.VERSION_CODES.O)
+    @RequiresApi(api = Build.VERSION_CODES.O)
     private static class PreviewProgramBuilder {
 
         private ContentValues mValues = new ContentValues();
@@ -333,7 +333,7 @@ public class TvChannelHelper {
 
     }
 
-    @TargetApi(Build.VERSION_CODES.O)
+    @RequiresApi(api = Build.VERSION_CODES.O)
     private static class ChannelBuilder {
 
         private ContentValues mValues = new ContentValues();

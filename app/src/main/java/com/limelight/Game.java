@@ -60,7 +60,7 @@ import com.limelight.utils.ShortcutHelper;
 import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.UiHelper;
 import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
+import android.support.annotation.RequiresApi;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.PictureInPictureParams;
@@ -1026,7 +1026,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
-    @TargetApi(Build.VERSION_CODES.O)
+    @RequiresApi(api = Build.VERSION_CODES.O)
     private PictureInPictureParams getPictureInPictureParams(boolean autoEnter) {
         PictureInPictureParams.Builder builder =
                 new PictureInPictureParams.Builder()
@@ -1120,7 +1120,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     @Override
-    @TargetApi(Build.VERSION_CODES.R)
+    @RequiresApi(api = Build.VERSION_CODES.R)
     public boolean onPictureInPictureRequested() {
         // Enter PiP when requested unless we're on Android 12 which supports auto-enter.
         if (autoEnterPip && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
@@ -1432,7 +1432,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     @Override
-    @TargetApi(Build.VERSION_CODES.N)
+    @RequiresApi(api = Build.VERSION_CODES.N)
     public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
         super.onMultiWindowModeChanged(isInMultiWindowMode);
 

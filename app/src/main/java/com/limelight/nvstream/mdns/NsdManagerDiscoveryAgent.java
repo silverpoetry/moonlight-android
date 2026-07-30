@@ -1,6 +1,6 @@
 package com.limelight.nvstream.mdns;
 
-import android.annotation.TargetApi;
+import android.support.annotation.RequiresApi;
 import android.content.Context;
 import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
@@ -17,7 +17,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-@TargetApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+@RequiresApi(api = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 public class NsdManagerDiscoveryAgent extends MdnsDiscoveryAgent {
     private static final String SERVICE_TYPE = "_nvstream._tcp";
     private final NsdManager nsdManager;

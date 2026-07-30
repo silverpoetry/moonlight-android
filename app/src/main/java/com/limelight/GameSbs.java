@@ -2,7 +2,7 @@ package com.limelight;
 
 
 import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
+import android.support.annotation.RequiresApi;
 import android.app.Activity;
 import android.app.PictureInPictureParams;
 import android.app.Service;
@@ -680,7 +680,7 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         }
     }
 
-    @TargetApi(Build.VERSION_CODES.O)
+    @RequiresApi(api = Build.VERSION_CODES.O)
     private PictureInPictureParams getPictureInPictureParams(boolean autoEnter) {
         PictureInPictureParams.Builder builder =
                 new PictureInPictureParams.Builder()

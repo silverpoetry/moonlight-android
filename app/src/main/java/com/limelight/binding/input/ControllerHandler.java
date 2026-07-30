@@ -1,7 +1,7 @@
 package com.limelight.binding.input;
 
 import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
+import android.support.annotation.RequiresApi;
 import android.app.Activity;
 import android.content.Context;
 import android.hardware.Sensor;
@@ -2307,7 +2307,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
 
     }
 
-    @TargetApi(31)
+    @RequiresApi(api = Build.VERSION_CODES.S)
     private boolean hasDualAmplitudeControlledRumbleVibrators(VibratorManager vm) {
         int[] vibratorIds = vm.getVibratorIds();
 
@@ -2327,7 +2327,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
     }
 
     // This must only be called if hasDualAmplitudeControlledRumbleVibrators() is true!
-    @TargetApi(31)
+    @RequiresApi(api = Build.VERSION_CODES.S)
     private void rumbleDualVibrators(VibratorManager vm, short lowFreqMotor, short highFreqMotor) {
         // Normalize motor values to 0-255 amplitudes for VibrationManager
         highFreqMotor = (short)((highFreqMotor >> 8) & 0xFF);
@@ -2370,7 +2370,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         vm.vibrate(combo.combine(), vibrationAttributes.build());
     }
 
-    @TargetApi(31)
+    @RequiresApi(api = Build.VERSION_CODES.S)
     private boolean hasQuadAmplitudeControlledRumbleVibrators(VibratorManager vm) {
         int[] vibratorIds = vm.getVibratorIds();
 
@@ -2390,7 +2390,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
     }
 
     // This must only be called if hasQuadAmplitudeControlledRumbleVibrators() is true!
-    @TargetApi(31)
+    @RequiresApi(api = Build.VERSION_CODES.S)
     private void rumbleQuadVibrators(VibratorManager vm, short lowFreqMotor, short highFreqMotor, short leftTrigger, short rightTrigger) {
         // Normalize motor values to 0-255 amplitudes for VibrationManager
         highFreqMotor = (short)((highFreqMotor >> 8) & 0xFF);

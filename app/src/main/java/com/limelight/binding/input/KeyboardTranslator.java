@@ -1,6 +1,6 @@
 package com.limelight.binding.input;
 
-import android.annotation.TargetApi;
+import android.support.annotation.RequiresApi;
 import android.hardware.input.InputManager;
 import android.os.Build;
 import android.util.SparseArray;
@@ -101,7 +101,7 @@ public class KeyboardTranslator implements InputManager.InputDeviceListener {
         private final InputDevice device;
         private final int[] deviceKeyCodeToQwertyKeyCode;
 
-        @TargetApi(33)
+        @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
         public KeyboardMapping(InputDevice device) {
             int maxKeyCode = KeyEvent.getMaxKeyCode();
 
@@ -119,7 +119,7 @@ public class KeyboardTranslator implements InputManager.InputDeviceListener {
             }
         }
 
-        @TargetApi(33)
+        @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
         public int getDeviceKeyCodeForQwertyKeyCode(int qwertyKeyCode) {
             return device.getKeyCodeForKeyLocation(qwertyKeyCode);
         }

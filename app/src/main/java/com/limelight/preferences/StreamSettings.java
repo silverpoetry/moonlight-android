@@ -1,6 +1,6 @@
 package com.limelight.preferences;
 
-import android.annotation.TargetApi;
+import android.support.annotation.RequiresApi;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
@@ -1214,7 +1214,7 @@ public class StreamSettings extends Activity {
         startActivity(Intent.createChooser(intent, "保存数据文件"));
     }
 
-    @TargetApi(Build.VERSION_CODES.TIRAMISU)
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     private void launchNativeLanguageSettings() {
         try {
             Intent intent = new Intent(Settings.ACTION_APP_LOCALE_SETTINGS);
@@ -1767,7 +1767,7 @@ public class StreamSettings extends Activity {
         }
     }
 
-    @TargetApi(Build.VERSION_CODES.TIRAMISU)
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     private static final class Api33BackNavigation {
         private Api33BackNavigation() {
         }

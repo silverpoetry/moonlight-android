@@ -1,6 +1,7 @@
 package com.limelight.binding.input.capture;
 
 import android.app.Activity;
+import android.os.Build;
 
 import com.limelight.BuildConfig;
 import com.limelight.LimeLog;
@@ -10,7 +11,7 @@ import com.limelight.binding.input.evdev.EvdevListener;
 
 public class InputCaptureManager {
     public static InputCaptureProvider getInputCaptureProvider(Activity activity, EvdevListener rootListener) {
-        if (AndroidNativePointerCaptureProvider.isCaptureProviderSupported()) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             LimeLog.info("Using Android O+ native mouse capture");
             return new AndroidNativePointerCaptureProvider(activity, activity.findViewById(R.id.surfaceView));
         }
@@ -24,7 +25,7 @@ public class InputCaptureManager {
             LimeLog.info("Using Evdev mouse capture");
             return EvdevCaptureProviderShim.createEvdevCaptureProvider(activity, rootListener);
         }
-        else if (AndroidPointerIconCaptureProvider.isCaptureProviderSupported()) {
+        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             // Android N's native capture can't capture over system UI elements
             // so we want to only use it if there's no other option.
             LimeLog.info("Using Android N+ pointer hiding");
