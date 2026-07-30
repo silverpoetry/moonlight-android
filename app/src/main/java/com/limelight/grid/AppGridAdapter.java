@@ -45,7 +45,7 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
     private ArrayList<AppView.AppObject> allApps = new ArrayList<>();
 
     public AppGridAdapter(Context context, PreferenceConfiguration prefs, ComputerDetails computer, String uniqueId, boolean showHiddenApps) {
-        super(context, getLayoutIdForPreferences(prefs));
+        super(context, getItemLayoutId());
 
         this.computer = computer;
         this.uniqueId = uniqueId;
@@ -79,13 +79,7 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
         notifyDataSetChanged();
     }
 
-    private static int getLayoutIdForPreferences(PreferenceConfiguration prefs) {
-//        if (prefs.smallIconMode) {
-//            return R.layout.app_grid_item_small;
-//        }
-//        else {
-//            return R.layout.app_grid_item;
-//        }
+    private static int getItemLayoutId() {
         return R.layout.app_grid_item_new;
     }
 
@@ -119,7 +113,7 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
                 BitmapFactory.decodeResource(context.getResources(), R.drawable.no_app_image));
 
         // This will trigger the view to reload with the new layout
-        setLayoutId(getLayoutIdForPreferences(prefs));
+        setLayoutId(getItemLayoutId());
     }
 
     public void cancelQueuedOperations() {
