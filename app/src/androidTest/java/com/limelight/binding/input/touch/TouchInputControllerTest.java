@@ -5,6 +5,7 @@ import android.os.SystemClock;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.FrameLayout;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -93,6 +94,42 @@ public final class TouchInputControllerTest {
 
         assertEquals(1, inputSink.mousePositionPacketCount);
         assertEquals(0, inputSink.touchpadFramePacketCount);
+    }
+
+    @Test
+    public void absoluteModeUsesCompleteSiblingTransform() {
+        FrameLayout parent = new FrameLayout(streamView.getContext());
+        View backgroundView = new View(streamView.getContext());
+        parent.addView(backgroundView);
+        parent.addView(streamView);
+        backgroundView.layout(40, 20, 1_240, 720);
+        backgroundView.setPivotX(0);
+        backgroundView.setPivotY(0);
+        backgroundView.setScaleX(2);
+        backgroundView.setScaleY(2);
+        backgroundView.setTranslationX(10);
+        backgroundView.setTranslationY(5);
+        streamView.layout(100, 50, 1_100, 550);
+        streamView.setPivotX(0);
+        streamView.setPivotY(0);
+        streamView.setScaleX(0.5f);
+        streamView.setScaleY(0.5f);
+        streamView.setTranslationX(30);
+        streamView.setTranslationY(20);
+        controller.setMode(TouchInputMode.ABSOLUTE_MOUSE);
+
+        assertTrue(controller.handleMotionEvent(
+                backgroundView,
+                event(0, MotionEvent.ACTION_DOWN, 0, 50, 25)));
+        assertTrue(controller.handleMotionEvent(
+                backgroundView,
+                event(10, MotionEvent.ACTION_UP, 0, 50, 25)));
+
+        assertEquals(1, inputSink.mousePositionPacketCount);
+        assertEquals(40, inputSink.lastMouseX);
+        assertEquals(10, inputSink.lastMouseY);
+        assertEquals(1_000, inputSink.lastMouseReferenceWidth);
+        assertEquals(500, inputSink.lastMouseReferenceHeight);
     }
 
     @Test
@@ -214,6 +251,10 @@ public final class TouchInputControllerTest {
         int directTouchPacketCount;
         int touchpadFramePacketCount;
         int lastTouchpadContactCount;
+        int lastMouseX;
+        int lastMouseY;
+        int lastMouseReferenceWidth;
+        int lastMouseReferenceHeight;
 
         @Override
         public void sendMousePosition(
@@ -223,6 +264,10 @@ public final class TouchInputControllerTest {
                 short referenceHeight) {
             packetCount++;
             mousePositionPacketCount++;
+            lastMouseX = x;
+            lastMouseY = y;
+            lastMouseReferenceWidth = referenceWidth;
+            lastMouseReferenceHeight = referenceHeight;
         }
 
         @Override

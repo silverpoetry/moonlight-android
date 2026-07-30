@@ -5,6 +5,7 @@ import android.os.SystemClock;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.FrameLayout;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -151,10 +152,12 @@ public final class ExternalPointerInputControllerTest {
 
     @Test
     public void viewMouseCoordinatesUseStreamReferenceSpace() {
-        streamView.setX(100);
-        streamView.setY(50);
+        FrameLayout parent = new FrameLayout(streamView.getContext());
         View containingView = new View(streamView.getContext());
+        parent.addView(containingView);
+        parent.addView(streamView);
         containingView.layout(0, 0, 1_200, 700);
+        streamView.layout(100, 50, 1_100, 550);
 
         controller.handleMotionEvent(
                 containingView,
@@ -169,6 +172,44 @@ public final class ExternalPointerInputControllerTest {
         assertEquals(1, inputSink.absolutePositionCount);
         assertEquals(320, inputSink.lastX);
         assertEquals(180, inputSink.lastY);
+        assertEquals(1_000, inputSink.lastReferenceWidth);
+        assertEquals(500, inputSink.lastReferenceHeight);
+    }
+
+    @Test
+    public void viewMouseCoordinatesUseCompleteSiblingTransform() {
+        FrameLayout parent = new FrameLayout(streamView.getContext());
+        View containingView = new View(streamView.getContext());
+        parent.addView(containingView);
+        parent.addView(streamView);
+        containingView.layout(40, 20, 1_240, 720);
+        containingView.setPivotX(0);
+        containingView.setPivotY(0);
+        containingView.setScaleX(2);
+        containingView.setScaleY(2);
+        containingView.setTranslationX(10);
+        containingView.setTranslationY(5);
+        streamView.layout(100, 50, 1_100, 550);
+        streamView.setPivotX(0);
+        streamView.setPivotY(0);
+        streamView.setScaleX(0.5f);
+        streamView.setScaleY(0.5f);
+        streamView.setTranslationX(30);
+        streamView.setTranslationY(20);
+
+        controller.handleMotionEvent(
+                containingView,
+                event(
+                        InputDevice.SOURCE_MOUSE,
+                        MotionEvent.ACTION_HOVER_MOVE,
+                        MotionEvent.TOOL_TYPE_MOUSE,
+                        0,
+                        50,
+                        25));
+
+        assertEquals(1, inputSink.absolutePositionCount);
+        assertEquals(40, inputSink.lastX);
+        assertEquals(10, inputSink.lastY);
         assertEquals(1_000, inputSink.lastReferenceWidth);
         assertEquals(500, inputSink.lastReferenceHeight);
     }

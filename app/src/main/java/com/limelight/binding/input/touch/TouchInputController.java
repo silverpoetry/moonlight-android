@@ -1,6 +1,7 @@
 package com.limelight.binding.input.touch;
 
 import android.content.Context;
+import android.graphics.Matrix;
 import android.os.Build;
 import android.view.MotionEvent;
 import android.view.View;
@@ -8,6 +9,7 @@ import android.view.ViewConfiguration;
 
 import com.limelight.binding.input.PointerInputSink;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.utils.ViewCoordinateMapper;
 
 import java.util.Objects;
 
@@ -42,6 +44,8 @@ public final class TouchInputController {
     private final SoftKeyboardGestureCoordinator keyboardGestureCoordinator;
     private final BarometerForcePressController forcePressController;
     private final TouchscreenTouchpadHandler nativeTouchpadHandler;
+    private final float[] mappedLegacyPosition = new float[2];
+    private final Matrix streamViewInverse = new Matrix();
 
     private boolean nativeTouchpadInputEnabled;
     private boolean disabled = true;
@@ -262,17 +266,6 @@ public final class TouchInputController {
             forcePressController.onTouchEvent(event);
         }
 
-        float xOffset;
-        float yOffset;
-        if (eventView != streamView && !preferences.touchscreenTrackpad) {
-            xOffset = -streamView.getX();
-            yOffset = -streamView.getY();
-        }
-        else {
-            xOffset = 0;
-            yOffset = 0;
-        }
-
         if (keyboardGestureCoordinator.onTouchEvent(
                 eventView,
                 event,
@@ -295,7 +288,11 @@ public final class TouchInputController {
             return true;
         }
 
-        return dispatchLegacyTouchEvent(event, xOffset, yOffset);
+        return dispatchLegacyTouchEvent(
+                eventView,
+                event,
+                eventView != streamView &&
+                        !preferences.touchscreenTrackpad);
     }
 
     private TouchContext createTouchContext(
@@ -357,40 +354,53 @@ public final class TouchInputController {
     }
 
     private boolean dispatchLegacyTouchEvent(
+            View eventView,
             MotionEvent event,
-            float xOffset,
-            float yOffset) {
+            boolean mapToStreamView) {
         int actionIndex = event.getActionIndex();
         TouchContext context = getTouchContext(actionIndex);
         if (context == null) {
             return false;
         }
 
-        int eventX = (int) (event.getX(actionIndex) + xOffset);
-        int eventY = (int) (event.getY(actionIndex) + yOffset);
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN:
+                if (!updateLegacyPosition(
+                        eventView,
+                        event.getX(actionIndex),
+                        event.getY(actionIndex),
+                        mapToStreamView)) {
+                    return true;
+                }
                 updatePointerCount(
                         event.getPointerCount(),
                         event.getEventTime());
                 context.touchDownEvent(
-                        eventX,
-                        eventY,
+                        (int) mappedLegacyPosition[0],
+                        (int) mappedLegacyPosition[1],
                         event.getEventTime(),
                         true);
                 return true;
 
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_POINTER_UP:
+                if (!updateLegacyPosition(
+                        eventView,
+                        event.getX(actionIndex),
+                        event.getY(actionIndex),
+                        mapToStreamView)) {
+                    cancelLegacyTouchContexts();
+                    return true;
+                }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                         (event.getFlags() & MotionEvent.FLAG_CANCELED) != 0) {
                     context.cancelTouch();
                 }
                 else {
                     context.touchUpEvent(
-                            eventX,
-                            eventY,
+                            (int) mappedLegacyPosition[0],
+                            (int) mappedLegacyPosition[1],
                             event.getEventTime());
                 }
 
@@ -400,16 +410,27 @@ public final class TouchInputController {
                 if (actionIndex == 0 &&
                         event.getPointerCount() > 1 &&
                         !context.isCancelled()) {
+                    if (!updateLegacyPosition(
+                            eventView,
+                            event.getX(1),
+                            event.getY(1),
+                            mapToStreamView)) {
+                        cancelLegacyTouchContexts();
+                        return true;
+                    }
                     context.touchDownEvent(
-                            (int) (event.getX(1) + xOffset),
-                            (int) (event.getY(1) + yOffset),
+                            (int) mappedLegacyPosition[0],
+                            (int) mappedLegacyPosition[1],
                             event.getEventTime(),
                             false);
                 }
                 return true;
 
             case MotionEvent.ACTION_MOVE:
-                dispatchMoveEvents(event, xOffset, yOffset);
+                dispatchMoveEvents(
+                        eventView,
+                        event,
+                        mapToStreamView);
                 return true;
 
             case MotionEvent.ACTION_CANCEL:
@@ -422,25 +443,33 @@ public final class TouchInputController {
     }
 
     private void dispatchMoveEvents(
+            View eventView,
             MotionEvent event,
-            float xOffset,
-            float yOffset) {
+            boolean mapToStreamView) {
         for (int historyIndex = 0;
              historyIndex < event.getHistorySize();
-            historyIndex++) {
+             historyIndex++) {
             for (TouchContext context : touchContexts) {
                 if (context == null) {
                     continue;
                 }
                 int actionIndex = context.getActionIndex();
                 if (actionIndex < event.getPointerCount()) {
+                    if (!updateLegacyPosition(
+                            eventView,
+                            event.getHistoricalX(
+                                    actionIndex,
+                                    historyIndex),
+                            event.getHistoricalY(
+                                    actionIndex,
+                                    historyIndex),
+                            mapToStreamView)) {
+                        cancelLegacyTouchContexts();
+                        return;
+                    }
                     context.touchMoveEvent(
-                            (int) (event.getHistoricalX(
-                                    actionIndex,
-                                    historyIndex) + xOffset),
-                            (int) (event.getHistoricalY(
-                                    actionIndex,
-                                    historyIndex) + yOffset),
+                            (int) mappedLegacyPosition[0],
+                            (int) mappedLegacyPosition[1],
                             event.getHistoricalEventTime(historyIndex));
                 }
             }
@@ -452,12 +481,36 @@ public final class TouchInputController {
             }
             int actionIndex = context.getActionIndex();
             if (actionIndex < event.getPointerCount()) {
+                if (!updateLegacyPosition(
+                        eventView,
+                        event.getX(actionIndex),
+                        event.getY(actionIndex),
+                        mapToStreamView)) {
+                    cancelLegacyTouchContexts();
+                    return;
+                }
                 context.touchMoveEvent(
-                        (int) (event.getX(actionIndex) + xOffset),
-                        (int) (event.getY(actionIndex) + yOffset),
+                        (int) mappedLegacyPosition[0],
+                        (int) mappedLegacyPosition[1],
                         event.getEventTime());
             }
         }
+    }
+
+    private boolean updateLegacyPosition(
+            View eventView,
+            float x,
+            float y,
+            boolean mapToStreamView) {
+        mappedLegacyPosition[0] = x;
+        mappedLegacyPosition[1] = y;
+        return !mapToStreamView ||
+                eventView != null &&
+                        ViewCoordinateMapper.mapPointBetweenSiblings(
+                                eventView,
+                                streamView,
+                                mappedLegacyPosition,
+                                streamViewInverse);
     }
 
     private TouchContext getTouchContext(int actionIndex) {

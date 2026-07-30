@@ -1,5 +1,6 @@
 package com.limelight.binding.input.pointer;
 
+import android.graphics.Matrix;
 import android.os.Build;
 import android.view.InputDevice;
 import android.view.MotionEvent;
@@ -11,6 +12,7 @@ import com.limelight.binding.input.capture.InputCaptureProvider;
 import com.limelight.binding.input.touch.DirectContactInputController;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.utils.ViewCoordinateMapper;
 
 import java.util.Locale;
 import java.util.Objects;
@@ -36,6 +38,8 @@ public final class ExternalPointerInputController {
     private final InputCaptureProvider inputCaptureProvider;
     private final DirectContactInputController directContactInputController;
     private final PreferenceConfiguration preferences;
+    private final float[] mappedPosition = new float[2];
+    private final Matrix streamViewInverse = new Matrix();
 
     private int lastButtonState;
     private float relativeScrollRemainderX;
@@ -355,15 +359,20 @@ public final class ExternalPointerInputController {
     private void sendAbsoluteMousePosition(
             View eventView,
             MotionEvent event) {
-        float eventX;
-        float eventY;
-        if (eventView == streamView) {
-            eventX = event.getX(0);
-            eventY = event.getY(0);
-        }
-        else {
-            eventX = event.getX(0) - streamView.getX();
-            eventY = event.getY(0) - streamView.getY();
+        float eventX = event.getX(0);
+        float eventY = event.getY(0);
+        if (eventView != streamView) {
+            mappedPosition[0] = eventX;
+            mappedPosition[1] = eventY;
+            if (!ViewCoordinateMapper.mapPointBetweenSiblings(
+                    eventView,
+                    streamView,
+                    mappedPosition,
+                    streamViewInverse)) {
+                return;
+            }
+            eventX = mappedPosition[0];
+            eventY = mappedPosition[1];
         }
 
         if (isSingleStylusContact(event) &&
