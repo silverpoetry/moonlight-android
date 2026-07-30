@@ -34,4 +34,23 @@ final class ViewCoordinateMapper {
         targetInverse.mapPoints(point);
         return true;
     }
+
+    static boolean mapBasisBetweenSiblings(
+            View source,
+            View target,
+            float[] basis,
+            Matrix targetInverse) {
+        if (basis.length < 4 ||
+                source.getParent() == null ||
+                source.getParent() != target.getParent()) {
+            return false;
+        }
+
+        source.getMatrix().mapVectors(basis);
+        if (!target.getMatrix().invert(targetInverse)) {
+            return false;
+        }
+        targetInverse.mapVectors(basis);
+        return true;
+    }
 }

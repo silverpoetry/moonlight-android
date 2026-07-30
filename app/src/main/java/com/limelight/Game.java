@@ -2452,19 +2452,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             return;
         }
 
-        float encodedToViewX = prefConfig.width > 0
-                ? streamView.getWidth() / (float)prefConfig.width
-                : 1f;
-        float encodedToViewY = prefConfig.height > 0
-                ? streamView.getHeight() / (float)prefConfig.height
-                : 1f;
-        float captureToEncodedX =
-                scaleX > 0 ? scaleX / 65536f : 1f;
-        float captureToEncodedY =
-                scaleY > 0 ? scaleY / 65536f : 1f;
-        nativeCursorOverlayView.setCursorScale(
-                captureToEncodedX * encodedToViewX,
-                captureToEncodedY * encodedToViewY);
+        nativeCursorOverlayView.setCursorScaleFromStream(
+                streamView,
+                prefConfig.width,
+                prefConfig.height,
+                scaleX,
+                scaleY);
         nativeCursorOverlayView.updateCursor(
                 visible,
                 shapeChanged,

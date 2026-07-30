@@ -1,0 +1,42 @@
+# Stream Viewport Geometry
+
+The stream screen uses explicit coordinate spaces. No component may infer a
+status-bar, cutout, or navigation-bar offset independently.
+
+## Coordinate spaces
+
+| Space | Owner | Meaning |
+| --- | --- | --- |
+| Encoded frame | stream configuration | Decoder pixel dimensions |
+| Host reference | input/cursor protocol event | Addressable host pixel grid for that event |
+| Stream view | Android layout | Local, untransformed coordinates of the video `View` |
+| Overlay view | Android layout | Local coordinates used to draw the cursor and overlays |
+| Activity content | window policy | Shared parent rectangle after the single inset policy |
+
+`UiHelper.configureStreamWindowInsets()` applies safe-area padding only to the
+shared content root. Video, input surfaces, and the cursor overlay therefore
+move together; child components never add those insets again.
+
+## Mapping rules
+
+- Pixel positions map endpoint-to-endpoint:
+  `[0, sourceSize - 1] -> [0, targetSize - 1]`.
+- Lengths and bitmap dimensions use `targetSize / sourceSize`.
+- Protocol cursor scale is first converted from Q16 capture-to-encoded scale,
+  then from encoded pixels to stream-view pixels.
+- The complete Android `View` matrix maps points and basis vectors between the
+  stream and overlay siblings. Layout translation affects positions but not
+  lengths; scale and rotation affect both.
+- Invalid protocol coordinates are clamped. Invalid dimensions reject the
+  update or use an identity dimension scale; they never introduce NaN or
+  infinity.
+
+`StreamViewportGeometry` owns the pure pixel-grid math.
+`ViewCoordinateMapper` owns Android sibling transforms.
+`NativeCursorOverlayView` composes both, so cursor position, hotspot, and shape
+scale use the same viewport geometry.
+
+## Performance
+
+Mouse-position callbacks reuse preallocated point, basis, and matrix scratch
+objects. No collection or geometry object is allocated per cursor movement.

@@ -13,6 +13,7 @@ public class NativeCursorOverlayView extends View {
 
     private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
     private final float[] mappedPosition = new float[2];
+    private final float[] mappedBasis = new float[4];
     private final Matrix targetInverse = new Matrix();
 
     private Bitmap cursorBitmap;
@@ -87,6 +88,46 @@ public class NativeCursorOverlayView extends View {
         invalidateCursorBounds();
     }
 
+    public boolean setCursorScaleFromStream(
+            View source,
+            int encodedWidth,
+            int encodedHeight,
+            int captureScaleX,
+            int captureScaleY) {
+        if (source.getWidth() <= 0 || source.getHeight() <= 0) {
+            return false;
+        }
+
+        mappedBasis[0] =
+                StreamViewportGeometry.mapScaledDimension(
+                        captureScaleX,
+                        encodedWidth,
+                        source.getWidth());
+        mappedBasis[1] = 0f;
+        mappedBasis[2] = 0f;
+        mappedBasis[3] =
+                StreamViewportGeometry.mapScaledDimension(
+                        captureScaleY,
+                        encodedHeight,
+                        source.getHeight());
+        if (!ViewCoordinateMapper.mapBasisBetweenSiblings(
+                source,
+                this,
+                mappedBasis,
+                targetInverse)) {
+            return false;
+        }
+
+        float mappedScaleX = (float) Math.hypot(
+                mappedBasis[0],
+                mappedBasis[1]);
+        float mappedScaleY = (float) Math.hypot(
+                mappedBasis[2],
+                mappedBasis[3]);
+        setCursorScale(mappedScaleX, mappedScaleY);
+        return true;
+    }
+
     public boolean setCursorPositionFromView(View source, float sourceX,
                                              float sourceY) {
         mappedPosition[0] = sourceX;
@@ -110,9 +151,9 @@ public class NativeCursorOverlayView extends View {
             return false;
         }
 
-        float sourceX = CursorGeometry.mapReferenceCoordinate(
+        float sourceX = StreamViewportGeometry.mapPixelCoordinate(
                 referenceX, referenceWidth, source.getWidth());
-        float sourceY = CursorGeometry.mapReferenceCoordinate(
+        float sourceY = StreamViewportGeometry.mapPixelCoordinate(
                 referenceY, referenceHeight, source.getHeight());
         return setCursorPositionFromView(source, sourceX, sourceY);
     }
