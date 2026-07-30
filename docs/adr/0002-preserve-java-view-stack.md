@@ -29,4 +29,3 @@ refactor, with a demonstrated product or maintenance benefit.
 - Existing device and rendering behavior stays comparable throughout migration.
 - Modern architectural boundaries do not depend on adopting a particular UI
   toolkit.
-

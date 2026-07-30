@@ -102,4 +102,3 @@ On the designated 120 Hz Android test device:
 - client-side input processing remains below 1 ms at p99;
 - steady-state touch MOVE handling introduces no new unbounded allocation;
 - a large clipboard or file operation cannot stall keyboard or pointer input.
-

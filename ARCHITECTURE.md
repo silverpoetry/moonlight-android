@@ -152,4 +152,3 @@ the Android, Qt, and Sunshine protocol fixtures.
 Rules are only added, never weakened to accommodate new violations. Existing
 legacy dependencies are recorded as migration work rather than globally
 excluded from analysis.
-

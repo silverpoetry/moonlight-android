@@ -84,4 +84,3 @@ device and Windows host must confirm:
 - no stuck contacts after focus loss, cancellation, PiP, or stream exit;
 - physical mouse, keyboard, stylus, and controller input;
 - 120 Hz responsiveness with release logging.
-

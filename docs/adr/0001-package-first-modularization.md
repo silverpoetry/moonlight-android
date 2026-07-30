@@ -35,4 +35,3 @@ The eventual module graph follows the dependency direction in
 - Package moves remain small and reversible.
 - Gradle module creation becomes a mechanical enforcement step rather than an
   architectural experiment.
-
