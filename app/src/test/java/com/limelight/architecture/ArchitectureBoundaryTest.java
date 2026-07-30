@@ -202,4 +202,19 @@ public final class ArchitectureBoundaryTest {
                 .because("diagnostics run through an injected probe")
                 .check(productionClasses);
     }
+
+    @Test
+    public void typedStreamSettingsDoNotDependOnAndroidOrLegacyPreferences() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.settings.stream..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "com.limelight.preferences..")
+                .because("typed stream settings are immutable domain models")
+                .check(productionClasses);
+    }
 }

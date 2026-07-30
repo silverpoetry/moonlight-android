@@ -42,6 +42,9 @@ import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.GlPreferences;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.preferences.LegacyPreferenceSettingsAdapter;
+import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.stream.StreamDisplaySettings;
 import com.limelight.ui.gamemenu.GameMenuFragment;
 import com.limelight.ui.gamemenu.GameMenuHost;
 import com.limelight.ui.gamemenu.GameMenuSession;
@@ -159,6 +162,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private KeyBoardLayoutController keyBoardLayoutController;
 
     public PreferenceConfiguration prefConfig;
+    private StreamDisplaySettings streamDisplaySettings;
     private SharedPreferences tombstonePrefs;
 
     private NvConnection conn;
@@ -303,6 +307,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         // Read the stream preferences
         prefConfig = PreferenceConfiguration.readPreferences(this);
+        streamDisplaySettings =
+                LegacyPreferenceSettingsAdapter
+                        .loadStreamDisplaySettings(
+                                prefConfig,
+                                new SharedPreferencesSettingsRepository(
+                                        PreferenceManager
+                                                .getDefaultSharedPreferences(
+                                                        this)));
         tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
         backNavigationRegistration =
                 BackNavigationRegistration.register(this, this::handleStreamBackPressed);
@@ -313,12 +325,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         boolean useEntireDisplay =
                 StreamWindowPolicy.shouldUseEntireDisplay(
-                        prefConfig.stretchVideo,
-                        prefConfig.enableCutoutModeVideo,
-                        prefConfig.isNativeResolution(),
+                        streamDisplaySettings.isStretchVideo(),
+                        streamDisplaySettings
+                                .isDisplayCutoutEnabled(),
+                        streamDisplaySettings.isNativeResolution(),
                         matchesPhysicalDisplayMode(
-                                prefConfig.width,
-                                prefConfig.height));
+                                streamDisplaySettings
+                                        .getStreamWidth(),
+                                streamDisplaySettings
+                                        .getStreamHeight()));
         UiHelper.configureStreamWindowInsets(this, useEntireDisplay);
         // Listen for non-touch events on the game surface
         streamView = findViewById(R.id.surfaceView);
@@ -331,14 +346,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         FrameLayout.LayoutParams params =
                 (FrameLayout.LayoutParams) streamView.getLayoutParams();
-        int gravityModel = Integer.parseInt(
-                PreferenceManager.getDefaultSharedPreferences(this)
-                        .getString("screen_gravity_list", "0"));
-        params.gravity = resolvePhysicalStreamGravity(gravityModel, params.gravity);
+        params.gravity = resolvePhysicalStreamGravity(
+                streamDisplaySettings.getGravity(),
+                params.gravity);
 
         if (fsrEnabled) {
             fsrVideoProcessor = new FsrVideoProcessor(this);
-            fsrVideoProcessor.setSharpness(getFsrSharpness());
+            fsrVideoProcessor.setSharpness(
+                    streamDisplaySettings
+                            .getFsrSharpness()
+                            .getFactor());
             fsrVideoProcessor.setFsrEnabled(true);
             fsrView = new VideoProcessingGLSurfaceView(this, false, isFsrNativeHdrOutputEnabled(), fsrVideoProcessor,
                     new VideoProcessingGLSurfaceView.SurfaceListener() {
@@ -1001,7 +1018,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         //外接显示器模式
-        if(prefConfig.enableExDisplay){
+        if (streamDisplaySettings.isExternalDisplayEnabled()) {
             showSecondScreen();
         }
 
@@ -2024,21 +2041,22 @@ public class Game extends Activity implements SurfaceHolder.Callback,
      */
     @SuppressLint("RtlHardcoded")
     private static int resolvePhysicalStreamGravity(
-            int gravityModel,
+            StreamDisplaySettings.Gravity gravityModel,
             int defaultGravity) {
         switch (gravityModel) {
-            case 1:
+            case TOP_CENTER:
                 return Gravity.CENTER_HORIZONTAL | Gravity.TOP;
-            case 2:
+            case TOP_LEFT:
                 return Gravity.LEFT | Gravity.TOP;
-            case 3:
+            case TOP_RIGHT:
                 return Gravity.RIGHT | Gravity.TOP;
-            case 4:
+            case BOTTOM_CENTER:
                 return Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM;
-            case 5:
+            case BOTTOM_LEFT:
                 return Gravity.LEFT | Gravity.BOTTOM;
-            case 6:
+            case BOTTOM_RIGHT:
                 return Gravity.RIGHT | Gravity.BOTTOM;
+            case DEFAULT:
             default:
                 return defaultGravity;
         }
@@ -3132,86 +3150,56 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private boolean isFsrEnabled() {
-        if (prefConfig.enableExDisplay) {
-            return false;
-        }
-        return !"off".equalsIgnoreCase(getFsrTarget());
-    }
-
-    private float getFsrSharpness() {
-        String value = PreferenceManager.getDefaultSharedPreferences(this)
-                .getString("list_fsr_sharpness", "standard");
-        if ("soft".equalsIgnoreCase(value)) {
-            return 0.55f;
-        }
-        if ("strong".equalsIgnoreCase(value)) {
-            return 1.45f;
-        }
-        if ("max".equalsIgnoreCase(value)) {
-            return 1.85f;
-        }
-        return 0.85f;
+        return streamDisplaySettings.isFsrEnabled();
     }
 
     private StreamLayoutGeometry.Size getFsrOutputSize() {
-        String target = getFsrTarget();
-        int targetHeight = "4k".equalsIgnoreCase(target) ? 2160 : 1440;
-        int minimumTargetWidth = 0;
-        if ("4k".equalsIgnoreCase(target)) {
-            minimumTargetWidth = 3840;
-        }
-        else if ("2k".equalsIgnoreCase(target)) {
-            minimumTargetWidth = 2560;
-        }
+        StreamDisplaySettings.FsrTarget target =
+                streamDisplaySettings.getFsrTarget();
         return StreamLayoutGeometry.getEvenOutputSize(
-                prefConfig.width,
-                prefConfig.height,
-                targetHeight,
-                minimumTargetWidth);
-    }
-
-    private String getFsrTarget() {
-        return PreferenceManager.getDefaultSharedPreferences(this)
-                .getString("list_fsr_target", "off");
+                streamDisplaySettings.getStreamWidth(),
+                streamDisplaySettings.getStreamHeight(),
+                target.getOutputHeight(),
+                target.getMinimumOutputWidth());
     }
 
     private boolean isFsrNativeHeightTarget() {
-        return "native_height".equalsIgnoreCase(getFsrTarget());
+        return streamDisplaySettings.isNativeHeightFsrTarget();
     }
 
     private String getFsrTargetDisplayName() {
-        String target = getFsrTarget();
-        if ("4k".equalsIgnoreCase(target)) {
-            return "4K";
+        switch (streamDisplaySettings.getFsrTarget()) {
+            case OUTPUT_4K:
+                return "4K";
+            case OUTPUT_2K:
+                return "2K";
+            case NATIVE_HEIGHT:
+                return getString(
+                        R.string.fsr_target_native_height);
+            case UNKNOWN:
+            case OFF:
+            default:
+                return "关闭";
         }
-        if ("2k".equalsIgnoreCase(target)) {
-            return "2K";
-        }
-        if ("native_height".equalsIgnoreCase(target)) {
-            return getString(R.string.fsr_target_native_height);
-        }
-        return "关闭";
     }
 
     private String getFsrSharpnessDisplayName() {
-        String value = PreferenceManager.getDefaultSharedPreferences(this)
-                .getString("list_fsr_sharpness", "standard");
-        if ("soft".equalsIgnoreCase(value)) {
-            return "柔和";
+        switch (streamDisplaySettings.getFsrSharpness()) {
+            case SOFT:
+                return "柔和";
+            case STRONG:
+                return "强";
+            case MAXIMUM:
+                return "极强";
+            case STANDARD:
+            default:
+                return "标准";
         }
-        if ("strong".equalsIgnoreCase(value)) {
-            return "强";
-        }
-        if ("max".equalsIgnoreCase(value)) {
-            return "极强";
-        }
-        return "标准";
     }
 
     private boolean isFsrNativeHdrOutputEnabled() {
-        String value = PreferenceManager.getDefaultSharedPreferences(this)
-                .getString("list_fsr_hdr_output", "native");
-        return prefConfig.enableHdr && "native".equalsIgnoreCase(value);
+        return streamDisplaySettings
+                .isNativeHdrOutputEnabled();
     }
 
     private void configureFsrWindowColorMode() {

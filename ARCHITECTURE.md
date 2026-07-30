@@ -8,6 +8,8 @@ removed.
 
 The ordered migration plan, required evidence, and phase completion gates are
 defined in `docs/architecture/REFACTORING_ROADMAP.md`.
+The typed persistence boundary and migration ledger are defined in
+`docs/architecture/SETTINGS_ARCHITECTURE.md`.
 
 ## Objectives
 
