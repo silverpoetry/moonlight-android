@@ -104,3 +104,22 @@ manual release gate.
 - `verifyLocal`: passed.
 - Lint: no new findings; the matching `GradleDependency` entry was removed, leaving
   61 reviewed baseline entries.
+
+## Dependency: Bouncy Castle 1.84
+
+- Upgraded `bcprov-jdk18on` and `bcpkix-jdk18on` together from 1.77 to the current
+  upstream release, 1.84.
+- Pairing certificate generation, PEM encoding, PKCS#8 key storage, RSA challenge
+  signing, and the lightweight AES primitive retain the APIs and formats used by the
+  app.
+- Android packaging excludes only the duplicate Java 9 OSGi descriptor shared by the
+  three BC runtime artifacts; Android does not consume that descriptor.
+- The existing Lint exception for an unused BC compatibility trust manager is
+  version-independent but remains limited to the `bcpkix-jdk18on` JAR. Application
+  trust-manager implementations remain subject to the security check.
+- JVM certificate and AES compatibility tests: passed.
+- API 36 device (`192.168.3.125:5555`) isolated identity generation/reload test:
+  passed for non-root and root variants.
+- `verifyLocal`: passed.
+- Lint: no new findings; the two matching `GradleDependency` entries were removed,
+  leaving 59 reviewed baseline entries.

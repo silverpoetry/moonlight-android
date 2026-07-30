@@ -72,6 +72,14 @@ android {
         warningsAsErrors true
     }
 
+    packaging {
+        resources {
+            // The three BC Android runtime artifacts contain the same Java 9 OSGi
+            // descriptor. It is not used on Android and cannot be merged into one APK.
+            excludes += 'META-INF/versions/9/OSGI-INF/MANIFEST.MF'
+        }
+    }
+
     bundle {
         language {
             // Avoid splitting by language, since we allow users
@@ -151,8 +159,8 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
 
     implementation files('libs/axi_gamepad_1.0.5.aar')
-    implementation 'org.bouncycastle:bcprov-jdk18on:1.77'
-    implementation 'org.bouncycastle:bcpkix-jdk18on:1.77'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.84'
+    implementation 'org.bouncycastle:bcpkix-jdk18on:1.84'
     implementation 'org.jcodec:jcodec:0.2.5'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'org.jmdns:jmdns:3.6.3'

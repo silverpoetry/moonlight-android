@@ -333,28 +333,6 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of org.bouncycastle:bcprov-jdk18on than 1.77 is available: 1.83"
-        errorLine1="    implementation &apos;org.bouncycastle:bcprov-jdk18on:1.77&apos;"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle"
-            line="154"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
-        message="A newer version of org.bouncycastle:bcpkix-jdk18on than 1.77 is available: 1.83"
-        errorLine1="    implementation &apos;org.bouncycastle:bcpkix-jdk18on:1.77&apos;"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle"
-            line="155"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
         message="A newer version of com.squareup.okhttp3:okhttp than 4.12.0 is available: 5.3.2"
         errorLine1="    implementation &apos;com.squareup.okhttp3:okhttp:4.12.0&apos;"
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
