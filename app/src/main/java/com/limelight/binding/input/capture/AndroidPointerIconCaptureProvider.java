@@ -3,7 +3,7 @@ package com.limelight.binding.input.capture;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Build;
-import android.support.annotation.RequiresApi;
+import androidx.annotation.RequiresApi;
 import android.view.PointerIcon;
 import android.view.View;
 

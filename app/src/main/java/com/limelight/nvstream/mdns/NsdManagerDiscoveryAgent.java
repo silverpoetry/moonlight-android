@@ -1,6 +1,6 @@
 package com.limelight.nvstream.mdns;
 
-import android.support.annotation.RequiresApi;
+import androidx.annotation.RequiresApi;
 import android.content.Context;
 import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;

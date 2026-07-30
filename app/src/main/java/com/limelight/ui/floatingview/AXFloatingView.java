@@ -1,9 +1,9 @@
 package com.limelight.ui.floatingview;
 
 import android.content.Context;
-import android.support.annotation.DrawableRes;
-import android.support.annotation.LayoutRes;
-import android.support.annotation.NonNull;
+import androidx.annotation.DrawableRes;
+import androidx.annotation.LayoutRes;
+import androidx.annotation.NonNull;
 import android.view.Gravity;
 import android.widget.FrameLayout;
 import android.widget.ImageView;

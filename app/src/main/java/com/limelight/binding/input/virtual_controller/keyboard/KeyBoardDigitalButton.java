@@ -13,6 +13,8 @@ import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
 import android.view.MotionEvent;
 
+import androidx.appcompat.content.res.AppCompatResources;
+
 import com.limelight.binding.input.virtual_controller.VirtualController;
 import com.limelight.binding.input.virtual_controller.VirtualControllerElement;
 import com.limelight.preferences.PreferenceConfiguration;
@@ -184,7 +186,8 @@ public class KeyBoardDigitalButton extends keyBoardVirtualControllerElement {
         if (icon != -1) {
             // 图标缩放优化：保持 1:1 比例且居中
             int oscOpacity = PreferenceConfiguration.readPreferences(getContext()).oscOpacity;
-            Drawable d = getResources().getDrawable(isPressed() ? iconPress : icon);
+            Drawable d = AppCompatResources.getDrawable(
+                    getContext(), isPressed() ? iconPress : icon);
             int padding = (int) (minSide * 0.15f); // 间距随按钮大小缩放
             d.setBounds(padding, padding, getWidth() - padding, getHeight() - padding);
             d.setAlpha((int) (oscOpacity * 2.55));

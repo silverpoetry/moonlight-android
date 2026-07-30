@@ -7,7 +7,7 @@ import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardCo
 
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
-import android.support.annotation.StringRes;
+import androidx.annotation.StringRes;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.Button;

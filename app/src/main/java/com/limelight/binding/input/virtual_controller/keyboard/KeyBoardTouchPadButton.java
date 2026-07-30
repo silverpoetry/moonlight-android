@@ -13,6 +13,8 @@ import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
 import android.view.MotionEvent;
 
+import androidx.appcompat.content.res.AppCompatResources;
+
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.preferences.PreferenceConfiguration;
@@ -189,8 +191,9 @@ public class KeyBoardTouchPadButton extends keyBoardVirtualControllerElement {
         if (icon != -1) {
             // --- 图标模式 ---
             int oscOpacity = PreferenceConfiguration.readPreferences(getContext()).oscOpacity;
-            Drawable d = getResources().getDrawable(isPressed() ?
-                    R.mipmap.face_ps_touchpad_press : R.mipmap.face_ps_touchpad_normal);
+            Drawable d = AppCompatResources.getDrawable(getContext(), isPressed() ?
+                    R.mipmap.face_ps_touchpad_press :
+                    R.mipmap.face_ps_touchpad_normal);
             // 动态计算 Padding：保持图标在中间，不紧贴边缘
             int padding = (int) (minSide * 0.15f);
             d.setBounds(padding, padding, (int)width - padding, (int)height - padding);

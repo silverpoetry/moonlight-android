@@ -4,7 +4,7 @@ import android.app.Activity;
 import android.hardware.input.InputManager;
 import android.os.Build;
 import android.os.Handler;
-import android.support.annotation.RequiresApi;
+import androidx.annotation.RequiresApi;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;

@@ -25,6 +25,18 @@ public class AboutActivity extends BaseActivity implements View.OnClickListener 
         tvVersion = findViewById(cn.axi.gamepad.an.R.id.tv_version);
         ivLogo = findViewById(cn.axi.gamepad.an.R.id.iv_logo);
         findViewById(cn.axi.gamepad.an.R.id.iv_back).setOnClickListener(v -> finish());
+        int[] actionViewIds = {
+                R.id.iv_res,
+                R.id.iv_get,
+                R.id.lv_credits,
+                R.id.iv_bili,
+                R.id.iv_xhs,
+                R.id.iv_douyin,
+                R.id.iv_github
+        };
+        for (int viewId : actionViewIds) {
+            findViewById(viewId).setOnClickListener(this);
+        }
         tvVersion.setText(getString(
                 R.string.about_version_format, BuildConfig.VERSION_NAME));
 

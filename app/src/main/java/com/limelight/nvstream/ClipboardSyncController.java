@@ -14,7 +14,7 @@ import android.os.Looper;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
 
-import android.support.v4.content.FileProvider;
+import androidx.core.content.FileProvider;
 
 import com.limelight.LimeLog;
 import com.limelight.nvstream.filetransfer.ClipboardFileDownloader;

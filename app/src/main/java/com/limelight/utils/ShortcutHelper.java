@@ -1,6 +1,6 @@
 package com.limelight.utils;
 
-import android.support.annotation.RequiresApi;
+import androidx.annotation.RequiresApi;
 import android.app.Activity;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;

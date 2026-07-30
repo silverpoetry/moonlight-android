@@ -2,8 +2,8 @@ package com.limelight.nvstream.filetransfer;
 
 import android.content.Context;
 import android.net.Uri;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.limelight.BuildConfig;
 
@@ -21,7 +21,8 @@ import static org.junit.Assert.assertNotNull;
 public final class DesktopFileUploaderTest {
     @Test
     public void testGenericContentUri() throws Exception {
-        Context context = InstrumentationRegistry.getTargetContext();
+        Context context =
+                InstrumentationRegistry.getInstrumentation().getTargetContext();
         Uri uri = Uri.parse(
                 "content://" + BuildConfig.APPLICATION_ID +
                         ".desktopfiletest/item");
@@ -48,7 +49,8 @@ public final class DesktopFileUploaderTest {
 
     @Test
     public void testGenericContentUriWithoutMetadataQuery() throws Exception {
-        Context context = InstrumentationRegistry.getTargetContext();
+        Context context =
+                InstrumentationRegistry.getInstrumentation().getTargetContext();
         Uri uri = Uri.parse(
                 "content://" + BuildConfig.APPLICATION_ID +
                         ".desktopfiletest/without-metadata");

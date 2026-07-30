@@ -61,7 +61,8 @@ import com.limelight.utils.ShortcutHelper;
 import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.UiHelper;
 import android.annotation.SuppressLint;
-import android.support.annotation.RequiresApi;
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.annotation.RequiresApi;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.PictureInPictureParams;
@@ -128,7 +129,7 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import com.limelight.utils.UiToast;
-import android.support.v4.provider.DocumentFile;
+import androidx.documentfile.provider.DocumentFile;
 
 import java.io.ByteArrayInputStream;
 import java.lang.reflect.InvocationTargetException;
@@ -837,9 +838,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if(networkInfo==null){
             return;
         }
-        Drawable drawable = getResources().getDrawable(R.drawable.icon_axi_wifi);
+        Drawable drawable =
+                AppCompatResources.getDrawable(this, R.drawable.icon_axi_wifi);
         if(networkInfo.getType() == ConnectivityManager.TYPE_MOBILE){
-            drawable = getResources().getDrawable(R.drawable.icon_axi_mobile);
+            drawable =
+                    AppCompatResources.getDrawable(this, R.drawable.icon_axi_mobile);
         }
         int textSize = (int) performanceOverlayLite.getTextSize();
         // 设置 Drawable 的宽和高与文字大小一致（或者按比例，如 0.8f）

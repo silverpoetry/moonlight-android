@@ -1,7 +1,7 @@
 package com.limelight.ui.gamemenu;
 
 import android.content.res.Configuration;
-import android.support.annotation.StringRes;
+import androidx.annotation.StringRes;
 import android.text.TextUtils;
 import android.view.MotionEvent;
 import android.view.View;

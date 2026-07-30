@@ -2,7 +2,7 @@ package com.limelight.nvstream.filetransfer;
 
 import android.content.Context;
 import android.net.Uri;
-import android.support.v4.provider.DocumentFile;
+import androidx.documentfile.provider.DocumentFile;
 
 import com.limelight.nvstream.http.NvHTTP;
 

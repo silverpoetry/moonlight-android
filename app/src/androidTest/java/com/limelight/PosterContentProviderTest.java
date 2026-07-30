@@ -4,8 +4,8 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.limelight.grid.assets.DiskAssetLoader;
 
@@ -33,7 +33,7 @@ public final class PosterContentProviderTest {
 
     @Before
     public void setUp() throws IOException {
-        context = InstrumentationRegistry.getTargetContext();
+        context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         posterFile = new DiskAssetLoader(context).getFile(COMPUTER_ID, APP_ID);
         File parent = posterFile.getParentFile();
         if (parent == null || (!parent.isDirectory() && !parent.mkdirs())) {

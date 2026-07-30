@@ -1,6 +1,6 @@
 package com.limelight.utils;
 
-import android.support.annotation.RequiresApi;
+import androidx.annotation.RequiresApi;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.ContentUris;
@@ -15,6 +15,8 @@ import android.graphics.drawable.Drawable;
 import android.media.tv.TvContract;
 import android.net.Uri;
 import android.os.Build;
+
+import androidx.appcompat.content.res.AppCompatResources;
 
 import com.limelight.LimeLog;
 import com.limelight.PosterContentProvider;
@@ -102,7 +104,8 @@ public class TvChannelHelper {
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     private void updateChannelIcon(long channelId) {
-        Bitmap logo = drawableToBitmap(context.getResources().getDrawable(R.drawable.ic_channel));
+        Bitmap logo = drawableToBitmap(
+                AppCompatResources.getDrawable(context, R.drawable.ic_channel));
         try {
             Uri localUri = TvContract.buildChannelLogoUri(channelId);
             try (OutputStream outputStream = context.getContentResolver().openOutputStream(localUri)) {

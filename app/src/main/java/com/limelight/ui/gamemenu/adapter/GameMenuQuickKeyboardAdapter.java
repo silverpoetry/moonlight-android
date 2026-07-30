@@ -10,6 +10,8 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
 
+import androidx.appcompat.content.res.AppCompatResources;
+
 import com.limelight.R;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
 
@@ -96,7 +98,8 @@ public class GameMenuQuickKeyboardAdapter extends BaseAdapter {
             resId=R.drawable.ic_axi_keyboard_list;
         }
         if(resId!=-1){
-            Drawable drawable = convertView.getResources().getDrawable(resId);
+            Drawable drawable =
+                    AppCompatResources.getDrawable(convertView.getContext(), resId);
             drawable.setBounds(0, 0, drawable.getMinimumWidth(),
                     drawable.getMinimumHeight());
             holder.tx_title.setCompoundDrawables(drawable, null,null, null);

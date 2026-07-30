@@ -123,3 +123,31 @@ manual release gate.
 - `verifyLocal`: passed.
 - Lint: no new findings; the two matching `GradleDependency` entries were removed,
   leaving 59 reviewed baseline entries.
+
+## Platform dependency prerequisite: AndroidX
+
+- Replaced the legacy support annotations, `FileProvider`, `DocumentFile`, and
+  AppCompat widgets with their AndroidX counterparts.
+- Replaced the support test runner with AndroidX Test Runner 1.7.0 and JUnit
+  Extensions 1.3.0.
+- The release runtime dependency graph contains no `com.android.support` artifacts.
+- The FileProvider metadata key remains `android.support.FILE_PROVIDER_PATHS` because
+  this is the stable key intentionally retained by AndroidX. Samsung's
+  `com.sec.android.support.multiwindow` metadata is vendor-defined and also remains
+  unchanged.
+- All newly enabled AppCompat vendor checks were fixed in source: compatibility
+  drawable loading, `SwitchCompat`, compound drawables, and explicit About-screen
+  click listeners. No new findings were added to the baseline.
+- Jetifier is temporarily enabled only for Glide 3. Bouncy Castle is excluded from
+  Jetifier because it is AndroidX-neutral and its Java 25 multi-release classes are
+  newer than Jetifier's bytecode reader. Both temporary settings are scheduled for
+  removal with the isolated Glide migration.
+- `verifyLocal`: passed.
+- API 36 phone (`192.168.3.125:5555`): 32 non-root and 32 root instrumentation tests
+  passed.
+- API 36 large-screen device (`192.168.3.3:42815`): 32 non-root and 32 root
+  instrumentation tests passed.
+- The AndroidX FileProvider and document-file transfer tests passed on both devices.
+  The debug About activity launched without a runtime exception. Devices were locked,
+  so visible styling and settings interaction remain part of the final manual gate.
+- Lint: no new findings; the reviewed baseline remains at 59 entries.

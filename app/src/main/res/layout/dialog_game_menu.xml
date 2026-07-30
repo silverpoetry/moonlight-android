@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="364dp"
     android:layout_height="match_parent"
@@ -153,13 +154,13 @@
                 android:format12Hour="EEEE hh:mm"
                 android:format24Hour="EEEE HH:mm" />
 
-            <TextView
+            <androidx.appcompat.widget.AppCompatTextView
                 android:id="@+id/tx_title_battery"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 tools:text="100%"
                 android:gravity="center"
-                android:drawableStart="@drawable/ic_axi_game_pad_battery"
+                app:drawableStartCompat="@drawable/ic_axi_game_pad_battery"
                 android:layout_marginStart="4dp"
                 android:textColor="@android:color/white"
                 android:layout_centerVertical="true"

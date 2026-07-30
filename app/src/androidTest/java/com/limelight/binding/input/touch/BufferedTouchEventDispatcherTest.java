@@ -1,8 +1,8 @@
 package com.limelight.binding.input.touch;
 
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
@@ -31,7 +31,8 @@ public final class BufferedTouchEventDispatcherTest {
     @Before
     public void setUp() {
         dispatcher = new BufferedTouchEventDispatcher();
-        eventView = new View(InstrumentationRegistry.getTargetContext());
+        eventView = new View(
+                InstrumentationRegistry.getInstrumentation().getTargetContext());
     }
 
     @After

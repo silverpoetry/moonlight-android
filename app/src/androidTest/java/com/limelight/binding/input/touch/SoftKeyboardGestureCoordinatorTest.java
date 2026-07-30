@@ -1,8 +1,8 @@
 package com.limelight.binding.input.touch;
 
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
@@ -36,7 +36,8 @@ public final class SoftKeyboardGestureCoordinatorTest {
     public void setUp() {
         dispatchedEvent = new CountDownLatch(1);
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
-            eventView = new View(InstrumentationRegistry.getTargetContext());
+            eventView = new View(
+                    InstrumentationRegistry.getInstrumentation().getTargetContext());
             coordinator = new SoftKeyboardGestureCoordinator(
                     10,
                     new SoftKeyboardGestureCoordinator.Listener() {

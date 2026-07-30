@@ -1,6 +1,6 @@
 package com.limelight.preferences;
 
-import android.support.annotation.RequiresApi;
+import androidx.annotation.RequiresApi;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
@@ -27,8 +27,9 @@ import android.os.Handler;
 import android.os.Vibrator;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
-import android.support.v4.content.FileProvider;
-import android.support.v4.provider.DocumentFile;
+import androidx.core.content.FileProvider;
+import androidx.documentfile.provider.DocumentFile;
+import androidx.appcompat.widget.SwitchCompat;
 import android.text.InputFilter;
 import android.text.InputType;
 import android.text.TextUtils;
@@ -49,7 +50,6 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
-import android.widget.Switch;
 import android.widget.TextView;
 import com.limelight.utils.UiToast;
 
@@ -714,7 +714,8 @@ public class StreamSettings extends Activity {
                 if (!item.isEnabled(store)) {
                     return;
                 }
-                if (item.type == SettingsItem.Type.SWITCH && control instanceof Switch) {
+                if (item.type == SettingsItem.Type.SWITCH &&
+                        control instanceof SwitchCompat) {
                     control.performClick();
                     return;
                 }
@@ -726,7 +727,7 @@ public class StreamSettings extends Activity {
 
     private View createControlView(final SettingsItem item) {
         if (item.type == SettingsItem.Type.SWITCH) {
-            Switch switchView = new Switch(this);
+            SwitchCompat switchView = new SwitchCompat(this);
             switchView.setChecked(store.getBoolean(item));
             switchView.setEnabled(item.isEnabled(store));
             tintSwitch(switchView);
@@ -1129,7 +1130,7 @@ public class StreamSettings extends Activity {
         }
     }
 
-    private void tintSwitch(Switch switchView) {
+    private void tintSwitch(SwitchCompat switchView) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             return;
         }

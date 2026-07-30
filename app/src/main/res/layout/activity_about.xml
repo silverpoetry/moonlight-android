@@ -91,7 +91,6 @@
                     android:layout_height="wrap_content">
 
                     <TextView
-                        android:onClick="onClick"
                         android:id="@+id/iv_res"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -102,7 +101,6 @@
                         android:textSize="11sp"/>
 
                     <TextView
-                        android:onClick="onClick"
                         android:id="@+id/iv_get"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -126,7 +124,6 @@
                 android:background="@drawable/axi_gameplay_gamepad_item_bg"
                 android:orientation="horizontal"
                 android:padding="12dp"
-                android:onClick="onClick"
                 android:gravity="center_vertical"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
@@ -256,7 +253,6 @@
                 android:orientation="horizontal">
 
                 <ImageView
-                    android:onClick="onClick"
                     android:id="@+id/iv_bili"
                     android:src="@mipmap/axi_gameplay_icon_bili"
                     android:contentDescription="@string/accessibility_bilibili"
@@ -264,7 +260,6 @@
                     android:layout_height="25dp"/>
 
                 <ImageView
-                    android:onClick="onClick"
                     android:id="@+id/iv_xhs"
                     android:src="@mipmap/axi_gameplay_icon_xhs"
                     android:contentDescription="@string/accessibility_xiaohongshu"
@@ -274,7 +269,6 @@
                     android:layout_height="25dp"/>
 
                 <ImageView
-                    android:onClick="onClick"
                     android:id="@+id/iv_douyin"
                     android:layout_marginEnd="15dp"
                     android:src="@mipmap/axi_gameplay_icon_douyin"
@@ -283,7 +277,6 @@
                     android:layout_height="26dp"/>
 
                 <ImageView
-                    android:onClick="onClick"
                     android:id="@+id/iv_github"
                     android:src="@drawable/ic_github_axi"
                     android:contentDescription="@string/accessibility_developer_website"

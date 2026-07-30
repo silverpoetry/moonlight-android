@@ -2,7 +2,7 @@ package com.limelight;
 
 
 import android.annotation.SuppressLint;
-import android.support.annotation.RequiresApi;
+import androidx.annotation.RequiresApi;
 import android.app.Activity;
 import android.app.PictureInPictureParams;
 import android.app.Service;

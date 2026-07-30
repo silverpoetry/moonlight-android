@@ -5,7 +5,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.util.AttributeSet;
 
 import com.limelight.utils.UiHelper;
@@ -13,7 +13,7 @@ import com.limelight.utils.UiHelper;
 /**
  * Description
  */
-public class RoundedImageView extends android.support.v7.widget.AppCompatImageView {
+public class RoundedImageView extends androidx.appcompat.widget.AppCompatImageView {
 
     public RoundedImageView(Context context) {
         super(context);

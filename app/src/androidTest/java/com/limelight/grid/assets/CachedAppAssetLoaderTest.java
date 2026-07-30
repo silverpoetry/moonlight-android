@@ -3,8 +3,8 @@ package com.limelight.grid.assets;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -45,7 +45,8 @@ public final class CachedAppAssetLoaderTest {
 
     @Before
     public void setUp() throws IOException {
-        Context context = InstrumentationRegistry.getTargetContext();
+        Context context =
+                InstrumentationRegistry.getInstrumentation().getTargetContext();
         ComputerDetails computer = new ComputerDetails();
         computer.uuid = "asset-loader-test";
         app = new NvApp("Cached test app", APP_ID, false);
@@ -128,7 +129,8 @@ public final class CachedAppAssetLoaderTest {
     @Test
     public void saturatedQueueCancelsEvictedTaskAndShowsFallback()
             throws Exception {
-        Context context = InstrumentationRegistry.getTargetContext();
+        Context context =
+                InstrumentationRegistry.getInstrumentation().getTargetContext();
         ComputerDetails computer = new ComputerDetails();
         computer.uuid = "asset-loader-saturation-test";
         BlockingDiskAssetLoader blockingDiskLoader =

@@ -1,6 +1,6 @@
 package com.limelight.binding.input;
 
-import android.support.annotation.RequiresApi;
+import androidx.annotation.RequiresApi;
 import android.hardware.input.InputManager;
 import android.os.Build;
 import android.util.SparseArray;

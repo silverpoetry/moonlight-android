@@ -3,8 +3,8 @@ package com.limelight.utils;
 import android.app.Activity;
 import android.app.Dialog;
 import android.os.Build;
-import android.support.annotation.Nullable;
-import android.support.annotation.RequiresApi;
+import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import android.window.OnBackInvokedCallback;
 import android.window.OnBackInvokedDispatcher;
 

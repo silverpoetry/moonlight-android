@@ -1,7 +1,7 @@
 package com.limelight.ui.gamemenu;
 
 import android.content.Context;
-import android.support.annotation.StringRes;
+import androidx.annotation.StringRes;
 import android.view.KeyEvent;
 
 import com.limelight.R;

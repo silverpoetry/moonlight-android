@@ -1,7 +1,7 @@
 package com.limelight.ui.gamemenu;
 
 import android.preference.PreferenceManager;
-import android.support.annotation.StringRes;
+import androidx.annotation.StringRes;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;

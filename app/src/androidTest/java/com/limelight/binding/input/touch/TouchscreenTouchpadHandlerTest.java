@@ -2,8 +2,8 @@ package com.limelight.binding.input.touch;
 
 import android.content.Context;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
@@ -35,7 +35,8 @@ public final class TouchscreenTouchpadHandlerTest {
 
     @Before
     public void setUp() {
-        Context context = InstrumentationRegistry.getTargetContext();
+        Context context =
+                InstrumentationRegistry.getInstrumentation().getTargetContext();
         connection = new FakeConnection(context);
         eventView = new View(context);
         eventView.layout(0, 0, 1_000, 500);
