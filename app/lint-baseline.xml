@@ -366,17 +366,6 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of com.google.code.gson:gson than 2.10.1 is available: 2.14.0"
-        errorLine1="    implementation &apos;com.google.code.gson:gson:2.10.1&apos;"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle"
-            line="160"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
         message="A newer version of com.github.bumptech.glide:glide than 3.8.0 is available: 5.0.5"
         errorLine1="    implementation &apos;com.github.bumptech.glide:glide:3.8.0&apos;"
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">

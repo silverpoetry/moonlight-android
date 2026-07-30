@@ -91,3 +91,16 @@ manual release gate.
   62 reviewed baseline entries.
 - Android 14+ uses the platform `NsdManager`; a live JmDNS discovery check still
   requires an API 21-33 device and remains a final compatibility-matrix item.
+
+## Dependency: Gson 2.14.0
+
+- Upgraded `com.google.code.gson:gson` from 2.10.1 to 2.14.0.
+- Existing shortcut JSON keeps its field initializers when older records omit newer
+  fields, ignores unknown future fields, and preserves every persisted shortcut field
+  across a serialize/deserialize round trip.
+- Gson is also used for update metadata and credits. Stored hosts, certificates, and
+  pairing keys are not Gson-backed and are unaffected by this migration.
+- Targeted shortcut JSON compatibility tests: passed.
+- `verifyLocal`: passed.
+- Lint: no new findings; the matching `GradleDependency` entry was removed, leaving
+  61 reviewed baseline entries.
