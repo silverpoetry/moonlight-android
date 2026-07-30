@@ -9,6 +9,7 @@ import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -18,15 +19,20 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import okhttp3.Call;
 import okhttp3.Callback;
+import okhttp3.EventListener;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import okio.Timeout;
+import kotlin.jvm.functions.Function0;
+import kotlin.reflect.KClass;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -193,6 +199,35 @@ public final class OkHttpAndroidCompatibilityTest {
         }
     }
 
+    @Test
+    public void synchronousInterruptionIsNormalizedAtJavaBoundary()
+            throws Exception {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        AtomicBoolean interruptRestored = new AtomicBoolean();
+
+        Thread worker = new Thread(() -> {
+            try {
+                OkHttpCalls.execute(new InterruptingCall());
+                failure.set(new AssertionError(
+                        "Expected interrupted HTTP call to fail"));
+            }
+            catch (Throwable error) {
+                failure.set(error);
+                interruptRestored.set(
+                        Thread.currentThread().isInterrupted());
+            }
+        }, "OkHttp interruption compatibility test");
+
+        worker.start();
+        worker.join(2_000);
+
+        assertTrue("Worker did not stop", !worker.isAlive());
+        assertTrue(failure.get() instanceof InterruptedIOException);
+        assertTrue(failure.get().getCause() instanceof InterruptedException);
+        assertTrue("Interrupt status was not restored",
+                interruptRestored.get());
+    }
+
     private static void closeClient(OkHttpClient client) {
         client.dispatcher().executorService().shutdownNow();
         client.connectionPool().evictAll();
@@ -333,5 +368,84 @@ public final class OkHttpAndroidCompatibilityTest {
             }
             return data;
         }
+    }
+
+    private static final class InterruptingCall implements Call {
+        private final Request request = new Request.Builder()
+                .url("http://127.0.0.1/")
+                .build();
+
+        @Override
+        public Request request() {
+            return request;
+        }
+
+        @Override
+        public Response execute() throws IOException {
+            throwUnchecked(new InterruptedException(
+                    "Synthetic OkHttp internal wait interruption"));
+            throw new AssertionError("Unreachable");
+        }
+
+        @Override
+        public void enqueue(Callback responseCallback) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void cancel() {
+        }
+
+        @Override
+        public boolean isExecuted() {
+            return false;
+        }
+
+        @Override
+        public boolean isCanceled() {
+            return false;
+        }
+
+        @Override
+        public Timeout timeout() {
+            return new Timeout();
+        }
+
+        @Override
+        public void addEventListener(EventListener eventListener) {
+        }
+
+        @Override
+        public <T> T tag(KClass<T> type) {
+            return null;
+        }
+
+        @Override
+        public <T> T tag(Class<? extends T> type) {
+            return null;
+        }
+
+        @Override
+        public <T> T tag(
+                KClass<T> type, Function0<? extends T> computeIfAbsent) {
+            return computeIfAbsent.invoke();
+        }
+
+        @Override
+        public <T> T tag(
+                Class<T> type, Function0<? extends T> computeIfAbsent) {
+            return computeIfAbsent.invoke();
+        }
+
+        @Override
+        public Call clone() {
+            return new InterruptingCall();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <Failure extends Throwable> void throwUnchecked(
+            Throwable error) throws Failure {
+        throw (Failure) error;
     }
 }

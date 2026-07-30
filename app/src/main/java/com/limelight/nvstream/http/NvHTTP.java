@@ -467,7 +467,8 @@ public class NvHTTP {
     private ResponseBody openHttpConnection(OkHttpClient client, HttpUrl baseUrl, String path, String query) throws IOException {
         HttpUrl completeUrl = getCompleteUrl(baseUrl, path, query);
         Request request = new Request.Builder().url(completeUrl).get().build();
-        Response response = performAndroidTlsHack(client).newCall(request).execute();
+        Response response = OkHttpCalls.execute(
+                performAndroidTlsHack(client).newCall(request));
 
         ResponseBody body = response.body();
         
@@ -904,7 +905,8 @@ public class NvHTTP {
                 .readTimeout(30, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)
                 .build();
-        try (Response response = performAndroidTlsHack(client).newCall(request).execute()) {
+        try (Response response = OkHttpCalls.execute(
+                performAndroidTlsHack(client).newCall(request))) {
             if (!response.isSuccessful()) {
                 throw new HostHttpResponseException(response.code(), response.message());
             }
@@ -958,7 +960,8 @@ public class NvHTTP {
                 .readTimeout(30, TimeUnit.SECONDS)
                 .build();
 
-        try (Response response = performAndroidTlsHack(client).newCall(request).execute()) {
+        try (Response response = OkHttpCalls.execute(
+                performAndroidTlsHack(client).newCall(request))) {
             if (!response.isSuccessful()) {
                 throw new HostHttpResponseException(response.code(), response.message());
             }
@@ -1038,8 +1041,8 @@ public class NvHTTP {
                 .readTimeout(30, TimeUnit.SECONDS)
                 .build();
 
-        try (Response response =
-                     performAndroidTlsHack(client).newCall(request).execute()) {
+        try (Response response = OkHttpCalls.execute(
+                performAndroidTlsHack(client).newCall(request))) {
             if (response.code() == 404) {
                 throw new FileNotFoundException(
                         "Host clipboard does not contain files");
@@ -1090,7 +1093,8 @@ public class NvHTTP {
                 .readTimeout(90, TimeUnit.SECONDS)
                 .build();
 
-        try (Response response = performAndroidTlsHack(client).newCall(request).execute()) {
+        try (Response response = OkHttpCalls.execute(
+                performAndroidTlsHack(client).newCall(request))) {
             if (!response.isSuccessful()) {
                 throw new HostHttpResponseException(response.code(), response.message());
             }
@@ -1146,7 +1150,8 @@ public class NvHTTP {
                 .readTimeout(90, TimeUnit.SECONDS)
                 .build();
 
-        try (Response response = performAndroidTlsHack(client).newCall(request).execute()) {
+        try (Response response = OkHttpCalls.execute(
+                performAndroidTlsHack(client).newCall(request))) {
             if (!response.isSuccessful()) {
                 throw new HostHttpResponseException(response.code(), response.message());
             }
@@ -1214,7 +1219,8 @@ public class NvHTTP {
                 .writeTimeout(30, TimeUnit.SECONDS)
                 .build();
 
-        try (Response response = performAndroidTlsHack(client).newCall(request).execute()) {
+        try (Response response = OkHttpCalls.execute(
+                performAndroidTlsHack(client).newCall(request))) {
             if (!response.isSuccessful()) {
                 throw new HostHttpResponseException(response.code(), response.message());
             }
@@ -1263,7 +1269,8 @@ public class NvHTTP {
                 .readTimeout(60, TimeUnit.SECONDS)
                 .writeTimeout(60, TimeUnit.SECONDS)
                 .build();
-        try (Response response = performAndroidTlsHack(client).newCall(request).execute()) {
+        try (Response response = OkHttpCalls.execute(
+                performAndroidTlsHack(client).newCall(request))) {
             if (!response.isSuccessful()) {
                 throw new HostHttpResponseException(response.code(), response.message());
             }
@@ -1288,7 +1295,8 @@ public class NvHTTP {
         OkHttpClient client = httpClientLongConnectTimeout.newBuilder()
                 .readTimeout(60, TimeUnit.SECONDS)
                 .build();
-        try (Response response = performAndroidTlsHack(client).newCall(request).execute()) {
+        try (Response response = OkHttpCalls.execute(
+                performAndroidTlsHack(client).newCall(request))) {
             if (!response.isSuccessful()) {
                 throw new HostHttpResponseException(response.code(), response.message());
             }
