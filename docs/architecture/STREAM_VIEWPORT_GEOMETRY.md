@@ -77,3 +77,30 @@ Moving rendering into another window, such as an external-display
 `Presentation`, is a render-ownership transition. It must move the complete
 render/overlay ownership set and provide an explicit cross-window input policy;
 reparenting only the decoder View is not a coordinate conversion.
+
+## Protocol and presentation ownership audit
+
+The following table is the phase-four closeout inventory. A new sender or
+consumer must be added here or be covered by an equivalent domain document.
+
+| Path | Coordinate space | Canonical owner |
+| --- | --- | --- |
+| Native cursor position, hotspot, and bitmap size | host reference -> encoded frame -> stream View -> overlay View | `NativeCursorOverlayView`, `StreamViewportGeometry`, `ViewCoordinateMapper` |
+| Touchscreen absolute mouse | event View -> stream View, then stream View reference dimensions | `TouchInputController` maps before `AbsoluteTouchContext` dispatch |
+| Android direct touch and pen | event View -> stream View -> normalized protocol position/contact axes | `DirectContactInputController`, `ViewCoordinateMapper` |
+| External pointer in View-absolute mode | event View -> stream View and stream View reference dimensions | `ExternalPointerInputController`, `ViewCoordinateMapper` |
+| Device-absolute pointer | device motion ranges and hardware-reported coordinates | `ExternalPointerInputController`; deliberately independent from View geometry |
+| Relative mouse and touchscreen touchpad cursor motion | deltas plus host reference dimensions | `TouchpadMotionSender`; no absolute View offset |
+| Native touchscreen touchpad frames | physical input-surface position, pressure, size, and pointer IDs | `TouchscreenTouchpadHandler`; the surface is the emulated physical touchpad |
+| Physical controller touchpad | controller device motion ranges | `ControllerHandler`; controller-local hardware space |
+| evdev mouse motion | relative device deltas | `Game` platform callback pending runtime-controller extraction |
+| Stream/FSR aspect fit and fixed output size | layout and surface pixel dimensions | `StreamLayoutGeometry` |
+| Safe-area/cutout content rectangle | window insets -> shared content-root padding | `WindowInsetsPolicy`, `UiHelper` |
+| Full-physical-display eligibility | settings/native-resolution state plus display modes | `StreamWindowPolicy` |
+| Picture-in-picture animation hint | transformed visible stream bounds in Activity window coordinates | `ViewWindowGeometry` |
+
+The audit intentionally distinguishes spatial coordinates from hardware and
+relative coordinate spaces. Converting every path through a View mapper would
+be incorrect: controller touchpads and device-absolute pointers define their
+own protocol reference grids, while relative motion contains no absolute
+position to map.
