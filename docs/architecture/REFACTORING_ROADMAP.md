@@ -1,0 +1,437 @@
+# Large-Scale Refactoring Roadmap
+
+This document is the normative execution plan for separating this application
+from its Axixi-derived architecture. It complements `ARCHITECTURE.md`: that
+document defines the target rules, while this document defines the migration
+order, evidence, and completion gates.
+
+The objective is not to make classes smaller in isolation. The objective is to
+create a system with explicit ownership, one-way dependencies, deterministic
+realtime behavior, independently testable domains, and release evidence strong
+enough to make large changes without relying on manual intuition.
+
+## Non-negotiable migration rules
+
+1. **Characterize before changing.** Protocol-visible or user-visible behavior
+   receives a contract, state-machine, golden-trace, or regression test before
+   its implementation is moved.
+2. **One mutable state, one owner.** A state transition is accepted through one
+   public boundary. Views, Activities, protocol callbacks, and repositories do
+   not share writable state.
+3. **One production path.** A migration slice delegates to the new owner and
+   removes the displaced implementation in the same phase. Permanent dual
+   implementations and hidden feature fallbacks are prohibited.
+4. **Dependencies point inward.** UI and Android adapters depend on immutable
+   models and consumer-owned contracts. Domain code does not depend on an
+   Activity, Fragment, View, dialog, concrete transport, or preference API.
+5. **Realtime paths remain explicit.** Input, audio, video, and transport
+   callbacks follow `REALTIME_THREADING.md`; generic background abstractions
+   must not obscure scheduling, ordering, backpressure, or allocation behavior.
+6. **Structure and behavior are separate commits.** A move/rename does not also
+   change an algorithm. A behavior change includes evidence that distinguishes
+   the intended new result from the previous result.
+7. **Delete compatibility debt on schedule.** This fork does not retain unused
+   Axixi, GameSbs, or obsolete private-protocol compatibility. A temporary
+   adapter has an owning phase and cannot survive that phase's completion.
+8. **Package boundaries precede Gradle boundaries.** A dependency cycle is
+   corrected in source before it can become a physical module relationship.
+9. **No architecture by framework.** Java and Android Views remain during the
+   core refactor. DI, Kotlin, Compose, reactive frameworks, and a database
+   replacement require a separate ADR and demonstrated benefit.
+10. **A green build is necessary, not sufficient.** Phase completion requires
+    behavioral, lifecycle, thread, protocol, performance, upgrade, and hardware
+    evidence appropriate to the changed domain.
+
+## Target dependency graph
+
+```text
+app composition root
+    -> feature UI adapters
+        -> use-case controllers / immutable UI state
+            -> domain contracts and models
+                <- Android platform adapters
+                <- Moonlight protocol adapters
+                    -> common-c / JNI
+```
+
+The intended stabilized source domains are:
+
+```text
+ui -> stream, input, render, settings, hosts, transfer
+stream -> protocol, render contracts
+input -> protocol, viewport contracts, settings models
+render -> protocol models, viewport
+hosts -> protocol, settings/storage contracts
+transfer -> protocol, storage contracts
+platform adapters -> Android APIs
+protocol adapters -> nvstream/common-c
+```
+
+Cross-domain calls use narrow ports or immutable values. A general-purpose
+service locator, mutable static registry, event bus, or Activity callback web is
+not an acceptable substitute for a dependency boundary.
+
+## Delivery unit
+
+Every migration slice uses the same sequence:
+
+1. Record the current externally observable behavior.
+2. Define the consumer-owned contract and immutable input/output models.
+3. Implement the new owner behind that contract.
+4. Wire it at the composition root.
+5. Compare state transitions, protocol output, UI output, and performance.
+6. Remove the old owner, bridge, and obsolete tests.
+7. Add or strengthen an architecture rule that prevents regression.
+8. Run the slice gate and commit one reviewable concern.
+
+A slice is incomplete if callers can still bypass the new boundary.
+
+## Phase 1 — Architecture and behavior baseline
+
+**Status:** complete.
+
+### Deliverables
+
+- Normative architecture, realtime-threading, input-behavior, and migration
+  documents.
+- Accepted ADRs for package-first modularization and preserving Java/Views.
+- Architecture dependency tests that only become stricter.
+- Characterization tests for customized input behavior, especially gesture
+  arbitration, force press, local cursor prediction, and external devices.
+- A single local verification command covering both product flavors.
+
+### Exit evidence
+
+- Modified Axixi behavior is named and executable as tests.
+- New production dependencies cannot silently point from a domain into UI.
+- The verification gate is reproducible without IDE state.
+
+## Phase 2 — Input orchestration and protocol ports
+
+**Status:** complete.
+
+### Deliverables
+
+- A single routing owner for touchscreen, external pointer, keyboard, stylus,
+  and controller precedence.
+- Consumer-owned mouse, keyboard, touch, touchpad, and controller protocol
+  ports instead of direct `NvConnection` access in gesture implementations.
+- Explicit state machines for multi-finger keyboard deferral, touchpad
+  promotion, long press, force press, cancellation, and focus loss.
+- Golden protocol traces and disabled-feature no-latency tests.
+- Allocation-conscious hot paths with no file, preference, or logging I/O.
+
+### Exit evidence
+
+- Every Android input entry point has one documented owner.
+- Enabling a gesture delays only the ambiguous prefix it must arbitrate.
+- Cancellation releases every remotely owned button/contact.
+- The old `Game` input implementation is not a second production path.
+
+## Phase 3 — Stream session and resource ownership
+
+**Status:** complete.
+
+### Deliverables
+
+- Explicit single-use stream-session state machine.
+- Generation-safe callback routing by execution domain.
+- Idempotent stop/destroy behavior, including failed and partial startup.
+- Dedicated ownership for diagnostics, Wi-Fi locks, UI effects, launch
+  reporting, decoder/audio references, Surfaces, and delayed tasks.
+- Activity teardown ordering that detaches callbacks before releasing resources.
+
+### Exit evidence
+
+- Late callbacks cannot mutate a destroyed or replacement session.
+- Transport cleanup cannot run on or block the Android main thread.
+- Each created media/platform resource has one matching owner and release path.
+- Repeated stop/destroy and partial failures are deterministic.
+
+## Phase 4 — Window, viewport, render, and coordinate geometry
+
+**Status:** in progress.
+
+### Deliverables
+
+- Named coordinate spaces for encoded frame, host reference, stream View,
+  overlay View, and inset-adjusted content.
+- One pure geometry implementation for pixel-grid mapping, aspect fitting,
+  display compatibility, and FSR sizing.
+- One Android View mapper shared by native cursor rendering, direct contacts,
+  absolute pointer input, and legacy absolute gestures.
+- Correct point, vector, size, contact-axis, orientation, and hotspot
+  transformations under translation, scale, rotation, letterboxing, zoom, and
+  cutouts.
+- A single window-inset owner and a pure display/window policy.
+
+### Remaining closeout work
+
+- Audit every protocol position/size sender and every overlay consumer for
+  manual offsets, ad-hoc ratios, or partial View transforms.
+- Move physical-resolution/inset decisions into a tested policy model.
+- Document the common-parent transform invariant used by sibling stream,
+  input, and overlay Views.
+- Add a dependency rule preventing feature code from reimplementing viewport
+  math.
+
+### Exit evidence
+
+- The repository contains no competing stream coordinate algorithm.
+- Identity-transform behavior remains byte-for-byte equivalent.
+- Instrumentation covers transformed siblings, system bars, cutouts, rotation,
+  zoom, FSR, and both absolute and relative modes.
+- Local cursor drawing and the submitted canonical pointer position use the same
+  mapped value.
+
+## Phase 5 — Typed settings and persistence
+
+**Status:** pending.
+
+### Problems to remove
+
+- `PreferenceConfiguration` is a mutable, application-wide property bag.
+- Feature code reads `SharedPreferences` directly and repeatedly, including
+  input, audio, controller, rendering, and UI code.
+- String keys, defaults, parsing, migration, validation, and runtime policy are
+  mixed.
+- `StreamSettings` combines schema, rendering, dependency logic, and mutation.
+
+### Deliverables
+
+- Immutable, domain-scoped settings models such as stream video, input,
+  controller, transfer, audio, UI, and host defaults.
+- A `SettingsRepository` contract with one Android persistence adapter.
+- Typed keys/codecs, centralized validation, schema versioning, and idempotent
+  migration from every currently supported stored value.
+- An immutable per-session settings snapshot; hot paths never reread storage.
+- Settings-screen state holders that expose immutable rows/sections and accept
+  typed intents.
+- Explicit dependency rules for conditional visibility and compatibility
+  rather than listeners mutating neighboring preferences.
+
+### Migration order
+
+1. Inventory every persisted key, default, writer, reader, and sensitivity.
+2. Add round-trip and legacy-migration fixtures using real preference files.
+3. Introduce read-only typed snapshots beside current storage.
+4. Migrate runtime consumers by domain.
+5. Move UI writers through the repository.
+6. Remove direct default-preference reads outside the adapter and platform-only
+   preference widgets.
+7. Split the settings UI after the domain model is stable.
+
+### Exit evidence
+
+- Invalid or legacy values cannot crash settings or stream startup.
+- A setting has one canonical default, parser, validator, and writer.
+- Runtime components receive settings in constructors or explicit updates.
+- Preference migration is repeatable and preserves paired-host/user data.
+
+## Phase 6 — Runtime composition and monolith decomposition
+
+**Status:** pending.
+
+This phase reduces `Game`, `ControllerHandler`, `MediaCodecDecoderRenderer`, and
+remaining large UI controllers by ownership, not by arbitrary line-count
+targets.
+
+### Deliverables
+
+- `Game` becomes a lifecycle and Android-event adapter plus composition root.
+- Stream preparation, window policy, render orchestration, input capture,
+  controller attachment, overlay presentation, and menu actions have separate
+  lifecycle-bound owners.
+- `ControllerHandler` is split into device discovery/attachment, slot
+  assignment, mapping, report generation, sensors, rumble, LEDs, USB/evdev, and
+  virtual-controller adapters.
+- Decoder capability selection, codec lifecycle, frame pacing, statistics, and
+  workaround policy are separated behind render contracts.
+- UI screens render immutable state and emit intents; they do not perform
+  transport, storage, or device I/O.
+- Constructor/factory composition replaces concrete cross-subsystem creation.
+
+### Exit evidence
+
+- No extracted controller retains an Activity beyond its lifecycle scope.
+- Each subsystem can be constructed with fakes in a JVM or focused Android
+  test.
+- Device attach/detach, focus loss, configuration change, stream restart, and
+  process recreation have deterministic tests.
+- Splitting does not add queues or asynchronous hops to realtime input/audio/
+  video paths.
+
+## Phase 7 — Hosts, discovery, pairing, and credentials
+
+**Status:** pending.
+
+### Deliverables
+
+- Immutable host identity and connection models that distinguish stable host ID,
+  advertised endpoints, user aliases, reachability, and pairing state.
+- Separate discovery sources, reachability probing, repository, pairing use
+  case, and UI presentation.
+- Serialized, cancelable refresh with explicit merge/conflict policy.
+- A single credential/certificate owner with atomic persistence and rollback.
+- Pairing and launch state machines that reject stale callbacks and duplicate
+  operations.
+- Database migration and backup/restore tests using existing paired-host data.
+
+### Exit evidence
+
+- Discovery cannot overwrite identity or credentials using a transient address.
+- Manual, LAN, and remote endpoints converge on one host record deterministically.
+- App restart, endpoint change, failed pairing, and concurrent refresh preserve
+  valid host data.
+- Sensitive material is not logged and is written atomically.
+
+## Phase 8 — Cross-client transfer and microphone contracts
+
+**Status:** pending.
+
+This phase covers Android, Moonlight Qt, Sunshine, and the shared common-c
+protocol together. It is complete only when capability semantics and fixtures
+agree across all participants.
+
+### Deliverables
+
+- Versioned capability negotiation with no unused legacy clipboard branch.
+- One clipboard capability switch covering text, images, files, and folders.
+- Metadata-only copy notification; payload enumeration and transfer begin only
+  on explicit remote paste, pull, or share.
+- Symmetric request/offer/job state machines, request IDs, cancellation,
+  timeout, retry classification, integrity checks, and bounded backpressure.
+- Sandboxed path handling, atomic destination creation, conflict policy, and no
+  transport-private folder exposed on the desktop.
+- Microphone negotiation and packetization over the existing audio transport,
+  with explicit format/channel conversion and bounded callback work.
+- Shared protocol fixtures and failure-injection tests across Android, Qt,
+  Sunshine, and common-c.
+
+### Exit evidence
+
+- Copying a large tree performs bounded metadata work and cannot stall input.
+- Transfer begins only when the destination asks for the payload.
+- Android-to-host, host-to-Android, Qt-to-host, and host-to-Qt pass the same
+  text/image/file/folder matrix.
+- Interrupted and repeated operations cannot publish a partial result as
+  complete.
+- Mono and stereo microphone input produce the negotiated host format without
+  pitch, speed, or channel corruption.
+
+## Phase 9 — Physical Gradle module boundaries
+
+**Status:** pending.
+
+### Preconditions
+
+- Package dependency checks show an acyclic graph.
+- Public contracts have remained stable through at least one completed domain
+  migration.
+- The proposed boundary improves ownership, test isolation, reuse, or build
+  enforcement.
+
+### Deliverables
+
+- A minimal module graph derived from measured package dependencies. Candidate
+  boundaries are `protocol`, `stream`, `input`, `render`, `settings`, `hosts`,
+  `transfer`, and `app`; candidates are merged when separation creates
+  boilerplate without enforcement value.
+- Internal-by-default APIs and minimal exported contracts.
+- Module-local tests, fixtures, resources, and lint configuration.
+- Dependency verification, version catalog/build-logic consolidation, and
+  reproducible Java/JNI builds.
+- Explicit ownership for common-c revision and native artifacts.
+
+### Exit evidence
+
+- Gradle rejects every forbidden dependency previously guarded only by tests.
+- No module depends cyclically on `app` or a feature UI.
+- Debug/release and all product flavors build from a clean checkout.
+- Moduleization does not regress incremental build time without a documented
+  compensating benefit.
+
+## Phase 10 — Debt removal and release hardening
+
+**Status:** pending.
+
+### Deliverables
+
+- Delete obsolete Axixi/GameSbs code, temporary adapters, duplicate resources,
+  unused settings and migrations, dead protocol branches, test-only production
+  hooks, and stale logging.
+- Resolve deprecation, nullability, lifecycle, lint, resource, JNI, and Gradle
+  warnings; each remaining suppression is narrow and justified.
+- Keep Android release unobfuscated unless a separately approved release policy
+  changes that product requirement.
+- Release logging is bounded and privacy-safe; diagnostic tracing is explicit,
+  temporary, and excluded from normal hot paths.
+- Dependency/SBOM, license, secret, certificate, exported-component, path,
+  permission, and network-security review.
+- Crash-free upgrade/rollback rehearsal and documented operational runbook.
+
+### Exit evidence
+
+- `verifyLocal`, lint, unit tests, root/non-root instrumentation, release
+  assembly, install, upgrade, and launch all pass from a clean checkout.
+- The designated Android devices and Windows host pass the complete input,
+  render, controller, transfer, microphone, and lifecycle matrix.
+- Release has no unexplained warning, ignored failure, hidden compatibility
+  path, or dirty generated output.
+- All three client/server repositories and shared common-c point to committed,
+  pushed, mutually compatible revisions.
+
+## Mandatory verification gates
+
+### Per commit
+
+- Focused unit/component tests for the touched behavior.
+- Both product flavors compile.
+- Architecture-boundary tests.
+- `git diff --check`.
+- No unrelated user changes included.
+
+### Per phase
+
+- Full `verifyLocal`.
+- Root and non-root connected instrumentation.
+- Release build and clean/upgrade installation.
+- Domain-specific protocol or hardware matrix.
+- Cancellation, destruction, and late-callback tests.
+- Before/after performance comparison for a hot-path change.
+
+### Final release
+
+| Area | Required evidence |
+| --- | --- |
+| Input | 120 Hz device matrix; p99 client processing below 1 ms; no new steady-state MOVE allocation; no stuck remote state |
+| Rendering | Surface/codec/FSR/HDR lifecycle, rotation, cutout, PiP, background/foreground, and decoder fallback |
+| Controllers | USB/Bluetooth/evdev, slots, reconnect, sensors, rumble, virtual controls, and unsupported devices |
+| Hosts | discovery, manual/remote endpoints, pairing failure/retry, certificate persistence, upgrade migration |
+| Transfer | text/image/file/folder, large trees, empty files, Unicode, conflicts, cancel/retry, both directions and clients |
+| Microphone | mono/stereo, negotiated rates/formats, mute/restart, long capture, and callback overload |
+| Operations | bounded release logs, crash diagnostics, no sensitive payloads or credentials, reproducible artifacts |
+
+## Quality metrics
+
+Metrics are guardrails, not targets to game:
+
+- zero known forbidden package dependencies;
+- zero direct preference reads in migrated runtime domains;
+- zero duplicate production owners for a migrated state;
+- zero unbounded queues in input, audio, video, or transfer;
+- zero unexplained release warnings;
+- every temporary adapter has an owner and removal phase;
+- every lifecycle owner has idempotent cancellation/destruction tests;
+- every cross-client protocol change has fixtures on all participating projects.
+
+Class size, method count, test coverage percentage, and module count are
+diagnostic signals. They do not justify superficial splitting, low-value tests,
+or abstraction without a stable responsibility boundary.
+
+## Definition of complete
+
+The refactor is complete only when all ten phases meet their exit evidence, the
+legacy path has been deleted rather than hidden, all affected repositories are
+committed and pushed, release artifacts pass the final device/host matrix, and
+the architecture rules prevent reintroducing the removed coupling.

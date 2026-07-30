@@ -6,6 +6,9 @@ Moonlight client. It is normative: new production code must follow these rules,
 and migrated code must satisfy them before its temporary compatibility adapter is
 removed.
 
+The ordered migration plan, required evidence, and phase completion gates are
+defined in `docs/architecture/REFACTORING_ROADMAP.md`.
+
 ## Objectives
 
 - Preserve protocol-visible input, audio, clipboard, controller, and video
