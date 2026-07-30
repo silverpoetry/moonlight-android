@@ -45,6 +45,10 @@ cancelable worker used for connectivity probes; those probes never block the
 connection callback or Android main thread, and their queued results are
 invalidated when the Activity is destroyed.
 
-The next migration slices move render/audio resource lifetime, Wi-Fi locks, and
-stream UI effects behind session-scoped ports. Until those slices are complete,
-`Game` remains the presentation adapter for accepted callbacks.
+`StreamWifiLockController` owns both supported Wi-Fi performance locks. It
+acquires each mode independently, releases only held locks in reverse order,
+and makes partial failure and repeated destruction safe.
+
+The next migration slices move render/audio resource lifetime and stream UI
+effects behind session-scoped ports. Until those slices are complete, `Game`
+remains the presentation adapter for accepted callbacks.

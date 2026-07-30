@@ -50,6 +50,7 @@ import com.limelight.ui.clipboard.RemoteClipboardFileTransferController;
 import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.stream.StreamFailureDiagnostics;
+import com.limelight.ui.stream.StreamWifiLockController;
 import com.limelight.ui.GameGestures;
 import com.limelight.ui.NativeCursorOverlayView;
 import com.limelight.ui.StreamUiActions;
@@ -90,7 +91,6 @@ import android.hardware.display.DisplayManager;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.net.ConnectivityManager;
-import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -194,8 +194,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private boolean micToggleInFlight;
     private boolean pendingMicToggleAfterPermission;
 
-    private WifiManager.WifiLock highPerfWifiLock;
-    private WifiManager.WifiLock lowLatencyWifiLock;
+    private StreamWifiLockController wifiLockController;
 
     private boolean connectedToUsbDriverService = false;
     private ServiceConnection usbDriverServiceConnection = new ServiceConnection() {
@@ -427,23 +426,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             displayTransientMessage(getResources().getString(R.string.conn_metered));
         }
 
-        // Make sure Wi-Fi is fully powered up
-        WifiManager wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        try {
-            highPerfWifiLock = wifiMgr.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Moonlight High Perf Lock");
-            highPerfWifiLock.setReferenceCounted(false);
-            highPerfWifiLock.acquire();
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                lowLatencyWifiLock = wifiMgr.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "Moonlight Low Latency Lock");
-                lowLatencyWifiLock.setReferenceCounted(false);
-                lowLatencyWifiLock.acquire();
-            }
-        } catch (SecurityException e) {
-            // Some Samsung Galaxy S10+/S10e devices throw a SecurityException from
-            // WifiLock.acquire() even though we have android.permission.WAKE_LOCK in our manifest.
-            e.printStackTrace();
-        }
+        wifiLockController =
+                StreamWifiLockController.create(this);
+        wifiLockController.acquire();
 
         appName = Game.this.getIntent().getStringExtra(EXTRA_APP_NAME);
         pcName = Game.this.getIntent().getStringExtra(EXTRA_PC_NAME);
@@ -1447,11 +1432,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             keyboardInputController = null;
         }
 
-        if (lowLatencyWifiLock != null) {
-            lowLatencyWifiLock.release();
-        }
-        if (highPerfWifiLock != null) {
-            highPerfWifiLock.release();
+        if (wifiLockController != null) {
+            wifiLockController.destroy();
+            wifiLockController = null;
         }
 
         if (connectedToUsbDriverService) {
