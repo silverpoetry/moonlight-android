@@ -24,12 +24,17 @@ public class BaseActivity extends Activity {
 //        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         //填充刘海
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            getWindow().getAttributes().layoutInDisplayCutoutMode =
+            WindowManager.LayoutParams layoutParams = getWindow().getAttributes();
+            layoutParams.layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+            getWindow().setAttributes(layoutParams);
+            getWindow().setDecorFitsSystemWindows(false);
         }
         else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            getWindow().getAttributes().layoutInDisplayCutoutMode =
+            WindowManager.LayoutParams layoutParams = getWindow().getAttributes();
+            layoutParams.layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            getWindow().setAttributes(layoutParams);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             getWindow().setNavigationBarContrastEnforced(false); // 去除对比度保护

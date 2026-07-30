@@ -254,17 +254,9 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
         prefConfig = PreferenceConfiguration.readPreferences(this);
         tombstonePrefs = GameSbs.this.getSharedPreferences("DecoderTombstone", 0);
 
-        if (prefConfig.stretchVideo || shouldIgnoreInsetsForResolution(prefConfig.width, prefConfig.height)) {
-            // Allow the activity to layout under notches if the fill-screen option
-            // was turned on by the user or it's a full-screen native resolution
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                getWindow().getAttributes().layoutInDisplayCutoutMode =
-                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                getWindow().getAttributes().layoutInDisplayCutoutMode =
-                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
-            }
-        }
+        boolean useEntireDisplay = prefConfig.stretchVideo ||
+                shouldIgnoreInsetsForResolution(prefConfig.width, prefConfig.height);
+        UiHelper.configureStreamWindowInsets(this, useEntireDisplay);
 
         // Listen for non-touch events on the game surface
         streamView = findViewById(R.id.surface);
@@ -991,6 +983,14 @@ public class GameSbs extends Activity implements TextureView.SurfaceTextureListe
             h.removeCallbacks(hideSystemUi);
             h.postDelayed(hideSystemUi, delay);
         }
+    }
+
+    @Override
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
+        super.onMultiWindowModeChanged(isInMultiWindowMode);
+        hideSystemUi(50);
+        UiHelper.refreshStreamWindowInsets(this);
     }
 
     @Override

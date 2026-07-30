@@ -13,6 +13,7 @@ import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
 import android.graphics.Color;
+import android.graphics.Insets;
 import android.graphics.PorterDuff;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
@@ -304,8 +305,14 @@ public class StreamSettings extends Activity {
 
     private void configureImmersiveSettingsWindow() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            getWindow().getAttributes().layoutInDisplayCutoutMode =
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            WindowManager.LayoutParams layoutParams = getWindow().getAttributes();
+            layoutParams.layoutInDisplayCutoutMode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+                    ? WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                    : WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            getWindow().setAttributes(layoutParams);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getWindow().setDecorFitsSystemWindows(false);
         }
         getWindow().setStatusBarColor(Color.TRANSPARENT);
         getWindow().setNavigationBarColor(Color.TRANSPARENT);
@@ -520,13 +527,27 @@ public class StreamSettings extends Activity {
         outerContainer.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
             @Override
             public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
-                int statusInset = insets.getSystemWindowInsetTop();
-                int bottomInset = 0;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                int leftInset = 0;
+                int topInset;
+                int rightInset = 0;
+                int bottomInset;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    Insets safeInsets = insets.getInsets(
+                            WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                    leftInset = safeInsets.left;
+                    topInset = safeInsets.top;
+                    rightInset = safeInsets.right;
+                    bottomInset = safeInsets.bottom;
+                }
+                else {
+                    topInset = insets.getSystemWindowInsetTop();
+                    bottomInset = 0;
+                }
+                if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
                     bottomInset = insets.getTappableElementInsets().bottom;
                 }
-                v.setPadding(horizontalPadding, topPadding + statusInset,
-                        horizontalPadding, bottomPadding + bottomInset);
+                v.setPadding(horizontalPadding + leftInset, topPadding + topInset,
+                        horizontalPadding + rightInset, bottomPadding + bottomInset);
                 return insets;
             }
         });

@@ -356,18 +356,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // Enter landscape unless we're on a square screen
         setPreferredOrientationForCurrentDisplay();
 
-        if (prefConfig.stretchVideo || prefConfig.enableCutoutModeVideo || shouldIgnoreInsetsForResolution(prefConfig.width, prefConfig.height)) {
-            // Allow the activity to layout under notches if the fill-screen option
-            // was turned on by the user or it's a full-screen native resolution
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                getWindow().getAttributes().layoutInDisplayCutoutMode =
-                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
-            }
-            else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                getWindow().getAttributes().layoutInDisplayCutoutMode =
-                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
-            }
-        }
+        boolean useEntireDisplay = prefConfig.stretchVideo ||
+                prefConfig.enableCutoutModeVideo ||
+                shouldIgnoreInsetsForResolution(prefConfig.width, prefConfig.height);
+        UiHelper.configureStreamWindowInsets(this, useEntireDisplay);
         // Listen for non-touch events on the game surface
         streamView = findViewById(R.id.surfaceView);
         streamView.setOnGenericMotionListener(this);
@@ -1451,6 +1443,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         // Correct the system UI visibility flags
         hideSystemUi(50);
+        UiHelper.refreshStreamWindowInsets(this);
     }
 
     @Override
