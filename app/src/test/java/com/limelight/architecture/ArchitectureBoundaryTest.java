@@ -250,6 +250,22 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void typedVirtualControlSettingsDoNotDependOnAndroidOrLegacyPreferences() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.settings.virtualcontrols..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "com.limelight.preferences..")
+                .because(
+                        "virtual-control settings are immutable domain models")
+                .check(productionClasses);
+    }
+
+    @Test
     public void videoBindingDoesNotDependOnLegacyPreferences() {
         noClasses()
                 .that()
@@ -312,6 +328,25 @@ public final class ArchitectureBoundaryTest {
                         "android.content.SharedPreferences")
                 .because(
                         "controller callbacks cannot perform persistence I/O")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void virtualControlRuntimeDoesNotReadPersistenceOrLegacySettings() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.binding.input.virtual_controller..")
+                .and()
+                .haveSimpleNameNotEndingWith(
+                        "ConfigurationLoader")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android.preference..",
+                        "com.limelight.preferences..")
+                .because(
+                        "overlay rendering and input callbacks consume typed snapshots")
                 .check(productionClasses);
     }
 }

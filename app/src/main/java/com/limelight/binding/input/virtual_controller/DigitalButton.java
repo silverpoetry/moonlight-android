@@ -14,8 +14,6 @@ import android.view.MotionEvent;
 
 import androidx.appcompat.content.res.AppCompatResources;
 
-import com.limelight.preferences.PreferenceConfiguration;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -162,10 +160,11 @@ public class DigitalButton extends VirtualControllerElement {
         rect.bottom = getHeight() - rect.top;
 
         //皮肤选择 官方皮肤
-        if(PreferenceConfiguration.readPreferences(getContext()).gamepad_skin==0){
+        if (virtualController.getSettings().getGamepadSkin() == 0) {
             paint.setStyle(Paint.Style.STROKE);
             //方形
-            if(PreferenceConfiguration.readPreferences(getContext()).enableKeyboardSquare){
+            if (virtualController.getSettings()
+                    .areSquareButtonsEnabled()) {
 //                canvas.drawRect(rect,paint);
                 canvas.drawRoundRect(rect, 15, 15, paint);
             }else{
@@ -176,7 +175,8 @@ public class DigitalButton extends VirtualControllerElement {
             canvas.drawText(text, getPercent(getWidth(), 50), getPercent(getHeight(), 63), paint);
             return;
         }
-        int oscOpacity=PreferenceConfiguration.readPreferences(getContext()).oscOpacity;
+        int oscOpacity = virtualController.getSettings()
+                .getControlOpacityPercent();
         //虚拟手柄皮肤
         if (icon != -1) {
             Drawable d = AppCompatResources.getDrawable(

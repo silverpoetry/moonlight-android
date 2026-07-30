@@ -311,7 +311,7 @@
             android:summary="横竖屏支持单独配置。"
             android:entries="@array/gamepad_axi_names"
             android:entryValues="@array/gamepad_axi_values"
-            android:defaultValue="OSC_GAMEPAD_1" />
+            android:defaultValue="gamePad" />
 
         <CheckBoxPreference
             android:key="checkbox_vibrate_osc"
@@ -518,7 +518,7 @@
 
         <com.limelight.preferences.SeekBarPreference
             android:key="seekbar_keyboard_axi_height"
-            seekbar:min="150"
+            seekbar:min="100"
             seekbar:step="10"
             android:max="400"
             android:defaultValue="200"

@@ -44,6 +44,13 @@ public final class InputSettingsLoader {
                         repository.get(
                                 InputSettingKeys
                                         .TOUCHPAD_POINTER_SENSITIVITY_Y))
+                .setVirtualTouchpadSensitivity(
+                        repository.get(
+                                InputSettingKeys
+                                        .VIRTUAL_TOUCHPAD_SENSITIVITY_X),
+                        repository.get(
+                                InputSettingKeys
+                                        .VIRTUAL_TOUCHPAD_SENSITIVITY_Y))
                 .setExternalTouchpadSensitivity(
                         repository.get(
                                 InputSettingKeys

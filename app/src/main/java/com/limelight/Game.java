@@ -45,6 +45,7 @@ import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.preferences.LegacyPreferenceSettingsAdapter;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.controller.ControllerSettingKeys;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsLoader;
 import com.limelight.settings.controller.ControllerSettingsState;
@@ -53,6 +54,10 @@ import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.settings.input.InputSettingsState;
 import com.limelight.settings.stream.StreamDecoderSettings;
 import com.limelight.settings.stream.StreamDisplaySettings;
+import com.limelight.settings.virtualcontrols.VirtualControlSettings;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingsState;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 import com.limelight.ui.gamemenu.GameMenuFragment;
 import com.limelight.ui.gamemenu.GameMenuHost;
 import com.limelight.ui.gamemenu.GameMenuSession;
@@ -158,11 +163,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private static final long KEY_CHORD_UP_DELAY_MS = 25;
 
     private StreamInputController streamInputController;
+    private InputSettingsState inputSettingsState;
 
     private static final int SOFT_KEYBOARD_SHOW_RETRY_MS = 50;
 
     private ControllerHandler controllerHandler;
     private ControllerSettingsState controllerSettingsState;
+    private VirtualControlSettingsState virtualControlSettingsState;
     private KeyboardInputController keyboardInputController;
     private KeyBoardController virtualController;
 
@@ -173,6 +180,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public PreferenceConfiguration prefConfig;
     private StreamDisplaySettings streamDisplaySettings;
     private StreamDecoderSettings streamDecoderSettings;
+    private SettingsRepository settingsRepository;
     private SharedPreferences tombstonePrefs;
 
     private NvConnection conn;
@@ -317,7 +325,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         // Read the stream preferences
         prefConfig = PreferenceConfiguration.readPreferences(this);
-        SettingsRepository settingsRepository =
+        settingsRepository =
                 new SharedPreferencesSettingsRepository(
                         PreferenceManager
                                 .getDefaultSharedPreferences(this));
@@ -329,13 +337,17 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         streamDecoderSettings =
                 LegacyPreferenceSettingsAdapter
                         .loadStreamDecoderSettings(prefConfig);
-        InputSettingsState inputSettingsState =
+        inputSettingsState =
                 new InputSettingsState(
                         InputSettingsLoader.load(
                                 settingsRepository));
         controllerSettingsState =
                 new ControllerSettingsState(
                         ControllerSettingsLoader.load(
+                                settingsRepository));
+        virtualControlSettingsState =
+                new VirtualControlSettingsState(
+                        VirtualControlSettingsLoader.load(
                                 settingsRepository));
         tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
         backNavigationRegistration =
@@ -1071,7 +1083,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private void initKeyboardController(){
         keyBoardController = new KeyBoardController(
-                controllerHandler, (FrameLayout) rootView, this, prefConfig,
+                controllerHandler,
+                (FrameLayout) rootView,
+                this,
+                inputSettingsState,
+                virtualControlSettingsState,
                 false, this, this);
 //        keyBoardController.refreshLayout();
         keyBoardController.show();
@@ -1080,7 +1096,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private void initVirtualController(){
         virtualController = new KeyBoardController(
-                controllerHandler, (FrameLayout) rootView, this, prefConfig,
+                controllerHandler,
+                (FrameLayout) rootView,
+                this,
+                inputSettingsState,
+                virtualControlSettingsState,
                 true, this, this);
 //        virtualController.refreshLayout();
         virtualController.show();
@@ -1088,7 +1108,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private void initkeyBoardLayoutController(){
         keyBoardLayoutController = new KeyBoardLayoutController(
-                controllerHandler, (FrameLayout) rootView, this, prefConfig,
+                controllerHandler,
+                (FrameLayout) rootView,
+                this,
+                virtualControlSettingsState,
                 this, this);
         keyBoardLayoutController.refreshLayout();
         keyBoardLayoutController.show();
@@ -2888,12 +2911,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         InputSettings current =
                 streamInputController.getSettings();
-        SettingsRepository repository =
-                new SharedPreferencesSettingsRepository(
-                        PreferenceManager
-                                .getDefaultSharedPreferences(this));
         InputSettings updated = InputSettingsLoader
-                .load(repository)
+                .load(settingsRepository)
                 .toBuilder()
                 .setTouchModePreferenceValue(
                         current.getTouchModePreferenceValue())
@@ -2909,12 +2928,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             return;
         }
 
-        SettingsRepository repository =
-                new SharedPreferencesSettingsRepository(
-                        PreferenceManager
-                                .getDefaultSharedPreferences(this));
         ControllerSettings settings =
-                ControllerSettingsLoader.load(repository);
+                ControllerSettingsLoader.load(settingsRepository);
         controllerSettingsState.replace(settings);
     }
 
@@ -2966,6 +2981,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     //更新虚拟布局视图
     public void updateVirtualView(){
+        virtualControlSettingsState.replace(
+                VirtualControlSettingsLoader.load(
+                        settingsRepository));
         if (virtualController != null && prefConfig.onscreenController) {
             virtualController.refreshLayout();
         }
@@ -3101,6 +3119,42 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         else {
             showSoftKeyboardWhenFocused = true;
         }
+    }
+
+    @Override
+    public VirtualControlSettings getVirtualControlSettings() {
+        return virtualControlSettingsState.get();
+    }
+
+    @Override
+    public boolean isOnscreenControllerRumbleEnabled() {
+        return controllerSettingsState
+                .get()
+                .isOnscreenRumbleEnabled();
+    }
+
+    @Override
+    public void applyVirtualControlSettingsUpdate(
+            VirtualControlSettingsUpdate<?> update) {
+        VirtualControlSettings updatedSettings =
+                update.applyTo(
+                        virtualControlSettingsState.get());
+        update.persist(settingsRepository);
+        virtualControlSettingsState.replace(updatedSettings);
+    }
+
+    @Override
+    public void setOnscreenControllerRumbleEnabled(
+            boolean enabled) {
+        settingsRepository.edit()
+                .put(
+                        ControllerSettingKeys.ONSCREEN_RUMBLE,
+                        enabled)
+                .apply();
+        controllerSettingsState.replace(
+                ControllerSettingsLoader.load(
+                        settingsRepository));
+        prefConfig.vibrateOsc = enabled;
     }
 
     @Override

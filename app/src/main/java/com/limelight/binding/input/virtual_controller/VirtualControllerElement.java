@@ -14,9 +14,6 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.FrameLayout;
 
-import com.limelight.Game;
-import com.limelight.preferences.PreferenceConfiguration;
-
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -75,7 +72,7 @@ public abstract class VirtualControllerElement extends View {
 
         this.virtualController = controller;
         this.elementId = elementId;
-        this.normalColor= PreferenceConfiguration.readPreferences(context).virtualkeyViewNormalColor;
+        this.normalColor = controller.getSettings().getNormalColor();
     }
 
     protected void moveElement(int pressed_x, int pressed_y, int x, int y) {

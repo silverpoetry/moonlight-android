@@ -10,8 +10,6 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.view.MotionEvent;
 
-import com.limelight.preferences.PreferenceConfiguration;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -210,7 +208,7 @@ public class AnalogStickFree extends VirtualControllerElement {
     private void notifyOnDoubleClick() {
         _DBG("double click");
         // notify listeners
-        if(PreferenceConfiguration.readPreferences(getContext()).disableRockerClickL3R3){
+        if (virtualController.getSettings().isStickClickDisabled()) {
             return;
         }
         for (AnalogStickListener listener : listeners) {
@@ -221,7 +219,7 @@ public class AnalogStickFree extends VirtualControllerElement {
     private void notifyOnRevoke() {
         _DBG("revoke");
         // notify listeners
-        if(PreferenceConfiguration.readPreferences(getContext()).disableRockerClickL3R3){
+        if (virtualController.getSettings().isStickClickDisabled()) {
             return;
         }
         for (AnalogStickListener listener : listeners) {
@@ -317,7 +315,8 @@ public class AnalogStickFree extends VirtualControllerElement {
     private int bgCircleColor=0x2BF5F5F9;
     private int strokeCircleColor=0xFF8F8F8F;
     public void setBgOpacity() {
-        int hexOpacity = PreferenceConfiguration.readPreferences(getContext()).senableNewAnalogStickOpacity* 255 / 100;
+        int hexOpacity = virtualController.getSettings()
+                .getFreeStickOpacityPercent() * 255 / 100;
         this.bgCircleColor = (hexOpacity << 24) | (bgCircleColor & 0x00FFFFFF);
         this.strokeCircleColor = (hexOpacity << 24) | (pressedColor & 0x00FFFFFF);
         invalidate();

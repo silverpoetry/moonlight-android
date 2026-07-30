@@ -13,6 +13,8 @@ public final class InputSettings {
     private final int softKeyboardGestureFingers;
     private final int touchpadPointerSensitivityX;
     private final int touchpadPointerSensitivityY;
+    private final int virtualTouchpadSensitivityX;
+    private final int virtualTouchpadSensitivityY;
     private final int externalTouchpadSensitivityX;
     private final int externalTouchpadSensitivityY;
     private final int externalTouchpadScrollAmount;
@@ -49,6 +51,10 @@ public final class InputSettings {
                 builder.touchpadPointerSensitivityX);
         touchpadPointerSensitivityY = clampSensitivity(
                 builder.touchpadPointerSensitivityY);
+        virtualTouchpadSensitivityX = clampSensitivity(
+                builder.virtualTouchpadSensitivityX);
+        virtualTouchpadSensitivityY = clampSensitivity(
+                builder.virtualTouchpadSensitivityY);
         externalTouchpadSensitivityX = clampSensitivity(
                 builder.externalTouchpadSensitivityX);
         externalTouchpadSensitivityY = clampSensitivity(
@@ -117,6 +123,14 @@ public final class InputSettings {
 
     public int getTouchpadPointerSensitivityY() {
         return touchpadPointerSensitivityY;
+    }
+
+    public int getVirtualTouchpadSensitivityX() {
+        return virtualTouchpadSensitivityX;
+    }
+
+    public int getVirtualTouchpadSensitivityY() {
+        return virtualTouchpadSensitivityY;
     }
 
     public int getExternalTouchpadSensitivityX() {
@@ -199,6 +213,10 @@ public final class InputSettings {
                 InputSettingKeys.DEFAULT_SENSITIVITY_PERCENT;
         private int touchpadPointerSensitivityY =
                 InputSettingKeys.DEFAULT_SENSITIVITY_PERCENT;
+        private int virtualTouchpadSensitivityX =
+                InputSettingKeys.DEFAULT_SENSITIVITY_PERCENT;
+        private int virtualTouchpadSensitivityY =
+                InputSettingKeys.DEFAULT_SENSITIVITY_PERCENT;
         private int externalTouchpadSensitivityX =
                 InputSettingKeys.DEFAULT_SENSITIVITY_PERCENT;
         private int externalTouchpadSensitivityY =
@@ -234,6 +252,10 @@ public final class InputSettings {
                     settings.touchpadPointerSensitivityX;
             touchpadPointerSensitivityY =
                     settings.touchpadPointerSensitivityY;
+            virtualTouchpadSensitivityX =
+                    settings.virtualTouchpadSensitivityX;
+            virtualTouchpadSensitivityY =
+                    settings.virtualTouchpadSensitivityY;
             externalTouchpadSensitivityX =
                     settings.externalTouchpadSensitivityX;
             externalTouchpadSensitivityY =
@@ -297,6 +319,14 @@ public final class InputSettings {
                 int y) {
             touchpadPointerSensitivityX = x;
             touchpadPointerSensitivityY = y;
+            return this;
+        }
+
+        public Builder setVirtualTouchpadSensitivity(
+                int x,
+                int y) {
+            virtualTouchpadSensitivityX = x;
+            virtualTouchpadSensitivityY = y;
             return this;
         }
 

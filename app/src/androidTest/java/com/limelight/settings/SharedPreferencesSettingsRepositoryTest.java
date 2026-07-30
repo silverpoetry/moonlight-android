@@ -124,4 +124,27 @@ public class SharedPreferencesSettingsRepositoryTest {
         assertFalse(preferences.contains(
                 "checkbox_clipboard_image_sync"));
     }
+
+    @Test
+    public void versionTwoRepairsHistoricalGamepadLayoutDefault() {
+        preferences.edit()
+                .putInt("settings_schema_version", 1)
+                .putString(
+                        "gamepad_axi_list",
+                        "OSC_GAMEPAD_1")
+                .commit();
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertEquals(
+                SettingsSchema.CURRENT_VERSION,
+                preferences.getInt(
+                        "settings_schema_version",
+                        -1));
+        assertEquals(
+                "gamePad",
+                preferences.getString(
+                        "gamepad_axi_list",
+                        null));
+    }
 }

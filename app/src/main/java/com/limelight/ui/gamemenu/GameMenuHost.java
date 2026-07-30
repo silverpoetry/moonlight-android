@@ -2,6 +2,8 @@ package com.limelight.ui.gamemenu;
 
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.virtualcontrols.VirtualControlSettings;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 
 /**
  * Lifecycle-bound capabilities exposed by the streaming Activity to its menu.
@@ -89,6 +91,15 @@ public interface GameMenuHost {
     void applyAudioHapticsSettings();
 
     void updateVirtualView();
+
+    VirtualControlSettings getVirtualControlSettings();
+
+    boolean isOnscreenControllerRumbleEnabled();
+
+    void applyVirtualControlSettingsUpdate(
+            VirtualControlSettingsUpdate<?> update);
+
+    void setOnscreenControllerRumbleEnabled(boolean enabled);
 
     void switchVirtualController(
             KeyBoardController.ControllerMode mode);

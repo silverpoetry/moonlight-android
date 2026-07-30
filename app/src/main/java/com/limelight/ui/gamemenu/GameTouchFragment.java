@@ -459,6 +459,8 @@ public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClic
                         seekBar == sb_touch_y ||
                         seekBar == sb_touchpad_x ||
                         seekBar == sb_touchpad_y ||
+                        seekBar == sb_touchpad_view_x ||
+                        seekBar == sb_touchpad_view_y ||
                         seekBar ==
                                 sb_touchpad_equipment_view_x ||
                         seekBar ==

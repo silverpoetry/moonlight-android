@@ -22,6 +22,7 @@ import com.limelight.R;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
 import com.limelight.utils.BackNavigationRegistration;
@@ -752,7 +753,10 @@ public class GameMenuFragment extends BaseGameMenuDialog
             fragment.setTitle(R.string.game_menu_virtual_controls_title);
             fragment.setGamePadMode(host.getVirtualControllerMode());
             fragment.setGameKeyMode(host.getVirtualKeyControllerMode());
-            fragment.setPrefConfig(host.getStreamPreferences());
+            fragment.setSettings(
+                    host.getVirtualControlSettings());
+            fragment.setOnscreenControllerRumbleEnabled(
+                    host.isOnscreenControllerRumbleEnabled());
             fragment.setListener(new GameMenuVirtualViewFragment.Listener() {
                 @Override
                 public void onRefreshRequested() {
@@ -760,6 +764,24 @@ public class GameMenuFragment extends BaseGameMenuDialog
                         return;
                     }
                     host.updateVirtualView();
+                }
+
+                @Override
+                public void onVirtualControlSettingsUpdate(
+                        VirtualControlSettingsUpdate<?> update) {
+                    if (host != null) {
+                        host.applyVirtualControlSettingsUpdate(
+                                update);
+                    }
+                }
+
+                @Override
+                public void onOnscreenControllerRumbleChanged(
+                        boolean enabled) {
+                    if (host != null) {
+                        host.setOnscreenControllerRumbleEnabled(
+                                enabled);
+                    }
                 }
 
                 @Override

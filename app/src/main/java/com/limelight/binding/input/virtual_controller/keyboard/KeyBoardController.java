@@ -13,7 +13,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Vibrator;
-import android.preference.PreferenceManager;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -34,7 +33,10 @@ import com.limelight.R;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.StreamInputGateway;
 import com.limelight.nvstream.input.ControllerPacket;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsState;
+import com.limelight.settings.virtualcontrols.VirtualControlSettings;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingsState;
 import com.limelight.ui.StreamUiActions;
 import com.limelight.ui.gamemenu.GameKeyboardUpdateFragment;
 import com.limelight.ui.gamemenu.GamePadAddFragment;
@@ -47,11 +49,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-
-import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE;
-import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE_VALUE;
-import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader.OSC_PREFERENCE;
-import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader.OSC_PREFERENCE_VALUE;
 
 public class KeyBoardController {
     private static final SeekBarValueRange BUTTON_SCALE_RANGE =
@@ -103,7 +100,8 @@ public class KeyBoardController {
     private Vibrator vibrator;
     private List<keyBoardVirtualControllerElement> elements = new ArrayList<>();
 
-    private PreferenceConfiguration prefConfig;
+    private final InputSettingsState inputSettingsState;
+    private final VirtualControlSettingsState virtualControlSettingsState;
     private boolean isShow=true;
     private ImageView iv_game_virtual_pad;
     private LinearLayout lv_right_view;
@@ -134,7 +132,9 @@ public class KeyBoardController {
     public KeyBoardController(final ControllerHandler controllerHandler,
                               FrameLayout layout,
                               final Activity context,
-                              PreferenceConfiguration prefConfig,
+                              InputSettingsState inputSettingsState,
+                              VirtualControlSettingsState
+                                      virtualControlSettingsState,
                               boolean isGamePadMode,
                               StreamInputGateway inputGateway,
                               StreamUiActions uiActions) {
@@ -145,10 +145,18 @@ public class KeyBoardController {
         this.context = context;
         this.isGamePadMode=isGamePadMode;
         this.handler = new Handler(Looper.getMainLooper());
-        this.prefConfig=prefConfig;
+        this.inputSettingsState = Objects.requireNonNull(
+                inputSettingsState,
+                "inputSettingsState");
+        this.virtualControlSettingsState = Objects.requireNonNull(
+                virtualControlSettingsState,
+                "virtualControlSettingsState");
         this.vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
         buttonConfigure=View.inflate(context,R.layout.axi_keyboard_top_right_view,null);
-        buttonConfigure.setAlpha(prefConfig.oscOpacity / 100.0f / 2f);
+        buttonConfigure.setAlpha(
+                getSettings().getControlOpacityPercent() /
+                        100.0f /
+                        2f);
         lv_left_view=View.inflate(context,R.layout.axi_keyboard_top_left_view,null);
         buttonWidth=UiHelper.dpToPx(context,50);
         buttonHeight=UiHelper.dpToPx(context,50);
@@ -434,7 +442,9 @@ public class KeyBoardController {
         }
         LimeLog.info("axi->"+getControllerMode());
         if(getControllerMode()==ControllerMode.Active&& beanList.isEmpty()){
-            if(fileName.endsWith("_1.txt")&&!prefConfig.autoScreenOrientation){
+            if (fileName.endsWith("_1.txt") &&
+                    !getSettings()
+                            .isAutomaticScreenOrientationEnabled()) {
                 return;
             }
             if(TextUtils.isEmpty(tips)){
@@ -518,7 +528,8 @@ public class KeyBoardController {
 //                LimeLog.info("axi->当前："+new Gson().toJson(beanList.get(tag)));
                 updateItem(tag.index);
             });
-            element.setOpacity(PreferenceConfiguration.readPreferences(context).oscOpacity);
+            element.setOpacity(
+                    getSettings().getControlOpacityPercent());
             addElement(element,bean.getmLeft(),bean.getmTop(),bean.getWidth(),bean.getHeight());
         }
     }
@@ -718,9 +729,10 @@ public class KeyBoardController {
             return;
         }
         removeElements();
-        String name = PreferenceManager.getDefaultSharedPreferences(context).getString(OSC_PREFERENCE, OSC_PREFERENCE_VALUE);
+        VirtualControlSettings settings = getSettings();
+        String name = settings.getKeyboardLayoutId();
         if(isGamePadMode){
-            name= PreferenceManager.getDefaultSharedPreferences(context).getString(OSC_GAMEPAD_PREFERENCE, OSC_GAMEPAD_PREFERENCE_VALUE);
+            name = settings.getGamepadLayoutId();
         }
         if(!isLandscape(context)){
             name+="_1";
@@ -750,7 +762,9 @@ public class KeyBoardController {
         } else {
             inputGateway.sendKeyEvent(keyEvent);
         }
-        if (prefConfig.enableKeyboardVibrate && vibrator.hasVibrator()&&keyEvent.getSource()!=2) {
+        if (getSettings().isKeyboardHapticsEnabled() &&
+                vibrator.hasVibrator() &&
+                keyEvent.getSource() != 2) {
             vibrator.vibrate(10);
         }
     }
@@ -764,7 +778,8 @@ public class KeyBoardController {
     }
 
     public void sendAssembleKey(String codes,int action){
-        if (prefConfig.enableKeyboardVibrate && vibrator.hasVibrator()) {
+        if (getSettings().isKeyboardHapticsEnabled() &&
+                vibrator.hasVibrator()) {
             vibrator.vibrate(10);
         }
         String[] keys=codes.split(",");
@@ -845,7 +860,8 @@ public class KeyBoardController {
         handler.removeCallbacks(delayedRetransmitRunnable);
 
         sendControllerInputContextInternal();
-        if (prefConfig.enableKeyboardVibrate && vibrator.hasVibrator()) {
+        if (getSettings().isKeyboardHapticsEnabled() &&
+                vibrator.hasVibrator()) {
             //摇杆不震动
             if(inputContext.inputMap!=0||inputContext.leftTrigger!=0x00||inputContext.rightTrigger!=0x00) {
                 vibrator.vibrate(10);
@@ -863,6 +879,14 @@ public class KeyBoardController {
 
     public boolean isLandscape(Context context) {
         return context.getResources().getDisplayMetrics().widthPixels>context.getResources().getDisplayMetrics().heightPixels;
+    }
+
+    public VirtualControlSettings getSettings() {
+        return virtualControlSettingsState.get();
+    }
+
+    public InputSettings getInputSettings() {
+        return inputSettingsState.get();
     }
 
 }

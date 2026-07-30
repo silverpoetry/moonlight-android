@@ -4,8 +4,6 @@ import android.content.Context;
 
 import com.limelight.LimeLog;
 import com.limelight.nvstream.input.ControllerPacket;
-import com.limelight.preferences.PreferenceConfiguration;
-
 @android.annotation.SuppressLint("ViewConstructor")
 public class AnalogStickFreeGamePad extends keyAnalogStickFree {
     public AnalogStickFreeGamePad(KeyBoardController controller, String elementId, Context context, boolean isLeft,boolean fixedStroke,boolean drawNormal) {
@@ -45,7 +43,8 @@ public class AnalogStickFreeGamePad extends keyAnalogStickFree {
 
             @Override
             public void onDoubleClick() {
-                if(PreferenceConfiguration.readPreferences(getContext()).disableRockerClickL3R3){
+                if (controller.getSettings()
+                        .isStickClickDisabled()) {
                     return;
                 }
                 KeyBoardController.ControllerInputContext inputContext =
@@ -57,7 +56,8 @@ public class AnalogStickFreeGamePad extends keyAnalogStickFree {
 
             @Override
             public void onRevoke() {
-                if(PreferenceConfiguration.readPreferences(getContext()).disableRockerClickL3R3){
+                if (controller.getSettings()
+                        .isStickClickDisabled()) {
                     return;
                 }
                 KeyBoardController.ControllerInputContext inputContext =

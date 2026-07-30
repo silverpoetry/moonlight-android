@@ -15,10 +15,8 @@ import android.view.MotionEvent;
 
 import androidx.appcompat.content.res.AppCompatResources;
 
-import com.limelight.LimeLog;
 import com.limelight.R;
-import com.limelight.preferences.PreferenceConfiguration;
-
+import com.limelight.settings.input.InputSettings;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -127,7 +125,6 @@ public class KeyBoardTouchPadButton extends keyBoardVirtualControllerElement {
     public KeyBoardTouchPadButton(KeyBoardController controller, String elementId, int layer, Context context) {
         super(controller, context, elementId);
         this.layer = layer;
-        preferenceConfiguration=PreferenceConfiguration.readPreferences(context);
     }
 
     public void addDigitalButtonListener(DigitalButtonListener listener) {
@@ -151,8 +148,6 @@ public class KeyBoardTouchPadButton extends keyBoardVirtualControllerElement {
     }
 
     int pressedColor = 0x805C5CAD;
-
-    PreferenceConfiguration preferenceConfiguration;
 
     @Override
     protected void onElementDraw(Canvas canvas) {
@@ -190,7 +185,8 @@ public class KeyBoardTouchPadButton extends keyBoardVirtualControllerElement {
         // 5. 绘制内容 (图标或文字)
         if (icon != -1) {
             // --- 图标模式 ---
-            int oscOpacity = PreferenceConfiguration.readPreferences(getContext()).oscOpacity;
+            int oscOpacity = virtualController.getSettings()
+                    .getControlOpacityPercent();
             Drawable d = AppCompatResources.getDrawable(getContext(), isPressed() ?
                     R.mipmap.face_ps_touchpad_press :
                     R.mipmap.face_ps_touchpad_normal);
@@ -302,9 +298,15 @@ public class KeyBoardTouchPadButton extends keyBoardVirtualControllerElement {
                         onClickCallback();
                     }
                 }
-//                LimeLog.info("touchPadSensitivity"+preferenceConfiguration.touchPadSensitivity);
-//                LimeLog.info("onElementTouchEvent:" + deltaX + "," + deltaY);
-                onMoveCallback((int) (deltaX*0.01f*preferenceConfiguration.touchPadSensitivity), (int) (deltaY*0.01f*preferenceConfiguration.touchPadYSensitity));
+                InputSettings inputSettings =
+                        virtualController.getInputSettings();
+                onMoveCallback(
+                        (int) (deltaX * 0.01f *
+                                inputSettings
+                                        .getVirtualTouchpadSensitivityX()),
+                        (int) (deltaY * 0.01f *
+                                inputSettings
+                                        .getVirtualTouchpadSensitivityY()));
                 if (deltaX != 0) {
                     lastTouchX = (int) event.getX();
                 }

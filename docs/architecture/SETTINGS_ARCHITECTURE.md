@@ -45,7 +45,8 @@ tested migration rules.
 the old 5.1-audio, never-drop-frames, and image-only clipboard switches in one
 transaction while preserving their user-visible choices. It also detects
 legacy values reintroduced by a downgrade without ever reducing a newer stored
-schema version.
+schema version. Version 2 repairs the invalid historical on-screen gamepad
+layout default to the first valid layout identifier.
 
 ## Snapshot lifecycle
 
@@ -64,8 +65,9 @@ persistent settings.
 | --- | --- | --- | --- |
 | Stream display/FSR/window | `StreamDisplaySettings` | `Game` no longer reads FSR target, sharpness, HDR mode, or gravity | Pending full stream settings migration |
 | Stream video/decoder | `StreamDecoderSettings`; typed resolution aggregate | Decoder and performance-statistics paths no longer receive `PreferenceConfiguration`; resolution/FPS parsing and repair have one safe codec | Pending remaining stream settings migration |
-| Input and gestures | `InputSettings` with one atomic `InputSettingsState` per stream | Pointer, touchscreen/touchpad, gesture, and keyboard runtime paths no longer read storage or receive `PreferenceConfiguration`; explicitly live settings publish one replacement snapshot | Controller/virtual-control settings and the temporary legacy UI fields remain to be migrated |
-| Controller and virtual controls | `ControllerSettings` with one atomic `ControllerSettingsState` per stream | `ControllerHandler` no longer receives `PreferenceConfiguration` or rereads storage from controller, sensor, rumble, battery, or USB callbacks | Virtual-controller rendering/layout and USB service settings remain to be migrated |
+| Input and gestures | `InputSettings` with one atomic `InputSettingsState` per stream | Pointer, touchscreen/touchpad, gesture, keyboard, and virtual-touchpad runtime paths no longer read storage or receive `PreferenceConfiguration`; explicitly live settings publish one replacement snapshot | Temporary legacy UI fields remain to be migrated |
+| Physical controllers | `ControllerSettings` with one atomic `ControllerSettingsState` per stream | `ControllerHandler` no longer receives `PreferenceConfiguration` or rereads storage from controller, sensor, rumble, battery, or USB callbacks | USB service settings remain to be migrated |
+| On-screen controls | `VirtualControlSettings` with one atomic `VirtualControlSettingsState` per stream | Active virtual gamepad, virtual-key, touchpad-button, and full-keyboard rendering/input paths consume typed snapshots; stream-menu writers emit immutable domain updates | Named layout persistence still requires a dedicated repository; unused legacy configuration-loader paths remain to be removed |
 | Audio and microphone | Pending | Pending | Pending |
 | Clipboard and transfer | Pending | Pending | Pending |
 | General UI and host list | Pending | Pending | Pending |

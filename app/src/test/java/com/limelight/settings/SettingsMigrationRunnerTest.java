@@ -3,6 +3,7 @@ package com.limelight.settings;
 import com.limelight.settings.audio.StreamAudioSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
 
 import org.junit.Test;
 
@@ -15,7 +16,7 @@ import static org.junit.Assert.assertTrue;
 
 public class SettingsMigrationRunnerTest {
     @Test
-    public void allVersionOneMigrationsCommitAsOneTransaction() {
+    public void allPendingMigrationsCommitAsOneTransaction() {
         FakeRepository repository = new FakeRepository();
         repository.values.put(
                 "checkbox_51_surround",
@@ -64,6 +65,28 @@ public class SettingsMigrationRunnerTest {
                 "list_audio_config"));
         assertFalse(repository.values.containsKey(
                 "checkbox_51_surround"));
+    }
+
+    @Test
+    public void versionTwoRepairsInvalidLegacyGamepadLayout() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put(
+                "settings_schema_version",
+                1);
+        repository.values.put(
+                "gamepad_axi_list",
+                "OSC_GAMEPAD_1");
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertEquals(
+                VirtualControlSettingKeys.GAMEPAD_LAYOUT_ID
+                        .getDefaultValue(),
+                repository.values.get("gamepad_axi_list"));
+        assertEquals(
+                SettingsSchema.CURRENT_VERSION,
+                repository.values.get("settings_schema_version"));
+        assertEquals(1, repository.commitCount);
     }
 
     @Test

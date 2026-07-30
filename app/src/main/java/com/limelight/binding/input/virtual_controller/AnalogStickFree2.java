@@ -6,8 +6,6 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.view.MotionEvent;
 
-import com.limelight.preferences.PreferenceConfiguration;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -206,7 +204,7 @@ public class AnalogStickFree2 extends VirtualControllerElement {
    private void notifyOnDoubleClick() {
       _DBG("double click");
       // notify listeners
-      if(PreferenceConfiguration.readPreferences(getContext()).disableRockerClickL3R3){
+      if (virtualController.getSettings().isStickClickDisabled()) {
          return;
       }
       for (AnalogStickListener listener : listeners) {
@@ -217,7 +215,7 @@ public class AnalogStickFree2 extends VirtualControllerElement {
    private void notifyOnRevoke() {
       _DBG("revoke");
       // notify listeners
-      if(PreferenceConfiguration.readPreferences(getContext()).disableRockerClickL3R3){
+      if (virtualController.getSettings().isStickClickDisabled()) {
          return;
       }
       for (AnalogStickListener listener : listeners) {

@@ -24,6 +24,9 @@ import com.limelight.settings.stream.StreamResolutionCodec;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.settings.stream.StreamResolutionSettingsLoader;
 import com.limelight.settings.transfer.TransferSettingKeys;
+import com.limelight.settings.virtualcontrols.VirtualControlSettings;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
 
 public class PreferenceConfiguration {
     public enum FormatOption {
@@ -51,11 +54,12 @@ public class PreferenceConfiguration {
     private static final String SOPS_PREF_STRING = "checkbox_enable_sops";
     private static final String DISABLE_TOASTS_PREF_STRING = "checkbox_disable_warnings";
     private static final String HOST_AUDIO_PREF_STRING = "checkbox_host_audio";
-    public static final String OSC_OPACITY_PREF_STRING = "seekbar_osc_opacity";
+    public static final String OSC_OPACITY_PREF_STRING =
+            VirtualControlSettingKeys.CONTROL_OPACITY_PERCENT
+                    .getName();
     private static final String LANGUAGE_PREF_STRING = "list_languages";
     private static final String SMALL_ICONS_PREF_STRING = "checkbox_small_icon_mode";
     private static final String VIDEO_FORMAT_PREF_STRING = "video_format";
-    private static final String SHOW_GUIDE_BUTTON_PREF_STRING = "checkbox_show_guide_button";
     private static final String ENABLE_HDR_PREF_STRING = "checkbox_enable_hdr";
     public static final String ENABLE_HDR_HIGH_BRIGHTNESS_PREF_STRING = "checkbox_enable_hdr_high_brightness";
     private static final String ENABLE_PIP_PREF_STRING = "checkbox_enable_pip";
@@ -100,10 +104,10 @@ public class PreferenceConfiguration {
     private static final String CHECKBOX_ENABLE_KEYBOARD = "checkbox_enable_keyboard";
 
     //屏幕特殊按键 震动
-    public static final String CHECKBOX_ENABLE_KEYBOARD_VIBRATE = "checkbox_vibrate_keyboard";
+    public static final String CHECKBOX_ENABLE_KEYBOARD_VIBRATE =
+            VirtualControlSettingKeys.KEYBOARD_HAPTICS.getName();
 
     //自动摇杆
-    private static final String CHECKBOX_CHECKBOX_ENABLE_ANALOG_STICK_NEW="checkbox_enable_analog_stick_new";
 
     //触控屏幕灵敏度
     public static final String TOUCH_SENSITIVITY =
@@ -117,11 +121,9 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_SOPS = true;
     private static final boolean DEFAULT_DISABLE_TOASTS = false;
     private static final boolean DEFAULT_HOST_AUDIO = false;
-    private static final int DEFAULT_OPACITY = 38;
     public static final String DEFAULT_LANGUAGE = "default";
     private static final String DEFAULT_VIDEO_FORMAT = "auto";
 
-    private static final boolean SHOW_GUIDE_BUTTON_DEFAULT = true;
     private static final boolean DEFAULT_ENABLE_HDR = false;
     private static final boolean DEFAULT_ENABLE_HDR_HIGH_BRIGHTNESS = false;
     private static final boolean DEFAULT_ENABLE_PIP = false;
@@ -749,6 +751,8 @@ public class PreferenceConfiguration {
         }
         ControllerSettings controllerSettings =
                 ControllerSettingsLoader.load(repository);
+        VirtualControlSettings virtualControlSettings =
+                VirtualControlSettingsLoader.load(repository);
 
         // This must happen after the preferences migration to ensure the preferences are populated
         config.bitrate = prefs.getInt(BITRATE_PREF_STRING, prefs.getInt(BITRATE_PREF_OLD_STRING, 0) * 1000);
@@ -774,7 +778,8 @@ public class PreferenceConfiguration {
         config.deadzonePercentage =
                 controllerSettings.getStickDeadzonePercent();
 
-        config.oscOpacity = prefs.getInt(OSC_OPACITY_PREF_STRING, DEFAULT_OPACITY);
+        config.oscOpacity =
+                virtualControlSettings.getControlOpacityPercent();
 
         config.language = prefs.getString(LANGUAGE_PREF_STRING, DEFAULT_LANGUAGE);
 
@@ -792,7 +797,8 @@ public class PreferenceConfiguration {
                 controllerSettings.isOnscreenControllerEnabled();
         config.onlyL3R3 =
                 controllerSettings.isOnlyL3R3Enabled();
-        config.showGuideButton = prefs.getBoolean(SHOW_GUIDE_BUTTON_PREF_STRING, SHOW_GUIDE_BUTTON_DEFAULT);
+        config.showGuideButton =
+                virtualControlSettings.isGuideButtonVisible();
         config.enableHdr = prefs.getBoolean(ENABLE_HDR_PREF_STRING, DEFAULT_ENABLE_HDR) && !isShieldAtvFirmwareWithBrokenHdr();
         config.enableHdrHighBrightness = prefs.getBoolean(ENABLE_HDR_HIGH_BRIGHTNESS_PREF_STRING,
                 DEFAULT_ENABLE_HDR_HIGH_BRIGHTNESS);
@@ -822,23 +828,30 @@ public class PreferenceConfiguration {
 
         config.enableKeyboard = prefs.getBoolean(CHECKBOX_ENABLE_KEYBOARD,false);
 
-        config.enableKeyboardVibrate=prefs.getBoolean(CHECKBOX_ENABLE_KEYBOARD_VIBRATE,false);
+        config.enableKeyboardVibrate =
+                virtualControlSettings.isKeyboardHapticsEnabled();
         //兼容joycon手柄
         config.enableJoyConFix =
                 controllerSettings.isJoyConFixEnabled();
         //全键盘透明度
-        config.oscKeyboardOpacity=prefs.getInt("seekbar_keyboard_axi_opacity",DEFAULT_OPACITY);
+        config.oscKeyboardOpacity =
+                virtualControlSettings.getKeyboardOpacityPercent();
 
         config.enableBatteryReport =
                 controllerSettings.isBatteryReportingEnabled();
 
-        config.gamepad_skin=prefs.getInt("onscreen_game_pad_skin",0);
+        config.gamepad_skin =
+                virtualControlSettings.getGamepadSkin();
 
-        config.senableNewAnalogStickOpacity=prefs.getInt("seekbar_osc_free_analog_stick_opacity",20);
+        config.senableNewAnalogStickOpacity =
+                virtualControlSettings
+                        .getFreeStickOpacityPercent();
 
-        config.oscKeyboardHeight=prefs.getInt("seekbar_keyboard_axi_height",200);
+        config.oscKeyboardHeight =
+                virtualControlSettings.getKeyboardHeightDp();
 
-        config.enableNewAnalogStick=prefs.getBoolean(CHECKBOX_CHECKBOX_ENABLE_ANALOG_STICK_NEW,false);
+        config.enableNewAnalogStick =
+                virtualControlSettings.areFreeSticksEnabled();
 
         config.enableExDisplay=prefs.getBoolean("checkbox_enable_exdisplay",false);
 
@@ -866,13 +879,17 @@ public class PreferenceConfiguration {
         config.enableDeviceRumble =
                 controllerSettings.isDeviceRumbleEnabled();
 
-        config.enableKeyboardSquare=prefs.getBoolean("checkbox_enable_keyboard_square",false);
+        config.enableKeyboardSquare =
+                virtualControlSettings.areSquareButtonsEnabled();
 
-        config.touchPadSensitivity=prefs.getInt("seekbar_touchpad_sensitivity_opacity",100);
+        config.touchPadSensitivity =
+                inputSettings.getVirtualTouchpadSensitivityX();
 
-        config.touchPadYSensitity=prefs.getInt("seekbar_touchpad_sensitivity_y_opacity",100);
+        config.touchPadYSensitity =
+                inputSettings.getVirtualTouchpadSensitivityY();
 
-        config.senableNewAnalogStickOpacityFixed=prefs.getBoolean("checkbox_enable_analog_stick_new_fixed",false);
+        config.senableNewAnalogStickOpacityFixed =
+                virtualControlSettings.areFixedFreeSticksEnabled();
 
         config.enableVirtualControllerMotion =
                 controllerSettings
@@ -923,7 +940,8 @@ public class PreferenceConfiguration {
 
         config.passAppMenu=prefs.getBoolean("checkbox_enable_pass_menu",false);
 
-        config.virtualkeyViewNormalColor=prefs.getInt("virtual_key_view_normal_color",0xFF888888);
+        config.virtualkeyViewNormalColor =
+                virtualControlSettings.getNormalColor();
 
         config.virtualKeyboardFileUsed=prefs.getInt("virtual_Key_board_file_used",0);
 
@@ -949,7 +967,8 @@ public class PreferenceConfiguration {
                 controllerSettings
                         .isUsbGyroscopeReportingEnabled();
 
-        config.virtualGamePadScaleFactor=prefs.getInt("virtualGamePadScaleFactor",100);
+        config.virtualGamePadScaleFactor =
+                virtualControlSettings.getGamepadScalePercent();
 
         config.lowLatencyExperiment=prefs.getBoolean("enable_lowLatency_experiment",true);
 
@@ -958,7 +977,8 @@ public class PreferenceConfiguration {
 
         config.enableGameManagerQuest=prefs.getBoolean("checkbox_enable_game_manager_quest",false);
 
-        config.disableRockerClickL3R3=prefs.getBoolean("checkbox_rocker_click_L3R3",false);
+        config.disableRockerClickL3R3 =
+                virtualControlSettings.isStickClickDisabled();
 
         config.enforceDisplayMode=prefs.getBoolean("checkbox_enforce_display_mode",false);
         config.absoluteMouseMode =
@@ -1019,9 +1039,13 @@ public class PreferenceConfiguration {
 
         config.ignoreCheckHDR=prefs.getBoolean("ignoreCheckHDR",false);
 
-        config.autoScreenOrientation=prefs.getBoolean("checkbox_auto_screen_orientation",false);
+        config.autoScreenOrientation =
+                virtualControlSettings
+                        .isAutomaticScreenOrientationEnabled();
 
-        config.keyboard_axi_combination=prefs.getBoolean("checkbox_enable_keyboard_axi_combination",false);
+        config.keyboard_axi_combination =
+                virtualControlSettings
+                        .isKeyboardCombinationModeEnabled();
 
         return config;
     }

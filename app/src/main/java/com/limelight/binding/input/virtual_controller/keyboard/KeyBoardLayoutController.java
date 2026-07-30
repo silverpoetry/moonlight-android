@@ -5,7 +5,6 @@
 package com.limelight.binding.input.virtual_controller.keyboard;
 
 import android.content.Context;
-import android.os.Vibrator;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -23,7 +22,8 @@ import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.StreamInputGateway;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.virtualcontrols.VirtualControlSettings;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingsState;
 import com.limelight.ui.StreamUiActions;
 import com.limelight.ui.gamemenu.TouchPadView;
 
@@ -38,15 +38,16 @@ public class KeyBoardLayoutController {
     private final StreamUiActions uiActions;
     private final Context context;
     private FrameLayout frame_layout = null;
-    private Vibrator vibrator;
     private LinearLayout keyboardView;
     private RadioGroup rg_keyboard;
-    private PreferenceConfiguration prefConfig;
+    private final VirtualControlSettingsState
+            virtualControlSettingsState;
 
     public KeyBoardLayoutController(final ControllerHandler controllerHandler,
                                     FrameLayout layout,
                                     final Context context,
-                                    PreferenceConfiguration prefConfig,
+                                    VirtualControlSettingsState
+                                            virtualControlSettingsState,
                                     StreamInputGateway inputGateway,
                                     StreamUiActions uiActions) {
         this.controllerHandler = controllerHandler;
@@ -54,8 +55,9 @@ public class KeyBoardLayoutController {
         this.uiActions = Objects.requireNonNull(uiActions, "uiActions");
         this.frame_layout = layout;
         this.context = context;
-        this.prefConfig=prefConfig;
-        this.vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+        this.virtualControlSettingsState = Objects.requireNonNull(
+                virtualControlSettingsState,
+                "virtualControlSettingsState");
         this.keyboardView = (LinearLayout) LayoutInflater.from(context).inflate(
                 R.layout.layout_axixi_keyboard, layout, false);
         initKeyboard();
@@ -228,7 +230,7 @@ public class KeyBoardLayoutController {
             }
         });
         //组合键模式
-        if(prefConfig.keyboard_axi_combination){
+        if (getSettings().isKeyboardCombinationModeEnabled()) {
             btn_combination.setChecked(true);
             isCombination=true;
         }
@@ -380,7 +382,8 @@ public class KeyBoardLayoutController {
         frame_layout.removeView(keyboardView);
 //        DisplayMetrics screen = context.getResources().getDisplayMetrics();
 //        (int)(screen.heightPixels/0.4)
-        int height=prefConfig.oscKeyboardHeight;
+        VirtualControlSettings settings = getSettings();
+        int height = settings.getKeyboardHeightDp();
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         params.gravity= Gravity.BOTTOM;
 //        params.leftMargin = 20 + buttonSize;
@@ -391,7 +394,8 @@ public class KeyBoardLayoutController {
         keyboardView.findViewById(R.id.lv_keyboard_digitpad).setLayoutParams(params1);
 
 
-        keyboardView.setAlpha(prefConfig.oscKeyboardOpacity/100f);
+        keyboardView.setAlpha(
+                settings.getKeyboardOpacityPercent() / 100f);
         frame_layout.addView(keyboardView,params);
 
     }
@@ -399,6 +403,10 @@ public class KeyBoardLayoutController {
     public int dip2px(Context context, float dpValue) {
         final float scale = context.getResources().getDisplayMetrics().density;
         return (int) (dpValue * scale + 0.5f);
+    }
+
+    private VirtualControlSettings getSettings() {
+        return virtualControlSettingsState.get();
     }
 
     public void sendKeyEvent(KeyEvent keyEvent) {
@@ -413,8 +421,5 @@ public class KeyBoardLayoutController {
         } else {
             inputGateway.sendKeyEvent(keyEvent);
         }
-//        if (prefConfig.enableKeyboardVibrate && vibrator.hasVibrator()) {
-//            vibrator.vibrate(10);
-//        }
     }
 }

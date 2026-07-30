@@ -3,6 +3,7 @@ package com.limelight.settings;
 import com.limelight.settings.audio.StreamAudioSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
 
 import java.util.Objects;
 
@@ -27,6 +28,9 @@ public final class SettingsMigrationRunner {
         SettingsRepository.Editor editor = repository.edit();
         if (storedVersion < 1 || hasLateLegacyValues) {
             migrateToVersion1(repository, editor);
+        }
+        if (storedVersion < 2) {
+            migrateToVersion2(repository, editor);
         }
         if (storedVersion < SettingsSchema.CURRENT_VERSION) {
             editor.put(
@@ -101,6 +105,19 @@ public final class SettingsMigrationRunner {
             editor.remove(
                     TransferSettingKeys
                             .LEGACY_CLIPBOARD_IMAGE_SYNC);
+        }
+    }
+
+    private static void migrateToVersion2(
+            SettingsRepository repository,
+            SettingsRepository.Editor editor) {
+        if (repository.contains(
+                VirtualControlSettingKeys.GAMEPAD_LAYOUT_ID)) {
+            editor.put(
+                    VirtualControlSettingKeys.GAMEPAD_LAYOUT_ID,
+                    repository.get(
+                            VirtualControlSettingKeys
+                                    .GAMEPAD_LAYOUT_ID));
         }
     }
 }

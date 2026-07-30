@@ -12,10 +12,6 @@ import android.graphics.drawable.Drawable;
 import android.view.MotionEvent;
 
 import com.limelight.R;
-import com.limelight.binding.input.virtual_controller.VirtualController;
-import com.limelight.preferences.PreferenceConfiguration;
-import com.limelight.utils.UiHelper;
-
 import java.util.ArrayList;
 import java.util.List;
 

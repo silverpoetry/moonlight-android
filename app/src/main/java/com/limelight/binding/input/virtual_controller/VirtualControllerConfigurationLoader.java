@@ -7,12 +7,12 @@ package com.limelight.binding.input.virtual_controller;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
 import android.util.DisplayMetrics;
 
 import com.limelight.R;
 import com.limelight.nvstream.input.ControllerPacket;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.controller.ControllerSettings;
+import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -220,7 +220,11 @@ public class VirtualControllerConfigurationLoader {
     private static final int GUIDE_X = START_X-BACK_X;
     private static final int GUIDE_Y = START_BACK_Y;
 
-    public static void createDefaultLayout(final VirtualController controller, final Context context,PreferenceConfiguration config) {
+    public static void createDefaultLayout(
+            final VirtualController controller,
+            final Context context,
+            VirtualControlSettings settings,
+            ControllerSettings controllerSettings) {
 
         DisplayMetrics screen = context.getResources().getDisplayMetrics();
         // Displace controls on the right by this amount of pixels to account for different aspect ratios
@@ -230,9 +234,9 @@ public class VirtualControllerConfigurationLoader {
         // NOTE: Some of these getPercent() expressions seem like they can be combined
         // into a single call. Due to floating point rounding, this isn't actually possible.
 
-        int skin=config.gamepad_skin;
+        int skin = settings.getGamepadSkin();
 
-        if (!config.onlyL3R3)
+        if (!controllerSettings.isOnlyL3R3Enabled())
         {
             controller.addElement(createDigitalPad(controller, context),
                     screenScale(DPAD_BASE_X, height),
@@ -243,8 +247,8 @@ public class VirtualControllerConfigurationLoader {
 
             controller.addElement(createDigitalButton(
                     VirtualControllerElement.EID_A,
-                    !config.flipFaceButtons ? ControllerPacket.A_FLAG : ControllerPacket.B_FLAG, 0, 1,
-                    !config.flipFaceButtons ? "A" : "B", skin==1?R.drawable.facebutton_a:R.mipmap.face_ps_cross_normal,skin==1?R.drawable.facebutton_a_press:R.mipmap.face_ps_cross_press, controller, context),
+                    !controllerSettings.areFaceButtonsFlipped() ? ControllerPacket.A_FLAG : ControllerPacket.B_FLAG, 0, 1,
+                    !controllerSettings.areFaceButtonsFlipped() ? "A" : "B", skin==1?R.drawable.facebutton_a:R.mipmap.face_ps_cross_normal,skin==1?R.drawable.facebutton_a_press:R.mipmap.face_ps_cross_press, controller, context),
                     screenScale(BUTTON_BASE_X, height) + rightDisplacement,
                     screenScale(BUTTON_BASE_Y + 2 * BUTTON_SIZE, height),
                     screenScale(BUTTON_SIZE, height),
@@ -253,8 +257,8 @@ public class VirtualControllerConfigurationLoader {
 
             controller.addElement(createDigitalButton(
                     VirtualControllerElement.EID_B,
-                    config.flipFaceButtons ? ControllerPacket.A_FLAG : ControllerPacket.B_FLAG, 0, 1,
-                    config.flipFaceButtons ? "A" : "B", skin==1?R.drawable.facebutton_b:R.mipmap.face_ps_circle_normal,skin==1?R.drawable.facebutton_b_press:R.mipmap.face_ps_circle_press, controller, context),
+                    controllerSettings.areFaceButtonsFlipped() ? ControllerPacket.A_FLAG : ControllerPacket.B_FLAG, 0, 1,
+                    controllerSettings.areFaceButtonsFlipped() ? "A" : "B", skin==1?R.drawable.facebutton_b:R.mipmap.face_ps_circle_normal,skin==1?R.drawable.facebutton_b_press:R.mipmap.face_ps_circle_press, controller, context),
                     screenScale(BUTTON_BASE_X + BUTTON_SIZE, height) + rightDisplacement,
                     screenScale(BUTTON_BASE_Y + BUTTON_SIZE, height),
                     screenScale(BUTTON_SIZE, height),
@@ -263,8 +267,8 @@ public class VirtualControllerConfigurationLoader {
 
             controller.addElement(createDigitalButton(
                     VirtualControllerElement.EID_X,
-                    !config.flipFaceButtons ? ControllerPacket.X_FLAG : ControllerPacket.Y_FLAG, 0, 1,
-                    !config.flipFaceButtons ? "X" : "Y", skin==1?R.drawable.facebutton_x:R.mipmap.face_ps_square_normal,skin==1?R.drawable.facebutton_x_press:R.mipmap.face_ps_square_press, controller, context),
+                    !controllerSettings.areFaceButtonsFlipped() ? ControllerPacket.X_FLAG : ControllerPacket.Y_FLAG, 0, 1,
+                    !controllerSettings.areFaceButtonsFlipped() ? "X" : "Y", skin==1?R.drawable.facebutton_x:R.mipmap.face_ps_square_normal,skin==1?R.drawable.facebutton_x_press:R.mipmap.face_ps_square_press, controller, context),
                     screenScale(BUTTON_BASE_X - BUTTON_SIZE, height) + rightDisplacement,
                     screenScale(BUTTON_BASE_Y + BUTTON_SIZE, height),
                     screenScale(BUTTON_SIZE, height),
@@ -273,8 +277,8 @@ public class VirtualControllerConfigurationLoader {
 
             controller.addElement(createDigitalButton(
                     VirtualControllerElement.EID_Y,
-                    config.flipFaceButtons ? ControllerPacket.X_FLAG : ControllerPacket.Y_FLAG, 0, 1,
-                    config.flipFaceButtons ? "X" : "Y", skin==1?R.drawable.facebutton_y:R.mipmap.face_ps_triangle_normal,skin==1?R.drawable.facebutton_y_press:R.mipmap.face_ps_triangle_press, controller, context),
+                    controllerSettings.areFaceButtonsFlipped() ? ControllerPacket.X_FLAG : ControllerPacket.Y_FLAG, 0, 1,
+                    controllerSettings.areFaceButtonsFlipped() ? "X" : "Y", skin==1?R.drawable.facebutton_y:R.mipmap.face_ps_triangle_normal,skin==1?R.drawable.facebutton_y_press:R.mipmap.face_ps_triangle_press, controller, context),
                     screenScale(BUTTON_BASE_X, height) + rightDisplacement,
                     screenScale(BUTTON_BASE_Y, height),
                     screenScale(BUTTON_SIZE, height),
@@ -315,9 +319,9 @@ public class VirtualControllerConfigurationLoader {
                     screenScale(TRIGGER_HEIGHT, height)
             );
             //自由摇杆
-            if(config.enableNewAnalogStick){
+            if (settings.areFreeSticksEnabled()) {
                 //固定键程
-                if(config.senableNewAnalogStickOpacityFixed){
+                if (settings.areFixedFreeSticksEnabled()) {
                     controller.addElement(createLeftStickFree2(controller, context),
                             screenScale(ANALOG_L_BASE_X, height),
                             screenScale(ANALOG_L_BASE_Y, height),
@@ -427,7 +431,7 @@ public class VirtualControllerConfigurationLoader {
             );
         }
 
-        if(config.showGuideButton){
+        if (settings.isGuideButtonVisible()) {
             controller.addElement(createDigitalButton(VirtualControllerElement.EID_GDB,
                             ControllerPacket.SPECIAL_BUTTON_FLAG, 0, 1, "GUIDE", -1, -1,controller, context),
                     screenScale(GUIDE_X, height)+ rightDisplacement,
@@ -437,7 +441,7 @@ public class VirtualControllerConfigurationLoader {
             );
         }
 
-        controller.setOpacity(config.oscOpacity);
+        controller.setOpacity(settings.getControlOpacityPercent());
     }
 
     public static void saveProfile(final VirtualController controller,
@@ -456,10 +460,11 @@ public class VirtualControllerConfigurationLoader {
         prefEditor.apply();
     }
 
-    public static void loadFromPreferences(final VirtualController controller, final Context context) {
+    public static void loadFromPreferences(
+            final VirtualController controller,
+            final Context context,
+            int scaleFactor) {
         SharedPreferences pref = context.getSharedPreferences(OSC_PREFERENCE, Activity.MODE_PRIVATE);
-
-        int scaleFactor = PreferenceManager.getDefaultSharedPreferences(context).getInt("virtualGamePadScaleFactor",100);
 
         for (VirtualControllerElement element : controller.getElements()) {
             String prefKey = ""+element.elementId;

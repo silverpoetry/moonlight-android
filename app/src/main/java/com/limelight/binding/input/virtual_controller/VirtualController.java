@@ -18,10 +18,14 @@ import android.widget.RadioGroup;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.binding.input.ControllerHandler;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.controller.ControllerSettings;
+import com.limelight.settings.controller.ControllerSettingsState;
+import com.limelight.settings.virtualcontrols.VirtualControlSettings;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingsState;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class VirtualController {
     public static class ControllerInputContext {
@@ -67,19 +71,30 @@ public class VirtualController {
 
     private Vibrator vibrator;
 
-    private PreferenceConfiguration prefConfig;
+    private final ControllerSettingsState controllerSettingsState;
+    private final VirtualControlSettingsState virtualControlSettingsState;
 
     private boolean isShow=true;
 
     private ImageView iv_game_virtual_pad;
     private RadioGroup rg_game_virtual_pad;
 
-    public VirtualController(final ControllerHandler controllerHandler, FrameLayout layout, final Context context,PreferenceConfiguration prefConfig) {
+    public VirtualController(
+            final ControllerHandler controllerHandler,
+            FrameLayout layout,
+            final Context context,
+            ControllerSettingsState controllerSettingsState,
+            VirtualControlSettingsState virtualControlSettingsState) {
         this.controllerHandler = controllerHandler;
         this.frame_layout = layout;
         this.context = context;
         this.handler = new Handler(Looper.getMainLooper());
-        this.prefConfig=prefConfig;
+        this.controllerSettingsState = Objects.requireNonNull(
+                controllerSettingsState,
+                "controllerSettingsState");
+        this.virtualControlSettingsState = Objects.requireNonNull(
+                virtualControlSettingsState,
+                "virtualControlSettingsState");
         this.vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
 
 //        buttonConfigure = new Button(context);
@@ -257,10 +272,17 @@ public class VirtualController {
         frame_layout.addView(buttonConfigure, params);
         buttonConfigure.setVisibility(View.GONE);
         // Start with the default layout
-        VirtualControllerConfigurationLoader.createDefaultLayout(this, context,prefConfig);
+        VirtualControllerConfigurationLoader.createDefaultLayout(
+                this,
+                context,
+                getSettings(),
+                getControllerSettings());
 
         // Apply user preferences onto the default layout
-        VirtualControllerConfigurationLoader.loadFromPreferences(this, context);
+        VirtualControllerConfigurationLoader.loadFromPreferences(
+                this,
+                context,
+                getSettings().getGamepadScalePercent());
     }
 
     public ControllerMode getControllerMode() {
@@ -296,7 +318,8 @@ public class VirtualController {
         handler.removeCallbacks(delayedRetransmitRunnable);
 
         sendControllerInputContextInternal();
-        if (prefConfig.enableKeyboardVibrate && vibrator.hasVibrator()) {
+        if (getSettings().isKeyboardHapticsEnabled() &&
+                vibrator.hasVibrator()) {
             //摇杆不震动
             if(inputContext.inputMap!=0||inputContext.leftTrigger!=0x00||inputContext.rightTrigger!=0x00) {
                 vibrator.vibrate(10);
@@ -309,5 +332,13 @@ public class VirtualController {
         handler.postDelayed(delayedRetransmitRunnable, 25);
         handler.postDelayed(delayedRetransmitRunnable, 50);
         handler.postDelayed(delayedRetransmitRunnable, 75);
+    }
+
+    public VirtualControlSettings getSettings() {
+        return virtualControlSettingsState.get();
+    }
+
+    private ControllerSettings getControllerSettings() {
+        return controllerSettingsState.get();
     }
 }

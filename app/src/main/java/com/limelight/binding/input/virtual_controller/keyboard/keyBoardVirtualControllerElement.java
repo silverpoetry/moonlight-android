@@ -15,9 +15,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.FrameLayout;
 
-import com.limelight.Game;
 import com.limelight.binding.input.virtual_controller.VirtualController;
-import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.gamemenu.GameKeyboardUpdateFragment;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
 import com.limelight.utils.UiHelper;
@@ -65,7 +63,7 @@ public abstract class keyBoardVirtualControllerElement extends View {
 
         this.virtualController = controller;
         this.elementId = elementId;
-        this.normalColor= PreferenceConfiguration.readPreferences(context).virtualkeyViewNormalColor;
+        this.normalColor = controller.getSettings().getNormalColor();
     }
 
     protected void moveElement(int pressed_x, int pressed_y, int x, int y) {

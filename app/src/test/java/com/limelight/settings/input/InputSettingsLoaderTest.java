@@ -24,6 +24,9 @@ public class InputSettingsLoaderTest {
                 100,
                 settings.getTouchpadPointerSensitivityX());
         assertEquals(
+                100,
+                settings.getVirtualTouchpadSensitivityX());
+        assertEquals(
                 5,
                 settings.getExternalTouchpadScrollAmount());
         assertEquals(
@@ -44,6 +47,9 @@ public class InputSettingsLoaderTest {
                 "seekbar_mouse_touchpad_sensitivity_x_opacity",
                 -20);
         repository.values.put(
+                "seekbar_touchpad_sensitivity_opacity",
+                5_000);
+        repository.values.put(
                 "touchpad_equipment_amount",
                 500);
 
@@ -55,6 +61,9 @@ public class InputSettingsLoaderTest {
         assertEquals(
                 InputSettingKeys.MIN_SENSITIVITY_PERCENT,
                 settings.getTouchpadPointerSensitivityX());
+        assertEquals(
+                InputSettingKeys.MAX_SENSITIVITY_PERCENT,
+                settings.getVirtualTouchpadSensitivityX());
         assertEquals(
                 InputSettingKeys.MAX_SCROLL_AMOUNT,
                 settings.getExternalTouchpadScrollAmount());

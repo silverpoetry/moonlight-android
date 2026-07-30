@@ -19,8 +19,6 @@ import androidx.appcompat.content.res.AppCompatResources;
 
 import com.limelight.LimeLog;
 import com.limelight.R;
-import com.limelight.preferences.PreferenceConfiguration;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -56,9 +54,11 @@ public class DigitalPad extends VirtualControllerElement {
         paint.setTextAlign(Paint.Align.CENTER);
         paint.setStrokeWidth(getDefaultStrokeWidth());
         //虚拟手柄皮肤 yuzu
-        int gamePadSkin=PreferenceConfiguration.readPreferences(getContext()).gamepad_skin;
+        int gamePadSkin =
+                virtualController.getSettings().getGamepadSkin();
         if(gamePadSkin!=0) {
-            int oscOpacity=PreferenceConfiguration.readPreferences(getContext()).oscOpacity;
+            int oscOpacity = virtualController.getSettings()
+                    .getControlOpacityPercent();
 
             paint.setColor(isPressed() ? pressedColor:getDefaultColor());
             rect.left = rect.top = paint.getStrokeWidth();

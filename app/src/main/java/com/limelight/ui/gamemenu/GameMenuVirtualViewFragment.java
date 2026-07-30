@@ -1,12 +1,5 @@
 package com.limelight.ui.gamemenu;
 
-import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE;
-import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE_VALUE;
-import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader.OSC_PREFERENCE;
-import static com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader.OSC_PREFERENCE_VALUE;
-
-import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
 import androidx.annotation.StringRes;
 import android.text.TextUtils;
 import android.view.View;
@@ -17,7 +10,8 @@ import android.widget.TextView;
 
 import com.limelight.R;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.virtualcontrols.VirtualControlSettings;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.utils.SeekBarValueRange;
 import com.limelight.utils.UiToast;
@@ -26,15 +20,6 @@ public class GameMenuVirtualViewFragment
         extends BaseGameMenuDialog
         implements View.OnClickListener,
         SeekBar.OnSeekBarChangeListener {
-    private static final String KEY_KEYBOARD_HEIGHT =
-            "seekbar_keyboard_axi_height";
-    private static final String KEY_KEYBOARD_OPACITY =
-            "seekbar_keyboard_axi_opacity";
-    private static final String KEY_GAMEPAD_SCALE =
-            "virtualGamePadScaleFactor";
-    private static final String KEY_CONTROL_COLOR =
-            "virtual_key_view_normal_color";
-
     private static final int COLOR_BLACK = 0xF0000000;
     private static final int COLOR_WHITE = 0xF0FFFFFF;
     private static final int COLOR_GRAY = 0xFF888888;
@@ -45,6 +30,11 @@ public class GameMenuVirtualViewFragment
             new SeekBarValueRange(100, 400);
     private static final SeekBarValueRange GAMEPAD_SCALE_RANGE =
             new SeekBarValueRange(20, 180);
+
+    private enum LayoutKind {
+        KEYBOARD,
+        GAMEPAD
+    }
 
     private static final int[] GAMEPAD_SCHEME_BUTTONS = {
             R.id.btn_game_virtual_game_scheme_1,
@@ -62,8 +52,9 @@ public class GameMenuVirtualViewFragment
     };
 
     private int titleRes = R.string.game_menu_virtual_controls_title;
-    private PreferenceConfiguration prefConfig =
-            new PreferenceConfiguration();
+    private VirtualControlSettings settings =
+            VirtualControlSettings.builder().build();
+    private boolean onscreenControllerRumbleEnabled;
     private KeyBoardController.ControllerMode gamePadMode =
             KeyBoardController.ControllerMode.NONE;
     private KeyBoardController.ControllerMode gameKeyMode =
@@ -245,17 +236,14 @@ public class GameMenuVirtualViewFragment
                 getResources().getStringArray(
                         R.array.gamepad_axi_values);
 
-        String selectedKeyScheme = preferences().getString(
-                OSC_PREFERENCE, OSC_PREFERENCE_VALUE);
+        String selectedKeyScheme = settings.getKeyboardLayoutId();
         checkSavedScheme(
                 keySchemeGroup,
                 KEY_SCHEME_BUTTONS,
                 keySchemeValues,
                 selectedKeyScheme);
 
-        String selectedGamepadScheme = preferences().getString(
-                OSC_GAMEPAD_PREFERENCE,
-                OSC_GAMEPAD_PREFERENCE_VALUE);
+        String selectedGamepadScheme = settings.getGamepadLayoutId();
         checkSavedScheme(
                 gamepadSchemeGroup,
                 GAMEPAD_SCHEME_BUTTONS,
@@ -280,20 +268,20 @@ public class GameMenuVirtualViewFragment
     private void bindSchemeListeners() {
         keySchemeGroup.setOnCheckedChangeListener(
                 (group, checkedId) -> saveSelectedScheme(
-                        OSC_PREFERENCE,
+                        LayoutKind.KEYBOARD,
                         KEY_SCHEME_BUTTONS,
                         keySchemeValues,
                         checkedId));
         gamepadSchemeGroup.setOnCheckedChangeListener(
                 (group, checkedId) -> saveSelectedScheme(
-                        OSC_GAMEPAD_PREFERENCE,
+                        LayoutKind.GAMEPAD,
                         GAMEPAD_SCHEME_BUTTONS,
                         gamepadSchemeValues,
                         checkedId));
     }
 
     private void saveSelectedScheme(
-            String preferenceKey,
+            LayoutKind kind,
             int[] buttonIds,
             String[] values,
             int checkedId) {
@@ -301,9 +289,16 @@ public class GameMenuVirtualViewFragment
         if (index < 0 || index >= values.length) {
             return;
         }
-        preferences().edit()
-                .putString(preferenceKey, values[index])
-                .apply();
+        if (kind == LayoutKind.KEYBOARD) {
+            publishUpdate(
+                    VirtualControlSettingsUpdate
+                            .keyboardLayoutId(values[index]));
+        }
+        else {
+            publishUpdate(
+                    VirtualControlSettingsUpdate
+                            .gamepadLayoutId(values[index]));
+        }
     }
 
     private static int indexOf(int[] values, int target) {
@@ -316,7 +311,7 @@ public class GameMenuVirtualViewFragment
     }
 
     private void initializeControlColor() {
-        switch (prefConfig.virtualkeyViewNormalColor) {
+        switch (settings.getNormalColor()) {
             case COLOR_BLACK:
                 controlColorGroup.check(
                         R.id.btn_game_virtual_key_color_1);
@@ -344,20 +339,19 @@ public class GameMenuVirtualViewFragment
                             R.id.btn_game_virtual_key_color_2) {
                         color = COLOR_WHITE;
                     }
-                    prefConfig.virtualkeyViewNormalColor = color;
-                    preferences().edit()
-                            .putInt(KEY_CONTROL_COLOR, color)
-                            .apply();
+                    publishUpdate(
+                            VirtualControlSettingsUpdate
+                                    .normalColor(color));
                 });
     }
 
     private void updateVibrationButtons() {
         keyboardVibrationButton.setBackgroundResource(
-                prefConfig.enableKeyboardVibrate ?
+                settings.isKeyboardHapticsEnabled() ?
                         R.drawable.ic_game_menu_btn_green_selector :
                         R.drawable.ic_game_menu_btn_selector);
         gamepadVibrationButton.setBackgroundResource(
-                prefConfig.vibrateOsc ?
+                onscreenControllerRumbleEnabled ?
                         R.drawable.ic_game_menu_btn_green_selector :
                         R.drawable.ic_game_menu_btn_selector);
     }
@@ -366,19 +360,19 @@ public class GameMenuVirtualViewFragment
         setSeekBarValue(
                 controlOpacitySeekBar,
                 OPACITY_RANGE,
-                prefConfig.oscOpacity);
+                settings.getControlOpacityPercent());
         setSeekBarValue(
                 keyboardOpacitySeekBar,
                 OPACITY_RANGE,
-                prefConfig.oscKeyboardOpacity);
+                settings.getKeyboardOpacityPercent());
         setSeekBarValue(
                 keyboardHeightSeekBar,
                 KEYBOARD_HEIGHT_RANGE,
-                prefConfig.oscKeyboardHeight);
+                settings.getKeyboardHeightDp());
         setSeekBarValue(
                 gamepadScaleSeekBar,
                 GAMEPAD_SCALE_RANGE,
-                prefConfig.virtualGamePadScaleFactor);
+                settings.getGamepadScalePercent());
 
         controlOpacityValue.setText(getString(
                 R.string.game_menu_opacity_format,
@@ -419,24 +413,21 @@ public class GameMenuVirtualViewFragment
             return;
         }
         if (viewId == R.id.btn_vibration) {
-            prefConfig.enableKeyboardVibrate =
-                    !prefConfig.enableKeyboardVibrate;
-            preferences().edit()
-                    .putBoolean(
-                            PreferenceConfiguration
-                                    .CHECKBOX_ENABLE_KEYBOARD_VIBRATE,
-                            prefConfig.enableKeyboardVibrate)
-                    .apply();
+            publishUpdate(
+                    VirtualControlSettingsUpdate
+                            .keyboardHapticsEnabled(
+                                    !settings
+                                            .isKeyboardHapticsEnabled()));
             updateVibrationButtons();
             return;
         }
         if (viewId == R.id.btn_vibration_gamepad) {
-            prefConfig.vibrateOsc = !prefConfig.vibrateOsc;
-            preferences().edit()
-                    .putBoolean(
-                            PreferenceConfiguration.VIBRATE_OSC_PREF_STRING,
-                            prefConfig.vibrateOsc)
-                    .apply();
+            onscreenControllerRumbleEnabled =
+                    !onscreenControllerRumbleEnabled;
+            if (listener != null) {
+                listener.onOnscreenControllerRumbleChanged(
+                        onscreenControllerRumbleEnabled);
+            }
             updateVibrationButtons();
         }
     }
@@ -452,41 +443,35 @@ public class GameMenuVirtualViewFragment
 
         if (seekBar == controlOpacitySeekBar) {
             int value = OPACITY_RANGE.progressToValue(progress);
-            prefConfig.oscOpacity = value;
-            preferences().edit()
-                    .putInt(
-                            PreferenceConfiguration.OSC_OPACITY_PREF_STRING,
-                            value)
-                    .apply();
+            publishUpdate(
+                    VirtualControlSettingsUpdate
+                            .controlOpacityPercent(value));
             controlOpacityValue.setText(getString(
                     R.string.game_menu_opacity_format, value));
         }
         else if (seekBar == keyboardOpacitySeekBar) {
             int value = OPACITY_RANGE.progressToValue(progress);
-            prefConfig.oscKeyboardOpacity = value;
-            preferences().edit()
-                    .putInt(KEY_KEYBOARD_OPACITY, value)
-                    .apply();
+            publishUpdate(
+                    VirtualControlSettingsUpdate
+                            .keyboardOpacityPercent(value));
             keyboardOpacityValue.setText(getString(
                     R.string.game_menu_opacity_format, value));
         }
         else if (seekBar == keyboardHeightSeekBar) {
             int value =
                     KEYBOARD_HEIGHT_RANGE.progressToValue(progress);
-            prefConfig.oscKeyboardHeight = value;
-            preferences().edit()
-                    .putInt(KEY_KEYBOARD_HEIGHT, value)
-                    .apply();
+            publishUpdate(
+                    VirtualControlSettingsUpdate
+                            .keyboardHeightDp(value));
             keyboardHeightValue.setText(getString(
                     R.string.game_menu_height_format, value));
         }
         else if (seekBar == gamepadScaleSeekBar) {
             int value =
                     GAMEPAD_SCALE_RANGE.progressToValue(progress);
-            prefConfig.virtualGamePadScaleFactor = value;
-            preferences().edit()
-                    .putInt(KEY_GAMEPAD_SCALE, value)
-                    .apply();
+            publishUpdate(
+                    VirtualControlSettingsUpdate
+                            .gamepadScalePercent(value));
             gamepadScaleValue.setText(getString(
                     R.string.game_menu_scale_format, value));
         }
@@ -498,11 +483,6 @@ public class GameMenuVirtualViewFragment
 
     @Override
     public void onStopTrackingTouch(SeekBar seekBar) {
-    }
-
-    private SharedPreferences preferences() {
-        return PreferenceManager.getDefaultSharedPreferences(
-                getActivity());
     }
 
     public void setTitle(@StringRes int titleRes) {
@@ -519,10 +499,22 @@ public class GameMenuVirtualViewFragment
         this.gamePadMode = gamePadMode;
     }
 
-    public void setPrefConfig(
-            PreferenceConfiguration prefConfig) {
-        if (prefConfig != null) {
-            this.prefConfig = prefConfig;
+    public void setSettings(VirtualControlSettings settings) {
+        if (settings != null) {
+            this.settings = settings;
+        }
+    }
+
+    public void setOnscreenControllerRumbleEnabled(
+            boolean enabled) {
+        onscreenControllerRumbleEnabled = enabled;
+    }
+
+    private void publishUpdate(
+            VirtualControlSettingsUpdate<?> update) {
+        settings = update.applyTo(settings);
+        if (listener != null) {
+            listener.onVirtualControlSettingsUpdate(update);
         }
     }
 
@@ -532,6 +524,11 @@ public class GameMenuVirtualViewFragment
 
     public interface Listener {
         void onRefreshRequested();
+
+        void onVirtualControlSettingsUpdate(
+                VirtualControlSettingsUpdate<?> update);
+
+        void onOnscreenControllerRumbleChanged(boolean enabled);
 
         void onGamepadModeSelected(
                 KeyBoardController.ControllerMode mode);

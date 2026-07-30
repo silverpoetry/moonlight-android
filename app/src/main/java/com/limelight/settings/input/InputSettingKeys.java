@@ -80,6 +80,14 @@ public final class InputSettingKeys {
             sensitivityKey(
                     "seekbar_mouse_touchpad_sensitivity_y_opacity");
     public static final SettingKey<Integer>
+            VIRTUAL_TOUCHPAD_SENSITIVITY_X =
+            sensitivityKey(
+                    "seekbar_touchpad_sensitivity_opacity");
+    public static final SettingKey<Integer>
+            VIRTUAL_TOUCHPAD_SENSITIVITY_Y =
+            sensitivityKey(
+                    "seekbar_touchpad_sensitivity_y_opacity");
+    public static final SettingKey<Integer>
             EXTERNAL_TOUCHPAD_SENSITIVITY_X =
             sensitivityKey("touchpad_equipment_view_x");
     public static final SettingKey<Integer>
