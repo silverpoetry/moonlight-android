@@ -1,6 +1,7 @@
 package com.limelight.binding.input.touch;
 
 import android.content.Context;
+import android.os.SystemClock;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
@@ -21,19 +22,19 @@ import static org.junit.Assert.assertTrue;
 
 @RunWith(AndroidJUnit4.class)
 public final class TouchInputControllerTest {
-    private static final long DOWN_TIME_MS = 1_000;
-
     private RecordingPointerInputSink inputSink;
     private RecordingHost host;
     private View streamView;
     private PreferenceConfiguration preferences;
     private TouchInputController controller;
+    private long downTimeMs;
 
     @Before
     public void setUp() {
         Context context =
                 InstrumentationRegistry.getInstrumentation()
                         .getTargetContext();
+        downTimeMs = SystemClock.uptimeMillis();
         inputSink = new RecordingPointerInputSink();
         host = new RecordingHost();
         streamView = new View(context);
@@ -44,10 +45,16 @@ public final class TouchInputControllerTest {
         preferences.quickSoftKeyboardFingers = 0;
         preferences.barometerForcePressThresholdHpa = 0.18f;
         preferences.barometerForcePressMinimumDurationMs = 100;
+        DirectContactInputController directContactInputController =
+                new DirectContactInputController(
+                        streamView,
+                        inputSink,
+                        preferences);
         controller = new TouchInputController(
                 context,
                 streamView,
                 inputSink,
+                directContactInputController,
                 preferences,
                 host);
     }
@@ -71,7 +78,6 @@ public final class TouchInputControllerTest {
                 event(10, MotionEvent.ACTION_UP, 0, 100, 100)));
 
         assertEquals(0, inputSink.packetCount);
-        assertEquals(0, host.directTouchEventCount);
     }
 
     @Test
@@ -87,20 +93,17 @@ public final class TouchInputControllerTest {
 
         assertEquals(1, inputSink.mousePositionPacketCount);
         assertEquals(0, inputSink.touchpadFramePacketCount);
-        assertEquals(0, host.directTouchEventCount);
     }
 
     @Test
     public void multiTouchModeDelegatesToDirectTouchPathFirst() {
-        host.consumeDirectTouchEvents = true;
         controller.setMode(TouchInputMode.MULTI_TOUCH);
 
         assertTrue(controller.handleMotionEvent(
                 streamView,
                 event(0, MotionEvent.ACTION_DOWN, 0, 100, 100)));
 
-        assertEquals(1, host.directTouchEventCount);
-        assertEquals(0, inputSink.packetCount);
+        assertEquals(1, inputSink.directTouchPacketCount);
     }
 
     @Test
@@ -123,7 +126,6 @@ public final class TouchInputControllerTest {
 
         assertEquals(1, inputSink.touchpadFramePacketCount);
         assertEquals(2, inputSink.lastTouchpadContactCount);
-        assertEquals(0, host.directTouchEventCount);
     }
 
     @Test
@@ -145,7 +147,7 @@ public final class TouchInputControllerTest {
         assertEquals(1, inputSink.mousePositionPacketCount);
     }
 
-    private static MotionEvent event(
+    private MotionEvent event(
             long elapsedMs,
             int actionMasked,
             int actionIndex,
@@ -182,8 +184,8 @@ public final class TouchInputControllerTest {
         }
 
         return MotionEvent.obtain(
-                DOWN_TIME_MS,
-                DOWN_TIME_MS + elapsedMs,
+                downTimeMs,
+                downTimeMs + elapsedMs,
                 action,
                 pointerCount,
                 properties,
@@ -200,17 +202,6 @@ public final class TouchInputControllerTest {
 
     private static final class RecordingHost
             implements TouchInputController.Host {
-        int directTouchEventCount;
-        boolean consumeDirectTouchEvents;
-
-        @Override
-        public boolean trySendDirectTouchEvent(
-                View eventView,
-                MotionEvent event) {
-            directTouchEventCount++;
-            return consumeDirectTouchEvents;
-        }
-
         @Override
         public void showSoftKeyboard() {
         }
@@ -220,6 +211,7 @@ public final class TouchInputControllerTest {
             implements PointerInputSink {
         int packetCount;
         int mousePositionPacketCount;
+        int directTouchPacketCount;
         int touchpadFramePacketCount;
         int lastTouchpadContactCount;
 
@@ -260,6 +252,42 @@ public final class TouchInputControllerTest {
         @Override
         public void sendMouseHighResScroll(short delta) {
             packetCount++;
+        }
+
+        @Override
+        public void sendMouseHighResHScroll(short delta) {
+            packetCount++;
+        }
+
+        @Override
+        public int sendTouchEvent(
+                byte eventType,
+                int pointerId,
+                float x,
+                float y,
+                float pressureOrDistance,
+                float contactAreaMajor,
+                float contactAreaMinor,
+                short rotation) {
+            packetCount++;
+            directTouchPacketCount++;
+            return 0;
+        }
+
+        @Override
+        public int sendPenEvent(
+                byte eventType,
+                byte toolType,
+                byte penButtons,
+                float x,
+                float y,
+                float pressureOrDistance,
+                float contactAreaMajor,
+                float contactAreaMinor,
+                short rotation,
+                byte tilt) {
+            packetCount++;
+            return 0;
         }
 
         @Override

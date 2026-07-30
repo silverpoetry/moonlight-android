@@ -62,6 +62,57 @@ public final class NvConnectionPointerInputSink implements PointerInputSink {
     }
 
     @Override
+    public void sendMouseHighResHScroll(short delta) {
+        connection.sendMouseHighResHScroll(delta);
+    }
+
+    @Override
+    public int sendTouchEvent(
+            byte eventType,
+            int pointerId,
+            float x,
+            float y,
+            float pressureOrDistance,
+            float contactAreaMajor,
+            float contactAreaMinor,
+            short rotation) {
+        return connection.sendTouchEvent(
+                eventType,
+                pointerId,
+                x,
+                y,
+                pressureOrDistance,
+                contactAreaMajor,
+                contactAreaMinor,
+                rotation);
+    }
+
+    @Override
+    public int sendPenEvent(
+            byte eventType,
+            byte toolType,
+            byte penButtons,
+            float x,
+            float y,
+            float pressureOrDistance,
+            float contactAreaMajor,
+            float contactAreaMinor,
+            short rotation,
+            byte tilt) {
+        return connection.sendPenEvent(
+                eventType,
+                toolType,
+                penButtons,
+                x,
+                y,
+                pressureOrDistance,
+                contactAreaMajor,
+                contactAreaMinor,
+                rotation,
+                tilt);
+    }
+
+    @Override
     public int sendTouchpadFrameEvent(
             byte contactCount,
             byte[] eventTypes,

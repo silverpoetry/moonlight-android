@@ -23,6 +23,17 @@ public interface PointerInputSink {
 
     void sendMouseHighResScroll(short delta);
 
+    void sendMouseHighResHScroll(short delta);
+
+    int sendTouchEvent(byte eventType, int pointerId, float x, float y,
+                       float pressureOrDistance, float contactAreaMajor,
+                       float contactAreaMinor, short rotation);
+
+    int sendPenEvent(byte eventType, byte toolType, byte penButtons,
+                     float x, float y, float pressureOrDistance,
+                     float contactAreaMajor, float contactAreaMinor,
+                     short rotation, byte tilt);
+
     int sendTouchpadFrameEvent(byte contactCount, byte[] eventTypes,
                                int[] pointerIds, float[] x, float[] y,
                                float[] pressure, short rotation,

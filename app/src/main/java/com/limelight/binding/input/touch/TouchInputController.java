@@ -29,13 +29,12 @@ public final class TouchInputController {
      * composition layer.
      */
     public interface Host {
-        boolean trySendDirectTouchEvent(View eventView, MotionEvent event);
-
         void showSoftKeyboard();
     }
 
     private final View streamView;
     private final PointerInputSink inputSink;
+    private final DirectContactInputController directContactInputController;
     private final PreferenceConfiguration preferences;
     private final Host host;
     private final TouchContext[] touchContexts =
@@ -53,10 +52,14 @@ public final class TouchInputController {
             Context context,
             View streamView,
             PointerInputSink inputSink,
+            DirectContactInputController directContactInputController,
             PreferenceConfiguration preferences,
             Host host) {
         this.streamView = Objects.requireNonNull(streamView, "streamView");
         this.inputSink = Objects.requireNonNull(inputSink, "inputSink");
+        this.directContactInputController = Objects.requireNonNull(
+                directContactInputController,
+                "directContactInputController");
         this.preferences = Objects.requireNonNull(
                 preferences,
                 "preferences");
@@ -145,6 +148,7 @@ public final class TouchInputController {
         forcePressController.stop();
         keyboardGestureCoordinator.cancel();
         nativeTouchpadHandler.cancel();
+        directContactInputController.cancel();
         cancelLegacyTouchContexts();
     }
 
@@ -152,6 +156,7 @@ public final class TouchInputController {
         keyboardGestureCoordinator.cancel();
         forcePressController.cancelTouchSession();
         nativeTouchpadHandler.cancel();
+        directContactInputController.cancel();
         cancelLegacyTouchContexts();
     }
 
@@ -284,7 +289,9 @@ public final class TouchInputController {
 
         if (preferences.enableMultiTouchScreen &&
                 !preferences.touchscreenTrackpad &&
-                host.trySendDirectTouchEvent(eventView, event)) {
+                directContactInputController.trySendTouchEvent(
+                        eventView,
+                        event)) {
             return true;
         }
 

@@ -416,6 +416,38 @@ public final class TouchscreenTouchpadHandlerTest {
         public void sendMouseHighResScroll(short delta) {
         }
 
+        @Override
+        public void sendMouseHighResHScroll(short delta) {
+        }
+
+        @Override
+        public int sendTouchEvent(
+                byte eventType,
+                int pointerId,
+                float x,
+                float y,
+                float pressureOrDistance,
+                float contactAreaMajor,
+                float contactAreaMinor,
+                short rotation) {
+            return 0;
+        }
+
+        @Override
+        public int sendPenEvent(
+                byte eventType,
+                byte toolType,
+                byte penButtons,
+                float x,
+                float y,
+                float pressureOrDistance,
+                float contactAreaMajor,
+                float contactAreaMinor,
+                short rotation,
+                byte tilt) {
+            return 0;
+        }
+
         String frameTrace() {
             StringBuilder trace = new StringBuilder();
             for (Frame frame : frames) {
