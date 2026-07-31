@@ -13,6 +13,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.os.Vibrator;
 import android.os.VibratorManager;
 import android.util.SparseArray;
@@ -47,8 +48,6 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
 public class ControllerHandler implements InputManager.InputDeviceListener,
         UsbDriverListener, GamepadInputHandler,
         StreamInputLifecycleController.ControllerDevices {
-    private static final int MINIMUM_BUTTON_DOWN_TIME_MS = 25;
-
     private static final int BATTERY_RECHECK_INTERVAL_MS = 120 * 1000;
 
     private final SparseArray<InputDeviceContext> inputDeviceContexts = new SparseArray<>();
@@ -83,6 +82,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private final Handler mainThreadHandler;
     private final ControllerMouseEmulationSession.Scheduler
             mouseEmulationScheduler;
+    private final ControllerButtonReleaseSession.Scheduler
+            buttonReleaseScheduler;
     private final ControllerMotionSession.Scheduler
             motionSensorScheduler;
     private final ControllerBatterySession.Scheduler
@@ -293,6 +294,28 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         this.mainThreadHandler = new Handler(Looper.getMainLooper());
         this.mouseEmulationScheduler =
                 new ControllerMouseEmulationSession.Scheduler() {
+                    @Override
+                    public void schedule(
+                            Runnable runnable,
+                            long delayMs) {
+                        mainThreadHandler.postDelayed(
+                                runnable,
+                                delayMs);
+                    }
+
+                    @Override
+                    public void cancel(Runnable runnable) {
+                        mainThreadHandler.removeCallbacks(
+                                runnable);
+                    }
+                };
+        this.buttonReleaseScheduler =
+                new ControllerButtonReleaseSession.Scheduler() {
+                    @Override
+                    public long now() {
+                        return SystemClock.uptimeMillis();
+                    }
+
                     @Override
                     public void schedule(
                             Runnable runnable,
@@ -1343,11 +1366,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         UNHANDLED
     }
 
-    private DigitalButtonApplication applyDigitalButton(
+    private DigitalButtonApplication classifyDigitalButton(
             InputDeviceContext context,
-            KeyEvent event,
-            ControllerDigitalButtonMapping.Target target,
-            boolean pressed) {
+            ControllerDigitalButtonMapping.Target target) {
         if (target ==
                 ControllerDigitalButtonMapping.Target.UNHANDLED) {
             return DigitalButtonApplication.UNHANDLED;
@@ -1361,26 +1382,41 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         if (target ==
                 ControllerDigitalButtonMapping.Target.LEFT_TRIGGER) {
-            return context.inputState.setDigitalTrigger(
-                    true,
-                    pressed)
-                    ? DigitalButtonApplication.APPLIED
-                    : DigitalButtonApplication.SUPPRESSED;
+            return context.inputState.isLeftTriggerAxisUsed()
+                    ? DigitalButtonApplication.SUPPRESSED
+                    : DigitalButtonApplication.APPLIED;
         }
         if (target ==
                 ControllerDigitalButtonMapping.Target.RIGHT_TRIGGER) {
-            return context.inputState.setDigitalTrigger(
-                    false,
-                    pressed)
-                    ? DigitalButtonApplication.APPLIED
-                    : DigitalButtonApplication.SUPPRESSED;
+            return context.inputState.isRightTriggerAxisUsed()
+                    ? DigitalButtonApplication.SUPPRESSED
+                    : DigitalButtonApplication.APPLIED;
+        }
+        return DigitalButtonApplication.APPLIED;
+    }
+
+    private void applyDigitalButton(
+            InputDeviceContext context,
+            ControllerDigitalButtonMapping.Target target,
+            boolean pressed,
+            long eventTime,
+            int repeatCount) {
+        if (target ==
+                ControllerDigitalButtonMapping.Target.LEFT_TRIGGER) {
+            context.inputState.setDigitalTrigger(true, pressed);
+            return;
+        }
+        if (target ==
+                ControllerDigitalButtonMapping.Target.RIGHT_TRIGGER) {
+            context.inputState.setDigitalTrigger(false, pressed);
+            return;
         }
 
         if (pressed) {
             context.mouseModeActivationState.observeButtonDown(
                     target,
-                    event.getEventTime(),
-                    event.getRepeatCount());
+                    eventTime,
+                    repeatCount);
             if (target ==
                     ControllerDigitalButtonMapping.Target.SPECIAL) {
                 context.chordEmulationState.observeModeButton();
@@ -1400,15 +1436,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             if (target ==
                     ControllerDigitalButtonMapping.Target.LEFT_BUMPER) {
                 context.chordEmulationState.recordLeftBumperUp(
-                        event.getEventTime());
+                        eventTime);
             }
             else if (target ==
                     ControllerDigitalButtonMapping.Target.RIGHT_BUMPER) {
                 context.chordEmulationState.recordRightBumperUp(
-                        event.getEventTime());
+                        eventTime);
             }
         }
-        return DigitalButtonApplication.APPLIED;
     }
 
     private void activateMouseEmulationAction(
@@ -1437,6 +1472,43 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
     }
 
+    private DigitalButtonApplication completeButtonUp(
+            InputDeviceContext context,
+            ControllerSettings settings,
+            ControllerDigitalButtonMapping.Target target,
+            long eventTime) {
+        DigitalButtonApplication application =
+                classifyDigitalButton(context, target);
+        if (application != DigitalButtonApplication.APPLIED) {
+            return application;
+        }
+
+        handleMouseEmulationButtonRelease(
+                context,
+                settings,
+                target,
+                eventTime);
+        applyDigitalButton(
+                context,
+                target,
+                false,
+                eventTime,
+                0);
+        context.inputState.setInputMap(
+                context.chordEmulationState.applyButtonUp(
+                        context.inputState.getInputMap()));
+
+        sendControllerInputPacket(context);
+
+        if (context.chordEmulationState
+                .shouldFinishAfterButtonUp(
+                        context.inputState.getInputMap())) {
+            // All buttons from the quit combo are lifted. Finish the activity now.
+            activityContext.finish();
+        }
+        return DigitalButtonApplication.APPLIED;
+    }
+
     @Override
     public boolean handleButtonUp(KeyEvent event) {
         InputDeviceContext context = getContextForEvent(event);
@@ -1460,58 +1532,27 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                         keyCode,
                         event.getScanCode(),
                         context.hasPaddles);
-
-        // If the button hasn't been down long enough, sleep for a bit before sending the up event
-        // This allows "instant" button presses (like OUYA's virtual menu button) to work. This
-        // path should not be triggered during normal usage.
-        int buttonDownTime = (int)(event.getEventTime() - event.getDownTime());
-        if (buttonDownTime < ControllerHandler.MINIMUM_BUTTON_DOWN_TIME_MS)
-        {
-            // Since our sleep time is so short (<= 25 ms), it shouldn't cause a problem doing this
-            // in the UI thread.
-            try {
-                Thread.sleep(ControllerHandler.MINIMUM_BUTTON_DOWN_TIME_MS - buttonDownTime);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-
-                // InterruptedException clears the thread's interrupt status. Since we can't
-                // handle that here, we will re-interrupt the thread to set the interrupt
-                // status back to true.
-                Thread.currentThread().interrupt();
-            }
-        }
-
-        handleMouseEmulationButtonRelease(
-                context,
-                settings,
-                target,
-                event.getEventTime());
         DigitalButtonApplication application =
-                applyDigitalButton(
-                        context,
-                        event,
-                        target,
-                        false);
+                classifyDigitalButton(context, target);
         if (application == DigitalButtonApplication.UNHANDLED) {
             return false;
         }
         if (application == DigitalButtonApplication.SUPPRESSED) {
+            context.buttonReleaseSession.abandonButton(target);
             return true;
         }
 
-        context.inputState.setInputMap(
-                context.chordEmulationState.applyButtonUp(
-                        context.inputState.getInputMap()));
-
-        sendControllerInputPacket(context);
-
-        if (context.chordEmulationState
-                .shouldFinishAfterButtonUp(
-                        context.inputState.getInputMap())) {
-            // All buttons from the quit combo are lifted. Finish the activity now.
-            activityContext.finish();
+        if (context.buttonReleaseSession.deferButtonUp(
+                target,
+                settings,
+                event.getEventTime())) {
+            return true;
         }
-
+        completeButtonUp(
+                context,
+                settings,
+                target,
+                event.getEventTime());
         return true;
     }
 
@@ -1538,18 +1579,23 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                         event.getScanCode(),
                         context.hasPaddles);
 
+        context.buttonReleaseSession.flushPendingRelease(target);
         DigitalButtonApplication application =
-                applyDigitalButton(
-                        context,
-                        event,
-                        target,
-                        true);
+                classifyDigitalButton(context, target);
         if (application == DigitalButtonApplication.UNHANDLED) {
             return false;
         }
         if (application == DigitalButtonApplication.SUPPRESSED) {
+            context.buttonReleaseSession.abandonButton(target);
             return true;
         }
+
+        applyDigitalButton(
+                context,
+                target,
+                true,
+                event.getEventTime(),
+                event.getRepeatCount());
 
         context.inputState.setInputMap(
                 context.chordEmulationState.applyButtonDown(
@@ -1560,6 +1606,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         // sends us events that claim to be repeats but they're from different
         // devices, so we just send them all and deal with some duplicates.
         sendControllerInputPacket(context);
+        context.buttonReleaseSession.recordButtonDown(
+                target,
+                event.getRepeatCount());
         return true;
     }
 
@@ -1871,6 +1920,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 chordEmulationState;
         private final ControllerMouseModeActivationState
                 mouseModeActivationState;
+        private final ControllerButtonReleaseSession
+                buttonReleaseSession;
         public boolean hasJoystickAxes;
         public boolean hasPaddles;
         public boolean hasShare;
@@ -1900,6 +1951,15 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             this.mouseModeActivationState = Objects.requireNonNull(
                     mouseModeActivationState,
                     "mouseModeActivationState");
+            this.buttonReleaseSession =
+                    new ControllerButtonReleaseSession(
+                            buttonReleaseScheduler,
+                            (target, settings, eventTime) ->
+                                    completeButtonUp(
+                                            this,
+                                            settings,
+                                            target,
+                                            eventTime));
             ControllerBatteryReporter batteryReporter =
                     new ControllerBatteryReporter(
                             batterySource,
@@ -2009,6 +2069,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         @Override
         public void destroy() {
+            buttonReleaseSession.destroy();
             super.destroy();
             vibrationRenderer.cancel(vibrationTarget);
 
@@ -2123,6 +2184,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     oldContext.chordEmulationState);
             mouseModeActivationState.restoreFrom(
                     oldContext.mouseModeActivationState);
+            buttonReleaseSession.restoreFrom(
+                    oldContext.buttonReleaseSession);
             mouseEmulationTranslator.restoreFrom(
                     oldContext.mouseEmulationTranslator);
             gyroStickTranslator.restoreFrom(

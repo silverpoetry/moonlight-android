@@ -1396,3 +1396,19 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Replaced the inherited physical-controller button-up `Thread.sleep()` with
+  `ControllerButtonReleaseSession`. The minimum host-visible press interval is
+  now measured from the actual down-packet submission rather than an Android
+  event timestamp, and a quick release is delivered by the existing main
+  looper without blocking input, rendering, settings, or lifecycle callbacks.
+- The session uses fixed per-target primitive slots and one reusable drain
+  callback. Fixtures lock the inclusive 25 ms boundary, repeat and duplicate-
+  up behavior, multiple deadline ordering, same-target release-before-repress,
+  ownership cancellation, device-context migration, and destruction. Normal
+  presses remain immediate, and no steady-state collection allocation, lock,
+  unbounded queue, or new thread was introduced.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 584 JVM
+  tests per variant (2,336 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

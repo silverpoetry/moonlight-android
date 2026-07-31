@@ -425,6 +425,15 @@ targets.
   by every source. `ControllerHandler` no longer exposes one mutable scratch
   vector to both the Android main thread and USB driver callbacks, removing a
   cross-execution-domain race without adding event allocation or a lock.
+- `ControllerButtonReleaseSession` replaces the inherited main-thread sleep
+  used to keep unusually short physical button presses host-visible. It starts
+  the 25 ms minimum from the actual down-packet submission, keeps one fixed
+  slot per protocol target, and schedules only the earliest deadline through
+  Android's existing main looper. Repeats cannot restart the clock, duplicate
+  ups cannot extend it, a new same-button down first flushes the old up, and
+  context migration or destruction transfers or revokes the pending release
+  exactly once. Ordinary presses remain synchronous and the input path adds no
+  collection allocation, lock, unbounded queue, or worker thread.
 - `ControllerAnalogInputCombiner` owns split-device trigger and stick
   aggregation. Triggers are compared as unsigned protocol values and axes by
   signed magnitude; the previous bitwise-OR corruption path has been removed.
