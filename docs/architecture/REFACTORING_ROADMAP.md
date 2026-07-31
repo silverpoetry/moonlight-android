@@ -223,6 +223,10 @@ A slice is incomplete if callers can still bypass the new boundary.
   rumble suppression, and USB/Kishi routing share one immutable
   `StreamAudioSettings` snapshot. PCM callbacks no longer read preferences,
   and live menu changes publish one replacement state.
+- Microphone protocol-v1 capture invariants are represented by immutable
+  `MicrophoneUplinkConfig`. A platform-independent lifecycle controller owns
+  start/stop/error transitions, `NvConnection` depends on its session-factory
+  port, and the composition root injects the Android/common-c capture adapter.
 - Versioned legacy preference migration through schema version 2.
 - A platform-independent virtual-control layout identity/repository contract,
   Android atomic-file adapter, bounded and validated import, and one shared

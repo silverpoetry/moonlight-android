@@ -69,7 +69,7 @@ persistent settings.
 | Physical controllers | `ControllerSettings` with one atomic `ControllerSettingsState` per stream | `ControllerHandler` and `UsbDriverService` no longer receive `PreferenceConfiguration` or reread storage from controller, sensor, rumble, battery, USB attach, or permission callbacks; the service is configured before enumeration and observes coherent live snapshot replacements | Remaining controller menu writers and adaptive-trigger settings still require typed intents |
 | On-screen controls | `VirtualControlSettings` with one atomic `VirtualControlSettingsState` per stream | Active virtual gamepad, virtual-key, touchpad-button, and full-keyboard rendering/input paths consume typed snapshots; stream-menu writers emit immutable domain updates; named layouts use `VirtualControlLayoutRepository` rather than direct file access | Layout element DTO/codec separation from the game-menu model remains; unused named-`SharedPreferences` loader path has been removed |
 | Stream audio | `StreamAudioSettings` with one atomic `StreamAudioSettingsState` per stream | Playback, mute, audio effects, and phone/controller audio-haptics consume the same typed snapshot; PCM callbacks perform no preference I/O; controller rumble suppression and USB/Kishi routing no longer duplicate audio policy inside `ControllerSettings` | Restart-only settings still use the legacy settings screen; microphone uplink policy is the next slice |
-| Microphone | Pending | Pending | Pending |
+| Microphone | No persisted policy; protocol-v1 invariants live in immutable `MicrophoneUplinkConfig` | Capture is an injected Android adapter; the platform-independent lifecycle controller owns all start/stop/error transitions and is unit tested without `AudioRecord` or JNI | No legacy preference exists; future formats require explicit protocol negotiation rather than a hidden setting |
 | Clipboard and transfer | Pending | Pending | Pending |
 | General UI and host list | Pending | Pending | Pending |
 
@@ -83,6 +83,14 @@ live-updateable: the menu persists the value, the composition root loads one
 validated replacement snapshot, and the audio renderer plus controller/USB
 consumers observe that shared state. The PCM callback reads only the volatile
 snapshot and never touches Android preferences.
+
+The microphone uplink intentionally has no settings snapshot. Its 48 kHz mono,
+960-sample/20 ms frames, 40 kbps Opus target, and four-frame capture buffer are
+version-1 protocol invariants in `MicrophoneUplinkConfig`. `NvConnection`
+depends only on a `MicrophoneUplinkSessionFactory`; the composition root injects
+the Android/common-c adapter. This keeps capture construction out of the
+connection state machine and makes every lifecycle transition deterministic in
+plain JVM tests.
 
 ## Editable layout documents
 

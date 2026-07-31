@@ -409,6 +409,38 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void microphoneLifecycleDomainDoesNotDependOnAndroidOrJni() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.nvstream.mic..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..",
+                        "com.limelight.nvstream.jni..")
+                .because(
+                        "microphone lifecycle and protocol invariants are platform-independent")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void connectionDependsOnMicrophonePortNotAndroidCapture() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.NvConnection")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "com.limelight.binding.audio.mic..")
+                .because(
+                        "the composition root injects the microphone capture adapter")
+                .check(productionClasses);
+    }
+
+    @Test
     public void usbDriverServiceDoesNotReadPersistenceOrLegacySettings() {
         noClasses()
                 .that()

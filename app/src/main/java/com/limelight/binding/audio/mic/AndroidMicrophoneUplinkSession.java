@@ -1,4 +1,4 @@
-package com.limelight.nvstream;
+package com.limelight.binding.audio.mic;
 
 import android.media.AudioFormat;
 import android.media.AudioRecord;
@@ -9,19 +9,20 @@ import android.os.Process;
 
 import com.limelight.LimeLog;
 import com.limelight.nvstream.jni.MoonBridge;
+import com.limelight.nvstream.mic.MicrophoneUplinkConfig;
+import com.limelight.nvstream.mic.MicrophoneUplinkSession;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.Objects;
 
 /**
  * Captures 48 kHz mono PCM and forwards it to moonlight-common-c. Opus
  * encoding, SRTP protection, queueing, and transport all live in the native
  * protocol layer so microphone audio shares the established audio UDP socket.
  */
-public final class MicUplinkConnection {
-    private static final int SAMPLE_RATE = 48000;
-    private static final int FRAME_SAMPLES = 960;
-    private static final int OPUS_BITRATE = 40000;
-
+public final class AndroidMicrophoneUplinkSession
+        implements MicrophoneUplinkSession {
+    private final MicrophoneUplinkConfig config;
     private volatile boolean running;
     private volatile boolean stopRequested;
     private volatile String lastErrorMessage;
@@ -30,12 +31,14 @@ public final class MicUplinkConnection {
     private final AudioTimestamp captureTimestamp = new AudioTimestamp();
     private long capturedFramePosition;
 
-    public static boolean isSupported() {
-        return MoonBridge.isMicrophoneUplinkSupported();
+    public AndroidMicrophoneUplinkSession(
+            MicrophoneUplinkConfig config) {
+        this.config = Objects.requireNonNull(config, "config");
     }
 
+    @Override
     public boolean start() {
-        if (!isSupported()) {
+        if (!MoonBridge.isMicrophoneUplinkSupported()) {
             lastErrorMessage = "主机不支持麦克风上行";
             return false;
         }
@@ -60,6 +63,7 @@ public final class MicUplinkConnection {
         return running && !stopRequested;
     }
 
+    @Override
     public boolean stop() {
         stopRequested = true;
 
@@ -95,22 +99,25 @@ public final class MicUplinkConnection {
         return true;
     }
 
+    @Override
     public String getLastErrorMessage() {
         return lastErrorMessage != null ? lastErrorMessage : "麦克风上行失败";
     }
 
+    @Override
     public boolean isRunning() {
         return running;
     }
 
     private void runWorker(CountDownLatch startupLatch) {
-        short[] pcmFrame = new short[FRAME_SAMPLES];
+        short[] pcmFrame =
+                new short[config.getSamplesPerFrame()];
 
         try {
             Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
 
             int minBufferSize = AudioRecord.getMinBufferSize(
-                    SAMPLE_RATE,
+                    config.getSampleRateHz(),
                     AudioFormat.CHANNEL_IN_MONO,
                     AudioFormat.ENCODING_PCM_16BIT);
             if (minBufferSize <= 0) {
@@ -119,22 +126,36 @@ public final class MicUplinkConnection {
 
             audioRecord = createStartedAudioRecord(
                     MediaRecorder.AudioSource.MIC,
-                    Math.max(minBufferSize, FRAME_SAMPLES * 2 * 4));
+                    Math.max(
+                            minBufferSize,
+                            config.getCaptureBufferSizeBytes()));
             if (audioRecord == null) {
                 audioRecord = createStartedAudioRecord(
                         MediaRecorder.AudioSource.VOICE_COMMUNICATION,
-                        Math.max(minBufferSize, FRAME_SAMPLES * 2 * 4));
+                        Math.max(
+                                minBufferSize,
+                                config.getCaptureBufferSizeBytes()));
             }
             if (audioRecord == null) {
                 throw new IllegalStateException("无法初始化麦克风采集");
             }
 
-            int result = MoonBridge.startMicrophoneUplink(OPUS_BITRATE);
+            int result = MoonBridge.startMicrophoneUplink(
+                    config.getOpusBitrateBps());
             if (result != 0) {
                 throw new IllegalStateException("协议启动失败 (" + result + ")");
             }
 
-            LimeLog.info("Microphone uplink capture started: Opus 48 kHz mono, 20 ms, 40 kbps");
+            LimeLog.info(
+                    "Microphone uplink capture started: Opus " +
+                            config.getSampleRateHz() +
+                            " Hz, " +
+                            config.getChannelCount() +
+                            " channel, " +
+                            config.getFrameDurationMillis() +
+                            " ms, " +
+                            config.getOpusBitrateBps() +
+                            " bps");
             startupLatch.countDown();
 
             while (!stopRequested) {
@@ -142,7 +163,8 @@ public final class MicUplinkConnection {
                     break;
                 }
 
-                capturedFramePosition += FRAME_SAMPLES;
+                capturedFramePosition +=
+                        config.getSamplesPerFrame();
                 long captureTimeUs = getCaptureTimeUs();
                 result = MoonBridge.sendMicrophonePcm(pcmFrame, captureTimeUs);
                 if (result != 0) {
@@ -169,8 +191,13 @@ public final class MicUplinkConnection {
                 // frame just read. This preserves real capture gaps without
                 // turning Java thread scheduling stalls into artificial gaps.
                 long frameDelta = capturedFramePosition - captureTimestamp.framePosition;
-                long deltaNanos = (frameDelta / SAMPLE_RATE) * 1_000_000_000L +
-                        (frameDelta % SAMPLE_RATE) * 1_000_000_000L / SAMPLE_RATE;
+                int sampleRateHz = config.getSampleRateHz();
+                long deltaNanos =
+                        (frameDelta / sampleRateHz) *
+                                1_000_000_000L +
+                        (frameDelta % sampleRateHz) *
+                                1_000_000_000L /
+                                sampleRateHz;
                 return (captureTimestamp.nanoTime + deltaNanos) / 1000L;
             }
         }
@@ -182,7 +209,7 @@ public final class MicUplinkConnection {
         try {
             recorder = new AudioRecord(
                     source,
-                    SAMPLE_RATE,
+                    config.getSampleRateHz(),
                     AudioFormat.CHANNEL_IN_MONO,
                     AudioFormat.ENCODING_PCM_16BIT,
                     bufferSize);

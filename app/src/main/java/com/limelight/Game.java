@@ -4,6 +4,7 @@ package com.limelight;
 import android.Manifest;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.audio.AndroidAudioRenderer;
+import com.limelight.binding.audio.mic.AndroidMicrophoneUplinkSessionFactory;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.GameInputDevice;
 import com.limelight.binding.input.KeyboardInputController;
@@ -31,7 +32,6 @@ import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.fsr.FsrVideoProcessor;
 import com.limelight.fsr.VideoProcessingGLSurfaceView;
-import com.limelight.nvstream.MicUplinkConnection;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.StreamConfiguration;
 import com.limelight.nvstream.StreamSessionController;
@@ -40,6 +40,8 @@ import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
+import com.limelight.nvstream.mic.MicrophoneUplinkConfig;
+import com.limelight.nvstream.mic.MicrophoneUplinkState;
 import com.limelight.preferences.GlPreferences;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.preferences.LegacyPreferenceSettingsAdapter;
@@ -745,7 +747,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         conn = new NvConnection(getApplicationContext(),
                 new ComputerDetails.AddressTuple(host, port),
                 httpsPort, uniqueId, config,
-                PlatformBinding.getCryptoProvider(this), serverCert);
+                PlatformBinding.getCryptoProvider(this),
+                serverCert,
+                new AndroidMicrophoneUplinkSessionFactory(
+                        MicrophoneUplinkConfig.protocolV1()));
         PointerInputSink pointerInputSink =
                 new NvConnectionPointerInputSink(conn);
         KeyboardInputSink keyboardInputSink =
@@ -3594,13 +3599,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             return;
         }
 
-        NvConnection.MicUplinkState state = conn.getMicUplinkState();
-        if (state == NvConnection.MicUplinkState.STARTING ||
-                state == NvConnection.MicUplinkState.STOPPING) {
+        MicrophoneUplinkState state = conn.getMicUplinkState();
+        if (state == MicrophoneUplinkState.STARTING ||
+                state == MicrophoneUplinkState.STOPPING) {
             return;
         }
 
-        if (state == NvConnection.MicUplinkState.ON) {
+        if (state == MicrophoneUplinkState.ON) {
             micToggleInFlight = true;
             final NvConnection currentConn = conn;
             new Thread(() -> {
@@ -3608,7 +3613,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 String message = currentConn.getLastMicUplinkMessage();
                 boolean stoppedCleanly =
                         currentConn.getMicUplinkState() !=
-                                NvConnection.MicUplinkState.ERROR;
+                                MicrophoneUplinkState.ERROR;
                 runOnUiThread(() -> {
                     micToggleInFlight = false;
                     if (!stoppedCleanly &&
@@ -3620,7 +3625,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             return;
         }
 
-        if (!MicUplinkConnection.isSupported()) {
+        if (!conn.isMicUplinkSupported()) {
             UiToast.makeText(this, getResources().getString(R.string.mic_uplink_not_supported), UiToast.LENGTH_LONG).show();
             return;
         }
