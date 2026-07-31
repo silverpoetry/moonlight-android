@@ -106,6 +106,7 @@ import com.limelight.ui.stream.AndroidStreamMicrophoneControllerFactory;
 import com.limelight.ui.stream.AndroidStreamOverlayVisibilityHost;
 import com.limelight.ui.stream.AndroidStreamPictureInPictureController;
 import com.limelight.ui.stream.AndroidStreamSessionUiEffectsHost;
+import com.limelight.ui.stream.AndroidStreamSystemUiController;
 import com.limelight.ui.stream.StreamControllerFeedbackHost;
 import com.limelight.ui.stream.StreamDecoderCapabilities;
 import com.limelight.ui.stream.StreamDisplayRefreshPolicy;
@@ -165,7 +166,6 @@ import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.View;
 import android.view.View.OnGenericMotionListener;
-import android.view.View.OnSystemUiVisibilityChangeListener;
 import android.view.View.OnTouchListener;
 import android.view.ViewGroup;
 import android.view.ViewParent;
@@ -186,7 +186,7 @@ import java.util.List;
 
 public class Game extends Activity implements OnGenericMotionListener,
         OnTouchListener, EvdevListener,
-        OnSystemUiVisibilityChangeListener, GameGestures, StreamInputGateway,
+        GameGestures, StreamInputGateway,
         StreamUiActions, GameMenuHost,
         UsbDriverService.UsbDriverStateListener, View.OnKeyListener {
     private static final long KEY_CHORD_UP_DELAY_MS = 25;
@@ -229,6 +229,7 @@ public class Game extends Activity implements OnGenericMotionListener,
             sessionPresentationController;
     private StreamLaunchReporter launchReporter;
     private StreamSessionUiEffects sessionUiEffects;
+    private AndroidStreamSystemUiController systemUiController;
     private StreamMicrophoneController microphoneController;
     private SpinnerDialog spinner;
     private RemoteClipboardFileTransferController
@@ -338,20 +339,10 @@ public class Game extends Activity implements OnGenericMotionListener,
         // We don't want a title bar
         requestWindowFeature(Window.FEATURE_NO_TITLE);
 
-        // Full-screen
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-
-        // If we're going to use immersive mode, we want to have
-        // the entire screen
-        getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
-                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-                        View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
-
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN);
-
-        // Listen for UI visibility events
-        getWindow().getDecorView().setOnSystemUiVisibilityChangeListener(this);
+        systemUiController = new AndroidStreamSystemUiController(
+                this,
+                this::isSessionConnected);
+        systemUiController.attachInitialLayout();
 
         // Change volume button behavior
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
@@ -1277,45 +1268,10 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
     }
 
-    @SuppressLint("InlinedApi")
-    private final Runnable hideSystemUi = new Runnable() {
-            @Override
-            public void run() {
-                // TODO: Do we want to use WindowInsetsController here on R+ instead of
-                // SYSTEM_UI_FLAG_IMMERSIVE_STICKY? They seem to do the same thing as of S...
-
-                // In multi-window mode on N+, we need to drop our layout flags or we'll
-                // be drawing underneath the system UI.
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInMultiWindowMode()) {
-                    Game.this.getWindow().getDecorView().setSystemUiVisibility(
-                            View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-                }
-                else {
-                    // Use immersive mode
-                    Game.this.getWindow().getDecorView().setSystemUiVisibility(
-                            View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
-                            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-                            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
-                            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
-                            View.SYSTEM_UI_FLAG_FULLSCREEN |
-                            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-                }
-            }
-    };
-
-    private void hideSystemUi(int delay) {
-        Handler h = getWindow().getDecorView().getHandler();
-        if (h != null) {
-            h.removeCallbacks(hideSystemUi);
-            h.postDelayed(hideSystemUi, delay);
-        }
-    }
-
     private void cancelPendingUiCallbacks() {
         View decorView = getWindow().getDecorView();
         Handler handler = decorView.getHandler();
         if (handler != null) {
-            handler.removeCallbacks(hideSystemUi);
             handler.removeCallbacks(toggleGrab);
         }
         if (streamView != null) {
@@ -1343,8 +1299,8 @@ public class Game extends Activity implements OnGenericMotionListener,
             mediaResourceOwner.notifyVideoForeground();
         }
 
-        // Correct the system UI visibility flags
-        hideSystemUi(50);
+        systemUiController.onMultiWindowModeChanged(
+                isInMultiWindowMode);
         UiHelper.refreshStreamWindowInsets(this);
     }
 
@@ -1353,6 +1309,22 @@ public class Game extends Activity implements OnGenericMotionListener,
         sessionDependenciesReady = false;
         unregisterInputGateway();
         cancelPendingUiCallbacks();
+        if (sessionController != null) {
+            sessionController.destroy();
+            sessionController = null;
+        }
+        if (sessionCallbackRouter != null) {
+            sessionCallbackRouter.destroy();
+            sessionCallbackRouter = null;
+        }
+        if (sessionPresentationController != null) {
+            sessionPresentationController.destroy();
+            sessionPresentationController = null;
+        }
+        if (systemUiController != null) {
+            systemUiController.destroy();
+            systemUiController = null;
+        }
         if (pictureInPictureController != null) {
             pictureInPictureController.destroy();
             pictureInPictureController = null;
@@ -1376,18 +1348,6 @@ public class Game extends Activity implements OnGenericMotionListener,
         if (inputLifecycleController != null) {
             inputLifecycleController.detachRouting();
             streamInputController = null;
-        }
-        if (sessionController != null) {
-            sessionController.destroy();
-            sessionController = null;
-        }
-        if (sessionCallbackRouter != null) {
-            sessionCallbackRouter.destroy();
-            sessionCallbackRouter = null;
-        }
-        if (sessionPresentationController != null) {
-            sessionPresentationController.destroy();
-            sessionPresentationController = null;
         }
         if (sessionUiEffects != null) {
             sessionUiEffects.destroy();
@@ -1881,7 +1841,7 @@ public class Game extends Activity implements OnGenericMotionListener,
             launchReporter.reportOnce();
         }
 
-        hideSystemUi(1000);
+        systemUiController.scheduleImmersiveMode(1_000L);
     }
 
     private void displayTransientMessage(String message) {
@@ -2093,22 +2053,6 @@ public class Game extends Activity implements OnGenericMotionListener,
         keyboardInputController.sendAndroidKey(
                 buttonDown,
                 keyCode);
-    }
-
-    @Override
-    public void onSystemUiVisibilityChange(int visibility) {
-        // Don't do anything if we're not connected
-        if (!isSessionConnected()) {
-            return;
-        }
-
-        // This flag is set for all devices
-        if ((visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
-            hideSystemUi(2000);
-        }
-        else if ((visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
-            hideSystemUi(2000);
-        }
     }
 
     @Override

@@ -492,6 +492,11 @@ targets.
   owns shortcut/TV-channel service composition, and returns the tested
   session-scoped at-most-once reporter. Mutable Activity fields are no longer
   captured by its worker task.
+- `AndroidStreamSystemUiController` owns fullscreen flags, legacy immersive
+  visibility listening, delayed restoration, multi-window correction, and
+  callback cancellation. Its restoration decision is isolated in the pure
+  `StreamSystemUiVisibilityPolicy`, while transport callbacks are invalidated
+  before presentation dependencies are destroyed.
 - `StreamHdrRequestPolicy` owns HDR request eligibility and user-warning
   selection from immutable settings and device facts. The Android capability
   provider samples OS, firmware, and display HDR10 support once; `Game` no

@@ -209,6 +209,20 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void gameDelegatesSystemUiVisibilityListening() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.view.View$OnSystemUiVisibilityChangeListener")
+                .because(
+                        "immersive-window state and delayed restoration have one lifecycle owner")
+                .check(productionClasses);
+    }
+
+    @Test
     public void gameDelegatesControllerFeedbackRouting() {
         noClasses()
                 .that()
