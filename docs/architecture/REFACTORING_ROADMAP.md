@@ -386,6 +386,11 @@ targets.
   neutral-gyro output, migration, and destruction. Physical and on-device
   fallback sensors now use the same lifecycle; `SensorManager` registration is
   a narrow platform adapter and no duplicate virtual-controller path remains.
+- `ControllerMotionRegistrations` is the sole owner of active accelerometer
+  and gyroscope registration leases. Manager replacement, unregister-before-
+  register ordering, missing sensors, rejected registration, sampling-period
+  conversion, and neutral output are deterministic under generic JVM fixtures;
+  `AndroidControllerMotionBackend` contains the remaining typed platform calls.
 - `ControllerMotionSampleTransformer` owns duplicate suppression, four-way
   device-orientation correction, raw samples, and protocol unit conversion in
   one allocation-free callback object. `ControllerGyroStickTranslator` owns the

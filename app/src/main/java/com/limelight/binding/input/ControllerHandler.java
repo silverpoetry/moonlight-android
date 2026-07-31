@@ -809,8 +809,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             if (settings
                     .isMotionSensorsFallbackToDeviceEnabled() &&
                     context.controllerNumber == 0 &&
-                    devContext.sensorManager == null) {
-                devContext.sensorManager = deviceSensorManager;
+                    !devContext.motionRegistrations.hasManager()) {
+                devContext.motionRegistrations.setManager(
+                        deviceSensorManager);
             }
         }
         else {
@@ -1024,8 +1025,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                         (context.vendorId == 0x054c || context.vendorId == 0x057e))) && // Sony or Nintendo
                 settingsState.get().areMotionSensorsEnabled()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (dev.getSensorManager().getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null || dev.getSensorManager().getDefaultSensor(Sensor.TYPE_GYROSCOPE) != null) {
-                    context.sensorManager = dev.getSensorManager();
+                SensorManager inputDeviceSensorManager =
+                        dev.getSensorManager();
+                if (inputDeviceSensorManager.getDefaultSensor(
+                        Sensor.TYPE_ACCELEROMETER) != null ||
+                        inputDeviceSensorManager.getDefaultSensor(
+                                Sensor.TYPE_GYROSCOPE) != null) {
+                    context.motionRegistrations.setManager(
+                            inputDeviceSensorManager);
                 }
             }
         }
@@ -1911,7 +1918,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         // The on-device sensors may supplement a virtual controller when requested by the user.
         if (settingsState.get()
                 .isVirtualControllerMotionEnabled()) {
-            defaultContext.sensorManager = deviceSensorManager;
+            defaultContext.motionRegistrations.setManager(
+                    deviceSensorManager);
             defaultContext.motionSession.setReportRate(
                     controllerNumber,
                     motionType,
@@ -2688,37 +2696,11 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         public String name;
         public ControllerVibrationRenderer.Target vibrationTarget;
 
-        public SensorManager sensorManager;
-        private SensorEventListener gyroListener;
-        private SensorManager gyroRegistrationManager;
-        private SensorEventListener accelListener;
-        private SensorManager accelRegistrationManager;
-        private final ControllerMotionSession motionSession =
-                new ControllerMotionSession(
-                        motionSensorScheduler,
-                        new ControllerMotionSession.Registrations() {
-                            @Override
-                            public boolean replace(
-                                    short controllerNumber,
-                                    byte motionType,
-                                    short reportRateHz) {
-                                return replaceMotionRegistration(
-                                        controllerNumber,
-                                        motionType,
-                                        reportRateHz);
-                            }
-
-                            @Override
-                            public void sendNeutralGyroscope(
-                                    short controllerNumber) {
-                                conn.sendControllerMotionEvent(
-                                        (byte) controllerNumber,
-                                        MoonBridge.LI_MOTION_TYPE_GYRO,
-                                        0.f,
-                                        0.f,
-                                        0.f);
-                            }
-                        });
+        private final ControllerMotionRegistrations<
+                SensorManager,
+                Sensor,
+                SensorEventListener> motionRegistrations;
+        private final ControllerMotionSession motionSession;
 
         public InputDevice inputDevice;
 
@@ -2784,6 +2766,29 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     batteryReportScheduler,
                     batteryReporter::report,
                     BATTERY_RECHECK_INTERVAL_MS);
+            this.motionRegistrations =
+                    new ControllerMotionRegistrations<>(
+                            new AndroidControllerMotionBackend(
+                                    deviceSensorManager,
+                                    (controllerNumber,
+                                            motionType,
+                                            needsOrientationCorrection) ->
+                                            createSensorListener(
+                                                    this,
+                                                    controllerNumber,
+                                                    motionType,
+                                                    needsOrientationCorrection),
+                                    controllerNumber ->
+                                            conn.sendControllerMotionEvent(
+                                                    (byte) controllerNumber,
+                                                    MoonBridge
+                                                            .LI_MOTION_TYPE_GYRO,
+                                                    0.f,
+                                                    0.f,
+                                                    0.f)));
+            this.motionSession = new ControllerMotionSession(
+                    motionSensorScheduler,
+                    motionRegistrations);
         }
 
         @Override
@@ -2826,13 +2831,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             }
 
             boolean hasAccelerometer =
-                    sensorManager != null &&
-                            sensorManager.getDefaultSensor(
-                                    Sensor.TYPE_ACCELEROMETER) != null;
+                    motionRegistrations.hasSensor(
+                            ControllerMotionRegistrations.SensorKind
+                                    .ACCELEROMETER);
             boolean hasGyroscope =
-                    sensorManager != null &&
-                            sensorManager.getDefaultSensor(
-                                    Sensor.TYPE_GYROSCOPE) != null;
+                    motionRegistrations.hasSensor(
+                            ControllerMotionRegistrations.SensorKind
+                                    .GYROSCOPE);
             boolean hasTouchpad =
                     (inputDevice.getSources() &
                             InputDevice.SOURCE_TOUCHPAD) ==
@@ -2877,7 +2882,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                             .requiresGenericMotionControllerType(
                                     type !=
                                             MoonBridge.LI_CTYPE_PS &&
-                                            sensorManager != null)
+                                            motionRegistrations.hasManager())
                             .recognizedByShieldExtensions(
                                     sceManager.isRecognizedDevice(
                                             inputDevice))
@@ -2916,7 +2921,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             ControllerLedSession.DesiredState ledState =
                     oldContext.ledSession.snapshotDesiredState();
             boolean usedDeviceSensorManager =
-                    oldContext.sensorManager == deviceSensorManager;
+                    oldContext.motionRegistrations.usesManager(
+                            deviceSensorManager);
             // Don't release the controller number, because we will carry it over if it is present.
             // We also want to make sure the change is invisible to the host PC to avoid an add/remove
             // cycle for the gamepad which may break some games.
@@ -2928,7 +2934,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
             // We may have set this device to use the built-in sensor manager. If so, do that again.
             if (usedDeviceSensorManager) {
-                this.sensorManager = deviceSensorManager;
+                this.motionRegistrations.setManager(
+                        deviceSensorManager);
             }
             motionSession.restoreDesiredState(motionState);
             ledSession.restoreDesiredState(ledState);
@@ -2957,72 +2964,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             motionSession.enableAfterDeviceSettles();
         }
 
-        private boolean replaceMotionRegistration(
-                short motionControllerNumber,
-                byte motionType,
-                short reportRateHz) {
-            SensorEventListener previousListener;
-            SensorManager previousManager;
-            int sensorType;
-
-            if (motionType == MoonBridge.LI_MOTION_TYPE_ACCEL) {
-                previousListener = accelListener;
-                previousManager = accelRegistrationManager;
-                sensorType = Sensor.TYPE_ACCELEROMETER;
-                accelListener = null;
-                accelRegistrationManager = null;
-            }
-            else if (motionType == MoonBridge.LI_MOTION_TYPE_GYRO) {
-                previousListener = gyroListener;
-                previousManager = gyroRegistrationManager;
-                sensorType = Sensor.TYPE_GYROSCOPE;
-                gyroListener = null;
-                gyroRegistrationManager = null;
-            }
-            else {
-                return false;
-            }
-
-            boolean wasActive = previousListener != null;
-            if (wasActive && previousManager != null) {
-                previousManager.unregisterListener(previousListener);
-            }
-
-            SensorManager registrationManager = sensorManager;
-            if (reportRateHz == 0 || registrationManager == null) {
-                return wasActive;
-            }
-
-            Sensor sensor = registrationManager.getDefaultSensor(sensorType);
-            if (sensor == null) {
-                return wasActive;
-            }
-
-            SensorEventListener listener =
-                    createSensorListener(
-                            this,
-                            motionControllerNumber,
-                            motionType,
-                            registrationManager == deviceSensorManager);
-            boolean registered =
-                    registrationManager.registerListener(
-                            listener,
-                            sensor,
-                            1_000_000 / reportRateHz);
-            if (!registered) {
-                return wasActive;
-            }
-
-            if (motionType == MoonBridge.LI_MOTION_TYPE_ACCEL) {
-                accelListener = listener;
-                accelRegistrationManager = registrationManager;
-            }
-            else {
-                gyroListener = listener;
-                gyroRegistrationManager = registrationManager;
-            }
-            return wasActive;
-        }
     }
 
     class UsbDeviceContext extends GenericControllerContext {

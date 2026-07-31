@@ -1102,3 +1102,18 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Added generic `ControllerMotionRegistrations` ownership for the active
+  accelerometer and gyroscope leases. Each replacement removes the previous
+  listener from the manager that actually registered it before consulting the
+  current manager; missing sensors and rejected registrations leave no stored
+  listener, while unsupported motion types cannot disturb an active lease.
+- `AndroidControllerMotionBackend` now contains sensor lookup, listener
+  creation, sampling-period registration, unregistration, on-device
+  orientation classification, and neutral-gyroscope delivery. The realtime
+  callback and protocol ordering are unchanged and no queue or thread was
+  added.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 478 JVM
+  tests per variant (1,912 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.
