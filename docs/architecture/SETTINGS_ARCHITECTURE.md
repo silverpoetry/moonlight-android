@@ -117,6 +117,14 @@ removals, the optional native frame-rate row, and a semantic HDR state.
 typed storage. Resolution selection identifies canonical presets through
 `StreamResolutionCodec`; it does not infer meaning from mutable row indexes.
 
+Other runtime-derived metadata crosses `SettingsRuntimeValues`.
+`AndroidSettingsRuntimeValues` resolves the device-dependent default bitrate
+and persisted clipboard tree label, while `SettingsRuntimeScreenController`
+applies only semantic values through `SettingsScreenModel` and a localized
+text port. Slider limits, keyboard step, custom-editor default, and directory
+summary therefore have one tested owner rather than Activity-local constants
+and provider queries.
+
 ## Snapshot lifecycle
 
 A stream session receives one snapshot during composition. A setting that

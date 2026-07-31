@@ -290,6 +290,11 @@ A slice is incomplete if callers can still bypass the new boundary.
   policy, and HDR state; a settings controller applies that result. The
   Activity no longer queries codecs or mutates resolution-entry arrays, and
   decoder capability failures degrade safely instead of crashing settings.
+- Default bitrate and clipboard-directory presentation are collected as one
+  immutable runtime-values snapshot. A pure screen controller applies slider
+  bounds/defaults, the explicit bitrate editor default, and the directory
+  summary through a localized text port; the Activity no longer resolves
+  document providers or owns bitrate metadata constants.
 - The in-stream action catalog and virtual-overlay buttons consume typed UI
   policy plus read-only controller visibility. Persisted startup defaults are
   no longer mutated to represent picture-in-picture or menu presentation, and

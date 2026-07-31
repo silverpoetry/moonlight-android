@@ -40,7 +40,6 @@ import android.widget.Switch;
 import android.widget.TextView;
 
 import androidx.annotation.RequiresApi;
-import androidx.documentfile.provider.DocumentFile;
 
 import com.limelight.AboutActivity;
 import com.limelight.PcView;
@@ -49,7 +48,6 @@ import com.limelight.settings.SettingsScreenIds;
 import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.settings.android.AndroidAppPresentationDefaults;
 import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
-import com.limelight.settings.android.AndroidStreamDefaults;
 import com.limelight.settings.app.AppPresentationSettings;
 import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.input.InputSettingKeys;
@@ -57,8 +55,6 @@ import com.limelight.settings.stream.StreamResolutionCodec;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
-import com.limelight.settings.transfer.TransferSettings;
-import com.limelight.settings.transfer.TransferSettingsLoader;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
 import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.Dialog;
@@ -75,10 +71,7 @@ import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
 import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
 
 public class StreamSettings extends Activity {
-    private static final int MAX_BITRATE_KBPS = 50000;
     private static final int FEATURED_SECTION_INDEX = -1;
-    private static final String CUSTOM_BITRATE_EDITOR_KEY =
-            SettingsScreenIds.EDITOR_VIDEO_BITRATE_MBPS;
     private static final String EXTRA_SECTION_INDEX = "com.limelight.preferences.StreamSettings.SECTION_INDEX";
     private static final String[] ROOT_FEATURED_SETTING_KEYS = new String[] {
             StreamResolutionSettingKeys.RESOLUTION.getName(),
@@ -1228,55 +1221,14 @@ public class StreamSettings extends Activity {
     }
 
     private void initializeRuntimeSettings() {
-        initializeBitrateSetting();
+        new SettingsRuntimeScreenController(
+                screenModel,
+                new AndroidSettingsRuntimeText(this))
+                .apply(AndroidSettingsRuntimeValues.collect(
+                        this,
+                        store.repository));
         applyDeviceVisibility();
         initializeDisplayCapabilities();
-        initializeClipboardDirectory();
-    }
-
-    private void initializeClipboardDirectory() {
-        SettingsItem item = findItem(
-                TransferSettingKeys
-                        .CLIPBOARD_FILE_DIRECTORY_URI
-                        .getName());
-        if (item == null) {
-            return;
-        }
-        TransferSettings settings =
-                TransferSettingsLoader.load(store.repository);
-        String value = settings.getClipboardFileDirectoryUri();
-        if (!settings.hasClipboardFileDirectory()) {
-            return;
-        }
-        try {
-            DocumentFile directory = DocumentFile.fromTreeUri(this, Uri.parse(value));
-            String name = directory == null ? null : directory.getName();
-            item.summary = getString(R.string.clipboard_file_save_directory_selected,
-                    TextUtils.isEmpty(name) ? value : name);
-        } catch (Throwable ignored) {
-        }
-    }
-
-    private void initializeBitrateSetting() {
-        SettingsItem bitrate = findItem(
-                StreamVideoSettingKeys.BITRATE_KBPS.getName());
-        if (bitrate == null) {
-            return;
-        }
-
-        int defaultBitrateKbps =
-                AndroidStreamDefaults.getDefaultBitrateKbps(this);
-        bitrate.displayDefaultInteger = defaultBitrateKbps;
-        SettingsItem customBitrateEditor =
-                findItem(CUSTOM_BITRATE_EDITOR_KEY);
-        if (customBitrateEditor != null) {
-            customBitrateEditor.displayDefaultInteger =
-                    defaultBitrateKbps;
-        }
-        bitrate.max = MAX_BITRATE_KBPS;
-        if (bitrate.keyStep <= 0) {
-            bitrate.keyStep = 1000;
-        }
     }
 
     private void applyDeviceVisibility() {

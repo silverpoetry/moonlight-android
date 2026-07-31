@@ -386,6 +386,23 @@ public final class ArchitectureBoundaryTest {
         noClasses()
                 .that()
                 .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsRuntimeValues")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsRuntimeScreenController")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsRuntimeText")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..")
+                .because(
+                        "runtime-derived screen metadata must be testable without Android")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
                         "com.limelight.preferences.SettingsDisplayCapabilities")
                 .or()
                 .haveFullyQualifiedName(
