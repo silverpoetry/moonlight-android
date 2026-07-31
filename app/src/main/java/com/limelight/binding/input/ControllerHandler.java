@@ -99,6 +99,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private final ControllerSlotAllocator slotAllocator;
     private final ControllerInputReportAggregator.Sources
             controllerInputSources;
+    private final UsbControllerLifecycleController<
+            AbstractController,
+            UsbDeviceContext> usbControllerLifecycleController;
 
     private boolean shouldUseControllerAudioHaptics() {
         return ControllerHapticsPolicy
@@ -535,6 +538,87 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         slotAllocator = new ControllerSlotAllocator(
                 controllerInventory.getInitialControllerMask(
                         settingsState.get()));
+        this.usbControllerLifecycleController =
+                new UsbControllerLifecycleController<>(
+                        new UsbControllerLifecycleController.Store<
+                                UsbDeviceContext>() {
+                            @Override
+                            public UsbDeviceContext get(
+                                    int controllerId) {
+                                return usbDeviceContexts.get(
+                                        controllerId);
+                            }
+
+                            @Override
+                            public void put(
+                                    int controllerId,
+                                    UsbDeviceContext context) {
+                                usbDeviceContexts.put(
+                                        controllerId,
+                                        context);
+                            }
+
+                            @Override
+                            public void remove(int controllerId) {
+                                usbDeviceContexts.remove(controllerId);
+                            }
+
+                            @Override
+                            public int size() {
+                                return usbDeviceContexts.size();
+                            }
+
+                            @Override
+                            public UsbDeviceContext valueAt(int index) {
+                                return usbDeviceContexts.valueAt(index);
+                            }
+                        },
+                        new UsbControllerLifecycleController.Delegate<
+                                AbstractController,
+                                UsbDeviceContext>() {
+                            @Override
+                            public int getControllerId(
+                                    AbstractController device) {
+                                return device.getControllerId();
+                            }
+
+                            @Override
+                            public AbstractController getDevice(
+                                    UsbDeviceContext context) {
+                                return context.device;
+                            }
+
+                            @Override
+                            public UsbDeviceContext createContext(
+                                    AbstractController device) {
+                                return createUsbDeviceContextForDevice(
+                                        device);
+                            }
+
+                            @Override
+                            public void preparePublishedDevice(
+                                    AbstractController device) {
+                                if (shouldUseControllerAudioHaptics() &&
+                                        device
+                                                .hasAdvancedAudioHapticsSupport()) {
+                                    device.startAdvancedAudioHaptics();
+                                }
+                            }
+
+                            @Override
+                            public void disposeContext(
+                                    UsbDeviceContext context,
+                                    UsbControllerLifecycleController
+                                            .RemovalReason reason) {
+                                context.device.stopAdvancedAudioHaptics();
+                                if (reason !=
+                                        UsbControllerLifecycleController
+                                                .RemovalReason.SHUTDOWN) {
+                                    releaseControllerNumber(context);
+                                }
+                                context.destroy();
+                            }
+                        });
 
         // Register ourselves for input device notifications
         inputManager.registerInputDeviceListener(this, null);
@@ -596,10 +680,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
         defaultContext.destroy();
 
-        for (int i = 0; i < usbDeviceContexts.size(); i++) {
-            UsbDeviceContext deviceContext = usbDeviceContexts.valueAt(i);
-            deviceContext.destroy();
-        }
+        usbControllerLifecycleController.destroy();
 
         razerKishiHapticsController.destroy();
         vibrationRenderer.cancelDevice();
@@ -1695,13 +1776,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
     @Override
     public void deviceRemoved(AbstractController controller) {
-        UsbDeviceContext context = usbDeviceContexts.get(controller.getControllerId());
-        if (context != null) {
-            controller.stopAdvancedAudioHaptics();
-            releaseControllerNumber(context);
-            context.destroy();
-            usbDeviceContexts.remove(controller.getControllerId());
-        }
+        usbControllerLifecycleController.onDeviceRemoved(controller);
     }
 
     @Override
@@ -1710,12 +1785,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             return;
         }
 
-        if (shouldUseControllerAudioHaptics() && controller.hasAdvancedAudioHapticsSupport()) {
-            controller.startAdvancedAudioHaptics();
-        }
-
-        UsbDeviceContext context = createUsbDeviceContextForDevice(controller);
-        usbDeviceContexts.put(controller.getControllerId(), context);
+        usbControllerLifecycleController.onDeviceAdded(controller);
     }
 
     public boolean hasActiveUsbController() {

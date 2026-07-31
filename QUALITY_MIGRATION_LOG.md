@@ -1438,3 +1438,18 @@ Verification on 2026-07-31:
 - `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 591 JVM
   tests per variant (2,364 executions total), all Lint variants, and both
   unminified Release APKs.
+- Added generic `UsbControllerLifecycleController` as the single owner of USB
+  context publication, identity validation, replacement, removal, preparation
+  rollback, and shutdown. A late remove from an old device instance can no
+  longer delete a new device that reused the same integer controller ID, and a
+  duplicate add from the same object is now idempotent instead of overwriting
+  its live context.
+- Store routing is revoked before advanced-haptics stop, slot release, or
+  context destruction, so synchronous tail callbacks cannot enter a partially
+  destroyed context. Normal removal/replacement still emits the established
+  host unplug report; terminal stream shutdown destroys resources without
+  reopening transport work. Seven fixtures cover all lifecycle transitions,
+  exact side-effect ordering, rollback, late callbacks, and idempotence.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 598 JVM
+  tests per variant (2,392 executions total), all Lint variants, and both
+  unminified Release APKs.

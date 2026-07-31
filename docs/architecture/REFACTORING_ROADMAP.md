@@ -546,6 +546,13 @@ targets.
   callbacks of a newer stream session. The Binder exposes one session-level
   attach/detach contract rather than independently mutable settings, listener,
   state-listener, start, and stop calls.
+- `UsbControllerLifecycleController` owns identity-safe publication and
+  teardown of driver controller contexts. Same-instance add is idempotent,
+  reused IDs revoke and dispose the old context before replacement, stale old-
+  device removal cannot remove the replacement, preparation failure rolls
+  back publication, and terminal destruction rejects late callbacks. Routing
+  is always revoked before driver/resource teardown, while normal removal and
+  shutdown retain their distinct host-notification semantics.
 - `AndroidDecoderDiscovery` owns platform codec enumeration, AVC fallback,
   HEVC/AV1 allow-list adaptation, cross-codec performance comparison, and the
   immutable capability profile produced before renderer startup.
