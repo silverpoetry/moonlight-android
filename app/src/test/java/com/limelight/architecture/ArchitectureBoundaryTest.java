@@ -223,6 +223,19 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void gameDelegatesConnectingDialogOwnership() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("com.limelight.utils.SpinnerDialog")
+                .because(
+                        "connecting-dialog nullability and cleanup have one lifecycle owner")
+                .check(productionClasses);
+    }
+
+    @Test
     public void gameDelegatesControllerFeedbackRouting() {
         noClasses()
                 .that()

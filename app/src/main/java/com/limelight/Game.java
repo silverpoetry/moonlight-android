@@ -96,6 +96,7 @@ import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
 import com.limelight.ui.performance.PerformanceOverlayConfiguration;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.stream.AndroidStreamConnectionMessages;
+import com.limelight.ui.stream.AndroidStreamConnectingIndicator;
 import com.limelight.ui.stream.AndroidStreamDisplayController;
 import com.limelight.ui.stream.AndroidExternalDisplayController;
 import com.limelight.ui.stream.AndroidStreamFailureDiagnosticsFactory;
@@ -133,7 +134,6 @@ import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.RazerUtils;
 import com.limelight.utils.ServerHelper;
-import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.StreamOrientationController;
 import com.limelight.utils.StreamOrientationRequest;
 import com.limelight.utils.UiHelper;
@@ -231,7 +231,7 @@ public class Game extends Activity implements OnGenericMotionListener,
     private StreamSessionUiEffects sessionUiEffects;
     private AndroidStreamSystemUiController systemUiController;
     private StreamMicrophoneController microphoneController;
-    private SpinnerDialog spinner;
+    private AndroidStreamConnectingIndicator connectingIndicator;
     private RemoteClipboardFileTransferController
             clipboardFileTransferController;
     private AndroidStreamPictureInPictureController
@@ -352,9 +352,8 @@ public class Game extends Activity implements OnGenericMotionListener,
 
         connManager=(ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
 
-        // Start the spinner
-        spinner = SpinnerDialog.displayDialog(this, getResources().getString(R.string.conn_establishing_title),
-                getResources().getString(R.string.conn_establishing_msg), true);
+        connectingIndicator =
+                new AndroidStreamConnectingIndicator(this);
 
         settingsRepository = AndroidSettingsRepository.create(this);
         AndroidStreamSettingsBootstrap.prepare(
@@ -730,9 +729,8 @@ public class Game extends Activity implements OnGenericMotionListener,
                             @Override
                             public void updateConnectingMessage(
                                     String message) {
-                                if (spinner != null) {
-                                    spinner.setMessage(message);
-                                }
+                                connectingIndicator.updateMessage(
+                                        message);
                             }
 
                             @Override
@@ -1028,10 +1026,7 @@ public class Game extends Activity implements OnGenericMotionListener,
                         .isFloatingControlEnabled());
 
         if (!mediaResourceOwner.isAvcSupported()) {
-            if (spinner != null) {
-                spinner.dismiss();
-                spinner = null;
-            }
+            connectingIndicator.dismiss();
 
             // If we can't find an AVC decoder, we can't proceed
             Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title),
@@ -1325,6 +1320,10 @@ public class Game extends Activity implements OnGenericMotionListener,
             systemUiController.destroy();
             systemUiController = null;
         }
+        if (connectingIndicator != null) {
+            connectingIndicator.destroy();
+            connectingIndicator = null;
+        }
         if (pictureInPictureController != null) {
             pictureInPictureController.destroy();
             pictureInPictureController = null;
@@ -1443,7 +1442,9 @@ public class Game extends Activity implements OnGenericMotionListener,
         unregisterInputGateway();
         super.onStop();
 
-        SpinnerDialog.closeDialogs(this);
+        if (connectingIndicator != null) {
+            connectingIndicator.dismiss();
+        }
         Dialog.closeDialogs();
 
         if (virtualControlsController != null) {
@@ -1803,10 +1804,7 @@ public class Game extends Activity implements OnGenericMotionListener,
     }
 
     private void dismissConnectingIndicator() {
-        if (spinner != null) {
-            spinner.dismiss();
-            spinner = null;
-        }
+        connectingIndicator.dismiss();
     }
 
     private void setConnectionWarning(
@@ -2057,9 +2055,7 @@ public class Game extends Activity implements OnGenericMotionListener,
 
     @Override
     public void onUsbPermissionPromptStarting() {
-        if (spinner != null) {
-            spinner.setFinishOnCancelEnabled(false);
-        }
+        connectingIndicator.setFinishOnCancelEnabled(false);
         if (pictureInPictureController != null) {
             pictureInPictureController
                     .acquireAutoEnterSuppression();
@@ -2068,9 +2064,7 @@ public class Game extends Activity implements OnGenericMotionListener,
 
     @Override
     public void onUsbPermissionPromptCompleted() {
-        if (spinner != null) {
-            spinner.setFinishOnCancelEnabled(true);
-        }
+        connectingIndicator.setFinishOnCancelEnabled(true);
         if (pictureInPictureController != null) {
             pictureInPictureController
                     .releaseAutoEnterSuppression();

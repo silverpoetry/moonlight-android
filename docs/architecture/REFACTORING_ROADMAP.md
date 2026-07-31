@@ -497,6 +497,9 @@ targets.
   callback cancellation. Its restoration decision is isolated in the pure
   `StreamSystemUiVisibilityPolicy`, while transport callbacks are invalidated
   before presentation dependencies are destroyed.
+- `AndroidStreamConnectingIndicator` is the sole owner of the connecting
+  dialog reference, message updates, temporary cancellation suppression, and
+  Activity teardown cleanup. `Game` no longer carries nullable dialog state.
 - `StreamHdrRequestPolicy` owns HDR request eligibility and user-warning
   selection from immutable settings and device facts. The Android capability
   provider samples OS, firmware, and display HDR10 support once; `Game` no
