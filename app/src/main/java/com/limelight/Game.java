@@ -101,9 +101,11 @@ import com.limelight.ui.stream.AndroidStreamDisplayController;
 import com.limelight.ui.stream.AndroidExternalDisplayController;
 import com.limelight.ui.stream.AndroidStreamFailureDiagnosticsFactory;
 import com.limelight.ui.stream.AndroidStreamHdrCapabilityProvider;
+import com.limelight.ui.stream.AndroidStreamHdrModeController;
 import com.limelight.ui.stream.AndroidStreamLaunchReporterFactory;
 import com.limelight.ui.stream.AndroidStreamMediaRuntimeFactory;
 import com.limelight.ui.stream.AndroidStreamMicrophoneControllerFactory;
+import com.limelight.ui.stream.AndroidStreamNativeCursorController;
 import com.limelight.ui.stream.AndroidStreamOverlayVisibilityHost;
 import com.limelight.ui.stream.AndroidStreamPictureInPictureController;
 import com.limelight.ui.stream.AndroidStreamSessionUiEffectsHost;
@@ -124,7 +126,6 @@ import com.limelight.ui.stream.StreamSessionPresentationController;
 import com.limelight.ui.stream.StreamSessionUiEffects;
 import com.limelight.ui.stream.StreamWifiLockController;
 import com.limelight.ui.GameGestures;
-import com.limelight.ui.NativeCursorOverlayView;
 import com.limelight.ui.StreamWindowPolicy;
 import com.limelight.ui.StreamUiActions;
 import com.limelight.ui.StreamView;
@@ -262,7 +263,7 @@ public class Game extends Activity implements OnGenericMotionListener,
                 streamView,
                 InputMethodManager.SHOW_IMPLICIT);
     };
-    private NativeCursorOverlayView nativeCursorOverlayView;
+    private AndroidStreamNativeCursorController nativeCursorController;
 
     private TextView notificationOverlayView;
     private StreamOverlayVisibilityController
@@ -273,6 +274,7 @@ public class Game extends Activity implements OnGenericMotionListener,
             floatingControlController;
 
     private StreamMediaResourceOwner mediaResourceOwner;
+    private AndroidStreamHdrModeController hdrModeController;
     private StreamRenderSurfaceController
             renderSurfaceController;
     private AndroidExternalDisplayController
@@ -466,14 +468,15 @@ public class Game extends Activity implements OnGenericMotionListener,
         backgroundTouchView.setOnTouchListener(this);
 
         rootView=streamView.getParent();
-        if (inputSettingsState.get().isAbsoluteMouseMode() &&
-                rootView instanceof FrameLayout) {
-            nativeCursorOverlayView = new NativeCursorOverlayView(this);
-            FrameLayout.LayoutParams cursorLayoutParams = new FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT);
-            ((FrameLayout) rootView).addView(nativeCursorOverlayView, cursorLayoutParams);
-        }
+        nativeCursorController =
+                new AndroidStreamNativeCursorController(
+                        this,
+                        streamView,
+                        rootView,
+                        inputSettingsState.get()
+                                .isAbsoluteMouseMode(),
+                        streamDecoderSettings.getWidth(),
+                        streamDecoderSettings.getHeight());
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // Request unbuffered input event dispatching for all input classes we handle here.
@@ -592,6 +595,10 @@ public class Game extends Activity implements OnGenericMotionListener,
                                 controllerHandler,
                                 streamAudioSettingsState));
         mediaResourceOwner = mediaRuntime.getResourceOwner();
+        hdrModeController = new AndroidStreamHdrModeController(
+                this,
+                mediaResourceOwner,
+                this::isHdrHighBrightnessEnabled);
         StreamDecoderCapabilities decoderCapabilities =
                 mediaRuntime.getDecoderCapabilities();
 
@@ -809,7 +816,7 @@ public class Game extends Activity implements OnGenericMotionListener,
                             public void onHdrModeChanged(
                                     boolean enabled,
                                     byte[] hdrMetadata) {
-                                Game.this.handleHdrModeChanged(
+                                hdrModeController.onHdrModeChanged(
                                         enabled,
                                         hdrMetadata);
                             }
@@ -829,12 +836,10 @@ public class Game extends Activity implements OnGenericMotionListener,
                                     int scaleX,
                                     int scaleY,
                                     byte[] imageData) {
-                                Game.this.handleNativeCursor(
+                                nativeCursorController.onNativeCursor(
                                         visible,
                                         shapeChanged,
                                         format,
-                                        x,
-                                        y,
                                         width,
                                         height,
                                         hotspotX,
@@ -1324,6 +1329,10 @@ public class Game extends Activity implements OnGenericMotionListener,
             connectingIndicator.destroy();
             connectingIndicator = null;
         }
+        if (nativeCursorController != null) {
+            nativeCursorController.destroy();
+            nativeCursorController = null;
+        }
         if (pictureInPictureController != null) {
             pictureInPictureController.destroy();
             pictureInPictureController = null;
@@ -1376,10 +1385,10 @@ public class Game extends Activity implements OnGenericMotionListener,
             virtualControlsController.destroy();
             virtualControlsController = null;
         }
-        UiHelper.notifyHdrWindowStatus(
-                this,
-                false,
-                isHdrHighBrightnessEnabled());
+        if (hdrModeController != null) {
+            hdrModeController.clearWindowState();
+            hdrModeController = null;
+        }
 
         if (externalDisplayController != null) {
             externalDisplayController.destroy();
@@ -1732,31 +1741,12 @@ public class Game extends Activity implements OnGenericMotionListener,
 
     }
 
-    private void runNativeCursorOverlayUpdate(Runnable runnable) {
-        if (nativeCursorOverlayView == null) {
-            return;
-        }
-
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            runnable.run();
-        }
-        else {
-            runOnUiThread(runnable);
-        }
-    }
-
     private void setNativeCursorOverlayFromReference(short x, short y, short referenceWidth, short referenceHeight) {
-        if (referenceWidth <= 1 || referenceHeight <= 1) {
-            return;
-        }
-
-        runNativeCursorOverlayUpdate(new Runnable() {
-            @Override
-            public void run() {
-                nativeCursorOverlayView.setCursorPositionFromReference(
-                        streamView, x, y, referenceWidth, referenceHeight);
-            }
-        });
+        nativeCursorController.updatePositionFromReference(
+                x,
+                y,
+                referenceWidth,
+                referenceHeight);
     }
 
     @Override
@@ -1784,10 +1774,7 @@ public class Game extends Activity implements OnGenericMotionListener,
             streamInputController.cancelActiveInput();
         }
         if (sessionController != null && sessionController.stop()) {
-            UiHelper.notifyHdrWindowStatus(
-                    this,
-                    false,
-                    isHdrHighBrightnessEnabled());
+            hdrModeController.clearWindowState();
             if (pictureInPictureController != null) {
                 pictureInPictureController
                         .setSessionConnected(false);
@@ -1906,53 +1893,6 @@ public class Game extends Activity implements OnGenericMotionListener,
                 this,
                 getString(messageResource),
                 UiToast.LENGTH_LONG).show();
-    }
-
-    private void handleHdrModeChanged(
-            boolean enabled,
-            byte[] hdrMetadata) {
-        LimeLog.info("Display HDR mode: " + (enabled ? "enabled" : "disabled"));
-        mediaResourceOwner.setHdrMode(enabled, hdrMetadata);
-        UiHelper.notifyHdrWindowStatus(
-                this,
-                enabled,
-                isHdrHighBrightnessEnabled());
-    }
-
-    private void handleNativeCursor(
-            boolean visible,
-            boolean shapeChanged,
-            int format,
-            int x,
-            int y,
-            int width,
-            int height,
-            int hotspotX,
-            int hotspotY,
-            int shapeId,
-            int scaleX,
-            int scaleY,
-            byte[] imageData) {
-        if (nativeCursorOverlayView == null) {
-            return;
-        }
-
-        nativeCursorOverlayView.setCursorScaleFromStream(
-                streamView,
-                streamDecoderSettings.getWidth(),
-                streamDecoderSettings.getHeight(),
-                scaleX,
-                scaleY);
-        nativeCursorOverlayView.updateCursor(
-                visible,
-                shapeChanged,
-                format,
-                width,
-                height,
-                hotspotX,
-                hotspotY,
-                shapeId,
-                imageData);
     }
 
     @Override

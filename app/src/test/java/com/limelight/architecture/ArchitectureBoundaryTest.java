@@ -236,6 +236,20 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void gameDelegatesNativeCursorViewOwnership() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.NativeCursorOverlayView")
+                .because(
+                        "native cursor attachment, scaling, and thread confinement have one owner")
+                .check(productionClasses);
+    }
+
+    @Test
     public void gameDelegatesControllerFeedbackRouting() {
         noClasses()
                 .that()
