@@ -102,9 +102,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private long initialExceptionTimestamp;
     private static final int EXCEPTION_REPORT_DELAY_MS = 3000;
 
-    private VideoStats activeWindowVideoStats;
-    private VideoStats lastWindowVideoStats;
-    private VideoStats globalVideoStats;
+    private final DecoderStatisticsTracker statisticsTracker;
 
     private long lastTimestampUs;
     private int lastFrameNumber;
@@ -306,9 +304,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         this.glRenderer = glRenderer;
         this.perfListener = perfListener;
 
-        this.activeWindowVideoStats = new VideoStats();
-        this.lastWindowVideoStats = new VideoStats();
-        this.globalVideoStats = new VideoStats();
+        statisticsTracker = new DecoderStatisticsTracker();
 
         avcDecoder = findAvcDecoder();
         if (avcDecoder != null) {
@@ -700,7 +696,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                     long delta = (renderTimeNanos / 1000000L) - (presentationTimeUs / 1000);
                     if (delta >= 0 && delta < 1000) {
                         if (USE_FRAME_RENDER_TIME) {
-                            activeWindowVideoStats.totalTimeMs += delta;
+                            statisticsTracker
+                                    .recordFrameRenderLatency(
+                                            delta);
                         }
                     }
                 }
@@ -1005,7 +1003,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                     videoDecoder.releaseOutputBuffer(nextOutputBuffer, frameTimeNanos);
 
                     lastRenderedFrameTimeNanos = frameTimeNanos;
-                    activeWindowVideoStats.totalFramesRendered++;
+                    statisticsTracker.recordRenderedFrame();
                 } catch (IllegalStateException ignored) {
                     try {
                         // Try to avoid leaking the output buffer by releasing it without rendering
@@ -1095,7 +1093,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                     videoDecoder.releaseOutputBuffer(lastIndex, System.nanoTime());
                                 }
 
-                                activeWindowVideoStats.totalFramesRendered++;
+                                statisticsTracker
+                                        .recordRenderedFrame();
                             }
                             else {
                                 // For balanced frame pacing case, the Choreographer callback will handle rendering.
@@ -1123,10 +1122,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                             // Add delta time to the totals (excluding probable outliers)
                             long delta = SystemClock.uptimeMillis() - (presentationTimeUs / 1000);
                             if (delta >= 0 && delta < 1000) {
-                                activeWindowVideoStats.decoderTimeMs += delta;
-                                if (!USE_FRAME_RENDER_TIME) {
-                                    activeWindowVideoStats.totalTimeMs += delta;
-                                }
+                                statisticsTracker
+                                        .recordDecoderLatency(
+                                                delta,
+                                                !USE_FRAME_RENDER_TIME);
                             }
                         } else {
                             switch (outIndex) {
@@ -1396,13 +1395,13 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         }
 
         if (lastFrameNumber == 0) {
-            activeWindowVideoStats.measurementStartTimestamp = SystemClock.uptimeMillis();
+            statisticsTracker.startWindow(
+                    SystemClock.uptimeMillis());
         } else if (frameNumber != lastFrameNumber && frameNumber != lastFrameNumber + 1) {
             // We can receive the same "frame" multiple times if it's an IDR frame.
             // In that case, each frame start NALU is submitted independently.
-            activeWindowVideoStats.framesLost += frameNumber - lastFrameNumber - 1;
-            activeWindowVideoStats.totalFrames += frameNumber - lastFrameNumber - 1;
-            activeWindowVideoStats.frameLossEvents++;
+            statisticsTracker.recordFramesLost(
+                    frameNumber - lastFrameNumber - 1);
         }
 
         // Reset CSD data for each IDR frame
@@ -1415,12 +1414,13 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         lastFrameNumber = frameNumber;
 
         // Flip stats windows roughly every second
-        if (SystemClock.uptimeMillis() >= activeWindowVideoStats.measurementStartTimestamp + 1000) {
+        long nowMs = SystemClock.uptimeMillis();
+        if (statisticsTracker.isWindowElapsed(nowMs)) {
             if (settings.isPerformanceOverlayEnabled()) {
-                VideoStats lastTwo = new VideoStats();
-                lastTwo.add(lastWindowVideoStats);
-                lastTwo.add(activeWindowVideoStats);
-                VideoStatsFps fps = lastTwo.getFps();
+                VideoStats lastTwo =
+                        statisticsTracker
+                                .snapshotRecentWindows();
+                VideoStatsFps fps = lastTwo.getFps(nowMs);
                 String decoder;
 
                 String video_format="";
@@ -1445,10 +1445,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                         ? (float)lastTwo.decoderTimeMs / lastTwo.totalFramesReceived
                         : 0f;
                 long rttInfo = MoonBridge.getEstimatedRttInfo();
-                long now = SystemClock.uptimeMillis();
                 float audioRateKbps = estimateAudioRateKbps();
                 if (firstPerfStatsTimestamp == 0) {
-                    firstPerfStatsTimestamp = now;
+                    firstPerfStatsTimestamp = nowMs;
                 }
 
                 PerfOverlayStats stats = new PerfOverlayStats();
@@ -1470,12 +1469,20 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                         ? (float)lastTwo.totalHostProcessingLatency / 10 / lastTwo.framesWithHostProcessingLatency
                         : 0f;
                 stats.audioRateKbps = audioRateKbps;
-                long elapsedMs = Math.max(0, now - firstPerfStatsTimestamp);
-                long videoBytes = globalVideoStats.videoBytes + activeWindowVideoStats.videoBytes;
+                long elapsedMs = Math.max(
+                        0,
+                        nowMs - firstPerfStatsTimestamp);
+                long videoBytes =
+                        statisticsTracker
+                                .getTotalVideoBytesIncludingActiveWindow();
                 stats.audioBytes = Math.max(0, (long)(audioRateKbps * 1000f / 8f * elapsedMs / 1000f));
                 stats.videoBytes = Math.max(0, videoBytes);
                 stats.totalNetworkBytes = stats.videoBytes + stats.audioBytes;
-                long statsElapsedMs = Math.max(1, now - lastTwo.measurementStartTimestamp);
+                long statsElapsedMs = Math.max(
+                        1,
+                        nowMs -
+                                lastTwo
+                                        .measurementStartTimestamp);
                 stats.videoRateKbps = lastTwo.videoBytes * 8f / statsElapsedMs;
                 stats.networkRateKbps = stats.videoRateKbps;
                 stats.hdr = (videoFormat & MoonBridge.VIDEO_FORMAT_MASK_10BIT) != 0;
@@ -1485,10 +1492,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 perfListener.onPerfUpdate(stats);
             }
 
-            globalVideoStats.add(activeWindowVideoStats);
-            lastWindowVideoStats.copy(activeWindowVideoStats);
-            activeWindowVideoStats.clear();
-            activeWindowVideoStats.measurementStartTimestamp = SystemClock.uptimeMillis();
+            statisticsTracker.rotateWindow(nowMs);
         }
 
         boolean csdSubmittedForThisFrame = false;
@@ -1701,27 +1705,14 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             }
         }
 
-        if (frameHostProcessingLatency != 0) {
-            if (activeWindowVideoStats.minHostProcessingLatency != 0) {
-                activeWindowVideoStats.minHostProcessingLatency = (char) Math.min(activeWindowVideoStats.minHostProcessingLatency, frameHostProcessingLatency);
-            } else {
-                activeWindowVideoStats.minHostProcessingLatency = frameHostProcessingLatency;
-            }
-            activeWindowVideoStats.framesWithHostProcessingLatency += 1;
-        }
-        activeWindowVideoStats.maxHostProcessingLatency = (char) Math.max(activeWindowVideoStats.maxHostProcessingLatency, frameHostProcessingLatency);
-        activeWindowVideoStats.totalHostProcessingLatency += frameHostProcessingLatency;
-
-        activeWindowVideoStats.totalFramesReceived++;
-        activeWindowVideoStats.totalFrames++;
-        activeWindowVideoStats.videoBytes += decodeUnitLength;
-
-        if (!FRAME_RENDER_TIME_ONLY) {
-            // Count time from first packet received to enqueue time as receive time
-            // We will count DU queue time as part of decoding, because it is directly
-            // caused by a slow decoder.
-            activeWindowVideoStats.totalTimeMs += enqueueTimeMs - receiveTimeMs;
-        }
+        // Count time from first packet received to enqueue time as receive
+        // time. DU queue time remains part of decoding because it is directly
+        // caused by a slow decoder.
+        statisticsTracker.recordDecodeUnit(
+                decodeUnitLength,
+                frameHostProcessingLatency,
+                enqueueTimeMs - receiveTimeMs,
+                !FRAME_RENDER_TIME_ONLY);
 
         if (!fetchNextInputBuffer()) {
             return MoonBridge.DR_NEED_IDR;
@@ -1833,17 +1824,13 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     }
 
     public int getAverageEndToEndLatency() {
-        if (globalVideoStats.totalFramesReceived == 0) {
-            return 0;
-        }
-        return (int)(globalVideoStats.totalTimeMs / globalVideoStats.totalFramesReceived);
+        return statisticsTracker
+                .getAverageEndToEndLatencyMs();
     }
 
     public int getAverageDecoderLatency() {
-        if (globalVideoStats.totalFramesReceived == 0) {
-            return 0;
-        }
-        return (int)(globalVideoStats.decoderTimeMs / globalVideoStats.totalFramesReceived);
+        return statisticsTracker
+                .getAverageDecoderLatencyMs();
     }
 
     private float estimateAudioRateKbps() {
@@ -1984,9 +1971,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                     " Kbps" + DELIMITER;
             str += "CSD stats: "+renderer.numVpsIn+", "+renderer.numSpsIn+", "+renderer.numPpsIn+DELIMITER;
             str += "Frames in-out: "+renderer.numFramesIn+", "+renderer.numFramesOut+DELIMITER;
-            str += "Total frames received: "+renderer.globalVideoStats.totalFramesReceived+DELIMITER;
-            str += "Total frames rendered: "+renderer.globalVideoStats.totalFramesRendered+DELIMITER;
-            str += "Frame losses: "+renderer.globalVideoStats.framesLost+" in "+renderer.globalVideoStats.frameLossEvents+" loss events"+DELIMITER;
+            str += "Total frames received: "+renderer.statisticsTracker.getCumulativeFramesReceived()+DELIMITER;
+            str += "Total frames rendered: "+renderer.statisticsTracker.getCumulativeFramesRendered()+DELIMITER;
+            str += "Frame losses: "+renderer.statisticsTracker.getCumulativeFramesLost()+" in "+renderer.statisticsTracker.getCumulativeFrameLossEvents()+" loss events"+DELIMITER;
             str += "Average end-to-end client latency: "+renderer.getAverageEndToEndLatency()+"ms"+DELIMITER;
             str += "Average hardware decoder latency: "+renderer.getAverageDecoderLatency()+"ms"+DELIMITER;
             str += "Frame pacing mode: " +

@@ -835,3 +835,11 @@ Verification on 2026-07-31:
 - `verifyLocal --rerun-tasks` passed all 193 tasks after the capability
   extraction. Each root/non-root debug/release variant ran 350 JVM tests
   (1,400 executions total) with zero failures, errors, or skips.
+- Added `DecoderStatisticsTracker` as the single owner of active, previous,
+  and cumulative video-stat windows. Per-frame renderer/input updates remain
+  lock-free and allocation-free; deterministic timestamps now drive FPS and
+  window tests.
+- `verifyLocal --rerun-tasks` passed all 193 tasks with 354 JVM tests in each
+  root/non-root debug/release variant (1,416 executions total). A clean
+  `verifyConnected --rerun-tasks --no-daemon` run passed all 107 non-root and
+  107 root instrumentation tests.

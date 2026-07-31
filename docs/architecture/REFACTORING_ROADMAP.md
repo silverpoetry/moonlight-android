@@ -367,6 +367,9 @@ targets.
 - `DecoderCapabilityProfile` freezes direct-submit, per-codec reference-frame
   invalidation, crash fallback, and slice preferences before setup. Capability
   reporting and active-codec selection read one immutable snapshot.
+- `DecoderStatisticsTracker` owns active, previous, and cumulative decoder
+  windows plus all per-frame counters. The realtime threads perform lock-free
+  scalar updates; only the optional one-second overlay snapshot allocates.
 
 ### Exit evidence
 

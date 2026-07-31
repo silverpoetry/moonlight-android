@@ -1,7 +1,5 @@
 package com.limelight.binding.video;
 
-import android.os.SystemClock;
-
 class VideoStats {
 
     long decoderTimeMs;
@@ -76,8 +74,10 @@ class VideoStats {
         this.measurementStartTimestamp = 0;
     }
 
-    VideoStatsFps getFps() {
-        float elapsed = (SystemClock.uptimeMillis() - this.measurementStartTimestamp) / (float) 1000;
+    VideoStatsFps getFps(long nowMs) {
+        float elapsed =
+                (nowMs - measurementStartTimestamp) /
+                        (float) 1000;
 
         VideoStatsFps fps = new VideoStatsFps();
         if (elapsed > 0) {
