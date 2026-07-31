@@ -167,10 +167,12 @@ The performance overlay's persisted enablement and presentation mode are
 loaded into `StreamUiSettingsState` at stream composition. The in-stream
 show/hide and compact/expanded actions are intentionally session-local and
 replace only that runtime snapshot; settings-menu intents persist their owned
-fields through `SettingsRepository`. `AXFloatingMagnetView` receives an
-immutable initial-position snapshot and emits settled coordinates. The
-composition root alone decides whether the current remember-position policy
-permits persistence.
+fields through `SettingsRepository`. `StreamFloatingControlController` owns
+the optional View lifecycle, reads the latest action from the stream-scoped
+state, and forwards settled coordinates through a narrow sink. The
+`FloatingMagnetView` receives only an immutable initial-position snapshot and
+never owns persistence; the composition root alone applies the typed position
+update.
 
 Persisted launch defaults and mutable session presentation are separate
 concepts. `VirtualControlSettings` determines whether virtual keys are created

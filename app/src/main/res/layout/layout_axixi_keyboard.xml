@@ -66,7 +66,7 @@
             android:layout_toStartOf="@id/iv_down"
             android:contentDescription="@string/accessibility_open_game_menu"
             android:padding="6dp"
-            android:src="@drawable/ic_axi_menu" />
+            android:src="@drawable/ic_menu_grid" />
 
         <ImageView
             android:id="@+id/iv_down"

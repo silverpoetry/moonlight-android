@@ -364,6 +364,14 @@ targets.
   supplies the Android permission and UI adapters while `NvConnection`
   implements the narrow `MicrophoneUplinkEndpoint`; the menu no longer polls
   twice on fixed timers to guess whether an asynchronous transition finished.
+- `StreamFloatingControlController` is the sole lifecycle owner of the
+  in-stream floating control, including lazy attachment, visibility, current
+  action dispatch, position events, and deterministic teardown. The View
+  consumes an immutable initial snapshot and uses Android's standard click
+  contract; `Game` only supplies typed action and persistence sinks. The old
+  `AXFloating*` classes, custom listener, branded robot bitmap, and direct View
+  plumbing in the Activity are removed, while the shared grid icon now has a
+  product-neutral resource name.
 - `ControllerSlotAllocator` is the sole owner of the protocol's sixteen player
   slots and the initial-to-active mask transition. Android/USB device code asks
   for or releases a slot instead of mutating duplicate bitmasks.

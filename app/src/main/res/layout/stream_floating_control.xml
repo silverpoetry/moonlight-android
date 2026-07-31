@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="38dp"
+    android:layout_height="38dp"
+    android:contentDescription="@string/accessibility_stream_controls"
+    android:src="@drawable/ic_menu_grid" />

@@ -35,7 +35,7 @@
             android:focusableInTouchMode="false"
             android:padding="8dp"
             android:scaleType="centerInside"
-            android:src="@drawable/ic_axi_menu" />
+            android:src="@drawable/ic_menu_grid" />
 
         <TextView
             tools:text="192.168.31.115"

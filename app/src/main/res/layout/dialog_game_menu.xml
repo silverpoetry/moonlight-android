@@ -24,7 +24,7 @@
             <Button
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:drawableTop="@drawable/ic_axi_menu"
+                android:drawableTop="@drawable/ic_menu_grid"
                 android:gravity="center"
                 android:background="@drawable/ic_game_menu_btn_side_selector"
                 android:padding="4dp"

@@ -778,7 +778,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 }));
             }
 
-            actions.add(new MenuAction(R.string.pcview_menu_app_list, R.drawable.ic_axi_menu, new Runnable() {
+            actions.add(new MenuAction(R.string.pcview_menu_app_list, R.drawable.ic_menu_grid, new Runnable() {
                 @Override
                 public void run() {
                     doAppList(computer.details, false, true);

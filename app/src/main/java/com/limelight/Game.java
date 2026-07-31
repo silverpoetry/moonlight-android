@@ -115,9 +115,7 @@ import com.limelight.ui.StreamLayoutGeometry;
 import com.limelight.ui.StreamWindowPolicy;
 import com.limelight.ui.StreamUiActions;
 import com.limelight.ui.StreamView;
-import com.limelight.ui.floatingview.AXFloatingMagnetView;
-import com.limelight.ui.floatingview.AXFloatingView;
-import com.limelight.ui.floatingview.AXFloatingViewListener;
+import com.limelight.ui.floatingview.StreamFloatingControlController;
 import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.Dialog;
@@ -283,6 +281,8 @@ public class Game extends Activity implements OnGenericMotionListener,
     private int requestedNotificationOverlayVisibility = View.GONE;
     private StreamPerformanceOverlayController
             performanceOverlayController;
+    private StreamFloatingControlController
+            floatingControlController;
 
     private StreamMediaResourceOwner mediaResourceOwner;
     private StreamRenderSurfaceController
@@ -1200,12 +1200,11 @@ public class Game extends Activity implements OnGenericMotionListener,
             usbDriverSessionController.bind();
         }
 
-        //悬浮球
-        if (streamUiSettingsState
-                .get()
-                .isFloatingControlEnabled()) {
-            initFloatingView();
-        }
+        floatingControlController =
+                createFloatingControlController();
+        floatingControlController.applyEnabled(
+                streamUiSettingsState.get()
+                        .isFloatingControlEnabled());
 
         if (!mediaResourceOwner.isAvcSupported()) {
             if (spinner != null) {
@@ -1287,8 +1286,6 @@ public class Game extends Activity implements OnGenericMotionListener,
                         .isLocalSystemCursorEnabled()) {
             switchMouseLocalCursor();
         }
-//        initFloatingView();
-
         sessionDependenciesReady = true;
         renderSurfaceController.startIfReady();
     }
@@ -1380,7 +1377,9 @@ public class Game extends Activity implements OnGenericMotionListener,
                 showHideVirtualController();
                 break;
             case TOGGLE_FLOATING_BUTTON:
-                switchFloatView();
+                if (floatingControlController != null) {
+                    floatingControlController.toggleVisibility();
+                }
                 break;
             case TOGGLE_PERFORMANCE_OVERLAY:
                 showHUD();
@@ -1961,6 +1960,10 @@ public class Game extends Activity implements OnGenericMotionListener,
         if (performanceOverlayController != null) {
             performanceOverlayController.destroy();
             performanceOverlayController = null;
+        }
+        if (floatingControlController != null) {
+            floatingControlController.destroy();
+            floatingControlController = null;
         }
         UiHelper.notifyHdrWindowStatus(
                 this,
@@ -3134,11 +3137,9 @@ public class Game extends Activity implements OnGenericMotionListener,
             StreamUiSettings updated) {
         if (previous.isFloatingControlEnabled() !=
                 updated.isFloatingControlEnabled()) {
-            if (updated.isFloatingControlEnabled()) {
-                showFloatView();
-            }
-            else {
-                hideFloatView();
+            if (floatingControlController != null) {
+                floatingControlController.applyEnabled(
+                        updated.isFloatingControlEnabled());
             }
         }
         if (performanceOverlayController == null) {
@@ -3573,73 +3574,32 @@ public class Game extends Activity implements OnGenericMotionListener,
         ServerHelper.doQuit(this,streamReqBean, null);
     }
 
-    private AXFloatingView floatingView;
-    private void initFloatingView(){
-        floatingView = new AXFloatingView(this);
-        floatingView.configurePosition(
-                streamUiSettingsState.get(),
-                (x, y, nearestLeft) -> {
-                    if (streamUiSettingsState
-                            .get()
-                            .shouldRememberFloatingPosition()) {
+    private StreamFloatingControlController
+            createFloatingControlController() {
+        return new StreamFloatingControlController(
+                this,
+                (ViewGroup) getWindow().getDecorView(),
+                streamUiSettingsState,
+                (x, y, nearestLeft) ->
                         applyStreamUiSettingsUpdate(
                                 StreamUiSettingsUpdate
                                         .floatingPosition(
                                                 x,
                                                 y,
-                                                nearestLeft));
+                                                nearestLeft)),
+                action -> {
+                    switch (action) {
+                        case GAME_MENU:
+                            showGameMenu(null);
+                            break;
+                        case SOFT_KEYBOARD:
+                            toggleKeyboard();
+                            break;
+                        case FULL_KEYBOARD:
+                            showHidekeyBoardLayoutController();
+                            break;
                     }
                 });
-        floatingView.setIconImage(R.drawable.app_icon_axi);
-        floatingView.setLayoutParams(AXFloatingView.getLayParams());
-        ViewGroup decorViewGroup= (ViewGroup) getWindow().getDecorView();
-        decorViewGroup.addView(floatingView);
-        floatingView.setFloatingViewListener(new AXFloatingViewListener() {
-            @Override
-            public void onClick(AXFloatingMagnetView magnetView) {
-                switch (streamUiSettingsState
-                        .get()
-                        .getFloatingAction()) {
-                    case GAME_MENU:
-                        showGameMenu(null);
-                        break;
-                    case SOFT_KEYBOARD:
-                        toggleKeyboard();
-                        break;
-                    case FULL_KEYBOARD:
-                        showHidekeyBoardLayoutController();
-                        break;
-                }
-
-            }
-        });
-//        streamView.setZOrderOnTop(true);
-//        streamView.setZOrderMediaOverlay(true);
-    }
-
-    public void switchFloatView(){
-        if(floatingView==null){
-            showFloatView();
-            return;
-        }
-        if (floatingView.getVisibility() == View.VISIBLE) {
-            hideFloatView();
-        } else {
-            showFloatView();
-        }
-    }
-
-    public void showFloatView(){
-        if(floatingView==null){
-            initFloatingView();
-        }
-        floatingView.setVisibility(View.VISIBLE);
-    }
-
-    public void hideFloatView(){
-        if(floatingView!=null){
-            floatingView.setVisibility(View.GONE);
-        }
     }
 
     public void sendClipboardText(){

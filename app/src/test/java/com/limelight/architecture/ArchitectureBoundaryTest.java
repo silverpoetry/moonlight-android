@@ -612,7 +612,10 @@ public final class ArchitectureBoundaryTest {
                         "com.limelight.ui.performance.PerformanceOverlayFormatter")
                 .or()
                 .haveFullyQualifiedName(
-                        "com.limelight.ui.floatingview.AXFloatingMagnetView")
+                        "com.limelight.ui.floatingview.FloatingMagnetView")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.floatingview.StreamFloatingControlController")
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage(
@@ -629,7 +632,7 @@ public final class ArchitectureBoundaryTest {
         noClasses()
                 .that()
                 .haveFullyQualifiedName(
-                        "com.limelight.ui.floatingview.AXFloatingMagnetView")
+                        "com.limelight.ui.floatingview.FloatingMagnetView")
                 .should()
                 .dependOnClassesThat()
                 .haveFullyQualifiedName(
@@ -650,13 +653,41 @@ public final class ArchitectureBoundaryTest {
                         "com.limelight.ui.performance.StreamPerformanceOverlayController")
                 .or()
                 .haveFullyQualifiedName(
-                        "com.limelight.ui.floatingview.AXFloatingMagnetView")
+                        "com.limelight.ui.floatingview.FloatingMagnetView")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.floatingview.StreamFloatingControlController")
                 .should()
                 .dependOnClassesThat()
                 .haveFullyQualifiedName(
                         "android.content.SharedPreferences")
                 .because(
                         "runtime UI cannot address persistence directly")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void gameUsesOnlyTheFloatingControlOwner() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.floatingview.FloatingMagnetView")
+                .because(
+                        "the Activity delegates floating-control view ownership")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.floatingview.FloatingControlView")
+                .because(
+                        "the Activity delegates floating-control view ownership")
                 .check(productionClasses);
     }
 

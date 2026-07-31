@@ -51,7 +51,7 @@
             android:layout_alignParentEnd="true"
             android:layout_marginTop="10dp"
             android:background="@drawable/ic_game_menu_btn_side_selector"
-            android:src="@drawable/ic_axi_menu"
+            android:src="@drawable/ic_menu_grid"
             android:scaleType="centerInside"
             android:layout_marginEnd="10dp"
             android:contentDescription="@string/appview_menu_options"
