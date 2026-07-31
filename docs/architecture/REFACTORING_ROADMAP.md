@@ -165,15 +165,19 @@ A slice is incomplete if callers can still bypass the new boundary.
   cutouts.
 - A single window-inset owner and a pure display/window policy.
 
-### Remaining closeout work
+### Completed closeout work
 
 - Audit every protocol position/size sender and every overlay consumer for
-  manual offsets, ad-hoc ratios, or partial View transforms.
+  manual offsets, ad-hoc ratios, or partial View transforms. Completed in
+  `STREAM_COORDINATE_AUDIT.md`.
 - Move physical-resolution/inset decisions into a tested policy model.
+  Completed through `StreamDisplayGeometry`, `StreamLayoutGeometry`, and
+  `WindowInsetsPolicy`.
 - Document the common-parent transform invariant used by sibling stream,
-  input, and overlay Views.
+  input, and overlay Views. Completed in `STREAM_COORDINATE_AUDIT.md`.
 - Add a dependency rule preventing feature code from reimplementing viewport
-  math.
+  math. Approved consumers of `ViewCoordinateMapper` are now enforced by
+  `ArchitectureBoundaryTest`.
 
 ### Exit evidence
 

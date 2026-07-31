@@ -828,6 +828,10 @@ public final class TouchscreenTouchpadHandler {
             touchMinor = event.getHistoricalTouchMinor(pointerIndex, historyIndex);
         }
 
+        // Native touchpad coordinates describe the physical gesture surface,
+        // not a point in the streamed image. Normalize in the event View's
+        // local space intentionally; viewport mapping would corrupt Windows
+        // touchpad geometry when the video is letterboxed or transformed.
         int width = Math.max(1, eventView.getWidth());
         int height = Math.max(1, eventView.getHeight());
         return new Contact(eventType, event.getPointerId(pointerIndex),

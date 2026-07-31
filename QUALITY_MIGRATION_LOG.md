@@ -706,3 +706,33 @@ Verification on 2026-07-31:
   toggling accessibility diagnostics, and observing GameManager/HDR behavior
   on supporting hardware remain manual UI/platform checks. Automated evidence
   does not claim those interactions passed.
+
+## Close the stream-coordinate geometry audit
+
+- Inventoried every production path that submits mouse, touch, pen, or native
+  touchpad coordinates and the complete locally rendered host-cursor path in
+  `docs/architecture/STREAM_COORDINATE_AUDIT.md`.
+- Confirmed the common-parent invariant: touchscreen/input Views, the stream
+  View, and the cursor overlay are direct siblings under the inset-adjusted
+  content root. All cross-sibling points use `ViewCoordinateMapper`; basis
+  vectors use its translation-free path.
+- Confirmed that `NvConnection` remains the sole owner of absolute cursor
+  position. It clamps once under its ordering lock, then gives the identical
+  reference position to the local overlay listener and common-c.
+- Documented why native touchpad contacts stay normalized to the physical
+  gesture surface and must not use video viewport mapping.
+- Added an architecture rule restricting the sibling mapper to the approved
+  input and stream-UI packages. Removed a duplicate cursor-recovery comment;
+  no coordinate algorithm or protocol behavior changed.
+
+Verification on 2026-07-31:
+
+- The new architecture rule passed after production source compilation.
+- The immediately preceding complete `verifyLocal` and `verifyConnected`
+  gates covered the audited implementation: 1,240 JVM executions, 105
+  non-root and 105 root instrumentation tests, all Lint variants, and both
+  Release APKs passed. The audit-only delta changed comments, documentation,
+  and the architecture test; it did not change runtime bytecode behavior.
+- Physical phone/tablet checks across rotation, zoom/FSR, cutouts, native
+  touchpad gestures, stylus contacts, and host cursor shapes remain the manual
+  hardware matrix. Automated evidence does not claim those checks passed.

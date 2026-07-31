@@ -59,6 +59,23 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void siblingViewCoordinateMappingHasOnlyApprovedConsumers() {
+        noClasses()
+                .that()
+                .resideOutsideOfPackages(
+                        "com.limelight.binding.input.pointer..",
+                        "com.limelight.binding.input.touch..",
+                        "com.limelight.ui")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.utils.ViewCoordinateMapper")
+                .because(
+                        "stream input and the native cursor share one sibling-view transform")
+                .check(productionClasses);
+    }
+
+    @Test
     public void pointerInputCoreDoesNotDependOnConcreteConnection() {
         noClasses()
                 .that()

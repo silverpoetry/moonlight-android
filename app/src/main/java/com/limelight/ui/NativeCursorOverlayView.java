@@ -233,8 +233,6 @@ public class NativeCursorOverlayView extends View {
         }
 
         // Some monochrome host cursors (notably the Windows I-beam) can arrive
-        // with color data but a fully transparent alpha channel.
-        // Some monochrome host cursors (notably the Windows I-beam) can arrive
         // with color data but a fully transparent alpha channel. Treat those
         // non-empty mask pixels as a black cursor so they remain visible.
         boolean recoverMissingAlpha = !hasAlpha && hasRgb;
