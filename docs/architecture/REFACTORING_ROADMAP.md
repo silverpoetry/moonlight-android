@@ -430,6 +430,13 @@ targets.
   USB permission prompts can no longer corrupt an Activity-level counter, and
   live PiP setting changes immediately revoke or reapply auto-entry while
   `Game` only forwards lifecycle and settings events.
+- `AndroidStreamInputCaptureController` owns provider selection, input-grab
+  application, local system-cursor preference, focus recovery, Samsung
+  meta-key capture, and deterministic teardown. Its pure state preserves the
+  user's cursor choice across grab transitions and makes the implicit
+  cursor-toggle-to-grab transition explicit; missing Samsung APIs are an
+  expected capability result instead of a printed exception. `Game` no longer
+  mirrors capture/cursor flags or performs vendor reflection.
 - `StreamRenderSurfaceController` owns Surface callback registration,
   readiness, frame-rate hints, decoder stop preparation, and callback
   detachment. Its transition state is platform-independent and tested without

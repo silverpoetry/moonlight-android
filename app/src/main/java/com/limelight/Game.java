@@ -18,8 +18,7 @@ import com.limelight.binding.input.StreamInputController;
 import com.limelight.binding.input.StreamInputLifecycleController;
 import com.limelight.binding.input.protocol.NvConnectionPointerInputSink;
 import com.limelight.binding.input.protocol.NvConnectionKeyboardInputSink;
-import com.limelight.binding.input.capture.InputCaptureManager;
-import com.limelight.binding.input.capture.InputCaptureProvider;
+import com.limelight.binding.input.capture.AndroidStreamInputCaptureController;
 import com.limelight.binding.input.driver.UsbDriverService;
 import com.limelight.binding.input.driver.UsbDriverServiceEndpoint;
 import com.limelight.binding.input.driver.UsbDriverSessionController;
@@ -179,8 +178,6 @@ import android.widget.TextView;
 import com.limelight.utils.UiToast;
 
 import java.io.ByteArrayInputStream;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -248,9 +245,8 @@ public class Game extends Activity implements OnGenericMotionListener,
     private NvApp app;
     private volatile boolean sessionDependenciesReady;
 
-    private InputCaptureProvider inputCaptureProvider;
-    private boolean grabbedInput = true;
-    private boolean cursorVisible = false;
+    private AndroidStreamInputCaptureController
+            inputCaptureController;
     private StreamView streamView;
     private final Runnable toggleKeyboardWhenFocused =
             this::toggleKeyboard;
@@ -520,7 +516,10 @@ public class Game extends Activity implements OnGenericMotionListener,
                         this::createPerformanceOverlayRuntimeState,
                         () -> showGameMenu(null));
 
-        inputCaptureProvider = InputCaptureManager.getInputCaptureProvider(this, this);
+        inputCaptureController =
+                AndroidStreamInputCaptureController.create(
+                        this,
+                        this);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             streamView.setOnCapturedPointerListener(new View.OnCapturedPointerListener() {
@@ -694,7 +693,7 @@ public class Game extends Activity implements OnGenericMotionListener,
                 new ExternalPointerInputController(
                         streamView,
                         pointerInputSink,
-                        inputCaptureProvider,
+                        inputCaptureController.getProvider(),
                         directContactInputController,
                         inputSettingsState);
         clipboardFileTransferController =
@@ -819,7 +818,8 @@ public class Game extends Activity implements OnGenericMotionListener,
 
                     @Override
                     public void setInputGrabbed(boolean grabbed) {
-                        setInputGrabState(grabbed);
+                        inputCaptureController
+                                .setInputGrabbed(grabbed);
                     }
                 },
                 mainHandler);
@@ -1062,7 +1062,8 @@ public class Game extends Activity implements OnGenericMotionListener,
                 new KeyboardInputController.Host() {
                     @Override
                     public boolean isInputGrabbed() {
-                        return grabbedInput;
+                        return inputCaptureController
+                                .isInputGrabbed();
                     }
 
                     @Override
@@ -1261,7 +1262,7 @@ public class Game extends Activity implements OnGenericMotionListener,
         setMotionForceGyro();
 
         //光标是否显示
-        if (!cursorVisible &&
+        if (!inputCaptureController.isLocalCursorVisible() &&
                 inputSettingsState
                         .get()
                         .isLocalSystemCursorEnabled()) {
@@ -1406,35 +1407,6 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
     }
 
-    public void setMetaKeyCaptureState(boolean enabled) {
-        // This uses custom APIs present on some Samsung devices to allow capture of
-        // meta key events while streaming.
-        try {
-            Class<?> semWindowManager = Class.forName("com.samsung.android.view.SemWindowManager");
-            Method getInstanceMethod = semWindowManager.getMethod("getInstance");
-            Object manager = getInstanceMethod.invoke(null);
-
-            if (manager != null) {
-                Class<?>[] parameterTypes = new Class<?>[2];
-                parameterTypes[0] = ComponentName.class;
-                parameterTypes[1] = boolean.class;
-                Method requestMetaKeyEventMethod = semWindowManager.getDeclaredMethod("requestMetaKeyEvent", parameterTypes);
-                requestMetaKeyEventMethod.invoke(manager, this.getComponentName(), enabled);
-            }
-            else {
-                LimeLog.warning("SemWindowManager.getInstance() returned null");
-            }
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
-        } catch (InvocationTargetException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        }
-    }
-
     @Override
     public void onUserLeaveHint() {
         super.onUserLeaveHint();
@@ -1465,7 +1437,9 @@ public class Game extends Activity implements OnGenericMotionListener,
 
         // With Android native pointer capture, capture is lost when focus is lost,
         // so it must be requested again when focus is regained.
-        inputCaptureProvider.onWindowFocusChanged(hasFocus);
+        if (inputCaptureController != null) {
+            inputCaptureController.onWindowFocusChanged(hasFocus);
+        }
         if (conn != null) {
             conn.onWindowFocusChanged(hasFocus);
         }
@@ -1637,8 +1611,10 @@ public class Game extends Activity implements OnGenericMotionListener,
             wifiLockController = null;
         }
 
-        // Destroy the capture provider
-        inputCaptureProvider.destroy();
+        if (inputCaptureController != null) {
+            inputCaptureController.destroy();
+            inputCaptureController = null;
+        }
         super.onDestroy();
     }
 
@@ -1660,7 +1636,9 @@ public class Game extends Activity implements OnGenericMotionListener,
 
         if (isFinishing()) {
             // Ungrab input to prevent further input device notifications
-            setInputGrabState(false);
+            if (inputCaptureController != null) {
+                inputCaptureController.setInputGrabbed(false);
+            }
         }
 
         super.onPause();
@@ -1805,31 +1783,12 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
     }
 
-    private void setInputGrabState(boolean grab) {
-        // Grab/ungrab the mouse cursor
-        if (grab) {
-            inputCaptureProvider.enableCapture();
-
-            // Enabling capture may hide the cursor again, so
-            // we will need to show it again.
-            if (cursorVisible) {
-                inputCaptureProvider.showCursor();
-            }
-        }
-        else {
-            inputCaptureProvider.disableCapture();
-        }
-
-        // Grab/ungrab system keyboard shortcuts
-        setMetaKeyCaptureState(grab);
-
-        grabbedInput = grab;
-    }
-
     private final Runnable toggleGrab = new Runnable() {
         @Override
         public void run() {
-            setInputGrabState(!grabbedInput);
+            if (inputCaptureController != null) {
+                inputCaptureController.toggleInputGrabbed();
+            }
         }
     };
 
@@ -1853,7 +1812,8 @@ public class Game extends Activity implements OnGenericMotionListener,
 
     @Override
     public void sendImeText(String text) {
-        if (!isInputReady() || !grabbedInput ||
+        if (!isInputReady() ||
+                !inputCaptureController.isInputGrabbed() ||
                 text == null || text.isEmpty()) {
             return;
         }
@@ -1872,7 +1832,9 @@ public class Game extends Activity implements OnGenericMotionListener,
     }
 
     private void sendImeKey(short keyCode, int count) {
-        if (!isInputReady() || !grabbedInput || count <= 0) {
+        if (!isInputReady() ||
+                !inputCaptureController.isInputGrabbed() ||
+                count <= 0) {
             return;
         }
 
@@ -1953,7 +1915,9 @@ public class Game extends Activity implements OnGenericMotionListener,
     // NB: View is only present if called from a view callback
     private boolean handleMotionEvent(View view, MotionEvent event) {
         // Pass through mouse/touch/joystick input if we're not grabbing
-        if (!grabbedInput || streamInputController == null) {
+        if (inputCaptureController == null ||
+                !inputCaptureController.isInputGrabbed() ||
+                streamInputController == null) {
             return false;
         }
 
@@ -2463,15 +2427,8 @@ public class Game extends Activity implements OnGenericMotionListener,
 
     //本地鼠标光标切换
     public void switchMouseLocalCursor(){
-        if (!grabbedInput) {
-            inputCaptureProvider.enableCapture();
-            grabbedInput = true;
-        }
-        cursorVisible = !cursorVisible;
-        if (cursorVisible) {
-            inputCaptureProvider.showCursor();
-        } else {
-            inputCaptureProvider.hideCursor();
+        if (inputCaptureController != null) {
+            inputCaptureController.toggleLocalCursorVisibility();
         }
     }
 

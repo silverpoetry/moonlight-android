@@ -355,6 +355,22 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void streamInputCaptureStateIsPlatformIndependent() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.capture.StreamInputCaptureState")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..")
+                .because(
+                        "input grab and local-cursor policy must remain JVM-testable")
+                .check(productionClasses);
+    }
+
+    @Test
     public void gameDelegatesPhysicalDisplayPreparation() {
         noClasses()
                 .that()
@@ -390,6 +406,30 @@ public final class ArchitectureBoundaryTest {
                         "android.app.PictureInPictureParams")
                 .because(
                         "the PiP controller owns platform parameters and API dispatch")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void gameDelegatesInputCaptureConstructionAndVendorApi() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.capture.InputCaptureManager")
+                .because(
+                        "the input-capture controller owns provider selection")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("java.lang.reflect..")
+                .because(
+                        "vendor input-capture reflection belongs at the Android adapter boundary")
                 .check(productionClasses);
     }
 
