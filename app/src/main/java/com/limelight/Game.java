@@ -46,7 +46,6 @@ import com.limelight.nvstream.mic.MicrophoneUplinkConfig;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.AndroidDisplayAspectProvider;
 import com.limelight.settings.android.AndroidAppLocale;
-import com.limelight.settings.android.AndroidHdrCompatibility;
 import com.limelight.settings.android.AndroidStreamSettingsBootstrap;
 import com.limelight.settings.android.SharedPreferencesCustomResolutionRepository;
 import com.limelight.settings.android.AndroidSettingsRepository;
@@ -99,10 +98,12 @@ import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
 import com.limelight.ui.performance.PerformanceOverlayConfiguration;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.stream.AndroidStreamConnectionMessages;
+import com.limelight.ui.stream.AndroidStreamHdrCapabilityProvider;
 import com.limelight.ui.stream.AndroidStreamMediaRuntimeFactory;
 import com.limelight.ui.stream.StreamDisplayModeSelector;
 import com.limelight.ui.stream.StreamDecoderCapabilities;
 import com.limelight.ui.stream.StreamFailureDiagnostics;
+import com.limelight.ui.stream.StreamHdrRequestPolicy;
 import com.limelight.ui.stream.StreamLaunchReporter;
 import com.limelight.ui.stream.StreamMediaResourceOwner;
 import com.limelight.ui.stream.StreamMicrophoneController;
@@ -575,40 +576,13 @@ public class Game extends Activity implements OnGenericMotionListener,
             return;
         }
 
-        // Check if the user has enabled HDR
-        boolean hdrRequested = false;
-        if (streamVideoSettings.shouldIgnoreHdrCapability()) {
-            hdrRequested = true;
-        }else{
-            if (streamDisplaySettings.isHdrEnabled() &&
-                    AndroidHdrCompatibility
-                            .isHdrStreamingAllowed()) {
-                // Start our HDR checklist
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    Display display = getWindowManager().getDefaultDisplay();
-                    Display.HdrCapabilities hdrCaps = display.getHdrCapabilities();
-
-                    // We must now ensure our display is compatible with HDR10
-                    if (hdrCaps != null) {
-                        // getHdrCapabilities() returns null on Lenovo Lenovo Mirage Solo (vega), Android 8.0
-                        for (int hdrType : hdrCaps.getSupportedHdrTypes()) {
-                            if (hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10) {
-                                hdrRequested = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (!hdrRequested) {
-                        // Nope, no HDR for us :(
-                        UiToast.makeText(this, "Display does not support HDR10", UiToast.LENGTH_LONG).show();
-                    }
-                }
-                else {
-                    UiToast.makeText(this, "HDR requires Android 7.0 or later", UiToast.LENGTH_LONG).show();
-                }
-            }
-        }
+        StreamHdrRequestPolicy.Decision hdrDecision =
+                StreamHdrRequestPolicy.decide(
+                        streamDisplaySettings.isHdrEnabled(),
+                        streamVideoSettings.shouldIgnoreHdrCapability(),
+                        AndroidStreamHdrCapabilityProvider.sample(this));
+        showHdrRequestWarning(hdrDecision.getWarning());
+        boolean hdrRequested = hdrDecision.isHdrRequested();
 
         AndroidStreamMediaRuntimeFactory.Result mediaRuntime =
                 AndroidStreamMediaRuntimeFactory.create(
@@ -2403,6 +2377,30 @@ public class Game extends Activity implements OnGenericMotionListener,
                     message,
                     UiToast.LENGTH_LONG).show();
         }
+    }
+
+    private void showHdrRequestWarning(
+            StreamHdrRequestPolicy.Warning warning) {
+        int messageResource;
+        switch (warning) {
+            case NONE:
+                return;
+            case ANDROID_VERSION_UNSUPPORTED:
+                messageResource = R.string
+                        .stream_warning_hdr_android_version_unsupported;
+                break;
+            case DISPLAY_HDR10_UNSUPPORTED:
+                messageResource = R.string
+                        .stream_warning_hdr_display_unsupported;
+                break;
+            default:
+                throw new IllegalStateException(
+                        "Unhandled HDR request warning: " + warning);
+        }
+        UiToast.makeText(
+                this,
+                getString(messageResource),
+                UiToast.LENGTH_LONG).show();
     }
 
     private void handleRumble(

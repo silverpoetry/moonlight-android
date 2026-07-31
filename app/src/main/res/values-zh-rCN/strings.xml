@@ -292,4 +292,6 @@
     <string name="category_system_accessibility_settings">系统与辅助功能</string>
     <string name="category_backup_restore_settings">备份与恢复</string>
     <string name="category_about_settings">关于</string>
+    <string name="stream_warning_hdr_display_unsupported">显示设备不支持 HDR10</string>
+    <string name="stream_warning_hdr_android_version_unsupported">HDR 需要 Android 7.0 或更高版本</string>
 </resources>

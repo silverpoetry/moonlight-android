@@ -443,6 +443,11 @@ targets.
   completion through a persistence port; the Android store preserves the
   synchronous pre-crash commit and legacy tombstone keys while Activity code
   no longer reads or writes decoder preferences.
+- `StreamHdrRequestPolicy` owns HDR request eligibility and user-warning
+  selection from immutable settings and device facts. The Android capability
+  provider samples OS, firmware, and display HDR10 support once; `Game` no
+  longer queries display APIs or embeds platform-policy branches and warning
+  text during media startup.
 - `StreamMicrophoneController` owns permission deferral, duplicate-toggle
   suppression, serialized background start/stop work, lifecycle cancellation,
   error presentation events, and explicit menu-state invalidation. `Game`

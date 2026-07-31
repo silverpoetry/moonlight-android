@@ -724,6 +724,8 @@
     <string name="category_backup_restore_settings">备份与恢复</string>
     <string name="category_about_settings">关于</string>
     <string name="stream_warning_hdr_decoder_unsupported">Decoder does not support the HDR10 profile</string>
+    <string name="stream_warning_hdr_display_unsupported">Display does not support HDR10</string>
+    <string name="stream_warning_hdr_android_version_unsupported">HDR requires Android 7.0 or later</string>
     <string name="stream_warning_hevc_decoder_unavailable">No HEVC decoder was found</string>
     <string name="stream_warning_av1_decoder_unavailable">No AV1 decoder was found</string>
 </resources>

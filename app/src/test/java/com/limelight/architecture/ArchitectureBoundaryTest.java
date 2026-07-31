@@ -304,6 +304,25 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void streamHdrRequestPolicyIsPlatformIndependent() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamHdrRequestPolicy")
+                .or()
+                .haveNameMatching(
+                        "com\\.limelight\\.ui\\.stream\\.StreamHdrRequestPolicy\\$.*")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..")
+                .because(
+                        "HDR request policy consumes immutable sampled device facts")
+                .check(productionClasses);
+    }
+
+    @Test
     public void gameDoesNotConstructConcreteDecoderRuntime() {
         noClasses()
                 .that()
