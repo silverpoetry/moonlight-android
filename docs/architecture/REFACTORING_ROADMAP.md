@@ -396,6 +396,13 @@ targets.
   writable packet fields through the handler context. Trigger normalization
   and Hat transitions are platform-independent and fixture-locked; the event
   path adds no allocation, lock, scheduler, or transport hop.
+- `AndroidControllerInventory` is the sole adapter for startup Android/USB
+  enumeration and Android 11 virtual-device classification. `Game` and
+  `ControllerHandler` consume the same inventory result instead of duplicating
+  platform scans, while `ControllerInventoryMask` bounds reservations to the
+  protocol's sixteen slots and `ControllerDeviceClassificationPolicy` keeps
+  compatibility decisions platform-independent. The former write-only
+  attached-controller cache is removed.
 - `ControllerAnalogInputCombiner` owns split-device trigger and stick
   aggregation. Triggers are compared as unsigned protocol values and axes by
   signed magnitude; the previous bitwise-OR corruption path has been removed.

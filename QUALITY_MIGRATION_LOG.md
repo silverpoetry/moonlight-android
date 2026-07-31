@@ -1329,3 +1329,20 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Extracted `AndroidControllerInventory` as the one platform adapter for
+  startup InputDevice/USB enumeration and controller-device routing. Stream
+  configuration and runtime slot allocation now use the same adapter instead
+  of a public static scan embedded in `ControllerHandler`; USB devices already
+  exposed through Android remain de-duplicated.
+- Added pure `ControllerInventoryMask` and
+  `ControllerDeviceClassificationPolicy` fixtures. Initial reservations are
+  consecutive and bounded to all sixteen protocol slots, OSC reserves player
+  one, Android 11's source-less virtual device mirrors only a genuinely
+  attached gamepad, and the established non-alphabetic-keyboard fallback is
+  preserved. Removed the `hasGameController` field because it had no reader
+  and therefore could not affect routing.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 556 JVM
+  tests per variant (2,224 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

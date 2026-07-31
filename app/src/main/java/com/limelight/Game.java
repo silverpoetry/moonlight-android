@@ -5,6 +5,7 @@ import android.Manifest;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.audio.mic.AndroidMicrophoneUplinkSessionFactory;
+import com.limelight.binding.input.AndroidControllerInventory;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.GameInputDevice;
 import com.limelight.binding.input.KeyboardInputController;
@@ -684,9 +685,9 @@ public class Game extends Activity implements OnGenericMotionListener,
         ControllerSettings controllerSettings =
                 controllerSettingsState.get();
         int gamepadMask =
-                ControllerHandler.getAttachedControllerMask(
-                        this,
-                        controllerSettings);
+                AndroidControllerInventory.from(this)
+                        .getInitialControllerMask(
+                                controllerSettings);
         if (!controllerSettings.isMultiControllerEnabled()) {
             // Always set gamepad 1 present for when multi-controller is
             // disabled for games that don't properly support detection

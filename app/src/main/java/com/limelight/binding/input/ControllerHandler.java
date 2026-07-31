@@ -8,7 +8,6 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.hardware.input.InputManager;
-import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.Build;
 import android.os.Handler;
@@ -29,7 +28,6 @@ import com.limelight.R;
 import com.limelight.binding.input.driver.AbstractController;
 import com.limelight.binding.input.driver.DualSenseController;
 import com.limelight.binding.input.driver.UsbDriverListener;
-import com.limelight.binding.input.driver.UsbDriverService;
 import com.limelight.binding.input.protocol.NvConnectionKeyboardInputSink;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.input.ControllerPacket;
@@ -70,6 +68,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private final InputDeviceContext defaultContext;
     private final GameGestures gestures;
     private final InputManager inputManager;
+    private final AndroidControllerInventory
+            controllerInventory;
     private final ControllerVibrationRenderer vibrationRenderer;
     private final RazerKishiHapticsController
             razerKishiHapticsController;
@@ -90,7 +90,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             batteryReportScheduler;
     private final HandlerThread backgroundHandlerThread;
     private final Handler backgroundThreadHandler;
-    private boolean hasGameController;
     private boolean stopped = false;
 
     private final ControllerSettingsState settingsState;
@@ -288,6 +287,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 .getSystemService(Context.VIBRATOR_SERVICE);
         this.deviceSensorManager = (SensorManager) activityContext.getSystemService(Context.SENSOR_SERVICE);
         this.inputManager = (InputManager) activityContext.getSystemService(Context.INPUT_SERVICE);
+        this.controllerInventory =
+                new AndroidControllerInventory(
+                        inputManager,
+                        usbManager);
         this.mainThreadHandler = new Handler(Looper.getMainLooper());
         this.mouseEmulationScheduler =
                 new ControllerMouseEmulationSession.Scheduler() {
@@ -388,23 +391,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         int deadzonePercentage =
                 settingsState.get().getStickDeadzonePercent();
 
-        int[] ids = InputDevice.getDeviceIds();
-        for (int id : ids) {
-            InputDevice dev = InputDevice.getDevice(id);
-            if (dev == null) {
-                // This device was removed during enumeration
-                continue;
-            }
-            if ((dev.getSources() & InputDevice.SOURCE_JOYSTICK) != 0 ||
-                    (dev.getSources() & InputDevice.SOURCE_GAMEPAD) != 0) {
-                // This looks like a gamepad, but we'll check X and Y to be sure
-                if (AndroidControllerAxisProbe.hasJoystickAxes(dev)) {
-                    // This is a gamepad
-                    hasGameController = true;
-                }
-            }
-        }
-
         // 1% is the lowest possible deadzone we support
         if (deadzonePercentage <= 0) {
             deadzonePercentage = 0;
@@ -436,8 +422,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         // active reservation set, which allows them to unplug cleanly
         // if they are removed.
         slotAllocator = new ControllerSlotAllocator(
-                getAttachedControllerMask(
-                        activityContext,
+                controllerInventory.getInitialControllerMask(
                         settingsState.get()));
 
         // Register ourselves for input device notifications
@@ -541,84 +526,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
     @Override
     public boolean isGameControllerDevice(InputDevice device) {
-        if (device == null) {
-            return true;
-        }
-
-        if (AndroidControllerInputCapabilities.isGamepad(device)) {
-            // Has real joystick axes or gamepad buttons
-            return true;
-        }
-
-        // HACK for https://issuetracker.google.com/issues/163120692
-        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.R) {
-            if (device.getId() == -1) {
-                // This "virtual" device could be input from any of the attached devices.
-                // Look to see if any gamepads are connected.
-                int[] ids = InputDevice.getDeviceIds();
-                for (int id : ids) {
-                    InputDevice dev = InputDevice.getDevice(id);
-                    if (dev == null) {
-                        // This device was removed during enumeration
-                        continue;
-                    }
-
-                    // If there are any gamepad devices connected, we'll
-                    // report that this virtual device is a gamepad.
-                    if (AndroidControllerInputCapabilities.isGamepad(dev)) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        // Otherwise, we'll try anything that claims to be a non-alphabetic keyboard
-        return device.getKeyboardType() != InputDevice.KEYBOARD_TYPE_ALPHABETIC;
-    }
-
-    public static short getAttachedControllerMask(
-            Context context,
-            ControllerSettings settings) {
-        int count = 0;
-        short mask = 0;
-
-        // Count all input devices that are gamepads
-        InputManager im = (InputManager) context.getSystemService(Context.INPUT_SERVICE);
-        for (int id : im.getInputDeviceIds()) {
-            InputDevice dev = im.getInputDevice(id);
-            if (dev == null) {
-                continue;
-            }
-
-            if (AndroidControllerAxisProbe.hasJoystickAxes(dev)) {
-                LimeLog.info("Counting InputDevice: "+dev.getName());
-                mask |= 1 << count++;
-            }
-        }
-
-        // Count all USB devices that match our drivers
-        if (settings.isUsbDriverEnabled()) {
-            UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
-            if (usbManager != null) {
-                for (UsbDevice dev : usbManager.getDeviceList().values()) {
-                    // We explicitly check not to claim devices that appear as InputDevices
-                    // otherwise we will double count them.
-                    if (UsbDriverService.shouldClaimDevice(dev, false) &&
-                            !UsbDriverService.isRecognizedInputDevice(dev)) {
-                        LimeLog.info("Counting UsbDevice: "+dev.getDeviceName());
-                        mask |= 1 << count++;
-                    }
-                }
-            }
-        }
-
-        if (settings.isOnscreenControllerEnabled()) {
-            LimeLog.info("Counting OSC gamepad");
-            mask |= 1;
-        }
-
-        LimeLog.info("Enumerated "+count+" gamepads");
-        return mask;
+        return controllerInventory.isGameControllerDevice(
+                device,
+                Build.VERSION.SDK_INT);
     }
 
     private void releaseControllerNumber(GenericControllerContext context) {
@@ -868,10 +778,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
 
         ControllerAxisProfile axisProfile = profile.getAxisProfile();
-        if (axisProfile.hasLeftStick()) {
-            hasGameController = true;
-        }
-
         boolean nonStandardDualShock4 =
                 axisProfile.isNonStandardDualShock4();
         boolean linuxStandardFaceButtons =
