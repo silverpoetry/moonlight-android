@@ -8,11 +8,11 @@ import com.limelight.nvstream.input.ControllerPacket;
 import java.util.Map;
 
 /**
- * Stateful controller key-layout policy.
+ * Immutable controller key-layout policy.
  *
- * <p>The mapper owns device-specific key corrections and the fallback state
- * that disables synthetic Start/Select mappings after real buttons appear.
- * It performs no I/O and allocates nothing while handling an event.</p>
+ * <p>The mapper owns device-specific key corrections. Per-controller learning
+ * is supplied explicitly through {@link ControllerButtonMappingState}. It
+ * performs no I/O and allocates nothing while handling an event.</p>
  */
 final class ControllerButtonMapper {
     static final int IGNORE = -1;
@@ -110,9 +110,6 @@ final class ControllerButtonMapper {
     private final boolean searchIsMode;
     private final boolean hasHatAxes;
 
-    private boolean backIsStart;
-    private boolean modeIsSelect;
-
     private ControllerButtonMapper(Builder builder) {
         vendorId = builder.vendorId;
         productId = builder.productId;
@@ -128,8 +125,6 @@ final class ControllerButtonMapper {
         serval = builder.serval;
         nonStandardXboxBluetooth =
                 builder.nonStandardXboxBluetooth;
-        backIsStart = builder.backIsStart;
-        modeIsSelect = builder.modeIsSelect;
         searchIsMode = builder.searchIsMode;
         hasHatAxes = builder.hasHatAxes;
     }
@@ -146,6 +141,7 @@ final class ControllerButtonMapper {
     }
 
     int remap(
+            ControllerButtonMappingState state,
             int keyCode,
             int scanCode,
             int eventFlags,
@@ -257,17 +253,17 @@ final class ControllerButtonMapper {
 
         if (mappedKeyCode == KeyEvent.KEYCODE_BUTTON_START ||
                 mappedKeyCode == KeyEvent.KEYCODE_MENU) {
-            backIsStart = false;
+            state.observeStartButton();
         }
         else if (mappedKeyCode ==
                 KeyEvent.KEYCODE_BUTTON_SELECT) {
-            modeIsSelect = false;
+            state.observeSelectButton();
         }
-        else if (backIsStart &&
+        else if (state.shouldMapBackToStart() &&
                 mappedKeyCode == KeyEvent.KEYCODE_BACK) {
             return KeyEvent.KEYCODE_BUTTON_START;
         }
-        else if (modeIsSelect &&
+        else if (state.shouldMapModeToSelect() &&
                 mappedKeyCode == KeyEvent.KEYCODE_BUTTON_MODE) {
             return KeyEvent.KEYCODE_BUTTON_SELECT;
         }
@@ -476,8 +472,6 @@ final class ControllerButtonMapper {
         private boolean nonStandardDualShock4;
         private boolean serval;
         private boolean nonStandardXboxBluetooth;
-        private boolean backIsStart;
-        private boolean modeIsSelect;
         private boolean searchIsMode;
         private boolean hasHatAxes;
 
@@ -522,16 +516,6 @@ final class ControllerButtonMapper {
 
         Builder nonStandardXboxBluetooth(boolean value) {
             nonStandardXboxBluetooth = value;
-            return this;
-        }
-
-        Builder backIsStart(boolean value) {
-            backIsStart = value;
-            return this;
-        }
-
-        Builder modeIsSelect(boolean value) {
-            modeIsSelect = value;
             return this;
         }
 

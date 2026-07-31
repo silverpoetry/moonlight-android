@@ -1230,3 +1230,22 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Added `AndroidControllerDeviceProfileProbe` as the one-shot owner of physical
+  controller identity, key support, touchpad ranges, axis profile, deadzones,
+  device quirks, and immutable button-mapping policy. `InputDeviceContext`
+  construction now binds this immutable profile to vibration, LED, battery,
+  and motion lifecycle resources instead of depending on a long sequence of
+  partially initialized mutable fields.
+- Extracted trigger-deadzone normalization into
+  `ControllerTriggerDeadzonePolicy`, preserving raw absolute driver values
+  when correction is disabled and the established 13–30 percent accepted
+  range when enabled. Boundary fixtures lock both paths.
+- Made `ControllerButtonMapper` genuinely immutable. The ADT-1/ASUS fallback
+  flags that learn from real Start and Select events now live in a dedicated
+  `ControllerButtonMappingState` owned by each controller session, so no
+  mutable runtime state leaks into the reusable device profile.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 516 JVM
+  tests per variant (2,064 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

@@ -370,9 +370,11 @@ targets.
   duplicate-sample suppression. The Android adapter only samples platform or
   SHIELD APIs and sends the immutable report.
 - `ControllerButtonMapper` owns the Android key-to-protocol capability table,
-  vendor key-layout corrections, face-button swapping, and stateful
-  Start/Select fallbacks. Device discovery builds its profile once; the event
-  adapter performs no mapping allocation or device-policy branching.
+  vendor key-layout corrections, and face-button swapping as an immutable
+  policy. `ControllerButtonMappingState` separately owns the per-session
+  learning that disables Start/Select fallbacks after real buttons appear.
+  Device discovery builds the policy once; the event adapter performs no
+  mapping allocation or device-policy branching.
 - `ControllerAnalogInputCombiner` owns split-device trigger and stick
   aggregation. Triggers are compared as unsigned protocol values and axes by
   signed magnitude; the previous bitwise-OR corruption path has been removed.
@@ -436,6 +438,13 @@ targets.
   detection, profile construction, and Android-axis conversion. Enumeration,
   Back-button classification, context setup, deadzone sampling, and arrival
   reporting now consume the same capability view.
+- `AndroidControllerDeviceProfileProbe` samples identity, key capabilities,
+  touchpad ranges, axes, deadzones, and device quirks exactly once when a
+  physical controller context is created. It produces an immutable
+  `AndroidControllerDeviceProfile`; context construction only binds that
+  profile to lifecycle resources and creates the per-session button-mapping
+  state. Trigger deadzone correction is an explicit pure policy with boundary
+  fixtures rather than an ordered mutation in the Android context.
 - `ControllerDeviceQuirks` applies known ADT-1, ASUS, NVIDIA, Razer Serval,
   Xbox Bluetooth, and Thrustmaster key-layout corrections to immutable sampled
   facts. Button remapping consumes the resulting profile instead of depending

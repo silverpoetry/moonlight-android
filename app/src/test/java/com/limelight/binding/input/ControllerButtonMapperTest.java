@@ -226,6 +226,7 @@ public final class ControllerButtonMapperTest {
         assertEquals(
                 KeyEvent.KEYCODE_BUTTON_B,
                 mapper.remap(
+                        new ControllerButtonMappingState(false, false),
                         KeyEvent.KEYCODE_BACK,
                         0,
                         KeyEvent.FLAG_SOFT_KEYBOARD,
@@ -236,15 +237,15 @@ public final class ControllerButtonMapperTest {
     @Test
     public void realStartAndSelectDisableFallbackMappings() {
         ControllerButtonMapper mapper =
-                mapperBuilder(0, 0)
-                        .backIsStart(true)
-                        .modeIsSelect(true)
-                        .build();
+                mapperBuilder(0, 0).build();
+        ControllerButtonMappingState state =
+                new ControllerButtonMappingState(true, true);
 
         assertEquals(
                 KeyEvent.KEYCODE_BUTTON_START,
                 remap(
                         mapper,
+                        state,
                         KeyEvent.KEYCODE_BACK,
                         0,
                         false));
@@ -252,17 +253,20 @@ public final class ControllerButtonMapperTest {
                 KeyEvent.KEYCODE_BUTTON_SELECT,
                 remap(
                         mapper,
+                        state,
                         KeyEvent.KEYCODE_BUTTON_MODE,
                         0,
                         false));
 
         remap(
                 mapper,
+                state,
                 KeyEvent.KEYCODE_BUTTON_START,
                 0,
                 false);
         remap(
                 mapper,
+                state,
                 KeyEvent.KEYCODE_BUTTON_SELECT,
                 0,
                 false);
@@ -271,6 +275,7 @@ public final class ControllerButtonMapperTest {
                 KeyEvent.KEYCODE_BACK,
                 remap(
                         mapper,
+                        state,
                         KeyEvent.KEYCODE_BACK,
                         0,
                         false));
@@ -278,6 +283,7 @@ public final class ControllerButtonMapperTest {
                 KeyEvent.KEYCODE_BUTTON_MODE,
                 remap(
                         mapper,
+                        state,
                         KeyEvent.KEYCODE_BUTTON_MODE,
                         0,
                         false));
@@ -335,7 +341,22 @@ public final class ControllerButtonMapperTest {
             int keyCode,
             int scanCode,
             boolean joyConFixEnabled) {
+        return remap(
+                mapper,
+                new ControllerButtonMappingState(false, false),
+                keyCode,
+                scanCode,
+                joyConFixEnabled);
+    }
+
+    private static int remap(
+            ControllerButtonMapper mapper,
+            ControllerButtonMappingState state,
+            int keyCode,
+            int scanCode,
+            boolean joyConFixEnabled) {
         return mapper.remap(
+                state,
                 keyCode,
                 scanCode,
                 0,

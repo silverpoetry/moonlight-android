@@ -86,6 +86,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private final SceManager sceManager;
     private final AndroidControllerArrivalProbe
             controllerArrivalProbe;
+    private final AndroidControllerDeviceProfileProbe
+            controllerDeviceProfileProbe;
     private final Handler mainThreadHandler;
     private final ControllerMouseEmulationSession.Scheduler
             mouseEmulationScheduler;
@@ -363,6 +365,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 new AndroidControllerArrivalProbe(
                         MoonBridge::guessControllerType,
                         sceManager::isRecognizedDevice);
+        this.controllerDeviceProfileProbe =
+                new AndroidControllerDeviceProfileProbe(
+                        MoonBridge::guessControllerHasPaddles,
+                        MoonBridge::guessControllerHasShareButton);
         this.vibrationRenderer = new ControllerVibrationRenderer(
                 settingsState,
                 sceManager,
@@ -370,7 +376,15 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 deviceVibratorManager);
         this.defaultContext = new InputDeviceContext(
                 ControllerLedSession.unavailable(),
-                ControllerBatteryReporter.unavailableSource());
+                ControllerBatteryReporter.unavailableSource(),
+                ControllerButtonMapper.builder(
+                                0,
+                                0,
+                                Build.VERSION.SDK_INT)
+                        .ignoreBack(true)
+                        .hasHatAxes(true)
+                        .build(),
+                new ControllerButtonMappingState(false, false));
         this.defaultContext.vibrationTarget =
                 vibrationRenderer.emptyTarget();
 
@@ -420,15 +434,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         // with device ID == 0. This hits the default context which would normally
         // consume these. Instead, let's ignore them since that's probably the
         // most likely case.
-        defaultContext.buttonMapper =
-                ControllerButtonMapper.builder(
-                                0,
-                                0,
-                                Build.VERSION.SDK_INT)
-                        .ignoreBack(true)
-                        .hasHatAxes(true)
-                        .build();
-
         // Get the initially attached set of gamepads. As each gamepad receives
         // its initial InputEvent, we will move these from this set onto the
         // active reservation set, which allows them to unplug cleanly
@@ -899,36 +904,33 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     }
 
     private InputDeviceContext createInputDeviceContextForDevice(InputDevice dev) {
+        boolean external =
+                AndroidInputDeviceClassifier.isExternal(dev);
+        boolean ignoreBack = shouldIgnoreBack(dev, external);
+        AndroidControllerDeviceProfile profile =
+                controllerDeviceProfileProbe.probe(
+                        dev,
+                        external,
+                        ignoreBack,
+                        (float) stickDeadzone,
+                        settingsState.get()
+                                .isTriggerDeadzoneDisabled());
         InputDeviceContext context = new InputDeviceContext(
+                dev,
+                profile,
+                vibrationRenderer.selectTarget(dev, external),
                 new ControllerLedSession(
                         AndroidControllerLedTarget.create(dev)),
                 new AndroidControllerBatterySource(
                         dev,
                         sceManager));
-        String devName = dev.getName();
 
-        LimeLog.info("Creating controller context for device: "+devName);
+        LimeLog.info(
+                "Creating controller context for device: " +
+                        profile.getName());
         LimeLog.info("Vendor ID: " + dev.getVendorId());
         LimeLog.info("Product ID: "+dev.getProductId());
         LimeLog.info(dev.toString());
-
-        context.inputDevice = dev;
-        context.name = devName;
-        context.id = dev.getId();
-        context.external =
-                AndroidInputDeviceClassifier.isExternal(dev);
-
-        context.vendorId = dev.getVendorId();
-        context.productId = dev.getProductId();
-
-        // These aren't always present in the Android key layout files, so they won't show up
-        // in our normal InputDevice.hasKeys() probing.
-        context.hasPaddles = MoonBridge.guessControllerHasPaddles(context.vendorId, context.productId);
-        context.hasShare = MoonBridge.guessControllerHasShareButton(context.vendorId, context.productId);
-
-        context.vibrationTarget = vibrationRenderer.selectTarget(
-                dev,
-                context.external);
         SensorManager inputDeviceSensorManager =
                 AndroidControllerMotionSource.findAvailableManager(
                         dev,
@@ -938,57 +940,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     inputDeviceSensorManager);
         }
 
-        // Detect if the gamepad has Mode and Select buttons according to the Android key layouts.
-        // We do this first because other codepaths below may override these defaults.
-        boolean[] buttons = dev.hasKeys(KeyEvent.KEYCODE_BUTTON_MODE, KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BACK, 0);
-        context.hasMode = buttons[0];
-        context.hasSelect = buttons[1] || buttons[2];
-
-        context.touchpadXRange = dev.getMotionRange(MotionEvent.AXIS_X, InputDevice.SOURCE_TOUCHPAD);
-        context.touchpadYRange = dev.getMotionRange(MotionEvent.AXIS_Y, InputDevice.SOURCE_TOUCHPAD);
-        context.touchpadPressureRange = dev.getMotionRange(MotionEvent.AXIS_PRESSURE, InputDevice.SOURCE_TOUCHPAD);
-
-        // This is hack to deal with the Nvidia Shield's modifications that causes the DS4 clickpad
-        // to work as a duplicate Select button instead of a unique button we can handle separately.
-        boolean dualShockStandaloneTouchpad =
-                context.vendorId == 0x054c && // Sony
-                        (devName.endsWith(" Touchpad")||devName.startsWith("DualSense")) &&
-                dev.getSources() == (InputDevice.SOURCE_KEYBOARD | InputDevice.SOURCE_MOUSE);
-
-        InputDevice.MotionRange gasRange =
-                AndroidControllerAxisProbe.getMotionRange(
-                        dev,
-                        MotionEvent.AXIS_GAS);
-        ControllerAxisProfile axisProfile =
-                AndroidControllerAxisProbe.probe(dev);
-        context.leftStickXAxis =
-                AndroidControllerAxisProbe.toAndroidAxis(
-                        axisProfile.getLeftStickX());
-        context.leftStickYAxis =
-                AndroidControllerAxisProbe.toAndroidAxis(
-                        axisProfile.getLeftStickY());
-        context.rightStickXAxis =
-                AndroidControllerAxisProbe.toAndroidAxis(
-                        axisProfile.getRightStickX());
-        context.rightStickYAxis =
-                AndroidControllerAxisProbe.toAndroidAxis(
-                        axisProfile.getRightStickY());
-        context.leftTriggerAxis =
-                AndroidControllerAxisProbe.toAndroidAxis(
-                        axisProfile.getLeftTrigger());
-        context.rightTriggerAxis =
-                AndroidControllerAxisProbe.toAndroidAxis(
-                        axisProfile.getRightTrigger());
-        context.hatXAxis =
-                AndroidControllerAxisProbe.toAndroidAxis(
-                        axisProfile.getHatX());
-        context.hatYAxis =
-                AndroidControllerAxisProbe.toAndroidAxis(
-                        axisProfile.getHatY());
-        context.triggersIdleNegative =
-                axisProfile.areTriggersIdleNegative();
-        context.hasJoystickAxes = axisProfile.hasLeftStick();
-        if (context.hasJoystickAxes) {
+        ControllerAxisProfile axisProfile = profile.getAxisProfile();
+        if (axisProfile.hasLeftStick()) {
             hasGameController = true;
         }
 
@@ -998,103 +951,18 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 axisProfile.hasLinuxStandardFaceButtons();
         if (nonStandardDualShock4) {
             LimeLog.info("Detected non-standard DualShock 4 mapping");
-            context.hasSelect = true;
-            context.hasMode = true;
         }
         else if (linuxStandardFaceButtons) {
             LimeLog.info("Detected DualShock 4 (Linux standard mapping)");
         }
 
-        if (context.leftStickXAxis != -1 && context.leftStickYAxis != -1) {
-            context.leftStickDeadzoneRadius = (float) stickDeadzone;
-        }
-
-        if (context.rightStickXAxis != -1 && context.rightStickYAxis != -1) {
-            context.rightStickDeadzoneRadius = (float) stickDeadzone;
-        }
-        //todo --trigger
-        if (context.leftTriggerAxis != -1 && context.rightTriggerAxis != -1) {
-            InputDevice.MotionRange ltRange =
-                    AndroidControllerAxisProbe.getMotionRange(
-                            dev,
-                            context.leftTriggerAxis);
-            InputDevice.MotionRange rtRange =
-                    AndroidControllerAxisProbe.getMotionRange(
-                            dev,
-                            context.rightTriggerAxis);
-
-            // It's important to have a valid deadzone so controller packet batching works properly
-            context.triggerDeadzone = Math.max(Math.abs(ltRange.getFlat()), Math.abs(rtRange.getFlat()));
-
-            if (!settingsState.get().isTriggerDeadzoneDisabled()) {
-                // For triggers without (valid) deadzones, we'll use 13% (around XInput's default)
-                if (context.triggerDeadzone < 0.13f ||
-                        context.triggerDeadzone > 0.30f)
-                {
-                    context.triggerDeadzone = 0.13f;
-                }
-            }
-        }
-
-        boolean ignoreBack = shouldIgnoreBack(
-                dev,
-                context.external);
-        boolean hasStartOrMenu = false;
-        if (devName != null &&
-                devName.contains("ASUS Gamepad")) {
-            boolean[] startAndMenu =
-                    dev.hasKeys(
-                            KeyEvent.KEYCODE_BUTTON_START,
-                            KeyEvent.KEYCODE_MENU,
-                            0);
-            hasStartOrMenu =
-                    startAndMenu[0] || startAndMenu[1];
-        }
-        ControllerDeviceQuirks deviceQuirks =
-                ControllerDeviceQuirks.resolve(
-                        ControllerDeviceQuirks.Facts.builder(
-                                        context.vendorId,
-                                        context.productId)
-                                .deviceName(devName)
-                                .hasMode(context.hasMode)
-                                .hasSelect(context.hasSelect)
-                                .hasStartOrMenu(hasStartOrMenu)
-                                .hasGasAxis(gasRange != null)
-                                .triggerDeadzone(
-                                        context.triggerDeadzone)
-                                .build());
-        context.hasMode = deviceQuirks.hasMode();
-        context.hasSelect = deviceQuirks.hasSelect();
-        context.triggerDeadzone =
-                deviceQuirks.getTriggerDeadzone();
-
-        LimeLog.info("Analog stick deadzone: "+context.leftStickDeadzoneRadius+" "+context.rightStickDeadzoneRadius);
-        LimeLog.info("Trigger deadzone: "+context.triggerDeadzone);
-
-        context.buttonMapper =
-                ControllerButtonMapper.builder(
-                                context.vendorId,
-                                context.productId,
-                                Build.VERSION.SDK_INT)
-                        .ignoreBack(ignoreBack)
-                        .hasShare(context.hasShare)
-                        .dualShockStandaloneTouchpad(
-                                dualShockStandaloneTouchpad)
-                        .linuxStandardFaceButtons(
-                                linuxStandardFaceButtons)
-                        .nonStandardDualShock4(
-                                nonStandardDualShock4)
-                        .serval(deviceQuirks.isServal())
-                        .nonStandardXboxBluetooth(
-                                deviceQuirks
-                                        .isNonStandardXboxBluetooth())
-                        .backIsStart(deviceQuirks.isBackStart())
-                        .modeIsSelect(deviceQuirks.isModeSelect())
-                        .searchIsMode(deviceQuirks.isSearchMode())
-                        .hasHatAxes(
-                                context.hatXAxis != -1 ||
-                                        context.hatYAxis != -1)
-                        .build();
+        LimeLog.info(
+                "Analog stick deadzone: " +
+                        context.leftStickDeadzoneRadius + " " +
+                        context.rightStickDeadzoneRadius);
+        LimeLog.info(
+                "Trigger deadzone: " +
+                        context.triggerDeadzone);
 
         return context;
     }
@@ -1314,6 +1182,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
     private int handleRemapping(InputDeviceContext context, KeyEvent event) {
         return context.buttonMapper.remap(
+                context.buttonMappingState,
                 event.getKeyCode(),
                 event.getScanCode(),
                 event.getFlags(),
@@ -2593,7 +2462,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         InputDevice.MotionRange touchpadYRange;
         InputDevice.MotionRange touchpadPressureRange;
 
-        private ControllerButtonMapper buttonMapper;
+        private final ControllerButtonMapper buttonMapper;
+        private final ControllerButtonMappingState buttonMappingState;
         public boolean hasJoystickAxes;
         public boolean pendingExit;
 
@@ -2618,10 +2488,18 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         private InputDeviceContext(
                 ControllerLedSession ledSession,
-                ControllerBatteryReporter.Source batterySource) {
+                ControllerBatteryReporter.Source batterySource,
+                ControllerButtonMapper buttonMapper,
+                ControllerButtonMappingState buttonMappingState) {
             this.ledSession = Objects.requireNonNull(
                     ledSession,
                     "ledSession");
+            this.buttonMapper = Objects.requireNonNull(
+                    buttonMapper,
+                    "buttonMapper");
+            this.buttonMappingState = Objects.requireNonNull(
+                    buttonMappingState,
+                    "buttonMappingState");
             ControllerBatteryReporter batteryReporter =
                     new ControllerBatteryReporter(
                             batterySource,
@@ -2658,6 +2536,73 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             this.motionSession = new ControllerMotionSession(
                     motionSensorScheduler,
                     motionRegistrations);
+        }
+
+        private InputDeviceContext(
+                InputDevice inputDevice,
+                AndroidControllerDeviceProfile profile,
+                ControllerVibrationRenderer.Target vibrationTarget,
+                ControllerLedSession ledSession,
+                ControllerBatteryReporter.Source batterySource) {
+            this(
+                    ledSession,
+                    batterySource,
+                    profile.getButtonMapper(),
+                    profile.createButtonMappingState());
+            this.inputDevice = Objects.requireNonNull(
+                    inputDevice,
+                    "inputDevice");
+            this.vibrationTarget = Objects.requireNonNull(
+                    vibrationTarget,
+                    "vibrationTarget");
+            Objects.requireNonNull(profile, "profile");
+
+            name = profile.getName();
+            id = profile.getDeviceId();
+            external = profile.isExternal();
+            vendorId = profile.getVendorId();
+            productId = profile.getProductId();
+            hasPaddles = profile.hasPaddles();
+            hasShare = profile.hasShareButton();
+            hasMode = profile.hasModeButton();
+            hasSelect = profile.hasSelectButton();
+            touchpadXRange = profile.getTouchpadXRange();
+            touchpadYRange = profile.getTouchpadYRange();
+            touchpadPressureRange =
+                    profile.getTouchpadPressureRange();
+
+            ControllerAxisProfile axisProfile =
+                    profile.getAxisProfile();
+            leftStickXAxis =
+                    AndroidControllerAxisProbe.toAndroidAxis(
+                            axisProfile.getLeftStickX());
+            leftStickYAxis =
+                    AndroidControllerAxisProbe.toAndroidAxis(
+                            axisProfile.getLeftStickY());
+            rightStickXAxis =
+                    AndroidControllerAxisProbe.toAndroidAxis(
+                            axisProfile.getRightStickX());
+            rightStickYAxis =
+                    AndroidControllerAxisProbe.toAndroidAxis(
+                            axisProfile.getRightStickY());
+            leftTriggerAxis =
+                    AndroidControllerAxisProbe.toAndroidAxis(
+                            axisProfile.getLeftTrigger());
+            rightTriggerAxis =
+                    AndroidControllerAxisProbe.toAndroidAxis(
+                            axisProfile.getRightTrigger());
+            hatXAxis = AndroidControllerAxisProbe.toAndroidAxis(
+                    axisProfile.getHatX());
+            hatYAxis = AndroidControllerAxisProbe.toAndroidAxis(
+                    axisProfile.getHatY());
+            triggersIdleNegative =
+                    axisProfile.areTriggersIdleNegative();
+            hasJoystickAxes = axisProfile.hasLeftStick();
+            leftStickDeadzoneRadius =
+                    profile.getLeftStickDeadzoneRadius();
+            rightStickDeadzoneRadius =
+                    profile.getRightStickDeadzoneRadius();
+            triggerDeadzone = profile.getTriggerDeadzone();
         }
 
         @Override
