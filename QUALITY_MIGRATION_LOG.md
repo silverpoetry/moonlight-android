@@ -1088,3 +1088,17 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Split controller battery sampling and emission from `ControllerHandler`.
+  `AndroidControllerBatterySource` reads one Android S `BatteryState` or maps
+  SHIELD extension facts; `ControllerBatteryReporter` converts the sample,
+  suppresses duplicates including unavailable capacity, and emits through a
+  narrow protocol sink.
+- Added pure fixtures for SHIELD wired, wireless, both, full, charging,
+  discharging, not-charging, unknown, and unavailable-capacity behavior, plus
+  reporter fixtures for absent, duplicate, changed, and invalid samples. The
+  two-minute scheduler and protocol-visible state conversion remain unchanged.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 471 JVM
+  tests per variant (1,884 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

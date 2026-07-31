@@ -10,7 +10,6 @@ import android.hardware.SensorManager;
 import android.hardware.input.InputManager;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
-import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -42,8 +41,6 @@ import com.limelight.settings.controller.ControllerSettingsState;
 import com.limelight.ui.GameGestures;
 import com.limelight.utils.Vector2d;
 
-import org.cgutman.shieldcontrollerextensions.SceChargingState;
-import org.cgutman.shieldcontrollerextensions.SceConnectionType;
 import org.cgutman.shieldcontrollerextensions.SceManager;
 
 import java.lang.reflect.InvocationTargetException;
@@ -368,7 +365,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 deviceVibrator,
                 deviceVibratorManager);
         this.defaultContext = new InputDeviceContext(
-                ControllerLedSession.unavailable());
+                ControllerLedSession.unavailable(),
+                ControllerBatteryReporter.unavailableSource());
         this.defaultContext.vibrationTarget =
                 vibrationRenderer.emptyTarget();
 
@@ -985,7 +983,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private InputDeviceContext createInputDeviceContextForDevice(InputDevice dev) {
         InputDeviceContext context = new InputDeviceContext(
                 new ControllerLedSession(
-                        AndroidControllerLedTarget.create(dev)));
+                        AndroidControllerLedTarget.create(dev)),
+                new AndroidControllerBatterySource(
+                        dev,
+                        sceManager));
         String devName = dev.getName();
 
         LimeLog.info("Creating controller context for device: "+devName);
@@ -1258,90 +1259,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         return slotAllocator.getActiveMask(
                 settings.isMultiControllerEnabled(),
                 settings.isOnscreenControllerEnabled());
-    }
-
-    // This must not be called on the main thread due to risk of ANRs!
-    private void sendControllerBatteryPacket(InputDeviceContext context) {
-        int currentBatteryStatus;
-        float currentBatteryCapacity;
-
-        // Use the BatteryState object introduced in Android S, if it's available and present.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && context.inputDevice.getBatteryState().isPresent()) {
-            currentBatteryStatus = context.inputDevice.getBatteryState().getStatus();
-            currentBatteryCapacity = context.inputDevice.getBatteryState().getCapacity();
-        }
-        else if (sceManager.isRecognizedDevice(context.inputDevice)) {
-            // On the SHIELD Android TV, we can use a proprietary API to access battery/charge state.
-            // We will convert it to the same form used by BatteryState to share code.
-            int batteryPercentage = sceManager.getBatteryPercentage(context.inputDevice);
-            if (batteryPercentage < 0) {
-                currentBatteryCapacity = Float.NaN;
-            }
-            else {
-                currentBatteryCapacity = batteryPercentage / 100.f;
-            }
-
-            SceConnectionType connectionType = sceManager.getConnectionType(context.inputDevice);
-            SceChargingState chargingState = sceManager.getChargingState(context.inputDevice);
-
-            // We can make some assumptions about charge state based on the connection type
-            if (connectionType == SceConnectionType.WIRED || connectionType == SceConnectionType.BOTH) {
-                if (batteryPercentage == 100) {
-                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_FULL;
-                }
-                else if (chargingState == SceChargingState.NOT_CHARGING) {
-                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_NOT_CHARGING;
-                }
-                else {
-                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_CHARGING;
-                }
-            }
-            else if (connectionType == SceConnectionType.WIRELESS) {
-                if (chargingState == SceChargingState.CHARGING) {
-                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_CHARGING;
-                }
-                else {
-                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_DISCHARGING;
-                }
-            }
-            else {
-                // If connection type is unknown, just use the charge state
-                if (batteryPercentage == 100) {
-                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_FULL;
-                }
-                else if (chargingState == SceChargingState.NOT_CHARGING) {
-                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_DISCHARGING;
-                }
-                else if (chargingState == SceChargingState.CHARGING) {
-                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_CHARGING;
-                }
-                else {
-                    currentBatteryStatus = BatteryManager.BATTERY_STATUS_UNKNOWN;
-                }
-            }
-        }
-        else {
-            return;
-        }
-
-        ControllerBatteryReport report =
-                ControllerBatteryReport.fromAndroidSample(
-                        currentBatteryStatus,
-                        currentBatteryCapacity);
-        if (report != null &&
-                report.differsFrom(
-                        context.lastReportedBatteryStatus,
-                        context.lastReportedBatteryCapacity)) {
-            conn.sendControllerBatteryEvent(
-                    (byte) context.controllerNumber,
-                    report.getProtocolState(),
-                    report.getPercentage());
-
-            context.lastReportedBatteryStatus =
-                    report.getAndroidStatus();
-            context.lastReportedBatteryCapacity =
-                    report.getCapacity();
-        }
     }
 
     public void refreshBatteryReportingState() {
@@ -2807,10 +2724,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         private final ControllerLedSession ledSession;
 
-        // These are Android BatteryManager status values, not Moonlight values
-        public int lastReportedBatteryStatus;
-        public float lastReportedBatteryCapacity;
-
         public int leftStickXAxis = -1;
         public int leftStickYAxis = -1;
 
@@ -2851,17 +2764,26 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         public long startDownTime = 0;
 
-        private final ControllerBatterySession batterySession =
-                new ControllerBatterySession(
-                        batteryReportScheduler,
-                        () -> sendControllerBatteryPacket(
-                                InputDeviceContext.this),
-                        BATTERY_RECHECK_INTERVAL_MS);
+        private final ControllerBatterySession batterySession;
 
-        private InputDeviceContext(ControllerLedSession ledSession) {
+        private InputDeviceContext(
+                ControllerLedSession ledSession,
+                ControllerBatteryReporter.Source batterySource) {
             this.ledSession = Objects.requireNonNull(
                     ledSession,
                     "ledSession");
+            ControllerBatteryReporter batteryReporter =
+                    new ControllerBatteryReporter(
+                            batterySource,
+                            (protocolState, percentage) ->
+                                    conn.sendControllerBatteryEvent(
+                                            (byte) controllerNumber,
+                                            protocolState,
+                                            percentage));
+            this.batterySession = new ControllerBatterySession(
+                    batteryReportScheduler,
+                    batteryReporter::report,
+                    BATTERY_RECHECK_INTERVAL_MS);
         }
 
         @Override

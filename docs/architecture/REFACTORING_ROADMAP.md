@@ -440,6 +440,12 @@ targets.
   generation-scoped callbacks, so a canceled or late tick cannot restart
   polling. Live typed-settings updates now apply immediately to existing
   controllers instead of taking effect only after device reattachment.
+- `AndroidControllerBatterySource` owns Android S and SHIELD-extension
+  sampling, while `ShieldControllerBatteryPolicy` converts proprietary
+  connection/charging facts into tested Android battery semantics.
+  `ControllerBatteryReporter` owns duplicate suppression and protocol output;
+  the scheduler no longer reaches through `ControllerHandler` into platform
+  APIs or stores reporting history in the mutable device context.
 - `ControllerLedSession` owns desired controller-light state, while
   `AndroidControllerLedTarget` owns Android 12+ light discovery, lazy session
   creation, request rendering, and idempotent close. Input-device recreation
