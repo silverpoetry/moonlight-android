@@ -385,6 +385,10 @@ targets.
   and release share this table, including diagonal D-pad and paddle mappings;
   Hat-axis and analog-trigger ownership are applied synchronously before the
   existing context state changes, with no event-path allocation.
+- `ControllerMouseModeActivationState` owns the per-session Play-button
+  timestamp and the exact configured-button, held-mask, repeat, and hold-time
+  policy for toggling controller mouse mode or opening the stream menu. The
+  Android handler retains only the resulting UI action.
 - `ControllerAnalogInputCombiner` owns split-device trigger and stick
   aggregation. Triggers are compared as unsigned protocol values and axes by
   signed magnitude; the previous bitwise-OR corruption path has been removed.

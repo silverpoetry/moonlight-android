@@ -50,8 +50,6 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
 public class ControllerHandler implements InputManager.InputDeviceListener,
         UsbDriverListener, GamepadInputHandler,
         StreamInputLifecycleController.ControllerDevices {
-    private static final int START_DOWN_TIME_MOUSE_MODE_MS = 750;
-
     private static final int MINIMUM_BUTTON_DOWN_TIME_MS = 25;
 
     private static final int BATTERY_RECHECK_INTERVAL_MS = 120 * 1000;
@@ -382,7 +380,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                         .hasHatAxes(true)
                         .build(),
                 new ControllerButtonMappingState(false, false),
-                new ControllerChordEmulationState(false, false));
+                new ControllerChordEmulationState(false, false),
+                new ControllerMouseModeActivationState());
         this.defaultContext.vibrationTarget =
                 vibrationRenderer.emptyTarget();
 
@@ -1620,13 +1619,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private DigitalButtonApplication applyDigitalButton(
             InputDeviceContext context,
             KeyEvent event,
-            int keyCode,
+            ControllerDigitalButtonMapping.Target target,
             boolean pressed) {
-        ControllerDigitalButtonMapping.Target target =
-                ControllerDigitalButtonMapping.resolve(
-                        keyCode,
-                        event.getScanCode(),
-                        context.hasPaddles);
         if (target ==
                 ControllerDigitalButtonMapping.Target.UNHANDLED) {
             return DigitalButtonApplication.UNHANDLED;
@@ -1656,6 +1650,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
 
         if (pressed) {
+            context.mouseModeActivationState.observeButtonDown(
+                    target,
+                    event.getEventTime(),
+                    event.getRepeatCount());
             if (target ==
                     ControllerDigitalButtonMapping.Target.SPECIAL) {
                 context.chordEmulationState.observeModeButton();
@@ -1663,11 +1661,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             else if (target ==
                     ControllerDigitalButtonMapping.Target.BACK) {
                 context.chordEmulationState.observeSelectButton();
-            }
-            else if (target ==
-                    ControllerDigitalButtonMapping.Target.PLAY &&
-                    event.getRepeatCount() == 0) {
-                context.startDownTime = event.getEventTime();
             }
             context.inputMap |= target.getInputMask();
         }
@@ -1701,42 +1694,15 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private void handleMouseEmulationButtonRelease(
             InputDeviceContext context,
             ControllerSettings settings,
-            int keyCode,
+            ControllerDigitalButtonMapping.Target target,
             long eventTime) {
-        if (!settings.isMouseEmulationEnabled()) {
-            return;
-        }
-
-        switch (keyCode) {
-            case KeyEvent.KEYCODE_BUTTON_MODE:
-                if (settings.getMouseEmulationButton() == 1 &&
-                        (context.inputMap &
-                                ControllerPacket.SPECIAL_BUTTON_FLAG) != 0) {
-                    activateMouseEmulationAction(context, settings);
-                }
-                break;
-            case KeyEvent.KEYCODE_BUTTON_START:
-            case KeyEvent.KEYCODE_MENU:
-                if (settings.getMouseEmulationButton() == 0 &&
-                        (context.inputMap &
-                                ControllerPacket.PLAY_FLAG) != 0 &&
-                        eventTime - context.startDownTime >
-                                START_DOWN_TIME_MOUSE_MODE_MS) {
-                    activateMouseEmulationAction(context, settings);
-                }
-                break;
-            case KeyEvent.KEYCODE_BACK:
-            case KeyEvent.KEYCODE_BUTTON_SELECT:
-                if (settings.getMouseEmulationButton() == 2 &&
-                        (context.inputMap &
-                                ControllerPacket.BACK_FLAG) != 0 &&
-                        eventTime - context.startDownTime >
-                                START_DOWN_TIME_MOUSE_MODE_MS) {
-                    activateMouseEmulationAction(context, settings);
-                }
-                break;
-            default:
-                break;
+        if (context.mouseModeActivationState.shouldActivateOnRelease(
+                target,
+                settings.isMouseEmulationEnabled(),
+                settings.getMouseEmulationButton(),
+                context.inputMap,
+                eventTime)) {
+            activateMouseEmulationAction(context, settings);
         }
     }
 
@@ -1758,6 +1724,11 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     ControllerButtonMapper.flipFaceButtons(
                             keyCode);
         }
+        ControllerDigitalButtonMapping.Target target =
+                ControllerDigitalButtonMapping.resolve(
+                        keyCode,
+                        event.getScanCode(),
+                        context.hasPaddles);
 
         // If the button hasn't been down long enough, sleep for a bit before sending the up event
         // This allows "instant" button presses (like OUYA's virtual menu button) to work. This
@@ -1782,13 +1753,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         handleMouseEmulationButtonRelease(
                 context,
                 settings,
-                keyCode,
+                target,
                 event.getEventTime());
         DigitalButtonApplication application =
                 applyDigitalButton(
                         context,
                         event,
-                        keyCode,
+                        target,
                         false);
         if (application == DigitalButtonApplication.UNHANDLED) {
             return false;
@@ -1829,12 +1800,17 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     ControllerButtonMapper.flipFaceButtons(
                             keyCode);
         }
+        ControllerDigitalButtonMapping.Target target =
+                ControllerDigitalButtonMapping.resolve(
+                        keyCode,
+                        event.getScanCode(),
+                        context.hasPaddles);
 
         DigitalButtonApplication application =
                 applyDigitalButton(
                         context,
                         event,
-                        keyCode,
+                        target,
                         true);
         if (application == DigitalButtonApplication.UNHANDLED) {
             return false;
@@ -2139,16 +2115,11 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         private final ControllerButtonMappingState buttonMappingState;
         private final ControllerChordEmulationState
                 chordEmulationState;
+        private final ControllerMouseModeActivationState
+                mouseModeActivationState;
         public boolean hasJoystickAxes;
         public boolean hasPaddles;
         public boolean hasShare;
-
-        // Used for OUYA bumper state tracking since they force all buttons
-        // up when the OUYA button goes down. We watch the last time we get
-        // a bumper up and compare that to our maximum delay when we receive
-        // a Start button press to see if we should activate one of our
-        // emulated button combos.
-        public long startDownTime = 0;
 
         private final ControllerBatterySession batterySession;
 
@@ -2157,7 +2128,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 ControllerBatteryReporter.Source batterySource,
                 ControllerButtonMapper buttonMapper,
                 ControllerButtonMappingState buttonMappingState,
-                ControllerChordEmulationState chordEmulationState) {
+                ControllerChordEmulationState chordEmulationState,
+                ControllerMouseModeActivationState
+                        mouseModeActivationState) {
             this.ledSession = Objects.requireNonNull(
                     ledSession,
                     "ledSession");
@@ -2170,6 +2143,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             this.chordEmulationState = Objects.requireNonNull(
                     chordEmulationState,
                     "chordEmulationState");
+            this.mouseModeActivationState = Objects.requireNonNull(
+                    mouseModeActivationState,
+                    "mouseModeActivationState");
             ControllerBatteryReporter batteryReporter =
                     new ControllerBatteryReporter(
                             batterySource,
@@ -2221,7 +2197,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     profile.createButtonMappingState(),
                     new ControllerChordEmulationState(
                             profile.hasModeButton(),
-                            profile.hasSelectButton()));
+                            profile.hasSelectButton()),
+                    new ControllerMouseModeActivationState());
             this.inputDevice = Objects.requireNonNull(
                     inputDevice,
                     "inputDevice");

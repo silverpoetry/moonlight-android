@@ -1296,3 +1296,18 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Added `ControllerMouseModeActivationState` as the per-controller owner of
+  mouse-mode/game-menu button timing. It records the initial Play down only,
+  ignores repeats, applies the strict greater-than-750-ms boundary, verifies
+  the configured activation target and its current protocol bit, and preserves
+  immediate Mode-button activation.
+- The Android handler now resolves the digital target once per event, asks the
+  state for an activation decision before release mutation, and retains only
+  the menu/toggle side effect. The established Select path's use of the latest
+  Play timestamp remains explicit and fixture-locked rather than changing
+  behavior during an ownership refactor.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 542 JVM
+  tests per variant (2,168 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.
