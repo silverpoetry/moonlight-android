@@ -409,6 +409,11 @@ targets.
   register ordering, missing sensors, rejected registration, sampling-period
   conversion, and neutral output are deterministic under generic JVM fixtures;
   `AndroidControllerMotionBackend` contains the remaining typed platform calls.
+- `ControllerMotionSensorPolicy` owns the Android-version, vendor, and setting
+  gate that protects input-device sensor-manager creation. The thin
+  `AndroidControllerMotionSource` touches Android's controller sensor API only
+  when permitted and returns a manager only when accelerometer or gyroscope
+  hardware is present.
 - `ControllerMotionSampleTransformer` owns duplicate suppression, four-way
   device-orientation correction, raw samples, and protocol unit conversion in
   one allocation-free callback object. `ControllerGyroStickTranslator` owns the

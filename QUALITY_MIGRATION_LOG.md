@@ -1185,3 +1185,19 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Extracted controller sensor-manager eligibility into
+  `ControllerMotionSensorPolicy` and platform access into
+  `AndroidControllerMotionSource`. Disabled settings and pre-Android-12 builds
+  never touch the input-device sensor API; Android 12 probes only Sony and
+  Nintendo devices; the original Android 12L no-probe behavior is explicit;
+  Android 13+ accepts any vendor but binds only a manager that exposes an
+  accelerometer or gyroscope.
+- This preserves the defensive workaround for Android 12's
+  `InputDeviceSensorManager` callback failure without leaving SDK/vendor policy
+  embedded in context construction. No callback, scheduler, thread, or
+  steady-state input work was added.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 507 JVM
+  tests per variant (2,028 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

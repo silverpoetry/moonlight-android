@@ -1029,30 +1029,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         context.vibrationTarget = vibrationRenderer.selectTarget(
                 dev,
                 context.external);
-        // On Android 12, we can try to use the InputDevice's sensors. This may not work if the
-        // Linux kernel version doesn't have motion sensor support, which is common for third-party
-        // gamepads.
-        //
-        // Android 12 has a bug that causes InputDeviceSensorManager to cause a NPE on a background
-        // thread due to bad error checking in InputListener callbacks. InputDeviceSensorManager is
-        // created upon the first call to InputDevice.getSensorManager(), so we avoid calling this
-        // on Android 12 unless we have a gamepad that could plausibly have motion sensors.
-        // https://cs.android.com/android/_/android/platform/frameworks/base/+/8970010a5e9f3dc5c069f56b4147552accfcbbeb
-        if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ||
-                (Build.VERSION.SDK_INT == Build.VERSION_CODES.S &&
-                        (context.vendorId == 0x054c || context.vendorId == 0x057e))) && // Sony or Nintendo
-                settingsState.get().areMotionSensorsEnabled()) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                SensorManager inputDeviceSensorManager =
-                        dev.getSensorManager();
-                if (inputDeviceSensorManager.getDefaultSensor(
-                        Sensor.TYPE_ACCELEROMETER) != null ||
-                        inputDeviceSensorManager.getDefaultSensor(
-                                Sensor.TYPE_GYROSCOPE) != null) {
-                    context.motionRegistrations.setManager(
-                            inputDeviceSensorManager);
-                }
-            }
+        SensorManager inputDeviceSensorManager =
+                AndroidControllerMotionSource.findAvailableManager(
+                        dev,
+                        settingsState.get().areMotionSensorsEnabled());
+        if (inputDeviceSensorManager != null) {
+            context.motionRegistrations.setManager(
+                    inputDeviceSensorManager);
         }
 
         // Detect if the gamepad has Mode and Select buttons according to the Android key layouts.
