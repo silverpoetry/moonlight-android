@@ -65,7 +65,7 @@ public final class StreamMediaResourceOwner {
         private final AudioRenderer audioRenderer;
         private final VideoDecoderRenderer videoRenderer;
 
-        private StartResources(
+        StartResources(
                 AudioRenderer audioRenderer,
                 VideoDecoderRenderer videoRenderer) {
             this.audioRenderer = audioRenderer;

@@ -237,6 +237,20 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void gameDelegatesRenderSurfaceHostAdaptation() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamRenderSurfaceController$Host")
+                .because(
+                        "render startup transactions and Surface lifecycle adaptation have one owner")
+                .check(productionClasses);
+    }
+
+    @Test
     public void gameDelegatesSystemUiVisibilityListening() {
         noClasses()
                 .that()

@@ -124,6 +124,7 @@ import com.limelight.ui.stream.StreamMediaResourceOwner;
 import com.limelight.ui.stream.StreamMicrophoneController;
 import com.limelight.ui.stream.StreamOverlayVisibilityController;
 import com.limelight.ui.stream.StreamRenderSurfaceController;
+import com.limelight.ui.stream.StreamRenderSessionHost;
 import com.limelight.ui.stream.StreamSessionCallbackRouter;
 import com.limelight.ui.stream.StreamSessionConfigurationAdapter;
 import com.limelight.ui.stream.StreamSessionConfigurationPlanner;
@@ -169,7 +170,6 @@ import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
-import android.view.Surface;
 import android.view.View;
 import android.view.View.OnGenericMotionListener;
 import android.view.View.OnTouchListener;
@@ -906,46 +906,12 @@ public class Game extends Activity implements OnGenericMotionListener,
                                                 .isRefreshRateReductionEnabled()),
                         displayPreparation
                                 .isSystemManagedRefreshRate(),
-                        new StreamRenderSurfaceController.Host() {
-                            @Override
-                            public boolean canStartSession() {
-                                return sessionDependenciesReady &&
-                                        sessionController != null &&
-                                        sessionController.canStart();
-                            }
-
-                            @Override
-                            public void startSession(
-                                    Surface renderTarget) {
-                                startSessionWithRenderTarget(
-                                        renderTarget);
-                            }
-
-                            @Override
-                            public boolean hasSessionStarted() {
-                                return Game.this
-                                        .hasSessionStarted();
-                            }
-
-                            @Override
-                            public boolean sessionNeedsStop() {
-                                return sessionController != null &&
-                                        sessionController
-                                                .getState()
-                                                .needsStop();
-                            }
-
-                            @Override
-                            public void prepareVideoForStop() {
-                                mediaResourceOwner
-                                        .prepareVideoForStop();
-                            }
-
-                            @Override
-                            public void stopSession() {
-                                stopConnection();
-                            }
-                        });
+                        new StreamRenderSessionHost(
+                                sessionController,
+                                mediaResourceOwner,
+                                sessionUiEffects,
+                                () -> sessionDependenciesReady,
+                                this::stopConnection));
         renderSurfaceController.bind();
 
         //外接显示器模式
@@ -2381,35 +2347,6 @@ public class Game extends Activity implements OnGenericMotionListener,
     @Override
     public void applyDualSenseTriggerSettings() {
         refreshAdaptiveTriggerState();
-    }
-
-    private void startSessionWithRenderTarget(Surface renderTarget) {
-        if (sessionController == null ||
-                !sessionController.canStart()) {
-            return;
-        }
-
-        StreamMediaResourceOwner.StartResources resources =
-                mediaResourceOwner.prepareStart(renderTarget);
-        sessionUiEffects.onConnecting();
-        try {
-            if (sessionController.start(
-                    resources.getAudioRenderer(),
-                    resources.getVideoRenderer())) {
-                return;
-            }
-        } catch (RuntimeException | Error error) {
-            mediaResourceOwner.releaseStartResources();
-            sessionUiEffects.onEnded();
-            throw error;
-        }
-        mediaResourceOwner.releaseStartResources();
-        sessionUiEffects.onEnded();
-    }
-
-    private boolean hasSessionStarted() {
-        return sessionController != null &&
-                sessionController.hasStartBeenRequested();
     }
 
     public boolean isSessionConnected() {

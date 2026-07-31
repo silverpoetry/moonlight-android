@@ -517,6 +517,10 @@ targets.
   tested 250 ms capture-toggle schedule. `AndroidInputDeviceRegistration`
   owns idempotent InputManager registration cleanup, while
   `StreamInputSuppressionHost` adapts the live UI suppression predicate.
+- `StreamRenderSessionHost` owns the transactional handoff from a valid
+  Surface to acquired media resources and the session controller. Accepted,
+  rejected, and exceptional starts are unit-tested, including deterministic
+  resource/UI rollback, while `Game` no longer implements the Surface host.
 - `StreamHdrRequestPolicy` owns HDR request eligibility and user-warning
   selection from immutable settings and device facts. The Android capability
   provider samples OS, firmware, and display HDR10 support once; `Game` no
