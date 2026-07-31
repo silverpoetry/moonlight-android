@@ -117,5 +117,10 @@ public final class SettingsItemTest {
         public String getString(SettingsItem item) {
             return strings.getOrDefault(item.key, "");
         }
+
+        @Override
+        public String getText(SettingsItem item) {
+            return getString(item);
+        }
     }
 }

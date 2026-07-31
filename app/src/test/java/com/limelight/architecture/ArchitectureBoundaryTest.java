@@ -376,6 +376,17 @@ public final class ArchitectureBoundaryTest {
                 .because(
                         "settings value editor windows belong to SettingsDialogPresenter")
                 .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.StreamSettings")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android.widget..")
+                .because(
+                        "settings Views and row rendering belong to SettingsScreenRenderer")
+                .check(productionClasses);
     }
 
     @Test

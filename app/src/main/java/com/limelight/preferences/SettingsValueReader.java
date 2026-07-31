@@ -7,4 +7,6 @@ interface SettingsValueReader {
     int getInt(SettingsItem item);
 
     String getString(SettingsItem item);
+
+    String getText(SettingsItem item);
 }

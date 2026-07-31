@@ -140,6 +140,14 @@ visual presentation, editor input constraints, and validation feedback, while
 the Activity receives only semantic selection callbacks. Teardown dismisses
 the active window so it cannot retain or address a destroyed Activity.
 
+The settings View tree crosses `SettingsScreenRenderer`. It is the sole owner
+of root, narrow, and wide layouts, section and item rows, dependency-state
+refresh, scroll restoration, window-inset padding, and transient selection
+animation. It receives the one `SettingsScreenModel` graph and a read-only
+`SettingsValueReader`, then emits semantic back, section, item, and switch
+intents. It has no settings write API; `StreamSettings` owns navigation and
+routes intents to use-case controllers.
+
 ## Snapshot lifecycle
 
 A stream session receives one snapshot during composition. A setting that

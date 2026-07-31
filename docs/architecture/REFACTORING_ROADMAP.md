@@ -305,6 +305,11 @@ A slice is incomplete if callers can still bypass the new boundary.
   styling, input constraints, validation feedback, and teardown; the Activity
   receives only typed semantic selections and cannot construct an
   `AlertDialog` directly.
+- Root, narrow, and wide settings layouts now have one lifecycle-bound
+  `SettingsScreenRenderer`. It owns View construction, row refresh, scroll
+  restoration, insets, and section selection while exposing only back,
+  section, item, and switch intents. `StreamSettings` has no Android widget
+  dependency and remains the composition and navigation boundary.
 - The in-stream action catalog and virtual-overlay buttons consume typed UI
   policy plus read-only controller visibility. Persisted startup defaults are
   no longer mutated to represent picture-in-picture or menu presentation, and

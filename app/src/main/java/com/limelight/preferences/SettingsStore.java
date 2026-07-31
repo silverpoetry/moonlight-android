@@ -48,7 +48,8 @@ final class SettingsStore implements SettingsValueReader {
         return repository.get(item.stringKey());
     }
 
-    String getText(SettingsItem item) {
+    @Override
+    public String getText(SettingsItem item) {
         if (!item.isCustomBitrateEditor()) {
             return getString(item);
         }
