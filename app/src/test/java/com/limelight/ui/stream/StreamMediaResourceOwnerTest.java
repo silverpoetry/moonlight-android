@@ -5,6 +5,9 @@ import android.view.Surface;
 import com.limelight.nvstream.av.audio.AudioRenderer;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 import com.limelight.nvstream.jni.MoonBridge;
+import com.limelight.settings.audio.StreamAudioSettings;
+import com.limelight.settings.audio.StreamAudioSettings.HapticsOutputTarget;
+import com.limelight.settings.audio.StreamAudioSettings.VoiceFilter;
 
 import org.junit.Test;
 
@@ -121,17 +124,25 @@ public final class StreamMediaResourceOwnerTest {
                         new FakeVideoResource(),
                         () -> audio);
 
-        owner.updateAudioHapticsSettings(
-                true, 1, "voice", "phone");
+        owner.updateAudioSettings(audioSettings(101));
         owner.prepareStart(() -> null);
-        owner.updateAudioHapticsSettings(
-                true, 2, "voice", "controller");
+        owner.updateAudioSettings(audioSettings(102));
         owner.releaseStartResources();
-        owner.updateAudioHapticsSettings(
-                false, 3, "off", "phone");
+        owner.updateAudioSettings(audioSettings(103));
 
         assertEquals(1, audio.settingsUpdateCount);
-        assertEquals(2, audio.lastStrength);
+        assertEquals(102, audio.lastStrength);
+    }
+
+    private static StreamAudioSettings audioSettings(int strength) {
+        return StreamAudioSettings.builder()
+                .setAudioHaptics(
+                        true,
+                        HapticsOutputTarget.CONTROLLER,
+                        strength,
+                        VoiceFilter.OFF,
+                        false)
+                .build();
     }
 
     private static final class FakeVideoResource
@@ -213,13 +224,10 @@ public final class StreamMediaResourceOwnerTest {
         }
 
         @Override
-        public void updateAudioHapticsSettings(
-                boolean enabled,
-                int strength,
-                String voiceFilter,
-                String outputTarget) {
+        public void updateAudioSettings(
+                StreamAudioSettings settings) {
             settingsUpdateCount++;
-            lastStrength = strength;
+            lastStrength = settings.getHapticsStrengthPercent();
         }
     }
 

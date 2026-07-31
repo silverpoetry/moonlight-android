@@ -12,7 +12,8 @@ import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.settings.SettingsMigrationRunner;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
-import com.limelight.settings.audio.StreamAudioSettingKeys;
+import com.limelight.settings.audio.StreamAudioSettings;
+import com.limelight.settings.audio.StreamAudioSettingsLoader;
 import com.limelight.settings.controller.ControllerSettingKeys;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsLoader;
@@ -27,6 +28,8 @@ import com.limelight.settings.transfer.TransferSettingKeys;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
+
+import java.util.Objects;
 
 public class PreferenceConfiguration {
     public enum FormatOption {
@@ -53,7 +56,6 @@ public class PreferenceConfiguration {
     private static final String STRETCH_PREF_STRING = "checkbox_stretch_video";
     private static final String SOPS_PREF_STRING = "checkbox_enable_sops";
     private static final String DISABLE_TOASTS_PREF_STRING = "checkbox_disable_warnings";
-    private static final String HOST_AUDIO_PREF_STRING = "checkbox_host_audio";
     public static final String OSC_OPACITY_PREF_STRING =
             VirtualControlSettingKeys.CONTROL_OPACITY_PERCENT
                     .getName();
@@ -89,9 +91,6 @@ public class PreferenceConfiguration {
             TransferSettingKeys.CLIPBOARD_SYNC.getName();
     public static final String CLIPBOARD_FILE_DIRECTORY_PREF_STRING = "clipboard_file_save_directory";
     private static final String DISABLE_ADAPTIVE_INPUT_THROTTLING_PREF_STRING = "checkbox_disable_adaptive_input_throttling";
-    private static final String ENABLE_AUDIO_FX_PREF_STRING = "checkbox_enable_audiofx";
-    private static final String AUDIO_HAPTICS_STRENGTH_PREF_STRING = "seekbar_audio_haptics_strength";
-    private static final String AUDIO_HAPTICS_VOICE_FILTER_PREF_STRING = "list_audio_haptics_voice_filter";
     private static final String REDUCE_REFRESH_RATE_PREF_STRING = "checkbox_reduce_refresh_rate";
     private static final String FULL_RANGE_PREF_STRING = "checkbox_full_range";
     private static final String GAMEPAD_MOTION_SENSORS_PREF_STRING =
@@ -119,7 +118,6 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_STRETCH = false;
     private static final boolean DEFAULT_SOPS = true;
     private static final boolean DEFAULT_DISABLE_TOASTS = false;
-    private static final boolean DEFAULT_HOST_AUDIO = false;
     public static final String DEFAULT_LANGUAGE = "default";
     private static final String DEFAULT_VIDEO_FORMAT = "auto";
 
@@ -130,9 +128,6 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_UNLOCK_FPS = false;
     private static final boolean DEFAULT_LATENCY_TOAST = false;
     private static final boolean DEFAULT_DISABLE_ADAPTIVE_INPUT_THROTTLING = true;
-    private static final boolean DEFAULT_ENABLE_AUDIO_FX = false;
-    private static final int DEFAULT_AUDIO_HAPTICS_STRENGTH = 100;
-    private static final String DEFAULT_AUDIO_HAPTICS_VOICE_FILTER = "off";
     private static final boolean DEFAULT_REDUCE_REFRESH_RATE = false;
     private static final boolean DEFAULT_FULL_RANGE = false;
 
@@ -680,6 +675,63 @@ public class PreferenceConfiguration {
         }
     }
 
+    private static String toLegacyVoiceFilter(
+            StreamAudioSettings.VoiceFilter filter) {
+        switch (filter) {
+            case LOW:
+                return "low";
+            case MEDIUM:
+                return "medium";
+            case HIGH:
+                return "high";
+            case OFF:
+            default:
+                return "off";
+        }
+    }
+
+    /**
+     * Updates the temporary legacy view from the canonical audio snapshot.
+     *
+     * <p>Runtime code must consume {@link StreamAudioSettings} directly.
+     * This bridge exists only while legacy menu surfaces still receive this
+     * mutable configuration object.</p>
+     */
+    public void applyAudioSettings(StreamAudioSettings settings) {
+        Objects.requireNonNull(settings, "settings");
+
+        switch (settings.getChannelConfiguration()) {
+            case SURROUND_7_1:
+                audioConfiguration =
+                        MoonBridge.AUDIO_CONFIGURATION_71_SURROUND;
+                break;
+            case SURROUND_5_1:
+                audioConfiguration =
+                        MoonBridge.AUDIO_CONFIGURATION_51_SURROUND;
+                break;
+            case STEREO:
+            default:
+                audioConfiguration =
+                        MoonBridge.AUDIO_CONFIGURATION_STEREO;
+                break;
+        }
+
+        playHostAudio = settings.shouldPlayHostAudio();
+        enableAudioFx = settings.areAudioEffectsEnabled();
+        audioMute = settings.isMuted();
+        enableAudioHaptics = settings.areAudioHapticsEnabled();
+        audioHapticsOutputTarget =
+                settings.isControllerHapticsTarget()
+                        ? "controller"
+                        : "phone";
+        audioHapticsStrength =
+                settings.getHapticsStrengthPercent();
+        audioHapticsVoiceFilter =
+                toLegacyVoiceFilter(settings.getVoiceFilter());
+        audioHapticsKeepControllerRumble =
+                settings.shouldKeepControllerRumble();
+    }
+
     public static void resetStreamingSettings(Context context) {
         // We consider resolution, FPS, bitrate, HDR, and video format as "streaming settings" here
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
@@ -749,6 +801,8 @@ public class PreferenceConfiguration {
         }
         ControllerSettings controllerSettings =
                 ControllerSettingsLoader.load(repository);
+        StreamAudioSettings audioSettings =
+                StreamAudioSettingsLoader.load(repository);
         VirtualControlSettings virtualControlSettings =
                 VirtualControlSettingsLoader.load(repository);
 
@@ -758,17 +812,7 @@ public class PreferenceConfiguration {
             config.bitrate = getDefaultBitrate(context);
         }
 
-        String audioConfig = repository.get(
-                StreamAudioSettingKeys.CHANNEL_CONFIGURATION);
-        if (audioConfig.equals("71")) {
-            config.audioConfiguration = MoonBridge.AUDIO_CONFIGURATION_71_SURROUND;
-        }
-        else if (audioConfig.equals("51")) {
-            config.audioConfiguration = MoonBridge.AUDIO_CONFIGURATION_51_SURROUND;
-        }
-        else /* if (audioConfig.equals("2")) */ {
-            config.audioConfiguration = MoonBridge.AUDIO_CONFIGURATION_STEREO;
-        }
+        config.applyAudioSettings(audioSettings);
 
         config.videoFormat = getVideoFormatValue(context);
         config.framePacing = getFramePacingValue(repository);
@@ -785,7 +829,6 @@ public class PreferenceConfiguration {
         config.disableWarnings = prefs.getBoolean(DISABLE_TOASTS_PREF_STRING, DEFAULT_DISABLE_TOASTS);
         config.enableSops = prefs.getBoolean(SOPS_PREF_STRING, DEFAULT_SOPS);
         config.stretchVideo = prefs.getBoolean(STRETCH_PREF_STRING, DEFAULT_STRETCH);
-        config.playHostAudio = prefs.getBoolean(HOST_AUDIO_PREF_STRING, DEFAULT_HOST_AUDIO);
         config.smallIconMode = prefs.getBoolean(SMALL_ICONS_PREF_STRING, getDefaultSmallMode(context));
         config.multiController =
                 controllerSettings.isMultiControllerEnabled();
@@ -935,8 +978,6 @@ public class PreferenceConfiguration {
         config.mouseEmulationGameMenu =
                 controllerSettings.getMouseEmulationButton();
 
-        config.audioMute=prefs.getBoolean("ax_audio_mute",false);
-
         config.passAppMenu=prefs.getBoolean("checkbox_enable_pass_menu",false);
 
         config.virtualkeyViewNormalColor =
@@ -987,20 +1028,6 @@ public class PreferenceConfiguration {
                 TransferSettingKeys.CLIPBOARD_SYNC);
         config.disableAdaptiveInputThrottling = prefs.getBoolean(DISABLE_ADAPTIVE_INPUT_THROTTLING_PREF_STRING,
                 DEFAULT_DISABLE_ADAPTIVE_INPUT_THROTTLING);
-        config.enableAudioFx = prefs.getBoolean(ENABLE_AUDIO_FX_PREF_STRING, DEFAULT_ENABLE_AUDIO_FX);
-        config.enableAudioHaptics =
-                controllerSettings
-                        .isControllerAudioHapticsEnabled();
-        config.audioHapticsOutputTarget =
-                controllerSettings
-                        .isAudioHapticsTargetController() ?
-                        "controller" :
-                        "phone";
-        config.audioHapticsStrength = prefs.getInt(AUDIO_HAPTICS_STRENGTH_PREF_STRING, DEFAULT_AUDIO_HAPTICS_STRENGTH);
-        config.audioHapticsVoiceFilter = prefs.getString(AUDIO_HAPTICS_VOICE_FILTER_PREF_STRING, DEFAULT_AUDIO_HAPTICS_VOICE_FILTER);
-        config.audioHapticsKeepControllerRumble =
-                controllerSettings
-                        .shouldKeepControllerRumbleWithAudioHaptics();
         config.reduceRefreshRate = prefs.getBoolean(REDUCE_REFRESH_RATE_PREF_STRING, DEFAULT_REDUCE_REFRESH_RATE);
         config.fullRange = prefs.getBoolean(FULL_RANGE_PREF_STRING, DEFAULT_FULL_RANGE);
         config.gamepadTouchpadAsMouse =

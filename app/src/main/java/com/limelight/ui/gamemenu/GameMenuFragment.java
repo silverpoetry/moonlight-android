@@ -722,10 +722,6 @@ public class GameMenuFragment extends BaseGameMenuDialog
                         host.applyPerformanceOverlayMargin();
                         return;
                     }
-                    if(index==6){
-                        host.applyAudioHapticsSettings();
-                        return;
-                    }
                 }
 
                 @Override
@@ -739,6 +735,13 @@ public class GameMenuFragment extends BaseGameMenuDialog
                 public void onControllerSettingsChanged() {
                     if (host != null) {
                         host.applyControllerSettingsFromStorage();
+                    }
+                }
+
+                @Override
+                public void onAudioSettingsChanged() {
+                    if (host != null) {
+                        host.applyAudioSettingsFromStorage();
                     }
                 }
             });

@@ -50,6 +50,8 @@ import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.nvstream.input.KeyboardPacket;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
+import com.limelight.settings.audio.StreamAudioSettings;
+import com.limelight.settings.audio.StreamAudioSettingsState;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsState;
 import com.limelight.ui.GameGestures;
@@ -149,37 +151,35 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private boolean stopped = false;
 
     private final ControllerSettingsState settingsState;
+    private final StreamAudioSettingsState audioSettingsState;
     private short currentControllers, initialControllers;
 
     private boolean shouldUseControllerAudioHaptics() {
         return shouldUseControllerAudioHaptics(
-                settingsState.get());
+                audioSettingsState.get());
     }
 
     private static boolean shouldUseControllerAudioHaptics(
-            ControllerSettings settings) {
-        return settings.isControllerAudioHapticsEnabled() &&
-                settings.isAudioHapticsTargetController();
+            StreamAudioSettings settings) {
+        return settings.areAudioHapticsEnabled() &&
+                settings.isControllerHapticsTarget();
     }
 
     private boolean shouldSuppressControllerRumble() {
-        ControllerSettings settings = settingsState.get();
+        StreamAudioSettings settings = audioSettingsState.get();
         return shouldUseControllerAudioHaptics(settings) &&
-                !settings
-                        .shouldKeepControllerRumbleWithAudioHaptics();
+                !settings.shouldKeepControllerRumble();
     }
 
     private boolean shouldSuppressInputDeviceRumble(InputDeviceContext context) {
-        ControllerSettings settings = settingsState.get();
+        StreamAudioSettings settings = audioSettingsState.get();
         if (!RazerKishiHapticsDevice.isFeatureEnabled()) {
             return shouldUseControllerAudioHaptics(settings) &&
-                    !settings
-                            .shouldKeepControllerRumbleWithAudioHaptics();
+                    !settings.shouldKeepControllerRumble();
         }
 
         return shouldUseControllerAudioHaptics(settings) &&
-                !settings
-                        .shouldKeepControllerRumbleWithAudioHaptics() &&
+                !settings.shouldKeepControllerRumble() &&
                 RazerKishiHapticsDevice.canUseDevice(context.vendorId, context.productId, context.name);
     }
 
@@ -405,7 +405,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             Activity activityContext,
             NvConnection conn,
             GameGestures gestures,
-            ControllerSettingsState settingsState) {
+            ControllerSettingsState settingsState,
+            StreamAudioSettingsState audioSettingsState) {
         this.activityContext = activityContext;
         this.conn = conn;
         this.keyboardInputSink =
@@ -414,6 +415,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         this.settingsState = Objects.requireNonNull(
                 settingsState,
                 "settingsState");
+        this.audioSettingsState = Objects.requireNonNull(
+                audioSettingsState,
+                "audioSettingsState");
         this.usbManager = (UsbManager) activityContext.getSystemService(Context.USB_SERVICE);
         this.deviceVibrator = (Vibrator) activityContext.getSystemService(Context.VIBRATOR_SERVICE);
         this.deviceSensorManager = (SensorManager) activityContext.getSystemService(Context.SENSOR_SERVICE);

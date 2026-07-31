@@ -100,16 +100,6 @@ public final class ControllerSettingsLoader {
                                         .ANALOG_STICK_FOR_SCROLLING)))
                 .setBatteryReportingEnabled(repository.get(
                         ControllerSettingKeys.BATTERY_REPORTING))
-                .setControllerAudioHaptics(
-                        repository.get(
-                                ControllerSettingKeys
-                                        .CONTROLLER_AUDIO_HAPTICS),
-                        "controller".equals(repository.get(
-                                ControllerSettingKeys
-                                        .AUDIO_HAPTICS_OUTPUT_TARGET)),
-                        repository.get(
-                                ControllerSettingKeys
-                                        .KEEP_CONTROLLER_RUMBLE_WITH_AUDIO_HAPTICS))
                 .build();
     }
 

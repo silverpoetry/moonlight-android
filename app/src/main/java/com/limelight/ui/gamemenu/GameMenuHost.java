@@ -88,7 +88,7 @@ public interface GameMenuHost {
 
     void applyPerformanceOverlayMargin();
 
-    void applyAudioHapticsSettings();
+    void applyAudioSettingsFromStorage();
 
     void updateVirtualView();
 

@@ -129,24 +129,6 @@ public final class ControllerSettingKeys {
             SettingKey.booleanKey(
                     "checkbox_gamepad_enable_battery_report",
                     true);
-    public static final SettingKey<Boolean>
-            CONTROLLER_AUDIO_HAPTICS =
-            SettingKey.booleanKey(
-                    "checkbox_enable_audio_haptics",
-                    false);
-    public static final SettingKey<String>
-            AUDIO_HAPTICS_OUTPUT_TARGET =
-            SettingKey.stringSetKey(
-                    "list_audio_haptics_output_target",
-                    "phone",
-                    "phone",
-                    "controller");
-    public static final SettingKey<Boolean>
-            KEEP_CONTROLLER_RUMBLE_WITH_AUDIO_HAPTICS =
-            SettingKey.booleanKey(
-                    "checkbox_audio_haptics_keep_controller_rumble",
-                    false);
-
     private ControllerSettingKeys() {
     }
 }

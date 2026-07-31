@@ -45,6 +45,9 @@ import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.preferences.LegacyPreferenceSettingsAdapter;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.audio.StreamAudioSettings;
+import com.limelight.settings.audio.StreamAudioSettingsLoader;
+import com.limelight.settings.audio.StreamAudioSettingsState;
 import com.limelight.settings.controller.ControllerSettingKeys;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsLoader;
@@ -171,6 +174,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private ControllerHandler controllerHandler;
     private ControllerSettingsState controllerSettingsState;
+    private StreamAudioSettingsState streamAudioSettingsState;
     private VirtualControlSettingsState virtualControlSettingsState;
     private VirtualControlLayoutRepository virtualControlLayoutRepository;
     private KeyboardInputController keyboardInputController;
@@ -250,7 +254,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
             UsbDriverService.UsbDriverBinder binder = (UsbDriverService.UsbDriverBinder) iBinder;
-            binder.setSettingsState(controllerSettingsState);
+            binder.configureSettings(
+                    controllerSettingsState,
+                    streamAudioSettingsState);
             binder.setListener(controllerHandler);
             binder.setStateListener(Game.this);
             binder.start();
@@ -348,6 +354,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         controllerSettingsState =
                 new ControllerSettingsState(
                         ControllerSettingsLoader.load(
+                                settingsRepository));
+        streamAudioSettingsState =
+                new StreamAudioSettingsState(
+                        StreamAudioSettingsLoader.load(
                                 settingsRepository));
         virtualControlSettingsState =
                 new VirtualControlSettingsState(
@@ -618,11 +628,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 () -> new AndroidAudioRenderer(
                         Game.this,
                         controllerHandler,
-                        prefConfig.enableAudioFx,
-                        prefConfig.enableAudioHaptics,
-                        prefConfig.audioHapticsStrength,
-                        prefConfig.audioHapticsVoiceFilter,
-                        prefConfig.audioHapticsOutputTarget));
+                        streamAudioSettingsState));
 
         // Don't stream HDR if the decoder can't support it
         if (willStreamHdr && !decoderRenderer.isHevcMain10Hdr10Supported() && !decoderRenderer.isAv1Main10Supported()) {
@@ -704,13 +710,20 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .setApp(app)
                 .setBitrate(prefConfig.bitrate)
                 .setEnableSops(prefConfig.enableSops)
-                .enableLocalAudioPlayback(prefConfig.playHostAudio)
+                .enableLocalAudioPlayback(
+                        streamAudioSettingsState
+                                .get()
+                                .shouldPlayHostAudio())
                 .setMaxPacketSize(1392)
                 .setRemoteConfiguration(StreamConfiguration.STREAM_CFG_AUTO) // NvConnection will perform LAN and VPN detection
                 .setSupportedVideoFormats(supportedVideoFormats)
                 .setAttachedGamepadMask(gamepadMask)
                 .setClientRefreshRateX100((int)(displayRefreshRate * 100))
-                .setAudioConfiguration(prefConfig.audioConfiguration)
+                .setAudioConfiguration(
+                        toTransportAudioConfiguration(
+                                streamAudioSettingsState
+                                        .get()
+                                        .getChannelConfiguration()))
                 .setColorSpace(decoderRenderer.getPreferredColorSpace())
                 .setColorRange(decoderRenderer.getPreferredColorRange())
                 .setPPI(RazerUtils.getPPI(this))
@@ -972,7 +985,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 this,
                 conn,
                 this,
-                controllerSettingsState);
+                controllerSettingsState,
+                streamAudioSettingsState);
         keyboardInputController = new KeyboardInputController(
                 new KeyboardTranslator(),
                 controllerHandler,
@@ -3246,8 +3260,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     @Override
-    public void applyAudioHapticsSettings() {
-        setAudioHapticsSettings();
+    public void applyAudioSettingsFromStorage() {
+        reloadAudioSettings();
     }
 
 
@@ -3545,17 +3559,32 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         return keyBoardController;
     }
 
-    public void setAudioHapticsSettings() {
-        applyControllerSettingsFromStorage();
+    private void reloadAudioSettings() {
+        StreamAudioSettings settings =
+                StreamAudioSettingsLoader.load(
+                        settingsRepository);
+        streamAudioSettingsState.replace(settings);
+        prefConfig.applyAudioSettings(settings);
         if (mediaResourceOwner != null) {
-            mediaResourceOwner.updateAudioHapticsSettings(
-                    prefConfig.enableAudioHaptics,
-                    prefConfig.audioHapticsStrength,
-                    prefConfig.audioHapticsVoiceFilter,
-                    prefConfig.audioHapticsOutputTarget);
+            mediaResourceOwner.updateAudioSettings(settings);
         }
         if (controllerHandler != null) {
             controllerHandler.refreshAudioHapticsState();
+        }
+    }
+
+    private static MoonBridge.AudioConfiguration
+            toTransportAudioConfiguration(
+                    StreamAudioSettings.ChannelConfiguration
+                            configuration) {
+        switch (configuration) {
+            case SURROUND_7_1:
+                return MoonBridge.AUDIO_CONFIGURATION_71_SURROUND;
+            case SURROUND_5_1:
+                return MoonBridge.AUDIO_CONFIGURATION_51_SURROUND;
+            case STEREO:
+            default:
+                return MoonBridge.AUDIO_CONFIGURATION_STEREO;
         }
     }
 

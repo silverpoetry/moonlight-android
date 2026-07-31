@@ -215,9 +215,14 @@ A slice is incomplete if callers can still bypass the new boundary.
 - Stream display/resolution and decoder snapshots.
 - Input/gesture, physical-controller, and virtual-control snapshots with
   explicit live-update state owners.
-- USB driver enablement, claim policy, and controller-audio-haptics routing now
-  come from the stream-owned controller snapshot; the bound service performs
-  no preference I/O and is configured before device enumeration.
+- USB driver enablement and claim policy come from the stream-owned controller
+  snapshot; audio-haptics routing comes from the stream-owned audio snapshot.
+  The bound service performs no preference I/O and receives both states before
+  device enumeration.
+- Playback, mute, effects, channel layout, audio-haptics processing, controller
+  rumble suppression, and USB/Kishi routing share one immutable
+  `StreamAudioSettings` snapshot. PCM callbacks no longer read preferences,
+  and live menu changes publish one replacement state.
 - Versioned legacy preference migration through schema version 2.
 - A platform-independent virtual-control layout identity/repository contract,
   Android atomic-file adapter, bounded and validated import, and one shared

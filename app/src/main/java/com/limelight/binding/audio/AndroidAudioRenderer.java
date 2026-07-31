@@ -9,36 +9,46 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.media.audiofx.AudioEffect;
 import android.os.Build;
-import android.preference.PreferenceManager;
 
 import com.limelight.LimeLog;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.nvstream.av.audio.AudioRenderer;
 import com.limelight.nvstream.jni.MoonBridge;
+import com.limelight.settings.audio.StreamAudioSettings;
+import com.limelight.settings.audio.StreamAudioSettingsState;
+
+import java.util.Objects;
 
 public class AndroidAudioRenderer implements AudioRenderer {
 
     private final Context context;
     private final boolean enableAudioFx;
-    private final String audioHapticsOutputTarget;
+    private final StreamAudioSettingsState settingsState;
     private final AudioHapticsController phoneAudioHapticsController;
     private final ControllerAudioHapticsController controllerAudioHapticsController;
 
     private AudioTrack track;
 
-    public AndroidAudioRenderer(Context context, ControllerHandler controllerHandler, boolean enableAudioFx,
-                                boolean enableAudioHaptics, int audioHapticsStrength,
-                                String audioHapticsVoiceFilterMode,
-                                String audioHapticsOutputTarget) {
+    public AndroidAudioRenderer(
+            Context context,
+            ControllerHandler controllerHandler,
+            StreamAudioSettingsState settingsState) {
         this.context = context;
-        this.enableAudioFx = enableAudioFx;
-        this.audioHapticsOutputTarget = audioHapticsOutputTarget;
+        this.settingsState = Objects.requireNonNull(
+                settingsState,
+                "settingsState");
+        StreamAudioSettings settings = settingsState.get();
+        this.enableAudioFx = settings.areAudioEffectsEnabled();
         this.phoneAudioHapticsController = new AudioHapticsController(context,
-                enableAudioHaptics && "phone".equals(audioHapticsOutputTarget),
-                audioHapticsStrength, audioHapticsVoiceFilterMode);
+                settings.areAudioHapticsEnabled() &&
+                        !settings.isControllerHapticsTarget(),
+                settings.getHapticsStrengthPercent(),
+                settings.getVoiceFilter());
         this.controllerAudioHapticsController = new ControllerAudioHapticsController(controllerHandler,
-                enableAudioHaptics && "controller".equals(audioHapticsOutputTarget),
-                audioHapticsStrength, audioHapticsVoiceFilterMode);
+                settings.areAudioHapticsEnabled() &&
+                        settings.isControllerHapticsTarget(),
+                settings.getHapticsStrengthPercent(),
+                settings.getVoiceFilter());
     }
 
     // FLAG_LOW_LATENCY is a compile-time integer flag. It was publicized in API 24,
@@ -210,7 +220,9 @@ public class AndroidAudioRenderer implements AudioRenderer {
     public void playDecodedAudio(short[] audioData) {
         phoneAudioHapticsController.onAudioFrame(audioData);
         controllerAudioHapticsController.onAudioFrame(audioData);
-        if(PreferenceManager.getDefaultSharedPreferences(context).getBoolean("ax_audio_mute",false))return;
+        if (settingsState.get().isMuted()) {
+            return;
+        }
         // Only queue up to 40 ms of pending audio data in addition to what AudioTrack is buffering for us.
         if (MoonBridge.getPendingAudioDuration() < 40) {
             // This will block until the write is completed. That can cause a backlog
@@ -259,12 +271,17 @@ public class AndroidAudioRenderer implements AudioRenderer {
         track.release();
     }
 
-    public void updateAudioHapticsSettings(boolean enabled, int strengthPercent,
-                                           String voiceFilterMode, String outputTarget) {
-        String resolvedTarget = outputTarget != null ? outputTarget : audioHapticsOutputTarget;
-        phoneAudioHapticsController.setSettings(enabled && "phone".equals(resolvedTarget),
-                strengthPercent, voiceFilterMode);
-        controllerAudioHapticsController.setSettings(enabled && "controller".equals(resolvedTarget),
-                strengthPercent, voiceFilterMode);
+    public void updateAudioSettings(StreamAudioSettings settings) {
+        Objects.requireNonNull(settings, "settings");
+        phoneAudioHapticsController.setSettings(
+                settings.areAudioHapticsEnabled() &&
+                        !settings.isControllerHapticsTarget(),
+                settings.getHapticsStrengthPercent(),
+                settings.getVoiceFilter());
+        controllerAudioHapticsController.setSettings(
+                settings.areAudioHapticsEnabled() &&
+                        settings.isControllerHapticsTarget(),
+                settings.getHapticsStrengthPercent(),
+                settings.getVoiceFilter());
     }
 }

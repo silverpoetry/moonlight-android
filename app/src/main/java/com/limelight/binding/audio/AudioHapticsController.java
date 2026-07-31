@@ -9,6 +9,7 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 
 import com.limelight.LimeLog;
+import com.limelight.settings.audio.StreamAudioSettings.VoiceFilter;
 
 public final class AudioHapticsController {
     private static final float LOWPASS_CUTOFF_HZ = 140.0f;
@@ -23,15 +24,10 @@ public final class AudioHapticsController {
     private static final long LEGACY_MIN_PULSE_MS = 8L;
     private static final long LEGACY_MAX_INTERVAL_MS = 125L;
 
-    public static final String VOICE_FILTER_OFF = "off";
-    public static final String VOICE_FILTER_LOW = "low";
-    public static final String VOICE_FILTER_MEDIUM = "medium";
-    public static final String VOICE_FILTER_HIGH = "high";
-
     private final Vibrator vibrator;
     private boolean enabled;
     private int strengthPercent;
-    private String voiceFilterMode;
+    private VoiceFilter voiceFilter;
 
     private int channelCount;
     private int sampleRate;
@@ -42,11 +38,11 @@ public final class AudioHapticsController {
     private long lastVibrationTimeMs;
 
     public AudioHapticsController(Context context, boolean enabled, int strengthPercent,
-                                  String voiceFilterMode) {
+                                  VoiceFilter voiceFilter) {
         this.vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
         this.enabled = enabled && this.vibrator != null && this.vibrator.hasVibrator();
         this.strengthPercent = Math.max(0, strengthPercent);
-        this.voiceFilterMode = normalizeVoiceFilterMode(voiceFilterMode);
+        this.voiceFilter = normalizeVoiceFilter(voiceFilter);
     }
 
     public synchronized void configure(int channelCount, int sampleRate) {
@@ -63,12 +59,15 @@ public final class AudioHapticsController {
         return enabled;
     }
 
-    public synchronized void setSettings(boolean enabled, int strengthPercent, String voiceFilterMode) {
+    public synchronized void setSettings(
+            boolean enabled,
+            int strengthPercent,
+            VoiceFilter voiceFilter) {
         boolean resolvedEnabled = enabled && vibrator != null && vibrator.hasVibrator();
         boolean wasEnabled = this.enabled;
         this.enabled = resolvedEnabled;
         this.strengthPercent = Math.max(0, strengthPercent);
-        this.voiceFilterMode = normalizeVoiceFilterMode(voiceFilterMode);
+        this.voiceFilter = normalizeVoiceFilter(voiceFilter);
         if (wasEnabled && !resolvedEnabled) {
             stop();
         }
@@ -152,7 +151,7 @@ public final class AudioHapticsController {
 
         float filtered = Math.max(0.0f, bassLevel - (voiceLevel * suppression));
 
-        if (VOICE_FILTER_HIGH.equals(voiceFilterMode)) {
+        if (voiceFilter == VoiceFilter.HIGH) {
             float voiceDominance = voiceLevel / Math.max(0.0025f, bassLevel + voiceLevel);
             if (voiceDominance > 0.42f) {
                 float attenuation = Math.max(0.10f, 1.0f - ((voiceDominance - 0.42f) * 2.2f));
@@ -164,27 +163,22 @@ public final class AudioHapticsController {
     }
 
     private float getVoiceSuppressionStrength() {
-        switch (voiceFilterMode) {
-            case VOICE_FILTER_LOW:
+        switch (voiceFilter) {
+            case LOW:
                 return 0.25f;
-            case VOICE_FILTER_MEDIUM:
+            case MEDIUM:
                 return 0.50f;
-            case VOICE_FILTER_HIGH:
+            case HIGH:
                 return 1.12f;
-            case VOICE_FILTER_OFF:
+            case OFF:
             default:
                 return 0.0f;
         }
     }
 
-    private String normalizeVoiceFilterMode(String mode) {
-        if (VOICE_FILTER_LOW.equals(mode) ||
-                VOICE_FILTER_MEDIUM.equals(mode) ||
-                VOICE_FILTER_HIGH.equals(mode)) {
-            return mode;
-        }
-
-        return VOICE_FILTER_OFF;
+    private static VoiceFilter normalizeVoiceFilter(
+            VoiceFilter filter) {
+        return filter == null ? VoiceFilter.OFF : filter;
     }
 
     private int mapLevelToAmplitude(float level) {

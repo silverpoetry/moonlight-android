@@ -161,6 +161,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
         btn_game_audio_mute.setOnCheckedChangeListener((buttonView, isChecked) -> {
             prefConfig.audioMute=isChecked;
             setSetting("ax_audio_mute",isChecked);
+            notifyAudioSettingsChanged();
         });
         btn_game_lite_ext.setOnCheckedChangeListener((buttonView, isChecked) -> {
             prefConfig.enablePerfOverlayLiteExt=isChecked;
@@ -337,7 +338,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
 
             setSetting("checkbox_enable_audio_haptics", prefConfig.enableAudioHaptics);
             updateAudioHapticsVisibility();
-            notifyAudioHapticsChanged();
+            notifyAudioSettingsChanged();
         });
 
         rg_game_audio_haptics_voice_filter.setOnCheckedChangeListener((group, checkedId) -> {
@@ -358,7 +359,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
             }
 
             saveSetting("list_audio_haptics_voice_filter", prefConfig.audioHapticsVoiceFilter);
-            notifyAudioHapticsChanged();
+            notifyAudioSettingsChanged();
         });
 
         rg_game_audio_haptics_output_target.setOnCheckedChangeListener((group, checkedId) -> {
@@ -374,7 +375,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
 
             saveSetting("list_audio_haptics_output_target", prefConfig.audioHapticsOutputTarget);
             updateAudioHapticsVisibility();
-            notifyAudioHapticsChanged();
+            notifyAudioSettingsChanged();
         });
 
         rg_game_audio_haptics_keep_controller_rumble.setOnCheckedChangeListener((group, checkedId) -> {
@@ -390,7 +391,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
 
             saveSetting("checkbox_audio_haptics_keep_controller_rumble", prefConfig.audioHapticsKeepControllerRumble);
             updateAudioHapticsVisibility();
-            notifyAudioHapticsChanged();
+            notifyAudioSettingsChanged();
         });
 
         sb_game_setting_pref_zoom.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -483,7 +484,7 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
                 prefConfig.audioHapticsStrength = value;
                 saveSetting("seekbar_audio_haptics_strength", value);
                 initAudioHapticsStrength();
-                notifyAudioHapticsChanged();
+                notifyAudioSettingsChanged();
             }
 
             @Override
@@ -710,9 +711,9 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
         }
     }
 
-    private void notifyAudioHapticsChanged() {
+    private void notifyAudioSettingsChanged() {
         if (onClick != null) {
-            onClick.click(6, prefConfig.enableAudioHaptics);
+            onClick.onAudioSettingsChanged();
         }
     }
 
@@ -740,6 +741,9 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
         }
 
         default void onControllerSettingsChanged() {
+        }
+
+        default void onAudioSettingsChanged() {
         }
     }
 

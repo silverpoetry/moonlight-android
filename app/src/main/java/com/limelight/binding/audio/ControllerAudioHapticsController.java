@@ -1,6 +1,7 @@
 package com.limelight.binding.audio;
 
 import com.limelight.binding.input.ControllerHandler;
+import com.limelight.settings.audio.StreamAudioSettings.VoiceFilter;
 
 import java.io.ByteArrayOutputStream;
 
@@ -40,7 +41,7 @@ public final class ControllerAudioHapticsController {
     private final ControllerHandler controllerHandler;
     private boolean enabled;
     private int strengthPercent;
-    private String voiceFilterMode;
+    private VoiceFilter voiceFilter;
 
     private int channelCount;
     private int sampleRate;
@@ -69,11 +70,11 @@ public final class ControllerAudioHapticsController {
 
     public ControllerAudioHapticsController(ControllerHandler controllerHandler,
                                             boolean enabled, int strengthPercent,
-                                            String voiceFilterMode) {
+                                            VoiceFilter voiceFilter) {
         this.controllerHandler = controllerHandler;
         this.enabled = enabled && controllerHandler != null;
         this.strengthPercent = Math.max(0, strengthPercent);
-        this.voiceFilterMode = normalizeVoiceFilterMode(voiceFilterMode);
+        this.voiceFilter = normalizeVoiceFilter(voiceFilter);
     }
 
     public synchronized void configure(int channelCount, int sampleRate) {
@@ -82,10 +83,13 @@ public final class ControllerAudioHapticsController {
         resetState();
     }
 
-    public synchronized void setSettings(boolean enabled, int strengthPercent, String voiceFilterMode) {
+    public synchronized void setSettings(
+            boolean enabled,
+            int strengthPercent,
+            VoiceFilter voiceFilter) {
         this.enabled = enabled && controllerHandler != null;
         this.strengthPercent = Math.max(0, strengthPercent);
-        this.voiceFilterMode = normalizeVoiceFilterMode(voiceFilterMode);
+        this.voiceFilter = normalizeVoiceFilter(voiceFilter);
     }
 
     public synchronized void onAudioFrame(short[] audioData) {
@@ -334,7 +338,7 @@ public final class ControllerAudioHapticsController {
 
         float filtered = Math.max(0.0f, bassSample - (voiceResidual * suppression));
 
-        if (AudioHapticsController.VOICE_FILTER_HIGH.equals(voiceFilterMode)) {
+        if (voiceFilter == VoiceFilter.HIGH) {
             float voiceDominance = voiceResidual / Math.max(0.0025f, Math.abs(bassSample) + voiceResidual);
             if (voiceDominance > 0.40f) {
                 float attenuation = Math.max(0.08f, 1.0f - ((voiceDominance - 0.40f) * 2.4f));
@@ -350,61 +354,57 @@ public final class ControllerAudioHapticsController {
             return sample;
         }
 
-        float attenuationFloor = AudioHapticsController.VOICE_FILTER_HIGH.equals(voiceFilterMode) ? 0.14f : 0.30f;
+        float attenuationFloor =
+                voiceFilter == VoiceFilter.HIGH ? 0.14f : 0.30f;
         float attenuation = Math.max(attenuationFloor, 1.0f - (voiceResidual * suppression * 6.0f));
         return sample * attenuation;
     }
 
     private float getDs5VoiceSuppressionStrength() {
-        switch (voiceFilterMode) {
-            case AudioHapticsController.VOICE_FILTER_LOW:
+        switch (voiceFilter) {
+            case LOW:
                 return 0.22f;
-            case AudioHapticsController.VOICE_FILTER_MEDIUM:
+            case MEDIUM:
                 return 0.44f;
-            case AudioHapticsController.VOICE_FILTER_HIGH:
+            case HIGH:
                 return 1.02f;
-            case AudioHapticsController.VOICE_FILTER_OFF:
+            case OFF:
             default:
                 return 0.0f;
         }
     }
 
     private float getStandardVoiceSuppressionStrength() {
-        switch (voiceFilterMode) {
-            case AudioHapticsController.VOICE_FILTER_LOW:
+        switch (voiceFilter) {
+            case LOW:
                 return 0.20f;
-            case AudioHapticsController.VOICE_FILTER_MEDIUM:
+            case MEDIUM:
                 return 0.38f;
-            case AudioHapticsController.VOICE_FILTER_HIGH:
+            case HIGH:
                 return 0.92f;
-            case AudioHapticsController.VOICE_FILTER_OFF:
+            case OFF:
             default:
                 return 0.0f;
         }
     }
 
     private float getKishiVoiceSuppressionStrength() {
-        switch (voiceFilterMode) {
-            case AudioHapticsController.VOICE_FILTER_LOW:
+        switch (voiceFilter) {
+            case LOW:
                 return 0.06f;
-            case AudioHapticsController.VOICE_FILTER_MEDIUM:
+            case MEDIUM:
                 return 0.12f;
-            case AudioHapticsController.VOICE_FILTER_HIGH:
+            case HIGH:
                 return 0.34f;
-            case AudioHapticsController.VOICE_FILTER_OFF:
+            case OFF:
             default:
                 return 0.0f;
         }
     }
 
-    private String normalizeVoiceFilterMode(String mode) {
-        if (AudioHapticsController.VOICE_FILTER_LOW.equals(mode) ||
-                AudioHapticsController.VOICE_FILTER_MEDIUM.equals(mode) ||
-                AudioHapticsController.VOICE_FILTER_HIGH.equals(mode)) {
-            return mode;
-        }
-
-        return AudioHapticsController.VOICE_FILTER_OFF;
+    private static VoiceFilter normalizeVoiceFilter(
+            VoiceFilter filter) {
+        return filter == null ? VoiceFilter.OFF : filter;
     }
 
     private short floatToShort(float sample) {

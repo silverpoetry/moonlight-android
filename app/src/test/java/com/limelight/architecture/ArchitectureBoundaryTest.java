@@ -250,6 +250,22 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void typedAudioSettingsDoNotDependOnAndroidOrLegacyPreferences() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.settings.audio..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "com.limelight.preferences..")
+                .because(
+                        "typed audio settings are immutable domain models")
+                .check(productionClasses);
+    }
+
+    @Test
     public void typedVirtualControlSettingsDoNotDependOnAndroidOrLegacyPreferences() {
         noClasses()
                 .that()
@@ -357,6 +373,38 @@ public final class ArchitectureBoundaryTest {
                         "android.content.SharedPreferences")
                 .because(
                         "controller callbacks cannot perform persistence I/O")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void audioBindingDoesNotReadPersistenceOrLegacySettings() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.binding.audio..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android.preference..",
+                        "com.limelight.preferences..",
+                        "com.limelight.settings.android..")
+                .because(
+                        "real-time audio callbacks consume immutable settings snapshots")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void audioBindingDoesNotDependOnSharedPreferences() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.binding.audio..")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.content.SharedPreferences")
+                .because(
+                        "real-time audio callbacks cannot perform persistence I/O")
                 .check(productionClasses);
     }
 

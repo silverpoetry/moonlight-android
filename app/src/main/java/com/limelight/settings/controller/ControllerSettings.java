@@ -41,9 +41,6 @@ public final class ControllerSettings {
     private final boolean usbGyroscopeReportingEnabled;
     private final AnalogStickForScrolling analogStickForScrolling;
     private final boolean batteryReportingEnabled;
-    private final boolean controllerAudioHapticsEnabled;
-    private final boolean audioHapticsTargetController;
-    private final boolean keepControllerRumbleWithAudioHaptics;
 
     private ControllerSettings(Builder builder) {
         stickDeadzonePercent = clamp(
@@ -102,12 +99,6 @@ public final class ControllerSettings {
                         ? AnalogStickForScrolling.RIGHT
                         : builder.analogStickForScrolling;
         batteryReportingEnabled = builder.batteryReportingEnabled;
-        controllerAudioHapticsEnabled =
-                builder.controllerAudioHapticsEnabled;
-        audioHapticsTargetController =
-                builder.audioHapticsTargetController;
-        keepControllerRumbleWithAudioHaptics =
-                builder.keepControllerRumbleWithAudioHaptics;
     }
 
     public static Builder builder() {
@@ -238,18 +229,6 @@ public final class ControllerSettings {
         return batteryReportingEnabled;
     }
 
-    public boolean isControllerAudioHapticsEnabled() {
-        return controllerAudioHapticsEnabled;
-    }
-
-    public boolean isAudioHapticsTargetController() {
-        return audioHapticsTargetController;
-    }
-
-    public boolean shouldKeepControllerRumbleWithAudioHaptics() {
-        return keepControllerRumbleWithAudioHaptics;
-    }
-
     private static int normalizeMouseEmulationButton(int value) {
         return value >= 0 && value <= 2 ? value : 0;
     }
@@ -291,9 +270,6 @@ public final class ControllerSettings {
         private AnalogStickForScrolling analogStickForScrolling =
                 AnalogStickForScrolling.RIGHT;
         private boolean batteryReportingEnabled = true;
-        private boolean controllerAudioHapticsEnabled;
-        private boolean audioHapticsTargetController;
-        private boolean keepControllerRumbleWithAudioHaptics;
 
         private Builder() {
         }
@@ -440,17 +416,6 @@ public final class ControllerSettings {
 
         public Builder setBatteryReportingEnabled(boolean enabled) {
             batteryReportingEnabled = enabled;
-            return this;
-        }
-
-        public Builder setControllerAudioHaptics(
-                boolean enabled,
-                boolean targetController,
-                boolean keepControllerRumble) {
-            controllerAudioHapticsEnabled = enabled;
-            audioHapticsTargetController = targetController;
-            keepControllerRumbleWithAudioHaptics =
-                    keepControllerRumble;
             return this;
         }
 

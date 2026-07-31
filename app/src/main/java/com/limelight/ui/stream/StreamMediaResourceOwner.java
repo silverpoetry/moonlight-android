@@ -8,6 +8,7 @@ import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.nvstream.av.audio.AudioRenderer;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
+import com.limelight.settings.audio.StreamAudioSettings;
 
 import java.util.Objects;
 
@@ -50,11 +51,7 @@ public final class StreamMediaResourceOwner {
     interface AudioResource {
         AudioRenderer getTransportRenderer();
 
-        void updateAudioHapticsSettings(
-                boolean enabled,
-                int strength,
-                String voiceFilter,
-                String outputTarget);
+        void updateAudioSettings(StreamAudioSettings settings);
     }
 
     interface AudioResourceFactory {
@@ -254,19 +251,13 @@ public final class StreamMediaResourceOwner {
     }
 
     @MainThread
-    public void updateAudioHapticsSettings(
-            boolean enabled,
-            int strength,
-            String voiceFilter,
-            String outputTarget) {
+    public void updateAudioSettings(
+            StreamAudioSettings settings) {
+        Objects.requireNonNull(settings, "settings");
         if (destroyed || activeAudioResource == null) {
             return;
         }
-        activeAudioResource.updateAudioHapticsSettings(
-                enabled,
-                strength,
-                voiceFilter,
-                outputTarget);
+        activeAudioResource.updateAudioSettings(settings);
     }
 
     @MainThread
@@ -362,16 +353,9 @@ public final class StreamMediaResourceOwner {
         }
 
         @Override
-        public void updateAudioHapticsSettings(
-                boolean enabled,
-                int strength,
-                String voiceFilter,
-                String outputTarget) {
-            renderer.updateAudioHapticsSettings(
-                    enabled,
-                    strength,
-                    voiceFilter,
-                    outputTarget);
+        public void updateAudioSettings(
+                StreamAudioSettings settings) {
+            renderer.updateAudioSettings(settings);
         }
     }
 

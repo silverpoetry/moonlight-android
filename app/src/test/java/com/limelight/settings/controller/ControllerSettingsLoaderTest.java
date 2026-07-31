@@ -32,8 +32,6 @@ public final class ControllerSettingsLoaderTest {
                 AnalogStickForScrolling.RIGHT,
                 settings.getAnalogStickForScrolling());
         assertTrue(settings.isBatteryReportingEnabled());
-        assertFalse(settings.isControllerAudioHapticsEnabled());
-        assertFalse(settings.isAudioHapticsTargetController());
     }
 
     @Test
@@ -65,17 +63,6 @@ public final class ControllerSettingsLoaderTest {
         repository.put(
                 ControllerSettingKeys.ANALOG_STICK_FOR_SCROLLING,
                 "left");
-        repository.put(
-                ControllerSettingKeys.CONTROLLER_AUDIO_HAPTICS,
-                true);
-        repository.put(
-                ControllerSettingKeys.AUDIO_HAPTICS_OUTPUT_TARGET,
-                "controller");
-        repository.put(
-                ControllerSettingKeys
-                        .KEEP_CONTROLLER_RUMBLE_WITH_AUDIO_HAPTICS,
-                true);
-
         ControllerSettings settings =
                 ControllerSettingsLoader.load(repository);
 
@@ -91,11 +78,6 @@ public final class ControllerSettingsLoaderTest {
         assertEquals(
                 AnalogStickForScrolling.LEFT,
                 settings.getAnalogStickForScrolling());
-        assertTrue(settings.isControllerAudioHapticsEnabled());
-        assertTrue(settings.isAudioHapticsTargetController());
-        assertTrue(
-                settings
-                        .shouldKeepControllerRumbleWithAudioHaptics());
     }
 
     @Test
@@ -116,11 +98,6 @@ public final class ControllerSettingsLoaderTest {
                         .ANALOG_STICK_FOR_SCROLLING
                         .getName(),
                 "broken");
-        repository.values.put(
-                ControllerSettingKeys
-                        .AUDIO_HAPTICS_OUTPUT_TARGET
-                        .getName(),
-                "broken");
 
         ControllerSettings settings =
                 ControllerSettingsLoader.load(repository);
@@ -130,7 +107,6 @@ public final class ControllerSettingsLoaderTest {
         assertEquals(
                 AnalogStickForScrolling.RIGHT,
                 settings.getAnalogStickForScrolling());
-        assertFalse(settings.isAudioHapticsTargetController());
     }
 
     @Test
