@@ -72,6 +72,14 @@ final class ControllerGyroStickTranslator {
         return rightStickY;
     }
 
+    void restoreFrom(
+            ControllerGyroStickTranslator previousTranslator) {
+        filteredX = previousTranslator.filteredX;
+        filteredY = previousTranslator.filteredY;
+        rightStickX = previousTranslator.rightStickX;
+        rightStickY = previousTranslator.rightStickY;
+    }
+
     private static boolean isLandscape(int displayRotation) {
         return displayRotation == ControllerMotionSampleTransformer.ROTATION_90 ||
                 displayRotation == ControllerMotionSampleTransformer.ROTATION_270;

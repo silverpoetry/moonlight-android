@@ -10,6 +10,61 @@ import static org.junit.Assert.assertTrue;
 
 public final class ControllerChordEmulationStateTest {
     @Test
+    public void restorationPreservesInProgressChordAndExitState() {
+        ControllerChordEmulationState previous = state(false, false);
+        int emulatedSelect = previous.applyButtonDown(
+                ControllerPacket.PLAY_FLAG |
+                        ControllerPacket.LB_FLAG,
+                1000);
+        previous.applyButtonDown(
+                ControllerPacket.BACK_FLAG |
+                        ControllerPacket.PLAY_FLAG |
+                        ControllerPacket.LB_FLAG |
+                        ControllerPacket.RB_FLAG,
+                1001);
+        ControllerChordEmulationState restored = state(false, false);
+
+        restored.restoreFrom(previous);
+
+        assertEquals(
+                0,
+                restored.applyButtonUp(emulatedSelect));
+        assertTrue(restored.shouldFinishAfterButtonUp(0));
+    }
+
+    @Test
+    public void restorationPreservesLearnedCapabilities() {
+        ControllerChordEmulationState previous = state(false, false);
+        previous.observeSelectButton();
+        previous.recordLeftBumperUp(1000);
+        ControllerChordEmulationState restored = state(false, false);
+
+        restored.restoreFrom(previous);
+
+        assertEquals(
+                ControllerPacket.SPECIAL_BUTTON_FLAG,
+                restored.applyButtonDown(
+                        ControllerPacket.PLAY_FLAG |
+                                ControllerPacket.BACK_FLAG,
+                        1001));
+    }
+
+    @Test
+    public void restorationPreservesBumperReleaseGraceWindow() {
+        ControllerChordEmulationState previous = state(false, false);
+        previous.recordLeftBumperUp(1000);
+        ControllerChordEmulationState restored = state(false, false);
+
+        restored.restoreFrom(previous);
+
+        assertEquals(
+                ControllerPacket.BACK_FLAG,
+                restored.applyButtonDown(
+                        ControllerPacket.PLAY_FLAG,
+                        1100));
+    }
+
+    @Test
     public void quitChordFinishesOnlyAfterAllButtonsAreReleased() {
         ControllerChordEmulationState state = state(true, true);
         int quitChord = ControllerPacket.BACK_FLAG |

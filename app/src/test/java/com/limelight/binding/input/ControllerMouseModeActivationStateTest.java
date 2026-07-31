@@ -134,6 +134,25 @@ public final class ControllerMouseModeActivationStateTest {
                 10000));
     }
 
+    @Test
+    public void restorationPreservesActiveHoldWindow() {
+        ControllerMouseModeActivationState previous = state();
+        previous.observeButtonDown(
+                ControllerDigitalButtonMapping.Target.PLAY,
+                1000,
+                0);
+        ControllerMouseModeActivationState restored = state();
+
+        restored.restoreFrom(previous);
+
+        assertTrue(restored.shouldActivateOnRelease(
+                ControllerDigitalButtonMapping.Target.PLAY,
+                true,
+                0,
+                ControllerPacket.PLAY_FLAG,
+                1751));
+    }
+
     private static ControllerMouseModeActivationState state() {
         return new ControllerMouseModeActivationState();
     }

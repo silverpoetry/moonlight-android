@@ -15,6 +15,29 @@ import static org.junit.Assert.assertEquals;
 
 public final class ControllerMouseEmulationTranslatorTest {
     @Test
+    public void restorationPreservesPreviouslyEmittedButtonState() {
+        ControllerMouseEmulationTranslator previous =
+                new ControllerMouseEmulationTranslator();
+        previous.translate(
+                ControllerPacket.A_FLAG,
+                new RecordingOutput());
+        ControllerMouseEmulationTranslator restored =
+                new ControllerMouseEmulationTranslator();
+        restored.restoreFrom(previous);
+        RecordingOutput output = new RecordingOutput();
+
+        restored.translate(ControllerPacket.A_FLAG, output);
+        restored.translate(0, output);
+
+        assertEquals(
+                Arrays.asList(
+                        "mouse:" +
+                                MouseButtonPacket.BUTTON_LEFT +
+                                ":false"),
+                output.events);
+    }
+
+    @Test
     public void changedButtonsEmitPressAndReleaseOnce() {
         ControllerMouseEmulationTranslator translator =
                 new ControllerMouseEmulationTranslator();

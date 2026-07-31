@@ -403,6 +403,14 @@ targets.
   protocol's sixteen slots and `ControllerDeviceClassificationPolicy` keeps
   compatibility decisions platform-independent. The former write-only
   attached-controller cache is removed.
+- Input-device recreation has one explicit session-state migration contract.
+  It transfers the protocol report and analog ownership history, learned key
+  mapping, in-progress chord and quit state, mouse-mode hold timing,
+  mouse-emulation output history, and gyro filter before destroying the old
+  platform resources. New device-profile facts may disable a fallback but
+  migrated runtime state can never re-enable one. Slot, sensor, LED, battery,
+  and scheduler restoration remain ordered after the state snapshot, so a
+  focus or pointer-capture capability change is invisible to the host.
 - `ControllerAnalogInputCombiner` owns split-device trigger and stick
   aggregation. Triggers are compared as unsigned protocol values and axes by
   signed magnitude; the previous bitwise-OR corruption path has been removed.

@@ -27,4 +27,13 @@ final class ControllerButtonMappingState {
     boolean shouldMapModeToSelect() {
         return modeIsSelect;
     }
+
+    void restoreLearnedStateFrom(
+            ControllerButtonMappingState previousState) {
+        // Device recreation may discover stricter capabilities than the old
+        // snapshot. Migration can disable a fallback that was disproved at
+        // runtime, but it must never re-enable one rejected by the new probe.
+        backIsStart &= previousState.backIsStart;
+        modeIsSelect &= previousState.modeIsSelect;
+    }
 }

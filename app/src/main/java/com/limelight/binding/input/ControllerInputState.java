@@ -184,4 +184,20 @@ final class ControllerInputState {
         this.rightStickX = rightStickX;
         this.rightStickY = rightStickY;
     }
+
+    void restoreFrom(ControllerInputState previousState) {
+        inputMap = previousState.inputMap;
+        leftTrigger = previousState.leftTrigger;
+        rightTrigger = previousState.rightTrigger;
+        leftStickX = previousState.leftStickX;
+        leftStickY = previousState.leftStickY;
+        rightStickX = previousState.rightStickX;
+        rightStickY = previousState.rightStickY;
+        leftTriggerAxisUsed =
+                previousState.leftTriggerAxisUsed;
+        rightTriggerAxisUsed =
+                previousState.rightTriggerAxisUsed;
+        horizontalHatUsed = previousState.horizontalHatUsed;
+        verticalHatUsed = previousState.verticalHatUsed;
+    }
 }

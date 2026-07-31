@@ -141,4 +141,19 @@ final class ControllerChordEmulationState {
     boolean shouldFinishAfterButtonUp(int inputMap) {
         return exitPending && inputMap == 0;
     }
+
+    void restoreFrom(
+            ControllerChordEmulationState previousState) {
+        hasModeButton |= previousState.hasModeButton;
+        hasSelectButton |= previousState.hasSelectButton;
+        clickpadEmulationRequired =
+                previousState.clickpadEmulationRequired;
+        exitPending = previousState.exitPending;
+        emulatingButtonFlags =
+                previousState.emulatingButtonFlags;
+        lastLeftBumperUpTime =
+                previousState.lastLeftBumperUpTime;
+        lastRightBumperUpTime =
+                previousState.lastRightBumperUpTime;
+    }
 }

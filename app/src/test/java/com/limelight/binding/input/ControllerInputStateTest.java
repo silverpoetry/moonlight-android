@@ -93,4 +93,33 @@ public final class ControllerInputStateTest {
         assertEquals(300, state.getRightStickX());
         assertEquals(-400, state.getRightStickY());
     }
+
+    @Test
+    public void restorationPreservesProtocolAndAxisOwnershipState() {
+        ControllerInputState previous = new ControllerInputState();
+        previous.replace(
+                ControllerPacket.Y_FLAG,
+                (byte) 12,
+                (byte) 34,
+                (short) 100,
+                (short) 200,
+                (short) 300,
+                (short) 400);
+        previous.updateTriggerAxes(0.5f, 0.75f, false, 0.13f);
+        previous.updateHat(-1, 0);
+
+        ControllerInputState restored = new ControllerInputState();
+        restored.restoreFrom(previous);
+
+        assertEquals(previous.getInputMap(), restored.getInputMap());
+        assertEquals(previous.getLeftTrigger(), restored.getLeftTrigger());
+        assertEquals(previous.getRightTrigger(), restored.getRightTrigger());
+        assertEquals(previous.getLeftStickX(), restored.getLeftStickX());
+        assertEquals(previous.getLeftStickY(), restored.getLeftStickY());
+        assertEquals(previous.getRightStickX(), restored.getRightStickX());
+        assertEquals(previous.getRightStickY(), restored.getRightStickY());
+        assertTrue(restored.isHorizontalHatUsed());
+        assertFalse(restored.setDigitalTrigger(true, false));
+        assertFalse(restored.setDigitalTrigger(false, false));
+    }
 }

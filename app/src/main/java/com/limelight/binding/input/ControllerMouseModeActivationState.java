@@ -56,4 +56,10 @@ final class ControllerMouseModeActivationState {
                 eventTime - lastPlayButtonDownTime >
                         HOLD_THRESHOLD_MS;
     }
+
+    void restoreFrom(
+            ControllerMouseModeActivationState previousState) {
+        lastPlayButtonDownTime =
+                previousState.lastPlayButtonDownTime;
+    }
 }

@@ -1346,3 +1346,20 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Completed the state contract for Android input-device recreation. Before an
+  old context releases its platform resources, its complete protocol report,
+  analog-trigger and Hat ownership, learned Start/Select mapping, active chord
+  and quit sequence, bumper grace timestamps, mouse-mode hold clock,
+  mouse-emulation previous output map, and gyro smoothing filter are restored
+  into the replacement context.
+- Mapping migration is monotonic: runtime discovery may turn a legacy fallback
+  off, and a new hardware probe may independently reject it, but neither path
+  can turn a rejected fallback back on. Mouse emulation keeps its emitted-state
+  history so a held desktop mouse/key action is not repeated after recreation
+  and its later release is still delivered. The existing slot transfer and
+  host-visible no-unplug contract are preserved.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 565 JVM
+  tests per variant (2,260 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

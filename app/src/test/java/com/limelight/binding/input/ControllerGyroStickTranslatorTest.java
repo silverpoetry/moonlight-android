@@ -97,4 +97,39 @@ public final class ControllerGyroStickTranslatorTest {
         assertEquals(0, translator.getRightStickX());
         assertEquals(0, translator.getRightStickY());
     }
+
+    @Test
+    public void restorationPreservesFilterHistory() {
+        ControllerGyroStickTranslator previous =
+                new ControllerGyroStickTranslator();
+        previous.update(
+                0.5f,
+                -0.25f,
+                ControllerMotionSampleTransformer.ROTATION_90,
+                false,
+                100);
+        ControllerGyroStickTranslator restored =
+                new ControllerGyroStickTranslator();
+        restored.restoreFrom(previous);
+
+        previous.update(
+                0.75f,
+                0.1f,
+                ControllerMotionSampleTransformer.ROTATION_90,
+                false,
+                100);
+        restored.update(
+                0.75f,
+                0.1f,
+                ControllerMotionSampleTransformer.ROTATION_90,
+                false,
+                100);
+
+        assertEquals(
+                previous.getRightStickX(),
+                restored.getRightStickX());
+        assertEquals(
+                previous.getRightStickY(),
+                restored.getRightStickY());
+    }
 }

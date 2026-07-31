@@ -44,6 +44,12 @@ final class ControllerMouseEmulationTranslator {
     private final Vector2d translatedStick = new Vector2d();
     private int previousInputMap;
 
+    void restoreFrom(
+            ControllerMouseEmulationTranslator previousTranslator) {
+        previousInputMap =
+                previousTranslator.previousInputMap;
+    }
+
     void translate(int inputMap, Output output) {
         int changedMask = inputMap ^ previousInputMap;
         previousInputMap = inputMap;

@@ -2218,6 +2218,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             boolean usedDeviceSensorManager =
                     oldContext.motionRegistrations.usesManager(
                             deviceSensorManager);
+            restoreInputSessionFrom(oldContext);
             // Don't release the controller number, because we will carry it over if it is present.
             // We also want to make sure the change is invisible to the host PC to avoid an add/remove
             // cycle for the gamepad which may break some games.
@@ -2234,11 +2235,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             motionSession.restoreDesiredState(motionState);
             ledSession.restoreDesiredState(ledState);
 
-            // Copy state initialized in reportControllerArrival()
-            chordEmulationState.setClickpadEmulationRequired(
-                    oldContext.chordEmulationState
-                            .isClickpadEmulationRequired());
-
             // Re-enable sensors on the new context
             enableSensors();
 
@@ -2247,6 +2243,21 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     .isBatteryReportingEnabled());
             restoreMouseEmulation(
                     restoreMouseEmulationActive);
+        }
+
+        private void restoreInputSessionFrom(
+                InputDeviceContext oldContext) {
+            inputState.restoreFrom(oldContext.inputState);
+            buttonMappingState.restoreLearnedStateFrom(
+                    oldContext.buttonMappingState);
+            chordEmulationState.restoreFrom(
+                    oldContext.chordEmulationState);
+            mouseModeActivationState.restoreFrom(
+                    oldContext.mouseModeActivationState);
+            mouseEmulationTranslator.restoreFrom(
+                    oldContext.mouseEmulationTranslator);
+            gyroStickTranslator.restoreFrom(
+                    oldContext.gyroStickTranslator);
         }
 
         public void disableSensors() {
