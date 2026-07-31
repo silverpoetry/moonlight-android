@@ -1363,3 +1363,21 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Extracted `AndroidControllerTouchpadAdapter` behind a narrow context target
+  and protocol output. The handler now selects only an already recognized
+  controller and supplies the typed live setting; Android source handling,
+  clickpad packet mutation, per-contact dispatch, multi-contact MOVE,
+  cancel-all, normalized coordinates and host capability results belong to the
+  adapter.
+- `ControllerTouchpadEventPolicy` fixtures preserve down/up action-index
+  behavior, `FLAG_CANCELED` as one-contact cancellation, `ACTION_CANCEL` as
+  cancel-all, API-gated primary button handling, and rejection of secondary or
+  unknown actions. `ControllerTouchpadNormalizer` clamps valid hardware ranges
+  and turns non-finite or non-positive ranges into neutral zero instead of
+  allowing NaN or infinity to reach common-c. No input event is queued,
+  sampled, or allocated into a collection.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 573 JVM
+  tests per variant (2,292 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

@@ -81,6 +81,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             controllerDeviceProfileProbe;
     private final AndroidControllerBackButtonProbe
             controllerBackButtonProbe;
+    private final AndroidControllerTouchpadAdapter
+            controllerTouchpadAdapter;
     private final Handler mainThreadHandler;
     private final ControllerMouseEmulationSession.Scheduler
             mouseEmulationScheduler;
@@ -367,6 +369,26 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                         MoonBridge::guessControllerHasShareButton);
         this.controllerBackButtonProbe =
                 new AndroidControllerBackButtonProbe(inputManager);
+        this.controllerTouchpadAdapter =
+                new AndroidControllerTouchpadAdapter(
+                        new AndroidControllerTouchpadAdapter.Output() {
+                            @Override
+                            public int sendControllerTouch(
+                                    byte controllerNumber,
+                                    byte touchType,
+                                    int pointerId,
+                                    float x,
+                                    float y,
+                                    float pressure) {
+                                return conn.sendControllerTouchEvent(
+                                        controllerNumber,
+                                        touchType,
+                                        pointerId,
+                                        x,
+                                        y,
+                                        pressure);
+                            }
+                        });
         this.vibrationRenderer = new ControllerVibrationRenderer(
                 settingsState,
                 sceManager,
@@ -1078,162 +1100,17 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         sendControllerInputPacket(context);
     }
 
-    // Normalize the given raw float value into a 0.0-1.0f range
-    private float normalizeRawValueWithRange(float value, InputDevice.MotionRange range) {
-        value = Math.max(value, range.getMin());
-        value = Math.min(value, range.getMax());
-
-        value -= range.getMin();
-
-        return value / range.getRange();
-    }
-
-    private boolean sendTouchpadEventForPointer(InputDeviceContext context, MotionEvent event, byte touchType, int pointerIndex) {
-        float normalizedX = normalizeRawValueWithRange(event.getX(pointerIndex), context.touchpadXRange);
-        float normalizedY = normalizeRawValueWithRange(event.getY(pointerIndex), context.touchpadYRange);
-        float normalizedPressure = context.touchpadPressureRange != null ?
-                normalizeRawValueWithRange(event.getPressure(pointerIndex), context.touchpadPressureRange)
-                : 0;
-
-        return conn.sendControllerTouchEvent(
-                (byte) context.slotLease.getControllerNumber(),
-                touchType,
-                event.getPointerId(pointerIndex),
-                normalizedX, normalizedY, normalizedPressure) != MoonBridge.LI_ERR_UNSUPPORTED;
-    }
-
     @Override
     public boolean tryHandleTouchpadEvent(MotionEvent event) {
-        // Bail if this is not a touchpad or mouse event
-        if (event.getSource() != InputDevice.SOURCE_TOUCHPAD &&
-                event.getSource() != InputDevice.SOURCE_MOUSE) {
-            return false;
-        }
-
         // Only get a context if one already exists. We want to ensure we don't report non-gamepads.
         InputDeviceContext context = inputDeviceContexts.get(event.getDeviceId());
         if (context == null) {
             return false;
         }
-        boolean touchpadAsMouse =
-                settingsState.get().isTouchpadAsMouse();
-
-        // When we're working with a mouse source instead of a touchpad, we're quite limited in
-        // what useful input we can provide via the controller API. The ABS_X/ABS_Y values are
-        // screen coordinates rather than touchpad coordinates. For now, we will just support
-        // the clickpad button and nothing else.
-        if (event.getSource() == InputDevice.SOURCE_MOUSE) {
-            // Unlike the touchpad where down and up refer to individual touches on the touchpad,
-            // down and up on a mouse indicates the state of the left mouse button.
-            switch (event.getActionMasked()) {
-                case MotionEvent.ACTION_DOWN:
-                    context.inputState.setButtonMask(
-                            ControllerPacket.TOUCHPAD_FLAG,
-                            true);
-                    sendControllerInputPacket(context);
-                    break;
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
-                    context.inputState.setButtonMask(
-                            ControllerPacket.TOUCHPAD_FLAG,
-                            false);
-                    sendControllerInputPacket(context);
-                    break;
-                default:
-                    break;
-            }
-
-            return !touchpadAsMouse;
-        }
-
-        byte touchType;
-        switch (event.getActionMasked()) {
-            case MotionEvent.ACTION_DOWN:
-            case MotionEvent.ACTION_POINTER_DOWN:
-                touchType = MoonBridge.LI_TOUCH_EVENT_DOWN;
-                break;
-
-            case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_POINTER_UP:
-                if ((event.getFlags() & MotionEvent.FLAG_CANCELED) != 0) {
-                    touchType = MoonBridge.LI_TOUCH_EVENT_CANCEL;
-                }
-                else {
-                    touchType = MoonBridge.LI_TOUCH_EVENT_UP;
-                }
-                break;
-
-            case MotionEvent.ACTION_MOVE:
-                touchType = MoonBridge.LI_TOUCH_EVENT_MOVE;
-                break;
-
-            case MotionEvent.ACTION_CANCEL:
-                // ACTION_CANCEL applies to *all* pointers in the gesture, so it maps to CANCEL_ALL
-                // rather than CANCEL. For a single pointer cancellation, that's indicated via
-                // FLAG_CANCELED on a ACTION_POINTER_UP.
-                // https://developer.android.com/develop/ui/views/touch-and-input/gestures/multi
-                touchType = MoonBridge.LI_TOUCH_EVENT_CANCEL_ALL;
-                break;
-
-            case MotionEvent.ACTION_BUTTON_PRESS:
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && event.getActionButton() == MotionEvent.BUTTON_PRIMARY) {
-                    context.inputState.setButtonMask(
-                            ControllerPacket.TOUCHPAD_FLAG,
-                            true);
-                    sendControllerInputPacket(context);
-                    return !touchpadAsMouse; // Report as unhandled event to trigger mouse handling
-                }
-                return false;
-
-            case MotionEvent.ACTION_BUTTON_RELEASE:
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && event.getActionButton() == MotionEvent.BUTTON_PRIMARY) {
-                    context.inputState.setButtonMask(
-                            ControllerPacket.TOUCHPAD_FLAG,
-                            false);
-                    sendControllerInputPacket(context);
-                    return !touchpadAsMouse; // Report as unhandled event to trigger mouse handling
-                }
-                return false;
-
-            default:
-                return false;
-        }
-
-        // Bail if the user wants gamepad touchpads to control the mouse
-        //
-        // NB: We do this after processing ACTION_BUTTON_PRESS and ACTION_BUTTON_RELEASE
-        // because we want to still send the touchpad button via the gamepad even when
-        // configured to use the touchpad for mouse control.
-        if (touchpadAsMouse) {
-            return false;
-        }
-
-        // If we don't have X and Y ranges, we can't process this event
-        if (context.touchpadXRange == null || context.touchpadYRange == null) {
-            return false;
-        }
-
-        if (event.getActionMasked() == MotionEvent.ACTION_MOVE) {
-            // Move events may impact all active pointers
-            for (int i = 0; i < event.getPointerCount(); i++) {
-                if (!sendTouchpadEventForPointer(context, event, touchType, i)) {
-                    // Controller touch events are not supported by the host
-                    return false;
-                }
-            }
-            return true;
-        }
-        else if (event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
-            // Cancel impacts all active pointers
-            return conn.sendControllerTouchEvent(
-                    (byte) context.slotLease.getControllerNumber(),
-                    MoonBridge.LI_TOUCH_EVENT_CANCEL_ALL,
-                    0, 0, 0, 0) != MoonBridge.LI_ERR_UNSUPPORTED;
-        }
-        else {
-            // Down and Up events impact the action index pointer
-            return sendTouchpadEventForPointer(context, event, touchType, event.getActionIndex());
-        }
+        return controllerTouchpadAdapter.tryHandle(
+                event,
+                context,
+                settingsState.get().isTouchpadAsMouse());
     }
 
     @Override
@@ -1965,7 +1842,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
     }
 
-    class InputDeviceContext extends GenericControllerContext {
+    class InputDeviceContext extends GenericControllerContext
+            implements AndroidControllerTouchpadAdapter.Target {
         public String name;
         public ControllerVibrationRenderer.Target vibrationTarget;
 
@@ -1995,6 +1873,36 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         InputDevice.MotionRange touchpadXRange;
         InputDevice.MotionRange touchpadYRange;
         InputDevice.MotionRange touchpadPressureRange;
+
+        @Override
+        public short getControllerNumber() {
+            return slotLease.getControllerNumber();
+        }
+
+        @Override
+        public ControllerInputState getControllerInputState() {
+            return inputState;
+        }
+
+        @Override
+        public InputDevice.MotionRange getTouchpadXRange() {
+            return touchpadXRange;
+        }
+
+        @Override
+        public InputDevice.MotionRange getTouchpadYRange() {
+            return touchpadYRange;
+        }
+
+        @Override
+        public InputDevice.MotionRange getTouchpadPressureRange() {
+            return touchpadPressureRange;
+        }
+
+        @Override
+        public void sendControllerInput() {
+            sendControllerInputPacket(this);
+        }
 
         private final ControllerButtonMapper buttonMapper;
         private final ControllerButtonMappingState buttonMappingState;

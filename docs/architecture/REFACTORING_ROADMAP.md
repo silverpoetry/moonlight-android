@@ -411,6 +411,14 @@ targets.
   migrated runtime state can never re-enable one. Slot, sensor, LED, battery,
   and scheduler restoration remain ordered after the state snapshot, so a
   focus or pointer-capture capability change is invisible to the host.
+- `AndroidControllerTouchpadAdapter` owns the complete Android controller-
+  touchpad boundary behind narrow target and protocol-output ports. A pure
+  action policy distinguishes contact cancel from cancel-all, all-pointer MOVE
+  frames, API-gated primary clickpad buttons, and unsupported actions. Physical
+  axes use one finite, clamped normalization policy; clickpad state still
+  participates in aggregated controller packets while contact forwarding can
+  be delegated to Android's mouse path. No View, settings repository, or
+  concrete connection is visible to the adapter.
 - `ControllerAnalogInputCombiner` owns split-device trigger and stick
   aggregation. Triggers are compared as unsigned protocol values and axes by
   signed magnitude; the previous bitwise-OR corruption path has been removed.
