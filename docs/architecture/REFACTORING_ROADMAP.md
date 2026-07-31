@@ -488,6 +488,10 @@ targets.
   main-thread result delivery, and MoonBridge fallback translation. `Game`
   receives only the presentation diagnostics port and no longer composes the
   worker implementation itself.
+- `AndroidStreamLaunchReporterFactory` snapshots the launched host and app,
+  owns shortcut/TV-channel service composition, and returns the tested
+  session-scoped at-most-once reporter. Mutable Activity fields are no longer
+  captured by its worker task.
 - `StreamHdrRequestPolicy` owns HDR request eligibility and user-warning
   selection from immutable settings and device facts. The Android capability
   provider samples OS, firmware, and display HDR10 support once; `Game` no

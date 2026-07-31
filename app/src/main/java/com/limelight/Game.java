@@ -100,6 +100,7 @@ import com.limelight.ui.stream.AndroidStreamDisplayController;
 import com.limelight.ui.stream.AndroidExternalDisplayController;
 import com.limelight.ui.stream.AndroidStreamFailureDiagnosticsFactory;
 import com.limelight.ui.stream.AndroidStreamHdrCapabilityProvider;
+import com.limelight.ui.stream.AndroidStreamLaunchReporterFactory;
 import com.limelight.ui.stream.AndroidStreamMediaRuntimeFactory;
 import com.limelight.ui.stream.AndroidStreamMicrophoneControllerFactory;
 import com.limelight.ui.stream.AndroidStreamOverlayVisibilityHost;
@@ -131,7 +132,6 @@ import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.RazerUtils;
 import com.limelight.utils.ServerHelper;
-import com.limelight.utils.ShortcutHelper;
 import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.StreamOrientationController;
 import com.limelight.utils.StreamOrientationRequest;
@@ -716,22 +716,12 @@ public class Game extends Activity implements OnGenericMotionListener,
                 failureDiagnostics =
                 AndroidStreamFailureDiagnosticsFactory.create(
                         mainHandler);
-        ComputerDetails launchComputer = new ComputerDetails();
-        launchComputer.name = pcName;
-        launchComputer.uuid = getIntent().getStringExtra(EXTRA_PC_UUID);
-        NvApp launchedApp = app;
-        boolean reportGameLaunch = appName != null;
-        ShortcutHelper launchShortcutHelper =
-                new ShortcutHelper(getApplicationContext());
-        launchReporter = StreamLaunchReporter.create(() -> {
-            launchShortcutHelper.reportComputerShortcutUsed(
-                    launchComputer);
-            if (reportGameLaunch) {
-                launchShortcutHelper.reportGameLaunched(
-                        launchComputer,
-                        launchedApp);
-            }
-        });
+        launchReporter = AndroidStreamLaunchReporterFactory.create(
+                this,
+                pcName,
+                getIntent().getStringExtra(EXTRA_PC_UUID),
+                app,
+                appName != null);
         sessionUiEffects = new StreamSessionUiEffects(
                 new AndroidStreamSessionUiEffectsHost(
                         this,

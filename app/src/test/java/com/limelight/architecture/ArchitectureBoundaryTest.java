@@ -275,6 +275,19 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void gameDelegatesLaunchReportingInfrastructure() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("com.limelight.utils.ShortcutHelper")
+                .because(
+                        "launch reporting snapshots and shortcut services belong to their factory")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamSessionPresentationPolicyIsAndroidIndependent() {
         noClasses()
                 .that()
