@@ -275,6 +275,11 @@ A slice is incomplete if callers can still bypass the new boundary.
   import, credential import/export, and background selection. The Activity no
   longer performs file, provider, or database I/O, and canceled or incomplete
   provider results are handled without dereferencing absent data.
+- Device-dependent settings visibility is evaluated from one immutable
+  semantic capability snapshot. The Android adapter alone inspects SDK,
+  package-manager, sensor, USB, picture-in-picture, and vibrator APIs; the pure
+  policy decides which stable section and row IDs are hidden. This removes
+  platform conditionals and feature-name strings from the Activity.
 - The in-stream action catalog and virtual-overlay buttons consume typed UI
   policy plus read-only controller visibility. Persisted startup defaults are
   no longer mutated to represent picture-in-picture or menu presentation, and

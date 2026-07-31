@@ -365,6 +365,23 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void settingsCapabilityPolicyDoesNotDependOnAndroid() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsDeviceCapabilities")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsVisibilityPolicy")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..")
+                .because(
+                        "device visibility decisions must be testable without Android")
+                .check(productionClasses);
+    }
+
+    @Test
     public void typedInputSettingsDoNotDependOnAndroidOrLegacyPreferences() {
         noClasses()
                 .that()

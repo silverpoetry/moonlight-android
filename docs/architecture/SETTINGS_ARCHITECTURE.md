@@ -93,6 +93,14 @@ database import, credentials, accessibility configuration, and background
 selection for the Activity lifecycle. `StreamSettings` only forwards the user
 intent and provider result; it has no file, provider, or database I/O branch.
 
+Conditional visibility is a policy result, not an Activity-side collection of
+SDK checks. `AndroidSettingsDeviceCapabilities` converts platform features,
+sensors, USB support, picture-in-picture support, and vibration facilities into
+an immutable semantic snapshot. `SettingsVisibilityPolicy` combines that
+snapshot with the typed barometer-mode value and returns only stable section
+and item IDs to hide. The pure policy contains no Android dependency and is
+covered as a complete decision table.
+
 ## Snapshot lifecycle
 
 A stream session receives one snapshot during composition. A setting that

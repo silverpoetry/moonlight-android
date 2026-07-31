@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
@@ -14,14 +13,11 @@ import android.graphics.Insets;
 import android.graphics.PorterDuff;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
-import android.hardware.Sensor;
-import android.hardware.SensorManager;
 import android.media.MediaCodecInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Vibrator;
 import android.provider.Settings;
 import android.text.InputFilter;
 import android.text.InputType;
@@ -62,8 +58,6 @@ import com.limelight.settings.android.AndroidHdrCompatibility;
 import com.limelight.settings.android.AndroidStreamDefaults;
 import com.limelight.settings.app.AppPresentationSettings;
 import com.limelight.settings.app.AppPresentationSettingKeys;
-import com.limelight.settings.audio.StreamAudioSettingKeys;
-import com.limelight.settings.controller.ControllerSettingKeys;
 import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.stream.StreamDisplayGeometry;
 import com.limelight.settings.stream.StreamResolutionCodec;
@@ -72,7 +66,6 @@ import com.limelight.settings.stream.StreamVideoSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
 import com.limelight.settings.transfer.TransferSettings;
 import com.limelight.settings.transfer.TransferSettingsLoader;
-import com.limelight.settings.ui.StreamUiSettingKeys;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
 import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.Dialog;
@@ -1303,85 +1296,17 @@ public class StreamSettings extends Activity {
     }
 
     private void applyDeviceVisibility() {
-        PackageManager pm = getPackageManager();
-
-        if (!pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
-            hideSection(SettingsScreenIds.SECTION_VIRTUAL_CONTROLS);
+        SettingsVisibilityPolicy.Result visibility =
+                SettingsVisibilityPolicy.evaluate(
+                        AndroidSettingsDeviceCapabilities.collect(this),
+                        store.get(
+                                InputSettingKeys
+                                        .BAROMETER_FORCE_PRESS));
+        for (String sectionId : visibility.getHiddenSectionIds()) {
+            hideSection(sectionId);
         }
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
-                pm.hasSystemFeature("com.nvidia.feature.shield")) {
-            hideItem(InputSettingKeys.ABSOLUTE_MOUSE_MODE.getName());
-        }
-
-        SensorManager sensorManager =
-                (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        boolean hasPressureSensor = sensorManager != null &&
-                sensorManager.getDefaultSensor(
-                        Sensor.TYPE_PRESSURE, false) != null;
-        if (!hasPressureSensor) {
-            hideItem(
-                    InputSettingKeys.BAROMETER_FORCE_PRESS
-                            .getName());
-            hideItem(
-                    InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD
-                            .getName());
-            hideItem(
-                    InputSettingKeys
-                            .BAROMETER_FORCE_PRESS_MINIMUM_DURATION
-                            .getName());
-        }
-        else if (!store.get(
-                InputSettingKeys.BAROMETER_FORCE_PRESS)) {
-            hideItem(
-                    InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD
-                            .getName());
-            hideItem(
-                    InputSettingKeys
-                            .BAROMETER_FORCE_PRESS_MINIMUM_DURATION
-                            .getName());
-        }
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            hideItem(ControllerSettingKeys.MOTION_SENSORS.getName());
-        }
-
-        if (!pm.hasSystemFeature(PackageManager.FEATURE_SENSOR_ACCELEROMETER) &&
-                !pm.hasSystemFeature(PackageManager.FEATURE_SENSOR_GYROSCOPE)) {
-            hideItem(ControllerSettingKeys
-                    .MOTION_SENSORS_FALLBACK_TO_DEVICE.getName());
-        }
-
-        if (!pm.hasSystemFeature(PackageManager.FEATURE_USB_HOST)) {
-            hideItem(ControllerSettingKeys
-                    .CLAIM_ALL_USB_DEVICES.getName());
-            hideItem(ControllerSettingKeys.USB_DRIVER.getName());
-        }
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
-                !pm.hasSystemFeature("android.software.picture_in_picture") ||
-                pm.hasSystemFeature("com.amazon.software.fireos")) {
-            hideItem(StreamUiSettingKeys.PICTURE_IN_PICTURE.getName());
-        }
-
-        Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-        if (vibrator == null || !vibrator.hasVibrator()) {
-            hideItem(ControllerSettingKeys
-                    .FALLBACK_DEVICE_RUMBLE.getName());
-            hideItem(ControllerSettingKeys
-                    .FALLBACK_DEVICE_RUMBLE_STRENGTH_PERCENT
-                    .getName());
-            hideItem(StreamAudioSettingKeys.AUDIO_HAPTICS.getName());
-            hideItem(StreamAudioSettingKeys
-                    .AUDIO_HAPTICS_STRENGTH_PERCENT.getName());
-            hideItem(StreamAudioSettingKeys
-                    .AUDIO_HAPTICS_VOICE_FILTER.getName());
-            hideItem(ControllerSettingKeys.ONSCREEN_RUMBLE.getName());
-        }
-        else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || !vibrator.hasAmplitudeControl()) {
-            hideItem(ControllerSettingKeys
-                    .FALLBACK_DEVICE_RUMBLE_STRENGTH_PERCENT
-                    .getName());
+        for (String itemId : visibility.getHiddenItemIds()) {
+            hideItem(itemId);
         }
     }
 
