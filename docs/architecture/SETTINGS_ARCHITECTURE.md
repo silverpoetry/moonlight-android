@@ -101,6 +101,12 @@ snapshot with the typed barometer-mode value and returns only stable section
 and item IDs to hide. The pure policy contains no Android dependency and is
 covered as a complete decision table.
 
+`SettingsScreenModel` owns the mutable presentation graph produced by the
+registry. Stable-ID lookup, dependency binding, structural hide operations,
+empty-section filtering, and selected-section bounds all pass through this one
+model. The Activity renders the same observed list and cannot maintain a
+parallel structural state or silently ignore an unresolved dependency.
+
 ## Snapshot lifecycle
 
 A stream session receives one snapshot during composition. A setting that

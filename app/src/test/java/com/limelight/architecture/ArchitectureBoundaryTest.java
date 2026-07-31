@@ -300,6 +300,9 @@ public final class ArchitectureBoundaryTest {
                         "com.limelight.preferences.SettingsSection")
                 .or()
                 .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsScreenModel")
+                .or()
+                .haveFullyQualifiedName(
                         "com.limelight.preferences.SettingsValueReader")
                 .should()
                 .dependOnClassesThat()

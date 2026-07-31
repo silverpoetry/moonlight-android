@@ -100,6 +100,8 @@ public class StreamSettings extends Activity {
     private int previousDisplayPixelCount;
     private SettingsStore store;
     private ArrayList<SettingsSection> sections = new ArrayList<>();
+    private SettingsScreenModel screenModel =
+            new SettingsScreenModel(sections);
     private FrameLayout mainContainer;
     private LinearLayout outerContainer;
     private LinearLayout wideSectionList;
@@ -134,13 +136,15 @@ public class StreamSettings extends Activity {
         }
 
         sections = SettingsRegistry.load(this);
+        screenModel = new SettingsScreenModel(sections);
         store = new SettingsStore(this);
-        linkDependencyDefaults();
+        screenModel.linkDependencyDefaults();
         nativeResolutionStartIndex = Integer.MAX_VALUE;
         nativeFramerateShown = false;
         initializeRuntimeSettings();
-        removeEmptySections();
-        selectedSectionIndex = clampSelectedSection(selectedSectionIndex);
+        screenModel.removeEmptySections();
+        selectedSectionIndex =
+                screenModel.clampSelectedSection(selectedSectionIndex);
         render();
         if (restoreScroll && activeContentScrollView != null) {
             ScrollView restoredScrollView =
@@ -1302,12 +1306,7 @@ public class StreamSettings extends Activity {
                         store.get(
                                 InputSettingKeys
                                         .BAROMETER_FORCE_PRESS));
-        for (String sectionId : visibility.getHiddenSectionIds()) {
-            hideSection(sectionId);
-        }
-        for (String itemId : visibility.getHiddenItemIds()) {
-            hideItem(itemId);
-        }
+        screenModel.applyVisibility(visibility);
     }
 
     private void addCustomResolution() {
@@ -1597,69 +1596,11 @@ public class StreamSettings extends Activity {
     }
 
     private SettingsItem findItem(String key) {
-        if (key == null) {
-            return null;
-        }
-        for (SettingsSection section : sections) {
-            for (SettingsItem item : section.items) {
-                if (key.equals(item.key)) {
-                    return item;
-                }
-            }
-        }
-        return null;
+        return screenModel.findItem(key);
     }
 
     private void hideItem(String key) {
-        SettingsItem item = findItem(key);
-        if (item != null) {
-            item.visible = false;
-        }
-    }
-
-    private void hideSection(String key) {
-        for (SettingsSection section : sections) {
-            if (key != null && key.equals(section.key)) {
-                section.visible = false;
-            }
-        }
-    }
-
-    private void removeEmptySections() {
-        ArrayList<SettingsSection> filtered = new ArrayList<>();
-        for (SettingsSection section : sections) {
-            if (section.visible && !section.visibleItems().isEmpty()) {
-                filtered.add(section);
-            }
-        }
-        sections = filtered;
-    }
-
-    private void linkDependencyDefaults() {
-        for (SettingsSection section : sections) {
-            for (SettingsItem item : section.items) {
-                if (!TextUtils.isEmpty(item.dependency)) {
-                    SettingsItem dependency = findItem(item.dependency);
-                    if (dependency == null) {
-                        throw new IllegalStateException(
-                                "Unknown settings dependency " +
-                                        item.dependency +
-                                        " for " + item.key);
-                    }
-                    item.dependencyItemRef = dependency;
-                }
-            }
-        }
-    }
-
-    private int clampSelectedSection(int selected) {
-        if (sections.isEmpty()) {
-            return -1;
-        }
-        if (selected < 0) {
-            return -1;
-        }
-        return Math.min(selected, sections.size() - 1);
+        screenModel.hideItem(key);
     }
 
     private String getCurrentProfileSummary() {

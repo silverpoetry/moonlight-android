@@ -280,6 +280,10 @@ A slice is incomplete if callers can still bypass the new boundary.
   package-manager, sensor, USB, picture-in-picture, and vibrator APIs; the pure
   policy decides which stable section and row IDs are hidden. This removes
   platform conditionals and feature-name strings from the Activity.
+- `SettingsScreenModel` is the sole owner of row lookup, dependency binding,
+  structural visibility, empty-section removal, and selected-section bounds.
+  It mutates the registry-produced list in place so renderers observe one
+  state graph rather than an Activity-maintained parallel index.
 - The in-stream action catalog and virtual-overlay buttons consume typed UI
   policy plus read-only controller visibility. Persisted startup defaults are
   no longer mutated to represent picture-in-picture or menu presentation, and
