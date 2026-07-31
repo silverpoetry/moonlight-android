@@ -3422,7 +3422,7 @@ public class Game extends Activity implements OnGenericMotionListener,
 
     @Override
     public void applyDualSenseTriggerSettings() {
-        setDualSenseTrigger();
+        refreshAdaptiveTriggerState();
     }
 
 
@@ -3620,16 +3620,8 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
     }
 
-    //设置ds5手柄的自适应扳机
-    public void setDualSenseTrigger(){
-        ControllerSettings settings =
-                controllerSettingsState.get();
-        controllerHandler.setDualSenseTrigger(
-                settings.getAdaptiveTriggerMode(),
-                settings.getAdaptiveTriggerStrength(),
-                settings.getAdaptiveTriggerFrequency(),
-                settings.getAdaptiveTriggerStartPosition(),
-                settings.getAdaptiveTriggerEndPosition());
+    private void refreshAdaptiveTriggerState() {
+        controllerHandler.refreshAdaptiveTriggerState();
     }
 
     public void setMotionForceGyro(){

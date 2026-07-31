@@ -27,7 +27,6 @@ import com.google.gson.Gson;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.binding.input.driver.AbstractController;
-import com.limelight.binding.input.driver.DualSenseController;
 import com.limelight.binding.input.driver.UsbDriverListener;
 import com.limelight.binding.input.protocol.NvConnectionKeyboardInputSink;
 import com.limelight.nvstream.NvConnection;
@@ -2031,6 +2030,16 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             // Android input-device vibration has no advanced stream mode.
         }
 
+        @Override
+        public void setAdaptiveTriggerEffect(
+                int mode,
+                int strength,
+                int frequency,
+                int start,
+                int end) {
+            // Android input-device vibration exposes no adaptive triggers.
+        }
+
         private final ControllerButtonMapper buttonMapper;
         private final ControllerButtonMappingState buttonMappingState;
         private final ControllerChordEmulationState
@@ -2428,6 +2437,21 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
 
         @Override
+        public void setAdaptiveTriggerEffect(
+                int mode,
+                int strength,
+                int frequency,
+                int start,
+                int end) {
+            device.setAdaptiveTriggerEffect(
+                    mode,
+                    strength,
+                    frequency,
+                    start,
+                    end);
+        }
+
+        @Override
         public void destroy() {
             super.destroy();
             // Nothing for now
@@ -2442,26 +2466,18 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
     }
 
-    /**
-     * 设置自适应扳机
-     * @param mode 模式 0关闭 1阻尼 2扳机 6自动步枪
-     * @param strength 震动强度
-     * @param frequency 震动频率（mode=6生效）
-     * @param start 起始位置
-     * @param end 结束位置
-     * @return
-     */
-    public void setDualSenseTrigger(int mode,int strength,int frequency,int start,int end) {
+    public void refreshAdaptiveTriggerState() {
         if (stopped) {
             return;
         }
-        byte[] data=DualSenseController.setTrigger(mode,strength,frequency,start,end);
-        for (int i = 0; i < usbDeviceContexts.size(); i++) {
-            UsbDeviceContext deviceContext = usbDeviceContexts.valueAt(i);
-            if(deviceContext.device instanceof DualSenseController){
-                deviceContext.device.sendCommand(DualSenseController.getTriggerEffectMode(data,data));
-            }
-        }
+        ControllerSettings settings = settingsState.get();
+        ControllerFeedbackRouter.routeAdaptiveTriggerEffect(
+                controllerFeedbackTargets,
+                settings.getAdaptiveTriggerMode(),
+                settings.getAdaptiveTriggerStrength(),
+                settings.getAdaptiveTriggerFrequency(),
+                settings.getAdaptiveTriggerStartPosition(),
+                settings.getAdaptiveTriggerEndPosition());
     }
 
 }

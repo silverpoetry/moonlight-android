@@ -213,8 +213,7 @@ public class Dualshock4Controller extends AbstractDualSenseController {
 
    }
 
-   @Override
-   public void sendCommand(byte[] data) {
+   private void sendCommand(byte[] data) {
       if (DebugLog.isEnabled()) {
          DebugLog.debug("Dualshock4Controller", "sendCommand");
       }

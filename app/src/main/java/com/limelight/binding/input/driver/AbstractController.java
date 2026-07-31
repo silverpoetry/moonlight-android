@@ -107,5 +107,11 @@ public abstract class AbstractController {
         listener.deviceAdded(this);
     }
 
-    public void sendCommand(byte[] data){};
+    public void setAdaptiveTriggerEffect(
+            int mode,
+            int strength,
+            int frequency,
+            int start,
+            int end) {
+    }
 }

@@ -189,6 +189,31 @@ public final class ControllerFeedbackRouterTest {
                 second.events);
     }
 
+    @Test
+    public void adaptiveTriggerPolicyReachesEveryTarget() {
+        FakeTarget first = target(
+                1,
+                ControllerFeedbackRouter.RumbleDelivery.DELIVERED);
+        FakeTarget second = target(
+                2,
+                ControllerFeedbackRouter.RumbleDelivery.DELIVERED);
+
+        ControllerFeedbackRouter.routeAdaptiveTriggerEffect(
+                targets(first, second),
+                2,
+                230,
+                10,
+                40,
+                100);
+
+        assertEquals(
+                Arrays.asList("adaptive:2:230:10:40:100"),
+                first.events);
+        assertEquals(
+                Arrays.asList("adaptive:2:230:10:40:100"),
+                second.events);
+    }
+
     private static ControllerFeedbackRouter.RumbleRouteResult
             routeRumble(
                     short controllerNumber,
@@ -296,6 +321,18 @@ public final class ControllerFeedbackRouterTest {
         public void setAdvancedAudioHapticsEnabled(
                 boolean enabled) {
             events.add("advanced-enabled:" + enabled);
+        }
+
+        @Override
+        public void setAdaptiveTriggerEffect(
+                int mode,
+                int strength,
+                int frequency,
+                int start,
+                int end) {
+            events.add(
+                    "adaptive:" + mode + ":" + strength + ":" +
+                            frequency + ":" + start + ":" + end);
         }
     }
 }

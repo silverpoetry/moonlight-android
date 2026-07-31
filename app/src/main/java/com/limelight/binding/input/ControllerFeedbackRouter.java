@@ -38,6 +38,13 @@ final class ControllerFeedbackRouter {
                 float intensityGain);
 
         void setAdvancedAudioHapticsEnabled(boolean enabled);
+
+        void setAdaptiveTriggerEffect(
+                int mode,
+                int strength,
+                int frequency,
+                int start,
+                int end);
     }
 
     interface Targets {
@@ -152,6 +159,25 @@ final class ControllerFeedbackRouter {
         for (int index = 0; index < targetCount; index++) {
             targets.targetAt(index)
                     .setAdvancedAudioHapticsEnabled(enabled);
+        }
+    }
+
+    static void routeAdaptiveTriggerEffect(
+            Targets targets,
+            int mode,
+            int strength,
+            int frequency,
+            int start,
+            int end) {
+        Objects.requireNonNull(targets, "targets");
+        int targetCount = targets.size();
+        for (int index = 0; index < targetCount; index++) {
+            targets.targetAt(index).setAdaptiveTriggerEffect(
+                    mode,
+                    strength,
+                    frequency,
+                    start,
+                    end);
         }
     }
 }

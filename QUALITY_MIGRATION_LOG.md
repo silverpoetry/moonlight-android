@@ -1485,3 +1485,20 @@ Verification on 2026-07-31:
 - `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 607 JVM
   tests per variant (2,428 executions total), all Lint variants, and both
   unminified Release APKs.
+- Moved adaptive-trigger capability and report ownership out of
+  `ControllerHandler`. The handler now reads one immutable
+  `ControllerSettings` snapshot and broadcasts typed mode/strength/frequency/
+  start/end values; unsupported targets are explicit no-ops and the DualSense
+  driver alone encodes and submits the hardware report.
+- Added `DualSenseAdaptiveTriggerCommand` with a complete 48-byte report
+  contract, symmetric L2/R2 effects, defensive byte clamping, and exact mode
+  layouts for resistance, section trigger, automatic fire, and disabled or
+  unknown modes. Removed the handler's `instanceof DualSenseController`, the
+  generic public driver `sendCommand(byte[])` escape hatch, and unused sample
+  effect builders. Six fixtures lock routing and byte-level encoding.
+- One full Gradle invocation ended with its single-use daemon log truncated
+  during execution and no failed task, Java crash file, or Gradle exception.
+  An immediate complete incremental gate passed, followed by a fresh
+  `verifyLocal --rerun-tasks --no-daemon` execution that passed all 193 tasks
+  with 613 JVM tests per variant (2,452 executions total), all Lint variants,
+  and both unminified Release APKs.

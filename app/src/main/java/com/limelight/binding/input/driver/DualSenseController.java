@@ -252,8 +252,7 @@ public class DualSenseController extends AbstractDualSenseController {
 
    }
 
-   @Override
-   public void sendCommand(byte[] data) {
+   private void sendCommand(byte[] data) {
       if (DebugLog.isEnabled()) {
          DebugLog.debug("DualController", "sendCommand");
       }
@@ -303,97 +302,19 @@ public class DualSenseController extends AbstractDualSenseController {
    }
 
 
-   //自适应扳机报文
-   public static byte[] getTriggerEffectMode(byte[] rM,byte[] lM){
-      return new byte[] {
-              0x02, // Report ID
-              (byte)(0x04|0x08), // valid_flag0
-              (byte)0xf7, // valid_flag1
-              0x00, // right trigger rumble
-              0x00, // left trigger rumble
-              0x00, 0x00, 0x00, 0x00,
-              0x00,  // mute_button_led (0: mute LED off  | 1: mute LED on)
-              0x10, // power_save_control(mute led on  = 0x00, off = 0x10)
-              rM[0],          // R2 trigger effect mode 自动步枪
-              rM[1], // R2 trigger effect parameter 1 频率10
-              rM[2], // R2 trigger effect parameter 2 强度255
-              rM[3], // R2 trigger effect parameter 3 起始位置20
-              0x00,       // R2 trigger effect parameter 4
-              0x00,       // R2 trigger effect parameter 5
-              0x00,       // R2 trigger effect parameter 6
-              0x00,       // R2 trigger effect parameter 7
-              0x00, 0x00, 0x00,
-              lM[0],       // L2 trigger effect mode 阻尼
-              lM[1],       // L2 trigger effect parameter 1 起始位置40
-              lM[2], // L2 trigger effect parameter 2 强度230
-              lM[3],       // L2 trigger effect parameter 3
-              0x00,       // L2 trigger effect parameter 4
-              0x00,       // L2 trigger effect parameter 5
-              0x00,       // L2 trigger effect parameter 6
-              0x00,       // L2 trigger effect parameter 7
-              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-              0x02, 0x00, 0x02, 0x00,
-              0x00,       // player leds
-              (byte) 0x78, (byte) 0x78, (byte) 0xEF // RGB values
-      };
-   }
-
-   /**
-    * 设置自适应扳机
-    * @param mode 模式 0关闭 1阻尼 2扳机 6自动步枪
-    * @param strength 震动强度
-    * @param frequency 震动频率（mode=6生效）
-    * @param start 起始位置
-    * @param end 结束位置
-    * @return
-    */
-   public static byte[] setTrigger(int mode,int strength,int frequency,int start,int end){
-      if(mode==1){
-         return new byte[] {(byte)0x01,(byte)(start&0xFF),(byte)(strength&0xFF),(byte)0x00};
-      }
-      if(mode==6){
-         return new byte[] {(byte)0x06,(byte)(frequency&0xFF),(byte)(strength&0xFF),(byte)(start&0xFF)};
-      }
-      if(mode==2){
-         return new byte[] {(byte)0x02,(byte)(start&0xFF),(byte)(end&0xFF),(byte)(strength&0xFF)};
-      }
-      return new byte[] {(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00};
-   }
-
-   //自动步枪
-   public static byte[] automaticTrigger(){
-//              0x06,          // R2 trigger effect mode 自动步枪
-//              (byte)0x0a, // R2 trigger effect parameter 1 频率10
-//              (byte)0xff, // R2 trigger effect parameter 2 强度255
-//              (byte)0x14, // R2 trigger effect parameter 3 起始位置20
-      return new byte[] {(byte)0x06,(byte)(10&0xFF),(byte)0xFF,(byte)20&0xFF};
-   }
-
-   //阻尼
-   public static byte[] resistanceTrigger(){
-//              0x01,       // L2 trigger effect mode 阻尼
-//              0x28,       // L2 trigger effect parameter 1 起始位置40
-//              (byte)0xE6, // L2 trigger effect parameter 2 强度230
-//              0x00,       // L2 trigger effect parameter 3
-      return new byte[] {(byte)0x01,(byte)0x28,(byte)0xE6,(byte)0x00};
-   }
-
-   //扳机
-   public static byte[] normalTrigger(){
-//              0x02,       // L2 trigger effect mode 扳机
-//              0xF,       // L2 trigger effect parameter 1 起始位置40
-//              (byte)0x64, // L2 trigger effect parameter 2 结束位置 100
-//              0xff,       // L2 trigger effect parameter 3 强度255
-      return new byte[] {(byte)0x02,(byte)0xF,(byte)0x64,(byte)0xff};
-   }
-
-   //关闭
-   public static byte[] clearTrigger(){
-//              0x02,       // L2 trigger effect mode
-//              0xF,       // L2 trigger effect parameter 1
-//              (byte)0x64, // L2 trigger effect parameter 2
-//              0xff,       // L2 trigger effect parameter 3
-      return new byte[] {(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00};
+   @Override
+   public void setAdaptiveTriggerEffect(
+           int mode,
+           int strength,
+           int frequency,
+           int start,
+           int end) {
+      sendCommand(DualSenseAdaptiveTriggerCommand.create(
+              mode,
+              strength,
+              frequency,
+              start,
+              end));
    }
 
 }

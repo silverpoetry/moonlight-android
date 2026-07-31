@@ -483,6 +483,10 @@ targets.
   audio-haptics motor delivery, advanced-frame fan-out, and advanced-mode
   enablement; one read-only frame is passed through without copying or
   retention, while the independent Kishi sidecar keeps its dedicated lifecycle.
+  Adaptive-trigger settings also traverse this typed target boundary; only the
+  DualSense driver implements the capability and owns its complete USB report
+  encoding, so the handler no longer inspects driver classes or sends raw
+  commands.
 - `ControllerMotionSession` owns requested accelerometer/gyroscope rates,
   bounded sampling policy, delayed restoration, cancellation generations,
   neutral-gyro output, migration, and destruction. Physical and on-device
