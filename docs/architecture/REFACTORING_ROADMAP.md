@@ -484,6 +484,10 @@ targets.
   vibration, linked trigger vibration, motion-state requests, controller LEDs,
   and rumble-overlay observation. Its ports are unit-tested independently and
   `Game` no longer implements the transport feedback contract.
+- `AndroidStreamFailureDiagnosticsFactory` owns connectivity-probe wiring,
+  main-thread result delivery, and MoonBridge fallback translation. `Game`
+  receives only the presentation diagnostics port and no longer composes the
+  worker implementation itself.
 - `StreamHdrRequestPolicy` owns HDR request eligibility and user-warning
   selection from immutable settings and device facts. The Android capability
   provider samples OS, firmware, and display HDR10 support once; `Game` no

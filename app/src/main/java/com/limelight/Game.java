@@ -98,6 +98,7 @@ import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.stream.AndroidStreamConnectionMessages;
 import com.limelight.ui.stream.AndroidStreamDisplayController;
 import com.limelight.ui.stream.AndroidExternalDisplayController;
+import com.limelight.ui.stream.AndroidStreamFailureDiagnosticsFactory;
 import com.limelight.ui.stream.AndroidStreamHdrCapabilityProvider;
 import com.limelight.ui.stream.AndroidStreamMediaRuntimeFactory;
 import com.limelight.ui.stream.AndroidStreamMicrophoneControllerFactory;
@@ -107,7 +108,6 @@ import com.limelight.ui.stream.AndroidStreamSessionUiEffectsHost;
 import com.limelight.ui.stream.StreamControllerFeedbackHost;
 import com.limelight.ui.stream.StreamDecoderCapabilities;
 import com.limelight.ui.stream.StreamDisplayRefreshPolicy;
-import com.limelight.ui.stream.StreamFailureDiagnostics;
 import com.limelight.ui.stream.StreamHdrRequestPolicy;
 import com.limelight.ui.stream.StreamLaunchReporter;
 import com.limelight.ui.stream.StreamMediaResourceOwner;
@@ -712,13 +712,10 @@ public class Game extends Activity implements OnGenericMotionListener,
                             }
                         },
                         mainHandler::post);
-        StreamFailureDiagnostics failureDiagnostics =
-                StreamFailureDiagnostics.create(
-                        portFlags -> MoonBridge.testClientConnectivity(
-                                ServerHelper.CONNECTION_TEST_SERVER,
-                                443,
-                                portFlags),
-                        command -> mainHandler.post(command));
+        StreamSessionPresentationController.Diagnostics
+                failureDiagnostics =
+                AndroidStreamFailureDiagnosticsFactory.create(
+                        mainHandler);
         ComputerDetails launchComputer = new ComputerDetails();
         launchComputer.name = pcName;
         launchComputer.uuid = getIntent().getStringExtra(EXTRA_PC_UUID);
@@ -869,25 +866,7 @@ public class Game extends Activity implements OnGenericMotionListener,
                                         imageData);
                             }
                         },
-                        new StreamSessionPresentationController.Diagnostics() {
-                            @Override
-                            public boolean request(
-                                    int portFlags,
-                                    Callback callback) {
-                                return failureDiagnostics.request(
-                                        portFlags,
-                                        result -> callback.onResult(
-                                                result.getPortFlags(),
-                                                result.getProbeResultOr(
-                                                        MoonBridge
-                                                                .ML_TEST_RESULT_INCONCLUSIVE)));
-                            }
-
-                            @Override
-                            public void destroy() {
-                                failureDiagnostics.destroy();
-                            }
-                        },
+                        failureDiagnostics,
                         AndroidStreamConnectionMessages.create(this),
                         MoonBridge::getPortFlagsFromTerminationErrorCode,
                         MoonBridge.ML_TEST_RESULT_INCONCLUSIVE);

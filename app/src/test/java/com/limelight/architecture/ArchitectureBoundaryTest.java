@@ -261,6 +261,20 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void gameDelegatesFailureDiagnosticsInfrastructure() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamFailureDiagnostics")
+                .because(
+                        "the Android diagnostics factory owns probe and dispatch infrastructure")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamSessionPresentationPolicyIsAndroidIndependent() {
         noClasses()
                 .that()
