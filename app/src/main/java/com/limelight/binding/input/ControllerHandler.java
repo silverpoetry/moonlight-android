@@ -8,10 +8,6 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.hardware.input.InputManager;
-import android.hardware.lights.Light;
-import android.hardware.lights.LightState;
-import android.hardware.lights.LightsManager;
-import android.hardware.lights.LightsRequest;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.BatteryManager;
@@ -371,7 +367,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 sceManager,
                 deviceVibrator,
                 deviceVibratorManager);
-        this.defaultContext = new InputDeviceContext();
+        this.defaultContext = new InputDeviceContext(
+                ControllerLedSession.unavailable());
         this.defaultContext.vibrationTarget =
                 vibrationRenderer.emptyTarget();
 
@@ -986,7 +983,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     }
 
     private InputDeviceContext createInputDeviceContextForDevice(InputDevice dev) {
-        InputDeviceContext context = new InputDeviceContext();
+        InputDeviceContext context = new InputDeviceContext(
+                new ControllerLedSession(
+                        AndroidControllerLedTarget.create(dev)));
         String devName = dev.getName();
 
         LimeLog.info("Creating controller context for device: "+devName);
@@ -1026,16 +1025,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (dev.getSensorManager().getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null || dev.getSensorManager().getDefaultSensor(Sensor.TYPE_GYROSCOPE) != null) {
                     context.sensorManager = dev.getSensorManager();
-                }
-            }
-        }
-
-        // Check if this device has a usable RGB LED and cache that result
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            for (Light light : dev.getLightsManager().getLights()) {
-                if (light.hasRgbControl()) {
-                    context.hasRgbLed = true;
-                    break;
                 }
             }
         }
@@ -2030,32 +2019,11 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             return;
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            for (int i = 0; i < inputDeviceContexts.size(); i++) {
-                InputDeviceContext deviceContext = inputDeviceContexts.valueAt(i);
-
-                // Ignore input devices without an RGB LED
-                if (deviceContext.controllerNumber == controllerNumber && deviceContext.hasRgbLed) {
-                    // Create a new light session if one doesn't already exist
-                    if (deviceContext.lightsSession == null) {
-                        deviceContext.lightsSession = deviceContext.inputDevice.getLightsManager().openSession();
-                    }
-
-                    // Convert the RGB components into the integer value that LightState uses
-                    int argbValue = 0xFF000000 | ((r << 16) & 0xFF0000) | ((g << 8) & 0xFF00) | (b & 0xFF);
-                    LightState lightState = new LightState.Builder().setColor(argbValue).build();
-
-                    // Set the RGB value for each RGB-controllable LED on the device
-                    LightsRequest.Builder lightsRequestBuilder = new LightsRequest.Builder();
-                    for (Light light : deviceContext.inputDevice.getLightsManager().getLights()) {
-                        if (light.hasRgbControl()) {
-                            lightsRequestBuilder.addLight(light, lightState);
-                        }
-                    }
-
-                    // Apply the LED changes
-                    deviceContext.lightsSession.requestLights(lightsRequestBuilder.build());
-                }
+        for (int i = 0; i < inputDeviceContexts.size(); i++) {
+            InputDeviceContext deviceContext =
+                    inputDeviceContexts.valueAt(i);
+            if (deviceContext.controllerNumber == controllerNumber) {
+                deviceContext.ledSession.setColor(r, g, b);
             }
         }
     }
@@ -2837,8 +2805,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         public InputDevice inputDevice;
 
-        public boolean hasRgbLed;
-        public LightsManager.LightsSession lightsSession;
+        private final ControllerLedSession ledSession;
 
         // These are Android BatteryManager status values, not Moonlight values
         public int lastReportedBatteryStatus;
@@ -2891,6 +2858,12 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                                 InputDeviceContext.this),
                         BATTERY_RECHECK_INTERVAL_MS);
 
+        private InputDeviceContext(ControllerLedSession ledSession) {
+            this.ledSession = Objects.requireNonNull(
+                    ledSession,
+                    "ledSession");
+        }
+
         @Override
         public void destroy() {
             super.destroy();
@@ -2898,12 +2871,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
             motionSession.destroy();
             batterySession.destroy();
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (lightsSession != null) {
-                    lightsSession.close();
-                }
-            }
+            ledSession.destroy();
         }
 
         @Override
@@ -2974,7 +2942,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                                     vibrationTarget
                                             .hasLegacyVibrator())
                             .external(external)
-                            .hasRgbLed(hasRgbLed)
+                            .hasRgbLed(ledSession.isAvailable())
                             .hasReliableRgbLedDetection(
                                     Build.VERSION.SDK_INT >=
                                             Build.VERSION_CODES
@@ -3023,13 +2991,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     oldContext.isMouseEmulationActive();
             ControllerMotionSession.DesiredState motionState =
                     oldContext.motionSession.snapshotDesiredState();
+            ControllerLedSession.DesiredState ledState =
+                    oldContext.ledSession.snapshotDesiredState();
             boolean usedDeviceSensorManager =
                     oldContext.sensorManager == deviceSensorManager;
-            // Take ownership of the sensor and light sessions
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                this.lightsSession = oldContext.lightsSession;
-                oldContext.lightsSession = null;
-            }
             // Don't release the controller number, because we will carry it over if it is present.
             // We also want to make sure the change is invisible to the host PC to avoid an add/remove
             // cycle for the gamepad which may break some games.
@@ -3044,6 +3009,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 this.sensorManager = deviceSensorManager;
             }
             motionSession.restoreDesiredState(motionState);
+            ledSession.restoreDesiredState(ledState);
 
             // Copy state initialized in reportControllerArrival()
             this.needsClickpadEmulation = oldContext.needsClickpadEmulation;

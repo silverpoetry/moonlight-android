@@ -440,6 +440,12 @@ targets.
   generation-scoped callbacks, so a canceled or late tick cannot restart
   polling. Live typed-settings updates now apply immediately to existing
   controllers instead of taking effect only after device reattachment.
+- `ControllerLedSession` owns desired controller-light state, while
+  `AndroidControllerLedTarget` owns Android 12+ light discovery, lazy session
+  creation, request rendering, and idempotent close. Input-device recreation
+  now closes the old device's hardware session and reapplies only the desired
+  color through a newly bound target instead of transferring a stale platform
+  handle between device identities.
 - `DecoderSelectionPolicy` owns HEVC/AV1 acceptance decisions and stream color
   defaults. The MediaCodec adapter performs discovery and capability queries,
   and no longer carries the unused metered-network parameter or unreachable

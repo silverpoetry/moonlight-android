@@ -1075,3 +1075,16 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Extracted controller RGB-light ownership into `ControllerLedSession` and
+  `AndroidControllerLedTarget`. The pure session preserves protocol byte
+  conversion and the latest desired color; the platform target caches the RGB
+  light set, opens one Android 12+ session lazily, and closes it idempotently.
+- Input-device recreation no longer moves a `LightsSession` created by the old
+  device object into the replacement context. It snapshots the desired color,
+  closes the old hardware lease, binds a new target, and reapplies the color;
+  no target write occurs when the host has not supplied a color.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 461 JVM
+  tests per variant (1,844 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.
