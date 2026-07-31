@@ -107,6 +107,16 @@ empty-section filtering, and selected-section bounds all pass through this one
 model. The Activity renders the same observed list and cannot maintain a
 parallel structural state or silently ignore an unresolved dependency.
 
+Display capability discovery follows the same adapter-policy-application
+split. `AndroidSettingsDisplayCapabilities` is the only settings component
+that touches Display modes, cutouts, decoder capabilities, or Android HDR
+types. `SettingsDisplayPolicy` converts its immutable result into ordered and
+deduplicated native resolution options, explicit preset fallbacks, frame-rate
+removals, the optional native frame-rate row, and a semantic HDR state.
+`SettingsDisplayController` applies that plan to `SettingsScreenModel` and
+typed storage. Resolution selection identifies canonical presets through
+`StreamResolutionCodec`; it does not infer meaning from mutable row indexes.
+
 ## Snapshot lifecycle
 
 A stream session receives one snapshot during composition. A setting that

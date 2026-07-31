@@ -5,7 +5,6 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
@@ -13,7 +12,6 @@ import android.graphics.Insets;
 import android.graphics.PorterDuff;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
-import android.media.MediaCodecInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -23,7 +21,6 @@ import android.text.InputFilter;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
-import android.util.Range;
 import android.view.Display;
 import android.view.DisplayCutout;
 import android.view.Gravity;
@@ -46,20 +43,16 @@ import androidx.annotation.RequiresApi;
 import androidx.documentfile.provider.DocumentFile;
 
 import com.limelight.AboutActivity;
-import com.limelight.LimeLog;
 import com.limelight.PcView;
 import com.limelight.R;
-import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.settings.SettingsScreenIds;
 import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.settings.android.AndroidAppPresentationDefaults;
 import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
-import com.limelight.settings.android.AndroidHdrCompatibility;
 import com.limelight.settings.android.AndroidStreamDefaults;
 import com.limelight.settings.app.AppPresentationSettings;
 import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.input.InputSettingKeys;
-import com.limelight.settings.stream.StreamDisplayGeometry;
 import com.limelight.settings.stream.StreamResolutionCodec;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
@@ -113,8 +106,7 @@ public class StreamSettings extends Activity {
     private final ArrayList<RenderedSettingsRow>
             renderedSettingsRows = new ArrayList<>();
     private int selectedSectionIndex = -1;
-    private int nativeResolutionStartIndex = Integer.MAX_VALUE;
-    private boolean nativeFramerateShown;
+    private String nativeFrameRateValue;
     private boolean wideLayout;
     private boolean sectionActivity;
     private BackNavigationRegistration backNavigationRegistration;
@@ -139,8 +131,7 @@ public class StreamSettings extends Activity {
         screenModel = new SettingsScreenModel(sections);
         store = new SettingsStore(this);
         screenModel.linkDependencyDefaults();
-        nativeResolutionStartIndex = Integer.MAX_VALUE;
-        nativeFramerateShown = false;
+        nativeFrameRateValue = null;
         initializeRuntimeSettings();
         screenModel.removeEmptySections();
         selectedSectionIndex =
@@ -1086,28 +1077,18 @@ public class StreamSettings extends Activity {
         if (StreamResolutionSettingKeys.RESOLUTION
                 .getName()
                 .equals(item.key)) {
-            boolean isNativeRes = true;
-            for (int i = 0; i < item.entryValues.length; i++) {
-                if (value.equals(item.entryValues[i].toString()) && i < nativeResolutionStartIndex) {
-                    isNativeRes = false;
-                    break;
-                }
-            }
             store.put(
                     StreamResolutionSettingKeys.SELECTION,
-                    isNativeRes ?
-                            StreamResolutionCodec
-                                    .SELECTION_CUSTOM_OR_NATIVE :
-                            StreamResolutionCodec
-                                    .SELECTION_PRESET);
+                    StreamResolutionCodec.isStandardResolutionPreset(value)
+                            ? StreamResolutionCodec.SELECTION_PRESET
+                            : StreamResolutionCodec
+                                    .SELECTION_CUSTOM_OR_NATIVE);
         }
 
         if (StreamResolutionSettingKeys.FPS
                 .getName()
                 .equals(item.key) &&
-                nativeFramerateShown &&
-                item.entryValues.length > 0 &&
-                item.entryValues[item.entryValues.length - 1].toString().equals(value)) {
+                value.equals(nativeFrameRateValue)) {
             Dialog.displayDialog(this,
                     getResources().getString(R.string.title_native_fps_dialog),
                     getResources().getString(R.string.text_native_res_dialog),
@@ -1249,7 +1230,6 @@ public class StreamSettings extends Activity {
     private void initializeRuntimeSettings() {
         initializeBitrateSetting();
         applyDeviceVisibility();
-        addCustomResolution();
         initializeDisplayCapabilities();
         initializeClipboardDirectory();
     }
@@ -1309,298 +1289,20 @@ public class StreamSettings extends Activity {
         screenModel.applyVisibility(visibility);
     }
 
-    private void addCustomResolution() {
-        String diy = store.get(
-                StreamVideoSettingKeys.CUSTOM_RESOLUTION_TEXT);
-        if (!TextUtils.isEmpty(diy)) {
-            String[] diys = diy.split("x");
-            if (diys.length == 2) {
-                try {
-                    addNativeResolutionEntries(Integer.parseInt(diys[0]), Integer.parseInt(diys[1]), false);
-                } catch (Exception e) {
-                    LimeLog.warning("Invalid custom resolution: " + diy);
-                }
-            }
-        }
-    }
-
     private void initializeDisplayCapabilities() {
-        Display display = getWindowManager().getDefaultDisplay();
-        float maxSupportedFps = display.getRefreshRate();
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            int maxSupportedResW = 0;
-            boolean hasInsets = false;
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                DisplayCutout cutout = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ?
-                        display.getCutout() : displayCutoutP;
-
-                if (cutout != null) {
-                    int widthInsets = cutout.getSafeInsetLeft() + cutout.getSafeInsetRight();
-                    int heightInsets = cutout.getSafeInsetBottom() + cutout.getSafeInsetTop();
-
-                    if (widthInsets != 0 || heightInsets != 0) {
-                        DisplayMetrics metrics = new DisplayMetrics();
-                        display.getRealMetrics(metrics);
-
-                        int width = Math.max(metrics.widthPixels - widthInsets, metrics.heightPixels - heightInsets);
-                        int height = Math.min(metrics.widthPixels - widthInsets, metrics.heightPixels - heightInsets);
-
-                        addNativeResolutionEntries(width, height, false);
-                        hasInsets = true;
-                    }
-                }
-            }
-
-            for (Display.Mode candidate : display.getSupportedModes()) {
-                int width = Math.max(candidate.getPhysicalWidth(), candidate.getPhysicalHeight());
-                int height = Math.min(candidate.getPhysicalWidth(), candidate.getPhysicalHeight());
-
-                if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEVISION) ||
-                        (width > 3840 || height > 2160)) {
-                    addNativeResolutionEntries(width, height, hasInsets);
-                }
-
-                if ((width >= 3840 || height >= 2160) && maxSupportedResW < 3840) {
-                    maxSupportedResW = 3840;
-                }
-                else if ((width >= 2560 || height >= 1440) && maxSupportedResW < 2560) {
-                    maxSupportedResW = 2560;
-                }
-                else if ((width >= 1920 || height >= 1080) && maxSupportedResW < 1920) {
-                    maxSupportedResW = 1920;
-                }
-
-                if (candidate.getRefreshRate() > maxSupportedFps) {
-                    maxSupportedFps = candidate.getRefreshRate();
-                }
-            }
-
-            MediaCodecHelper.initialize(this, GlPreferences.readPreferences(this).glRenderer);
-            maxSupportedResW = updateMaxResolutionFromDecoder(maxSupportedResW, "video/avc");
-            maxSupportedResW = updateMaxResolutionFromDecoder(maxSupportedResW, "video/hevc");
-
-            if (maxSupportedResW != 0) {
-                if (maxSupportedResW < 3840) {
-                    removeValue(
-                            StreamResolutionSettingKeys.RESOLUTION
-                                    .getName(),
-                            StreamResolutionCodec.RESOLUTION_4K,
-                            StreamResolutionCodec.RESOLUTION_1440P);
-                }
-                if (maxSupportedResW < 2560) {
-                    removeValue(
-                            StreamResolutionSettingKeys.RESOLUTION
-                                    .getName(),
-                            StreamResolutionCodec.RESOLUTION_1440P,
-                            StreamResolutionCodec.RESOLUTION_1080P);
-                }
-                if (maxSupportedResW < 1920) {
-                    removeValue(
-                            StreamResolutionSettingKeys.RESOLUTION
-                                    .getName(),
-                            StreamResolutionCodec.RESOLUTION_1080P,
-                            StreamResolutionCodec.RESOLUTION_720P);
-                }
-            }
-        }
-        else {
-            DisplayMetrics metrics = new DisplayMetrics();
-            display.getRealMetrics(metrics);
-            int width = Math.max(metrics.widthPixels, metrics.heightPixels);
-            int height = Math.min(metrics.widthPixels, metrics.heightPixels);
-            addNativeResolutionEntries(width, height, false);
-        }
-
-        if (!store.repository.get(
-                StreamVideoSettingKeys.UNLOCK_FPS)) {
-            if (maxSupportedFps < 118) {
-                removeValue(
-                        StreamResolutionSettingKeys.FPS.getName(),
-                        "120",
-                        "90");
-            }
-            if (maxSupportedFps < 88) {
-                removeValue(
-                        StreamResolutionSettingKeys.FPS.getName(),
-                        "90",
-                        "60");
-            }
-        }
-        addNativeFrameRateEntry(maxSupportedFps);
-        initializeHdrVisibility(display);
-    }
-
-    private int updateMaxResolutionFromDecoder(int maxSupportedResW, String mimeType) {
-        MediaCodecInfo decoder = MediaCodecHelper.findProbableSafeDecoder(mimeType, -1);
-        if (decoder == null) {
-            return maxSupportedResW;
-        }
-
-        Range<Integer> widthRange = decoder.getCapabilitiesForType(mimeType)
-                .getVideoCapabilities().getSupportedWidths();
-        LimeLog.info(mimeType + " supported width range: " + widthRange.getLower() + " - " + widthRange.getUpper());
-        if (widthRange.contains(1280)) {
-            if (widthRange.contains(3840) && maxSupportedResW < 3840) {
-                return 3840;
-            }
-            else if (widthRange.contains(1920) && maxSupportedResW < 1920) {
-                return 1920;
-            }
-            else if (maxSupportedResW < 1280) {
-                return 1280;
-            }
-        }
-        return maxSupportedResW;
-    }
-
-    private void initializeHdrVisibility(Display display) {
-        SettingsItem hdrItem = findItem(
-                StreamVideoSettingKeys.HDR_ENABLED.getName());
-        if (hdrItem == null) {
-            return;
-        }
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            hideItem(StreamVideoSettingKeys.HDR_ENABLED.getName());
-            return;
-        }
-
-        Display.HdrCapabilities hdrCaps = display.getHdrCapabilities();
-        boolean foundHdr10 = false;
-        if (hdrCaps != null) {
-            for (int hdrType : hdrCaps.getSupportedHdrTypes()) {
-                if (hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10) {
-                    foundHdr10 = true;
-                    break;
-                }
-            }
-        }
-
-        if (!foundHdr10) {
-            hideItem(StreamVideoSettingKeys.HDR_ENABLED.getName());
-        }
-        else if (!AndroidHdrCompatibility
-                .isHdrStreamingAllowed()) {
-            hdrItem.enabled = false;
-            store.put(
-                    StreamVideoSettingKeys.HDR_ENABLED,
-                    false);
-            hdrItem.summary = "Update the firmware on your NVIDIA SHIELD Android TV to enable HDR";
-        }
-    }
-
-    private void addNativeResolutionEntries(int nativeWidth, int nativeHeight, boolean insetsRemoved) {
-        if (StreamDisplayGeometry.isSquarish(
-                nativeWidth,
-                nativeHeight)) {
-            addNativeResolutionEntry(nativeHeight, nativeWidth, insetsRemoved, true);
-        }
-        addNativeResolutionEntry(nativeWidth, nativeHeight, insetsRemoved, false);
-    }
-
-    private void addNativeResolutionEntry(int nativeWidth, int nativeHeight, boolean insetsRemoved, boolean portrait) {
-        SettingsItem item = findItem(
-                StreamResolutionSettingKeys.RESOLUTION.getName());
-        if (item == null) {
-            return;
-        }
-
-        String newName = getResources().getString(insetsRemoved ?
-                R.string.resolution_prefix_native_fullscreen :
-                R.string.resolution_prefix_native);
-
-        if (StreamDisplayGeometry.isSquarish(
-                nativeWidth,
-                nativeHeight)) {
-            newName += " " + getResources().getString(portrait ?
-                    R.string.resolution_prefix_native_portrait :
-                    R.string.resolution_prefix_native_landscape);
-        }
-
-        newName += " (" + nativeWidth + "x" + nativeHeight + ")";
-        String newValue = nativeWidth + "x" + nativeHeight;
-
-        for (CharSequence value : item.entryValues) {
-            if (newValue.equals(value.toString())) {
-                return;
-            }
-        }
-
-        if (item.entryValues.length < nativeResolutionStartIndex) {
-            nativeResolutionStartIndex = item.entryValues.length;
-        }
-        item.appendEntry(newName, newValue);
-    }
-
-    private void addNativeFrameRateEntry(float framerate) {
-        int frameRateRounded = Math.round(framerate);
-        if (frameRateRounded == 0) {
-            return;
-        }
-
-        SettingsItem item = findItem(
-                StreamResolutionSettingKeys.FPS.getName());
-        if (item == null) {
-            return;
-        }
-
-        String fpsValue = Integer.toString(frameRateRounded);
-        for (CharSequence value : item.entryValues) {
-            if (fpsValue.equals(value.toString())) {
-                nativeFramerateShown = false;
-                return;
-            }
-        }
-
-        String fpsName = getResources().getString(R.string.resolution_prefix_native) +
-                " (" + fpsValue + " " + getResources().getString(R.string.fps_suffix_fps) + ")";
-        item.appendEntry(fpsName, fpsValue);
-        nativeFramerateShown = true;
-    }
-
-    private void removeValue(String preferenceKey, String value, String fallbackValue) {
-        SettingsItem item = findItem(preferenceKey);
-        if (item == null || item.entryValues.length == 0) {
-            return;
-        }
-
-        ArrayList<CharSequence> entries = new ArrayList<>();
-        ArrayList<CharSequence> values = new ArrayList<>();
-        for (int i = 0; i < item.entryValues.length; i++) {
-            if (!value.equalsIgnoreCase(item.entryValues[i].toString())) {
-                entries.add(item.entries[i]);
-                values.add(item.entryValues[i]);
-            }
-        }
-        item.entries = entries.toArray(new CharSequence[0]);
-        item.entryValues = values.toArray(new CharSequence[0]);
-
-        if (value.equalsIgnoreCase(store.getString(item))) {
-            if (StreamResolutionSettingKeys.RESOLUTION
-                    .getName()
-                    .equals(preferenceKey)) {
-                store.put(
-                        StreamResolutionSettingKeys.SELECTION,
-                        StreamResolutionCodec
-                                .isStandardResolutionPreset(
-                                        fallbackValue) ?
-                                StreamResolutionCodec
-                                        .SELECTION_PRESET :
-                                StreamResolutionCodec
-                                        .SELECTION_CUSTOM_OR_NATIVE);
-            }
-            store.putString(item, fallbackValue);
-        }
+        SettingsDisplayController.Result result =
+                new SettingsDisplayController(
+                        store,
+                        screenModel,
+                        new AndroidSettingsDisplayText(this))
+                        .apply(AndroidSettingsDisplayCapabilities.collect(
+                                this,
+                                displayCutoutP));
+        nativeFrameRateValue = result.getNativeFrameRateValue();
     }
 
     private SettingsItem findItem(String key) {
         return screenModel.findItem(key);
-    }
-
-    private void hideItem(String key) {
-        screenModel.hideItem(key);
     }
 
     private String getCurrentProfileSummary() {

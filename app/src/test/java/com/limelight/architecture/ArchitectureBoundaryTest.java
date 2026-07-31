@@ -382,6 +382,38 @@ public final class ArchitectureBoundaryTest {
                 .because(
                         "device visibility decisions must be testable without Android")
                 .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsDisplayCapabilities")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsDisplayPolicy")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsDisplayController")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsDisplayText")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..")
+                .because(
+                        "display capability decisions must be testable without Android")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.StreamSettings")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.video.MediaCodecHelper")
+                .because(
+                        "the settings Activity must not probe decoder capabilities directly")
+                .check(productionClasses);
     }
 
     @Test

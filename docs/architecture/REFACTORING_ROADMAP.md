@@ -284,6 +284,12 @@ A slice is incomplete if callers can still bypass the new boundary.
   structural visibility, empty-section removal, and selected-section bounds.
   It mutates the registry-produced list in place so renderers observe one
   state graph rather than an Activity-maintained parallel index.
+- Display-mode, cutout, decoder-width, refresh-rate, and HDR probing now live
+  in one Android capability adapter. A pure policy produces ordered,
+  deduplicated native resolution options, preset fallback removals, native FPS
+  policy, and HDR state; a settings controller applies that result. The
+  Activity no longer queries codecs or mutates resolution-entry arrays, and
+  decoder capability failures degrade safely instead of crashing settings.
 - The in-stream action catalog and virtual-overlay buttons consume typed UI
   policy plus read-only controller visibility. Persisted startup defaults are
   no longer mutated to represent picture-in-picture or menu presentation, and
