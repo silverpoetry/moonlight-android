@@ -323,6 +323,47 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void streamDisplayRefreshPolicyIsPlatformIndependent() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamDisplayRefreshPolicy")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..")
+                .because(
+                        "display refresh policy consumes immutable settings and device facts")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void gameDelegatesPhysicalDisplayPreparation() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamDisplayModeSelector")
+                .because(
+                        "the Android display controller owns physical mode selection")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.StreamLayoutGeometry")
+                .because(
+                        "the Android display controller owns render-surface geometry")
+                .check(productionClasses);
+    }
+
+    @Test
     public void gameDoesNotConstructConcreteDecoderRuntime() {
         noClasses()
                 .that()

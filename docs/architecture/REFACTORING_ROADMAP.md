@@ -415,6 +415,14 @@ targets.
   fixtures for refresh reduction, high-refresh selection, resolution
   preservation, safe output width, and invalid input. `Game` only translates
   Android modes and applies the selected mode.
+- `AndroidStreamDisplayController` now owns that Android translation and
+  application boundary as well: physical-mode enumeration, window refresh
+  hints, legacy refresh selection, television handling, selected phone-family
+  system ownership, and render-surface geometry. Its immutable preparation
+  result feeds configuration and render startup, while
+  `StreamDisplayRefreshPolicy` preserves pacing-dependent reduction and device
+  family decisions under JVM fixtures; `Game` no longer implements either
+  algorithm.
 - `StreamRenderSurfaceController` owns Surface callback registration,
   readiness, frame-rate hints, decoder stop preparation, and callback
   detachment. Its transition state is platform-independent and tested without

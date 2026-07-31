@@ -98,10 +98,11 @@ import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
 import com.limelight.ui.performance.PerformanceOverlayConfiguration;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.stream.AndroidStreamConnectionMessages;
+import com.limelight.ui.stream.AndroidStreamDisplayController;
 import com.limelight.ui.stream.AndroidStreamHdrCapabilityProvider;
 import com.limelight.ui.stream.AndroidStreamMediaRuntimeFactory;
-import com.limelight.ui.stream.StreamDisplayModeSelector;
 import com.limelight.ui.stream.StreamDecoderCapabilities;
+import com.limelight.ui.stream.StreamDisplayRefreshPolicy;
 import com.limelight.ui.stream.StreamFailureDiagnostics;
 import com.limelight.ui.stream.StreamHdrRequestPolicy;
 import com.limelight.ui.stream.StreamLaunchReporter;
@@ -116,7 +117,6 @@ import com.limelight.ui.stream.StreamSessionUiEffects;
 import com.limelight.ui.stream.StreamWifiLockController;
 import com.limelight.ui.GameGestures;
 import com.limelight.ui.NativeCursorOverlayView;
-import com.limelight.ui.StreamLayoutGeometry;
 import com.limelight.ui.StreamWindowPolicy;
 import com.limelight.ui.StreamUiActions;
 import com.limelight.ui.StreamView;
@@ -147,7 +147,6 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Outline;
-import android.graphics.Point;
 import android.graphics.Rect;
 import android.hardware.display.DisplayManager;
 import android.hardware.input.InputManager;
@@ -187,7 +186,6 @@ import java.lang.reflect.Method;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -250,7 +248,6 @@ public class Game extends Activity implements OnGenericMotionListener,
     private String streamHost;
     private long streamStartElapsedMs;
     private NvApp app;
-    private float selectedDisplayRefreshRate;
     private volatile boolean sessionDependenciesReady;
 
     private InputCaptureProvider inputCaptureProvider;
@@ -459,11 +456,13 @@ public class Game extends Activity implements OnGenericMotionListener,
                         streamDisplaySettings
                                 .isDisplayCutoutEnabled(),
                         streamDisplaySettings.isNativeResolution(),
-                        matchesPhysicalDisplayMode(
-                                streamDisplaySettings
-                                        .getStreamWidth(),
-                                streamDisplaySettings
-                                        .getStreamHeight()));
+                        AndroidStreamDisplayController
+                                .matchesPhysicalDisplayMode(
+                                        this,
+                                        streamDisplaySettings
+                                                .getStreamWidth(),
+                                        streamDisplaySettings
+                                                .getStreamHeight()));
         UiHelper.configureStreamWindowInsets(this, useEntireDisplay);
         // Listen for non-touch events on the game surface
         streamView = findViewById(R.id.surfaceView);
@@ -606,8 +605,18 @@ public class Game extends Activity implements OnGenericMotionListener,
                         .getInitialControllerMask(
                                 controllerSettings);
 
-        // Set to the optimal mode for streaming
-        float displayRefreshRate = prepareDisplayForRendering();
+        AndroidStreamDisplayController displayController =
+                new AndroidStreamDisplayController(
+                        this,
+                        streamView,
+                        streamDecoderSettings,
+                        streamDisplaySettings,
+                        streamVideoSettings);
+        AndroidStreamDisplayController.Preparation
+                displayPreparation =
+                displayController.prepare(effectiveFramePacing);
+        float displayRefreshRate = displayPreparation
+                .getEffectiveDisplayRefreshRate();
         LimeLog.info("Display refresh rate: "+displayRefreshRate);
 
         StreamSessionConfigurationPlanner.Plan configurationPlan =
@@ -1183,9 +1192,15 @@ public class Game extends Activity implements OnGenericMotionListener,
                         streamDecoderSettings.getWidth(),
                         streamDecoderSettings.getHeight(),
                         streamDecoderSettings.getFps(),
-                        selectedDisplayRefreshRate,
-                        mayReduceRefreshRate(),
-                        shouldLetSystemManageRefreshRate(),
+                        displayPreparation
+                                .getSelectedDisplayRefreshRate(),
+                        StreamDisplayRefreshPolicy
+                                .mayReduceRefreshRate(
+                                        effectiveFramePacing,
+                                        streamDecoderSettings
+                                                .isRefreshRateReductionEnabled()),
+                        displayPreparation
+                                .isSystemManagedRefreshRate(),
                         new StreamRenderSurfaceController.Host() {
                             @Override
                             public boolean canStartSession() {
@@ -1517,213 +1532,6 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
     }
 
-    private boolean matchesPhysicalDisplayMode(int width, int height) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Display display = getWindowManager().getDefaultDisplay();
-            for (Display.Mode candidate : display.getSupportedModes()) {
-                if (StreamWindowPolicy.matchesPhysicalResolution(
-                        width,
-                        height,
-                        candidate.getPhysicalWidth(),
-                        candidate.getPhysicalHeight())) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private boolean mayReduceRefreshRate() {
-        return effectiveFramePacing ==
-                StreamDecoderSettings.FramePacing.CAP_FPS ||
-                effectiveFramePacing ==
-                        StreamDecoderSettings.FramePacing
-                                .MAXIMUM_SMOOTHNESS ||
-                (effectiveFramePacing ==
-                        StreamDecoderSettings.FramePacing.BALANCED &&
-                        streamDecoderSettings
-                                .isRefreshRateReductionEnabled());
-    }
-
-    private boolean shouldLetSystemManageRefreshRate() {
-        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEVISION) ||
-                getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
-            return false;
-        }
-
-        String deviceBrand = (Build.MANUFACTURER + " " + Build.BRAND).toLowerCase(Locale.ROOT);
-        return deviceBrand.contains("xiaomi") ||
-                deviceBrand.contains("redmi") ||
-                deviceBrand.contains("poco");
-    }
-
-    private float prepareDisplayForRendering() {
-        Display display = getWindowManager().getDefaultDisplay();
-        WindowManager.LayoutParams windowLayoutParams = getWindow().getAttributes();
-        boolean systemManagedRefreshRate = shouldLetSystemManageRefreshRate();
-        float displayRefreshRate;
-
-        // On M, we can explicitly set the optimal display mode
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Display.Mode currentMode = display.getMode();
-
-            LimeLog.info("Current display mode: " +
-                    currentMode.getPhysicalWidth() + "x" +
-                    currentMode.getPhysicalHeight() + "x" +
-                    currentMode.getRefreshRate());
-
-            ArrayList<Display.Mode> platformModes =
-                    new ArrayList<>();
-            ArrayList<StreamDisplayModeSelector.Mode>
-                    selectorModes = new ArrayList<>();
-            for (Display.Mode candidate : display.getSupportedModes()) {
-                LimeLog.info("Examining display mode: " +
-                        candidate.getPhysicalWidth() + "x" +
-                        candidate.getPhysicalHeight() + "x" +
-                        candidate.getRefreshRate());
-                platformModes.add(candidate);
-                selectorModes.add(toSelectorMode(candidate));
-            }
-            StreamDisplayModeSelector.Mode selectedMode =
-                    StreamDisplayModeSelector.select(
-                            streamDecoderSettings.getWidth(),
-                            streamDecoderSettings.getHeight(),
-                            streamDecoderSettings.getFps(),
-                            streamDisplaySettings
-                                    .isNativeResolution(),
-                            mayReduceRefreshRate(),
-                            toSelectorMode(currentMode),
-                            selectorModes);
-            Display.Mode bestMode = currentMode;
-            for (int index = 0;
-                    index < platformModes.size();
-                    index++) {
-                if (platformModes.get(index).getModeId() ==
-                        selectedMode.id) {
-                    bestMode = platformModes.get(index);
-                    break;
-                }
-            }
-
-            LimeLog.info("Best display mode: "+bestMode.getPhysicalWidth()+"x"+
-                    bestMode.getPhysicalHeight()+"x"+bestMode.getRefreshRate());
-
-            // Only apply new window layout parameters if we've actually changed the display mode
-            if (display.getMode().getModeId() != bestMode.getModeId() && !systemManagedRefreshRate) {
-                // If we only changed refresh rate and we're on an OS that supports Surface.setFrameRate()
-                // use that instead of using preferredDisplayModeId to avoid the possibility of triggering
-                // bugs that can cause the system to switch from 4K60 to 4K24 on Chromecast 4K.
-                if (streamVideoSettings.shouldEnforceDisplayMode() ||
-                        Build.VERSION.SDK_INT <
-                                Build.VERSION_CODES.S ||
-                        display.getMode().getPhysicalWidth() != bestMode.getPhysicalWidth() ||
-                        display.getMode().getPhysicalHeight() != bestMode.getPhysicalHeight()) {
-                    // Apply the display mode change
-                    windowLayoutParams.preferredDisplayModeId = bestMode.getModeId();
-                    getWindow().setAttributes(windowLayoutParams);
-                }
-                else {
-                    LimeLog.info("Using setFrameRate() instead of preferredDisplayModeId due to matching resolution");
-                }
-            }
-            else if (systemManagedRefreshRate) {
-                LimeLog.info("Leaving refresh rate selection to the system on this device");
-            }
-            else {
-                LimeLog.info("Current display mode is already the best display mode");
-            }
-
-            displayRefreshRate = bestMode.getRefreshRate();
-        }
-        // On L, we can at least tell the OS that we want a refresh rate
-        else {
-            float bestRefreshRate = display.getRefreshRate();
-            for (float candidate : display.getSupportedRefreshRates()) {
-                LimeLog.info("Examining refresh rate: "+candidate);
-
-                if (candidate > bestRefreshRate) {
-                    // Ensure the frame rate stays around 60 Hz for <= 60 FPS streams
-                    if (streamDecoderSettings.getFps() <= 60) {
-                        if (candidate >= 63) {
-                            continue;
-                        }
-                    }
-
-                    bestRefreshRate = candidate;
-                }
-            }
-
-            LimeLog.info("Selected refresh rate: "+bestRefreshRate);
-            if (!systemManagedRefreshRate) {
-                windowLayoutParams.preferredRefreshRate = bestRefreshRate;
-            }
-            displayRefreshRate = bestRefreshRate;
-
-            // Apply the refresh rate change
-            if (!systemManagedRefreshRate) {
-                getWindow().setAttributes(windowLayoutParams);
-            }
-        }
-
-        // Until Marshmallow, we can't ask for a 4K display mode, so we'll
-        // need to hint the OS to provide one.
-        boolean aspectRatioMatch = false;
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            // We'll calculate whether we need to scale by aspect ratio. If not, we'll use
-            // setFixedSize so we can handle 4K properly. The only known devices that have
-            // >= 4K screens have exactly 4K screens, so we'll be able to hit this good path
-            // on these devices. On Marshmallow, we can start changing to 4K manually but no
-            // 4K devices run 6.0 at the moment.
-            Point screenSize = new Point(0, 0);
-            display.getSize(screenSize);
-
-            if (StreamLayoutGeometry.hasCompatibleAspectRatio(
-                    screenSize.x,
-                    screenSize.y,
-                    streamDecoderSettings.getWidth(),
-                    streamDecoderSettings.getHeight(),
-                    0.001)) {
-                LimeLog.info("Stream has compatible aspect ratio with output display");
-                aspectRatioMatch = true;
-            }
-        }
-
-        double desiredAspectRatio =
-                StreamLayoutGeometry.getAspectRatio(
-                        streamDecoderSettings.getWidth(),
-                        streamDecoderSettings.getHeight());
-        if (streamDisplaySettings.isStretchVideo() ||
-                aspectRatioMatch) {
-            // Set the surface to the size of the video
-            streamView.getHolder().setFixedSize(
-                    streamDecoderSettings.getWidth(),
-                    streamDecoderSettings.getHeight());
-            streamView.setDesiredAspectRatio(0.0);
-        }
-        else {
-            // Set the surface to scale based on the aspect ratio of the stream
-            streamView.setDesiredAspectRatio(desiredAspectRatio);
-            LimeLog.info("surfaceChanged-->" + desiredAspectRatio);
-        }
-
-        // Set the desired refresh rate that will get passed into setFrameRate() later
-        selectedDisplayRefreshRate = displayRefreshRate;
-
-        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEVISION) ||
-                getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
-            // TVs may take a few moments to switch refresh rates, and we can probably assume
-            // it will be eventually activated.
-            // TODO: Improve this
-            return displayRefreshRate;
-        }
-        else {
-            // Use the lower of the current refresh rate and the selected refresh rate.
-            // The preferred refresh rate may not actually be applied (ex: Battery Saver mode).
-            return Math.min(getWindowManager().getDefaultDisplay().getRefreshRate(), displayRefreshRate);
-        }
-    }
-
     @SuppressLint("InlinedApi")
     private final Runnable hideSystemUi = new Runnable() {
             @Override
@@ -1756,16 +1564,6 @@ public class Game extends Activity implements OnGenericMotionListener,
             h.removeCallbacks(hideSystemUi);
             h.postDelayed(hideSystemUi, delay);
         }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.M)
-    private static StreamDisplayModeSelector.Mode toSelectorMode(
-            Display.Mode mode) {
-        return new StreamDisplayModeSelector.Mode(
-                mode.getModeId(),
-                mode.getPhysicalWidth(),
-                mode.getPhysicalHeight(),
-                mode.getRefreshRate());
     }
 
     private void cancelPendingUiCallbacks() {
