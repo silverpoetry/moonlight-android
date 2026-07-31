@@ -487,6 +487,11 @@ targets.
   supplies the Android permission and UI adapters while `NvConnection`
   implements the narrow `MicrophoneUplinkEndpoint`; the menu no longer polls
   twice on fixed timers to guess whether an asynchronous transition finished.
+- `AndroidStreamMicrophoneControllerFactory` now supplies that controller's
+  concrete permission and localized-feedback ports, owns the permission
+  request/result contract, and forwards only one menu-invalidation callback.
+  `Game` no longer embeds microphone permission codes, Android-version gates,
+  or toast policy.
 - `StreamFloatingControlController` is the sole lifecycle owner of the
   in-stream floating control, including lazy attachment, visibility, current
   action dispatch, position events, and deterministic teardown. The View

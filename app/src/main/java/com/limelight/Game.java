@@ -1,7 +1,6 @@
 package com.limelight;
 
 
-import android.Manifest;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.audio.mic.AndroidMicrophoneUplinkSessionFactory;
@@ -101,6 +100,7 @@ import com.limelight.ui.stream.AndroidStreamDisplayController;
 import com.limelight.ui.stream.AndroidExternalDisplayController;
 import com.limelight.ui.stream.AndroidStreamHdrCapabilityProvider;
 import com.limelight.ui.stream.AndroidStreamMediaRuntimeFactory;
+import com.limelight.ui.stream.AndroidStreamMicrophoneControllerFactory;
 import com.limelight.ui.stream.AndroidStreamOverlayVisibilityHost;
 import com.limelight.ui.stream.AndroidStreamPictureInPictureController;
 import com.limelight.ui.stream.StreamDecoderCapabilities;
@@ -145,7 +145,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
@@ -189,7 +188,6 @@ public class Game extends Activity implements OnGenericMotionListener,
         OnSystemUiVisibilityChangeListener, GameGestures, StreamInputGateway,
         StreamUiActions, GameMenuHost,
         UsbDriverService.UsbDriverStateListener, View.OnKeyListener {
-    private static final int REQUEST_RECORD_AUDIO_PERMISSION = 1001;
     private static final long KEY_CHORD_UP_DELAY_MS = 25;
 
     private StreamInputController streamInputController;
@@ -702,59 +700,17 @@ public class Game extends Activity implements OnGenericMotionListener,
                         conn,
                         settingsRepository);
         Handler mainHandler = new Handler(Looper.getMainLooper());
-        microphoneController = StreamMicrophoneController.create(
-                conn,
-                new StreamMicrophoneController.PermissionGateway() {
-                    @Override
-                    public boolean isGranted() {
-                        return isRecordAudioPermissionGranted();
-                    }
-
-                    @Override
-                    public void requestPermission() {
-                        if (Build.VERSION.SDK_INT >=
-                                Build.VERSION_CODES.M) {
-                            requestPermissions(
-                                    new String[] {
-                                            Manifest.permission.RECORD_AUDIO
-                                    },
-                                    REQUEST_RECORD_AUDIO_PERMISSION);
-                        }
-                    }
-                },
-                new StreamMicrophoneController.Feedback() {
-                    @Override
-                    public void onUnsupported() {
-                        showMicrophoneMessage(
-                                getString(R.string
-                                        .mic_uplink_not_supported),
-                                UiToast.LENGTH_LONG);
-                    }
-
-                    @Override
-                    public void onPermissionDenied() {
-                        showMicrophoneMessage(
-                                getString(R.string
-                                        .mic_uplink_permission_denied),
-                                UiToast.LENGTH_LONG);
-                    }
-
-                    @Override
-                    public void onOperationFailed(String message) {
-                        showMicrophoneMessage(
-                                message,
-                                UiToast.LENGTH_SHORT);
-                    }
-
-                    @Override
-                    public void onStateChanged() {
-                        if (dialogGameMenu != null) {
-                            dialogGameMenu
-                                    .refreshMicrophoneState();
-                        }
-                    }
-                },
-                mainHandler::post);
+        microphoneController =
+                AndroidStreamMicrophoneControllerFactory.create(
+                        this,
+                        conn,
+                        () -> {
+                            if (dialogGameMenu != null) {
+                                dialogGameMenu
+                                        .refreshMicrophoneState();
+                            }
+                        },
+                        mainHandler::post);
         StreamFailureDiagnostics failureDiagnostics =
                 StreamFailureDiagnostics.create(
                         portFlags -> MoonBridge.testClientConnectivity(
@@ -2205,16 +2161,11 @@ public class Game extends Activity implements OnGenericMotionListener,
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        if (requestCode != REQUEST_RECORD_AUDIO_PERMISSION) {
-            return;
-        }
-
-        if (microphoneController != null) {
-            microphoneController.onPermissionResult(
-                    grantResults.length > 0 &&
-                            grantResults[0] ==
-                                    PackageManager.PERMISSION_GRANTED);
-        }
+        AndroidStreamMicrophoneControllerFactory
+                .handlePermissionResult(
+                        microphoneController,
+                        requestCode,
+                        grantResults);
     }
 
     @Override
@@ -2936,11 +2887,6 @@ public class Game extends Activity implements OnGenericMotionListener,
         return isSessionConnected();
     }
 
-    private boolean isRecordAudioPermissionGranted() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
-                checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
-    }
-
     public boolean isMicUplinkActive() {
         return microphoneController != null &&
                 microphoneController.isActive();
@@ -3029,15 +2975,6 @@ public class Game extends Activity implements OnGenericMotionListener,
         if (microphoneController != null) {
             microphoneController.toggle();
         }
-    }
-
-    private void showMicrophoneMessage(
-            String message,
-            int duration) {
-        if (message == null || message.isEmpty() || isFinishing()) {
-            return;
-        }
-        UiToast.makeText(this, message, duration).show();
     }
 
 }

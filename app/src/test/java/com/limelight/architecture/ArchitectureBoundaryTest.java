@@ -543,6 +543,31 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void gameDelegatesAndroidMicrophoneComposition() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamMicrophoneController$PermissionGateway")
+                .because(
+                        "the Android microphone factory owns permission adaptation")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamMicrophoneController$Feedback")
+                .because(
+                        "the Android microphone factory owns localized feedback")
+                .check(productionClasses);
+    }
+
+    @Test
     public void typedStreamSettingsDoNotDependOnAndroidOrLegacyPreferences() {
         noClasses()
                 .that()
