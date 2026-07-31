@@ -2,7 +2,13 @@ package com.limelight.settings;
 
 import org.junit.Test;
 
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class SettingKeyTest {
     @Test
@@ -82,5 +88,43 @@ public class SettingKeyTest {
 
         assertEquals("abcd", key.normalizeStoredValue("abcd"));
         assertEquals("", key.normalizeStoredValue("abcde"));
+    }
+
+    @Test
+    public void boundedStringCollectionIsValidatedAndDefensive() {
+        SettingKey<Set<String>> key =
+                SettingKey.boundedStringCollectionKey(
+                        "ids",
+                        2,
+                        4);
+        Set<String> source = new LinkedHashSet<>(
+                Arrays.asList("one", "two"));
+
+        Set<String> normalized = key.normalizeValue(source);
+        source.add("late");
+
+        assertEquals(
+                new LinkedHashSet<>(
+                        Arrays.asList("one", "two")),
+                normalized);
+        assertFalse(normalized.contains("late"));
+
+        boolean immutable = false;
+        try {
+            normalized.add("new");
+        }
+        catch (UnsupportedOperationException expected) {
+            immutable = true;
+        }
+        assertTrue(immutable);
+
+        assertTrue(key.normalizeStoredValue(
+                new LinkedHashSet<>(
+                        Arrays.asList("one", "three")))
+                .isEmpty());
+        assertTrue(key.normalizeStoredValue(
+                new LinkedHashSet<>(
+                        Arrays.asList("one", "two", "x")))
+                .isEmpty());
     }
 }

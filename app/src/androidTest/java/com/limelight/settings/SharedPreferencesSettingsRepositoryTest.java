@@ -7,11 +7,16 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.ui.GameMenuCardLayoutCodec;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -83,6 +88,34 @@ public class SharedPreferencesSettingsRepositoryTest {
         }
         assertTrue(rejected);
         assertFalse(preferences.contains("enabled"));
+    }
+
+    @Test
+    public void stringCollectionRoundTripsWithoutMutableAliasing() {
+        SettingKey<Set<String>> ids =
+                SettingKey.boundedStringCollectionKey(
+                        "ids",
+                        3,
+                        8);
+        Set<String> source = new LinkedHashSet<>(
+                Arrays.asList("first", "second"));
+
+        repository.edit().put(ids, source).commit();
+        source.add("late");
+        Set<String> loaded = repository.get(ids);
+
+        assertEquals(
+                new LinkedHashSet<>(
+                        Arrays.asList("first", "second")),
+                loaded);
+        boolean immutable = false;
+        try {
+            loaded.add("new");
+        }
+        catch (UnsupportedOperationException expected) {
+            immutable = true;
+        }
+        assertTrue(immutable);
     }
 
     @Test
@@ -169,5 +202,45 @@ public class SharedPreferencesSettingsRepositoryTest {
                         "seekbar_bitrate_kbps",
                         -1));
         assertFalse(preferences.contains("seekbar_bitrate"));
+    }
+
+    @Test
+    public void versionFourMigratesLegacyGameMenuLayoutAtomically() {
+        preferences.edit()
+                .putInt("settings_schema_version", 3)
+                .putString(
+                        "game_menu_action_order_v1",
+                        "disconnect,performance")
+                .putStringSet(
+                        "game_menu_action_hidden_v1",
+                        new LinkedHashSet<>(
+                                Arrays.asList("performance")))
+                .commit();
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertEquals(
+                SettingsSchema.CURRENT_VERSION,
+                preferences.getInt(
+                        "settings_schema_version",
+                        -1));
+        assertEquals(
+                Arrays.asList(
+                        "action:disconnect",
+                        "action:performance"),
+                GameMenuCardLayoutCodec.decodeOrder(
+                                preferences.getString(
+                                        "game_menu_card_order_v2",
+                                        "")));
+        assertEquals(
+                new LinkedHashSet<>(
+                        Arrays.asList("action:performance")),
+                preferences.getStringSet(
+                        "game_menu_card_hidden_v2",
+                        null));
+        assertFalse(preferences.contains(
+                "game_menu_action_order_v1"));
+        assertFalse(preferences.contains(
+                "game_menu_action_hidden_v1"));
     }
 }

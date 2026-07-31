@@ -14,6 +14,7 @@ import android.widget.Space;
 import android.widget.TextView;
 
 import com.limelight.R;
+import com.limelight.settings.ui.GameMenuCardLayout;
 import com.limelight.utils.UiHelper;
 
 import java.util.ArrayList;
@@ -21,7 +22,7 @@ import java.util.List;
 
 final class GameMenuCardEditor {
     interface Listener {
-        void onSaved();
+        void onSave(GameMenuCardLayout layout);
 
         void onDismissed();
     }
@@ -31,6 +32,7 @@ final class GameMenuCardEditor {
     private final Activity activity;
     private final Listener listener;
     private final List<GameMenuCardCatalog.Card> catalog;
+    private final GameMenuCardConfiguration.State initialState;
     private final List<GameMenuCardCatalog.Card> visible =
             new ArrayList<>();
     private final List<GameMenuCardCatalog.Card> hidden =
@@ -47,16 +49,16 @@ final class GameMenuCardEditor {
     GameMenuCardEditor(
             Activity activity,
             List<GameMenuCardCatalog.Card> catalog,
+            GameMenuCardConfiguration.State initialState,
             Listener listener) {
         this.activity = activity;
         this.catalog = new ArrayList<>(catalog);
+        this.initialState = initialState;
         this.listener = listener;
     }
 
     void show() {
-        GameMenuCardConfiguration.State state =
-                GameMenuCardConfiguration.load(activity, catalog);
-        replaceState(state);
+        replaceState(initialState);
 
         View content = activity.getLayoutInflater().inflate(
                 R.layout.dialog_game_menu_action_editor, null);
@@ -84,9 +86,10 @@ final class GameMenuCardEditor {
                 .setOnClickListener(view -> dismiss());
         content.findViewById(R.id.game_menu_action_done)
                 .setOnClickListener(view -> {
-                    GameMenuCardConfiguration.save(
-                            activity, visible, hidden);
-                    listener.onSaved();
+                    listener.onSave(
+                            GameMenuCardConfiguration.toLayout(
+                                    visible,
+                                    hidden));
                     dismiss();
                 });
 

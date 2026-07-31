@@ -251,12 +251,17 @@ A slice is incomplete if callers can still bypass the new boundary.
   external-display mode, and FSR values are committed as one explicit Apply
   transaction. Custom resolutions cross a repository port, and unknown future
   FSR values round-trip unchanged until the user explicitly replaces them.
-- Versioned legacy preference migration through schema version 3.
+- Versioned legacy preference migration through schema version 4.
 - The in-stream action catalog and virtual-overlay buttons consume typed UI
   policy plus read-only controller visibility. Persisted startup defaults are
   no longer mutated to represent picture-in-picture or menu presentation, and
   compact-window orientation receives an immutable typed projection instead
   of the legacy application-wide settings bag.
+- First-page stream-menu customization stores only bounded stable card
+  references behind `GameMenuCardLayoutRepository`. Display and editor code
+  are pure with respect to persistence; schema version 4 migrates and removes
+  the former action-only order/hidden keys without retaining a runtime
+  compatibility branch.
 - A platform-independent virtual-control layout identity/repository contract,
   Android atomic-file adapter, bounded and validated import, and one shared
   runtime/settings I/O path. Historical file names remain an adapter-only

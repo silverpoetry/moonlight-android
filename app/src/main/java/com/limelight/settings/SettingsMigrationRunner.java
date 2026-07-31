@@ -4,9 +4,17 @@ import com.limelight.settings.audio.StreamAudioSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
+import com.limelight.settings.ui.GameMenuCardIds;
+import com.limelight.settings.ui.GameMenuCardLayout;
+import com.limelight.settings.ui.GameMenuCardLayoutCodec;
+import com.limelight.settings.ui.GameMenuCardSettingKeys;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Runs ordered, idempotent migrations for default application preferences.
@@ -39,6 +47,10 @@ public final class SettingsMigrationRunner {
                                 .LEGACY_BITRATE_MBPS)) {
             migrateToVersion3(repository, editor);
         }
+        if (storedVersion < 4 ||
+                containsLegacyGameMenuLayout(repository)) {
+            migrateToVersion4(repository, editor);
+        }
         if (storedVersion < SettingsSchema.CURRENT_VERSION) {
             editor.put(
                     SettingsSchema.VERSION,
@@ -60,7 +72,8 @@ public final class SettingsMigrationRunner {
                                 .LEGACY_CLIPBOARD_IMAGE_SYNC) ||
                 repository.contains(
                         StreamVideoSettingKeys
-                                .LEGACY_BITRATE_MBPS);
+                                .LEGACY_BITRATE_MBPS) ||
+                containsLegacyGameMenuLayout(repository);
     }
 
     private static void migrateToVersion1(
@@ -154,5 +167,91 @@ public final class SettingsMigrationRunner {
         }
         editor.remove(
                 StreamVideoSettingKeys.LEGACY_BITRATE_MBPS);
+    }
+
+    private static boolean containsLegacyGameMenuLayout(
+            SettingsRepository repository) {
+        return repository.contains(
+                GameMenuCardSettingKeys.LEGACY_ACTION_ORDER) ||
+                repository.contains(
+                        GameMenuCardSettingKeys
+                                .LEGACY_HIDDEN_ACTION_IDS);
+    }
+
+    private static void migrateToVersion4(
+            SettingsRepository repository,
+            SettingsRepository.Editor editor) {
+        boolean hasLegacyOrder = repository.contains(
+                GameMenuCardSettingKeys.LEGACY_ACTION_ORDER);
+        boolean hasLegacyHidden = repository.contains(
+                GameMenuCardSettingKeys
+                        .LEGACY_HIDDEN_ACTION_IDS);
+        if (!repository.contains(
+                GameMenuCardSettingKeys.ORDER_DOCUMENT) &&
+                (hasLegacyOrder || hasLegacyHidden)) {
+            List<String> migratedOrder = new ArrayList<>();
+            if (hasLegacyOrder) {
+                String legacyOrder = repository.get(
+                        GameMenuCardSettingKeys
+                                .LEGACY_ACTION_ORDER);
+                if (!legacyOrder.isEmpty()) {
+                    for (String legacyId :
+                            legacyOrder.split(",")) {
+                        if (!legacyId.isEmpty()) {
+                            try {
+                                migratedOrder.add(
+                                        GameMenuCardIds.action(
+                                                legacyId));
+                            }
+                            catch (IllegalArgumentException ignored) {
+                                // Invalid legacy references are discarded.
+                            }
+                            if (migratedOrder.size() >=
+                                    GameMenuCardLayout
+                                            .MAXIMUM_CARD_COUNT) {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Set<String> migratedHidden =
+                    new LinkedHashSet<>();
+            if (hasLegacyHidden) {
+                for (String legacyId : repository.get(
+                        GameMenuCardSettingKeys
+                                .LEGACY_HIDDEN_ACTION_IDS)) {
+                    if (!legacyId.isEmpty()) {
+                        try {
+                            migratedHidden.add(
+                                    GameMenuCardIds.action(
+                                            legacyId));
+                        }
+                        catch (IllegalArgumentException ignored) {
+                            // Invalid legacy references are discarded.
+                        }
+                    }
+                }
+            }
+            editor.put(
+                    GameMenuCardSettingKeys.ORDER_DOCUMENT,
+                    GameMenuCardLayoutCodec.encodeOrder(
+                            migratedOrder));
+            editor.put(
+                    GameMenuCardSettingKeys.HIDDEN_CARD_IDS,
+                    migratedHidden);
+        }
+
+        if (hasLegacyOrder) {
+            editor.remove(
+                    GameMenuCardSettingKeys
+                            .LEGACY_ACTION_ORDER);
+        }
+        if (hasLegacyHidden) {
+            editor.remove(
+                    GameMenuCardSettingKeys
+                            .LEGACY_HIDDEN_ACTION_IDS);
+        }
     }
 }

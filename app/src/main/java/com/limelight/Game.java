@@ -71,6 +71,10 @@ import com.limelight.settings.stream.StreamVideoSettingsState;
 import com.limelight.settings.stream.StreamVideoSettingsUpdate;
 import com.limelight.settings.transfer.TransferSettings;
 import com.limelight.settings.transfer.TransferSettingsLoader;
+import com.limelight.settings.ui.GameMenuCardLayout;
+import com.limelight.settings.ui.GameMenuCardLayoutLoadResult;
+import com.limelight.settings.ui.GameMenuCardLayoutRepository;
+import com.limelight.settings.ui.SettingsGameMenuCardLayoutRepository;
 import com.limelight.settings.ui.StreamUiSettings;
 import com.limelight.settings.ui.StreamUiSettingsLoader;
 import com.limelight.settings.ui.StreamUiSettingsState;
@@ -213,6 +217,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             customResolutionRepository;
     private TransferSettings transferSettings;
     private SettingsRepository settingsRepository;
+    private GameMenuCardLayoutRepository
+            gameMenuCardLayoutRepository;
     private SharedPreferences tombstonePrefs;
 
     private NvConnection conn;
@@ -364,6 +370,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 new SharedPreferencesSettingsRepository(
                         PreferenceManager
                                 .getDefaultSharedPreferences(this));
+        gameMenuCardLayoutRepository =
+                new SettingsGameMenuCardLayoutRepository(
+                        settingsRepository);
         streamDisplaySettings =
                 LegacyPreferenceSettingsAdapter
                         .loadStreamDisplaySettings(
@@ -3319,6 +3328,18 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public boolean isVirtualKeysVisible() {
         return keyBoardController != null &&
                 keyBoardController.isVisible();
+    }
+
+    @Override
+    public GameMenuCardLayoutLoadResult
+            loadGameMenuCardLayout() {
+        return gameMenuCardLayoutRepository.load();
+    }
+
+    @Override
+    public void saveGameMenuCardLayout(
+            GameMenuCardLayout layout) {
+        gameMenuCardLayoutRepository.save(layout);
     }
 
     @Override

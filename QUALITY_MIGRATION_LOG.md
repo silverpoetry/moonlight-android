@@ -442,3 +442,56 @@ Verification on 2026-07-31:
   picture-in-picture, and exercising compact-window orientation remain the
   host-dependent manual regression gate. Automated evidence does not claim
   those interactions passed.
+
+## Typed stream-menu card layout
+
+- Replaced `GameMenuCardConfiguration`'s direct default-preference access with
+  an immutable `GameMenuCardLayout`, a consumer-owned repository port, and a
+  typed settings-backed implementation owned by the stream Activity.
+- The layout stores only bounded stable card IDs. The pure configuration
+  policy filters removed IDs, deduplicates order, preserves explicit hidden
+  state, and applies catalog defaults to newly discovered actions/shortcuts.
+  Labels, icons, callbacks, and shortcut payloads are never serialized into
+  this document.
+- The card editor receives an immutable initial state and emits one save
+  result. It and the Fragment cannot address `SettingsRepository`,
+  `SharedPreferences`, preference packages, or Android settings adapters.
+- Extended the typed settings schema with defensive immutable string
+  collections. The Android adapter copies both reads and writes so callers
+  cannot alias `SharedPreferences`' mutable set instances.
+- Schema version 4 converts the former action-only comma-separated order and
+  hidden set to namespaced card references, preserves an existing current
+  layout, deletes the v1 keys, handles late values introduced by downgrade,
+  and commits the migration atomically.
+- Replaced an initially detected API-24-only `java.util.Optional` dependency
+  with `GameMenuCardLayoutLoadResult`; the production path remains compatible
+  with the application's API 21 minimum without a Lint suppression.
+- Architecture tests keep the card settings model, codec, IDs, repository
+  port, and settings-backed implementation platform-independent and prevent
+  the UI from reclaiming persistence ownership.
+
+Verification on 2026-07-31:
+
+- Focused schema, migration, codec, repository, catalog-resolution, and
+  architecture tests passed. Corrupt JSON, wrong shape, duplicates, stale
+  IDs, unknown cards, bounded collections, mutable aliasing, migration
+  idempotence, and current-layout precedence are covered.
+- `verifyLocal --rerun-tasks`: passed with all 193 tasks executed. Each of the
+  four root/non-root debug/release variants ran 277 JVM tests, for 1,108
+  executions total with zero failures, errors, or skips. All Lint variants
+  passed, including the API 21 gate, and both unminified Release APKs built.
+- `verifyConnected --rerun-tasks` on the API 34 emulator: all 296 tasks
+  executed; 105 non-root and 105 root instrumentation tests passed with zero
+  failures, errors, or skips. These include real `SharedPreferences`
+  string-collection round-trip and schema-v4 upgrade coverage.
+- Release artifacts:
+
+| Flavor | Size | SHA-256 |
+| --- | ---: | --- |
+| `nonRootRelease` | 16,005,312 bytes | `AF442CDE4459FB55391C0DA2D1BBD8B2762AC286BEF72FB4449A9EB513A72B25` |
+| `rootRelease` | 16,024,684 bytes | `098EA1D4CAEDC4211C683B6E67A4B433E3A7D060C45EB77A9C44FE5C44FF2C26` |
+
+- Opening the live card editor, saving/reordering cards, and visually
+  confirming an upgrade from a device that still contains the v1 layout
+  remain manual UI checks. Automated evidence does not claim those
+  interactions passed.

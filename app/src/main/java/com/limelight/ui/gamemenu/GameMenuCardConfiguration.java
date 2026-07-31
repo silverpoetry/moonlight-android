@@ -1,11 +1,7 @@
 package com.limelight.ui.gamemenu;
 
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
-
-import org.json.JSONArray;
-import org.json.JSONException;
+import com.limelight.settings.ui.GameMenuCardLayout;
+import com.limelight.settings.ui.GameMenuCardLayoutLoadResult;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,29 +13,24 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Persists first-screen card references without copying action or shortcut
- * payloads. Missing references are ignored and newly discovered shortcuts are
- * placed in the hidden section.
+ * Resolves persisted card references against the current action/shortcut
+ * catalog. This policy performs no storage or Android I/O.
  */
 final class GameMenuCardConfiguration {
-    private static final String ORDER_PREF =
-            "game_menu_card_order_v2";
-    private static final String HIDDEN_PREF =
-            "game_menu_card_hidden_v2";
-
-    private static final String LEGACY_ORDER_PREF =
-            "game_menu_action_order_v1";
-    private static final String LEGACY_HIDDEN_PREF =
-            "game_menu_action_hidden_v1";
-
     static final class State {
         final List<GameMenuCardCatalog.Card> visible;
         final List<GameMenuCardCatalog.Card> hidden;
 
         State(List<GameMenuCardCatalog.Card> visible,
               List<GameMenuCardCatalog.Card> hidden) {
-            this.visible = visible;
-            this.hidden = hidden;
+            this.visible = immutableCopy(visible);
+            this.hidden = immutableCopy(hidden);
+        }
+
+        private static List<GameMenuCardCatalog.Card> immutableCopy(
+                List<GameMenuCardCatalog.Card> source) {
+            return Collections.unmodifiableList(
+                    new ArrayList<>(source));
         }
     }
 
@@ -47,24 +38,23 @@ final class GameMenuCardConfiguration {
     }
 
     static State load(
-            Context context, List<GameMenuCardCatalog.Card> catalog) {
-        SharedPreferences preferences =
-                PreferenceManager.getDefaultSharedPreferences(context);
+            GameMenuCardLayoutLoadResult storedLayout,
+            List<GameMenuCardCatalog.Card> catalog) {
         Map<String, GameMenuCardCatalog.Card> cardsById =
                 indexCatalog(catalog);
 
-        boolean hasCurrentConfiguration =
-                preferences.contains(ORDER_PREF);
-        LinkedHashSet<String> orderedIds =
-                hasCurrentConfiguration ?
-                        readCurrentOrder(preferences, cardsById) :
-                        readLegacyOrder(preferences, cardsById);
-        Set<String> hiddenIds =
-                hasCurrentConfiguration ?
-                        new HashSet<>(preferences.getStringSet(
-                                HIDDEN_PREF,
-                                Collections.<String>emptySet())) :
-                        readLegacyHidden(preferences);
+        LinkedHashSet<String> orderedIds = new LinkedHashSet<>();
+        Set<String> hiddenIds = Collections.emptySet();
+        if (storedLayout.hasLayout()) {
+            GameMenuCardLayout layout =
+                    storedLayout.getLayout();
+            for (String id : layout.getOrderedCardIds()) {
+                if (cardsById.containsKey(id)) {
+                    orderedIds.add(id);
+                }
+            }
+            hiddenIds = layout.getHiddenCardIds();
+        }
 
         Set<String> previouslyKnownIds =
                 new HashSet<>(orderedIds);
@@ -99,11 +89,10 @@ final class GameMenuCardConfiguration {
         return new State(visible, hidden);
     }
 
-    static void save(
-            Context context,
+    static GameMenuCardLayout toLayout(
             List<GameMenuCardCatalog.Card> visible,
             List<GameMenuCardCatalog.Card> hidden) {
-        JSONArray order = new JSONArray();
+        List<String> order = new ArrayList<>();
         appendIds(order, visible);
         appendIds(order, hidden);
 
@@ -111,12 +100,7 @@ final class GameMenuCardConfiguration {
         for (GameMenuCardCatalog.Card card : hidden) {
             hiddenIds.add(card.id);
         }
-
-        PreferenceManager.getDefaultSharedPreferences(context)
-                .edit()
-                .putString(ORDER_PREF, order.toString())
-                .putStringSet(HIDDEN_PREF, hiddenIds)
-                .apply();
+        return new GameMenuCardLayout(order, hiddenIds);
     }
 
     private static Map<String, GameMenuCardCatalog.Card> indexCatalog(
@@ -128,62 +112,11 @@ final class GameMenuCardConfiguration {
         return cardsById;
     }
 
-    private static LinkedHashSet<String> readCurrentOrder(
-            SharedPreferences preferences,
-            Map<String, GameMenuCardCatalog.Card> cardsById) {
-        LinkedHashSet<String> orderedIds = new LinkedHashSet<>();
-        String storedOrder = preferences.getString(ORDER_PREF, "");
-        if (storedOrder == null || storedOrder.isEmpty()) {
-            return orderedIds;
-        }
-        try {
-            JSONArray order = new JSONArray(storedOrder);
-            for (int index = 0; index < order.length(); index++) {
-                String id = order.getString(index);
-                if (cardsById.containsKey(id)) {
-                    orderedIds.add(id);
-                }
-            }
-        } catch (JSONException ignored) {
-            // A corrupt preference falls back to catalog order below.
-        }
-        return orderedIds;
-    }
-
-    private static LinkedHashSet<String> readLegacyOrder(
-            SharedPreferences preferences,
-            Map<String, GameMenuCardCatalog.Card> cardsById) {
-        LinkedHashSet<String> orderedIds = new LinkedHashSet<>();
-        String storedOrder =
-                preferences.getString(LEGACY_ORDER_PREF, "");
-        if (storedOrder == null || storedOrder.isEmpty()) {
-            return orderedIds;
-        }
-        for (String legacyId : storedOrder.split(",")) {
-            String id = GameMenuCardCatalog.actionCardId(legacyId);
-            if (cardsById.containsKey(id)) {
-                orderedIds.add(id);
-            }
-        }
-        return orderedIds;
-    }
-
-    private static Set<String> readLegacyHidden(
-            SharedPreferences preferences) {
-        Set<String> hidden = new HashSet<>();
-        for (String legacyId : preferences.getStringSet(
-                LEGACY_HIDDEN_PREF,
-                Collections.<String>emptySet())) {
-            hidden.add(GameMenuCardCatalog.actionCardId(legacyId));
-        }
-        return hidden;
-    }
-
     private static void appendIds(
-            JSONArray destination,
+            List<String> destination,
             List<GameMenuCardCatalog.Card> cards) {
         for (GameMenuCardCatalog.Card card : cards) {
-            destination.put(card.id);
+            destination.add(card.id);
         }
     }
 }

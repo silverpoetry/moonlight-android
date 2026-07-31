@@ -48,7 +48,10 @@ legacy values reintroduced by a downgrade without ever reducing a newer stored
 schema version. Version 2 repairs the invalid historical on-screen gamepad
 layout default to the first valid layout identifier. Version 3 migrates the
 legacy Mbps bitrate key to the canonical Kbps key without overwriting a value
-already written by a newer build, then removes the obsolete key.
+already written by a newer build, then removes the obsolete key. Version 4
+converts the former comma-separated stream-menu action order and hidden-action
+set into the canonical card-reference document. It preserves an existing v2
+card layout and removes both v1 keys, leaving no runtime compatibility branch.
 
 ## Snapshot lifecycle
 
@@ -89,7 +92,7 @@ same `ControllerSettingsState`.
 | Stream audio | `StreamAudioSettings` with one atomic `StreamAudioSettingsState` per stream | Playback, mute, audio effects, and phone/controller audio-haptics consume the same typed snapshot; the miscellaneous menu emits typed live-audio intents; PCM callbacks perform no preference I/O; controller rumble suppression and USB/Kishi routing no longer duplicate audio policy inside `ControllerSettings` | Restart-only settings still use the legacy settings screen |
 | Microphone | No persisted policy; protocol-v1 invariants live in immutable `MicrophoneUplinkConfig` | Capture is an injected Android adapter; the platform-independent lifecycle controller owns all start/stop/error transitions and is unit tested without `AudioRecord` or JNI | No legacy preference exists; future formats require explicit protocol negotiation rather than a hidden setting |
 | Clipboard and transfer | `TransferSettings` captures clipboard enablement and the bounded persisted document-tree URI | Stream composition no longer reads the legacy preference bag for capability enablement; pull-to-device UI reads, repairs, and writes the directory through `SettingsRepository` and typed keys | Generic settings-row writers still need the typed-intent migration; clipboard loop-suppression checkpoints are operational state, not user settings, and move behind a storage port in phase 8 |
-| In-stream UI | `StreamUiSettings` with one atomic `StreamUiSettingsState` per stream | Floating-control behavior and remembered position, compact/expanded performance presentation, interaction, scale, margin, rumble HUD, and built-in shortcut catalog policy consume one typed snapshot; the stream menu no longer receives `PreferenceConfiguration`; Views emit events and do not read settings storage or own persistence decisions | Generic app UI, host-list presentation, and settings-screen rows remain |
+| In-stream UI | `StreamUiSettings` with one atomic `StreamUiSettingsState` per stream; immutable `GameMenuCardLayout` behind `GameMenuCardLayoutRepository` | Floating-control behavior and remembered position, compact/expanded performance presentation, interaction, scale, margin, rumble HUD, and built-in shortcut catalog policy consume one typed snapshot; card layout stores bounded stable IDs through the Activity-owned repository while the Fragment/editor perform no preference or repository I/O; the stream menu no longer receives `PreferenceConfiguration`; Views emit events and do not read settings storage or own persistence decisions | Shortcut payload persistence and generic app UI, host-list presentation, and settings-screen rows remain |
 | General UI and host list | Pending | Pending | Pending |
 
 The ledger is complete only when direct default-preference reads are confined to
@@ -134,6 +137,14 @@ composition into the Android orientation adapter. It combines active overlay
 visibility with typed stream-video and virtual-control policy. Neither the
 orientation adapter nor its pure policy can depend on
 `PreferenceConfiguration`, preference widgets, or storage.
+
+The first-page stream-menu layout is a user-owned reference document, not a
+copy of commands or shortcut payloads. `GameMenuCardLayout` stores a bounded,
+deduplicated order and hidden-ID set. The pure configuration policy resolves
+those IDs against the current catalog, ignores removed cards, applies defaults
+to newly discovered cards, and serializes no UI resources. The Fragment and
+editor emit a layout save intent through `GameMenuHost`; only the Activity
+composition root reaches `GameMenuCardLayoutRepository`.
 
 The microphone uplink intentionally has no settings snapshot. Its 48 kHz mono,
 960-sample/20 ms frames, 40 kbps Opus target, and four-frame capture buffer are

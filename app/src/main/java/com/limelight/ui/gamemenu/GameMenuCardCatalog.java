@@ -3,6 +3,7 @@ package com.limelight.ui.gamemenu;
 import android.content.Context;
 
 import com.limelight.R;
+import com.limelight.settings.ui.GameMenuCardIds;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +21,7 @@ final class GameMenuCardCatalog {
         final GameMenuActionCatalog.Action action;
         final GameMenuShortcutCatalog.Entry shortcut;
 
-        private Card(
+        Card(
                 String id,
                 String label,
                 String contentDescription,
@@ -75,7 +76,7 @@ final class GameMenuCardCatalog {
     }
 
     static String actionCardId(String actionId) {
-        return "action:" + actionId;
+        return GameMenuCardIds.action(actionId);
     }
 
     private static String compactShortcutLabel(String name) {

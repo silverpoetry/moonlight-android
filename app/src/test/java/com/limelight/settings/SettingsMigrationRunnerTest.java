@@ -4,12 +4,15 @@ import com.limelight.settings.audio.StreamAudioSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
+import com.limelight.settings.ui.GameMenuCardLayoutCodec;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
 
 import org.junit.Test;
 
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Arrays;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -168,6 +171,70 @@ public class SettingsMigrationRunnerTest {
                 StreamVideoSettingKeys
                         .LEGACY_BITRATE_MBPS
                         .getName()));
+    }
+
+    @Test
+    public void versionFourMigratesLegacyGameMenuReferences() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put("settings_schema_version", 3);
+        repository.values.put(
+                "game_menu_action_order_v1",
+                "disconnect,performance");
+        repository.values.put(
+                "game_menu_action_hidden_v1",
+                new LinkedHashSet<>(
+                        Arrays.asList("performance")));
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertEquals(
+                Arrays.asList(
+                        "action:disconnect",
+                        "action:performance"),
+                GameMenuCardLayoutCodec.decodeOrder(
+                        (String) repository.values.get(
+                                "game_menu_card_order_v2")));
+        assertEquals(
+                new LinkedHashSet<>(
+                        Arrays.asList("action:performance")),
+                repository.values.get(
+                        "game_menu_card_hidden_v2"));
+        assertFalse(repository.values.containsKey(
+                "game_menu_action_order_v1"));
+        assertFalse(repository.values.containsKey(
+                "game_menu_action_hidden_v1"));
+        assertEquals(
+                SettingsSchema.CURRENT_VERSION,
+                repository.values.get(
+                        "settings_schema_version"));
+        assertEquals(1, repository.commitCount);
+    }
+
+    @Test
+    public void legacyGameMenuValuesCannotOverwriteCurrentLayout() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put(
+                "settings_schema_version",
+                SettingsSchema.CURRENT_VERSION);
+        repository.values.put(
+                "game_menu_card_order_v2",
+                "[\"shortcut:custom:current\"]");
+        repository.values.put(
+                "game_menu_card_hidden_v2",
+                new LinkedHashSet<String>());
+        repository.values.put(
+                "game_menu_action_order_v1",
+                "disconnect");
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertEquals(
+                "[\"shortcut:custom:current\"]",
+                repository.values.get(
+                        "game_menu_card_order_v2"));
+        assertFalse(repository.values.containsKey(
+                "game_menu_action_order_v1"));
+        assertEquals(1, repository.commitCount);
     }
 
     private static final class FakeRepository

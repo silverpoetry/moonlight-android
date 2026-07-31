@@ -794,4 +794,72 @@ public final class ArchitectureBoundaryTest {
                         "runtime menu and orientation code cannot address persistence")
                 .check(productionClasses);
     }
+
+    @Test
+    public void gameMenuCardUiCannotAddressPersistence() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuFragment")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuHost")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuCardEditor")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuCardConfiguration")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android.preference..",
+                        "com.limelight.preferences..",
+                        "com.limelight.settings.android..")
+                .because(
+                        "card UI renders immutable references and emits save intents through its host")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuFragment")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuHost")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuCardEditor")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuCardConfiguration")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.settings.SettingsRepository")
+                .because(
+                        "the Activity composition root owns the card repository")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void gameMenuCardSettingsDomainIsPlatformIndependent() {
+        noClasses()
+                .that()
+                .haveSimpleNameStartingWith("GameMenuCard")
+                .and()
+                .resideInAnyPackage(
+                        "com.limelight.settings.ui..")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.settings.ui.SettingsGameMenuCardLayoutRepository")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..")
+                .because(
+                        "card identity, codec, schema, and repository port are pure Java")
+                .check(productionClasses);
+    }
 }

@@ -1,6 +1,9 @@
 package com.limelight.settings;
 
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * A typed, validated key in the application settings schema.
@@ -14,7 +17,8 @@ public final class SettingKey<T> {
         INTEGER,
         LONG,
         FLOAT,
-        STRING
+        STRING,
+        STRING_SET
     }
 
     interface Normalizer<T> {
@@ -171,6 +175,36 @@ public final class SettingKey<T> {
                         : defaultValue);
     }
 
+    /**
+     * Creates a defensive, immutable set-valued key for collections of
+     * bounded strings.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static SettingKey<Set<String>>
+            boundedStringCollectionKey(
+                    String name,
+                    int maximumEntries,
+                    int maximumEntryLength) {
+        if (maximumEntries < 0 ||
+                maximumEntryLength < 0) {
+            throw new IllegalArgumentException(
+                    "String-set bounds cannot be negative");
+        }
+        Class<Set<String>> valueClass =
+                (Class) Set.class;
+        Set<String> defaultValue = Collections.emptySet();
+        return new SettingKey<>(
+                name,
+                StorageType.STRING_SET,
+                valueClass,
+                defaultValue,
+                value -> normalizeStringCollection(
+                        value,
+                        defaultValue,
+                        maximumEntries,
+                        maximumEntryLength));
+    }
+
     public String getName() {
         return name;
     }
@@ -258,5 +292,25 @@ public final class SettingKey<T> {
             }
         }
         return false;
+    }
+
+    private static Set<String> normalizeStringCollection(
+            Set<String> values,
+            Set<String> defaultValue,
+            int maximumEntries,
+            int maximumEntryLength) {
+        if (values.size() > maximumEntries) {
+            return defaultValue;
+        }
+        LinkedHashSet<String> copy = new LinkedHashSet<>();
+        for (Object value : values) {
+            if (!(value instanceof String) ||
+                    ((String) value).length() >
+                            maximumEntryLength) {
+                return defaultValue;
+            }
+            copy.add((String) value);
+        }
+        return Collections.unmodifiableSet(copy);
     }
 }

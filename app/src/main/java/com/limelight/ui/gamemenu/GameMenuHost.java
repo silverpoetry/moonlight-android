@@ -5,6 +5,8 @@ import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettings;
 import com.limelight.settings.input.InputSettingsUpdate;
+import com.limelight.settings.ui.GameMenuCardLayout;
+import com.limelight.settings.ui.GameMenuCardLayoutLoadResult;
 import com.limelight.settings.ui.StreamUiSettings;
 import com.limelight.settings.ui.StreamUiSettingsUpdate;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
@@ -28,6 +30,10 @@ public interface GameMenuHost extends GameDisplayHost {
     boolean isVirtualControllerVisible();
 
     boolean isVirtualKeysVisible();
+
+    GameMenuCardLayoutLoadResult loadGameMenuCardLayout();
+
+    void saveGameMenuCardLayout(GameMenuCardLayout layout);
 
     KeyBoardController.ControllerMode getVirtualControllerMode();
 

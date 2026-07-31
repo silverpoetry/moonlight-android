@@ -24,6 +24,7 @@ import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControlle
 import com.limelight.settings.audio.StreamAudioSettingsUpdate;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettingsUpdate;
+import com.limelight.settings.ui.GameMenuCardLayout;
 import com.limelight.settings.ui.StreamUiSettingsUpdate;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
@@ -228,7 +229,9 @@ public class GameMenuFragment extends BaseGameMenuDialog
         actionGrid.removeAllViews();
         List<GameMenuCardCatalog.Card> catalog = loadCardCatalog();
         GameMenuCardConfiguration.State configuration =
-                GameMenuCardConfiguration.load(getActivity(), catalog);
+                GameMenuCardConfiguration.load(
+                        host.loadGameMenuCardLayout(),
+                        catalog);
         LinearLayout row = null;
         int column = 0;
         int displayedCount = 0;
@@ -380,13 +383,24 @@ public class GameMenuFragment extends BaseGameMenuDialog
         if (cardEditor != null || getActivity() == null) {
             return;
         }
+        List<GameMenuCardCatalog.Card> catalog =
+                loadCardCatalog();
+        GameMenuCardConfiguration.State configuration =
+                GameMenuCardConfiguration.load(
+                        host.loadGameMenuCardLayout(),
+                        catalog);
         cardEditor = new GameMenuCardEditor(
                 getActivity(),
-                loadCardCatalog(),
+                catalog,
+                configuration,
                 new GameMenuCardEditor.Listener() {
                     @Override
-                    public void onSaved() {
-                        rebuildActionGrid();
+                    public void onSave(
+                            GameMenuCardLayout layout) {
+                        if (host != null) {
+                            host.saveGameMenuCardLayout(layout);
+                            rebuildActionGrid();
+                        }
                     }
 
                     @Override

@@ -5,7 +5,9 @@ import android.content.SharedPreferences;
 import com.limelight.settings.SettingKey;
 import com.limelight.settings.SettingsRepository;
 
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Android persistence adapter for the typed settings schema.
@@ -57,6 +59,11 @@ public final class SharedPreferencesSettingsRepository
                     value = preferences.getString(
                             key.getName(),
                             (String) key.getDefaultValue());
+                    break;
+                case STRING_SET:
+                    value = preferences.getStringSet(
+                            key.getName(),
+                            asStringSet(key.getDefaultValue()));
                     break;
                 default:
                     throw new AssertionError(
@@ -114,6 +121,12 @@ public final class SharedPreferencesSettingsRepository
                             key.getName(),
                             (String) normalized);
                     break;
+                case STRING_SET:
+                    editor.putStringSet(
+                            key.getName(),
+                            new HashSet<>(
+                                    asStringSet(normalized)));
+                    break;
                 default:
                     throw new AssertionError(
                             "Unhandled storage type: " +
@@ -151,5 +164,10 @@ public final class SharedPreferencesSettingsRepository
                         "Settings editor is already closed");
             }
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Set<String> asStringSet(Object value) {
+        return (Set<String>) value;
     }
 }
