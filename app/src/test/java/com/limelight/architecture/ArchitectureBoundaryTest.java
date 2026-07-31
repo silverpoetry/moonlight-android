@@ -191,6 +191,20 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void gameActivityDoesNotDependOnLegacyPreferences() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.PreferenceConfiguration")
+                .because(
+                        "stream composition consumes immutable domain snapshots")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamFailureDiagnosticsDoesNotDependOnConnection() {
         noClasses()
                 .that()

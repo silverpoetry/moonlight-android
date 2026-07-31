@@ -85,6 +85,19 @@ public final class StreamUiSettingKeys {
             SettingKey.booleanKey(
                     "checkbox_enable_clear_default_special_button",
                     false);
+    public static final SettingKey<Boolean> PICTURE_IN_PICTURE =
+            SettingKey.booleanKey(
+                    "checkbox_enable_pip",
+                    false);
+    public static final SettingKey<Boolean>
+            CONNECTION_WARNINGS_DISABLED =
+            SettingKey.booleanKey(
+                    "checkbox_disable_warnings",
+                    false);
+    public static final SettingKey<Boolean> LATENCY_TOAST =
+            SettingKey.booleanKey(
+                    "checkbox_enable_post_stream_toast",
+                    false);
 
     private StreamUiSettingKeys() {
     }

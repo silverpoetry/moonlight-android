@@ -312,6 +312,16 @@ public final class StreamResolutionCodec {
         public boolean isRepairRequired() {
             return repairRequired;
         }
+
+        /**
+         * Matches the historical native-resolution policy without coupling
+         * consumers to the legacy preference aggregate.
+         */
+        public boolean isNativeResolution() {
+            return selection != Selection.PRESET &&
+                    !isStandardResolutionPreset(
+                            canonicalResolution);
+        }
     }
 
     private static final class Dimensions {

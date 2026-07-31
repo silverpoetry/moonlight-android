@@ -31,6 +31,7 @@ public final class StreamDecoderSettings {
     private final boolean lowLatencyExperimentEnabled;
     private final boolean performanceOverlayEnabled;
     private final int audioChannelCount;
+    private final boolean refreshRateReductionEnabled;
 
     public StreamDecoderSettings(
             int width,
@@ -43,6 +44,32 @@ public final class StreamDecoderSettings {
             boolean lowLatencyExperimentEnabled,
             boolean performanceOverlayEnabled,
             int audioChannelCount) {
+        this(
+                width,
+                height,
+                fps,
+                bitrateKbps,
+                videoFormat,
+                framePacing,
+                fullRange,
+                lowLatencyExperimentEnabled,
+                performanceOverlayEnabled,
+                audioChannelCount,
+                false);
+    }
+
+    public StreamDecoderSettings(
+            int width,
+            int height,
+            int fps,
+            int bitrateKbps,
+            VideoFormat videoFormat,
+            FramePacing framePacing,
+            boolean fullRange,
+            boolean lowLatencyExperimentEnabled,
+            boolean performanceOverlayEnabled,
+            int audioChannelCount,
+            boolean refreshRateReductionEnabled) {
         if (width <= 0 || height <= 0) {
             throw new IllegalArgumentException(
                     "Decoder dimensions must be positive");
@@ -75,6 +102,8 @@ public final class StreamDecoderSettings {
         this.performanceOverlayEnabled =
                 performanceOverlayEnabled;
         this.audioChannelCount = audioChannelCount;
+        this.refreshRateReductionEnabled =
+                refreshRateReductionEnabled;
     }
 
     public int getWidth() {
@@ -115,5 +144,9 @@ public final class StreamDecoderSettings {
 
     public int getAudioChannelCount() {
         return audioChannelCount;
+    }
+
+    public boolean isRefreshRateReductionEnabled() {
+        return refreshRateReductionEnabled;
     }
 }

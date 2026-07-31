@@ -11,6 +11,7 @@ import com.limelight.settings.SettingsMigrationRunner;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
 import com.limelight.settings.android.AndroidDisplayAspectProvider;
+import com.limelight.settings.android.AndroidHdrCompatibility;
 import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.audio.StreamAudioSettingsLoader;
 import com.limelight.settings.controller.ControllerSettingKeys;
@@ -20,6 +21,7 @@ import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.input.InputSettings;
 import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
+import com.limelight.settings.stream.StreamDisplaySettingKeys;
 import com.limelight.settings.stream.StreamResolutionCodec;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.settings.stream.StreamResolutionSettingsLoader;
@@ -29,6 +31,7 @@ import com.limelight.settings.transfer.TransferSettings;
 import com.limelight.settings.transfer.TransferSettingsLoader;
 import com.limelight.settings.ui.StreamUiSettings;
 import com.limelight.settings.ui.StreamUiSettingsLoader;
+import com.limelight.settings.ui.StreamUiSettingKeys;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
@@ -59,9 +62,13 @@ public class PreferenceConfiguration {
             StreamVideoSettingKeys.BITRATE_KBPS.getName();
     public static final String BITRATE_PREF_OLD_STRING =
             StreamVideoSettingKeys.LEGACY_BITRATE_MBPS.getName();
-    private static final String STRETCH_PREF_STRING = "checkbox_stretch_video";
-    private static final String SOPS_PREF_STRING = "checkbox_enable_sops";
-    private static final String DISABLE_TOASTS_PREF_STRING = "checkbox_disable_warnings";
+    private static final String STRETCH_PREF_STRING =
+            StreamDisplaySettingKeys.STRETCH_VIDEO.getName();
+    private static final String SOPS_PREF_STRING =
+            StreamVideoSettingKeys.OPTIMIZE_GAME_SETTINGS.getName();
+    private static final String DISABLE_TOASTS_PREF_STRING =
+            StreamUiSettingKeys.CONNECTION_WARNINGS_DISABLED
+                    .getName();
     public static final String OSC_OPACITY_PREF_STRING =
             VirtualControlSettingKeys.CONTROL_OPACITY_PERCENT
                     .getName();
@@ -70,12 +77,14 @@ public class PreferenceConfiguration {
     private static final String VIDEO_FORMAT_PREF_STRING = "video_format";
     private static final String ENABLE_HDR_PREF_STRING = "checkbox_enable_hdr";
     public static final String ENABLE_HDR_HIGH_BRIGHTNESS_PREF_STRING = "checkbox_enable_hdr_high_brightness";
-    private static final String ENABLE_PIP_PREF_STRING = "checkbox_enable_pip";
+    private static final String ENABLE_PIP_PREF_STRING =
+            StreamUiSettingKeys.PICTURE_IN_PICTURE.getName();
     private static final String ENABLE_PERF_OVERLAY_STRING = "checkbox_enable_perf_overlay";
     static final String UNLOCK_FPS_STRING = "checkbox_unlock_fps";
     public static final String VIBRATE_OSC_PREF_STRING =
             ControllerSettingKeys.ONSCREEN_RUMBLE.getName();
-    private static final String LATENCY_TOAST_PREF_STRING = "checkbox_enable_post_stream_toast";
+    private static final String LATENCY_TOAST_PREF_STRING =
+            StreamUiSettingKeys.LATENCY_TOAST.getName();
     public static final String BAROMETER_FORCE_PRESS_PREF_STRING =
             InputSettingKeys.BAROMETER_FORCE_PRESS.getName();
     public static final String BAROMETER_FORCE_PRESS_THRESHOLD_PREF_STRING =
@@ -93,12 +102,17 @@ public class PreferenceConfiguration {
     public static final int DEFAULT_BAROMETER_FORCE_PRESS_MIN_DURATION_MS =
             InputSettingKeys
                     .DEFAULT_FORCE_PRESS_MINIMUM_DURATION_MS;
-    private static final String DISABLE_ADAPTIVE_INPUT_THROTTLING_PREF_STRING = "checkbox_disable_adaptive_input_throttling";
-    private static final String REDUCE_REFRESH_RATE_PREF_STRING = "checkbox_reduce_refresh_rate";
-    private static final String FULL_RANGE_PREF_STRING = "checkbox_full_range";
+    private static final String
+            DISABLE_ADAPTIVE_INPUT_THROTTLING_PREF_STRING =
+            InputSettingKeys.DISABLE_ADAPTIVE_INPUT_THROTTLING
+                    .getName();
+    private static final String REDUCE_REFRESH_RATE_PREF_STRING =
+            StreamDecoderSettingKeys.REDUCE_REFRESH_RATE
+                    .getName();
+    private static final String FULL_RANGE_PREF_STRING =
+            StreamDecoderSettingKeys.FULL_RANGE.getName();
     private static final String GAMEPAD_MOTION_SENSORS_PREF_STRING =
             ControllerSettingKeys.MOTION_SENSORS.getName();
-
     //屏幕特殊按键 震动
     public static final String CHECKBOX_ENABLE_KEYBOARD_VIBRATE =
             VirtualControlSettingKeys.KEYBOARD_HAPTICS.getName();
@@ -569,10 +583,8 @@ public class PreferenceConfiguration {
     }
 
     public static boolean isShieldAtvFirmwareWithBrokenHdr() {
-        // This particular Shield TV firmware crashes when using HDR
-        // https://www.nvidia.com/en-us/geforce/forums/notifications/comment/155192/
-        return Build.MANUFACTURER.equalsIgnoreCase("NVIDIA") &&
-                Build.FINGERPRINT.contains("PPR1.180610.011/4079208_2235.1395");
+        return !AndroidHdrCompatibility
+                .isHdrStreamingAllowed();
     }
 
     public static PreferenceConfiguration readPreferences(Context context) {

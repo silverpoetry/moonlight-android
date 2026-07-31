@@ -275,6 +275,16 @@ A slice is incomplete if callers can still bypass the new boundary.
   compatibility detail. The unreachable parallel keyboard-element list and
   its named preference store are removed; element identity now belongs to the
   layout domain.
+- Stream composition no longer creates or mutates
+  `PreferenceConfiguration`. Existing input, controller, audio, transfer,
+  UI, video, display, and decoder snapshots now cover every `Game` launch and
+  runtime decision, including cursor modes, adaptive input throttling,
+  picture-in-picture, warning/toast policy, stretch/cutout/native geometry,
+  SOPS, virtual display, full-range output, and refresh-rate reduction. Direct
+  display/decoder loaders replace and delete the temporary legacy adapter.
+  Display-dependent capped-FPS fallback is a pure decision that leaves stored
+  settings immutable, while Android-only compatibility defaults remain in
+  the Android adapter package.
 
 ### Migration order
 

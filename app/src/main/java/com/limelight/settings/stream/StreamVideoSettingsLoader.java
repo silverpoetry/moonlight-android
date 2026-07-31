@@ -36,6 +36,8 @@ public final class StreamVideoSettingsLoader {
                 .setDimensions(
                         resolution.getWidth(),
                         resolution.getHeight())
+                .setNativeResolution(
+                        resolution.isNativeResolution())
                 .setFps(resolution.getFps())
                 .setBitrateKbps(bitrate)
                 .setVideoFormat(
@@ -60,6 +62,13 @@ public final class StreamVideoSettingsLoader {
                         StreamVideoSettingKeys.PORTRAIT))
                 .setExternalDisplay(repository.get(
                         StreamVideoSettingKeys.EXTERNAL_DISPLAY))
+                .setStretchVideo(repository.get(
+                        StreamDisplaySettingKeys.STRETCH_VIDEO))
+                .setDisplayCutoutEnabled(repository.get(
+                        StreamDisplaySettingKeys.DISPLAY_CUTOUT))
+                .setOptimizeGameSettings(repository.get(
+                        StreamVideoSettingKeys
+                                .OPTIMIZE_GAME_SETTINGS))
                 .setVirtualDisplayMode(
                         StreamVideoSettings.VirtualDisplayMode
                                 .fromStorageValue(repository.get(

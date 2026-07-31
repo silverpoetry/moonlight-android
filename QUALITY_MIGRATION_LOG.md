@@ -594,3 +594,59 @@ Verification on 2026-07-31:
 - Creating, saving, reloading, and operating every virtual keyboard/gamepad
   element type in a live stream remains the manual layout regression gate.
   Automated evidence does not claim that host-dependent interaction passed.
+
+## Typed stream-session composition
+
+- Removed `Game`'s public mutable `PreferenceConfiguration` field and deleted
+  the temporary `LegacyPreferenceSettingsAdapter`. The Activity composition
+  root now bootstraps one `SettingsRepository` and composes immutable video,
+  display, decoder, input, controller, audio, UI, transfer, and virtual-control
+  snapshots.
+- Completed the existing domain models instead of introducing another
+  cross-domain bag. Typed keys now own local-system-cursor and adaptive input
+  throttling policy; stretch/cutout/native geometry and SOPS launch policy;
+  full-range and refresh-rate-reduction policy; and picture-in-picture,
+  connection-warning, and latency-toast policy.
+- Added direct display and decoder loaders. Resolution repair and native-mode
+  classification remain in the resolution codec; audio channel layout and UI
+  overlay policy are projected into the decoder contract without Android or
+  legacy-preference dependencies.
+- Replaced mutation of the stored frame-pacing value with
+  `StreamFramePacingPolicy`, which returns a separate effective session mode
+  and target FPS for the active display. The decoder continues to receive the
+  requested mode, preserving established renderer behavior, while subsequent
+  display policy observes the effective fallback exactly where the old
+  session-only mutation took effect.
+- Preserved platform behavior explicitly: the Android settings bootstrap runs
+  idempotent schema migration and the Android 12 fresh-install motion-sensor
+  safety default; one Android HDR compatibility adapter is shared by stream
+  composition and the legacy settings screen for the known broken Shield
+  firmware.
+- Removed obsolete compatibility writes when toggling absolute mouse mode,
+  direct-touch sensitivity, and on-screen-control rumble. Live state owners
+  and typed update intents are now the only runtime mutation path.
+- Added an executable architecture rule preventing `Game` from depending on
+  `PreferenceConfiguration`.
+
+Verification on 2026-07-31:
+
+- Focused loader, default/normalization, native-resolution, frame-pacing,
+  Android compatibility, and architecture tests passed.
+- `verifyLocal --rerun-tasks`: all 193 tasks executed successfully. Each of
+  the four root/non-root debug/release variants ran 304 JVM tests, for 1,216
+  executions total with zero failures, errors, or skips. All Lint variants
+  passed, including the API 21 gate, and both unminified Release APKs built.
+- `verifyConnected --rerun-tasks` on the API 34 emulator: all 296 tasks
+  executed successfully; 110 non-root and 110 root instrumentation tests
+  passed with zero failures, errors, or skips.
+- Release artifacts:
+
+| Flavor | Size | SHA-256 |
+| --- | ---: | --- |
+| `nonRootRelease` | 16,010,803 bytes | `FCB5718E23D81FD882CCF25017C9E27194CA786D45915EABF5B3A42EBBB304F9` |
+| `rootRelease` | 16,030,099 bytes | `3A92BA14F1BFE4BCE5BB4DF1D7F7801BB4EB94F8851DB18609FF1F516E15BF46` |
+
+- Opening a live HDR/non-HDR stream, exercising capped-FPS display selection,
+  entering picture-in-picture, checking local/native cursor modes, and
+  observing warning/latency-toast behavior remain manual host/device checks.
+  Automated evidence does not claim those interactions passed.

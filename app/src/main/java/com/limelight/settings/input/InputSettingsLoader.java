@@ -22,6 +22,12 @@ public final class InputSettingsLoader {
                                 .MOUSE_NAVIGATION_BUTTONS))
                 .setAbsoluteMouseMode(repository.get(
                         InputSettingKeys.ABSOLUTE_MOUSE_MODE))
+                .setLocalSystemCursorEnabled(repository.get(
+                        InputSettingKeys.LOCAL_SYSTEM_CURSOR))
+                .setAdaptiveInputThrottlingDisabled(
+                        repository.get(
+                                InputSettingKeys
+                                        .DISABLE_ADAPTIVE_INPUT_THROTTLING))
                 .setBarometerForcePressEnabled(repository.get(
                         InputSettingKeys.BAROMETER_FORCE_PRESS))
                 .setBarometerForcePressThresholdHpa(

@@ -44,6 +44,10 @@ public final class StreamVideoSettingsLoaderTest {
         assertFalse(settings.isFpsUnlocked());
         assertFalse(settings.isPortrait());
         assertFalse(settings.isExternalDisplay());
+        assertFalse(settings.isNativeResolution());
+        assertFalse(settings.isStretchVideo());
+        assertFalse(settings.isDisplayCutoutEnabled());
+        assertTrue(settings.shouldOptimizeGameSettings());
         assertEquals(
                 VirtualDisplayMode.DISABLED,
                 settings.getVirtualDisplayMode());
@@ -100,6 +104,15 @@ public final class StreamVideoSettingsLoaderTest {
                 StreamVideoSettingKeys.EXTERNAL_DISPLAY,
                 true);
         repository.put(
+                StreamDisplaySettingKeys.STRETCH_VIDEO,
+                true);
+        repository.put(
+                StreamDisplaySettingKeys.DISPLAY_CUTOUT,
+                true);
+        repository.put(
+                StreamVideoSettingKeys.OPTIMIZE_GAME_SETTINGS,
+                false);
+        repository.put(
                 StreamVideoSettingKeys.VIRTUAL_DISPLAY_MODE,
                 2);
         repository.put(
@@ -137,6 +150,10 @@ public final class StreamVideoSettingsLoaderTest {
         assertTrue(settings.isFpsUnlocked());
         assertTrue(settings.isPortrait());
         assertTrue(settings.isExternalDisplay());
+        assertFalse(settings.isNativeResolution());
+        assertTrue(settings.isStretchVideo());
+        assertTrue(settings.isDisplayCutoutEnabled());
+        assertFalse(settings.shouldOptimizeGameSettings());
         assertEquals(
                 VirtualDisplayMode.VIRTUAL_ONLY,
                 settings.getVirtualDisplayMode());
@@ -194,6 +211,25 @@ public final class StreamVideoSettingsLoaderTest {
                 StreamVideoSettingKeys.MAX_BITRATE_KBPS,
                 settings.getBitrateKbps());
         assertEquals(FsrTarget.UNKNOWN, settings.getFsrTarget());
+    }
+
+    @Test
+    public void customNonPresetDimensionsAreNativeResolution() {
+        FakeRepository repository = new FakeRepository();
+        repository.put(
+                StreamResolutionSettingKeys.RESOLUTION,
+                "2400x1080");
+        repository.put(
+                StreamResolutionSettingKeys.SELECTION,
+                StreamResolutionCodec
+                        .SELECTION_CUSTOM_OR_NATIVE);
+
+        StreamVideoSettings settings =
+                StreamVideoSettingsLoader.load(
+                        repository,
+                        DISPLAY_ASPECT);
+
+        assertTrue(settings.isNativeResolution());
     }
 
     @Test

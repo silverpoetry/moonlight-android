@@ -60,6 +60,13 @@ public final class StreamUiSettingsLoader {
                 .setHideBuiltInShortcuts(repository.get(
                         StreamUiSettingKeys
                                 .HIDE_BUILT_IN_SHORTCUTS))
+                .setPictureInPictureEnabled(repository.get(
+                        StreamUiSettingKeys.PICTURE_IN_PICTURE))
+                .setConnectionWarningsDisabled(repository.get(
+                        StreamUiSettingKeys
+                                .CONNECTION_WARNINGS_DISABLED))
+                .setLatencyToastEnabled(repository.get(
+                        StreamUiSettingKeys.LATENCY_TOAST))
                 .build();
     }
 }

@@ -110,6 +110,9 @@ create -> start -> active -> stop -> destroy
 Constructor injection and small factories are the default. The app entry point
 is the composition root.
 
+- A composition root may create the Android settings repository and document
+  adapters, but it immediately projects them into immutable domain snapshots;
+  runtime logic never receives the legacy mutable preference aggregate.
 - Interfaces are defined by the consumer's needs.
 - Android components that cannot receive constructor dependencies may use a
   lifecycle-bound registry only as a temporary platform adapter.

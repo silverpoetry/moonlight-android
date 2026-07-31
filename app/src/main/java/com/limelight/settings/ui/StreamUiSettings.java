@@ -45,6 +45,9 @@ public final class StreamUiSettings {
     private final int compactPerformanceScalePercent;
     private final int compactPerformanceMarginTopDp;
     private final boolean hideBuiltInShortcuts;
+    private final boolean pictureInPictureEnabled;
+    private final boolean connectionWarningsDisabled;
+    private final boolean latencyToastEnabled;
 
     private StreamUiSettings(Builder builder) {
         floatingControlEnabled = builder.floatingControlEnabled;
@@ -83,6 +86,11 @@ public final class StreamUiSettings {
                                 builder
                                         .compactPerformanceMarginTopDp);
         hideBuiltInShortcuts = builder.hideBuiltInShortcuts;
+        pictureInPictureEnabled =
+                builder.pictureInPictureEnabled;
+        connectionWarningsDisabled =
+                builder.connectionWarningsDisabled;
+        latencyToastEnabled = builder.latencyToastEnabled;
     }
 
     public static Builder builder() {
@@ -155,6 +163,18 @@ public final class StreamUiSettings {
         return hideBuiltInShortcuts;
     }
 
+    public boolean isPictureInPictureEnabled() {
+        return pictureInPictureEnabled;
+    }
+
+    public boolean areConnectionWarningsDisabled() {
+        return connectionWarningsDisabled;
+    }
+
+    public boolean isLatencyToastEnabled() {
+        return latencyToastEnabled;
+    }
+
     public static final class Builder {
         private boolean floatingControlEnabled = true;
         private FloatingAction floatingAction =
@@ -171,6 +191,9 @@ public final class StreamUiSettings {
         private int compactPerformanceScalePercent = 100;
         private int compactPerformanceMarginTopDp = 4;
         private boolean hideBuiltInShortcuts;
+        private boolean pictureInPictureEnabled;
+        private boolean connectionWarningsDisabled;
+        private boolean latencyToastEnabled;
 
         private Builder() {
         }
@@ -201,6 +224,12 @@ public final class StreamUiSettings {
                     settings.compactPerformanceMarginTopDp;
             hideBuiltInShortcuts =
                     settings.hideBuiltInShortcuts;
+            pictureInPictureEnabled =
+                    settings.pictureInPictureEnabled;
+            connectionWarningsDisabled =
+                    settings.connectionWarningsDisabled;
+            latencyToastEnabled =
+                    settings.latencyToastEnabled;
         }
 
         public Builder setFloatingControlEnabled(boolean enabled) {
@@ -273,6 +302,23 @@ public final class StreamUiSettings {
 
         public Builder setHideBuiltInShortcuts(boolean hide) {
             hideBuiltInShortcuts = hide;
+            return this;
+        }
+
+        public Builder setPictureInPictureEnabled(
+                boolean enabled) {
+            pictureInPictureEnabled = enabled;
+            return this;
+        }
+
+        public Builder setConnectionWarningsDisabled(
+                boolean disabled) {
+            connectionWarningsDisabled = disabled;
+            return this;
+        }
+
+        public Builder setLatencyToastEnabled(boolean enabled) {
+            latencyToastEnabled = enabled;
             return this;
         }
 

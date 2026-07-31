@@ -41,6 +41,9 @@ public final class StreamUiSettingsLoaderTest {
                 4,
                 settings.getCompactPerformanceMarginTopDp());
         assertFalse(settings.shouldHideBuiltInShortcuts());
+        assertFalse(settings.isPictureInPictureEnabled());
+        assertFalse(settings.areConnectionWarningsDisabled());
+        assertFalse(settings.isLatencyToastEnabled());
     }
 
     @Test
@@ -92,6 +95,16 @@ public final class StreamUiSettingsLoaderTest {
         repository.put(
                 StreamUiSettingKeys.HIDE_BUILT_IN_SHORTCUTS,
                 true);
+        repository.put(
+                StreamUiSettingKeys.PICTURE_IN_PICTURE,
+                true);
+        repository.put(
+                StreamUiSettingKeys
+                        .CONNECTION_WARNINGS_DISABLED,
+                true);
+        repository.put(
+                StreamUiSettingKeys.LATENCY_TOAST,
+                true);
 
         StreamUiSettings settings =
                 StreamUiSettingsLoader.load(repository);
@@ -117,6 +130,9 @@ public final class StreamUiSettingsLoaderTest {
                 42,
                 settings.getCompactPerformanceMarginTopDp());
         assertTrue(settings.shouldHideBuiltInShortcuts());
+        assertTrue(settings.isPictureInPictureEnabled());
+        assertTrue(settings.areConnectionWarningsDisabled());
+        assertTrue(settings.isLatencyToastEnabled());
     }
 
     @Test

@@ -7,6 +7,8 @@ public final class InputSettings {
     private final int touchModePreferenceValue;
     private final boolean mouseNavigationButtonsEnabled;
     private final boolean absoluteMouseMode;
+    private final boolean localSystemCursorEnabled;
+    private final boolean adaptiveInputThrottlingDisabled;
     private final boolean barometerForcePressEnabled;
     private final float barometerForcePressThresholdHpa;
     private final int barometerForcePressMinimumDurationMs;
@@ -31,6 +33,10 @@ public final class InputSettings {
         mouseNavigationButtonsEnabled =
                 builder.mouseNavigationButtonsEnabled;
         absoluteMouseMode = builder.absoluteMouseMode;
+        localSystemCursorEnabled =
+                builder.localSystemCursorEnabled;
+        adaptiveInputThrottlingDisabled =
+                builder.adaptiveInputThrottlingDisabled;
         barometerForcePressEnabled =
                 builder.barometerForcePressEnabled;
         barometerForcePressThresholdHpa = clamp(
@@ -104,6 +110,18 @@ public final class InputSettings {
 
     public boolean isAbsoluteMouseMode() {
         return absoluteMouseMode;
+    }
+
+    /**
+     * Whether Android's system cursor should be shown for a captured physical
+     * pointer. This is independent of the locally drawn host cursor.
+     */
+    public boolean isLocalSystemCursorEnabled() {
+        return localSystemCursorEnabled;
+    }
+
+    public boolean isAdaptiveInputThrottlingDisabled() {
+        return adaptiveInputThrottlingDisabled;
     }
 
     public boolean isBarometerForcePressEnabled() {
@@ -209,6 +227,8 @@ public final class InputSettings {
         private int touchModePreferenceValue;
         private boolean mouseNavigationButtonsEnabled;
         private boolean absoluteMouseMode;
+        private boolean localSystemCursorEnabled;
+        private boolean adaptiveInputThrottlingDisabled = true;
         private boolean barometerForcePressEnabled;
         private float barometerForcePressThresholdHpa =
                 InputSettingKeys
@@ -251,6 +271,10 @@ public final class InputSettings {
             mouseNavigationButtonsEnabled =
                     settings.mouseNavigationButtonsEnabled;
             absoluteMouseMode = settings.absoluteMouseMode;
+            localSystemCursorEnabled =
+                    settings.localSystemCursorEnabled;
+            adaptiveInputThrottlingDisabled =
+                    settings.adaptiveInputThrottlingDisabled;
             barometerForcePressEnabled =
                     settings.barometerForcePressEnabled;
             barometerForcePressThresholdHpa =
@@ -300,6 +324,18 @@ public final class InputSettings {
 
         public Builder setAbsoluteMouseMode(boolean enabled) {
             absoluteMouseMode = enabled;
+            return this;
+        }
+
+        public Builder setLocalSystemCursorEnabled(
+                boolean enabled) {
+            localSystemCursorEnabled = enabled;
+            return this;
+        }
+
+        public Builder setAdaptiveInputThrottlingDisabled(
+                boolean disabled) {
+            adaptiveInputThrottlingDisabled = disabled;
             return this;
         }
 

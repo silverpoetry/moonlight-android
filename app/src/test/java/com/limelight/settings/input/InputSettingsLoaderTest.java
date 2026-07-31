@@ -20,6 +20,9 @@ public class InputSettingsLoaderTest {
 
         assertEquals(0, settings.getTouchModePreferenceValue());
         assertFalse(settings.isAbsoluteMouseMode());
+        assertFalse(settings.isLocalSystemCursorEnabled());
+        assertTrue(
+                settings.isAdaptiveInputThrottlingDisabled());
         assertEquals(
                 100,
                 settings.getTouchpadPointerSensitivityX());
@@ -76,6 +79,26 @@ public class InputSettingsLoaderTest {
         assertEquals(
                 InputSettingKeys.MIN_SCROLL_AMOUNT,
                 settings.getMouseWheelScrollAmount());
+    }
+
+    @Test
+    public void cursorAndTransportPolicyComeFromTypedKeys() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put(
+                InputSettingKeys.LOCAL_SYSTEM_CURSOR.getName(),
+                true);
+        repository.values.put(
+                InputSettingKeys
+                        .DISABLE_ADAPTIVE_INPUT_THROTTLING
+                        .getName(),
+                false);
+
+        InputSettings settings =
+                InputSettingsLoader.load(repository);
+
+        assertTrue(settings.isLocalSystemCursorEnabled());
+        assertFalse(
+                settings.isAdaptiveInputThrottlingDisabled());
     }
 
     @Test

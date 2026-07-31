@@ -44,6 +44,15 @@ public final class InputSettingKeys {
             SettingKey.booleanKey(
                     "checkbox_absolute_mouse_mode",
                     false);
+    public static final SettingKey<Boolean> LOCAL_SYSTEM_CURSOR =
+            SettingKey.booleanKey(
+                    "checkbox_mouse_local_cursor",
+                    false);
+    public static final SettingKey<Boolean>
+            DISABLE_ADAPTIVE_INPUT_THROTTLING =
+            SettingKey.booleanKey(
+                    "checkbox_disable_adaptive_input_throttling",
+                    true);
     public static final SettingKey<Boolean> BAROMETER_FORCE_PRESS =
             SettingKey.booleanKey(
                     "checkbox_barometer_force_press",

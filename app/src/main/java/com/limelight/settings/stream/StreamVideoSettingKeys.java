@@ -58,6 +58,11 @@ public final class StreamVideoSettingKeys {
             SettingKey.booleanKey(
                     "checkbox_enable_exdisplay",
                     false);
+    public static final SettingKey<Boolean>
+            OPTIMIZE_GAME_SETTINGS =
+            SettingKey.booleanKey(
+                    "checkbox_enable_sops",
+                    true);
     public static final SettingKey<Integer>
             VIRTUAL_DISPLAY_MODE =
             SettingKey.integerSetKey(

@@ -43,12 +43,12 @@ import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.nvstream.mic.MicrophoneUplinkConfig;
 import com.limelight.nvstream.mic.MicrophoneUplinkState;
 import com.limelight.preferences.GlPreferences;
-import com.limelight.preferences.PreferenceConfiguration;
-import com.limelight.preferences.LegacyPreferenceSettingsAdapter;
 import com.limelight.settings.SettingsRepository;
-import com.limelight.settings.android.SharedPreferencesSettingsRepository;
-import com.limelight.settings.android.SharedPreferencesCustomResolutionRepository;
 import com.limelight.settings.android.AndroidDisplayAspectProvider;
+import com.limelight.settings.android.AndroidHdrCompatibility;
+import com.limelight.settings.android.AndroidStreamSettingsBootstrap;
+import com.limelight.settings.android.SharedPreferencesCustomResolutionRepository;
+import com.limelight.settings.android.SharedPreferencesSettingsRepository;
 import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.audio.StreamAudioSettingsLoader;
 import com.limelight.settings.audio.StreamAudioSettingsState;
@@ -62,9 +62,12 @@ import com.limelight.settings.input.InputSettings;
 import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.settings.input.InputSettingsState;
 import com.limelight.settings.input.InputSettingsUpdate;
-import com.limelight.settings.stream.StreamDecoderSettings;
-import com.limelight.settings.stream.StreamDisplaySettings;
 import com.limelight.settings.stream.CustomResolutionRepository;
+import com.limelight.settings.stream.StreamDecoderSettings;
+import com.limelight.settings.stream.StreamDecoderSettingsLoader;
+import com.limelight.settings.stream.StreamDisplaySettings;
+import com.limelight.settings.stream.StreamDisplaySettingsLoader;
+import com.limelight.settings.stream.StreamFramePacingPolicy;
 import com.limelight.settings.stream.StreamVideoSettings;
 import com.limelight.settings.stream.StreamVideoSettingsLoader;
 import com.limelight.settings.stream.StreamVideoSettingsState;
@@ -212,9 +215,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private KeyBoardLayoutController keyBoardLayoutController;
 
-    public PreferenceConfiguration prefConfig;
     private StreamDisplaySettings streamDisplaySettings;
     private StreamDecoderSettings streamDecoderSettings;
+    private StreamDecoderSettings.FramePacing
+            effectiveFramePacing;
+    private StreamVideoSettings streamVideoSettings;
     private StreamVideoSettingsState streamVideoSettingsState;
     private CustomResolutionRepository
             customResolutionRepository;
@@ -369,12 +374,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         spinner = SpinnerDialog.displayDialog(this, getResources().getString(R.string.conn_establishing_title),
                 getResources().getString(R.string.conn_establishing_msg), true);
 
-        // Read the stream preferences
-        prefConfig = PreferenceConfiguration.readPreferences(this);
         settingsRepository =
                 new SharedPreferencesSettingsRepository(
                         PreferenceManager
                                 .getDefaultSharedPreferences(this));
+        AndroidStreamSettingsBootstrap.prepare(
+                settingsRepository);
         gameMenuCardLayoutRepository =
                 new SettingsGameMenuCardLayoutRepository(
                         settingsRepository);
@@ -388,20 +393,36 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                                 SharedPreferencesGameMenuShortcutRepository
                                         .LEGACY_IMPORTED_PREFERENCES_NAME,
                                 Context.MODE_PRIVATE));
-        streamDisplaySettings =
-                LegacyPreferenceSettingsAdapter
-                        .loadStreamDisplaySettings(
-                                prefConfig,
-                                settingsRepository);
-        streamDecoderSettings =
-                LegacyPreferenceSettingsAdapter
-                        .loadStreamDecoderSettings(prefConfig);
+        streamVideoSettings =
+                StreamVideoSettingsLoader.load(
+                        settingsRepository,
+                        AndroidDisplayAspectProvider.get(this));
         streamVideoSettingsState =
                 new StreamVideoSettingsState(
-                        StreamVideoSettingsLoader.load(
-                                settingsRepository,
-                                AndroidDisplayAspectProvider
-                                        .get(this)));
+                        streamVideoSettings);
+        StreamAudioSettings streamAudioSettings =
+                StreamAudioSettingsLoader.load(
+                        settingsRepository);
+        streamAudioSettingsState =
+                new StreamAudioSettingsState(
+                        streamAudioSettings);
+        StreamUiSettings streamUiSettings =
+                StreamUiSettingsLoader.load(
+                        settingsRepository);
+        streamUiSettingsState =
+                new StreamUiSettingsState(streamUiSettings);
+        streamDisplaySettings =
+                StreamDisplaySettingsLoader.load(
+                        settingsRepository,
+                        streamVideoSettings);
+        streamDecoderSettings =
+                StreamDecoderSettingsLoader.load(
+                        settingsRepository,
+                        streamVideoSettings,
+                        streamAudioSettings,
+                        streamUiSettings);
+        effectiveFramePacing =
+                streamDecoderSettings.getFramePacing();
         customResolutionRepository =
                 new SharedPreferencesCustomResolutionRepository(
                         getSharedPreferences(
@@ -417,14 +438,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         controllerSettingsState =
                 new ControllerSettingsState(
                         ControllerSettingsLoader.load(
-                                settingsRepository));
-        streamAudioSettingsState =
-                new StreamAudioSettingsState(
-                        StreamAudioSettingsLoader.load(
-                                settingsRepository));
-        streamUiSettingsState =
-                new StreamUiSettingsState(
-                        StreamUiSettingsLoader.load(
                                 settingsRepository));
         virtualControlSettingsState =
                 new VirtualControlSettingsState(
@@ -522,7 +535,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             streamView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
             streamView.setZOrderMediaOverlay(true);
             fsrView.getHolder().addCallback(this);
-            fsrView.setFrameInputSize(prefConfig.width, prefConfig.height);
+            fsrView.setFrameInputSize(
+                    streamDecoderSettings.getWidth(),
+                    streamDecoderSettings.getHeight());
             if (isFsrNativeHeightTarget()) {
                 fsrView.setFixedSurfacePixelSize(0, 0);
             }
@@ -543,7 +558,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         backgroundTouchView.setOnTouchListener(this);
 
         rootView=streamView.getParent();
-        if (prefConfig.enableNativeCursor && rootView instanceof FrameLayout) {
+        if (inputSettingsState.get().isAbsoluteMouseMode() &&
+                rootView instanceof FrameLayout) {
             nativeCursorOverlayView = new NativeCursorOverlayView(this);
             FrameLayout.LayoutParams cursorLayoutParams = new FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
@@ -639,10 +655,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         // Check if the user has enabled HDR
         boolean willStreamHdr = false;
-        if(prefConfig.ignoreCheckHDR){
+        if (streamVideoSettings.shouldIgnoreHdrCapability()) {
             willStreamHdr=true;
         }else{
-            if (prefConfig.enableHdr) {
+            if (streamDisplaySettings.isHdrEnabled() &&
+                    AndroidHdrCompatibility
+                            .isHdrStreamingAllowed()) {
                 // Start our HDR checklist
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     Display display = getWindowManager().getDefaultDisplay();
@@ -704,12 +722,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             UiToast.makeText(this, "Decoder does not support HDR10 profile", UiToast.LENGTH_LONG).show();
         }
         // Display a message to the user if HEVC was forced on but we still didn't find a decoder
-        if (prefConfig.videoFormat == PreferenceConfiguration.FormatOption.FORCE_HEVC && !decoderRenderer.isHevcSupported()) {
+        if (streamDecoderSettings.getVideoFormat() ==
+                StreamDecoderSettings.VideoFormat.FORCE_HEVC &&
+                !decoderRenderer.isHevcSupported()) {
             UiToast.makeText(this, "No HEVC decoder found", UiToast.LENGTH_LONG).show();
         }
 
         // Display a message to the user if AV1 was forced on but we still didn't find a decoder
-        if (prefConfig.videoFormat == PreferenceConfiguration.FormatOption.FORCE_AV1 && !decoderRenderer.isAv1Supported()) {
+        if (streamDecoderSettings.getVideoFormat() ==
+                StreamDecoderSettings.VideoFormat.FORCE_AV1 &&
+                !decoderRenderer.isAv1Supported()) {
             UiToast.makeText(this, "No AV1 decoder found", UiToast.LENGTH_LONG).show();
         }
 
@@ -751,33 +773,39 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         // If the user requested frame pacing using a capped FPS, we will need to change our
         // desired FPS setting here in accordance with the active display refresh rate.
-        int roundedRefreshRate = Math.round(displayRefreshRate);
-        int chosenFrameRate = prefConfig.fps;
-        if (prefConfig.framePacing == PreferenceConfiguration.FRAME_PACING_CAP_FPS) {
-            if (prefConfig.fps >= roundedRefreshRate) {
-                if (prefConfig.fps > roundedRefreshRate + 3) {
-                    // Use frame drops when rendering above the screen frame rate
-                    prefConfig.framePacing = PreferenceConfiguration.FRAME_PACING_BALANCED;
-                    LimeLog.info("Using drop mode for FPS > Hz");
-                } else if (roundedRefreshRate <= 49) {
-                    // Let's avoid clearly bogus refresh rates and fall back to legacy rendering
-                    prefConfig.framePacing = PreferenceConfiguration.FRAME_PACING_BALANCED;
-                    LimeLog.info("Bogus refresh rate: " + roundedRefreshRate);
-                }
-                else {
-                    chosenFrameRate = roundedRefreshRate - 1;
-                    LimeLog.info("Adjusting FPS target for screen to " + chosenFrameRate);
-                }
-            }
+        StreamFramePacingPolicy.Decision pacingDecision =
+                StreamFramePacingPolicy.resolve(
+                        streamDecoderSettings.getFramePacing(),
+                        streamDecoderSettings.getFps(),
+                        displayRefreshRate);
+        int chosenFrameRate = pacingDecision.getTargetFps();
+        effectiveFramePacing =
+                pacingDecision.getEffectiveMode();
+        if (effectiveFramePacing !=
+                streamDecoderSettings.getFramePacing()) {
+            LimeLog.info(
+                    "Using balanced frame pacing for incompatible display refresh rate");
+        }
+        else if (chosenFrameRate !=
+                streamDecoderSettings.getFps()) {
+            LimeLog.info(
+                    "Adjusting FPS target for screen to " +
+                            chosenFrameRate);
         }
 
         StreamConfiguration config = new StreamConfiguration.Builder()
-                .setResolution(prefConfig.width, prefConfig.height)
-                .setLaunchRefreshRate(prefConfig.fps)
+                .setResolution(
+                        streamDecoderSettings.getWidth(),
+                        streamDecoderSettings.getHeight())
+                .setLaunchRefreshRate(
+                        streamDecoderSettings.getFps())
                 .setRefreshRate(chosenFrameRate)
                 .setApp(app)
-                .setBitrate(prefConfig.bitrate)
-                .setEnableSops(prefConfig.enableSops)
+                .setBitrate(
+                        streamDecoderSettings.getBitrateKbps())
+                .setEnableSops(
+                        streamVideoSettings
+                                .shouldOptimizeGameSettings())
                 .enableLocalAudioPlayback(
                         streamAudioSettingsState
                                 .get()
@@ -795,12 +823,23 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .setColorSpace(decoderRenderer.getPreferredColorSpace())
                 .setColorRange(decoderRenderer.getPreferredColorRange())
                 .setPPI(RazerUtils.getPPI(this))
-                .setRazerVD(prefConfig.razerVD)
-                .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
-                .enableNativeCursor(prefConfig.enableNativeCursor)
+                .setRazerVD(
+                        streamVideoSettings
+                                .getVirtualDisplayMode()
+                                .getStorageValue())
+                .setPersistGamepadsAfterDisconnect(
+                        !controllerSettings
+                                .isMultiControllerEnabled())
+                .enableNativeCursor(
+                        inputSettingsState
+                                .get()
+                                .isAbsoluteMouseMode())
                 .enableClipboardSync(
                         transferSettings.isClipboardSyncEnabled())
-                .disableAdaptiveInputThrottling(prefConfig.disableAdaptiveInputThrottling)
+                .disableAdaptiveInputThrottling(
+                        inputSettingsState
+                                .get()
+                                .isAdaptiveInputThrottlingDisabled())
                 .build();
 
         streamReqBean=new StreamReqBean();
@@ -1048,7 +1087,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                                 Game.this.showKeyboard();
                             }
                         });
-        if (prefConfig.enableNativeCursor) {
+        if (inputSettingsState.get().isAbsoluteMouseMode()) {
             conn.setMousePositionListener(new NvConnection.MousePositionListener() {
                 @Override
                 public void onMousePosition(short x, short y, short referenceWidth, short referenceHeight) {
@@ -1174,10 +1213,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         setMotionForceGyro();
 
         //光标是否显示
-        if(!cursorVisible&&prefConfig.enableMouseLocalCursor){
+        if (!cursorVisible &&
+                inputSettingsState
+                        .get()
+                        .isLocalSystemCursorEnabled()) {
             switchMouseLocalCursor();
         }
-//        cursorVisible=prefConfig.enableMouseLocalCursor;
 //        initFloatingView();
 
         sessionDependenciesReady = true;
@@ -1378,8 +1419,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         PictureInPictureParams.Builder builder =
                 new PictureInPictureParams.Builder()
                         .setAspectRatio(new Rational(
-                                prefConfig.width,
-                                prefConfig.height));
+                                streamDecoderSettings.getWidth(),
+                                streamDecoderSettings.getHeight()));
         Rect sourceBounds = new Rect();
         if (ViewWindowGeometry.getVisibleBoundsInWindow(
                 streamView,
@@ -1410,7 +1451,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void updatePipAutoEnter() {
-        if (!prefConfig.enablePip) {
+        if (!streamUiSettingsState
+                .get()
+                .isPictureInPictureEnabled()) {
             return;
         }
 
@@ -1507,13 +1550,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private boolean isRefreshRateEqualMatch(float refreshRate) {
-        return refreshRate >= prefConfig.fps &&
-                refreshRate <= prefConfig.fps + 3;
+        return refreshRate >= streamDecoderSettings.getFps() &&
+                refreshRate <= streamDecoderSettings.getFps() + 3;
     }
 
     private boolean isRefreshRateGoodMatch(float refreshRate) {
-        return refreshRate >= prefConfig.fps &&
-                Math.round(refreshRate) % prefConfig.fps <= 3;
+        return refreshRate >= streamDecoderSettings.getFps() &&
+                Math.round(refreshRate) %
+                        streamDecoderSettings.getFps() <= 3;
     }
 
     private boolean matchesPhysicalDisplayMode(int width, int height) {
@@ -1534,9 +1578,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private boolean mayReduceRefreshRate() {
-        return prefConfig.framePacing == PreferenceConfiguration.FRAME_PACING_CAP_FPS ||
-                prefConfig.framePacing == PreferenceConfiguration.FRAME_PACING_MAX_SMOOTHNESS ||
-                (prefConfig.framePacing == PreferenceConfiguration.FRAME_PACING_BALANCED && prefConfig.reduceRefreshRate);
+        return effectiveFramePacing ==
+                StreamDecoderSettings.FramePacing.CAP_FPS ||
+                effectiveFramePacing ==
+                        StreamDecoderSettings.FramePacing
+                                .MAXIMUM_SMOOTHNESS ||
+                (effectiveFramePacing ==
+                        StreamDecoderSettings.FramePacing.BALANCED &&
+                        streamDecoderSettings
+                                .isRefreshRateReductionEnabled());
     }
 
     private boolean shouldLetSystemManageRefreshRate() {
@@ -1560,7 +1610,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // On M, we can explicitly set the optimal display mode
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Display.Mode bestMode = display.getMode();
-            boolean isNativeResolutionStream = prefConfig.isNativeResolution();
+            boolean isNativeResolutionStream =
+                    streamDisplaySettings.isNativeResolution();
             boolean refreshRateIsGood = isRefreshRateGoodMatch(bestMode.getRefreshRate());
             boolean refreshRateIsEqual = isRefreshRateEqualMatch(bestMode.getRefreshRate());
 
@@ -1571,13 +1622,17 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 boolean refreshRateReduced = candidate.getRefreshRate() < bestMode.getRefreshRate();
                 boolean resolutionReduced = candidate.getPhysicalWidth() < bestMode.getPhysicalWidth() ||
                         candidate.getPhysicalHeight() < bestMode.getPhysicalHeight();
-                boolean resolutionFitsStream = candidate.getPhysicalWidth() >= prefConfig.width &&
-                        candidate.getPhysicalHeight() >= prefConfig.height;
+                boolean resolutionFitsStream =
+                        candidate.getPhysicalWidth() >=
+                                streamDecoderSettings.getWidth() &&
+                        candidate.getPhysicalHeight() >=
+                                streamDecoderSettings.getHeight();
 
                 LimeLog.info("Examining display mode: "+candidate.getPhysicalWidth()+"x"+
                         candidate.getPhysicalHeight()+"x"+candidate.getRefreshRate());
 
-                if (candidate.getPhysicalWidth() > 4096 && prefConfig.width <= 4096) {
+                if (candidate.getPhysicalWidth() > 4096 &&
+                        streamDecoderSettings.getWidth() <= 4096) {
                     // Avoid resolutions options above 4K to be safe
                     continue;
                 }
@@ -1585,7 +1640,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 // On non-4K streams, we force the resolution to never change unless it's above
                 // 60 FPS, which may require a resolution reduction due to HDMI bandwidth limitations,
                 // or it's a native resolution stream.
-                if (prefConfig.width < 3840 && prefConfig.fps <= 60 && !isNativeResolutionStream) {
+                if (streamDecoderSettings.getWidth() < 3840 &&
+                        streamDecoderSettings.getFps() <= 60 &&
+                        !isNativeResolutionStream) {
                     if (display.getMode().getPhysicalWidth() != candidate.getPhysicalWidth() ||
                             display.getMode().getPhysicalHeight() != candidate.getPhysicalHeight()) {
                         continue;
@@ -1594,7 +1651,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
                 // Make sure the resolution doesn't regress unless if it's over 60 FPS
                 // where we may need to reduce resolution to achieve the desired refresh rate.
-                if (resolutionReduced && !(prefConfig.fps > 60 && resolutionFitsStream)) {
+                if (resolutionReduced &&
+                        !(streamDecoderSettings.getFps() > 60 &&
+                                resolutionFitsStream)) {
                     continue;
                 }
 
@@ -1652,7 +1711,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 // If we only changed refresh rate and we're on an OS that supports Surface.setFrameRate()
                 // use that instead of using preferredDisplayModeId to avoid the possibility of triggering
                 // bugs that can cause the system to switch from 4K60 to 4K24 on Chromecast 4K.
-                if (prefConfig.enforceDisplayMode ||Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                if (streamVideoSettings.shouldEnforceDisplayMode() ||
+                        Build.VERSION.SDK_INT <
+                                Build.VERSION_CODES.S ||
                         display.getMode().getPhysicalWidth() != bestMode.getPhysicalWidth() ||
                         display.getMode().getPhysicalHeight() != bestMode.getPhysicalHeight()) {
                     // Apply the display mode change
@@ -1680,7 +1741,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
                 if (candidate > bestRefreshRate) {
                     // Ensure the frame rate stays around 60 Hz for <= 60 FPS streams
-                    if (prefConfig.fps <= 60) {
+                    if (streamDecoderSettings.getFps() <= 60) {
                         if (candidate >= 63) {
                             continue;
                         }
@@ -1717,8 +1778,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             if (StreamLayoutGeometry.hasCompatibleAspectRatio(
                     screenSize.x,
                     screenSize.y,
-                    prefConfig.width,
-                    prefConfig.height,
+                    streamDecoderSettings.getWidth(),
+                    streamDecoderSettings.getHeight(),
                     0.001)) {
                 LimeLog.info("Stream has compatible aspect ratio with output display");
                 aspectRatioMatch = true;
@@ -1727,11 +1788,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         double desiredAspectRatio =
                 StreamLayoutGeometry.getAspectRatio(
-                        prefConfig.width,
-                        prefConfig.height);
-        if (prefConfig.stretchVideo || aspectRatioMatch) {
+                        streamDecoderSettings.getWidth(),
+                        streamDecoderSettings.getHeight());
+        if (streamDisplaySettings.isStretchVideo() ||
+                aspectRatioMatch) {
             // Set the surface to the size of the video
-            streamView.getHolder().setFixedSize(prefConfig.width, prefConfig.height);
+            streamView.getHolder().setFixedSize(
+                    streamDecoderSettings.getWidth(),
+                    streamDecoderSettings.getHeight());
             streamView.setDesiredAspectRatio(0.0);
             if (fsrView != null) {
                 fsrView.setDesiredAspectRatio(0.0);
@@ -1991,7 +2055,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     }
                 },200); // 延时100毫秒
             }
-            if (prefConfig.enableLatencyToast) {
+            if (streamUiSettingsState
+                    .get()
+                    .isLatencyToastEnabled()) {
                 int averageEndToEndLat =
                         mediaResourceOwner
                                 .getAverageEndToEndLatency();
@@ -2535,12 +2601,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void handleConnectionStatusUpdate(int connectionStatus) {
-        if (prefConfig.disableWarnings) {
+        if (streamUiSettingsState
+                .get()
+                .areConnectionWarningsDisabled()) {
             return;
         }
 
         if (connectionStatus == MoonBridge.CONN_STATUS_POOR) {
-            if (prefConfig.bitrate > 5000) {
+            if (streamDecoderSettings.getBitrateKbps() >
+                    5000) {
                 notificationOverlayView.setText(
                         getResources().getString(
                                 R.string.slow_connection_msg));
@@ -2588,7 +2657,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void displayTransientMessage(String message) {
-        if (!prefConfig.disableWarnings) {
+        if (!streamUiSettingsState
+                .get()
+                .areConnectionWarningsDisabled()) {
             UiToast.makeText(
                     Game.this,
                     message,
@@ -2675,8 +2746,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         nativeCursorOverlayView.setCursorScaleFromStream(
                 streamView,
-                prefConfig.width,
-                prefConfig.height,
+                streamDecoderSettings.getWidth(),
+                streamDecoderSettings.getHeight(),
                 scaleX,
                 scaleY);
         nativeCursorOverlayView.updateCursor(
@@ -2701,7 +2772,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             throw new IllegalStateException("Surface changed before creation!");
         }
 
-        LimeLog.info("surfaceChanged-->"+width+" x "+height + "----"+prefConfig.width+" x "+prefConfig.height);
+        LimeLog.info(
+                "surfaceChanged-->" + width + " x " + height +
+                        "----" +
+                        streamDecoderSettings.getWidth() + " x " +
+                        streamDecoderSettings.getHeight());
         if (fsrEnabled) {
             return;
         }
@@ -2729,8 +2804,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // FPS value if there's no suitable matching refresh rate. In that case, Android could try to
         // select a lower refresh rate that avoids uneven pull-down (ex: 30 Hz for a 60 FPS stream on
         // a display that maxes out at 50 Hz).
-        if (mayReduceRefreshRate() || desiredRefreshRate < prefConfig.fps) {
-            desiredFrameRate = prefConfig.fps;
+        if (mayReduceRefreshRate() ||
+                desiredRefreshRate <
+                        streamDecoderSettings.getFps()) {
+            desiredFrameRate =
+                    streamDecoderSettings.getFps();
         }
         else {
             // Otherwise, we will pretend that our frame rate matches the refresh rate we picked in
@@ -2978,7 +3056,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         lastBackPressedElapsedMs = now;
         UiToast.makeText(this, "再按一次返回退出串流", UiToast.LENGTH_SHORT).show();
 
-        if (prefConfig.enableQtDialog && (dialogGameMenu == null || !dialogGameMenu.isVisible())) {
+        if (controllerSettingsState
+                .get()
+                .doesMouseEmulationOpenGameMenu() &&
+                (dialogGameMenu == null ||
+                        !dialogGameMenu.isVisible())) {
             showGameMenu(null);
         }
     }
@@ -3025,7 +3107,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .getSettings()
                 .isAbsoluteMouseMode();
         streamInputController.setAbsoluteMouseMode(enabled);
-        prefConfig.absoluteMouseMode = enabled;
         if (conn != null) {
             conn.setAbsoluteMousePositionMode(enabled);
         }
@@ -3219,7 +3300,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .isDirectTouchSensitivityEnabled();
         streamInputController
                 .setDirectTouchSensitivityEnabled(enabled);
-        prefConfig.enableTouchSensitivity = enabled;
     }
 
     //更新虚拟布局视图
@@ -3433,7 +3513,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         controllerSettingsState.replace(
                 ControllerSettingsLoader.load(
                         settingsRepository));
-        prefConfig.vibrateOsc = enabled;
     }
 
     @Override

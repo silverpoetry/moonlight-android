@@ -23,7 +23,7 @@ public final class StreamVideoSettings {
             this.storageValue = storageValue;
         }
 
-        int getStorageValue() {
+        public int getStorageValue() {
             return storageValue;
         }
 
@@ -49,7 +49,7 @@ public final class StreamVideoSettings {
             this.storageValue = storageValue;
         }
 
-        int getStorageValue() {
+        public int getStorageValue() {
             return storageValue;
         }
 
@@ -76,6 +76,10 @@ public final class StreamVideoSettings {
     private final boolean fpsUnlocked;
     private final boolean portrait;
     private final boolean externalDisplay;
+    private final boolean nativeResolution;
+    private final boolean stretchVideo;
+    private final boolean displayCutoutEnabled;
+    private final boolean optimizeGameSettings;
     private final VirtualDisplayMode virtualDisplayMode;
     private final boolean enforceDisplayMode;
     private final ScreenOnPolicy screenOnPolicy;
@@ -112,6 +116,12 @@ public final class StreamVideoSettings {
         fpsUnlocked = builder.fpsUnlocked;
         portrait = builder.portrait;
         externalDisplay = builder.externalDisplay;
+        nativeResolution = builder.nativeResolution;
+        stretchVideo = builder.stretchVideo;
+        displayCutoutEnabled =
+                builder.displayCutoutEnabled;
+        optimizeGameSettings =
+                builder.optimizeGameSettings;
         virtualDisplayMode = Objects.requireNonNull(
                 builder.virtualDisplayMode,
                 "virtualDisplayMode");
@@ -189,6 +199,22 @@ public final class StreamVideoSettings {
         return externalDisplay;
     }
 
+    public boolean isNativeResolution() {
+        return nativeResolution;
+    }
+
+    public boolean isStretchVideo() {
+        return stretchVideo;
+    }
+
+    public boolean isDisplayCutoutEnabled() {
+        return displayCutoutEnabled;
+    }
+
+    public boolean shouldOptimizeGameSettings() {
+        return optimizeGameSettings;
+    }
+
     public VirtualDisplayMode getVirtualDisplayMode() {
         return virtualDisplayMode;
     }
@@ -247,6 +273,10 @@ public final class StreamVideoSettings {
         private boolean fpsUnlocked;
         private boolean portrait;
         private boolean externalDisplay;
+        private boolean nativeResolution;
+        private boolean stretchVideo;
+        private boolean displayCutoutEnabled;
+        private boolean optimizeGameSettings = true;
         private VirtualDisplayMode virtualDisplayMode =
                 VirtualDisplayMode.DISABLED;
         private boolean enforceDisplayMode;
@@ -275,6 +305,12 @@ public final class StreamVideoSettings {
             fpsUnlocked = settings.fpsUnlocked;
             portrait = settings.portrait;
             externalDisplay = settings.externalDisplay;
+            nativeResolution = settings.nativeResolution;
+            stretchVideo = settings.stretchVideo;
+            displayCutoutEnabled =
+                    settings.displayCutoutEnabled;
+            optimizeGameSettings =
+                    settings.optimizeGameSettings;
             virtualDisplayMode =
                     settings.virtualDisplayMode;
             enforceDisplayMode =
@@ -291,6 +327,10 @@ public final class StreamVideoSettings {
         public Builder setDimensions(int width, int height) {
             this.width = width;
             this.height = height;
+            nativeResolution =
+                    !StreamResolutionCodec
+                            .isStandardResolutionPreset(
+                                    width + "x" + height);
             return this;
         }
 
@@ -343,6 +383,26 @@ public final class StreamVideoSettings {
 
         public Builder setExternalDisplay(boolean external) {
             externalDisplay = external;
+            return this;
+        }
+
+        public Builder setNativeResolution(boolean nativeResolution) {
+            this.nativeResolution = nativeResolution;
+            return this;
+        }
+
+        public Builder setStretchVideo(boolean stretch) {
+            stretchVideo = stretch;
+            return this;
+        }
+
+        public Builder setDisplayCutoutEnabled(boolean enabled) {
+            displayCutoutEnabled = enabled;
+            return this;
+        }
+
+        public Builder setOptimizeGameSettings(boolean optimize) {
+            optimizeGameSettings = optimize;
             return this;
         }
 
