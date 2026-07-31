@@ -97,6 +97,7 @@ import com.limelight.ui.performance.PerformanceOverlayConfiguration;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.stream.AndroidStreamConnectionMessages;
 import com.limelight.ui.stream.AndroidStreamConnectingIndicator;
+import com.limelight.ui.stream.AndroidStreamConnectionWarningPresenter;
 import com.limelight.ui.stream.AndroidStreamDisplayController;
 import com.limelight.ui.stream.AndroidExternalDisplayController;
 import com.limelight.ui.stream.AndroidStreamFailureDiagnosticsFactory;
@@ -109,6 +110,7 @@ import com.limelight.ui.stream.AndroidStreamNativeCursorController;
 import com.limelight.ui.stream.AndroidStreamOverlayVisibilityHost;
 import com.limelight.ui.stream.AndroidStreamPictureInPictureController;
 import com.limelight.ui.stream.AndroidStreamSessionUiEffectsHost;
+import com.limelight.ui.stream.AndroidStreamSessionPresentationHost;
 import com.limelight.ui.stream.AndroidStreamSystemUiController;
 import com.limelight.ui.stream.StreamControllerFeedbackHost;
 import com.limelight.ui.stream.StreamDecoderCapabilities;
@@ -725,145 +727,6 @@ public class Game extends Activity implements OnGenericMotionListener,
                         inputCaptureController,
                         this::isGameModeIntegrationDisabled),
                 mainHandler);
-        sessionPresentationController =
-                new StreamSessionPresentationController(
-                        new StreamSessionPresentationController.Host() {
-                            @Override
-                            public boolean canPresentSessionUi() {
-                                return Game.this.canPresentSessionUi();
-                            }
-
-                            @Override
-                            public void updateConnectingMessage(
-                                    String message) {
-                                connectingIndicator.updateMessage(
-                                        message);
-                            }
-
-                            @Override
-                            public void dismissConnectingIndicator() {
-                                Game.this.dismissConnectingIndicator();
-                            }
-
-                            @Override
-                            public boolean isRenderSurfaceValid() {
-                                return streamView.getHolder()
-                                        .getSurface()
-                                        .isValid();
-                            }
-
-                            @Override
-                            public void showLongMessage(String message) {
-                                UiToast.makeText(
-                                        Game.this,
-                                        message,
-                                        UiToast.LENGTH_LONG).show();
-                            }
-
-                            @Override
-                            public void showFailureDialog(
-                                    String title,
-                                    String message) {
-                                Dialog.displayDialog(
-                                        Game.this,
-                                        title,
-                                        message,
-                                        true);
-                            }
-
-                            @Override
-                            public void stopControllerInput() {
-                                controllerHandler.stop();
-                            }
-
-                            @Override
-                            public void stopConnection() {
-                                Game.this.stopConnection();
-                            }
-
-                            @Override
-                            public void finishGracefully() {
-                                finish();
-                            }
-
-                            @Override
-                            public boolean
-                                    areConnectionWarningsDisabled() {
-                                return streamUiSettingsState
-                                        .get()
-                                        .areConnectionWarningsDisabled();
-                            }
-
-                            @Override
-                            public int getBitrateKbps() {
-                                return streamDecoderSettings
-                                        .getBitrateKbps();
-                            }
-
-                            @Override
-                            public void setConnectionWarning(
-                                    StreamSessionPresentationController
-                                            .ConnectionWarning warning) {
-                                Game.this.setConnectionWarning(warning);
-                            }
-
-                            @Override
-                            public void onSessionConnected() {
-                                Game.this.onSessionConnected();
-                            }
-
-                            @Override
-                            public void onHdrModeChanged(
-                                    boolean enabled,
-                                    byte[] hdrMetadata) {
-                                hdrModeController.onHdrModeChanged(
-                                        enabled,
-                                        hdrMetadata);
-                            }
-
-                            @Override
-                            public void onNativeCursor(
-                                    boolean visible,
-                                    boolean shapeChanged,
-                                    int format,
-                                    int x,
-                                    int y,
-                                    int width,
-                                    int height,
-                                    int hotspotX,
-                                    int hotspotY,
-                                    int shapeId,
-                                    int scaleX,
-                                    int scaleY,
-                                    byte[] imageData) {
-                                nativeCursorController.onNativeCursor(
-                                        visible,
-                                        shapeChanged,
-                                        format,
-                                        width,
-                                        height,
-                                        hotspotX,
-                                        hotspotY,
-                                        shapeId,
-                                        scaleX,
-                                        scaleY,
-                                        imageData);
-                            }
-                        },
-                        failureDiagnostics,
-                        AndroidStreamConnectionMessages.create(this),
-                        MoonBridge::getPortFlagsFromTerminationErrorCode,
-                        MoonBridge.ML_TEST_RESULT_INCONCLUSIVE);
-        sessionCallbackRouter = new StreamSessionCallbackRouter(
-                sessionPresentationController,
-                new StreamControllerFeedbackHost(
-                        controllerHandler,
-                        controllerSettingsState,
-                        performanceOverlayController),
-                mainHandler);
-        sessionController = new StreamSessionController(
-                conn,
-                sessionCallbackRouter);
         TouchInputController touchInputController =
                 new TouchInputController(
                         this,
@@ -978,6 +841,40 @@ public class Game extends Activity implements OnGenericMotionListener,
                                 notificationOverlayView,
                                 controllerHandler,
                                 this::isGameModeIntegrationDisabled));
+
+        AndroidStreamConnectionWarningPresenter warningPresenter =
+                new AndroidStreamConnectionWarningPresenter(
+                        this,
+                        notificationOverlayView,
+                        overlayVisibilityController);
+        sessionPresentationController =
+                new StreamSessionPresentationController(
+                        new AndroidStreamSessionPresentationHost(
+                                this,
+                                streamView,
+                                controllerHandler,
+                                streamUiSettingsState,
+                                streamDecoderSettings,
+                                connectingIndicator,
+                                warningPresenter,
+                                hdrModeController,
+                                nativeCursorController,
+                                this::stopConnection,
+                                this::onSessionConnected),
+                        failureDiagnostics,
+                        AndroidStreamConnectionMessages.create(this),
+                        MoonBridge::getPortFlagsFromTerminationErrorCode,
+                        MoonBridge.ML_TEST_RESULT_INCONCLUSIVE);
+        sessionCallbackRouter = new StreamSessionCallbackRouter(
+                sessionPresentationController,
+                new StreamControllerFeedbackHost(
+                        controllerHandler,
+                        controllerSettingsState,
+                        performanceOverlayController),
+                mainHandler);
+        sessionController = new StreamSessionController(
+                conn,
+                sessionCallbackRouter);
 
         //鼠标触控模式
         switchMouseModel(
@@ -1788,31 +1685,6 @@ public class Game extends Activity implements OnGenericMotionListener,
 
     private boolean canPresentSessionUi() {
         return !isFinishing() && !isDestroyed();
-    }
-
-    private void dismissConnectingIndicator() {
-        connectingIndicator.dismiss();
-    }
-
-    private void setConnectionWarning(
-            StreamSessionPresentationController.ConnectionWarning warning) {
-        if (warning ==
-                StreamSessionPresentationController.ConnectionWarning.NONE) {
-            if (overlayVisibilityController != null) {
-                overlayVisibilityController
-                        .setConnectionWarningVisible(false);
-            }
-            return;
-        }
-        notificationOverlayView.setText(getString(
-                warning == StreamSessionPresentationController
-                        .ConnectionWarning.SLOW
-                        ? R.string.slow_connection_msg
-                        : R.string.poor_connection_msg));
-        if (overlayVisibilityController != null) {
-            overlayVisibilityController
-                    .setConnectionWarningVisible(true);
-        }
     }
 
     private void onSessionConnected() {

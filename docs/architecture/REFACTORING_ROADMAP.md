@@ -505,6 +505,14 @@ targets.
   teardown invalidation. `AndroidStreamHdrModeController` owns negotiated HDR
   application and Android window notification; neither presentation endpoint
   is implemented in `Game` anymore.
+- `AndroidStreamConnectionWarningPresenter` owns warning text selection and
+  visibility. Session callback routing is now composed only after controller
+  input and overlay dependencies are initialized, eliminating the prior
+  nullable-field construction hazard.
+- `AndroidStreamSessionPresentationHost` composes the connecting indicator,
+  warning presenter, HDR controller, native cursor controller, surface state,
+  user feedback, and live settings behind the policy host contract. Only the
+  Activity-owned stop and connected transitions remain narrow method actions.
 - `StreamHdrRequestPolicy` owns HDR request eligibility and user-warning
   selection from immutable settings and device facts. The Android capability
   provider samples OS, firmware, and display HDR10 support once; `Game` no

@@ -209,6 +209,20 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void gameDelegatesSessionPresentationAdaptation() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamSessionPresentationController$Host")
+                .because(
+                        "Android session presentation belongs to its concrete adapter")
+                .check(productionClasses);
+    }
+
+    @Test
     public void gameDelegatesSystemUiVisibilityListening() {
         noClasses()
                 .that()
