@@ -39,10 +39,12 @@ import com.limelight.nvstream.http.PairingManager;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.nvstream.mic.MicrophoneUplinkController;
+import com.limelight.nvstream.mic.MicrophoneUplinkEndpoint;
 import com.limelight.nvstream.mic.MicrophoneUplinkSessionFactory;
 import com.limelight.nvstream.mic.MicrophoneUplinkState;
 
-public class NvConnection implements StreamSessionConnection {
+public class NvConnection implements StreamSessionConnection,
+        MicrophoneUplinkEndpoint {
     public interface ClipboardFileDownloadListener {
         void onProgress(long transferredBytes, long totalBytes);
         void onComplete(int topLevelItemCount);
@@ -261,31 +263,39 @@ public class NvConnection implements StreamSessionConnection {
         }
     }
 
+    @Override
     public String getLastMicUplinkMessage() {
         return microphoneUplinkController.getLastMessage();
     }
 
+    @Override
     public boolean isMicUplinkSupported() {
         return microphoneUplinkController.isSupported();
     }
 
+    @Override
     public boolean isMicUplinkActive() {
         return microphoneUplinkController.isActive();
     }
 
+    @Override
     public MicrophoneUplinkState getMicUplinkState() {
         return microphoneUplinkController.getState();
     }
 
-    public void stopMicUplink() {
-        if (!microphoneUplinkController.stop()) {
+    @Override
+    public boolean stopMicUplink() {
+        boolean stopped = microphoneUplinkController.stop();
+        if (!stopped) {
             LimeLog.warning(
                     "Failed to stop microphone uplink: " +
                             microphoneUplinkController
                                     .getLastMessage());
         }
+        return stopped;
     }
 
+    @Override
     public boolean startMicUplink() {
         boolean started = microphoneUplinkController.start();
         if (!started) {

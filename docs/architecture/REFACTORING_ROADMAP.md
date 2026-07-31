@@ -358,6 +358,12 @@ targets.
   readiness, frame-rate hints, decoder stop preparation, and callback
   detachment. Its transition state is platform-independent and tested without
   adding a queue or thread to the render path.
+- `StreamMicrophoneController` owns permission deferral, duplicate-toggle
+  suppression, serialized background start/stop work, lifecycle cancellation,
+  error presentation events, and explicit menu-state invalidation. `Game`
+  supplies the Android permission and UI adapters while `NvConnection`
+  implements the narrow `MicrophoneUplinkEndpoint`; the menu no longer polls
+  twice on fixed timers to guess whether an asynchronous transition finished.
 - `ControllerSlotAllocator` is the sole owner of the protocol's sixteen player
   slots and the initial-to-active mask transition. Android/USB device code asks
   for or releases a slot instead of mutating duplicate bitmasks.

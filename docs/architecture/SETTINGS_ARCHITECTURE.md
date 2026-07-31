@@ -218,8 +218,11 @@ The microphone uplink intentionally has no settings snapshot. Its 48 kHz mono,
 version-1 protocol invariants in `MicrophoneUplinkConfig`. `NvConnection`
 depends only on a `MicrophoneUplinkSessionFactory`; the composition root injects
 the Android/common-c adapter. This keeps capture construction out of the
-connection state machine and makes every lifecycle transition deterministic in
-plain JVM tests.
+connection state machine. `StreamMicrophoneController` separately owns Android
+permission deferral and serialized UI toggle intent through the narrow
+`MicrophoneUplinkEndpoint`; completion invalidates menu state explicitly rather
+than using delayed polling. Both lifecycle layers are deterministic in plain
+JVM tests.
 
 Clipboard enablement is a restart-only stream capability. The selected Android
 document tree remains an opaque, bounded string in the platform-independent

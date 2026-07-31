@@ -89,7 +89,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
                 super.getViewSize();
     }
 
-    private void refreshMicButton() {
+    public void refreshMicrophoneState() {
         if (btn_mic != null && host != null) {
             btn_mic.setBackgroundResource(
                     host.isMicUplinkActive() ?
@@ -368,7 +368,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
                 host.isVirtualKeysVisible());
         setActionButtonActive(
                 btn_screen_move, host.getScreenMoveZoom());
-        refreshMicButton();
+        refreshMicrophoneState();
     }
 
     private void setActionButtonActive(Button button, boolean active) {
@@ -574,9 +574,6 @@ public class GameMenuFragment extends BaseGameMenuDialog
 
         if(v.getId()==R.id.btn_mic){
             host.switchMic();
-            refreshMicButton();
-            btn_mic.postDelayed(this::refreshMicButton, 400);
-            btn_mic.postDelayed(this::refreshMicButton, 1200);
             return;
         }
 

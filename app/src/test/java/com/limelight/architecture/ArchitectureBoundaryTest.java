@@ -233,6 +233,32 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void streamMicrophoneControllerUsesOnlyItsEndpointPort() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamMicrophoneController")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..")
+                .because(
+                        "microphone interaction policy is platform-independent")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamMicrophoneController")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.NvConnection")
+                .because(
+                        "microphone UI orchestration depends on its narrow endpoint port")
+                .check(productionClasses);
+    }
+
+    @Test
     public void typedStreamSettingsDoNotDependOnAndroidOrLegacyPreferences() {
         noClasses()
                 .that()

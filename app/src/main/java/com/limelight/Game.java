@@ -43,7 +43,6 @@ import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.nvstream.mic.MicrophoneUplinkConfig;
-import com.limelight.nvstream.mic.MicrophoneUplinkState;
 import com.limelight.preferences.GlPreferences;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.AndroidDisplayAspectProvider;
@@ -105,6 +104,7 @@ import com.limelight.ui.stream.StreamFailureDiagnostics;
 import com.limelight.ui.stream.StreamDisplayModeSelector;
 import com.limelight.ui.stream.StreamLaunchReporter;
 import com.limelight.ui.stream.StreamMediaResourceOwner;
+import com.limelight.ui.stream.StreamMicrophoneController;
 import com.limelight.ui.stream.StreamRenderSurfaceController;
 import com.limelight.ui.stream.StreamSessionCallbackRouter;
 import com.limelight.ui.stream.StreamSessionUiEffects;
@@ -241,9 +241,9 @@ public class Game extends Activity implements OnGenericMotionListener,
     private StreamFailureDiagnostics failureDiagnostics;
     private StreamLaunchReporter launchReporter;
     private StreamSessionUiEffects sessionUiEffects;
+    private StreamMicrophoneController microphoneController;
     private SpinnerDialog spinner;
     private boolean displayedFailureDialog = false;
-    private boolean awaitingRecordAudioPermission = false;
     private RemoteClipboardFileTransferController
             clipboardFileTransferController;
     private boolean autoEnterPip = false;
@@ -288,8 +288,6 @@ public class Game extends Activity implements OnGenericMotionListener,
     private StreamRenderSurfaceController
             renderSurfaceController;
     private boolean reportedCrash;
-    private boolean micToggleInFlight;
-    private boolean pendingMicToggleAfterPermission;
 
     private StreamWifiLockController wifiLockController;
 
@@ -811,6 +809,59 @@ public class Game extends Activity implements OnGenericMotionListener,
                         conn,
                         settingsRepository);
         Handler mainHandler = new Handler(Looper.getMainLooper());
+        microphoneController = StreamMicrophoneController.create(
+                conn,
+                new StreamMicrophoneController.PermissionGateway() {
+                    @Override
+                    public boolean isGranted() {
+                        return isRecordAudioPermissionGranted();
+                    }
+
+                    @Override
+                    public void requestPermission() {
+                        if (Build.VERSION.SDK_INT >=
+                                Build.VERSION_CODES.M) {
+                            requestPermissions(
+                                    new String[] {
+                                            Manifest.permission.RECORD_AUDIO
+                                    },
+                                    REQUEST_RECORD_AUDIO_PERMISSION);
+                        }
+                    }
+                },
+                new StreamMicrophoneController.Feedback() {
+                    @Override
+                    public void onUnsupported() {
+                        showMicrophoneMessage(
+                                getString(R.string
+                                        .mic_uplink_not_supported),
+                                UiToast.LENGTH_LONG);
+                    }
+
+                    @Override
+                    public void onPermissionDenied() {
+                        showMicrophoneMessage(
+                                getString(R.string
+                                        .mic_uplink_permission_denied),
+                                UiToast.LENGTH_LONG);
+                    }
+
+                    @Override
+                    public void onOperationFailed(String message) {
+                        showMicrophoneMessage(
+                                message,
+                                UiToast.LENGTH_SHORT);
+                    }
+
+                    @Override
+                    public void onStateChanged() {
+                        if (dialogGameMenu != null) {
+                            dialogGameMenu
+                                    .refreshMicrophoneState();
+                        }
+                    }
+                },
+                mainHandler::post);
         failureDiagnostics = StreamFailureDiagnostics.create(
                 portFlags -> MoonBridge.testClientConnectivity(
                         ServerHelper.CONNECTION_TEST_SERVER,
@@ -1875,6 +1926,10 @@ public class Game extends Activity implements OnGenericMotionListener,
             launchReporter.destroy();
             launchReporter = null;
         }
+        if (microphoneController != null) {
+            microphoneController.destroy();
+            microphoneController = null;
+        }
         if (inputLifecycleController != null) {
             inputLifecycleController.detachRouting();
             streamInputController = null;
@@ -2723,19 +2778,12 @@ public class Game extends Activity implements OnGenericMotionListener,
             return;
         }
 
-        awaitingRecordAudioPermission = false;
-
-        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            if (pendingMicToggleAfterPermission) {
-                pendingMicToggleAfterPermission = false;
-                switchMic();
-            }
-            return;
+        if (microphoneController != null) {
+            microphoneController.onPermissionResult(
+                    grantResults.length > 0 &&
+                            grantResults[0] ==
+                                    PackageManager.PERMISSION_GRANTED);
         }
-
-        pendingMicToggleAfterPermission = false;
-
-        UiToast.makeText(this, getResources().getString(R.string.mic_uplink_permission_denied), UiToast.LENGTH_LONG).show();
     }
 
     @Override
@@ -3127,7 +3175,7 @@ public class Game extends Activity implements OnGenericMotionListener,
                                 .getActiveUsbControllerTypeDisplayName() :
                         null;
         return new PerformanceOverlayRuntimeState(
-                conn != null && conn.isMicUplinkActive(),
+                isMicUplinkActive(),
                 streamHost,
                 streamStartElapsedMs,
                 SystemClock.elapsedRealtime(),
@@ -3514,7 +3562,8 @@ public class Game extends Activity implements OnGenericMotionListener,
     }
 
     public boolean isMicUplinkActive() {
-        return conn != null && conn.isMicUplinkActive();
+        return microphoneController != null &&
+                microphoneController.isActive();
     }
 
     //是否退出串流
@@ -3653,68 +3702,20 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
     }
 
-    //开启关闭 麦克风
-    public void switchMic(){
-        if (conn == null || micToggleInFlight) {
+    @Override
+    public void switchMic() {
+        if (microphoneController != null) {
+            microphoneController.toggle();
+        }
+    }
+
+    private void showMicrophoneMessage(
+            String message,
+            int duration) {
+        if (message == null || message.isEmpty() || isFinishing()) {
             return;
         }
-
-        MicrophoneUplinkState state = conn.getMicUplinkState();
-        if (state == MicrophoneUplinkState.STARTING ||
-                state == MicrophoneUplinkState.STOPPING) {
-            return;
-        }
-
-        if (state == MicrophoneUplinkState.ON) {
-            micToggleInFlight = true;
-            final NvConnection currentConn = conn;
-            new Thread(() -> {
-                currentConn.stopMicUplink();
-                String message = currentConn.getLastMicUplinkMessage();
-                boolean stoppedCleanly =
-                        currentConn.getMicUplinkState() !=
-                                MicrophoneUplinkState.ERROR;
-                runOnUiThread(() -> {
-                    micToggleInFlight = false;
-                    if (!stoppedCleanly &&
-                            message != null && !message.isEmpty()) {
-                        UiToast.makeText(this, message, UiToast.LENGTH_SHORT).show();
-                    }
-                });
-            }, "MicToggle").start();
-            return;
-        }
-
-        if (!conn.isMicUplinkSupported()) {
-            UiToast.makeText(this, getResources().getString(R.string.mic_uplink_not_supported), UiToast.LENGTH_LONG).show();
-            return;
-        }
-
-        if (!isRecordAudioPermissionGranted()) {
-            if (awaitingRecordAudioPermission) {
-                return;
-            }
-
-            pendingMicToggleAfterPermission = true;
-            awaitingRecordAudioPermission = true;
-            requestPermissions(new String[] {Manifest.permission.RECORD_AUDIO}, REQUEST_RECORD_AUDIO_PERMISSION);
-            return;
-        }
-
-        micToggleInFlight = true;
-        final NvConnection currentConn = conn;
-        new Thread(() -> {
-            boolean started = currentConn.startMicUplink();
-            String message = currentConn.getLastMicUplinkMessage();
-            runOnUiThread(() -> {
-                micToggleInFlight = false;
-
-                if (!started &&
-                        message != null && !message.isEmpty()) {
-                    UiToast.makeText(this, message, UiToast.LENGTH_SHORT).show();
-                }
-            });
-        }, "MicToggle").start();
+        UiToast.makeText(this, message, duration).show();
     }
 
 }
