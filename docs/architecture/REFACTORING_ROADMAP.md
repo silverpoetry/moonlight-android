@@ -300,6 +300,11 @@ A slice is incomplete if callers can still bypass the new boundary.
   and post-change refresh/reload effects are pure and unit tested. One
   lifecycle-bound scheduler coalesces delayed UI work and cancels it on
   teardown; the Activity no longer creates anonymous Handlers per click.
+- List, slider, and text value-editor windows now belong to one
+  lifecycle-bound `SettingsDialogPresenter`. It owns dialog replacement,
+  styling, input constraints, validation feedback, and teardown; the Activity
+  receives only typed semantic selections and cannot construct an
+  `AlertDialog` directly.
 - The in-stream action catalog and virtual-overlay buttons consume typed UI
   policy plus read-only controller visibility. Persisted startup defaults are
   no longer mutated to represent picture-in-picture or menu presentation, and

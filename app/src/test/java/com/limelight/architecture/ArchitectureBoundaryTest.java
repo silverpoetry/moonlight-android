@@ -365,6 +365,17 @@ public final class ArchitectureBoundaryTest {
                 .because(
                         "the settings Activity delegates document I/O to its lifecycle controller")
                 .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.StreamSettings")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("android.app.AlertDialog")
+                .because(
+                        "settings value editor windows belong to SettingsDialogPresenter")
+                .check(productionClasses);
     }
 
     @Test

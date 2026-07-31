@@ -133,6 +133,13 @@ single Android main-thread adapter for those effects; pending callbacks are
 coalesced by effect type and canceled on Activity teardown. Views never create
 their own delayed persistence or reload callbacks.
 
+Settings value editors cross `SettingsDialogPresenter`. This lifecycle-bound
+Android adapter is the only settings-screen component that creates list,
+slider, or text `AlertDialog` windows. It owns replacement and dismissal,
+visual presentation, editor input constraints, and validation feedback, while
+the Activity receives only semantic selection callbacks. Teardown dismisses
+the active window so it cannot retain or address a destroyed Activity.
+
 ## Snapshot lifecycle
 
 A stream session receives one snapshot during composition. A setting that

@@ -2,7 +2,6 @@ package com.limelight.preferences;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -11,13 +10,10 @@ import android.graphics.Color;
 import android.graphics.Insets;
 import android.graphics.PorterDuff;
 import android.graphics.Typeface;
-import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.text.InputFilter;
-import android.text.InputType;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.view.Display;
@@ -28,13 +24,11 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.WindowInsets;
 import android.widget.CompoundButton;
-import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
 
@@ -58,7 +52,6 @@ import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.HelpLauncher;
 import com.limelight.utils.UiHelper;
-import com.limelight.utils.UiToast;
 import com.limelight.virtualcontrols.layout.android.AndroidVirtualControlLayoutRepository;
 
 import java.util.ArrayList;
@@ -103,6 +96,7 @@ public class StreamSettings extends Activity {
     private SettingsDocumentController documentController;
     private SettingsMutationController mutationController;
     private SettingsChangeEffectScheduler changeEffectScheduler;
+    private SettingsDialogPresenter dialogPresenter;
 
     // HACK for Android 9
     static DisplayCutout displayCutoutP;
@@ -162,6 +156,32 @@ public class StreamSettings extends Activity {
                 () -> {
                     if (!isFinishing()) {
                         refreshAfterItemChanged();
+                    }
+                });
+        dialogPresenter = new SettingsDialogPresenter(
+                this,
+                store,
+                new SettingsDialogPresenter.Listener() {
+                    @Override
+                    public void onListValueSelected(
+                            SettingsItem item,
+                            String value) {
+                        handleListValueSelected(item, value);
+                    }
+
+                    @Override
+                    public void onSliderValueSelected(
+                            SettingsItem item,
+                            int value) {
+                        store.putInt(item, value);
+                        afterItemChanged(item, false);
+                    }
+
+                    @Override
+                    public CharSequence onTextValueSubmitted(
+                            SettingsItem item,
+                            String value) {
+                        return handleTextValueSubmitted(item, value);
                     }
                 });
         documentController = new SettingsDocumentController(
@@ -226,6 +246,10 @@ public class StreamSettings extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (dialogPresenter != null) {
+            dialogPresenter.destroy();
+            dialogPresenter = null;
+        }
         if (changeEffectScheduler != null) {
             changeEffectScheduler.destroy();
             changeEffectScheduler = null;
@@ -826,14 +850,14 @@ public class StreamSettings extends Activity {
                     launchNativeLanguageSettings();
                 }
                 else {
-                    showListDialog(item);
+                    dialogPresenter.showList(item);
                 }
                 break;
             case SLIDER:
-                showSliderDialog(item);
+                dialogPresenter.showSlider(item);
                 break;
             case TEXT:
-                showTextDialog(item);
+                dialogPresenter.showText(item);
                 break;
             case ACTION:
                 performAction(item.key);
@@ -849,254 +873,36 @@ public class StreamSettings extends Activity {
         }
     }
 
-    private void showListDialog(final SettingsItem item) {
-        final AlertDialog dialog = new AlertDialog.Builder(this).create();
-        LinearLayout panel = createDialogPanel(item.title);
-        String current = store.getString(item);
-
-        for (int i = 0; i < item.entryValues.length; i++) {
-            final String value = item.entryValues[i].toString();
-            TextView row = createDialogRow(item.entries[i], value.equals(current));
-            row.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    SettingsMutationController.ListChangeResult result =
-                            mutationController.prepareListChange(
-                                    item,
-                                    value,
-                                    nativeFrameRateValue);
-                    store.putString(item, value);
-                    if (result.shouldShowNativeFrameRateWarning()) {
-                        Dialog.displayDialog(
-                                StreamSettings.this,
-                                getString(R.string.title_native_fps_dialog),
-                                getString(R.string.text_native_res_dialog),
-                                false);
-                    }
-                    afterItemChanged(item, false);
-                    dialog.dismiss();
-                }
-            });
-            panel.addView(row);
+    private void handleListValueSelected(
+            SettingsItem item,
+            String value) {
+        SettingsMutationController.ListChangeResult result =
+                mutationController.prepareListChange(
+                        item,
+                        value,
+                        nativeFrameRateValue);
+        store.putString(item, value);
+        if (result.shouldShowNativeFrameRateWarning()) {
+            Dialog.displayDialog(
+                    this,
+                    getString(R.string.title_native_fps_dialog),
+                    getString(R.string.text_native_res_dialog),
+                    false);
         }
-
-        addDialogCancel(panel, dialog);
-        showCustomDialog(dialog, panel);
+        afterItemChanged(item, false);
     }
 
-    private void showSliderDialog(final SettingsItem item) {
-        final AlertDialog dialog = new AlertDialog.Builder(this).create();
-        LinearLayout panel = createDialogPanel(item.title);
-
-        if (!TextUtils.isEmpty(item.dialogMessage)) {
-            TextView message = new TextView(this);
-            message.setText(item.dialogMessage);
-            message.setTextColor(0xCCFFFFFF);
-            message.setTextSize(13);
-            message.setPadding(0, 0, 0, dp(10));
-            panel.addView(message);
+    private CharSequence handleTextValueSubmitted(
+            SettingsItem item,
+            String value) {
+        SettingsMutationController.TextChangeResult result =
+                mutationController.commitText(item, value);
+        if (result != SettingsMutationController
+                .TextChangeResult.ACCEPTED) {
+            return getText(R.string.settings_invalid_bitrate);
         }
-
-        final TextView valueText = new TextView(this);
-        valueText.setGravity(Gravity.CENTER);
-        valueText.setTextColor(Color.WHITE);
-        valueText.setTextSize(28);
-        valueText.setTypeface(null, Typeface.BOLD);
-        panel.addView(valueText);
-
-        final SeekBar seekBar = new SeekBar(this);
-        seekBar.setMax(item.max);
-        if (item.keyStep > 0) {
-            seekBar.setKeyProgressIncrement(item.keyStep);
-        }
-        seekBar.setProgress(item.round(store.getInt(item)));
-        panel.addView(seekBar, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                int rounded = item.round(progress);
-                if (rounded != progress) {
-                    seekBar.setProgress(rounded);
-                    return;
-                }
-                valueText.setText(item.formatSliderValue(rounded));
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
-        });
-        valueText.setText(item.formatSliderValue(seekBar.getProgress()));
-
-        LinearLayout buttons = createDialogButtonRow();
-        TextView cancel = createDialogButton(getString(R.string.settings_cancel));
-        TextView ok = createDialogButton(getString(R.string.settings_ok));
-        buttons.addView(cancel);
-        buttons.addView(ok);
-        panel.addView(buttons);
-
-        cancel.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                dialog.dismiss();
-            }
-        });
-        ok.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                int progress = item.round(seekBar.getProgress());
-                store.putInt(item, progress);
-                afterItemChanged(item, false);
-                dialog.dismiss();
-            }
-        });
-
-        showCustomDialog(dialog, panel);
-    }
-
-    private void showTextDialog(final SettingsItem item) {
-        final AlertDialog dialog = new AlertDialog.Builder(this).create();
-        LinearLayout panel = createDialogPanel(item.title);
-
-        if (!TextUtils.isEmpty(item.dialogMessage)) {
-            TextView message = new TextView(this);
-            message.setText(item.dialogMessage);
-            message.setTextColor(0xCCFFFFFF);
-            message.setTextSize(13);
-            message.setPadding(0, 0, 0, dp(10));
-            panel.addView(message);
-        }
-
-        final EditText input = new EditText(this);
-        input.setText(store.getText(item));
-        input.setSingleLine(true);
-        input.setTextColor(Color.WHITE);
-        input.setHintTextColor(0x88FFFFFF);
-        input.setSelectAllOnFocus(true);
-        input.setPadding(dp(12), dp(8), dp(12), dp(8));
-        if (item.isCustomBitrateEditor()) {
-            input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-            input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(5)});
-        }
-        panel.addView(input, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        LinearLayout buttons = createDialogButtonRow();
-        TextView cancel = createDialogButton(getString(R.string.settings_cancel));
-        TextView ok = createDialogButton(getString(R.string.settings_ok));
-        buttons.addView(cancel);
-        buttons.addView(ok);
-        panel.addView(buttons);
-
-        cancel.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                dialog.dismiss();
-            }
-        });
-        ok.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String value = input.getText().toString();
-                SettingsMutationController.TextChangeResult result =
-                        mutationController.commitText(item, value);
-                if (result == SettingsMutationController
-                        .TextChangeResult.ACCEPTED) {
-                    afterItemChanged(item, false);
-                    dialog.dismiss();
-                }
-                else {
-                    UiToast.makeText(
-                            StreamSettings.this,
-                            R.string.settings_invalid_bitrate,
-                            UiToast.LENGTH_SHORT).show();
-                }
-            }
-        });
-
-        showCustomDialog(dialog, panel);
-        input.requestFocus();
-    }
-
-    private LinearLayout createDialogPanel(CharSequence title) {
-        LinearLayout panel = new LinearLayout(this);
-        panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setBackgroundResource(R.drawable.bg_update_dialog_panel);
-        panel.setPadding(dp(18), dp(16), dp(18), dp(14));
-
-        TextView titleView = new TextView(this);
-        titleView.setText(title);
-        titleView.setTextColor(Color.WHITE);
-        titleView.setTextSize(19);
-        titleView.setTypeface(null, Typeface.BOLD);
-        titleView.setPadding(0, 0, 0, dp(12));
-        panel.addView(titleView);
-        return panel;
-    }
-
-    private TextView createDialogRow(CharSequence text, boolean selected) {
-        TextView row = new TextView(this);
-        row.setText(selected ? "✓  " + text : "    " + text);
-        row.setTextColor(Color.WHITE);
-        row.setTextSize(15);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setSingleLine(false);
-        row.setBackgroundResource(selected ? R.drawable.bg_settings_selected_card : R.drawable.ic_game_menu_btn_selector);
-        row.setPadding(dp(12), dp(11), dp(12), dp(11));
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        params.bottomMargin = dp(7);
-        row.setLayoutParams(params);
-        return row;
-    }
-
-    private LinearLayout createDialogButtonRow() {
-        LinearLayout buttons = new LinearLayout(this);
-        buttons.setGravity(Gravity.END);
-        buttons.setPadding(0, dp(14), 0, 0);
-        return buttons;
-    }
-
-    private TextView createDialogButton(String text) {
-        TextView button = new TextView(this);
-        button.setText(text);
-        button.setTextColor(Color.WHITE);
-        button.setTextSize(14);
-        button.setTypeface(null, Typeface.BOLD);
-        button.setGravity(Gravity.CENTER);
-        button.setBackgroundResource(R.drawable.ic_game_menu_btn_selector);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(92), dp(40));
-        params.setMarginStart(dp(10));
-        button.setLayoutParams(params);
-        return button;
-    }
-
-    private void addDialogCancel(LinearLayout panel, final AlertDialog dialog) {
-        LinearLayout buttons = createDialogButtonRow();
-        TextView cancel = createDialogButton(getString(R.string.settings_cancel));
-        buttons.addView(cancel);
-        panel.addView(buttons);
-        cancel.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                dialog.dismiss();
-            }
-        });
-    }
-
-    private void showCustomDialog(AlertDialog dialog, View panel) {
-        dialog.setView(panel);
-        dialog.show();
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        }
+        afterItemChanged(item, false);
+        return null;
     }
 
     private void afterItemChanged(
@@ -1157,7 +963,7 @@ public class StreamSettings extends Activity {
                     AppPresentationSettingKeys.LANGUAGE
                             .getName());
             if (item != null) {
-                showListDialog(item);
+                dialogPresenter.showList(item);
             }
         }
     }
