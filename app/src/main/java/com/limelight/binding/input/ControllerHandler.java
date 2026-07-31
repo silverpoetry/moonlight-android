@@ -66,7 +66,8 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
 public class ControllerHandler implements InputManager.InputDeviceListener,
-        UsbDriverListener, GamepadInputHandler {
+        UsbDriverListener, GamepadInputHandler,
+        StreamInputLifecycleController.ControllerDevices {
     private static final String KISHI_LOG_TAG = "RazerKishiDebug";
 
     private static final int MAXIMUM_BUMPER_UP_DELAY_MS = 100;
@@ -657,6 +658,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         inputDeviceContexts.put(deviceId, newContext);
     }
 
+    @Override
     public void stop() {
         if (stopped) {
             return;
@@ -683,6 +685,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         deviceVibrator.cancel();
     }
 
+    @Override
     public void destroy() {
         if (!stopped) {
             stop();

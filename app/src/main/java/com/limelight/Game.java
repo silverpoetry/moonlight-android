@@ -14,6 +14,7 @@ import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.binding.input.StreamInputGateway;
 import com.limelight.binding.input.StreamInputGatewayRegistry;
 import com.limelight.binding.input.StreamInputController;
+import com.limelight.binding.input.StreamInputLifecycleController;
 import com.limelight.binding.input.protocol.NvConnectionPointerInputSink;
 import com.limelight.binding.input.protocol.NvConnectionKeyboardInputSink;
 import com.limelight.binding.input.capture.InputCaptureManager;
@@ -197,6 +198,7 @@ public class Game extends Activity implements OnGenericMotionListener,
     private static final long KEY_CHORD_UP_DELAY_MS = 25;
 
     private StreamInputController streamInputController;
+    private StreamInputLifecycleController inputLifecycleController;
     private InputSettingsState inputSettingsState;
 
     private static final int SOFT_KEYBOARD_SHOW_RETRY_MS = 50;
@@ -1076,6 +1078,19 @@ public class Game extends Activity implements OnGenericMotionListener,
         inputManager.registerInputDeviceListener(
                 keyboardInputController,
                 null);
+        inputLifecycleController =
+                new StreamInputLifecycleController(
+                        streamInputController,
+                        controllerHandler,
+                        new StreamInputLifecycleController
+                                .KeyboardRegistration() {
+                            @Override
+                            public void unregister() {
+                                inputManager
+                                        .unregisterInputDeviceListener(
+                                                keyboardInputController);
+                            }
+                        });
 
         //鼠标触控模式
         switchMouseModel(
@@ -1830,8 +1845,8 @@ public class Game extends Activity implements OnGenericMotionListener,
             launchReporter.destroy();
             launchReporter = null;
         }
-        if (streamInputController != null) {
-            streamInputController.destroy();
+        if (inputLifecycleController != null) {
+            inputLifecycleController.detachRouting();
             streamInputController = null;
         }
         if (sessionController != null) {
@@ -1871,13 +1886,10 @@ public class Game extends Activity implements OnGenericMotionListener,
             presentation.dismiss();
         }
 
-        if (controllerHandler != null) {
-            controllerHandler.destroy();
-        }
-        if (keyboardInputController != null) {
-            InputManager inputManager = (InputManager) getSystemService(Context.INPUT_SERVICE);
-            inputManager.unregisterInputDeviceListener(
-                    keyboardInputController);
+        if (inputLifecycleController != null) {
+            inputLifecycleController.destroy();
+            inputLifecycleController = null;
+            controllerHandler = null;
             keyboardInputController = null;
         }
 
@@ -1900,24 +1912,19 @@ public class Game extends Activity implements OnGenericMotionListener,
     protected void onResume() {
         super.onResume();
 
-        if (streamInputController != null) {
-            streamInputController.start();
+        if (inputLifecycleController != null) {
+            inputLifecycleController.resume();
         }
 
     }
 
     @Override
     protected void onPause() {
-        if (streamInputController != null) {
-            streamInputController.stop();
+        if (inputLifecycleController != null) {
+            inputLifecycleController.pause(isFinishing());
         }
 
         if (isFinishing()) {
-            // Stop any further input device notifications before we lose focus (and pointer capture)
-            if (controllerHandler != null) {
-                controllerHandler.stop();
-            }
-
             // Ungrab input to prevent further input device notifications
             setInputGrabState(false);
         }

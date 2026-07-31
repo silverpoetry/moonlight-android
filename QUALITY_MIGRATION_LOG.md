@@ -986,3 +986,16 @@ Verification on 2026-07-31:
   tests per variant (1,668 executions total), all Lint variants, and both
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites.
+- Added `StreamInputLifecycleController` as the single owner of the Activity's
+  input resume, pause, finishing stop, routing detachment, controller destroy,
+  and keyboard-listener unregistration sequence. Repeated lifecycle callbacks
+  are idempotent and a finishing or destroyed session cannot restart routing.
+- Teardown remains intentionally two-stage: touch/motion callbacks detach
+  before session and media destruction, while controller resources stay alive
+  until the audio renderer has been released; only then are controller devices
+  destroyed and the keyboard listener lease returned. JVM traces cover normal
+  cycles, finishing, partial startup, staged ordering, and repeated destroy.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 421 JVM
+  tests per variant (1,684 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites.

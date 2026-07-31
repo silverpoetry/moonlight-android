@@ -401,6 +401,11 @@ targets.
   Xbox Bluetooth, and Thrustmaster key-layout corrections to immutable sampled
   facts. Button remapping consumes the resulting profile instead of depending
   on mutation order inside device-context construction.
+- `StreamInputLifecycleController` is the Activity-independent owner of input
+  resume/pause, finishing shutdown, early motion-routing detachment, late
+  controller-resource teardown, and the keyboard-listener lease. The explicit
+  two-stage destroy preserves media/audio-haptics ordering while making
+  duplicate and partial lifecycle callbacks deterministic.
 - `DecoderSelectionPolicy` owns HEVC/AV1 acceptance decisions and stream color
   defaults. The MediaCodec adapter performs discovery and capability queries,
   and no longer carries the unused metered-network parameter or unreachable

@@ -18,7 +18,8 @@ import java.util.Objects;
  * <p>This class owns source classification and dispatch precedence. The
  * Activity supplies only UI policy and forwards platform callbacks.</p>
  */
-public final class StreamInputController {
+public final class StreamInputController
+        implements StreamInputLifecycleController.MotionRouting {
     public interface Host {
         boolean shouldSuppressTouchscreenInput();
     }
@@ -52,14 +53,17 @@ public final class StreamInputController {
         this.host = Objects.requireNonNull(host, "host");
     }
 
+    @Override
     public void start() {
         touchInputController.start();
     }
 
+    @Override
     public void stop() {
         touchInputController.stop();
     }
 
+    @Override
     public void destroy() {
         touchInputController.destroy();
     }
