@@ -76,6 +76,13 @@ still performs renderer cleanup after a successful start; the UI owner controls
 reachability. Failed starts, normal stops, and Activity destruction all clear
 the active audio reference through the same boundary.
 
+`StreamRenderSurfaceController` owns the Activity-scoped `SurfaceHolder`
+registration and render-target readiness. It applies the selected frame-rate
+hint, starts the session only after both the Surface and composed dependencies
+are ready, prepares the decoder before Surface loss, and detaches its callback
+before session teardown. Its pure transition state rejects out-of-order
+callbacks and requires a recreated Surface to become valid again.
+
 Activity teardown detaches session callbacks, cancels owned UI tasks, releases
 controllers, registrations, locks, and media resources, and only then invokes
 the framework `super.onDestroy()` callback.

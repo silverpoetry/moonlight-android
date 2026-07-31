@@ -775,3 +775,26 @@ Verification on 2026-07-31:
 | --- | ---: | --- |
 | `nonRootRelease` | 15,933,885 bytes | `C0F87F732DF3644306B55F8443B2950216A6676A136AFC94B7F516F038377EDF` |
 | `rootRelease` | 15,954,332 bytes | `CC5D83A31D1CD8822D16393D2C2239BDBAE358F29E5F56B5382AAC3A9BA19D9B` |
+
+## Begin runtime composition and render ownership
+
+- Moved physical display-mode selection out of `Game` into the pure
+  `StreamDisplayModeSelector`. The selector preserves the established
+  candidate order and compatibility rules while making refresh-rate and
+  resolution decisions deterministic under JVM tests.
+- Added the Activity-scoped `StreamRenderSurfaceController` as the single owner
+  of Surface callback registration, readiness, frame-rate hints, decoder stop
+  preparation, and callback detachment. `Game` no longer implements
+  `SurfaceHolder.Callback` or owns parallel Surface lifecycle flags.
+- The extracted render path remains synchronous on the Android main thread and
+  adds no queue, worker, or allocation to decoded-frame delivery.
+
+Verification on 2026-07-31:
+
+- `verifyLocal --rerun-tasks`: all 193 tasks executed successfully. Each of
+  the four root/non-root debug/release variants ran 318 JVM tests, for 1,272
+  executions total with zero failures, errors, or skips. All Lint variants
+  passed and both Release APKs built.
+- The API 34 emulator passed 107 non-root and 107 root instrumentation tests.
+  A complete `verifyConnected` invocation then passed after an installation
+  transport timeout in the first root attempt was retried.

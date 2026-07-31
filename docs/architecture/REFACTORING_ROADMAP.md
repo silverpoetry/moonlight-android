@@ -319,7 +319,7 @@ A slice is incomplete if callers can still bypass the new boundary.
 
 ## Phase 6 — Runtime composition and monolith decomposition
 
-**Status:** pending.
+**Status:** in progress.
 
 This phase reduces `Game`, `ControllerHandler`, `MediaCodecDecoderRenderer`, and
 remaining large UI controllers by ownership, not by arbitrary line-count
@@ -339,6 +339,17 @@ targets.
 - UI screens render immutable state and emit intents; they do not perform
   transport, storage, or device I/O.
 - Constructor/factory composition replaces concrete cross-subsystem creation.
+
+### Completed slices
+
+- Physical display-mode selection is a pure immutable policy with JVM
+  fixtures for refresh reduction, high-refresh selection, resolution
+  preservation, safe output width, and invalid input. `Game` only translates
+  Android modes and applies the selected mode.
+- `StreamRenderSurfaceController` owns Surface callback registration,
+  readiness, frame-rate hints, decoder stop preparation, and callback
+  detachment. Its transition state is platform-independent and tested without
+  adding a queue or thread to the render path.
 
 ### Exit evidence
 

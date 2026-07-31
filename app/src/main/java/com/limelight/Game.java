@@ -98,8 +98,10 @@ import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
 import com.limelight.ui.performance.PerformanceOverlayConfiguration;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.stream.StreamFailureDiagnostics;
+import com.limelight.ui.stream.StreamDisplayModeSelector;
 import com.limelight.ui.stream.StreamLaunchReporter;
 import com.limelight.ui.stream.StreamMediaResourceOwner;
+import com.limelight.ui.stream.StreamRenderSurfaceController;
 import com.limelight.ui.stream.StreamSessionCallbackRouter;
 import com.limelight.ui.stream.StreamSessionUiEffects;
 import com.limelight.ui.stream.StreamWifiLockController;
@@ -160,7 +162,6 @@ import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.Surface;
-import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.View.OnGenericMotionListener;
 import android.view.View.OnSystemUiVisibilityChangeListener;
@@ -181,13 +182,14 @@ import java.lang.reflect.Method;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
 
-public class Game extends Activity implements SurfaceHolder.Callback,
-        OnGenericMotionListener, OnTouchListener, EvdevListener,
+public class Game extends Activity implements OnGenericMotionListener,
+        OnTouchListener, EvdevListener,
         OnSystemUiVisibilityChangeListener, GameGestures, StreamInputGateway,
         StreamUiActions, GameMenuHost,
         UsbDriverService.UsbDriverStateListener, View.OnKeyListener {
@@ -240,14 +242,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private RemoteClipboardFileTransferController
             clipboardFileTransferController;
     private boolean autoEnterPip = false;
-    private boolean surfaceCreated = false;
     private int suppressPipRefCount = 0;
     private String pcName;
     private String appName;
     private String streamHost;
     private long streamStartElapsedMs;
     private NvApp app;
-    private float desiredRefreshRate;
+    private float selectedDisplayRefreshRate;
     private volatile boolean sessionDependenciesReady;
 
     private InputCaptureProvider inputCaptureProvider;
@@ -279,6 +280,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             performanceOverlayController;
 
     private StreamMediaResourceOwner mediaResourceOwner;
+    private StreamRenderSurfaceController
+            renderSurfaceController;
     private boolean reportedCrash;
     private boolean micToggleInFlight;
     private boolean pendingMicToggleAfterPermission;
@@ -321,7 +324,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private StreamReqBean streamReqBean;
     private ConnectivityManager connManager;
 
-    private volatile boolean streamRenderSurfaceReady;
     private BackNavigationRegistration backNavigationRegistration;
     private StreamInputGatewayRegistry.Registration inputGatewayRegistration;
     private boolean showSoftKeyboardWhenFocused;
@@ -1122,8 +1124,58 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             return;
         }
 
-        // The connection will be started when the surface gets created
-        streamView.getHolder().addCallback(this);
+        // The connection starts only after both the session dependencies and
+        // the decoder render Surface are ready.
+        renderSurfaceController =
+                new StreamRenderSurfaceController(
+                        streamView.getHolder(),
+                        streamDecoderSettings.getWidth(),
+                        streamDecoderSettings.getHeight(),
+                        streamDecoderSettings.getFps(),
+                        selectedDisplayRefreshRate,
+                        mayReduceRefreshRate(),
+                        shouldLetSystemManageRefreshRate(),
+                        new StreamRenderSurfaceController.Host() {
+                            @Override
+                            public boolean canStartSession() {
+                                return sessionDependenciesReady &&
+                                        sessionController != null &&
+                                        sessionController.canStart();
+                            }
+
+                            @Override
+                            public void startSession(
+                                    Surface renderTarget) {
+                                startSessionWithRenderTarget(
+                                        renderTarget);
+                            }
+
+                            @Override
+                            public boolean hasSessionStarted() {
+                                return Game.this
+                                        .hasSessionStarted();
+                            }
+
+                            @Override
+                            public boolean sessionNeedsStop() {
+                                return sessionController != null &&
+                                        sessionController
+                                                .getState()
+                                                .needsStop();
+                            }
+
+                            @Override
+                            public void prepareVideoForStop() {
+                                mediaResourceOwner
+                                        .prepareVideoForStop();
+                            }
+
+                            @Override
+                            public void stopSession() {
+                                stopConnection();
+                            }
+                        });
+        renderSurfaceController.bind();
 
         //外接显示器模式
         if (streamDisplaySettings.isExternalDisplayEnabled()) {
@@ -1143,7 +1195,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 //        initFloatingView();
 
         sessionDependenciesReady = true;
-        startConnectionIfReady();
+        renderSurfaceController.startIfReady();
     }
 
     private void initKeyboardController(){
@@ -1474,17 +1526,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
-    private boolean isRefreshRateEqualMatch(float refreshRate) {
-        return refreshRate >= streamDecoderSettings.getFps() &&
-                refreshRate <= streamDecoderSettings.getFps() + 3;
-    }
-
-    private boolean isRefreshRateGoodMatch(float refreshRate) {
-        return refreshRate >= streamDecoderSettings.getFps() &&
-                Math.round(refreshRate) %
-                        streamDecoderSettings.getFps() <= 3;
-    }
-
     private boolean matchesPhysicalDisplayMode(int width, int height) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Display display = getWindowManager().getDefaultDisplay();
@@ -1534,98 +1575,44 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         // On M, we can explicitly set the optimal display mode
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Display.Mode bestMode = display.getMode();
-            boolean isNativeResolutionStream =
-                    streamDisplaySettings.isNativeResolution();
-            boolean refreshRateIsGood = isRefreshRateGoodMatch(bestMode.getRefreshRate());
-            boolean refreshRateIsEqual = isRefreshRateEqualMatch(bestMode.getRefreshRate());
+            Display.Mode currentMode = display.getMode();
 
-            LimeLog.info("Current display mode: "+bestMode.getPhysicalWidth()+"x"+
-                    bestMode.getPhysicalHeight()+"x"+bestMode.getRefreshRate());
+            LimeLog.info("Current display mode: " +
+                    currentMode.getPhysicalWidth() + "x" +
+                    currentMode.getPhysicalHeight() + "x" +
+                    currentMode.getRefreshRate());
 
+            ArrayList<Display.Mode> platformModes =
+                    new ArrayList<>();
+            ArrayList<StreamDisplayModeSelector.Mode>
+                    selectorModes = new ArrayList<>();
             for (Display.Mode candidate : display.getSupportedModes()) {
-                boolean refreshRateReduced = candidate.getRefreshRate() < bestMode.getRefreshRate();
-                boolean resolutionReduced = candidate.getPhysicalWidth() < bestMode.getPhysicalWidth() ||
-                        candidate.getPhysicalHeight() < bestMode.getPhysicalHeight();
-                boolean resolutionFitsStream =
-                        candidate.getPhysicalWidth() >=
-                                streamDecoderSettings.getWidth() &&
-                        candidate.getPhysicalHeight() >=
-                                streamDecoderSettings.getHeight();
-
-                LimeLog.info("Examining display mode: "+candidate.getPhysicalWidth()+"x"+
-                        candidate.getPhysicalHeight()+"x"+candidate.getRefreshRate());
-
-                if (candidate.getPhysicalWidth() > 4096 &&
-                        streamDecoderSettings.getWidth() <= 4096) {
-                    // Avoid resolutions options above 4K to be safe
-                    continue;
+                LimeLog.info("Examining display mode: " +
+                        candidate.getPhysicalWidth() + "x" +
+                        candidate.getPhysicalHeight() + "x" +
+                        candidate.getRefreshRate());
+                platformModes.add(candidate);
+                selectorModes.add(toSelectorMode(candidate));
+            }
+            StreamDisplayModeSelector.Mode selectedMode =
+                    StreamDisplayModeSelector.select(
+                            streamDecoderSettings.getWidth(),
+                            streamDecoderSettings.getHeight(),
+                            streamDecoderSettings.getFps(),
+                            streamDisplaySettings
+                                    .isNativeResolution(),
+                            mayReduceRefreshRate(),
+                            toSelectorMode(currentMode),
+                            selectorModes);
+            Display.Mode bestMode = currentMode;
+            for (int index = 0;
+                    index < platformModes.size();
+                    index++) {
+                if (platformModes.get(index).getModeId() ==
+                        selectedMode.id) {
+                    bestMode = platformModes.get(index);
+                    break;
                 }
-
-                // On non-4K streams, we force the resolution to never change unless it's above
-                // 60 FPS, which may require a resolution reduction due to HDMI bandwidth limitations,
-                // or it's a native resolution stream.
-                if (streamDecoderSettings.getWidth() < 3840 &&
-                        streamDecoderSettings.getFps() <= 60 &&
-                        !isNativeResolutionStream) {
-                    if (display.getMode().getPhysicalWidth() != candidate.getPhysicalWidth() ||
-                            display.getMode().getPhysicalHeight() != candidate.getPhysicalHeight()) {
-                        continue;
-                    }
-                }
-
-                // Make sure the resolution doesn't regress unless if it's over 60 FPS
-                // where we may need to reduce resolution to achieve the desired refresh rate.
-                if (resolutionReduced &&
-                        !(streamDecoderSettings.getFps() > 60 &&
-                                resolutionFitsStream)) {
-                    continue;
-                }
-
-                if (mayReduceRefreshRate() && refreshRateIsEqual && !isRefreshRateEqualMatch(candidate.getRefreshRate())) {
-                    // If we had an equal refresh rate and this one is not, skip it. In min latency
-                    // mode, we want to always prefer the highest frame rate even though it may cause
-                    // microstuttering.
-                    continue;
-                }
-                else if (refreshRateIsGood) {
-                    // We've already got a good match, so if this one isn't also good, it's not
-                    // worth considering at all.
-                    if (!isRefreshRateGoodMatch(candidate.getRefreshRate())) {
-                        continue;
-                    }
-
-                    if (mayReduceRefreshRate()) {
-                        // User asked for the lowest possible refresh rate, so don't raise it if we
-                        // have a good match already
-                        if (candidate.getRefreshRate() > bestMode.getRefreshRate()) {
-                            continue;
-                        }
-                    }
-                    else {
-                        // User asked for the highest possible refresh rate, so don't reduce it if we
-                        // have a good match already
-                        if (refreshRateReduced) {
-                            continue;
-                        }
-                    }
-                }
-                else if (!isRefreshRateGoodMatch(candidate.getRefreshRate())) {
-                    // We didn't have a good match and this match isn't good either, so just don't
-                    // reduce the refresh rate.
-                    if (refreshRateReduced) {
-                        continue;
-                    }
-                } else {
-                    // We didn't have a good match and this match is good. Prefer this refresh rate
-                    // even if it reduces the refresh rate. Lowering the refresh rate can be beneficial
-                    // when streaming a 60 FPS stream on a 90 Hz device. We want to select 60 Hz to
-                    // match the frame rate even if the active display mode is 90 Hz.
-                }
-
-                bestMode = candidate;
-                refreshRateIsGood = isRefreshRateGoodMatch(candidate.getRefreshRate());
-                refreshRateIsEqual = isRefreshRateEqualMatch(candidate.getRefreshRate());
             }
 
             LimeLog.info("Best display mode: "+bestMode.getPhysicalWidth()+"x"+
@@ -1730,7 +1717,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         // Set the desired refresh rate that will get passed into setFrameRate() later
-        desiredRefreshRate = displayRefreshRate;
+        selectedDisplayRefreshRate = displayRefreshRate;
 
         if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEVISION) ||
                 getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
@@ -1780,6 +1767,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.M)
+    private static StreamDisplayModeSelector.Mode toSelectorMode(
+            Display.Mode mode) {
+        return new StreamDisplayModeSelector.Mode(
+                mode.getModeId(),
+                mode.getPhysicalWidth(),
+                mode.getPhysicalHeight(),
+                mode.getRefreshRate());
+    }
+
     private void cancelPendingUiCallbacks() {
         View decorView = getWindow().getDecorView();
         Handler handler = decorView.getHandler();
@@ -1822,6 +1819,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         sessionDependenciesReady = false;
         unregisterInputGateway();
         cancelPendingUiCallbacks();
+        if (renderSurfaceController != null) {
+            renderSurfaceController.destroy();
+            renderSurfaceController = null;
+        }
         if (failureDiagnostics != null) {
             failureDiagnostics.destroy();
             failureDiagnostics = null;
@@ -2679,83 +2680,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        if (!surfaceCreated) {
-            throw new IllegalStateException("Surface changed before creation!");
-        }
-
-        LimeLog.info(
-                "surfaceChanged-->" + width + " x " + height +
-                        "----" +
-                        streamDecoderSettings.getWidth() + " x " +
-                        streamDecoderSettings.getHeight());
-        streamRenderSurfaceReady =
-                holder.getSurface().isValid();
-        startConnectionIfReady();
-    }
-
-    @Override
-    public void surfaceCreated(SurfaceHolder holder) {
-        float desiredFrameRate;
-
-        surfaceCreated = true;
-
-        // Android will pick the lowest matching refresh rate for a given frame rate value, so we want
-        // to report the true FPS value if refresh rate reduction is enabled. We also report the true
-        // FPS value if there's no suitable matching refresh rate. In that case, Android could try to
-        // select a lower refresh rate that avoids uneven pull-down (ex: 30 Hz for a 60 FPS stream on
-        // a display that maxes out at 50 Hz).
-        if (mayReduceRefreshRate() ||
-                desiredRefreshRate <
-                        streamDecoderSettings.getFps()) {
-            desiredFrameRate =
-                    streamDecoderSettings.getFps();
-        }
-        else {
-            // Otherwise, we will pretend that our frame rate matches the refresh rate we picked in
-            // prepareDisplayForRendering(). This will usually be the highest refresh rate that our
-            // frame rate evenly divides into, which ensures the lowest possible display latency.
-            desiredFrameRate = desiredRefreshRate;
-        }
-
-        // Tell the OS about our frame rate to allow it to adapt the display refresh rate appropriately
-        if (shouldLetSystemManageRefreshRate()) {
-            LimeLog.info("Skipping Surface.setFrameRate() and leaving refresh rate to the system");
-        }
-        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // We want to change frame rate even if it's not seamless, since prepareDisplayForRendering()
-            // will not set the display mode on S+ if it only differs by the refresh rate. It depends
-            // on us to trigger the frame rate switch here.
-            holder.getSurface().setFrameRate(desiredFrameRate,
-                    Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
-                    Surface.CHANGE_FRAME_RATE_ALWAYS);
-        }
-        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            holder.getSurface().setFrameRate(desiredFrameRate,
-                    Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
-        }
-    }
-
-    @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
-        if (!surfaceCreated) {
-            throw new IllegalStateException("Surface destroyed before creation!");
-        }
-
-        surfaceCreated = false;
-        streamRenderSurfaceReady = false;
-
-        if (hasSessionStarted()) {
-            // Let the decoder know immediately that the surface is gone
-            mediaResourceOwner.prepareVideoForStop();
-
-            if (sessionController.getState().needsStop()) {
-                stopConnection();
-            }
-        }
-    }
-
-    @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
@@ -3501,25 +3425,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             }
         });
         streamView.setClipToOutline(true);
-    }
-
-    private void startConnectionIfReady() {
-        if (Looper.myLooper() != Looper.getMainLooper()) {
-            runOnUiThread(this::startConnectionIfReady);
-            return;
-        }
-        if (!sessionDependenciesReady ||
-                sessionController == null ||
-                !sessionController.canStart()) {
-            return;
-        }
-
-        Surface renderTarget =
-                streamView.getHolder().getSurface();
-        if (streamRenderSurfaceReady &&
-                renderTarget.isValid()) {
-            startSessionWithRenderTarget(renderTarget);
-        }
     }
 
     private void startSessionWithRenderTarget(Surface renderTarget) {
