@@ -1,14 +1,11 @@
 package com.limelight;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.grid.AppGridAdapter;
@@ -16,9 +13,10 @@ import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
-import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.settings.SettingsMigrationRunner;
 import com.limelight.settings.SettingsRepository;
+import com.limelight.settings.android.AndroidAppLocale;
+import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
 import com.limelight.settings.android.AndroidDisplayAspectProvider;
 import com.limelight.settings.android.SharedPreferencesCustomResolutionRepository;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
@@ -26,6 +24,7 @@ import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.audio.StreamAudioSettingsLoader;
 import com.limelight.settings.audio.StreamAudioSettingsState;
 import com.limelight.settings.audio.StreamAudioSettingsUpdate;
+import com.limelight.settings.app.AppPresentationSettings;
 import com.limelight.settings.stream.CustomResolutionRepository;
 import com.limelight.settings.stream.StreamVideoSettings;
 import com.limelight.settings.stream.StreamVideoSettingsLoader;
@@ -35,6 +34,7 @@ import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.ui.gamemenu.GameDisplayFragment;
 import com.limelight.ui.gamemenu.GameDisplayHost;
+import com.limelight.ui.hosts.ScreenBackgroundPresenter;
 import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.Dialog;
@@ -51,8 +51,6 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
-import android.graphics.RenderEffect;
-import android.graphics.Shader;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -119,7 +117,8 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
 
                     try {
                         appGridAdapter = new AppGridAdapter(AppView.this,
-                                PreferenceConfiguration.readPreferences(AppView.this),
+                                appPresentationSettings
+                                        .usesSmallAppIcons(),
                                 computer, localBinder.getUniqueId(),
                                 showHiddenApps);
                     } catch (Exception e) {
@@ -186,7 +185,11 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
         // If not, it will pick it up when it initializes.
         if (appGridAdapter != null) {
             // Update the app grid adapter to create grid items with the correct layout
-            appGridAdapter.updateLayoutWithPreferences(this, PreferenceConfiguration.readPreferences(this));
+            appPresentationSettings =
+                    AndroidAppPresentationSettingsLoader.load(this);
+            appGridAdapter.updateLayout(
+                    this,
+                    appPresentationSettings.usesSmallAppIcons());
 
             try {
                 // Reinflate the app grid itself to pick up the layout change
@@ -312,7 +315,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
 
     private GameDisplayFragment dialogFragment;
 
-    private PreferenceConfiguration pref;
+    private AppPresentationSettings appPresentationSettings;
     private SettingsRepository settingsRepository;
     private StreamVideoSettingsState streamVideoSettingsState;
     private StreamAudioSettingsState streamAudioSettingsState;
@@ -328,7 +331,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
 
         shortcutHelper = new ShortcutHelper(this);
 
-        UiHelper.setLocale(this);
+        AndroidAppLocale.apply(this);
 
         setContentView(R.layout.activity_app_view_new);
 
@@ -356,7 +359,8 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
 
         ImageView imageView=findViewById(R.id.iv_root_view);
 
-        pref=PreferenceConfiguration.readPreferences(this);
+        appPresentationSettings =
+                AndroidAppPresentationSettingsLoader.load(this);
         settingsRepository =
                 new SharedPreferencesSettingsRepository(
                         PreferenceManager
@@ -379,29 +383,10 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
                                         .PREFERENCES_NAME,
                                 MODE_PRIVATE));
 
-        if(pref.enableScreenBg&&Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q){
-            String fileName= PreferenceManager.getDefaultSharedPreferences(this).getString("screen_bg_file_name","axi_screen_bg.png");
-            File imageFile=new File(getFilesDir().getAbsolutePath(),fileName);
-            if(imageFile.exists()){
-                try{
-                    Glide.with(this)
-                            .load(imageFile)
-                            .skipMemoryCache(true)
-                            .diskCacheStrategy( DiskCacheStrategy.ALL )
-                            .into(imageView);
-                    imageView.setVisibility(View.VISIBLE);
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S&&pref.enableScreenObscure) {
-                        findViewById(R.id.iv_root_view).setRenderEffect(RenderEffect.createBlurEffect(25, 25, Shader.TileMode.CLAMP));
-                    }
-                }catch (Exception e){
-                    e.printStackTrace();
-                }
-            }else{
-                imageView.setVisibility(View.GONE);
-            }
-        }else{
-            imageView.setVisibility(View.GONE);
-        }
+        ScreenBackgroundPresenter.apply(
+                this,
+                imageView,
+                appPresentationSettings);
 
         findViewById(R.id.settingsButton).setOnClickListener(new View.OnClickListener() {
             @Override

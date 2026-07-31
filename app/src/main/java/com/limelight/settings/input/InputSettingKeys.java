@@ -53,6 +53,11 @@ public final class InputSettingKeys {
             SettingKey.booleanKey(
                     "checkbox_disable_adaptive_input_throttling",
                     true);
+    public static final SettingKey<Boolean>
+            ACCESSIBILITY_KEY_LOGGING =
+            SettingKey.booleanKey(
+                    "checkbox_enable_accessibility_show_log",
+                    false);
     public static final SettingKey<Boolean> BAROMETER_FORCE_PRESS =
             SettingKey.booleanKey(
                     "checkbox_barometer_force_press",

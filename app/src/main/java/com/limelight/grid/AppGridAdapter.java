@@ -23,7 +23,6 @@ import com.limelight.grid.assets.DiskAssetLoader;
 import com.limelight.grid.assets.MemoryAssetLoader;
 import com.limelight.grid.assets.NetworkAssetLoader;
 import com.limelight.nvstream.http.ComputerDetails;
-import com.limelight.preferences.PreferenceConfiguration;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -46,14 +45,19 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
     private Set<Integer> hiddenAppIds = new HashSet<>();
     private ArrayList<AppView.AppObject> allApps = new ArrayList<>();
 
-    public AppGridAdapter(Context context, PreferenceConfiguration prefs, ComputerDetails computer, String uniqueId, boolean showHiddenApps) {
+    public AppGridAdapter(
+            Context context,
+            boolean smallIconMode,
+            ComputerDetails computer,
+            String uniqueId,
+            boolean showHiddenApps) {
         super(context, getItemLayoutId());
 
         this.computer = computer;
         this.uniqueId = uniqueId;
         this.showHiddenApps = showHiddenApps;
 
-        updateLayoutWithPreferences(context, prefs);
+        updateLayout(context, smallIconMode);
     }
 
     public void updateHiddenApps(Set<Integer> newHiddenAppIds, boolean hideImmediately) {
@@ -85,11 +89,13 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
         return R.layout.app_grid_item_new;
     }
 
-    public void updateLayoutWithPreferences(Context context, PreferenceConfiguration prefs) {
+    public void updateLayout(
+            Context context,
+            boolean smallIconMode) {
         int dpi = context.getResources().getDisplayMetrics().densityDpi;
         int dp;
 
-        if (prefs.smallIconMode) {
+        if (smallIconMode) {
             dp = SMALL_WIDTH_DP;
         }
         else {

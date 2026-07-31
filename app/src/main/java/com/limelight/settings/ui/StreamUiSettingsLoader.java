@@ -67,6 +67,9 @@ public final class StreamUiSettingsLoader {
                                 .CONNECTION_WARNINGS_DISABLED))
                 .setLatencyToastEnabled(repository.get(
                         StreamUiSettingKeys.LATENCY_TOAST))
+                .setGameModeIntegrationDisabled(repository.get(
+                        StreamUiSettingKeys
+                                .GAME_MODE_INTEGRATION_DISABLED))
                 .build();
     }
 }

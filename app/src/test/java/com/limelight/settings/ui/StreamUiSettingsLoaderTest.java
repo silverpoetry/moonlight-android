@@ -44,6 +44,7 @@ public final class StreamUiSettingsLoaderTest {
         assertFalse(settings.isPictureInPictureEnabled());
         assertFalse(settings.areConnectionWarningsDisabled());
         assertFalse(settings.isLatencyToastEnabled());
+        assertFalse(settings.isGameModeIntegrationDisabled());
     }
 
     @Test
@@ -105,6 +106,10 @@ public final class StreamUiSettingsLoaderTest {
         repository.put(
                 StreamUiSettingKeys.LATENCY_TOAST,
                 true);
+        repository.put(
+                StreamUiSettingKeys
+                        .GAME_MODE_INTEGRATION_DISABLED,
+                true);
 
         StreamUiSettings settings =
                 StreamUiSettingsLoader.load(repository);
@@ -133,6 +138,7 @@ public final class StreamUiSettingsLoaderTest {
         assertTrue(settings.isPictureInPictureEnabled());
         assertTrue(settings.areConnectionWarningsDisabled());
         assertTrue(settings.isLatencyToastEnabled());
+        assertTrue(settings.isGameModeIntegrationDisabled());
     }
 
     @Test

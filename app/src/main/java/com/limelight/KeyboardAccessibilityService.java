@@ -2,7 +2,9 @@ package com.limelight;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
+import android.content.SharedPreferences;
 import android.net.Uri;
+import android.preference.PreferenceManager;
 import androidx.core.content.FileProvider;
 import android.text.TextUtils;
 import android.view.InputDevice;
@@ -11,7 +13,11 @@ import android.view.accessibility.AccessibilityEvent;
 
 import com.limelight.binding.input.StreamInputGateway;
 import com.limelight.binding.input.StreamInputGatewayRegistry;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.SettingsMigrationRunner;
+import com.limelight.settings.SettingsRepository;
+import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.input.InputSettingKeys;
+import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.utils.FileUriUtils;
 
 import org.json.JSONArray;
@@ -31,6 +37,10 @@ public class KeyboardAccessibilityService extends AccessibilityService {
             KeyEvent.KEYCODE_VOLUME_DOWN,
             KeyEvent.KEYCODE_POWER
     );
+    private SharedPreferences settingsPreferences;
+    private SharedPreferences.OnSharedPreferenceChangeListener
+            settingsChangeListener;
+    private volatile boolean accessibilityKeyLoggingEnabled;
 
     @Override
     public boolean onKeyEvent(KeyEvent event) {
@@ -56,8 +66,7 @@ public class KeyboardAccessibilityService extends AccessibilityService {
         }
 
         if (action == KeyEvent.ACTION_DOWN &&
-                PreferenceConfiguration.readPreferences(this)
-                        .enableAccessibilityShowLog) {
+                accessibilityKeyLoggingEnabled) {
             LimeLog.info(
                     "Accessibility key: scancode=" +
                             event.getScanCode() +
@@ -111,6 +120,7 @@ public class KeyboardAccessibilityService extends AccessibilityService {
     @Override
     public void onServiceConnected() {
         LimeLog.info("Keyboard service is connected");
+        observeInputSettings();
         AccessibilityServiceInfo info = new AccessibilityServiceInfo();
         info.packageNames = new String[] { getApplicationContext().getPackageName() };
         info.eventTypes = AccessibilityEvent.TYPES_ALL_MASK;
@@ -118,6 +128,49 @@ public class KeyboardAccessibilityService extends AccessibilityService {
         info.flags = AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS;
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_SPOKEN;
         setServiceInfo(info);
+    }
+
+    private void observeInputSettings() {
+        if (settingsChangeListener != null) {
+            return;
+        }
+        settingsPreferences =
+                PreferenceManager.getDefaultSharedPreferences(this);
+        settingsChangeListener =
+                (preferences, key) -> {
+                    if (InputSettingKeys
+                            .ACCESSIBILITY_KEY_LOGGING
+                            .getName()
+                            .equals(key)) {
+                        reloadInputSettings();
+                    }
+                };
+        settingsPreferences.registerOnSharedPreferenceChangeListener(
+                settingsChangeListener);
+        reloadInputSettings();
+    }
+
+    private void reloadInputSettings() {
+        SettingsRepository repository =
+                new SharedPreferencesSettingsRepository(
+                        settingsPreferences);
+        SettingsMigrationRunner.migrate(repository);
+        accessibilityKeyLoggingEnabled =
+                InputSettingsLoader.load(repository)
+                        .isAccessibilityKeyLoggingEnabled();
+    }
+
+    @Override
+    public void onDestroy() {
+        if (settingsPreferences != null &&
+                settingsChangeListener != null) {
+            settingsPreferences
+                    .unregisterOnSharedPreferenceChangeListener(
+                            settingsChangeListener);
+        }
+        settingsPreferences = null;
+        settingsChangeListener = null;
+        super.onDestroy();
     }
 
     @Override

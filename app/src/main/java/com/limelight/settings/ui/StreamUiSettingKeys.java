@@ -98,6 +98,11 @@ public final class StreamUiSettingKeys {
             SettingKey.booleanKey(
                     "checkbox_enable_post_stream_toast",
                     false);
+    public static final SettingKey<Boolean>
+            GAME_MODE_INTEGRATION_DISABLED =
+            SettingKey.booleanKey(
+                    "checkbox_enable_game_manager_quest",
+                    false);
 
     private StreamUiSettingKeys() {
     }

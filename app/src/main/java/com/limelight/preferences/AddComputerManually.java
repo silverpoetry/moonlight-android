@@ -15,6 +15,7 @@ import com.limelight.BaseActivity;
 import com.limelight.SrvResolver;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.R;
+import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.jni.MoonBridge;
@@ -269,7 +270,7 @@ public class AddComputerManually extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        UiHelper.setLocale(this);
+        AndroidAppLocale.apply(this);
 
         setContentView(R.layout.activity_add_computer_manually);
 

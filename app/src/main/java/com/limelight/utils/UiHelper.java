@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.GameManager;
 import android.app.GameState;
-import android.app.LocaleManager;
 import android.app.UiModeManager;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -13,8 +12,6 @@ import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.graphics.Insets;
 import android.os.Build;
-import android.os.LocaleList;
-import android.preference.PreferenceManager;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.core.view.WindowCompat;
@@ -27,7 +24,8 @@ import android.view.WindowManager;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.nvstream.http.ComputerDetails;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.android.AndroidStreamDefaults;
+import com.limelight.settings.android.AndroidStreamUiSettingsLoader;
 
 import java.util.Locale;
 
@@ -56,9 +54,12 @@ public class UiHelper {
         }
     }
 
-    private static void setGameModeStatus(Context context, boolean streaming, boolean interruptible) {
-        //禁用游戏模式
-        if(PreferenceConfiguration.readPreferences(context).enableGameManagerQuest){
+    private static void setGameModeStatus(
+            Context context,
+            boolean gameModeIntegrationDisabled,
+            boolean streaming,
+            boolean interruptible) {
+        if (gameModeIntegrationDisabled) {
             return;
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -79,24 +80,54 @@ public class UiHelper {
         }
     }
 
-    public static void notifyStreamConnecting(Context context) {
-        setGameModeStatus(context, true, true);
+    public static void notifyStreamConnecting(
+            Context context,
+            boolean gameModeIntegrationDisabled) {
+        setGameModeStatus(
+                context,
+                gameModeIntegrationDisabled,
+                true,
+                true);
     }
 
-    public static void notifyStreamConnected(Context context) {
-        setGameModeStatus(context, true, false);
+    public static void notifyStreamConnected(
+            Context context,
+            boolean gameModeIntegrationDisabled) {
+        setGameModeStatus(
+                context,
+                gameModeIntegrationDisabled,
+                true,
+                false);
     }
 
-    public static void notifyStreamEnteringPiP(Context context) {
-        setGameModeStatus(context, true, true);
+    public static void notifyStreamEnteringPiP(
+            Context context,
+            boolean gameModeIntegrationDisabled) {
+        setGameModeStatus(
+                context,
+                gameModeIntegrationDisabled,
+                true,
+                true);
     }
 
-    public static void notifyStreamExitingPiP(Context context) {
-        setGameModeStatus(context, true, false);
+    public static void notifyStreamExitingPiP(
+            Context context,
+            boolean gameModeIntegrationDisabled) {
+        setGameModeStatus(
+                context,
+                gameModeIntegrationDisabled,
+                true,
+                false);
     }
 
-    public static void notifyStreamEnded(Context context) {
-        setGameModeStatus(context, false, false);
+    public static void notifyStreamEnded(
+            Context context,
+            boolean gameModeIntegrationDisabled) {
+        setGameModeStatus(
+                context,
+                gameModeIntegrationDisabled,
+                false,
+                false);
     }
 
     public static boolean isColorOS() {
@@ -109,7 +140,10 @@ public class UiHelper {
                 manufacturer.contains("realme") || brand.contains("realme") || model.contains("realme");
     }
 
-    public static void notifyHdrWindowStatus(final Activity activity, final boolean hdrEnabled) {
+    public static void notifyHdrWindowStatus(
+            final Activity activity,
+            final boolean hdrEnabled,
+            final boolean hdrHighBrightnessEnabled) {
         if (activity == null) {
             return;
         }
@@ -119,8 +153,6 @@ public class UiHelper {
             public void run() {
                 try {
                     boolean colorOs = isColorOS();
-                    boolean enableHdrHighBrightness = PreferenceConfiguration.readPreferences(activity).enableHdrHighBrightness;
-
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && colorOs) {
                         activity.getWindow().setColorMode(hdrEnabled
                                 ? ActivityInfo.COLOR_MODE_HDR
@@ -128,49 +160,21 @@ public class UiHelper {
                     }
 
                     WindowManager.LayoutParams params = activity.getWindow().getAttributes();
-                    params.screenBrightness = hdrEnabled && enableHdrHighBrightness
+                    params.screenBrightness = hdrEnabled &&
+                            hdrHighBrightnessEnabled
                             ? WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
                             : WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
                     activity.getWindow().setAttributes(params);
 
                     LimeLog.info("HDR window status updated: enabled=" + hdrEnabled
-                            + ", highBrightness=" + enableHdrHighBrightness
+                            + ", highBrightness=" +
+                            hdrHighBrightnessEnabled
                             + ", colorOs=" + colorOs);
                 } catch (Throwable t) {
                     LimeLog.warning("Failed to update HDR window status: " + t.getMessage());
                 }
             }
         });
-    }
-
-    public static void setLocale(Activity activity)
-    {
-        String locale = PreferenceConfiguration.readPreferences(activity).language;
-        if (!locale.equals(PreferenceConfiguration.DEFAULT_LANGUAGE)) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                // On Android 13, migrate this non-default language setting into the OS native API
-                LocaleManager localeManager = activity.getSystemService(LocaleManager.class);
-                localeManager.setApplicationLocales(LocaleList.forLanguageTags(locale));
-                PreferenceConfiguration.completeLanguagePreferenceMigration(activity);
-            }
-            else {
-                Configuration config = new Configuration(activity.getResources().getConfiguration());
-
-                // Some locales include both language and country which must be separated
-                // before calling the Locale constructor.
-                if (locale.contains("-"))
-                {
-                    config.locale = new Locale(locale.substring(0, locale.indexOf('-')),
-                            locale.substring(locale.indexOf('-') + 1));
-                }
-                else
-                {
-                    config.locale = new Locale(locale);
-                }
-
-                activity.getResources().updateConfiguration(config, activity.getResources().getDisplayMetrics());
-            }
-        }
     }
 
     public static void applyStatusBarPadding(View view) {
@@ -233,7 +237,12 @@ public class UiHelper {
     }
 
     private static UiModeManager prepareNonStreamingWindow(Activity activity) {
-        setGameModeStatus(activity, false, false);
+        setGameModeStatus(
+                activity,
+                AndroidStreamUiSettingsLoader.load(activity)
+                        .isGameModeIntegrationDisabled(),
+                false,
+                false);
         configureNonStreamingCutoutMode(activity);
         WindowCompat.setDecorFitsSystemWindows(activity.getWindow(), false);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -435,7 +444,8 @@ public class UiHelper {
         if (crashCount != 0 && crashCount != lastNotifiedCrashCount) {
             if (crashCount % 3 == 0) {
                 // At 3 consecutive crashes, we'll forcefully reset their settings
-                PreferenceConfiguration.resetStreamingSettings(activity);
+                AndroidStreamDefaults
+                        .resetAfterDecoderCrashes(activity);
                 Dialog.displayDialog(activity,
                         activity.getResources().getString(R.string.title_decoding_reset),
                         activity.getResources().getString(R.string.message_decoding_reset),

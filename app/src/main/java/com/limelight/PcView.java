@@ -1,13 +1,10 @@
 package com.limelight;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.net.UnknownHostException;
 
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
@@ -21,10 +18,13 @@ import com.limelight.nvstream.http.PairingManager.PairState;
 import com.limelight.nvstream.wol.WakeOnLanSender;
 import com.limelight.preferences.AddComputerManually;
 import com.limelight.preferences.GlPreferences;
-import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.preferences.StreamSettings;
+import com.limelight.settings.android.AndroidAppLocale;
+import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
+import com.limelight.settings.app.AppPresentationSettings;
 import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
+import com.limelight.ui.hosts.ScreenBackgroundPresenter;
 import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.DeviceUtils;
 import com.limelight.utils.Dialog;
@@ -43,15 +43,12 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Color;
-import android.graphics.RenderEffect;
-import android.graphics.Shader;
 import android.net.Uri;
 import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
-import android.text.TextUtils;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -145,39 +142,18 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         // Set default preferences if we've never been run
         PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
 
-        // Set the correct layout for the PC grid
-        pcGridAdapter.updateLayoutWithPreferences(this, PreferenceConfiguration.readPreferences(this));
-
         ImageView imageView=findViewById(R.id.iv_root_view);
 
-        PreferenceConfiguration pref=PreferenceConfiguration.readPreferences(this);
-
-        if(pref.enableScreenBg&&Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q){
-            String fileName=PreferenceManager.getDefaultSharedPreferences(this).getString("screen_bg_file_name","axi_screen_bg.png");
-            File imageFile=new File(getFilesDir().getAbsolutePath(),fileName);
-            if(imageFile.exists()){
-                try{
-                    Glide.with(this)
-                            .load(imageFile)
-                            .skipMemoryCache(true)
-                            .diskCacheStrategy( DiskCacheStrategy.ALL )
-                            .into(imageView);
-                    imageView.setVisibility(View.VISIBLE);
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S&&pref.enableScreenObscure) {
-                        findViewById(R.id.iv_root_view).setRenderEffect(RenderEffect.createBlurEffect(25, 25, Shader.TileMode.CLAMP));
-                    }
-                }catch (Exception e){
-                    e.printStackTrace();
-                }
-            }else{
-                imageView.setVisibility(View.GONE);
-            }
-        }else{
-            imageView.setVisibility(View.GONE);
-        }
+        AppPresentationSettings presentationSettings =
+                AndroidAppPresentationSettingsLoader.load(this);
+        ScreenBackgroundPresenter.apply(
+                this,
+                imageView,
+                presentationSettings);
         TextView tx_label=findViewById(R.id.tx_label);
-        if(!TextUtils.isEmpty(pref.screenLabel)){
-            tx_label.setText(pref.screenLabel);
+        if (!presentationSettings.getHostListLabel().isEmpty()) {
+            tx_label.setText(
+                    presentationSettings.getHostListLabel());
         }
         // Setup the list view
         ImageButton settingsButton = findViewById(R.id.settingsButton);
@@ -282,13 +258,13 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
         shortcutHelper = new ShortcutHelper(this);
 
-        UiHelper.setLocale(this);
+        AndroidAppLocale.apply(this);
 
         // Bind to the computer manager service
         bindService(new Intent(PcView.this, ComputerManagerService.class), serviceConnection,
                 Service.BIND_AUTO_CREATE);
 
-        pcGridAdapter = new PcGridAdapter(this, PreferenceConfiguration.readPreferences(this));
+        pcGridAdapter = new PcGridAdapter(this);
 
         initializeViews();
 

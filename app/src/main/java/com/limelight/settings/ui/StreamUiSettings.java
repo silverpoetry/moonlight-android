@@ -48,6 +48,7 @@ public final class StreamUiSettings {
     private final boolean pictureInPictureEnabled;
     private final boolean connectionWarningsDisabled;
     private final boolean latencyToastEnabled;
+    private final boolean gameModeIntegrationDisabled;
 
     private StreamUiSettings(Builder builder) {
         floatingControlEnabled = builder.floatingControlEnabled;
@@ -91,6 +92,8 @@ public final class StreamUiSettings {
         connectionWarningsDisabled =
                 builder.connectionWarningsDisabled;
         latencyToastEnabled = builder.latencyToastEnabled;
+        gameModeIntegrationDisabled =
+                builder.gameModeIntegrationDisabled;
     }
 
     public static Builder builder() {
@@ -175,6 +178,10 @@ public final class StreamUiSettings {
         return latencyToastEnabled;
     }
 
+    public boolean isGameModeIntegrationDisabled() {
+        return gameModeIntegrationDisabled;
+    }
+
     public static final class Builder {
         private boolean floatingControlEnabled = true;
         private FloatingAction floatingAction =
@@ -194,6 +201,7 @@ public final class StreamUiSettings {
         private boolean pictureInPictureEnabled;
         private boolean connectionWarningsDisabled;
         private boolean latencyToastEnabled;
+        private boolean gameModeIntegrationDisabled;
 
         private Builder() {
         }
@@ -230,6 +238,8 @@ public final class StreamUiSettings {
                     settings.connectionWarningsDisabled;
             latencyToastEnabled =
                     settings.latencyToastEnabled;
+            gameModeIntegrationDisabled =
+                    settings.gameModeIntegrationDisabled;
         }
 
         public Builder setFloatingControlEnabled(boolean enabled) {
@@ -319,6 +329,12 @@ public final class StreamUiSettings {
 
         public Builder setLatencyToastEnabled(boolean enabled) {
             latencyToastEnabled = enabled;
+            return this;
+        }
+
+        public Builder setGameModeIntegrationDisabled(
+                boolean disabled) {
+            gameModeIntegrationDisabled = disabled;
             return this;
         }
 

@@ -45,6 +45,7 @@ import com.limelight.nvstream.mic.MicrophoneUplinkState;
 import com.limelight.preferences.GlPreferences;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.AndroidDisplayAspectProvider;
+import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.settings.android.AndroidHdrCompatibility;
 import com.limelight.settings.android.AndroidStreamSettingsBootstrap;
 import com.limelight.settings.android.SharedPreferencesCustomResolutionRepository;
@@ -342,7 +343,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        UiHelper.setLocale(this);
+        AndroidAppLocale.apply(this);
 
         // We don't want a title bar
         requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -920,17 +921,23 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
                     @Override
                     public void notifyStreamConnecting() {
-                        UiHelper.notifyStreamConnecting(Game.this);
+                        UiHelper.notifyStreamConnecting(
+                                Game.this,
+                                isGameModeIntegrationDisabled());
                     }
 
                     @Override
                     public void notifyStreamConnected() {
-                        UiHelper.notifyStreamConnected(Game.this);
+                        UiHelper.notifyStreamConnected(
+                                Game.this,
+                                isGameModeIntegrationDisabled());
                     }
 
                     @Override
                     public void notifyStreamEnded() {
-                        UiHelper.notifyStreamEnded(Game.this);
+                        UiHelper.notifyStreamEnded(
+                                Game.this,
+                                isGameModeIntegrationDisabled());
                     }
 
                     @Override
@@ -1395,7 +1402,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 controllerHandler.disableSensors();
 
                 // Update GameManager state to indicate we're in PiP (still gaming, but interruptible)
-                UiHelper.notifyStreamEnteringPiP(this);
+                UiHelper.notifyStreamEnteringPiP(
+                        this,
+                        isGameModeIntegrationDisabled());
             }
             else {
                 isHidingOverlays = false;
@@ -1409,7 +1418,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 controllerHandler.enableSensors();
 
                 // Update GameManager state to indicate we're out of PiP (gaming, non-interruptible)
-                UiHelper.notifyStreamExitingPiP(this);
+                UiHelper.notifyStreamExitingPiP(
+                        this,
+                        isGameModeIntegrationDisabled());
             }
         }
     }
@@ -1943,7 +1954,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             performanceOverlayController.destroy();
             performanceOverlayController = null;
         }
-        UiHelper.notifyHdrWindowStatus(this, false);
+        UiHelper.notifyHdrWindowStatus(
+                this,
+                false,
+                isHdrHighBrightnessEnabled());
 
         if(presentation!=null){
             presentation.dismiss();
@@ -2404,7 +2418,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             streamInputController.cancelActiveInput();
         }
         if (sessionController != null && sessionController.stop()) {
-            UiHelper.notifyHdrWindowStatus(this, false);
+            UiHelper.notifyHdrWindowStatus(
+                    this,
+                    false,
+                    isHdrHighBrightnessEnabled());
             updatePipAutoEnter();
             mediaResourceOwner.releaseStartResources();
 
@@ -2707,7 +2724,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (fsrVideoProcessor != null) {
             fsrVideoProcessor.setHdrToneMappingEnabled(enabled);
         }
-        UiHelper.notifyHdrWindowStatus(this, enabled);
+        UiHelper.notifyHdrWindowStatus(
+                this,
+                enabled,
+                isHdrHighBrightnessEnabled());
     }
 
     private void handleMotionEventState(
@@ -3198,6 +3218,18 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     public StreamUiSettings getStreamUiSettings() {
         return streamUiSettingsState.get();
+    }
+
+    private boolean isGameModeIntegrationDisabled() {
+        return streamUiSettingsState != null &&
+                streamUiSettingsState.get()
+                        .isGameModeIntegrationDisabled();
+    }
+
+    private boolean isHdrHighBrightnessEnabled() {
+        return streamVideoSettings != null &&
+                streamVideoSettings
+                        .isHdrHighBrightnessEnabled();
     }
 
     @Override

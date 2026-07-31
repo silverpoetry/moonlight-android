@@ -13,6 +13,8 @@ import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import com.limelight.settings.android.AndroidStreamDefaults;
+
 import java.util.Locale;
 
 // Based on a Stack Overflow example: http://stackoverflow.com/questions/1974193/slider-on-my-preferencescreen
@@ -59,7 +61,11 @@ public class SeekBarPreference extends DialogPreference
         }
 
         // Get default, min, and max seekbar values
-        defaultValue = attrs.getAttributeIntValue(ANDROID_SCHEMA_URL, "defaultValue", PreferenceConfiguration.getDefaultBitrate(context));
+        defaultValue = attrs.getAttributeIntValue(
+                ANDROID_SCHEMA_URL,
+                "defaultValue",
+                AndroidStreamDefaults
+                        .getDefaultBitrateKbps(context));
         maxValue = attrs.getAttributeIntValue(ANDROID_SCHEMA_URL, "max", 100);
         minValue = attrs.getAttributeIntValue(SEEKBAR_SCHEMA_URL, "min", 0);
         stepSize = attrs.getAttributeIntValue(SEEKBAR_SCHEMA_URL, "step", 1);

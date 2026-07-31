@@ -650,3 +650,59 @@ Verification on 2026-07-31:
   entering picture-in-picture, checking local/native cursor modes, and
   observing warning/latency-toast behavior remain manual host/device checks.
   Automated evidence does not claim those interactions passed.
+
+## Delete the legacy application-wide settings bag
+
+- Deleted `PreferenceConfiguration` after proving that stream composition,
+  input, controller, audio, transfer, decoder, and virtual-control runtime
+  consumers had already moved to immutable domain snapshots. No production
+  source can depend on the removed type; an architecture rule enforces that
+  repository-wide boundary.
+- Added immutable `AppPresentationSettings` for language, theme, app-icon
+  density, optional host/app-list background and blur, background file, and
+  host-list label. Canonical keys and validation live in the pure settings
+  domain. Android adapters alone compute the TV/phone icon default and migrate
+  the legacy language value into Android's per-app locale API.
+- Removed the settings dependency from `PcGridAdapter`; narrowed
+  `AppGridAdapter` to the one boolean it consumes. Consolidated duplicated
+  Glide/background/blur code in `ScreenBackgroundPresenter`.
+- Moved accessibility key diagnostics into `InputSettings`. The accessibility
+  service caches the typed value and observes only its canonical key, removing
+  full preference parsing from every key-down callback.
+- Moved Android GameManager suppression into `StreamUiSettings` and passes the
+  immutable session decision into platform calls. HDR high-brightness policy
+  likewise comes from the existing stream-video snapshot instead of a storage
+  reread on each HDR callback.
+- Replaced the legacy class's remaining static utility surface with focused
+  policies: `StreamDisplayGeometry`, `StreamSettingsResetter`,
+  `AndroidStreamDefaults`, `AndroidHdrCompatibility`, canonical typed keys,
+  and the existing resolution/bitrate codecs. Decoder-crash recovery preserves
+  the historical reset scope and has a pure contract test.
+- Removed three instrumentation suites whose only purpose was verifying that
+  already-tested typed snapshots could be copied back into the deleted
+  property bag.
+
+Verification on 2026-07-31:
+
+- Repository-wide production and test source search found no consumer of
+  `PreferenceConfiguration` beyond the architecture rule naming the forbidden
+  type.
+- `verifyLocal --rerun-tasks`: all 193 tasks executed successfully. Each of
+  the four root/non-root debug/release variants ran 310 JVM tests, for 1,240
+  executions total with zero failures, errors, or skips. All Lint variants
+  passed, including the API 21 gate, and both unminified Release APKs built.
+- `verifyConnected --rerun-tasks` on the API 34 emulator: all 296 tasks
+  executed successfully; 105 non-root and 105 root instrumentation tests
+  passed with zero failures, errors, or skips.
+- Release artifacts:
+
+| Flavor | Size | SHA-256 |
+| --- | ---: | --- |
+| `nonRootRelease` | 16,009,834 bytes | `A38940C776C73810EBAF1C36A007F74501ED26D29CAD869BA1C0E8BF87762B87` |
+| `rootRelease` | 16,028,340 bytes | `4239B3CD491676EDDC764019F19699BEE68175D38305119C488CC54F33F1C83B` |
+
+- Opening the host/app grids on phone and TV, selecting a legacy non-system
+  language, loading and blurring a custom background, changing icon density,
+  toggling accessibility diagnostics, and observing GameManager/HDR behavior
+  on supporting hardware remain manual UI/platform checks. Automated evidence
+  does not claim those interactions passed.

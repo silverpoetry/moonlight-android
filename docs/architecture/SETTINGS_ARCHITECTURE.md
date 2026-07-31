@@ -92,8 +92,8 @@ same `ControllerSettingsState`.
 | Stream audio | `StreamAudioSettings` with one atomic `StreamAudioSettingsState` per stream | Playback, mute, audio effects, and phone/controller audio-haptics consume the same typed snapshot; the miscellaneous menu emits typed live-audio intents; PCM callbacks perform no preference I/O; controller rumble suppression and USB/Kishi routing no longer duplicate audio policy inside `ControllerSettings` | Restart-only settings still use the legacy settings screen |
 | Microphone | No persisted policy; protocol-v1 invariants live in immutable `MicrophoneUplinkConfig` | Capture is an injected Android adapter; the platform-independent lifecycle controller owns all start/stop/error transitions and is unit tested without `AudioRecord` or JNI | No legacy preference exists; future formats require explicit protocol negotiation rather than a hidden setting |
 | Clipboard and transfer | `TransferSettings` captures clipboard enablement and the bounded persisted document-tree URI | Stream composition no longer reads the legacy preference bag for capability enablement; pull-to-device UI reads, repairs, and writes the directory through `SettingsRepository` and typed keys | Generic settings-row writers still need the typed-intent migration; clipboard loop-suppression checkpoints are operational state, not user settings, and move behind a storage port in phase 8 |
-| In-stream UI | `StreamUiSettings` with one atomic `StreamUiSettingsState` per stream; immutable `GameMenuCardLayout` and `GameMenuShortcut` documents behind consumer-owned repository ports | Floating-control behavior and remembered position, compact/expanded performance presentation, interaction, scale, margin, rumble HUD, picture-in-picture, warning visibility, latency toast, and built-in shortcut catalog policy consume one typed snapshot; card layout stores bounded stable IDs; shortcut payloads use a bounded immutable document with defensive key arrays; both repositories are Activity-owned while Fragments/catalogs perform no preference or adapter I/O; the stream menu and Activity no longer receive `PreferenceConfiguration`; Views emit events and do not read settings storage or own persistence decisions | Generic app UI, host-list presentation, and settings-screen rows remain |
-| General UI and host list | Pending | Pending | Pending |
+| In-stream UI | `StreamUiSettings` with one atomic `StreamUiSettingsState` per stream; immutable `GameMenuCardLayout` and `GameMenuShortcut` documents behind consumer-owned repository ports | Floating-control behavior and remembered position, compact/expanded performance presentation, interaction, scale, margin, rumble HUD, picture-in-picture, warning visibility, latency toast, Android GameManager integration, and built-in shortcut catalog policy consume one typed snapshot; card layout stores bounded stable IDs; shortcut payloads use a bounded immutable document with defensive key arrays; both repositories are Activity-owned while Fragments/catalogs perform no preference or adapter I/O; Views emit events and do not read settings storage or own persistence decisions | Generic settings-screen rows remain |
+| General UI and host list | `AppPresentationSettings` | Locale, theme, icon density, optional background/blur/file, and host-list label are loaded as one immutable snapshot; host grid has no settings dependency, app grid receives only icon density, and background rendering has one Android presenter | `PreferenceConfiguration` and its adapter-level instrumentation tests are deleted; the generic settings screen still needs immutable section/row state and typed intents |
 
 The ledger is complete only when direct default-preference reads are confined to
 the repository, legacy migrations, and platform preference widgets that have
@@ -108,6 +108,22 @@ pacing returns a separate effective session decision and never mutates either
 the persisted value or its decoded snapshot. Android-only HDR firmware and
 Android 12 controller-sensor workarounds live in the platform adapter package,
 outside the pure settings domains.
+
+Application presentation is independent from stream-session UI.
+`AppPresentationSettingKeys` owns language, theme, app-icon density, host-list
+label, and background policy. The platform-independent loader produces one
+immutable snapshot; `AndroidAppPresentationSettingsLoader` alone computes and
+persists the device-dependent small-icon default. `AndroidAppLocale` owns the
+Android 13 per-app locale migration and pre-Android-13 resource override.
+Host/app activities and adapters do not receive the former cross-domain
+property bag.
+
+Accessibility key logging is input diagnostics. The accessibility service
+loads one typed `InputSettings` snapshot, observes only the owned canonical
+key, and publishes the resulting boolean through a volatile field; key-event
+callbacks perform no preference or migration I/O. Android GameManager calls
+receive the session's typed UI policy. Non-streaming entry points load that
+same policy through an Android adapter before resetting GameManager state.
 
 Display dialogs resolve `GameDisplayHost` from their attached Activity rather
 than receiving repositories, snapshots, or persistence callbacks through

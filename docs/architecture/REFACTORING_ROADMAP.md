@@ -285,6 +285,16 @@ A slice is incomplete if callers can still bypass the new boundary.
   Display-dependent capped-FPS fallback is a pure decision that leaves stored
   settings immutable, while Android-only compatibility defaults remain in
   the Android adapter package.
+- The application-wide `PreferenceConfiguration` property bag is deleted.
+  Application language, theme, icon density, host-list label, and optional
+  background form one immutable `AppPresentationSettings` snapshot; device-
+  specific icon defaults and locale migration remain Android adapters.
+  Accessibility key diagnostics and GameManager integration were added to
+  their existing input and stream-UI domains. Settings-only default bitrate,
+  display-shape, HDR compatibility, and decoder-crash reset behavior now use
+  explicit policies rather than static methods on a cross-domain bag. Host
+  and app grids receive only the presentation value they consume, and the
+  duplicated background renderer has one Android presenter.
 
 ### Migration order
 

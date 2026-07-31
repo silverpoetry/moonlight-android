@@ -61,10 +61,23 @@ import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.computers.ComputerDatabaseManager;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.settings.SettingsRepository;
+import com.limelight.settings.android.AndroidAppLocale;
+import com.limelight.settings.android.AndroidAppPresentationDefaults;
+import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
+import com.limelight.settings.android.AndroidHdrCompatibility;
+import com.limelight.settings.android.AndroidStreamDefaults;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.app.AppPresentationSettings;
+import com.limelight.settings.app.AppPresentationSettingKeys;
+import com.limelight.settings.input.InputSettingKeys;
+import com.limelight.settings.stream.StreamDisplayGeometry;
+import com.limelight.settings.stream.StreamResolutionCodec;
+import com.limelight.settings.stream.StreamResolutionSettingKeys;
+import com.limelight.settings.stream.StreamVideoSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
 import com.limelight.settings.transfer.TransferSettings;
 import com.limelight.settings.transfer.TransferSettingsLoader;
+import com.limelight.settings.ui.StreamUiSettingKeys;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.utils.BackNavigationRegistration;
@@ -105,17 +118,17 @@ public class StreamSettings extends Activity {
     private static final int FEATURED_SECTION_INDEX = -1;
     private static final String EXTRA_SECTION_INDEX = "com.limelight.preferences.StreamSettings.SECTION_INDEX";
     private static final String[] ROOT_FEATURED_SETTING_KEYS = new String[] {
-            PreferenceConfiguration.RESOLUTION_PREF_STRING,
-            PreferenceConfiguration.RESOLUTION_ASPECT_RATIO_PREF_STRING,
-            PreferenceConfiguration.FPS_PREF_STRING,
-            PreferenceConfiguration.BITRATE_PREF_STRING,
+            StreamResolutionSettingKeys.RESOLUTION.getName(),
+            StreamResolutionSettingKeys.ASPECT_RATIO.getName(),
+            StreamResolutionSettingKeys.FPS.getName(),
+            StreamVideoSettingKeys.BITRATE_KBPS.getName(),
             "list_fsr_target",
             "list_fsr_sharpness",
             "mouse_model_list_axi",
             TransferSettingKeys.CLIPBOARD_SYNC.getName(),
     };
 
-    private PreferenceConfiguration previousPrefs;
+    private AppPresentationSettings previousPresentationSettings;
     private int previousDisplayPixelCount;
     private SettingsStore store;
     private ArrayList<SettingsSection> sections = new ArrayList<>();
@@ -157,13 +170,15 @@ public class StreamSettings extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !PreferenceConfiguration.readPreferences(this).uiThemeColorWhite) {
+        previousPresentationSettings =
+                AndroidAppPresentationSettingsLoader.load(this);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                !previousPresentationSettings.usesLightTheme()) {
             setTheme(R.style.AppTheme);
         }
         super.onCreate(savedInstanceState);
 
-        previousPrefs = PreferenceConfiguration.readPreferences(this);
-        UiHelper.setLocale(this);
+        AndroidAppLocale.apply(this);
         store = new SettingsStore(this);
         virtualControlLayoutRepository =
                 new AndroidVirtualControlLayoutRepository(this);
@@ -173,7 +188,7 @@ public class StreamSettings extends Activity {
         setContentView(createRootView());
         configureImmersiveSettingsWindow();
 
-        if (previousPrefs.uiThemeColorWhite) {
+        if (previousPresentationSettings.usesLightTheme()) {
             UiHelper.setStatusBarLightMode(getWindow(), true);
         }
 
@@ -244,8 +259,10 @@ public class StreamSettings extends Activity {
         finish();
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            PreferenceConfiguration newPrefs = PreferenceConfiguration.readPreferences(this);
-            if (!newPrefs.language.equals(previousPrefs.language)) {
+            AppPresentationSettings newSettings =
+                    AndroidAppPresentationSettingsLoader.load(this);
+            if (!newSettings.getLanguage().equals(
+                    previousPresentationSettings.getLanguage())) {
                 Intent intent = new Intent(this, PcView.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent, null);
@@ -791,7 +808,9 @@ public class StreamSettings extends Activity {
                 afterItemChanged(item, store.getBoolean(item), true);
                 break;
             case LIST:
-                if ("list_languages".equals(item.key) &&
+                if (AppPresentationSettingKeys.LANGUAGE
+                        .getName()
+                        .equals(item.key) &&
                         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     launchNativeLanguageSettings();
                 }
@@ -1052,7 +1071,9 @@ public class StreamSettings extends Activity {
     }
 
     private boolean beforeListValueChanged(SettingsItem item, String value) {
-        if (PreferenceConfiguration.RESOLUTION_PREF_STRING.equals(item.key)) {
+        if (StreamResolutionSettingKeys.RESOLUTION
+                .getName()
+                .equals(item.key)) {
             boolean isNativeRes = true;
             for (int i = 0; i < item.entryValues.length; i++) {
                 if (value.equals(item.entryValues[i].toString()) && i < nativeResolutionStartIndex) {
@@ -1060,13 +1081,18 @@ public class StreamSettings extends Activity {
                     break;
                 }
             }
-            store.putString(PreferenceConfiguration.RESOLUTION_SELECTION_PREF_STRING,
+            store.putString(
+                    StreamResolutionSettingKeys.SELECTION.getName(),
                     isNativeRes ?
-                            PreferenceConfiguration.RESOLUTION_SELECTION_CUSTOM_OR_NATIVE :
-                            PreferenceConfiguration.RESOLUTION_SELECTION_PRESET);
+                            StreamResolutionCodec
+                                    .SELECTION_CUSTOM_OR_NATIVE :
+                            StreamResolutionCodec
+                                    .SELECTION_PRESET);
         }
 
-        if (PreferenceConfiguration.FPS_PREF_STRING.equals(item.key) &&
+        if (StreamResolutionSettingKeys.FPS
+                .getName()
+                .equals(item.key) &&
                 nativeFramerateShown &&
                 item.entryValues.length > 0 &&
                 item.entryValues[item.entryValues.length - 1].toString().equals(value)) {
@@ -1086,7 +1112,10 @@ public class StreamSettings extends Activity {
             }
             try {
                 float bitrateValue = Float.valueOf(value) * 1000;
-                store.putInt(PreferenceConfiguration.BITRATE_PREF_STRING, (int) bitrateValue);
+                store.putInt(
+                        StreamVideoSettingKeys.BITRATE_KBPS
+                                .getName(),
+                        (int) bitrateValue);
             } catch (NumberFormatException e) {
                 UiToast.makeText(this, "请输入0-9999的数值。", UiToast.LENGTH_SHORT).show();
                 return false;
@@ -1096,8 +1125,9 @@ public class StreamSettings extends Activity {
     }
 
     private void afterItemChanged(SettingsItem item, Object value, boolean allowSwitchAnimation) {
-        if (PreferenceConfiguration.BAROMETER_FORCE_PRESS_PREF_STRING.equals(
-                item.key)) {
+        if (InputSettingKeys.BAROMETER_FORCE_PRESS
+                .getName()
+                .equals(item.key)) {
             new Handler().postDelayed(new Runnable() {
                 @Override
                 public void run() {
@@ -1109,7 +1139,9 @@ public class StreamSettings extends Activity {
             return;
         }
 
-        if (PreferenceConfiguration.UNLOCK_FPS_STRING.equals(item.key)) {
+        if (StreamVideoSettingKeys.UNLOCK_FPS
+                .getName()
+                .equals(item.key)) {
             new Handler().postDelayed(new Runnable() {
                 @Override
                 public void run() {
@@ -1275,7 +1307,9 @@ public class StreamSettings extends Activity {
             intent.setData(Uri.parse("package:" + getPackageName()));
             startActivity(intent, null);
         } catch (ActivityNotFoundException e) {
-            SettingsItem item = findItem("list_languages");
+            SettingsItem item = findItem(
+                    AppPresentationSettingKeys.LANGUAGE
+                            .getName());
             if (item != null) {
                 showListDialog(item);
             }
@@ -1314,12 +1348,14 @@ public class StreamSettings extends Activity {
     }
 
     private void initializeBitrateSetting() {
-        SettingsItem bitrate = findItem(PreferenceConfiguration.BITRATE_PREF_STRING);
+        SettingsItem bitrate = findItem(
+                StreamVideoSettingKeys.BITRATE_KBPS.getName());
         if (bitrate == null) {
             return;
         }
 
-        bitrate.defaultInt = PreferenceConfiguration.getDefaultBitrate(this);
+        bitrate.defaultInt =
+                AndroidStreamDefaults.getDefaultBitrateKbps(this);
         bitrate.max = MAX_BITRATE_KBPS;
         if (bitrate.keyStep <= 0) {
             bitrate.keyStep = 1000;
@@ -1344,15 +1380,27 @@ public class StreamSettings extends Activity {
                 sensorManager.getDefaultSensor(
                         Sensor.TYPE_PRESSURE, false) != null;
         if (!hasPressureSensor) {
-            hideItem(PreferenceConfiguration.BAROMETER_FORCE_PRESS_PREF_STRING);
-            hideItem(PreferenceConfiguration.BAROMETER_FORCE_PRESS_THRESHOLD_PREF_STRING);
-            hideItem(PreferenceConfiguration.BAROMETER_FORCE_PRESS_MIN_DURATION_PREF_STRING);
+            hideItem(
+                    InputSettingKeys.BAROMETER_FORCE_PRESS
+                            .getName());
+            hideItem(
+                    InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD
+                            .getName());
+            hideItem(
+                    InputSettingKeys
+                            .BAROMETER_FORCE_PRESS_MINIMUM_DURATION
+                            .getName());
         }
         else if (!store.getBoolean(
-                PreferenceConfiguration.BAROMETER_FORCE_PRESS_PREF_STRING,
+                InputSettingKeys.BAROMETER_FORCE_PRESS.getName(),
                 false)) {
-            hideItem(PreferenceConfiguration.BAROMETER_FORCE_PRESS_THRESHOLD_PREF_STRING);
-            hideItem(PreferenceConfiguration.BAROMETER_FORCE_PRESS_MIN_DURATION_PREF_STRING);
+            hideItem(
+                    InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD
+                            .getName());
+            hideItem(
+                    InputSettingKeys
+                            .BAROMETER_FORCE_PRESS_MINIMUM_DURATION
+                            .getName());
         }
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
@@ -1462,16 +1510,25 @@ public class StreamSettings extends Activity {
 
             if (maxSupportedResW != 0) {
                 if (maxSupportedResW < 3840) {
-                    removeValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.RES_4K,
-                            PreferenceConfiguration.RES_1440P);
+                    removeValue(
+                            StreamResolutionSettingKeys.RESOLUTION
+                                    .getName(),
+                            StreamResolutionCodec.RESOLUTION_4K,
+                            StreamResolutionCodec.RESOLUTION_1440P);
                 }
                 if (maxSupportedResW < 2560) {
-                    removeValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.RES_1440P,
-                            PreferenceConfiguration.RES_1080P);
+                    removeValue(
+                            StreamResolutionSettingKeys.RESOLUTION
+                                    .getName(),
+                            StreamResolutionCodec.RESOLUTION_1440P,
+                            StreamResolutionCodec.RESOLUTION_1080P);
                 }
                 if (maxSupportedResW < 1920) {
-                    removeValue(PreferenceConfiguration.RESOLUTION_PREF_STRING, PreferenceConfiguration.RES_1080P,
-                            PreferenceConfiguration.RES_720P);
+                    removeValue(
+                            StreamResolutionSettingKeys.RESOLUTION
+                                    .getName(),
+                            StreamResolutionCodec.RESOLUTION_1080P,
+                            StreamResolutionCodec.RESOLUTION_720P);
                 }
             }
         }
@@ -1483,12 +1540,19 @@ public class StreamSettings extends Activity {
             addNativeResolutionEntries(width, height, false);
         }
 
-        if (!PreferenceConfiguration.readPreferences(this).unlockFps) {
+        if (!store.repository.get(
+                StreamVideoSettingKeys.UNLOCK_FPS)) {
             if (maxSupportedFps < 118) {
-                removeValue(PreferenceConfiguration.FPS_PREF_STRING, "120", "90");
+                removeValue(
+                        StreamResolutionSettingKeys.FPS.getName(),
+                        "120",
+                        "90");
             }
             if (maxSupportedFps < 88) {
-                removeValue(PreferenceConfiguration.FPS_PREF_STRING, "90", "60");
+                removeValue(
+                        StreamResolutionSettingKeys.FPS.getName(),
+                        "90",
+                        "60");
             }
         }
         addNativeFrameRateEntry(maxSupportedFps);
@@ -1543,7 +1607,8 @@ public class StreamSettings extends Activity {
         if (!foundHdr10) {
             hideItem("checkbox_enable_hdr");
         }
-        else if (PreferenceConfiguration.isShieldAtvFirmwareWithBrokenHdr()) {
+        else if (!AndroidHdrCompatibility
+                .isHdrStreamingAllowed()) {
             hdrItem.enabled = false;
             store.putBoolean("checkbox_enable_hdr", false);
             hdrItem.summary = "Update the firmware on your NVIDIA SHIELD Android TV to enable HDR";
@@ -1551,14 +1616,17 @@ public class StreamSettings extends Activity {
     }
 
     private void addNativeResolutionEntries(int nativeWidth, int nativeHeight, boolean insetsRemoved) {
-        if (PreferenceConfiguration.isSquarishScreen(nativeWidth, nativeHeight)) {
+        if (StreamDisplayGeometry.isSquarish(
+                nativeWidth,
+                nativeHeight)) {
             addNativeResolutionEntry(nativeHeight, nativeWidth, insetsRemoved, true);
         }
         addNativeResolutionEntry(nativeWidth, nativeHeight, insetsRemoved, false);
     }
 
     private void addNativeResolutionEntry(int nativeWidth, int nativeHeight, boolean insetsRemoved, boolean portrait) {
-        SettingsItem item = findItem(PreferenceConfiguration.RESOLUTION_PREF_STRING);
+        SettingsItem item = findItem(
+                StreamResolutionSettingKeys.RESOLUTION.getName());
         if (item == null) {
             return;
         }
@@ -1567,7 +1635,9 @@ public class StreamSettings extends Activity {
                 R.string.resolution_prefix_native_fullscreen :
                 R.string.resolution_prefix_native);
 
-        if (PreferenceConfiguration.isSquarishScreen(nativeWidth, nativeHeight)) {
+        if (StreamDisplayGeometry.isSquarish(
+                nativeWidth,
+                nativeHeight)) {
             newName += " " + getResources().getString(portrait ?
                     R.string.resolution_prefix_native_portrait :
                     R.string.resolution_prefix_native_landscape);
@@ -1594,7 +1664,8 @@ public class StreamSettings extends Activity {
             return;
         }
 
-        SettingsItem item = findItem(PreferenceConfiguration.FPS_PREF_STRING);
+        SettingsItem item = findItem(
+                StreamResolutionSettingKeys.FPS.getName());
         if (item == null) {
             return;
         }
@@ -1631,11 +1702,19 @@ public class StreamSettings extends Activity {
         item.entryValues = values.toArray(new CharSequence[0]);
 
         if (value.equalsIgnoreCase(store.getString(item))) {
-            if (PreferenceConfiguration.RESOLUTION_PREF_STRING.equals(preferenceKey)) {
-                store.putString(PreferenceConfiguration.RESOLUTION_SELECTION_PREF_STRING,
-                        PreferenceConfiguration.isStandardResolutionPreset(fallbackValue) ?
-                                PreferenceConfiguration.RESOLUTION_SELECTION_PRESET :
-                                PreferenceConfiguration.RESOLUTION_SELECTION_CUSTOM_OR_NATIVE);
+            if (StreamResolutionSettingKeys.RESOLUTION
+                    .getName()
+                    .equals(preferenceKey)) {
+                store.putString(
+                        StreamResolutionSettingKeys.SELECTION
+                                .getName(),
+                        StreamResolutionCodec
+                                .isStandardResolutionPreset(
+                                        fallbackValue) ?
+                                StreamResolutionCodec
+                                        .SELECTION_PRESET :
+                                StreamResolutionCodec
+                                        .SELECTION_CUSTOM_OR_NATIVE);
             }
             store.putString(preferenceKey, fallbackValue);
         }
@@ -1705,9 +1784,12 @@ public class StreamSettings extends Activity {
     }
 
     private String getCurrentProfileSummary() {
-        SettingsItem resolution = findItem(PreferenceConfiguration.RESOLUTION_PREF_STRING);
-        SettingsItem fps = findItem(PreferenceConfiguration.FPS_PREF_STRING);
-        SettingsItem bitrate = findItem(PreferenceConfiguration.BITRATE_PREF_STRING);
+        SettingsItem resolution = findItem(
+                StreamResolutionSettingKeys.RESOLUTION.getName());
+        SettingsItem fps = findItem(
+                StreamResolutionSettingKeys.FPS.getName());
+        SettingsItem bitrate = findItem(
+                StreamVideoSettingKeys.BITRATE_KBPS.getName());
 
         String resolutionText = resolution == null ? "" : resolution.getSelectedEntry(store).toString();
         String fpsText = fps == null ? "" : fps.getSelectedEntry(store).toString();
@@ -1820,7 +1902,12 @@ public class StreamSettings extends Activity {
                 String displayName = "axi_screen_bg_" + System.currentTimeMillis() + ".png";
                 File imageFile = new File(getFilesDir(), displayName);
                 FileUriUtils.copyUriToInternalStorage(this, data.getData(), imageFile);
-                store.prefs.edit().putString("screen_bg_file_name", displayName).apply();
+                store.repository.edit()
+                        .put(
+                                AppPresentationSettingKeys
+                                        .BACKGROUND_FILE,
+                                displayName)
+                        .apply();
             } catch (Exception e) {
                 e.printStackTrace();
                 UiToast.makeText(this, "出错啦~" + e.getMessage(), UiToast.LENGTH_SHORT).show();
@@ -2072,7 +2159,9 @@ public class StreamSettings extends Activity {
 
             if (tag.endsWith("SmallIconCheckboxPreference")) {
                 item.type = SettingsItem.Type.SWITCH;
-                item.defaultBoolean = PreferenceConfiguration.getDefaultSmallMode(context);
+                item.defaultBoolean =
+                        AndroidAppPresentationDefaults
+                                .shouldUseSmallAppIcons(context);
             }
             else if (tag.endsWith("CheckBoxPreference")) {
                 item.type = SettingsItem.Type.SWITCH;
@@ -2189,7 +2278,10 @@ public class StreamSettings extends Activity {
             if ("list_resolution".equals(key)) return R.drawable.ic_axi_game_pad_display;
             if ("list_resolution_aspect_ratio".equals(key)) return R.drawable.ic_axi_game_pad_zoom;
             if ("list_fps".equals(key)) return R.drawable.ic_axi_game_pad_fps;
-            if (PreferenceConfiguration.BITRATE_PREF_STRING.equals(key) || "edit_diy_bitrate".equals(key)) {
+            if (StreamVideoSettingKeys.BITRATE_KBPS
+                    .getName()
+                    .equals(key) ||
+                    "edit_diy_bitrate".equals(key)) {
                 return R.drawable.ic_axi_game_pad_bitrate;
             }
             if ("frame_pacing".equals(key) || "enable_lowLatency_experiment".equals(key)) return R.drawable.ic_axi_performance;
@@ -2198,7 +2290,14 @@ public class StreamSettings extends Activity {
             if ("checkbox_stretch_video".equals(key) || "screen_gravity_list".equals(key)) return R.drawable.ic_axi_win_center;
             if ("checkbox_cutout_mode_video".equals(key)) return R.drawable.ic_axi_win_p;
             if ("checkbox_auto_screen_orientation".equals(key)) return R.drawable.ic_axi_switch_screen;
-            if ("checkbox_ui_theme_white".equals(key) || "list_languages".equals(key)) return R.drawable.ic_axi_app_setting;
+            if (AppPresentationSettingKeys.LIGHT_THEME
+                    .getName()
+                    .equals(key) ||
+                    AppPresentationSettingKeys.LANGUAGE
+                            .getName()
+                            .equals(key)) {
+                return R.drawable.ic_axi_app_setting;
+            }
 
             if ("list_audio_config".equals(key) || "checkbox_enable_audiofx".equals(key)) return R.drawable.ic_axi_mic;
             if ("seekbar_deadzone".equals(key) || "checkbox_disable_trigger_deadzone".equals(key)) return R.drawable.ic_axi_joystick;
@@ -2216,9 +2315,20 @@ public class StreamSettings extends Activity {
             if ("checkbox_mouse_local_cursor".equals(key)) return R.drawable.ic_axi_mouse_left_s;
             if ("checkbox_mouse_nav_buttons".equals(key)) return R.drawable.ic_axi_mouse_right;
             if ("checkbox_absolute_mouse_mode".equals(key)) return R.drawable.ic_axi_touch_center;
-            if (PreferenceConfiguration.BAROMETER_FORCE_PRESS_PREF_STRING.equals(key)) return R.drawable.ic_axi_touch;
-            if (PreferenceConfiguration.BAROMETER_FORCE_PRESS_THRESHOLD_PREF_STRING.equals(key)) return R.drawable.ic_axi_touch_sensitivity;
-            if (PreferenceConfiguration.BAROMETER_FORCE_PRESS_MIN_DURATION_PREF_STRING.equals(key)) return R.drawable.ic_axi_touch_sensitivity;
+            if (InputSettingKeys.BAROMETER_FORCE_PRESS
+                    .getName()
+                    .equals(key)) {
+                return R.drawable.ic_axi_touch;
+            }
+            if (InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD
+                    .getName()
+                    .equals(key) ||
+                    InputSettingKeys
+                            .BAROMETER_FORCE_PRESS_MINIMUM_DURATION
+                            .getName()
+                            .equals(key)) {
+                return R.drawable.ic_axi_touch_sensitivity;
+            }
             if ("checkbox_clipboard_sync".equals(key)) return R.drawable.ic_axi_clipboard_send;
 
             if ("checkbox_show_onscreen_controls".equals(key)) return R.drawable.ic_axi_game_control_dpad;
@@ -2232,7 +2342,11 @@ public class StreamSettings extends Activity {
             if ("checkbox_enable_sops".equals(key)) return R.drawable.ic_axi_performance;
             if ("checkbox_host_audio".equals(key)) return R.drawable.ic_axi_mic;
             if ("checkbox_enable_pip".equals(key)) return R.drawable.ic_axi_window;
-            if ("checkbox_small_icon_mode".equals(key)) return R.drawable.ic_axi_app_setting;
+            if (AppPresentationSettingKeys.SMALL_APP_ICONS
+                    .getName()
+                    .equals(key)) {
+                return R.drawable.ic_axi_app_setting;
+            }
             if ("checkbox_unlock_fps".equals(key) || "checkbox_reduce_refresh_rate".equals(key)) return R.drawable.ic_axi_game_pad_fps;
             if ("checkbox_disable_warnings".equals(key)) return R.drawable.ic_axi_delete;
             if ("video_format".equals(key) || "checkbox_full_range".equals(key)) return R.drawable.ic_axi_screen;
@@ -2254,9 +2368,18 @@ public class StreamSettings extends Activity {
             if ("checkbox_enable_device_rumble".equals(key)) return R.drawable.ic_axi_vibrate;
             if ("checkbox_enable_virtual_motion".equals(key)) return R.drawable.ic_axi_game_pad_senser;
             if ("checkbox_enable_clear_default_special_button".equals(key)) return R.drawable.ic_axi_delete;
-            if ("checkbox_enable_game_manager_quest".equals(key)) return R.drawable.ic_axi_game_pad_disable;
+            if (StreamUiSettingKeys
+                    .GAME_MODE_INTEGRATION_DISABLED
+                    .getName()
+                    .equals(key)) {
+                return R.drawable.ic_axi_game_pad_disable;
+            }
             if ("import_switch_button_file".equals(key)) return R.drawable.ic_axi_down;
-            if ("checkbox_enable_accessibility_show_log".equals(key)) return R.drawable.ic_axi_keyboard_list;
+            if (InputSettingKeys.ACCESSIBILITY_KEY_LOGGING
+                    .getName()
+                    .equals(key)) {
+                return R.drawable.ic_axi_keyboard_list;
+            }
 
             if ("checkbox_enable_keyboard".equals(key)) return R.drawable.ic_axi_vkeyboard;
             if ("keyboard_axi_list".equals(key)) return R.drawable.ic_axi_keyboard_list;
@@ -2271,9 +2394,23 @@ public class StreamSettings extends Activity {
             if ("export_computers_data_file".equals(key) || "import_computers_data_file".equals(key)) return R.drawable.ic_axi_computer;
             if ("export_https_data_crt_file".equals(key) || "import_https_data_crt_file".equals(key) ||
                     "export_https_data_key_file".equals(key) || "import_https_data_key_file".equals(key)) return R.drawable.ic_axi_lock_screen;
-            if ("checkbox_enable_screen_bg".equals(key) || "import_image_file_key".equals(key)) return R.drawable.ic_axi_desktop;
-            if ("checkbox_enable_screen_obscure".equals(key)) return R.drawable.ic_axi_zoom;
-            if ("change_screen_label_key".equals(key)) return R.drawable.ic_axi_keyboard;
+            if (AppPresentationSettingKeys.BACKGROUND_ENABLED
+                    .getName()
+                    .equals(key) ||
+                    "import_image_file_key".equals(key)) {
+                return R.drawable.ic_axi_desktop;
+            }
+            if (AppPresentationSettingKeys
+                    .BACKGROUND_BLUR_ENABLED
+                    .getName()
+                    .equals(key)) {
+                return R.drawable.ic_axi_zoom;
+            }
+            if (AppPresentationSettingKeys.HOST_LIST_LABEL
+                    .getName()
+                    .equals(key)) {
+                return R.drawable.ic_axi_keyboard;
+            }
             if ("checkbox_enable_pass_menu".equals(key)) return R.drawable.ic_axi_game_pad_pass;
             return 0;
         }
