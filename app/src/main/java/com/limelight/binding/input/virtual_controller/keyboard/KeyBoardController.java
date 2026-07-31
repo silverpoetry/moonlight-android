@@ -55,7 +55,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-public class KeyBoardController {
+public class KeyBoardController implements EditableVirtualControlOverlay {
     private static final SeekBarValueRange BUTTON_SCALE_RANGE =
             new SeekBarValueRange(50, 300);
 
@@ -68,14 +68,6 @@ public class KeyBoardController {
         public short rightStickY = 0x0000;
         public short leftStickX = 0x0000;
         public short leftStickY = 0x0000;
-    }
-
-    public enum ControllerMode {
-        Active,
-        MoveButtons,
-        ResizeButtons,
-        DisableEnableButtons,
-        NONE
     }
 
     private static final boolean _PRINT_DEBUG_INFORMATION = false;
@@ -98,7 +90,8 @@ public class KeyBoardController {
 
     private FrameLayout frame_layout = null;
 
-    ControllerMode currentMode = ControllerMode.NONE;
+    VirtualControlEditMode currentMode = VirtualControlEditMode.NONE;
+    private boolean destroyed;
 
     private View buttonConfigure = null;
 
@@ -474,7 +467,7 @@ public class KeyBoardController {
                             error.getMessage());
         }
         LimeLog.info("axi->"+getControllerMode());
-        if(getControllerMode()==ControllerMode.Active&& beanList.isEmpty()){
+        if(getControllerMode()==VirtualControlEditMode.ACTIVE&& beanList.isEmpty()){
             if (layoutKey.getOrientation() ==
                             VirtualControlLayoutOrientation.PORTRAIT &&
                     !getSettings()
@@ -485,7 +478,7 @@ public class KeyBoardController {
                 tips="无按键可用，打开编辑模式新增按钮后使用！(菜单-虚拟手柄与按键-编辑模式)";
                 UiToast.makeText(context,tips,UiToast.LENGTH_LONG).show();
             }
-//            switchMode(ControllerMode.MoveButtons);
+//            switchMode(VirtualControlEditMode.MOVE_BUTTONS);
             return;
         }
         for (int i = 0; i < beanList.size(); i++) {
@@ -660,7 +653,7 @@ public class KeyBoardController {
                     UiToast.LENGTH_SHORT).show();
             return;
         }
-        this.currentMode=ControllerMode.Active;
+        this.currentMode=VirtualControlEditMode.ACTIVE;
         buttonConfigure.setVisibility(View.GONE);
         lv_left_view.setVisibility(View.GONE);
         currentIndex=-1;
@@ -670,16 +663,17 @@ public class KeyBoardController {
     }
 
 
-    public void switchMode(ControllerMode currentMode){
+    @Override
+    public void switchMode(VirtualControlEditMode currentMode){
         this.currentMode=currentMode;
         String message="";
         switch (currentMode){
-            case Active:
+            case ACTIVE:
                 message="正常模式~";
                 buttonConfigure.setVisibility(View.GONE);
                 lv_left_view.setVisibility(View.GONE);
                 break;
-            case MoveButtons:
+            case MOVE_BUTTONS:
                 message="位移模式~";
                 buttonConfigure.setVisibility(View.VISIBLE);
                 break;
@@ -701,24 +695,34 @@ public class KeyBoardController {
         return new TagInfo(currentIndex,isGamePadMode);
     }
 
+    @Override
     public void hide() {
+        handler.removeCallbacksAndMessages(null);
         for (keyBoardVirtualControllerElement element : elements) {
             element.setVisibility(View.GONE);
         }
         isShow=false;
         lv_left_view.setVisibility(View.GONE);
         buttonConfigure.setVisibility(View.GONE);
-        this.currentMode = ControllerMode.NONE;
+        this.currentMode = VirtualControlEditMode.NONE;
     }
 
+    @Override
     public void show() {
+        if (destroyed) {
+            return;
+        }
 //        showEnabledElements();
         isShow=true;
-        this.currentMode = ControllerMode.Active;
+        this.currentMode = VirtualControlEditMode.ACTIVE;
         refreshLayout();
     }
 
+    @Override
     public void toggleVisibility() {
+        if (destroyed) {
+            return;
+        }
         if (isShow) {
             hide();
         } else {
@@ -726,8 +730,9 @@ public class KeyBoardController {
         }
     }
 
+    @Override
     public boolean isVisible() {
-        return isShow;
+        return !destroyed && isShow;
     }
 
     public void removeElements() {
@@ -771,13 +776,14 @@ public class KeyBoardController {
         FrameLayout.LayoutParams params1 = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         params1.gravity=Gravity.START;
         frame_layout.addView(lv_left_view, params1);
-        buttonConfigure.setVisibility(this.currentMode==ControllerMode.MoveButtons?View.VISIBLE:View.GONE);
+        buttonConfigure.setVisibility(this.currentMode==VirtualControlEditMode.MOVE_BUTTONS?View.VISIBLE:View.GONE);
         lv_left_view.setVisibility(View.GONE);
     }
 
 
+    @Override
     public void refreshLayout() {
-        if(this.currentMode==ControllerMode.NONE){
+        if(destroyed || this.currentMode==VirtualControlEditMode.NONE){
             return;
         }
         removeElements();
@@ -806,8 +812,21 @@ public class KeyBoardController {
     }
 
 
-    public ControllerMode getControllerMode() {
+    @Override
+    public VirtualControlEditMode getControllerMode() {
         return currentMode;
+    }
+
+    @Override
+    public void destroy() {
+        if (destroyed) {
+            return;
+        }
+        destroyed = true;
+        handler.removeCallbacksAndMessages(null);
+        removeElements();
+        isShow = false;
+        currentMode = VirtualControlEditMode.NONE;
     }
 
     public void sendKeyEvent(KeyEvent keyEvent) {

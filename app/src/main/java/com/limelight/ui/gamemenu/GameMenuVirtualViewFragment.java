@@ -9,7 +9,7 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 import com.limelight.R;
-import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
+import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
@@ -55,10 +55,10 @@ public class GameMenuVirtualViewFragment
     private VirtualControlSettings settings =
             VirtualControlSettings.builder().build();
     private boolean onscreenControllerRumbleEnabled;
-    private KeyBoardController.ControllerMode gamePadMode =
-            KeyBoardController.ControllerMode.NONE;
-    private KeyBoardController.ControllerMode gameKeyMode =
-            KeyBoardController.ControllerMode.NONE;
+    private VirtualControlEditMode gamePadMode =
+            VirtualControlEditMode.NONE;
+    private VirtualControlEditMode gameKeyMode =
+            VirtualControlEditMode.NONE;
     private Listener listener;
 
     private Button keyboardVibrationButton;
@@ -161,23 +161,23 @@ public class GameMenuVirtualViewFragment
 
     private void initializeModeSelections() {
         if (gamePadMode ==
-                KeyBoardController.ControllerMode.Active) {
+                VirtualControlEditMode.ACTIVE) {
             gamepadModeGroup.check(
                     R.id.btn_game_virtual_nomall);
         }
         else if (gamePadMode ==
-                KeyBoardController.ControllerMode.MoveButtons) {
+                VirtualControlEditMode.MOVE_BUTTONS) {
             gamepadModeGroup.check(
                     R.id.btn_game_virtual_move);
         }
 
         if (gameKeyMode ==
-                KeyBoardController.ControllerMode.Active) {
+                VirtualControlEditMode.ACTIVE) {
             keyModeGroup.check(
                     R.id.btn_game_virtual_key_nomall);
         }
         else if (gameKeyMode ==
-                KeyBoardController.ControllerMode.MoveButtons) {
+                VirtualControlEditMode.MOVE_BUTTONS) {
             keyModeGroup.check(
                     R.id.btn_game_virtual_key_move);
         }
@@ -192,12 +192,12 @@ public class GameMenuVirtualViewFragment
                     if (checkedId ==
                             R.id.btn_game_virtual_nomall) {
                         listener.onGamepadModeSelected(
-                                KeyBoardController.ControllerMode.Active);
+                                VirtualControlEditMode.ACTIVE);
                     }
                     else if (checkedId ==
                             R.id.btn_game_virtual_move) {
                         listener.onGamepadModeSelected(
-                                KeyBoardController.ControllerMode.MoveButtons);
+                                VirtualControlEditMode.MOVE_BUTTONS);
                         showEditModeToast();
                     }
                 });
@@ -210,12 +210,12 @@ public class GameMenuVirtualViewFragment
                     if (checkedId ==
                             R.id.btn_game_virtual_key_nomall) {
                         listener.onVirtualKeyModeSelected(
-                                KeyBoardController.ControllerMode.Active);
+                                VirtualControlEditMode.ACTIVE);
                     }
                     else if (checkedId ==
                             R.id.btn_game_virtual_key_move) {
                         listener.onVirtualKeyModeSelected(
-                                KeyBoardController.ControllerMode.MoveButtons);
+                                VirtualControlEditMode.MOVE_BUTTONS);
                         showEditModeToast();
                     }
                 });
@@ -490,12 +490,12 @@ public class GameMenuVirtualViewFragment
     }
 
     public void setGameKeyMode(
-            KeyBoardController.ControllerMode gameKeyMode) {
+            VirtualControlEditMode gameKeyMode) {
         this.gameKeyMode = gameKeyMode;
     }
 
     public void setGamePadMode(
-            KeyBoardController.ControllerMode gamePadMode) {
+            VirtualControlEditMode gamePadMode) {
         this.gamePadMode = gamePadMode;
     }
 
@@ -531,9 +531,9 @@ public class GameMenuVirtualViewFragment
         void onOnscreenControllerRumbleChanged(boolean enabled);
 
         void onGamepadModeSelected(
-                KeyBoardController.ControllerMode mode);
+                VirtualControlEditMode mode);
 
         void onVirtualKeyModeSelected(
-                KeyBoardController.ControllerMode mode);
+                VirtualControlEditMode mode);
     }
 }

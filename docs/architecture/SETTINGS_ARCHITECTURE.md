@@ -183,6 +183,14 @@ orientation composition boundary. Hiding an overlay for picture-in-picture or
 toggling it from the menu never mutates a persisted-settings snapshot or the
 legacy aggregate.
 
+`StreamVirtualControlsController` owns the runtime overlay instances behind
+small lifecycle ports. It lazily creates the virtual gamepad, virtual keys, and
+full keyboard through one Android factory, while startup policy remains an
+immutable input supplied by stream composition. Configuration refresh,
+picture-in-picture hiding, menu visibility, layout-edit suppression, and
+teardown all observe that one owner; neither the Activity nor the menu retains
+a concrete overlay View.
+
 `StreamOrientationRequest` is the immutable projection crossing from stream
 composition into the Android orientation adapter. It combines active overlay
 visibility with typed stream-video and virtual-control policy. Neither the

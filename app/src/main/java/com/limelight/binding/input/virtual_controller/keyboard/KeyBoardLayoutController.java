@@ -31,7 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public class KeyBoardLayoutController {
+public class KeyBoardLayoutController implements FullKeyboardOverlay {
 
     private final ControllerHandler controllerHandler;
     private final StreamInputGateway inputGateway;
@@ -40,8 +40,33 @@ public class KeyBoardLayoutController {
     private FrameLayout frame_layout = null;
     private LinearLayout keyboardView;
     private RadioGroup rg_keyboard;
+    private boolean destroyed;
     private final VirtualControlSettingsState
             virtualControlSettingsState;
+
+    private final Runnable scrollUpRepeater = new Runnable() {
+        @Override
+        public void run() {
+            if (destroyed) {
+                return;
+            }
+            inputGateway.sendHighResolutionScroll(true);
+            keyboardView.findViewById(R.id.mouse_up)
+                    .postDelayed(this, 100);
+        }
+    };
+
+    private final Runnable scrollDownRepeater = new Runnable() {
+        @Override
+        public void run() {
+            if (destroyed) {
+                return;
+            }
+            inputGateway.sendHighResolutionScroll(false);
+            keyboardView.findViewById(R.id.mouse_down)
+                    .postDelayed(this, 100);
+        }
+    };
 
     public KeyBoardLayoutController(final ControllerHandler controllerHandler,
                                     FrameLayout layout,
@@ -292,23 +317,17 @@ public class KeyBoardLayoutController {
         });
 
         keyboardView.findViewById(R.id.mouse_up).setOnTouchListener(new View.OnTouchListener() {
-            private Runnable repeater = new Runnable() {
-                @Override
-                public void run() {
-                    inputGateway.sendHighResolutionScroll(true);
-                    keyboardView.findViewById(R.id.mouse_up).postDelayed(this, 100);
-                }
-            };
-
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
-                        keyboardView.findViewById(R.id.mouse_up).post(repeater);
+                        keyboardView.findViewById(R.id.mouse_up)
+                                .post(scrollUpRepeater);
                         return true;
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
-                        keyboardView.findViewById(R.id.mouse_up).removeCallbacks(repeater);
+                        keyboardView.findViewById(R.id.mouse_up)
+                                .removeCallbacks(scrollUpRepeater);
                         if (event.getAction() == MotionEvent.ACTION_UP) {
                             v.performClick();
                         }
@@ -319,23 +338,17 @@ public class KeyBoardLayoutController {
         });
 
         keyboardView.findViewById(R.id.mouse_down).setOnTouchListener(new View.OnTouchListener() {
-            private Runnable repeater = new Runnable() {
-                @Override
-                public void run() {
-                    inputGateway.sendHighResolutionScroll(false);
-                    keyboardView.findViewById(R.id.mouse_down).postDelayed(this, 100);
-                }
-            };
-
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
-                        keyboardView.findViewById(R.id.mouse_down).post(repeater);
+                        keyboardView.findViewById(R.id.mouse_down)
+                                .post(scrollDownRepeater);
                         return true;
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
-                        keyboardView.findViewById(R.id.mouse_down).removeCallbacks(repeater);
+                        keyboardView.findViewById(R.id.mouse_down)
+                                .removeCallbacks(scrollDownRepeater);
                         if (event.getAction() == MotionEvent.ACTION_UP) {
                             v.performClick();
                         }
@@ -361,15 +374,25 @@ public class KeyBoardLayoutController {
         }
     }
 
+    @Override
     public void hide() {
+        cancelRepeaters();
         keyboardView.setVisibility(View.GONE);
     }
 
+    @Override
     public void show() {
+        if (destroyed) {
+            return;
+        }
         keyboardView.setVisibility(View.VISIBLE);
     }
 
-    public void switchShowHide() {
+    @Override
+    public void toggleVisibility() {
+        if (destroyed) {
+            return;
+        }
         if (keyboardView.getVisibility() == View.VISIBLE) {
             hide();
         } else {
@@ -378,7 +401,18 @@ public class KeyBoardLayoutController {
         resetView();
     }
 
+    @Override
+    public boolean isVisible() {
+        return !destroyed &&
+                keyboardView.getParent() == frame_layout &&
+                keyboardView.getVisibility() == View.VISIBLE;
+    }
+
+    @Override
     public void refreshLayout() {
+        if (destroyed) {
+            return;
+        }
         frame_layout.removeView(keyboardView);
 //        DisplayMetrics screen = context.getResources().getDisplayMetrics();
 //        (int)(screen.heightPixels/0.4)
@@ -398,6 +432,24 @@ public class KeyBoardLayoutController {
                 settings.getKeyboardOpacityPercent() / 100f);
         frame_layout.addView(keyboardView,params);
 
+    }
+
+    @Override
+    public void destroy() {
+        if (destroyed) {
+            return;
+        }
+        destroyed = true;
+        cancelRepeaters();
+        frame_layout.removeView(keyboardView);
+        keyList.clear();
+    }
+
+    private void cancelRepeaters() {
+        keyboardView.findViewById(R.id.mouse_up)
+                .removeCallbacks(scrollUpRepeater);
+        keyboardView.findViewById(R.id.mouse_down)
+                .removeCallbacks(scrollDownRepeater);
     }
 
     public int dip2px(Context context, float dpValue) {

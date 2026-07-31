@@ -1,6 +1,6 @@
 package com.limelight.ui.gamemenu;
 
-import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
+import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettings;
@@ -44,9 +44,9 @@ public interface GameMenuHost extends GameDisplayHost {
 
     boolean deleteGameMenuShortcut(String shortcutId);
 
-    KeyBoardController.ControllerMode getVirtualControllerMode();
+    VirtualControlEditMode getVirtualGamepadEditMode();
 
-    KeyBoardController.ControllerMode getVirtualKeyControllerMode();
+    VirtualControlEditMode getVirtualKeysEditMode();
 
     void handleStreamBackPressed();
 
@@ -68,11 +68,11 @@ public interface GameMenuHost extends GameDisplayHost {
 
     void switchLandscapePortraitScreen();
 
-    void showHideVirtualController();
+    void toggleVirtualGamepad();
 
-    void showHideKeyboardController();
+    void toggleVirtualKeys();
 
-    void showHidekeyBoardLayoutController();
+    void toggleFullKeyboard();
 
     void showHUD();
 
@@ -117,11 +117,11 @@ public interface GameMenuHost extends GameDisplayHost {
 
     void setOnscreenControllerRumbleEnabled(boolean enabled);
 
-    void switchVirtualController(
-            KeyBoardController.ControllerMode mode);
+    void setVirtualGamepadEditMode(
+            VirtualControlEditMode mode);
 
-    void switchVirtualKeyController(
-            KeyBoardController.ControllerMode mode);
+    void setVirtualKeysEditMode(
+            VirtualControlEditMode mode);
 
     void pullRemoteClipboardFiles();
 }

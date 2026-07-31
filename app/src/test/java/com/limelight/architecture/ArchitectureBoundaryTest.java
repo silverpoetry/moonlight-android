@@ -692,6 +692,42 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void virtualControlLifecycleHasOneActivityBoundary() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.virtual_controller.keyboard.StreamVirtualControlsController")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..")
+                .because(
+                        "virtual-overlay lifecycle policy is platform-independent")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController")
+                .because(
+                        "the Activity delegates editable-overlay ownership to one controller")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.virtual_controller.keyboard.KeyBoardLayoutController")
+                .because(
+                        "the Activity delegates full-keyboard ownership to one controller")
+                .check(productionClasses);
+    }
+
+    @Test
     public void displaySettingsUiUsesTypedSettingsIntents() {
         noClasses()
                 .that()

@@ -372,6 +372,13 @@ targets.
   `AXFloating*` classes, custom listener, branded robot bitmap, and direct View
   plumbing in the Activity are removed, while the shared grid icon now has a
   product-neutral resource name.
+- `StreamVirtualControlsController` is the sole lifecycle and visibility owner
+  for the virtual gamepad, virtual keys, and full-keyboard overlays. A
+  platform-independent edit-mode model and overlay ports keep the stream menu
+  and `Game` independent from the concrete Android Views; the Android factory
+  alone constructs them. Created overlays refresh together on configuration
+  changes, hide together on lifecycle transitions, cancel delayed work on
+  deterministic teardown, and cannot be recreated after destruction.
 - `ControllerSlotAllocator` is the sole owner of the protocol's sixteen player
   slots and the initial-to-active mask transition. Android/USB device code asks
   for or releases a slot instead of mutating duplicate bitmasks.

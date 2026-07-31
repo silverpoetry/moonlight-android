@@ -19,7 +19,7 @@ import android.widget.TextView;
 
 import com.limelight.R;
 import com.limelight.binding.input.KeyboardTranslator;
-import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
+import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode;
 import com.limelight.settings.audio.StreamAudioSettingsUpdate;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettingsUpdate;
@@ -516,7 +516,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
             return;
         }
         if(v.getId()==R.id.btn_game_pad){
-            host.showHideVirtualController();
+            host.toggleVirtualGamepad();
             setActionButtonActive(
                     btn_game_pad,
                     host.isVirtualControllerVisible());
@@ -533,7 +533,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
         }
 
         if(v.getId()==R.id.btn_v_keyboard){
-            host.showHideKeyboardController();
+            host.toggleVirtualKeys();
             setActionButtonActive(
                     btn_v_keyboard,
                     host.isVirtualKeysVisible());
@@ -541,7 +541,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
         }
 
         if(v.getId()==R.id.btn_keyboard){
-            host.showHidekeyBoardLayoutController();
+            host.toggleFullKeyboard();
             return;
         }
 
@@ -740,8 +740,8 @@ public class GameMenuFragment extends BaseGameMenuDialog
             GameMenuVirtualViewFragment fragment=new GameMenuVirtualViewFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle(R.string.game_menu_virtual_controls_title);
-            fragment.setGamePadMode(host.getVirtualControllerMode());
-            fragment.setGameKeyMode(host.getVirtualKeyControllerMode());
+            fragment.setGamePadMode(host.getVirtualGamepadEditMode());
+            fragment.setGameKeyMode(host.getVirtualKeysEditMode());
             fragment.setSettings(
                     host.getVirtualControlSettings());
             fragment.setOnscreenControllerRumbleEnabled(
@@ -775,20 +775,20 @@ public class GameMenuFragment extends BaseGameMenuDialog
 
                 @Override
                 public void onGamepadModeSelected(
-                        KeyBoardController.ControllerMode mode) {
+                        VirtualControlEditMode mode) {
                     if (host == null) {
                         return;
                     }
-                    host.switchVirtualController(mode);
+                    host.setVirtualGamepadEditMode(mode);
                 }
 
                 @Override
                 public void onVirtualKeyModeSelected(
-                        KeyBoardController.ControllerMode mode) {
+                        VirtualControlEditMode mode) {
                     if (host == null) {
                         return;
                     }
-                    host.switchVirtualKeyController(mode);
+                    host.setVirtualKeysEditMode(mode);
                 }
             });
             fragment.show(getFragmentManager());

@@ -124,17 +124,17 @@ public abstract class keyBoardVirtualControllerElement extends View {
     }
 
     protected int getDefaultColor() {
-        if(virtualController.getControllerMode() == KeyBoardController.ControllerMode.MoveButtons
+        if(virtualController.getControllerMode() == VirtualControlEditMode.MOVE_BUTTONS
                 &&virtualController.getCurrentIndex().equals(getTag())){
             return configSelectedColor;
         }else{
             return normalColor;
         }
-//        if (virtualController.getControllerMode() == KeyBoardController.ControllerMode.MoveButtons)
+//        if (virtualController.getControllerMode() == VirtualControlEditMode.MOVE_BUTTONS)
 //            return configMoveColor;
-//        else if (virtualController.getControllerMode() == KeyBoardController.ControllerMode.ResizeButtons)
+//        else if (virtualController.getControllerMode() == VirtualControlEditMode.RESIZE_BUTTONS)
 //            return configResizeColor;
-//        else if (virtualController.getControllerMode() == KeyBoardController.ControllerMode.DisableEnableButtons)
+//        else if (virtualController.getControllerMode() == VirtualControlEditMode.DISABLE_ENABLE_BUTTONS)
 //            return enabled ? configSelectedColor: configDisabledColor;
 //        else
 //            return normalColor;
@@ -147,7 +147,7 @@ public abstract class keyBoardVirtualControllerElement extends View {
     }
 
     protected boolean isNomal(){
-        return virtualController.getControllerMode() == KeyBoardController.ControllerMode.Active;
+        return virtualController.getControllerMode() == VirtualControlEditMode.ACTIVE;
     }
 
     @Override
@@ -161,7 +161,7 @@ public abstract class keyBoardVirtualControllerElement extends View {
             return true;
         }
 
-        if (virtualController.getControllerMode() == KeyBoardController.ControllerMode.Active) {
+        if (virtualController.getControllerMode() == VirtualControlEditMode.ACTIVE) {
             return onElementTouchEvent(event);
         }
 
@@ -175,11 +175,11 @@ public abstract class keyBoardVirtualControllerElement extends View {
                 startSize_x = getWidth();
                 startSize_y = getHeight();
 
-                if (virtualController.getControllerMode() == KeyBoardController.ControllerMode.MoveButtons)
+                if (virtualController.getControllerMode() == VirtualControlEditMode.MOVE_BUTTONS)
                     actionEnableMove();
-                else if (virtualController.getControllerMode() == KeyBoardController.ControllerMode.ResizeButtons)
+                else if (virtualController.getControllerMode() == VirtualControlEditMode.RESIZE_BUTTONS)
                     actionEnableResize();
-                else if (virtualController.getControllerMode() == KeyBoardController.ControllerMode.DisableEnableButtons)
+                else if (virtualController.getControllerMode() == VirtualControlEditMode.DISABLE_ENABLE_BUTTONS)
                     actionDisableEnableButton();
                 return true;
             }

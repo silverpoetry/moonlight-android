@@ -196,9 +196,7 @@ public class KeyBoardTouchPadButton extends keyBoardVirtualControllerElement {
             d.setAlpha((int) (oscOpacity * 2.55));
             d.draw(canvas);
             // 编辑模式下的额外框线
-            boolean bIsEditing = virtualController.getControllerMode() == KeyBoardController.ControllerMode.MoveButtons ||
-                    virtualController.getControllerMode() == KeyBoardController.ControllerMode.ResizeButtons ||
-                    virtualController.getControllerMode() == KeyBoardController.ControllerMode.DisableEnableButtons;
+            boolean bIsEditing = virtualController.getControllerMode().isEditing();
             if (bIsEditing) {
                 paint.setColor(Color.YELLOW); // 编辑模式使用显眼色
                 paint.setStrokeWidth(2);

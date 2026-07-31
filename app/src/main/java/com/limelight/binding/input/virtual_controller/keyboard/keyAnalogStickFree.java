@@ -93,7 +93,7 @@ public class keyAnalogStickFree extends keyBoardVirtualControllerElement {
         canvas.drawColor(Color.TRANSPARENT);
 
         // 1. 编辑模式
-        if (virtualController.getControllerMode() != KeyBoardController.ControllerMode.Active) {
+        if (virtualController.getControllerMode() != VirtualControlEditMode.ACTIVE) {
             drawEditMode(canvas);
             return;
         }

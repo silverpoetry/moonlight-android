@@ -29,8 +29,9 @@ import com.limelight.binding.input.touch.DirectContactInputController;
 import com.limelight.binding.input.touch.TouchInputController;
 import com.limelight.binding.input.touch.TouchInputMode;
 import com.limelight.binding.input.virtual_controller.VirtualController;
-import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
-import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardLayoutController;
+import com.limelight.binding.input.virtual_controller.keyboard.AndroidVirtualControlsFactory;
+import com.limelight.binding.input.virtual_controller.keyboard.StreamVirtualControlsController;
+import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode;
 import com.limelight.binding.video.CrashListener;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
@@ -211,11 +212,7 @@ public class Game extends Activity implements OnGenericMotionListener,
     private VirtualControlSettingsState virtualControlSettingsState;
     private VirtualControlLayoutRepository virtualControlLayoutRepository;
     private KeyboardInputController keyboardInputController;
-    private KeyBoardController virtualController;
-
-    private KeyBoardController keyBoardController;
-
-    private KeyBoardLayoutController keyBoardLayoutController;
+    private StreamVirtualControlsController virtualControlsController;
 
     private StreamDisplaySettings streamDisplaySettings;
     private StreamDecoderSettings streamDecoderSettings;
@@ -1155,6 +1152,18 @@ public class Game extends Activity implements OnGenericMotionListener,
                             }
                         });
 
+        virtualControlsController =
+                new StreamVirtualControlsController(
+                        new AndroidVirtualControlsFactory(
+                                controllerHandler,
+                                (FrameLayout) rootView,
+                                this,
+                                inputSettingsState,
+                                virtualControlSettingsState,
+                                virtualControlLayoutRepository,
+                                this,
+                                this));
+
         //鼠标触控模式
         switchMouseModel(
                 inputSettingsState.get()
@@ -1164,14 +1173,14 @@ public class Game extends Activity implements OnGenericMotionListener,
                 .get()
                 .isOnscreenControllerEnabled()) {
             // create virtual onscreen controller
-            initVirtualController();
+            virtualControlsController.showVirtualGamepad();
         }
 
         //特殊按键屏幕布局
         if (virtualControlSettingsState
                 .get()
                 .shouldShowVirtualKeysOnStart()) {
-            initKeyboardController();
+            virtualControlsController.showVirtualKeys();
         }
 
         if (controllerSettingsState
@@ -1290,68 +1299,24 @@ public class Game extends Activity implements OnGenericMotionListener,
         renderSurfaceController.startIfReady();
     }
 
-    private void initKeyboardController(){
-        keyBoardController = new KeyBoardController(
-                controllerHandler,
-                (FrameLayout) rootView,
-                this,
-                inputSettingsState,
-                virtualControlSettingsState,
-                virtualControlLayoutRepository,
-                false, this, this);
-//        keyBoardController.refreshLayout();
-        keyBoardController.show();
-    }
-
-
-    private void initVirtualController(){
-        virtualController = new KeyBoardController(
-                controllerHandler,
-                (FrameLayout) rootView,
-                this,
-                inputSettingsState,
-                virtualControlSettingsState,
-                virtualControlLayoutRepository,
-                true, this, this);
-//        virtualController.refreshLayout();
-        virtualController.show();
-    }
-
-    private void initkeyBoardLayoutController(){
-        keyBoardLayoutController = new KeyBoardLayoutController(
-                controllerHandler,
-                (FrameLayout) rootView,
-                this,
-                virtualControlSettingsState,
-                this, this);
-        keyBoardLayoutController.refreshLayout();
-        keyBoardLayoutController.show();
-    }
-
     //显示隐藏虚拟特殊按键
-    public void showHideKeyboardController(){
-        if(keyBoardController==null){
-            initKeyboardController();
-            return;
+    public void toggleVirtualKeys(){
+        if (virtualControlsController != null) {
+            virtualControlsController.toggleVirtualKeys();
         }
-        keyBoardController.toggleVisibility();
     }
 
-    public void showHidekeyBoardLayoutController(){
-        if(keyBoardLayoutController==null){
-            initkeyBoardLayoutController();
-            return;
+    public void toggleFullKeyboard(){
+        if (virtualControlsController != null) {
+            virtualControlsController.toggleFullKeyboard();
         }
-        keyBoardLayoutController.switchShowHide();
     }
 
     //显示隐藏虚拟手柄控制器
-    public void showHideVirtualController(){
-        if(virtualController==null){
-            initVirtualController();
-            return;
+    public void toggleVirtualGamepad(){
+        if (virtualControlsController != null) {
+            virtualControlsController.toggleVirtualGamepad();
         }
-        virtualController.toggleVisibility();
     }
 
     @Override
@@ -1368,13 +1333,13 @@ public class Game extends Activity implements OnGenericMotionListener,
                 }
                 break;
             case TOGGLE_VIRTUAL_KEYS:
-                showHideKeyboardController();
+                toggleVirtualKeys();
                 break;
             case TOGGLE_FULL_KEYBOARD:
-                showHidekeyBoardLayoutController();
+                toggleFullKeyboard();
                 break;
             case TOGGLE_VIRTUAL_GAMEPAD:
-                showHideVirtualController();
+                toggleVirtualGamepad();
                 break;
             case TOGGLE_FLOATING_BUTTON:
                 if (floatingControlController != null) {
@@ -1408,8 +1373,9 @@ public class Game extends Activity implements OnGenericMotionListener,
     }
 
     private boolean isVirtualControllerVisibleForOrientation() {
-        if (virtualController != null) {
-            return virtualController.isVisible();
+        if (virtualControlsController != null &&
+                virtualControlsController.isVirtualGamepadCreated()) {
+            return virtualControlsController.isVirtualGamepadVisible();
         }
         return controllerSettingsState
                 .get()
@@ -1424,17 +1390,8 @@ public class Game extends Activity implements OnGenericMotionListener,
         // Set requested orientation for possible new screen size
         setPreferredOrientationForCurrentDisplay();
 
-        if (virtualController != null) {
-            // Refresh layout of OSC for possible new screen size
-            virtualController.refreshLayout();
-        }
-
-        if(keyBoardController !=null){
-            keyBoardController.refreshLayout();
-        }
-
-        if(keyBoardLayoutController!=null){
-            keyBoardLayoutController.refreshLayout();
+        if (virtualControlsController != null) {
+            virtualControlsController.refreshCreatedLayouts();
         }
 
         // Hide on-screen overlays in PiP mode
@@ -1442,16 +1399,8 @@ public class Game extends Activity implements OnGenericMotionListener,
             if (isInPictureInPictureMode()) {
                 isHidingOverlays = true;
 
-                if (virtualController != null) {
-                    virtualController.hide();
-                }
-
-                if (keyBoardController != null) {
-                    keyBoardController.hide();
-                }
-
-                if(keyBoardLayoutController!=null){
-                    keyBoardLayoutController.hide();
+                if (virtualControlsController != null) {
+                    virtualControlsController.hideAll();
                 }
 
                 performanceOverlayController
@@ -1965,6 +1914,10 @@ public class Game extends Activity implements OnGenericMotionListener,
             floatingControlController.destroy();
             floatingControlController = null;
         }
+        if (virtualControlsController != null) {
+            virtualControlsController.destroy();
+            virtualControlsController = null;
+        }
         UiHelper.notifyHdrWindowStatus(
                 this,
                 false,
@@ -2029,15 +1982,8 @@ public class Game extends Activity implements OnGenericMotionListener,
         SpinnerDialog.closeDialogs(this);
         Dialog.closeDialogs();
 
-        if (virtualController != null) {
-            virtualController.hide();
-        }
-        if (keyBoardController != null) {
-            keyBoardController.hide();
-        }
-
-        if(keyBoardLayoutController!=null){
-            keyBoardLayoutController.hide();
+        if (virtualControlsController != null) {
+            virtualControlsController.hideAll();
         }
 
         if(dialogGameMenu!=null&&dialogGameMenu.isVisible()){
@@ -2328,22 +2274,8 @@ public class Game extends Activity implements OnGenericMotionListener,
     }
 
     private boolean isTouchscreenInputSuppressed() {
-        return isControllerLayoutEditing(virtualController) ||
-                isControllerLayoutEditing(keyBoardController);
-    }
-
-    private static boolean isControllerLayoutEditing(
-            KeyBoardController controller) {
-        if (controller == null) {
-            return false;
-        }
-
-        KeyBoardController.ControllerMode mode =
-                controller.getControllerMode();
-        return mode == KeyBoardController.ControllerMode.MoveButtons ||
-                mode == KeyBoardController.ControllerMode.ResizeButtons ||
-                mode == KeyBoardController.ControllerMode
-                        .DisableEnableButtons;
+        return virtualControlsController != null &&
+                virtualControlsController.isEditingLayout();
     }
 
     @Override
@@ -3222,49 +3154,43 @@ public class Game extends Activity implements OnGenericMotionListener,
         virtualControlSettingsState.replace(
                 VirtualControlSettingsLoader.load(
                         settingsRepository));
-        if (isVirtualControllerVisible()) {
-            virtualController.refreshLayout();
-        }
-        if (isVirtualKeysVisible()) {
-            keyBoardController.refreshLayout();
-        }
-        if(keyBoardLayoutController!=null){
-            keyBoardLayoutController.refreshLayout();
+        if (virtualControlsController != null) {
+            virtualControlsController.refreshCreatedLayouts();
         }
     }
 
     //切换虚拟手柄模式
-    public void switchVirtualController(KeyBoardController.ControllerMode mode){
-        if (!isVirtualControllerVisible()) {
-            UiToast.makeText(this,"请先打开虚拟手柄开关！",UiToast.LENGTH_SHORT).show();
-            return;
+    public void setVirtualGamepadEditMode(VirtualControlEditMode mode){
+        if (virtualControlsController == null ||
+                !virtualControlsController.setVirtualGamepadMode(mode)) {
+            UiToast.makeText(
+                    this,
+                    R.string.game_menu_virtual_gamepad_mode_help,
+                    UiToast.LENGTH_SHORT).show();
         }
-        virtualController.switchMode(mode);
-
     }
     //返回虚拟手柄当前的状态
-    public KeyBoardController.ControllerMode getVirtualControllerMode(){
-        if(virtualController==null){
-            return KeyBoardController.ControllerMode.NONE;
-        }
-        return virtualController.getControllerMode();
+    public VirtualControlEditMode getVirtualGamepadEditMode(){
+        return virtualControlsController == null
+                ? VirtualControlEditMode.NONE
+                : virtualControlsController.getVirtualGamepadMode();
     }
 
     //切换虚拟手柄模式
-    public void switchVirtualKeyController(KeyBoardController.ControllerMode mode){
-        if (!isVirtualKeysVisible()) {
-            UiToast.makeText(this,"请先打开虚拟按键开关！",UiToast.LENGTH_SHORT).show();
-            return;
+    public void setVirtualKeysEditMode(VirtualControlEditMode mode){
+        if (virtualControlsController == null ||
+                !virtualControlsController.setVirtualKeysMode(mode)) {
+            UiToast.makeText(
+                    this,
+                    R.string.game_menu_virtual_key_mode_help,
+                    UiToast.LENGTH_SHORT).show();
         }
-        keyBoardController.switchMode(mode);
-
     }
     //返回虚拟手柄当前的状态
-    public KeyBoardController.ControllerMode getVirtualKeyControllerMode(){
-        if(keyBoardController==null){
-            return KeyBoardController.ControllerMode.NONE;
-        }
-        return keyBoardController.getControllerMode();
+    public VirtualControlEditMode getVirtualKeysEditMode(){
+        return virtualControlsController == null
+                ? VirtualControlEditMode.NONE
+                : virtualControlsController.getVirtualKeysMode();
     }
 
 
@@ -3330,14 +3256,14 @@ public class Game extends Activity implements OnGenericMotionListener,
 
     @Override
     public boolean isVirtualControllerVisible() {
-        return virtualController != null &&
-                virtualController.isVisible();
+        return virtualControlsController != null &&
+                virtualControlsController.isVirtualGamepadVisible();
     }
 
     @Override
     public boolean isVirtualKeysVisible() {
-        return keyBoardController != null &&
-                keyBoardController.isVisible();
+        return virtualControlsController != null &&
+                virtualControlsController.isVirtualKeysVisible();
     }
 
     @Override
@@ -3596,7 +3522,9 @@ public class Game extends Activity implements OnGenericMotionListener,
                             toggleKeyboard();
                             break;
                         case FULL_KEYBOARD:
-                            showHidekeyBoardLayoutController();
+                            performStreamUiAction(
+                                    StreamUiActions.Action
+                                            .TOGGLE_FULL_KEYBOARD);
                             break;
                     }
                 });
@@ -3641,10 +3569,6 @@ public class Game extends Activity implements OnGenericMotionListener,
                 controllerHandler.handleSetMotionEventState((short) 0, MoonBridge.LI_MOTION_TYPE_GYRO, (short) 100);
             }
         }
-    }
-
-    public KeyBoardController getKeyBoardController(){
-        return keyBoardController;
     }
 
     private static MoonBridge.AudioConfiguration
