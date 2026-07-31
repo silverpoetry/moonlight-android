@@ -377,6 +377,10 @@ targets.
   buttons, capability mask, and clickpad-emulation requirement from sampled
   hardware facts. Android probing and transport emission remain adapters;
   protocol policy no longer lives in the mutable device context.
+- `ControllerHapticsPolicy` resolves audio-haptics ownership versus ordinary
+  rumble, including selective Kishi suppression. `ControllerRumbleAmplitudes`
+  owns unsigned protocol conversion, motor ordering, single-motor mixing, and
+  fallback scaling; Android classes only submit the resulting effects.
 - `DecoderSelectionPolicy` owns HEVC/AV1 acceptance decisions and stream color
   defaults. The MediaCodec adapter performs discovery and capability queries,
   and no longer carries the unused metered-network parameter or unreachable

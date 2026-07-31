@@ -115,32 +115,34 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private final ControllerSlotAllocator slotAllocator;
 
     private boolean shouldUseControllerAudioHaptics() {
-        return shouldUseControllerAudioHaptics(
-                audioSettingsState.get());
-    }
-
-    private static boolean shouldUseControllerAudioHaptics(
-            StreamAudioSettings settings) {
-        return settings.areAudioHapticsEnabled() &&
-                settings.isControllerHapticsTarget();
+        return ControllerHapticsPolicy
+                .shouldUseAudioHaptics(
+                        audioSettingsState.get());
     }
 
     private boolean shouldSuppressControllerRumble() {
-        StreamAudioSettings settings = audioSettingsState.get();
-        return shouldUseControllerAudioHaptics(settings) &&
-                !settings.shouldKeepControllerRumble();
+        return ControllerHapticsPolicy
+                .shouldSuppressStandardRumble(
+                        audioSettingsState.get(),
+                        false,
+                        false);
     }
 
     private boolean shouldSuppressInputDeviceRumble(InputDeviceContext context) {
         StreamAudioSettings settings = audioSettingsState.get();
-        if (!RazerKishiHapticsDevice.isFeatureEnabled()) {
-            return shouldUseControllerAudioHaptics(settings) &&
-                    !settings.shouldKeepControllerRumble();
-        }
-
-        return shouldUseControllerAudioHaptics(settings) &&
-                !settings.shouldKeepControllerRumble() &&
-                RazerKishiHapticsDevice.canUseDevice(context.vendorId, context.productId, context.name);
+        boolean selectiveSuppression =
+                RazerKishiHapticsDevice.isFeatureEnabled();
+        boolean deviceReceivesAudioHaptics =
+                selectiveSuppression &&
+                        RazerKishiHapticsDevice.canUseDevice(
+                                context.vendorId,
+                                context.productId,
+                                context.name);
+        return ControllerHapticsPolicy
+                .shouldSuppressStandardRumble(
+                        settings,
+                        selectiveSuppression,
+                        deviceReceivesAudioHaptics);
     }
 
     private void maybeRefreshRazerKishiHapticsState() {
@@ -1939,11 +1941,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     // This must only be called if hasDualAmplitudeControlledRumbleVibrators() is true!
     @RequiresApi(api = Build.VERSION_CODES.S)
     private void rumbleDualVibrators(VibratorManager vm, short lowFreqMotor, short highFreqMotor) {
-        // Normalize motor values to 0-255 amplitudes for VibrationManager
-        highFreqMotor = (short)((highFreqMotor >> 8) & 0xFF);
-        lowFreqMotor = (short)((lowFreqMotor >> 8) & 0xFF);
-        // If they're both zero, we can just call cancel().
-        if (lowFreqMotor == 0 && highFreqMotor == 0) {
+        int[] vibratorAmplitudes =
+                ControllerRumbleAmplitudes.dual(
+                        lowFreqMotor,
+                        highFreqMotor,
+                        settingsState.get()
+                                .areRumbleMotorsFlipped());
+        if (ControllerRumbleAmplitudes
+                .areAllZero(vibratorAmplitudes)) {
             vm.cancel();
             return;
         }
@@ -1952,15 +1957,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         // always be enumerated in this order, but it seems consistent between Xbox Series X (USB),
         // PS3 (USB), and PS4 (USB+BT) controllers on Android 12 Beta 3.
         int[] vibratorIds = vm.getVibratorIds();
-        int[] vibratorAmplitudes = new int[2];
-        if (settingsState.get().areRumbleMotorsFlipped()) {
-            vibratorAmplitudes[0]=lowFreqMotor;
-            vibratorAmplitudes[1]=highFreqMotor;
-        }else{
-            vibratorAmplitudes[0]=highFreqMotor;
-            vibratorAmplitudes[1]=lowFreqMotor;
-        }
-//        int[] vibratorAmplitudes = new int[] { highFreqMotor, lowFreqMotor };
         CombinedVibration.ParallelCombination combo = CombinedVibration.startParallel();
 
         for (int i = 0; i < vibratorIds.length; i++) {
@@ -2002,14 +1998,16 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     // This must only be called if hasQuadAmplitudeControlledRumbleVibrators() is true!
     @RequiresApi(api = Build.VERSION_CODES.S)
     private void rumbleQuadVibrators(VibratorManager vm, short lowFreqMotor, short highFreqMotor, short leftTrigger, short rightTrigger) {
-        // Normalize motor values to 0-255 amplitudes for VibrationManager
-        highFreqMotor = (short)((highFreqMotor >> 8) & 0xFF);
-        lowFreqMotor = (short)((lowFreqMotor >> 8) & 0xFF);
-        leftTrigger = (short)((leftTrigger >> 8) & 0xFF);
-        rightTrigger = (short)((rightTrigger >> 8) & 0xFF);
-
-        // If they're all zero, we can just call cancel().
-        if (lowFreqMotor == 0 && highFreqMotor == 0 && leftTrigger == 0 && rightTrigger == 0) {
+        int[] vibratorAmplitudes =
+                ControllerRumbleAmplitudes.quad(
+                        lowFreqMotor,
+                        highFreqMotor,
+                        leftTrigger,
+                        rightTrigger,
+                        settingsState.get()
+                                .areRumbleMotorsFlipped());
+        if (ControllerRumbleAmplitudes
+                .areAllZero(vibratorAmplitudes)) {
             vm.cancel();
             return;
         }
@@ -2017,19 +2015,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         // This is a guess based upon the behavior of FF_RUMBLE, but untested due to lack of Linux
         // support for trigger rumble!
         int[] vibratorIds = vm.getVibratorIds();
-
-        int[] vibratorAmplitudes =new int[4];
-
-        if (settingsState.get().areRumbleMotorsFlipped()) {
-            vibratorAmplitudes[0]=lowFreqMotor;
-            vibratorAmplitudes[1]=highFreqMotor;
-        }else{
-            vibratorAmplitudes[0]=highFreqMotor;
-            vibratorAmplitudes[1]=lowFreqMotor;
-        }
-        vibratorAmplitudes[2]=leftTrigger;
-        vibratorAmplitudes[3]=rightTrigger;
-//        int[] vibratorAmplitudes = new int[] { highFreqMotor, lowFreqMotor, leftTrigger, rightTrigger };
         CombinedVibration.ParallelCombination combo = CombinedVibration.startParallel();
 
         for (int i = 0; i < vibratorIds.length; i++) {
@@ -2051,12 +2036,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
     private void rumbleSingleVibrator(Vibrator vibrator, short lowFreqMotor, short highFreqMotor) {
         ControllerSettings settings = settingsState.get();
-        // Since we can only use a single amplitude value, compute the desired amplitude
-        // by taking 80% of the big motor and 33% of the small motor, then capping to 255.
-        // NB: This value is now 0-255 as required by VibrationEffect.
-        short lowFreqMotorMSB = (short)((lowFreqMotor >> 8) & 0xFF);
-        short highFreqMotorMSB = (short)((highFreqMotor >> 8) & 0xFF);
-        int simulatedAmplitude = Math.min(255, (int)((lowFreqMotorMSB * 0.80) + (highFreqMotorMSB * 0.33)));
+        int simulatedAmplitude =
+                ControllerRumbleAmplitudes.single(
+                        lowFreqMotor,
+                        highFreqMotor);
 
         if (simulatedAmplitude == 0) {
             // This case is easy - just cancel the current effect and get out.
@@ -2170,17 +2153,18 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 // We found a device to vibrate but it didn't have rumble support. The user
                 // has requested us to vibrate the device in this case.
 
-                // We cast the unsigned short value to a signed int before multiplying by
-                // the preferred strength. The resulting value is capped at 65534 before
-                // we cast it back to a short so it doesn't go above 100%.
-                short lowFreqMotorAdjusted = (short)(Math.min((((lowFreqMotor & 0xffff)
-                        * settings
-                                .getFallbackDeviceRumbleStrengthPercent()) /
-                        100), Short.MAX_VALUE*2));
-                short highFreqMotorAdjusted = (short)(Math.min((((highFreqMotor & 0xffff)
-                        * settings
-                                .getFallbackDeviceRumbleStrengthPercent()) /
-                        100), Short.MAX_VALUE*2));
+                short lowFreqMotorAdjusted =
+                        ControllerRumbleAmplitudes
+                                .scaleProtocolMotor(
+                                        lowFreqMotor,
+                                        settings
+                                                .getFallbackDeviceRumbleStrengthPercent());
+                short highFreqMotorAdjusted =
+                        ControllerRumbleAmplitudes
+                                .scaleProtocolMotor(
+                                        highFreqMotor,
+                                        settings
+                                                .getFallbackDeviceRumbleStrengthPercent());
 
                 rumbleSingleVibrator(deviceVibrator, lowFreqMotorAdjusted, highFreqMotorAdjusted);
             }

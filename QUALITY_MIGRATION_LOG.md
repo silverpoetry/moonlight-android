@@ -914,3 +914,16 @@ Verification on 2026-07-31:
 - `verifyConnected --rerun-tasks --no-daemon` passed all 296 tasks on the API
   34 emulator; the non-root and root suites each ran 107 instrumentation tests
   with zero failures, errors, or skips.
+- Extracted `ControllerHapticsPolicy` from platform feedback code. Controller
+  audio-haptics eligibility, ordinary-rumble suppression, the keep-rumble
+  override, and Kishi-only selective suppression now form one tested decision
+  table.
+- Extracted `ControllerRumbleAmplitudes` for protocol-to-Android amplitude
+  conversion. Dual/quad motor ordering, trigger channels, the established
+  80%/33% single-motor mix, zero detection, and unsigned fallback-strength
+  scaling are pure fixtures; Android feedback methods retain only capability
+  checks and effect submission.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 386 JVM
+  tests per variant (1,544 executions total), all Lint variants, and both
+  Release APKs. `verifyConnected --rerun-tasks --no-daemon` then passed all
+  296 tasks and both 107-test root/non-root API 34 suites.
