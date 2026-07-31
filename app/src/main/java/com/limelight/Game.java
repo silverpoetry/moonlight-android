@@ -100,6 +100,7 @@ import com.limelight.ui.stream.AndroidStreamConnectionMessages;
 import com.limelight.ui.stream.AndroidStreamDisplayController;
 import com.limelight.ui.stream.AndroidStreamHdrCapabilityProvider;
 import com.limelight.ui.stream.AndroidStreamMediaRuntimeFactory;
+import com.limelight.ui.stream.AndroidStreamOverlayVisibilityHost;
 import com.limelight.ui.stream.AndroidStreamPictureInPictureController;
 import com.limelight.ui.stream.StreamDecoderCapabilities;
 import com.limelight.ui.stream.StreamDisplayRefreshPolicy;
@@ -108,6 +109,7 @@ import com.limelight.ui.stream.StreamHdrRequestPolicy;
 import com.limelight.ui.stream.StreamLaunchReporter;
 import com.limelight.ui.stream.StreamMediaResourceOwner;
 import com.limelight.ui.stream.StreamMicrophoneController;
+import com.limelight.ui.stream.StreamOverlayVisibilityController;
 import com.limelight.ui.stream.StreamRenderSurfaceController;
 import com.limelight.ui.stream.StreamSessionCallbackRouter;
 import com.limelight.ui.stream.StreamSessionConfigurationAdapter;
@@ -266,9 +268,9 @@ public class Game extends Activity implements OnGenericMotionListener,
     };
     private NativeCursorOverlayView nativeCursorOverlayView;
 
-    private boolean isHidingOverlays;
     private TextView notificationOverlayView;
-    private int requestedNotificationOverlayVisibility = View.GONE;
+    private StreamOverlayVisibilityController
+            overlayVisibilityController;
     private StreamPerformanceOverlayController
             performanceOverlayController;
     private StreamFloatingControlController
@@ -1131,6 +1133,16 @@ public class Game extends Activity implements OnGenericMotionListener,
                                 this,
                                 this));
 
+        overlayVisibilityController =
+                new StreamOverlayVisibilityController(
+                        new AndroidStreamOverlayVisibilityHost(
+                                this,
+                                virtualControlsController,
+                                performanceOverlayController,
+                                notificationOverlayView,
+                                controllerHandler,
+                                this::isGameModeIntegrationDisabled));
+
         //鼠标触控模式
         switchMouseModel(
                 inputSettingsState.get()
@@ -1367,43 +1379,11 @@ public class Game extends Activity implements OnGenericMotionListener,
             virtualControlsController.refreshCreatedLayouts();
         }
 
-        // Hide on-screen overlays in PiP mode
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (isInPictureInPictureMode()) {
-                isHidingOverlays = true;
-
-                if (virtualControlsController != null) {
-                    virtualControlsController.hideAll();
-                }
-
-                performanceOverlayController
-                        .hideForPictureInPicture();
-                notificationOverlayView.setVisibility(View.GONE);
-
-                // Disable sensors while in PiP mode
-                controllerHandler.disableSensors();
-
-                // Update GameManager state to indicate we're in PiP (still gaming, but interruptible)
-                UiHelper.notifyStreamEnteringPiP(
-                        this,
-                        isGameModeIntegrationDisabled());
-            }
-            else {
-                isHidingOverlays = false;
-
-                performanceOverlayController
-                        .restoreAfterPictureInPicture();
-
-                notificationOverlayView.setVisibility(requestedNotificationOverlayVisibility);
-
-                // Enable sensors again after exiting PiP
-                controllerHandler.enableSensors();
-
-                // Update GameManager state to indicate we're out of PiP (gaming, non-interruptible)
-                UiHelper.notifyStreamExitingPiP(
-                        this,
-                        isGameModeIntegrationDisabled());
-            }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                overlayVisibilityController != null) {
+            overlayVisibilityController
+                    .onPictureInPictureModeChanged(
+                            isInPictureInPictureMode());
         }
     }
 
@@ -1528,6 +1508,10 @@ public class Game extends Activity implements OnGenericMotionListener,
         if (pictureInPictureController != null) {
             pictureInPictureController.destroy();
             pictureInPictureController = null;
+        }
+        if (overlayVisibilityController != null) {
+            overlayVisibilityController.destroy();
+            overlayVisibilityController = null;
         }
         if (renderSurfaceController != null) {
             renderSurfaceController.destroy();
@@ -2020,20 +2004,20 @@ public class Game extends Activity implements OnGenericMotionListener,
             StreamSessionPresentationController.ConnectionWarning warning) {
         if (warning ==
                 StreamSessionPresentationController.ConnectionWarning.NONE) {
-            requestedNotificationOverlayVisibility = View.GONE;
+            if (overlayVisibilityController != null) {
+                overlayVisibilityController
+                        .setConnectionWarningVisible(false);
+            }
+            return;
         }
-        else {
-            notificationOverlayView.setText(getString(
-                    warning == StreamSessionPresentationController
-                            .ConnectionWarning.SLOW
-                            ? R.string.slow_connection_msg
-                            : R.string.poor_connection_msg));
-            requestedNotificationOverlayVisibility = View.VISIBLE;
-        }
-
-        if (!isHidingOverlays) {
-            notificationOverlayView.setVisibility(
-                    requestedNotificationOverlayVisibility);
+        notificationOverlayView.setText(getString(
+                warning == StreamSessionPresentationController
+                        .ConnectionWarning.SLOW
+                        ? R.string.slow_connection_msg
+                        : R.string.poor_connection_msg));
+        if (overlayVisibilityController != null) {
+            overlayVisibilityController
+                    .setConnectionWarningVisible(true);
         }
     }
 

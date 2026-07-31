@@ -437,6 +437,12 @@ targets.
   cursor-toggle-to-grab transition explicit; missing Samsung APIs are an
   expected capability result instead of a printed exception. `Game` no longer
   mirrors capture/cursor flags or performs vendor reflection.
+- `StreamOverlayVisibilityController` is the transition owner for PiP overlay
+  hiding, connection-warning deferral, controller-sensor suspension, and
+  GameManager notifications. Duplicate configuration callbacks are
+  idempotent, warning changes made while hidden are restored accurately on
+  exit, and late callbacks after teardown are rejected through a narrow host
+  contract instead of Activity flags.
 - `StreamRenderSurfaceController` owns Surface callback registration,
   readiness, frame-rate hints, decoder stop preparation, and callback
   detachment. Its transition state is platform-independent and tested without

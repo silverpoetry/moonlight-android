@@ -355,6 +355,25 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void streamOverlayVisibilityControllerIsPlatformIndependent() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamOverlayVisibilityController")
+                .or()
+                .haveNameMatching(
+                        "com\\.limelight\\.ui\\.stream\\.StreamOverlayVisibilityController\\$.*")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..")
+                .because(
+                        "PiP overlay coordination runs through a narrow host port")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamInputCaptureStateIsPlatformIndependent() {
         noClasses()
                 .that()
