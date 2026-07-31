@@ -60,10 +60,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private MediaCodec videoDecoder;
     private Thread rendererThread;
     private boolean needsSpsBitstreamFixup, isExynos4;
-    private boolean adaptivePlayback, directSubmit, fusedIdrFrame;
+    private boolean adaptivePlayback, fusedIdrFrame;
     private boolean constrainedHighProfile;
-    private boolean refFrameInvalidationAvc, refFrameInvalidationHevc, refFrameInvalidationAv1;
-    private byte optimalSlicesPerFrame;
     private boolean refFrameInvalidationActive;
     private int initialWidth, initialHeight;
     private int videoFormat;
@@ -112,6 +110,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private int lastFrameNumber;
     private int refreshRate;
     private final StreamDecoderSettings settings;
+    private final DecoderCapabilityProfile capabilityProfile;
 
     private long firstPerfStatsTimestamp;
     private LinkedBlockingQueue<Integer> outputBufferQueue = new LinkedBlockingQueue<>();
@@ -340,6 +339,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         // library. The limitation of this is that we don't know whether we're using HEVC or AVC.
         int avcOptimalSlicesPerFrame = 0;
         int hevcOptimalSlicesPerFrame = 0;
+        boolean directSubmit = false;
+        boolean refFrameInvalidationAvc = false;
+        boolean refFrameInvalidationHevc = false;
+        boolean refFrameInvalidationAv1 = false;
         if (avcDecoder != null) {
             directSubmit = MediaCodecHelper.decoderCanDirectSubmit(avcDecoder.getName());
             refFrameInvalidationAvc =
@@ -376,14 +379,23 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             }
         }
 
-        // Use the larger of the two slices per frame preferences
-        optimalSlicesPerFrame = (byte)Math.max(avcOptimalSlicesPerFrame, hevcOptimalSlicesPerFrame);
-        LimeLog.info("Requesting "+optimalSlicesPerFrame+" slices per frame");
-
         if (consecutiveCrashCount % 2 == 1) {
-            refFrameInvalidationAvc = refFrameInvalidationHevc = false;
             LimeLog.warning("Disabling RFI due to previous crash");
         }
+
+        capabilityProfile = DecoderCapabilityProfile.create(
+                directSubmit,
+                refFrameInvalidationAvc,
+                refFrameInvalidationHevc,
+                refFrameInvalidationAv1,
+                avcOptimalSlicesPerFrame,
+                hevcOptimalSlicesPerFrame,
+                consecutiveCrashCount);
+        LimeLog.info(
+                "Requesting " +
+                        capabilityProfile
+                                .getOptimalSlicesPerFrame() +
+                        " slices per frame");
     }
 
     public boolean isHevcSupported() {
@@ -612,7 +624,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 LimeLog.info("Decoder "+selectedDecoderInfo.getName()+" is on Exynos 4");
             }
 
-            refFrameInvalidationActive = refFrameInvalidationAvc;
+            refFrameInvalidationActive =
+                    capabilityProfile
+                            .isAvcReferenceFrameInvalidationEnabled();
         }
         else if ((videoFormat & MoonBridge.VIDEO_FORMAT_MASK_H265) != 0) {
             mimeType = "video/hevc";
@@ -623,7 +637,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 return -2;
             }
 
-            refFrameInvalidationActive = refFrameInvalidationHevc;
+            refFrameInvalidationActive =
+                    capabilityProfile
+                            .isHevcReferenceFrameInvalidationEnabled();
         }
         else if ((videoFormat & MoonBridge.VIDEO_FORMAT_MASK_AV1) != 0) {
             mimeType = "video/av01";
@@ -634,7 +650,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 return -2;
             }
 
-            refFrameInvalidationActive = refFrameInvalidationAv1;
+            refFrameInvalidationActive =
+                    capabilityProfile
+                            .isAv1ReferenceFrameInvalidationEnabled();
         }
         else {
             // Unknown format
@@ -1789,21 +1807,25 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         int capabilities = 0;
 
         // Request the optimal number of slices per frame for this decoder
-        capabilities |= MoonBridge.CAPABILITY_SLICES_PER_FRAME(optimalSlicesPerFrame);
+        capabilities |= MoonBridge.CAPABILITY_SLICES_PER_FRAME(
+                capabilityProfile.getOptimalSlicesPerFrame());
 
         // Enable reference frame invalidation on supported hardware
-        if (refFrameInvalidationAvc) {
+        if (capabilityProfile
+                .isAvcReferenceFrameInvalidationEnabled()) {
             capabilities |= MoonBridge.CAPABILITY_REFERENCE_FRAME_INVALIDATION_AVC;
         }
-        if (refFrameInvalidationHevc) {
+        if (capabilityProfile
+                .isHevcReferenceFrameInvalidationEnabled()) {
             capabilities |= MoonBridge.CAPABILITY_REFERENCE_FRAME_INVALIDATION_HEVC;
         }
-        if (refFrameInvalidationAv1) {
+        if (capabilityProfile
+                .isAv1ReferenceFrameInvalidationEnabled()) {
             capabilities |= MoonBridge.CAPABILITY_REFERENCE_FRAME_INVALIDATION_AV1;
         }
 
         // Enable direct submit on supported hardware
-        if (directSubmit) {
+        if (capabilityProfile.isDirectSubmitEnabled()) {
             capabilities |= MoonBridge.CAPABILITY_DIRECT_SUBMIT;
         }
 

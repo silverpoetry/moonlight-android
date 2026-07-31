@@ -828,3 +828,10 @@ Verification on 2026-07-31:
   in each root/non-root debug/release variant (1,388 executions total). A clean
   `verifyConnected --rerun-tasks --no-daemon` run passed all 107 non-root and
   107 root instrumentation tests.
+- Added immutable `DecoderCapabilityProfile` ownership for direct submit,
+  per-codec reference-frame invalidation, prior-crash fallback, and optimal
+  slice aggregation. The renderer no longer keeps parallel mutable capability
+  fields after construction.
+- `verifyLocal --rerun-tasks` passed all 193 tasks after the capability
+  extraction. Each root/non-root debug/release variant ran 350 JVM tests
+  (1,400 executions total) with zero failures, errors, or skips.

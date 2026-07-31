@@ -364,6 +364,9 @@ targets.
   defaults. The MediaCodec adapter performs discovery and capability queries,
   and no longer carries the unused metered-network parameter or unreachable
   AV1 fallback branches.
+- `DecoderCapabilityProfile` freezes direct-submit, per-codec reference-frame
+  invalidation, crash fallback, and slice preferences before setup. Capability
+  reporting and active-codec selection read one immutable snapshot.
 
 ### Exit evidence
 
