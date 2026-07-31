@@ -476,6 +476,10 @@ targets.
   completion through a persistence port; the Android store preserves the
   synchronous pre-crash commit and legacy tombstone keys while Activity code
   no longer reads or writes decoder preferences.
+- `AndroidStreamSessionUiEffectsHost` is the concrete boundary for session
+  keep-screen-on flags, GameManager notifications, and input-grab changes.
+  The tested `StreamSessionUiEffects` transition owner remains unchanged while
+  `Game` no longer embeds its platform side-effect implementation.
 - `StreamHdrRequestPolicy` owns HDR request eligibility and user-warning
   selection from immutable settings and device facts. The Android capability
   provider samples OS, firmware, and display HDR10 support once; `Game` no

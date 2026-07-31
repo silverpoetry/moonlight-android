@@ -195,6 +195,20 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void gameDelegatesSessionUiEffectAdaptation() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamSessionUiEffects$Host")
+                .because(
+                        "the Android session UI host owns window, GameManager, and capture effects")
+                .check(productionClasses);
+    }
+
+    @Test
     public void gameActivityDoesNotImplementTransportCallbacks() {
         noClasses()
                 .that()

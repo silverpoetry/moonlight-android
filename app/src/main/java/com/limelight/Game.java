@@ -103,6 +103,7 @@ import com.limelight.ui.stream.AndroidStreamMediaRuntimeFactory;
 import com.limelight.ui.stream.AndroidStreamMicrophoneControllerFactory;
 import com.limelight.ui.stream.AndroidStreamOverlayVisibilityHost;
 import com.limelight.ui.stream.AndroidStreamPictureInPictureController;
+import com.limelight.ui.stream.AndroidStreamSessionUiEffectsHost;
 import com.limelight.ui.stream.StreamDecoderCapabilities;
 import com.limelight.ui.stream.StreamDisplayRefreshPolicy;
 import com.limelight.ui.stream.StreamFailureDiagnostics;
@@ -735,49 +736,10 @@ public class Game extends Activity implements OnGenericMotionListener,
             }
         });
         sessionUiEffects = new StreamSessionUiEffects(
-                new StreamSessionUiEffects.Host() {
-                    @Override
-                    public void setKeepScreenOn(
-                            boolean keepScreenOn) {
-                        if (keepScreenOn) {
-                            getWindow().addFlags(
-                                    WindowManager.LayoutParams
-                                            .FLAG_KEEP_SCREEN_ON);
-                        }
-                        else {
-                            getWindow().clearFlags(
-                                    WindowManager.LayoutParams
-                                            .FLAG_KEEP_SCREEN_ON);
-                        }
-                    }
-
-                    @Override
-                    public void notifyStreamConnecting() {
-                        UiHelper.notifyStreamConnecting(
-                                Game.this,
-                                isGameModeIntegrationDisabled());
-                    }
-
-                    @Override
-                    public void notifyStreamConnected() {
-                        UiHelper.notifyStreamConnected(
-                                Game.this,
-                                isGameModeIntegrationDisabled());
-                    }
-
-                    @Override
-                    public void notifyStreamEnded() {
-                        UiHelper.notifyStreamEnded(
-                                Game.this,
-                                isGameModeIntegrationDisabled());
-                    }
-
-                    @Override
-                    public void setInputGrabbed(boolean grabbed) {
-                        inputCaptureController
-                                .setInputGrabbed(grabbed);
-                    }
-                },
+                new AndroidStreamSessionUiEffectsHost(
+                        this,
+                        inputCaptureController,
+                        this::isGameModeIntegrationDisabled),
                 mainHandler);
         sessionPresentationController =
                 new StreamSessionPresentationController(
