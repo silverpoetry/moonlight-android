@@ -37,7 +37,6 @@ import com.limelight.settings.audio.StreamAudioSettingsState;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsState;
 import com.limelight.ui.GameGestures;
-import com.limelight.utils.Vector2d;
 
 import org.cgutman.shieldcontrollerextensions.SceManager;
 
@@ -51,8 +50,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private static final int MINIMUM_BUTTON_DOWN_TIME_MS = 25;
 
     private static final int BATTERY_RECHECK_INTERVAL_MS = 120 * 1000;
-
-    private final Vector2d inputVector = new Vector2d();
 
     private final SparseArray<InputDeviceContext> inputDeviceContexts = new SparseArray<>();
     private final SparseArray<UsbDeviceContext> usbDeviceContexts = new SparseArray<>();
@@ -1045,44 +1042,21 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 settingsState.get().isJoyConFixEnabled());
     }
 
-    private Vector2d populateCachedVector(float x, float y) {
-        // Reinitialize our cached Vector2d object
-        inputVector.initialize(x, y);
-        return inputVector;
-    }
-
-    private void handleDeadZone(Vector2d stickVector, float deadzoneRadius) {
-        if (stickVector.getMagnitude() <= deadzoneRadius) {
-            // Deadzone
-            stickVector.initialize(0, 0);
-        }
-
-        // We're not normalizing here because we let the computer handle the deadzones.
-        // Normalizing can make the deadzones larger than they should be after the computer also
-        // evaluates the deadzone.
-    }
-
     private void handleAxisSet(InputDeviceContext context, float lsX, float lsY, float rsX,
                                float rsY, float lt, float rt, float hatX, float hatY) {
 
         if (context.leftStickXAxis != -1 && context.leftStickYAxis != -1) {
-            Vector2d leftStickVector = populateCachedVector(lsX, lsY);
-
-            handleDeadZone(leftStickVector, context.leftStickDeadzoneRadius);
-
-            context.inputState.setLeftStick(
-                    (short) (leftStickVector.getX() * 0x7FFE),
-                    (short) (-leftStickVector.getY() * 0x7FFE));
+            context.inputState.updateLeftStick(
+                    lsX,
+                    lsY,
+                    context.leftStickDeadzoneRadius);
         }
 
         if (context.rightStickXAxis != -1 && context.rightStickYAxis != -1) {
-            Vector2d rightStickVector = populateCachedVector(rsX, rsY);
-
-            handleDeadZone(rightStickVector, context.rightStickDeadzoneRadius);
-
-            context.inputState.setRightStick(
-                    (short) (rightStickVector.getX() * 0x7FFE),
-                    (short) (-rightStickVector.getY() * 0x7FFE));
+            context.inputState.updateRightStick(
+                    rsX,
+                    rsY,
+                    context.rightStickDeadzoneRadius);
         }
 
         if (context.leftTriggerAxis != -1 && context.rightTriggerAxis != -1) {
@@ -1615,23 +1589,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             return;
         }
 
-        Vector2d leftStickVector = populateCachedVector(leftStickX, leftStickY);
-
-        handleDeadZone(leftStickVector, context.leftStickDeadzoneRadius);
-
-        short protocolLeftStickX =
-                (short) (leftStickVector.getX() * 0x7FFE);
-        short protocolLeftStickY =
-                (short) (-leftStickVector.getY() * 0x7FFE);
-
-        Vector2d rightStickVector = populateCachedVector(rightStickX, rightStickY);
-
-        handleDeadZone(rightStickVector, context.rightStickDeadzoneRadius);
-
-        short protocolRightStickX =
-                (short) (rightStickVector.getX() * 0x7FFE);
-        short protocolRightStickY =
-                (short) (-rightStickVector.getY() * 0x7FFE);
+        context.inputState.updateLeftStick(
+                leftStickX,
+                leftStickY,
+                context.leftStickDeadzoneRadius);
+        context.inputState.updateRightStick(
+                rightStickX,
+                rightStickY,
+                context.rightStickDeadzoneRadius);
 
         if (leftTrigger <= context.triggerDeadzone) {
             leftTrigger = 0;
@@ -1640,14 +1605,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             rightTrigger = 0;
         }
 
-        context.inputState.replace(
-                buttonFlags,
+        context.inputState.setInputMap(buttonFlags);
+        context.inputState.setTriggers(
                 (byte) (leftTrigger * 0xFF),
-                (byte) (rightTrigger * 0xFF),
-                protocolLeftStickX,
-                protocolLeftStickY,
-                protocolRightStickX,
-                protocolRightStickY);
+                (byte) (rightTrigger * 0xFF));
 
         sendControllerInputPacket(context);
     }

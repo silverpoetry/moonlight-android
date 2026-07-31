@@ -419,6 +419,12 @@ targets.
   participates in aggregated controller packets while contact forwarding can
   be delegated to Android's mouse path. No View, settings repository, or
   concrete connection is visible to the adapter.
+- `ControllerInputState` also owns radial deadzone evaluation and exact
+  float-to-protocol stick quantization for physical, USB, and virtual input.
+  The established non-renormalizing response and inverted Y mapping are shared
+  by every source. `ControllerHandler` no longer exposes one mutable scratch
+  vector to both the Android main thread and USB driver callbacks, removing a
+  cross-execution-domain race without adding event allocation or a lock.
 - `ControllerAnalogInputCombiner` owns split-device trigger and stick
   aggregation. Triggers are compared as unsigned protocol values and axes by
   signed magnitude; the previous bitwise-OR corruption path has been removed.

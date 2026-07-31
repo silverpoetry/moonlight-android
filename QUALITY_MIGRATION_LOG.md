@@ -1381,3 +1381,18 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Moved controller stick deadzone evaluation and protocol quantization into
+  each source's `ControllerInputState`. Physical Android axes and USB driver
+  reports now use the same radial, inclusive deadzone rule, preserve the
+  historical host-owned non-renormalized response, share exact signed-short
+  scaling, and invert Y once at the state boundary.
+- Removed `ControllerHandler`'s shared mutable `Vector2d` scratch object. It was
+  reachable from both main-thread Android input and USB driver callbacks, so
+  concurrent updates could overwrite the other source's intermediate values.
+  Per-context primitive conversion eliminates that race while retaining zero
+  per-event allocation and adding no synchronization or scheduler hop.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 575 JVM
+  tests per variant (2,300 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

@@ -10,6 +10,32 @@ import static org.junit.Assert.assertTrue;
 
 public final class ControllerInputStateTest {
     @Test
+    public void stickConversionAppliesRadialDeadzoneWithoutRenormalizing() {
+        ControllerInputState state = new ControllerInputState();
+
+        state.updateLeftStick(0.5f, 0, 0.5f);
+        assertEquals(0, state.getLeftStickX());
+        assertEquals(0, state.getLeftStickY());
+
+        state.updateLeftStick(0.6f, 0.25f, 0.5f);
+        assertEquals(19659, state.getLeftStickX());
+        assertEquals(-8191, state.getLeftStickY());
+    }
+
+    @Test
+    public void leftAndRightSticksUseTheSameInvertedYMapping() {
+        ControllerInputState state = new ControllerInputState();
+
+        state.updateLeftStick(-0.5f, -0.5f, 0);
+        state.updateRightStick(-0.5f, -0.5f, 0);
+
+        assertEquals(-16383, state.getLeftStickX());
+        assertEquals(16383, state.getLeftStickY());
+        assertEquals(state.getLeftStickX(), state.getRightStickX());
+        assertEquals(state.getLeftStickY(), state.getRightStickY());
+    }
+
+    @Test
     public void buttonMasksComposeAndReleaseIndependently() {
         ControllerInputState state = new ControllerInputState();
 

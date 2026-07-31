@@ -73,6 +73,32 @@ final class ControllerInputState {
         rightStickY = y;
     }
 
+    void updateLeftStick(
+            float x,
+            float y,
+            float deadzoneRadius) {
+        if (isInsideDeadzone(x, y, deadzoneRadius)) {
+            x = 0;
+            y = 0;
+        }
+        setLeftStick(
+                toProtocolStick(x),
+                toProtocolStick(-y));
+    }
+
+    void updateRightStick(
+            float x,
+            float y,
+            float deadzoneRadius) {
+        if (isInsideDeadzone(x, y, deadzoneRadius)) {
+            x = 0;
+            y = 0;
+        }
+        setRightStick(
+                toProtocolStick(x),
+                toProtocolStick(-y));
+    }
+
     void setTriggers(byte left, byte right) {
         leftTrigger = left;
         rightTrigger = right;
@@ -199,5 +225,21 @@ final class ControllerInputState {
                 previousState.rightTriggerAxisUsed;
         horizontalHatUsed = previousState.horizontalHatUsed;
         verticalHatUsed = previousState.verticalHatUsed;
+    }
+
+    private static boolean isInsideDeadzone(
+            float x,
+            float y,
+            float deadzoneRadius) {
+        // Match the historical Vector2d calculation exactly. We intentionally
+        // do not normalize outside the deadzone because the host applies its
+        // own controller deadzone.
+        return Math.sqrt(
+                Math.pow(x, 2) +
+                        Math.pow(y, 2)) <= deadzoneRadius;
+    }
+
+    private static short toProtocolStick(float value) {
+        return (short) (value * 0x7ffe);
     }
 }
