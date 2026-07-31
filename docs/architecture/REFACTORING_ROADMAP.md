@@ -422,6 +422,13 @@ targets.
   when those points are unavailable, then the non-performance size/rate API.
   `MediaCodecDecoderRenderer` consumes the frozen selection and no longer mixes
   device discovery with codec execution lifecycle.
+- `ControllerVibrationRenderer` owns Android vibration-target selection and
+  rendering across input-device managers, Shield extensions, legacy
+  vibrators, and handset fallback. Each input context now holds one target
+  instead of separately mutable manager, vibrator, channel-layout, and four
+  motor fields. `SingleVibratorRumblePlan` freezes zero/cancel, optional stop
+  pulse, forced-strong, amplitude, and legacy PWM decisions before platform
+  effects are submitted.
 - `DecoderSelectionPolicy` owns HEVC/AV1 acceptance decisions and stream color
   defaults. The MediaCodec adapter performs discovery and capability queries,
   and no longer carries the unused metered-network parameter or unreachable

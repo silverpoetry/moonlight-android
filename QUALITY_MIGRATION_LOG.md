@@ -1030,3 +1030,19 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Extracted `ControllerVibrationRenderer` as the Android adapter for vibration
+  target selection and effect submission. Android 12 dual/quad managers,
+  Shield extensions, per-input legacy vibrators, internal-controller handset
+  fallback, explicit device vibration, trigger channels, cancellation, and
+  capability reporting now share one target owner instead of six mutable
+  fields in every `InputDeviceContext`.
+- Added immutable `SingleVibratorRumblePlan` fixtures for zero cancellation,
+  the optional handset stop pulse, forced-strong priority over amplitude
+  control, the existing two-motor mix, and the bounded 20 ms legacy PWM cycle.
+  `ControllerHandler` now decides only which controller/player should receive
+  feedback and delegates all Android rendering details.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 442 JVM
+  tests per variant (1,768 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

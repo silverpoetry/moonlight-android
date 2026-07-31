@@ -14,16 +14,12 @@ import android.hardware.lights.LightsManager;
 import android.hardware.lights.LightsRequest;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
-import android.media.AudioAttributes;
 import android.os.BatteryManager;
 import android.os.Build;
-import android.os.CombinedVibration;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.os.VibrationAttributes;
-import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
 import com.limelight.DebugLog;
@@ -100,8 +96,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private final GameGestures gestures;
     private final InputManager inputManager;
     private final UsbManager usbManager;
-    private final Vibrator deviceVibrator;
-    private final VibratorManager deviceVibratorManager;
+    private final ControllerVibrationRenderer vibrationRenderer;
     private final SensorManager deviceSensorManager;
     private final SceManager sceManager;
     private final Handler mainThreadHandler;
@@ -241,31 +236,12 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     }
 
     private boolean rumbleInputDeviceContext(InputDeviceContext deviceContext,
-                                             short lowFreqMotor, short highFreqMotor) {
-        deviceContext.lowFreqMotor = lowFreqMotor;
-        deviceContext.highFreqMotor = highFreqMotor;
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && deviceContext.vibratorManager != null) {
-            if (deviceContext.quadVibrators) {
-                rumbleQuadVibrators(deviceContext.vibratorManager,
-                        deviceContext.lowFreqMotor, deviceContext.highFreqMotor,
-                        deviceContext.leftTriggerMotor, deviceContext.rightTriggerMotor);
-            }
-            else {
-                rumbleDualVibrators(deviceContext.vibratorManager,
-                        deviceContext.lowFreqMotor, deviceContext.highFreqMotor);
-            }
-            return true;
-        }
-        else if (sceManager.rumble(deviceContext.inputDevice, deviceContext.lowFreqMotor, deviceContext.highFreqMotor)) {
-            return true;
-        }
-        else if (deviceContext.vibrator != null) {
-            rumbleSingleVibrator(deviceContext.vibrator, deviceContext.lowFreqMotor, deviceContext.highFreqMotor);
-            return true;
-        }
-
-        return false;
+                                              short lowFreqMotor, short highFreqMotor) {
+        return vibrationRenderer.rumble(
+                deviceContext.vibrationTarget,
+                deviceContext.inputDevice,
+                lowFreqMotor,
+                highFreqMotor);
     }
 
     public boolean handleStandardControllerAudioHaptics(short lowFreqMotor, short highFreqMotor) {
@@ -440,7 +416,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 audioSettingsState,
                 "audioSettingsState");
         this.usbManager = (UsbManager) activityContext.getSystemService(Context.USB_SERVICE);
-        this.deviceVibrator = (Vibrator) activityContext.getSystemService(Context.VIBRATOR_SERVICE);
+        Vibrator deviceVibrator = (Vibrator) activityContext
+                .getSystemService(Context.VIBRATOR_SERVICE);
         this.deviceSensorManager = (SensorManager) activityContext.getSystemService(Context.SENSOR_SERVICE);
         this.inputManager = (InputManager) activityContext.getSystemService(Context.INPUT_SERVICE);
         this.mainThreadHandler = new Handler(Looper.getMainLooper());
@@ -483,17 +460,23 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                                 runnable);
                     }
                 };
-        this.defaultContext = new InputDeviceContext();
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            this.deviceVibratorManager = (VibratorManager) activityContext.getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
-        }
-        else {
-            this.deviceVibratorManager = null;
-        }
+        VibratorManager deviceVibratorManager =
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                        ? (VibratorManager) activityContext
+                                .getSystemService(
+                                        Context.VIBRATOR_MANAGER_SERVICE)
+                        : null;
 
         this.sceManager = new SceManager(activityContext);
         this.sceManager.start();
+        this.vibrationRenderer = new ControllerVibrationRenderer(
+                settingsState,
+                sceManager,
+                deviceVibrator,
+                deviceVibratorManager);
+        this.defaultContext = new InputDeviceContext();
+        this.defaultContext.vibrationTarget =
+                vibrationRenderer.emptyTarget();
 
         int deadzonePercentage =
                 settingsState.get().getStickDeadzonePercent();
@@ -682,7 +665,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
 
         stopRazerKishiHapticsDevices();
-        deviceVibrator.cancel();
+        vibrationRenderer.cancelDevice();
     }
 
     @Override
@@ -1127,36 +1110,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         context.hasPaddles = MoonBridge.guessControllerHasPaddles(context.vendorId, context.productId);
         context.hasShare = MoonBridge.guessControllerHasShareButton(context.vendorId, context.productId);
 
-        if (settingsState.get().isDeviceRumbleEnabled()) {
-            context.vibrator = deviceVibrator;
-        }else{
-            // Try to use the InputDevice's associated vibrators first
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && hasQuadAmplitudeControlledRumbleVibrators(dev.getVibratorManager())) {
-                context.vibratorManager = dev.getVibratorManager();
-                context.quadVibrators = true;
-            }
-            else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && hasDualAmplitudeControlledRumbleVibrators(dev.getVibratorManager())) {
-                context.vibratorManager = dev.getVibratorManager();
-                context.quadVibrators = false;
-            }
-            else if (dev.getVibrator().hasVibrator()) {
-                context.vibrator = dev.getVibrator();
-            }
-            else if (!context.external) {
-                // If this is an internal controller, try to use the device's vibrator
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && hasQuadAmplitudeControlledRumbleVibrators(deviceVibratorManager)) {
-                    context.vibratorManager = deviceVibratorManager;
-                    context.quadVibrators = true;
-                }
-                else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && hasDualAmplitudeControlledRumbleVibrators(deviceVibratorManager)) {
-                    context.vibratorManager = deviceVibratorManager;
-                    context.quadVibrators = false;
-                }
-                else if (deviceVibrator.hasVibrator()) {
-                    context.vibrator = deviceVibrator;
-                }
-            }
-        }
+        context.vibrationTarget = vibrationRenderer.selectTarget(
+                dev,
+                context.external);
         // On Android 12, we can try to use the InputDevice's sensors. This may not work if the
         // Linux kernel version doesn't have motion sensor support, which is common for third-party
         // gamepads.
@@ -1941,189 +1897,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         return true;
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.S)
-    private boolean hasDualAmplitudeControlledRumbleVibrators(VibratorManager vm) {
-        int[] vibratorIds = vm.getVibratorIds();
-
-        // There must be exactly 2 vibrators on this device
-        if (vibratorIds.length != 2) {
-            return false;
-        }
-
-        // Both vibrators must have amplitude control
-        for (int vid : vibratorIds) {
-            if (!vm.getVibrator(vid).hasAmplitudeControl()) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    // This must only be called if hasDualAmplitudeControlledRumbleVibrators() is true!
-    @RequiresApi(api = Build.VERSION_CODES.S)
-    private void rumbleDualVibrators(VibratorManager vm, short lowFreqMotor, short highFreqMotor) {
-        int[] vibratorAmplitudes =
-                ControllerRumbleAmplitudes.dual(
-                        lowFreqMotor,
-                        highFreqMotor,
-                        settingsState.get()
-                                .areRumbleMotorsFlipped());
-        if (ControllerRumbleAmplitudes
-                .areAllZero(vibratorAmplitudes)) {
-            vm.cancel();
-            return;
-        }
-
-        // There's no documentation that states that vibrators for FF_RUMBLE input devices will
-        // always be enumerated in this order, but it seems consistent between Xbox Series X (USB),
-        // PS3 (USB), and PS4 (USB+BT) controllers on Android 12 Beta 3.
-        int[] vibratorIds = vm.getVibratorIds();
-        CombinedVibration.ParallelCombination combo = CombinedVibration.startParallel();
-
-        for (int i = 0; i < vibratorIds.length; i++) {
-            // It's illegal to create a VibrationEffect with an amplitude of 0.
-            // Simply excluding that vibrator from our ParallelCombination will turn it off.
-            if (vibratorAmplitudes[i] != 0) {
-                combo.addVibrator(vibratorIds[i], VibrationEffect.createOneShot(60000, vibratorAmplitudes[i]));
-            }
-        }
-
-        VibrationAttributes.Builder vibrationAttributes = new VibrationAttributes.Builder();
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            vibrationAttributes.setUsage(VibrationAttributes.USAGE_MEDIA);
-        }
-
-        vm.vibrate(combo.combine(), vibrationAttributes.build());
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.S)
-    private boolean hasQuadAmplitudeControlledRumbleVibrators(VibratorManager vm) {
-        int[] vibratorIds = vm.getVibratorIds();
-
-        // There must be exactly 4 vibrators on this device
-        if (vibratorIds.length != 4) {
-            return false;
-        }
-
-        // All vibrators must have amplitude control
-        for (int vid : vibratorIds) {
-            if (!vm.getVibrator(vid).hasAmplitudeControl()) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    // This must only be called if hasQuadAmplitudeControlledRumbleVibrators() is true!
-    @RequiresApi(api = Build.VERSION_CODES.S)
-    private void rumbleQuadVibrators(VibratorManager vm, short lowFreqMotor, short highFreqMotor, short leftTrigger, short rightTrigger) {
-        int[] vibratorAmplitudes =
-                ControllerRumbleAmplitudes.quad(
-                        lowFreqMotor,
-                        highFreqMotor,
-                        leftTrigger,
-                        rightTrigger,
-                        settingsState.get()
-                                .areRumbleMotorsFlipped());
-        if (ControllerRumbleAmplitudes
-                .areAllZero(vibratorAmplitudes)) {
-            vm.cancel();
-            return;
-        }
-
-        // This is a guess based upon the behavior of FF_RUMBLE, but untested due to lack of Linux
-        // support for trigger rumble!
-        int[] vibratorIds = vm.getVibratorIds();
-        CombinedVibration.ParallelCombination combo = CombinedVibration.startParallel();
-
-        for (int i = 0; i < vibratorIds.length; i++) {
-            // It's illegal to create a VibrationEffect with an amplitude of 0.
-            // Simply excluding that vibrator from our ParallelCombination will turn it off.
-            if (vibratorAmplitudes[i] != 0) {
-                combo.addVibrator(vibratorIds[i], VibrationEffect.createOneShot(60000, vibratorAmplitudes[i]));
-            }
-        }
-
-        VibrationAttributes.Builder vibrationAttributes = new VibrationAttributes.Builder();
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            vibrationAttributes.setUsage(VibrationAttributes.USAGE_MEDIA);
-        }
-
-        vm.vibrate(combo.combine(), vibrationAttributes.build());
-    }
-
-    private void rumbleSingleVibrator(Vibrator vibrator, short lowFreqMotor, short highFreqMotor) {
-        ControllerSettings settings = settingsState.get();
-        int simulatedAmplitude =
-                ControllerRumbleAmplitudes.single(
-                        lowFreqMotor,
-                        highFreqMotor);
-
-        if (simulatedAmplitude == 0) {
-            // This case is easy - just cancel the current effect and get out.
-            // NB: We cannot simply check lowFreqMotor == highFreqMotor == 0
-            // because our simulatedAmplitude could be 0 even though our inputs
-            // are not (ex: lowFreqMotor == 0 && highFreqMotor == 1).
-            vibrator.cancel();
-            if (vibrator == deviceVibrator &&
-                    settings
-                            .isForceStrongVibrationsStopPulseEnabled()) {
-                vibrator.vibrate(1);
-            }
-            return;
-        }
-        //设备震动马达，并且开启强烈震动
-        if (vibrator == deviceVibrator &&
-                settings
-                        .isForceStrongVibrationsEnabled()) {
-            vibrator.vibrate(60000);
-            return;
-        }
-
-        // Attempt to use amplitude-based control if we're on Oreo and the device
-        // supports amplitude-based vibration control.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (vibrator.hasAmplitudeControl()) {
-                VibrationEffect effect = VibrationEffect.createOneShot(60000, simulatedAmplitude);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    VibrationAttributes vibrationAttributes = new VibrationAttributes.Builder()
-                            .setUsage(VibrationAttributes.USAGE_MEDIA)
-                            .build();
-                    vibrator.vibrate(effect, vibrationAttributes);
-                }
-                else {
-                    AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_GAME)
-                            .build();
-                    vibrator.vibrate(effect, audioAttributes);
-                }
-                return;
-            }
-        }
-
-        // If we reach this point, we don't have amplitude controls available, so
-        // we must emulate it by PWMing the vibration. Ick.
-        long pwmPeriod = 20;
-        long onTime = (long)((simulatedAmplitude / 255.0) * pwmPeriod);
-        long offTime = pwmPeriod - onTime;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            VibrationAttributes vibrationAttributes = new VibrationAttributes.Builder()
-                    .setUsage(VibrationAttributes.USAGE_MEDIA)
-                    .build();
-            vibrator.vibrate(VibrationEffect.createWaveform(new long[]{0, onTime, offTime}, 0), vibrationAttributes);
-        }
-        else {
-            AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_GAME)
-                    .build();
-            vibrator.vibrate(new long[]{0, onTime, offTime}, 0, audioAttributes);
-        }
-    }
-
     public void handleRumble(short controllerNumber, short lowFreqMotor, short highFreqMotor) {
         boolean foundMatchingDevice = false;
         boolean vibrated = false;
@@ -2167,7 +1940,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     settings.isOnscreenControllerEnabled() &&
                     !settings.isOnlyL3R3Enabled() &&
                     settings.isOnscreenRumbleEnabled()) {
-                rumbleSingleVibrator(deviceVibrator, lowFreqMotor, highFreqMotor);
+                vibrationRenderer.rumbleDevice(
+                        lowFreqMotor,
+                        highFreqMotor);
             }
             else if (foundMatchingDevice &&
                     !vibrated &&
@@ -2188,7 +1963,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                                         settings
                                                 .getFallbackDeviceRumbleStrengthPercent());
 
-                rumbleSingleVibrator(deviceVibrator, lowFreqMotorAdjusted, highFreqMotorAdjusted);
+                vibrationRenderer.rumbleDevice(
+                        lowFreqMotorAdjusted,
+                        highFreqMotorAdjusted);
             }
         }
     }
@@ -2198,24 +1975,18 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             return;
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            for (int i = 0; i < inputDeviceContexts.size(); i++) {
-                InputDeviceContext deviceContext = inputDeviceContexts.valueAt(i);
+        for (int i = 0; i < inputDeviceContexts.size(); i++) {
+            InputDeviceContext deviceContext = inputDeviceContexts.valueAt(i);
 
-                if (deviceContext.controllerNumber == controllerNumber) {
-                    if (shouldSuppressInputDeviceRumble(deviceContext)) {
-                        continue;
-                    }
-
-                    deviceContext.leftTriggerMotor = leftTrigger;
-                    deviceContext.rightTriggerMotor = rightTrigger;
-
-                    if (deviceContext.quadVibrators) {
-                        rumbleQuadVibrators(deviceContext.vibratorManager,
-                                deviceContext.lowFreqMotor, deviceContext.highFreqMotor,
-                                deviceContext.leftTriggerMotor, deviceContext.rightTriggerMotor);
-                    }
+            if (deviceContext.controllerNumber == controllerNumber) {
+                if (shouldSuppressInputDeviceRumble(deviceContext)) {
+                    continue;
                 }
+
+                vibrationRenderer.rumbleTriggers(
+                        deviceContext.vibrationTarget,
+                        leftTrigger,
+                        rightTrigger);
             }
         }
 
@@ -3120,11 +2891,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
     class InputDeviceContext extends GenericControllerContext {
         public String name;
-        public VibratorManager vibratorManager;
-        public Vibrator vibrator;
-        public boolean quadVibrators;
-        public short lowFreqMotor, highFreqMotor;
-        public short leftTriggerMotor, rightTriggerMotor;
+        public ControllerVibrationRenderer.Target vibrationTarget;
 
         public SensorManager sensorManager;
         private SensorEventListener gyroListener;
@@ -3220,12 +2987,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         @Override
         public void destroy() {
             super.destroy();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && vibratorManager != null) {
-                vibratorManager.cancel();
-            }
-            else if (vibrator != null) {
-                vibrator.cancel();
-            }
+            vibrationRenderer.cancel(vibrationTarget);
 
             motionSession.destroy();
 
@@ -3298,10 +3060,15 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                             .hasAdvancedInputDeviceApis(
                                     Build.VERSION.SDK_INT >=
                                             Build.VERSION_CODES.S)
-                            .hasQuadVibrators(quadVibrators)
+                            .hasQuadVibrators(
+                                    vibrationTarget
+                                            .hasQuadVibrators())
                             .hasVibratorManager(
-                                    vibratorManager != null)
-                            .hasLegacyVibrator(vibrator != null)
+                                    vibrationTarget
+                                            .hasVibratorManager())
+                            .hasLegacyVibrator(
+                                    vibrationTarget
+                                            .hasLegacyVibrator())
                             .external(external)
                             .hasRgbLed(hasRgbLed)
                             .hasReliableRgbLedDetection(
