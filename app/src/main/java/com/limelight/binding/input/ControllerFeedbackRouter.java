@@ -28,6 +28,16 @@ final class ControllerFeedbackRouter {
                 short rightTriggerMotor);
 
         void setLedColor(byte red, byte green, byte blue);
+
+        boolean deliverStandardAudioHaptics(
+                short lowFrequencyMotor,
+                short highFrequencyMotor);
+
+        boolean submitAdvancedAudioHapticsFrame(
+                byte[] frame,
+                float intensityGain);
+
+        void setAdvancedAudioHapticsEnabled(boolean enabled);
     }
 
     interface Targets {
@@ -98,6 +108,50 @@ final class ControllerFeedbackRouter {
             if (target.getControllerNumber() == controllerNumber) {
                 target.setLedColor(red, green, blue);
             }
+        }
+    }
+
+    static boolean routeStandardAudioHaptics(
+            Targets targets,
+            short lowFrequencyMotor,
+            short highFrequencyMotor) {
+        Objects.requireNonNull(targets, "targets");
+        boolean delivered = false;
+        int targetCount = targets.size();
+        for (int index = 0; index < targetCount; index++) {
+            delivered |= targets.targetAt(index)
+                    .deliverStandardAudioHaptics(
+                            lowFrequencyMotor,
+                            highFrequencyMotor);
+        }
+        return delivered;
+    }
+
+    static boolean routeAdvancedAudioHapticsFrame(
+            Targets targets,
+            byte[] frame,
+            float intensityGain) {
+        Objects.requireNonNull(targets, "targets");
+        Objects.requireNonNull(frame, "frame");
+        boolean delivered = false;
+        int targetCount = targets.size();
+        for (int index = 0; index < targetCount; index++) {
+            delivered |= targets.targetAt(index)
+                    .submitAdvancedAudioHapticsFrame(
+                            frame,
+                            intensityGain);
+        }
+        return delivered;
+    }
+
+    static void setAdvancedAudioHapticsEnabled(
+            Targets targets,
+            boolean enabled) {
+        Objects.requireNonNull(targets, "targets");
+        int targetCount = targets.size();
+        for (int index = 0; index < targetCount; index++) {
+            targets.targetAt(index)
+                    .setAdvancedAudioHapticsEnabled(enabled);
         }
     }
 }

@@ -145,43 +145,31 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 highFreqMotor);
     }
 
-    public boolean handleStandardControllerAudioHaptics(short lowFreqMotor, short highFreqMotor) {
+    public boolean handleStandardControllerAudioHaptics(
+            short lowFreqMotor,
+            short highFreqMotor) {
         if (stopped || !shouldUseControllerAudioHaptics()) {
             return false;
         }
-
-        boolean vibrated = false;
-
-        for (int i = 0; i < inputDeviceContexts.size(); i++) {
-            InputDeviceContext deviceContext = inputDeviceContexts.valueAt(i);
-            vibrated |= rumbleInputDeviceContext(deviceContext, lowFreqMotor, highFreqMotor);
-        }
-
-        for (int i = 0; i < usbDeviceContexts.size(); i++) {
-            UsbDeviceContext deviceContext = usbDeviceContexts.valueAt(i);
-            if (!deviceContext.device.isAdvancedAudioHapticsActive()) {
-                deviceContext.device.rumble(lowFreqMotor, highFreqMotor);
-                vibrated = true;
-            }
-        }
-
-        return vibrated;
+        return ControllerFeedbackRouter.routeStandardAudioHaptics(
+                controllerFeedbackTargets,
+                lowFreqMotor,
+                highFreqMotor);
     }
 
-    public boolean handleControllerAdvancedAudioHapticsFrame(byte[] frame, float intensityGain) {
-        if (stopped || !shouldUseControllerAudioHaptics() || frame == null || frame.length == 0) {
+    public boolean handleControllerAdvancedAudioHapticsFrame(
+            byte[] frame,
+            float intensityGain) {
+        if (stopped ||
+                !shouldUseControllerAudioHaptics() ||
+                frame == null ||
+                frame.length == 0) {
             return false;
         }
-
-        boolean submitted = false;
-        for (int i = 0; i < usbDeviceContexts.size(); i++) {
-            UsbDeviceContext deviceContext = usbDeviceContexts.valueAt(i);
-            if (deviceContext.device.isAdvancedAudioHapticsActive()) {
-                submitted |= deviceContext.device.submitAdvancedAudioHapticsFrame(frame, intensityGain);
-            }
-        }
-
-        return submitted;
+        return ControllerFeedbackRouter.routeAdvancedAudioHapticsFrame(
+                controllerFeedbackTargets,
+                frame,
+                intensityGain);
     }
 
     public boolean handleRazerKishiAudioHapticsFrame(byte[] frame, float intensityGain) {
@@ -196,22 +184,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             return;
         }
 
-        boolean enableControllerAudioHaptics = shouldUseControllerAudioHaptics();
-        for (int i = 0; i < usbDeviceContexts.size(); i++) {
-            UsbDeviceContext deviceContext = usbDeviceContexts.valueAt(i);
-            AbstractController controller = deviceContext.device;
-            if (!controller.hasAdvancedAudioHapticsSupport()) {
-                continue;
-            }
-
-            if (enableControllerAudioHaptics) {
-                controller.startAdvancedAudioHaptics();
-            }
-            else {
-                controller.stopAdvancedAudioHaptics();
-            }
-        }
-
+        ControllerFeedbackRouter.setAdvancedAudioHapticsEnabled(
+                controllerFeedbackTargets,
+                shouldUseControllerAudioHaptics());
         razerKishiHapticsController.refresh();
     }
 
@@ -2033,6 +2008,29 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             ledSession.setColor(red, green, blue);
         }
 
+        @Override
+        public boolean deliverStandardAudioHaptics(
+                short lowFrequencyMotor,
+                short highFrequencyMotor) {
+            return rumbleInputDeviceContext(
+                    this,
+                    lowFrequencyMotor,
+                    highFrequencyMotor);
+        }
+
+        @Override
+        public boolean submitAdvancedAudioHapticsFrame(
+                byte[] frame,
+                float intensityGain) {
+            return false;
+        }
+
+        @Override
+        public void setAdvancedAudioHapticsEnabled(
+                boolean enabled) {
+            // Android input-device vibration has no advanced stream mode.
+        }
+
         private final ControllerButtonMapper buttonMapper;
         private final ControllerButtonMappingState buttonMappingState;
         private final ControllerChordEmulationState
@@ -2390,6 +2388,43 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 byte green,
                 byte blue) {
             // The current USB driver contract exposes no LED command.
+        }
+
+        @Override
+        public boolean deliverStandardAudioHaptics(
+                short lowFrequencyMotor,
+                short highFrequencyMotor) {
+            if (device.isAdvancedAudioHapticsActive()) {
+                return false;
+            }
+            device.rumble(
+                    lowFrequencyMotor,
+                    highFrequencyMotor);
+            return true;
+        }
+
+        @Override
+        public boolean submitAdvancedAudioHapticsFrame(
+                byte[] frame,
+                float intensityGain) {
+            return device.isAdvancedAudioHapticsActive() &&
+                    device.submitAdvancedAudioHapticsFrame(
+                            frame,
+                            intensityGain);
+        }
+
+        @Override
+        public void setAdvancedAudioHapticsEnabled(
+                boolean enabled) {
+            if (!device.hasAdvancedAudioHapticsSupport()) {
+                return;
+            }
+            if (enabled) {
+                device.startAdvancedAudioHaptics();
+            }
+            else {
+                device.stopAdvancedAudioHaptics();
+            }
         }
 
         @Override

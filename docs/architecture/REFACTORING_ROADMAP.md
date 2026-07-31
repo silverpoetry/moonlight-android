@@ -479,7 +479,10 @@ targets.
   hardware, successful delivery, and deliberate audio-haptics suppression;
   only the unavailable case can activate handset fallback. The router is a
   stateless bounded traversal with enum results and no event-path allocation,
-  lock, queue, or scheduler hop.
+  lock, queue, or scheduler hop. The same target contract also owns standard
+  audio-haptics motor delivery, advanced-frame fan-out, and advanced-mode
+  enablement; one read-only frame is passed through without copying or
+  retention, while the independent Kishi sidecar keeps its dedicated lifecycle.
 - `ControllerMotionSession` owns requested accelerometer/gyroscope rates,
   bounded sampling policy, delayed restoration, cancellation generations,
   neutral-gyro output, migration, and destruction. Physical and on-device

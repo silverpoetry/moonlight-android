@@ -1471,3 +1471,17 @@ Verification on 2026-07-31:
 - `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 604 JVM
   tests per variant (2,416 executions total), all Lint variants, and both
   unminified Release APKs.
+- Extended the feedback target contract to standard audio-haptics motors,
+  advanced USB audio frames, and advanced-mode enable/disable transitions.
+  `ControllerHandler` now applies only the stopped/feature gates; one router
+  traversal fans out to Android vibration or USB driver adapters and aggregates
+  delivery without copying or retaining the audio frame.
+- Targets with an active advanced stream do not also receive the standard
+  motor approximation, preserving the existing ownership split. Unsupported
+  Android and USB targets are explicit no-ops, while the separately managed
+  Kishi sidecar remains outside the physical-controller registry. Three new
+  fixtures lock standard delivery aggregation, advanced-frame fan-out, and
+  enablement broadcast.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 607 JVM
+  tests per variant (2,428 executions total), all Lint variants, and both
+  unminified Release APKs.
