@@ -389,6 +389,13 @@ targets.
   timestamp and the exact configured-button, held-mask, repeat, and hold-time
   policy for toggling controller mouse mode or opening the stream menu. The
   Android handler retains only the resulting UI action.
+- `ControllerInputState` is the single mutable owner of one input source's
+  protocol-visible buttons, sticks, triggers, Hat state, and analog-usage
+  history. Physical, USB, virtual, gyro-stick, touchpad-button, chord, and
+  mouse-emulation paths all update or read this boundary instead of sharing
+  writable packet fields through the handler context. Trigger normalization
+  and Hat transitions are platform-independent and fixture-locked; the event
+  path adds no allocation, lock, scheduler, or transport hop.
 - `ControllerAnalogInputCombiner` owns split-device trigger and stick
   aggregation. Triggers are compared as unsigned protocol values and axes by
   signed magnitude; the previous bitwise-OR corruption path has been removed.

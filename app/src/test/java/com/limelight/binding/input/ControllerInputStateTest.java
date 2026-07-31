@@ -1,0 +1,96 @@
+package com.limelight.binding.input;
+
+import com.limelight.nvstream.input.ControllerPacket;
+
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+public final class ControllerInputStateTest {
+    @Test
+    public void buttonMasksComposeAndReleaseIndependently() {
+        ControllerInputState state = new ControllerInputState();
+
+        state.setButtonMask(ControllerPacket.A_FLAG, true);
+        state.setButtonMask(ControllerPacket.B_FLAG, true);
+        state.setButtonMask(ControllerPacket.A_FLAG, false);
+
+        assertEquals(ControllerPacket.B_FLAG, state.getInputMap());
+    }
+
+    @Test
+    public void hatUpdatesOnlyDirectionalBitsAndRemembersUsedAxes() {
+        ControllerInputState state = new ControllerInputState();
+        state.setButtonMask(ControllerPacket.X_FLAG, true);
+
+        state.updateHat(-1.0f, 1.0f);
+
+        assertEquals(
+                ControllerPacket.X_FLAG |
+                        ControllerPacket.LEFT_FLAG |
+                        ControllerPacket.DOWN_FLAG,
+                state.getInputMap());
+        assertTrue(state.isHorizontalHatUsed());
+        assertTrue(state.isVerticalHatUsed());
+
+        state.updateHat(0, 0);
+        assertEquals(ControllerPacket.X_FLAG, state.getInputMap());
+        assertTrue(state.isHorizontalHatUsed());
+        assertTrue(state.isVerticalHatUsed());
+    }
+
+    @Test
+    public void negativeIdleTriggersNormalizeOnlyAfterMovement() {
+        ControllerInputState state = new ControllerInputState();
+
+        state.updateTriggerAxes(0, 0, true, 0.13f);
+        assertEquals(0, Byte.toUnsignedInt(state.getLeftTrigger()));
+        assertEquals(0, Byte.toUnsignedInt(state.getRightTrigger()));
+
+        state.updateTriggerAxes(-0.5f, 1.0f, true, 0.13f);
+        assertEquals(63, Byte.toUnsignedInt(state.getLeftTrigger()));
+        assertEquals(255, Byte.toUnsignedInt(state.getRightTrigger()));
+        assertTrue(state.isLeftTriggerAxisUsed());
+        assertTrue(state.isRightTriggerAxisUsed());
+    }
+
+    @Test
+    public void analogTriggerUseSuppressesDigitalTriggerMutation() {
+        ControllerInputState state = new ControllerInputState();
+
+        assertTrue(state.setDigitalTrigger(true, true));
+        assertEquals(255, Byte.toUnsignedInt(state.getLeftTrigger()));
+        assertTrue(state.setDigitalTrigger(true, false));
+
+        state.updateTriggerAxes(0.5f, 0, false, 0.13f);
+
+        assertFalse(state.setDigitalTrigger(true, false));
+        assertEquals(127, Byte.toUnsignedInt(state.getLeftTrigger()));
+        assertTrue(state.setDigitalTrigger(false, true));
+        assertEquals(255, Byte.toUnsignedInt(state.getRightTrigger()));
+    }
+
+    @Test
+    public void replacementSetsOneCompleteProtocolSnapshot() {
+        ControllerInputState state = new ControllerInputState();
+
+        state.replace(
+                123,
+                (byte) 45,
+                (byte) 67,
+                (short) 100,
+                (short) -200,
+                (short) 300,
+                (short) -400);
+
+        assertEquals(123, state.getInputMap());
+        assertEquals(45, state.getLeftTrigger());
+        assertEquals(67, state.getRightTrigger());
+        assertEquals(100, state.getLeftStickX());
+        assertEquals(-200, state.getLeftStickY());
+        assertEquals(300, state.getRightStickX());
+        assertEquals(-400, state.getRightStickY());
+    }
+}

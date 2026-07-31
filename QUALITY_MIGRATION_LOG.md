@@ -1311,3 +1311,21 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Added `ControllerInputState` as the only mutable owner of each controller
+  input source's protocol report. Digital buttons, chord results, physical and
+  USB sticks, analog and digital triggers, Hat directions, touchpad click,
+  virtual-controller replacement reports, gyro-stick output, packet
+  aggregation, and mouse emulation now cross that boundary instead of
+  mutating seven independent fields on `ControllerHandler` contexts.
+- Moved negative-idle trigger activation history, deadzone conversion,
+  analog-over-digital trigger precedence, and persistent Hat-axis discovery
+  into the platform-independent state owner. Fixtures preserve the initial
+  zero sample rule, unsigned trigger values, directional-bit isolation,
+  independent button releases, and complete snapshot replacement. The
+  realtime path still adds no allocation, lock, queue, thread, or reordered
+  transport call.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 547 JVM
+  tests per variant (2,188 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

@@ -974,31 +974,31 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                             controllerNumber &&
                     context.isMouseEmulationActive() ==
                             originalContext.isMouseEmulationActive()) {
-                inputMap |= context.inputMap;
+                inputMap |= context.inputState.getInputMap();
                 leftTrigger =
                         ControllerAnalogInputCombiner.combineTrigger(
                                 leftTrigger,
-                                context.leftTrigger);
+                                context.inputState.getLeftTrigger());
                 rightTrigger =
                         ControllerAnalogInputCombiner.combineTrigger(
                                 rightTrigger,
-                                context.rightTrigger);
+                                context.inputState.getRightTrigger());
                 leftStickX =
                         ControllerAnalogInputCombiner.combineAxis(
                                 leftStickX,
-                                context.leftStickX);
+                                context.inputState.getLeftStickX());
                 leftStickY =
                         ControllerAnalogInputCombiner.combineAxis(
                                 leftStickY,
-                                context.leftStickY);
+                                context.inputState.getLeftStickY());
                 rightStickX =
                         ControllerAnalogInputCombiner.combineAxis(
                                 rightStickX,
-                                context.rightStickX);
+                                context.inputState.getRightStickX());
                 rightStickY =
                         ControllerAnalogInputCombiner.combineAxis(
                                 rightStickY,
-                                context.rightStickY);
+                                context.inputState.getRightStickY());
             }
         }
         for (int i = 0; i < usbDeviceContexts.size(); i++) {
@@ -1008,60 +1008,60 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                             controllerNumber &&
                     context.isMouseEmulationActive() ==
                             originalContext.isMouseEmulationActive()) {
-                inputMap |= context.inputMap;
+                inputMap |= context.inputState.getInputMap();
                 leftTrigger =
                         ControllerAnalogInputCombiner.combineTrigger(
                                 leftTrigger,
-                                context.leftTrigger);
+                                context.inputState.getLeftTrigger());
                 rightTrigger =
                         ControllerAnalogInputCombiner.combineTrigger(
                                 rightTrigger,
-                                context.rightTrigger);
+                                context.inputState.getRightTrigger());
                 leftStickX =
                         ControllerAnalogInputCombiner.combineAxis(
                                 leftStickX,
-                                context.leftStickX);
+                                context.inputState.getLeftStickX());
                 leftStickY =
                         ControllerAnalogInputCombiner.combineAxis(
                                 leftStickY,
-                                context.leftStickY);
+                                context.inputState.getLeftStickY());
                 rightStickX =
                         ControllerAnalogInputCombiner.combineAxis(
                                 rightStickX,
-                                context.rightStickX);
+                                context.inputState.getRightStickX());
                 rightStickY =
                         ControllerAnalogInputCombiner.combineAxis(
                                 rightStickY,
-                                context.rightStickY);
+                                context.inputState.getRightStickY());
             }
         }
         if (defaultContext.slotLease.getControllerNumber() ==
                 controllerNumber) {
-            inputMap |= defaultContext.inputMap;
+            inputMap |= defaultContext.inputState.getInputMap();
             leftTrigger =
                     ControllerAnalogInputCombiner.combineTrigger(
                             leftTrigger,
-                            defaultContext.leftTrigger);
+                            defaultContext.inputState.getLeftTrigger());
             rightTrigger =
                     ControllerAnalogInputCombiner.combineTrigger(
                             rightTrigger,
-                            defaultContext.rightTrigger);
+                            defaultContext.inputState.getRightTrigger());
             leftStickX =
                     ControllerAnalogInputCombiner.combineAxis(
                             leftStickX,
-                            defaultContext.leftStickX);
+                            defaultContext.inputState.getLeftStickX());
             leftStickY =
                     ControllerAnalogInputCombiner.combineAxis(
                             leftStickY,
-                            defaultContext.leftStickY);
+                            defaultContext.inputState.getLeftStickY());
             rightStickX =
                     ControllerAnalogInputCombiner.combineAxis(
                             rightStickX,
-                            defaultContext.rightStickX);
+                            defaultContext.inputState.getRightStickX());
             rightStickY =
                     ControllerAnalogInputCombiner.combineAxis(
                             rightStickY,
-                            defaultContext.rightStickY);
+                            defaultContext.inputState.getRightStickY());
         }
 
         if (originalContext.isMouseEmulationActive()) {
@@ -1142,8 +1142,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
             handleDeadZone(leftStickVector, context.leftStickDeadzoneRadius);
 
-            context.leftStickX = (short) (leftStickVector.getX() * 0x7FFE);
-            context.leftStickY = (short) (-leftStickVector.getY() * 0x7FFE);
+            context.inputState.setLeftStick(
+                    (short) (leftStickVector.getX() * 0x7FFE),
+                    (short) (-leftStickVector.getY() * 0x7FFE));
         }
 
         if (context.rightStickXAxis != -1 && context.rightStickYAxis != -1) {
@@ -1151,61 +1152,21 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
             handleDeadZone(rightStickVector, context.rightStickDeadzoneRadius);
 
-            context.rightStickX = (short) (rightStickVector.getX() * 0x7FFE);
-            context.rightStickY = (short) (-rightStickVector.getY() * 0x7FFE);
+            context.inputState.setRightStick(
+                    (short) (rightStickVector.getX() * 0x7FFE),
+                    (short) (-rightStickVector.getY() * 0x7FFE));
         }
 
         if (context.leftTriggerAxis != -1 && context.rightTriggerAxis != -1) {
-            // Android sends an initial 0 value for trigger axes even if the trigger
-            // should be negative when idle. After the first touch, the axes will go back
-            // to normal behavior, so ignore triggersIdleNegative for each trigger until
-            // first touch.
-            if (lt != 0) {
-                context.leftTriggerAxisUsed = true;
-            }
-            if (rt != 0) {
-                context.rightTriggerAxisUsed = true;
-            }
-            if (context.triggersIdleNegative) {
-                if (context.leftTriggerAxisUsed) {
-                    lt = (lt + 1) / 2;
-                }
-                if (context.rightTriggerAxisUsed) {
-                    rt = (rt + 1) / 2;
-                }
-            }
-
-            if (lt <= context.triggerDeadzone) {
-                lt = 0;
-            }
-            if (rt <= context.triggerDeadzone) {
-                rt = 0;
-            }
-
-            context.leftTrigger = (byte)(lt * 0xFF);
-            context.rightTrigger = (byte)(rt * 0xFF);
+            context.inputState.updateTriggerAxes(
+                    lt,
+                    rt,
+                    context.triggersIdleNegative,
+                    context.triggerDeadzone);
         }
 
         if (context.hatXAxis != -1 && context.hatYAxis != -1) {
-            context.inputMap &= ~(ControllerPacket.LEFT_FLAG | ControllerPacket.RIGHT_FLAG);
-            if (hatX < -0.5) {
-                context.inputMap |= ControllerPacket.LEFT_FLAG;
-                context.hatXAxisUsed = true;
-            }
-            else if (hatX > 0.5) {
-                context.inputMap |= ControllerPacket.RIGHT_FLAG;
-                context.hatXAxisUsed = true;
-            }
-
-            context.inputMap &= ~(ControllerPacket.UP_FLAG | ControllerPacket.DOWN_FLAG);
-            if (hatY < -0.5) {
-                context.inputMap |= ControllerPacket.UP_FLAG;
-                context.hatYAxisUsed = true;
-            }
-            else if (hatY > 0.5) {
-                context.inputMap |= ControllerPacket.DOWN_FLAG;
-                context.hatYAxisUsed = true;
-            }
+            context.inputState.updateHat(hatX, hatY);
         }
 
         sendControllerInputPacket(context);
@@ -1260,12 +1221,16 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             // down and up on a mouse indicates the state of the left mouse button.
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
-                    context.inputMap |= ControllerPacket.TOUCHPAD_FLAG;
+                    context.inputState.setButtonMask(
+                            ControllerPacket.TOUCHPAD_FLAG,
+                            true);
                     sendControllerInputPacket(context);
                     break;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
-                    context.inputMap &= ~ControllerPacket.TOUCHPAD_FLAG;
+                    context.inputState.setButtonMask(
+                            ControllerPacket.TOUCHPAD_FLAG,
+                            false);
                     sendControllerInputPacket(context);
                     break;
                 default:
@@ -1306,7 +1271,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
             case MotionEvent.ACTION_BUTTON_PRESS:
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && event.getActionButton() == MotionEvent.BUTTON_PRIMARY) {
-                    context.inputMap |= ControllerPacket.TOUCHPAD_FLAG;
+                    context.inputState.setButtonMask(
+                            ControllerPacket.TOUCHPAD_FLAG,
+                            true);
                     sendControllerInputPacket(context);
                     return !touchpadAsMouse; // Report as unhandled event to trigger mouse handling
                 }
@@ -1314,7 +1281,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
             case MotionEvent.ACTION_BUTTON_RELEASE:
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && event.getActionButton() == MotionEvent.BUTTON_PRIMARY) {
-                    context.inputMap &= ~ControllerPacket.TOUCHPAD_FLAG;
+                    context.inputState.setButtonMask(
+                            ControllerPacket.TOUCHPAD_FLAG,
+                            false);
                     sendControllerInputPacket(context);
                     return !touchpadAsMouse; // Report as unhandled event to trigger mouse handling
                 }
@@ -1527,8 +1496,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                             public void sendControllerInput(
                                     short rightStickX,
                                     short rightStickY) {
-                                context.rightStickX = rightStickX;
-                                context.rightStickY = rightStickY;
+                                context.inputState.setRightStick(
+                                        rightStickX,
+                                        rightStickY);
                                 sendControllerInputPacket(context);
                             }
 
@@ -1627,26 +1597,26 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
         if (ControllerDigitalButtonMapping.isSuppressedByHat(
                 target,
-                context.hatXAxisUsed,
-                context.hatYAxisUsed)) {
+                context.inputState.isHorizontalHatUsed(),
+                context.inputState.isVerticalHatUsed())) {
             return DigitalButtonApplication.SUPPRESSED;
         }
 
         if (target ==
                 ControllerDigitalButtonMapping.Target.LEFT_TRIGGER) {
-            if (context.leftTriggerAxisUsed) {
-                return DigitalButtonApplication.SUPPRESSED;
-            }
-            context.leftTrigger = pressed ? (byte) 0xff : 0;
-            return DigitalButtonApplication.APPLIED;
+            return context.inputState.setDigitalTrigger(
+                    true,
+                    pressed)
+                    ? DigitalButtonApplication.APPLIED
+                    : DigitalButtonApplication.SUPPRESSED;
         }
         if (target ==
                 ControllerDigitalButtonMapping.Target.RIGHT_TRIGGER) {
-            if (context.rightTriggerAxisUsed) {
-                return DigitalButtonApplication.SUPPRESSED;
-            }
-            context.rightTrigger = pressed ? (byte) 0xff : 0;
-            return DigitalButtonApplication.APPLIED;
+            return context.inputState.setDigitalTrigger(
+                    false,
+                    pressed)
+                    ? DigitalButtonApplication.APPLIED
+                    : DigitalButtonApplication.SUPPRESSED;
         }
 
         if (pressed) {
@@ -1662,10 +1632,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     ControllerDigitalButtonMapping.Target.BACK) {
                 context.chordEmulationState.observeSelectButton();
             }
-            context.inputMap |= target.getInputMask();
+            context.inputState.setButtonMask(
+                    target.getInputMask(),
+                    true);
         }
         else {
-            context.inputMap &= ~target.getInputMask();
+            context.inputState.setButtonMask(
+                    target.getInputMask(),
+                    false);
             if (target ==
                     ControllerDigitalButtonMapping.Target.LEFT_BUMPER) {
                 context.chordEmulationState.recordLeftBumperUp(
@@ -1700,7 +1674,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 target,
                 settings.isMouseEmulationEnabled(),
                 settings.getMouseEmulationButton(),
-                context.inputMap,
+                context.inputState.getInputMap(),
                 eventTime)) {
             activateMouseEmulationAction(context, settings);
         }
@@ -1768,14 +1742,15 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             return true;
         }
 
-        context.inputMap =
+        context.inputState.setInputMap(
                 context.chordEmulationState.applyButtonUp(
-                        context.inputMap);
+                        context.inputState.getInputMap()));
 
         sendControllerInputPacket(context);
 
         if (context.chordEmulationState
-                .shouldFinishAfterButtonUp(context.inputMap)) {
+                .shouldFinishAfterButtonUp(
+                        context.inputState.getInputMap())) {
             // All buttons from the quit combo are lifted. Finish the activity now.
             activityContext.finish();
         }
@@ -1819,10 +1794,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             return true;
         }
 
-        context.inputMap =
+        context.inputState.setInputMap(
                 context.chordEmulationState.applyButtonDown(
-                        context.inputMap,
-                        event.getEventTime());
+                        context.inputState.getInputMap(),
+                        event.getEventTime()));
 
         // We don't need to send repeat key down events, but the platform
         // sends us events that claim to be repeats but they're from different
@@ -1835,16 +1810,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                                short leftStickX, short leftStickY,
                                short rightStickX, short rightStickY,
                                byte leftTrigger, byte rightTrigger) {
-        defaultContext.leftStickX = leftStickX;
-        defaultContext.leftStickY = leftStickY;
-
-        defaultContext.rightStickX = rightStickX;
-        defaultContext.rightStickY = rightStickY;
-
-        defaultContext.leftTrigger = leftTrigger;
-        defaultContext.rightTrigger = rightTrigger;
-
-        defaultContext.inputMap = buttonFlags;
+        defaultContext.inputState.replace(
+                buttonFlags,
+                leftTrigger,
+                rightTrigger,
+                leftStickX,
+                leftStickY,
+                rightStickX,
+                rightStickY);
 
         sendControllerInputPacket(defaultContext);
     }
@@ -1863,15 +1836,19 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         handleDeadZone(leftStickVector, context.leftStickDeadzoneRadius);
 
-        context.leftStickX = (short) (leftStickVector.getX() * 0x7FFE);
-        context.leftStickY = (short) (-leftStickVector.getY() * 0x7FFE);
+        short protocolLeftStickX =
+                (short) (leftStickVector.getX() * 0x7FFE);
+        short protocolLeftStickY =
+                (short) (-leftStickVector.getY() * 0x7FFE);
 
         Vector2d rightStickVector = populateCachedVector(rightStickX, rightStickY);
 
         handleDeadZone(rightStickVector, context.rightStickDeadzoneRadius);
 
-        context.rightStickX = (short) (rightStickVector.getX() * 0x7FFE);
-        context.rightStickY = (short) (-rightStickVector.getY() * 0x7FFE);
+        short protocolRightStickX =
+                (short) (rightStickVector.getX() * 0x7FFE);
+        short protocolRightStickY =
+                (short) (-rightStickVector.getY() * 0x7FFE);
 
         if (leftTrigger <= context.triggerDeadzone) {
             leftTrigger = 0;
@@ -1880,10 +1857,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             rightTrigger = 0;
         }
 
-        context.leftTrigger = (byte)(leftTrigger * 0xFF);
-        context.rightTrigger = (byte)(rightTrigger * 0xFF);
-
-        context.inputMap = buttonFlags;
+        context.inputState.replace(
+                buttonFlags,
+                (byte) (leftTrigger * 0xFF),
+                (byte) (rightTrigger * 0xFF),
+                protocolLeftStickX,
+                protocolLeftStickY,
+                protocolRightStickX,
+                protocolRightStickY);
 
         sendControllerInputPacket(context);
     }
@@ -2009,14 +1990,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         final ControllerSlotLease slotLease =
                 new ControllerSlotLease();
-
-        public int inputMap = 0;
-        public byte leftTrigger = 0x00;
-        public byte rightTrigger = 0x00;
-        public short rightStickX = 0x0000;
-        public short rightStickY = 0x0000;
-        public short leftStickX = 0x0000;
-        public short leftStickY = 0x0000;
+        final ControllerInputState inputState =
+                new ControllerInputState();
 
         public final ControllerGyroStickTranslator
                 gyroStickTranslator =
@@ -2036,12 +2011,18 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                                         settingsState.get();
                                 mouseEmulationTranslator
                                         .translateMotion(
-                                                leftStickX,
-                                                leftStickY,
-                                                rightStickX,
-                                                rightStickY,
-                                                leftTrigger & 0xFF,
-                                                rightTrigger & 0xFF,
+                                                inputState
+                                                        .getLeftStickX(),
+                                                inputState
+                                                        .getLeftStickY(),
+                                                inputState
+                                                        .getRightStickX(),
+                                                inputState
+                                                        .getRightStickY(),
+                                                inputState
+                                                        .getLeftTrigger() & 0xFF,
+                                                inputState
+                                                        .getRightTrigger() & 0xFF,
                                                 settings
                                                         .getMouseSensitivityPercent(),
                                                 settings
@@ -2101,11 +2082,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         public int leftTriggerAxis = -1;
         public int rightTriggerAxis = -1;
         public boolean triggersIdleNegative;
-        public boolean leftTriggerAxisUsed, rightTriggerAxisUsed;
 
         public int hatXAxis = -1;
         public int hatYAxis = -1;
-        public boolean hatXAxisUsed, hatYAxisUsed;
 
         InputDevice.MotionRange touchpadXRange;
         InputDevice.MotionRange touchpadYRange;
