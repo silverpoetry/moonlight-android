@@ -380,6 +380,11 @@ targets.
   Start/RB Mode emulation, the bumper-release grace window, and deferred stream
   exit. Android key events update the base packet and pass its mask through the
   state owner; chord flags and timing no longer leak into the device context.
+- `ControllerDigitalButtonMapping` is the single immutable mapping from
+  remapped Android key/scan codes to protocol mask or trigger targets. Press
+  and release share this table, including diagonal D-pad and paddle mappings;
+  Hat-axis and analog-trigger ownership are applied synchronously before the
+  existing context state changes, with no event-path allocation.
 - `ControllerAnalogInputCombiner` owns split-device trigger and stick
   aggregation. Triggers are compared as unsigned protocol values and axes by
   signed magnitude; the previous bitwise-OR corruption path has been removed.

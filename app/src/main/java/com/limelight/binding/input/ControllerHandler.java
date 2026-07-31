@@ -1611,6 +1611,135 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
     }
 
+    private enum DigitalButtonApplication {
+        APPLIED,
+        SUPPRESSED,
+        UNHANDLED
+    }
+
+    private DigitalButtonApplication applyDigitalButton(
+            InputDeviceContext context,
+            KeyEvent event,
+            int keyCode,
+            boolean pressed) {
+        ControllerDigitalButtonMapping.Target target =
+                ControllerDigitalButtonMapping.resolve(
+                        keyCode,
+                        event.getScanCode(),
+                        context.hasPaddles);
+        if (target ==
+                ControllerDigitalButtonMapping.Target.UNHANDLED) {
+            return DigitalButtonApplication.UNHANDLED;
+        }
+        if (ControllerDigitalButtonMapping.isSuppressedByHat(
+                target,
+                context.hatXAxisUsed,
+                context.hatYAxisUsed)) {
+            return DigitalButtonApplication.SUPPRESSED;
+        }
+
+        if (target ==
+                ControllerDigitalButtonMapping.Target.LEFT_TRIGGER) {
+            if (context.leftTriggerAxisUsed) {
+                return DigitalButtonApplication.SUPPRESSED;
+            }
+            context.leftTrigger = pressed ? (byte) 0xff : 0;
+            return DigitalButtonApplication.APPLIED;
+        }
+        if (target ==
+                ControllerDigitalButtonMapping.Target.RIGHT_TRIGGER) {
+            if (context.rightTriggerAxisUsed) {
+                return DigitalButtonApplication.SUPPRESSED;
+            }
+            context.rightTrigger = pressed ? (byte) 0xff : 0;
+            return DigitalButtonApplication.APPLIED;
+        }
+
+        if (pressed) {
+            if (target ==
+                    ControllerDigitalButtonMapping.Target.SPECIAL) {
+                context.chordEmulationState.observeModeButton();
+            }
+            else if (target ==
+                    ControllerDigitalButtonMapping.Target.BACK) {
+                context.chordEmulationState.observeSelectButton();
+            }
+            else if (target ==
+                    ControllerDigitalButtonMapping.Target.PLAY &&
+                    event.getRepeatCount() == 0) {
+                context.startDownTime = event.getEventTime();
+            }
+            context.inputMap |= target.getInputMask();
+        }
+        else {
+            context.inputMap &= ~target.getInputMask();
+            if (target ==
+                    ControllerDigitalButtonMapping.Target.LEFT_BUMPER) {
+                context.chordEmulationState.recordLeftBumperUp(
+                        event.getEventTime());
+            }
+            else if (target ==
+                    ControllerDigitalButtonMapping.Target.RIGHT_BUMPER) {
+                context.chordEmulationState.recordRightBumperUp(
+                        event.getEventTime());
+            }
+        }
+        return DigitalButtonApplication.APPLIED;
+    }
+
+    private void activateMouseEmulationAction(
+            InputDeviceContext context,
+            ControllerSettings settings) {
+        if (settings.doesMouseEmulationOpenGameMenu()) {
+            gestures.showGameMenu(context);
+        }
+        else {
+            context.toggleMouseEmulation();
+        }
+    }
+
+    private void handleMouseEmulationButtonRelease(
+            InputDeviceContext context,
+            ControllerSettings settings,
+            int keyCode,
+            long eventTime) {
+        if (!settings.isMouseEmulationEnabled()) {
+            return;
+        }
+
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_BUTTON_MODE:
+                if (settings.getMouseEmulationButton() == 1 &&
+                        (context.inputMap &
+                                ControllerPacket.SPECIAL_BUTTON_FLAG) != 0) {
+                    activateMouseEmulationAction(context, settings);
+                }
+                break;
+            case KeyEvent.KEYCODE_BUTTON_START:
+            case KeyEvent.KEYCODE_MENU:
+                if (settings.getMouseEmulationButton() == 0 &&
+                        (context.inputMap &
+                                ControllerPacket.PLAY_FLAG) != 0 &&
+                        eventTime - context.startDownTime >
+                                START_DOWN_TIME_MOUSE_MODE_MS) {
+                    activateMouseEmulationAction(context, settings);
+                }
+                break;
+            case KeyEvent.KEYCODE_BACK:
+            case KeyEvent.KEYCODE_BUTTON_SELECT:
+                if (settings.getMouseEmulationButton() == 2 &&
+                        (context.inputMap &
+                                ControllerPacket.BACK_FLAG) != 0 &&
+                        eventTime - context.startDownTime >
+                                START_DOWN_TIME_MOUSE_MODE_MS) {
+                    activateMouseEmulationAction(context, settings);
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
     @Override
     public boolean handleButtonUp(KeyEvent event) {
         InputDeviceContext context = getContextForEvent(event);
@@ -1650,188 +1779,22 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             }
         }
 
-        switch (keyCode) {
-        case KeyEvent.KEYCODE_BUTTON_MODE:
-            if (settings.isMouseEmulationEnabled() &&
-                    settings.getMouseEmulationButton() == 1) {
-                if ((context.inputMap & ControllerPacket.SPECIAL_BUTTON_FLAG) != 0) {
-                    if (settings.doesMouseEmulationOpenGameMenu()) {
-                        //todo 展示快捷菜单
-                        gestures.showGameMenu(context);
-                    }else{
-                        context.toggleMouseEmulation();
-                    }
-                }
-            }
-            context.inputMap &= ~ControllerPacket.SPECIAL_BUTTON_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_START:
-        case KeyEvent.KEYCODE_MENU:
-            // Sometimes we'll get a spurious key up event on controller disconnect.
-            // Make sure it's real by checking that the key is actually down before taking
-            // any action.
-            if (settings.isMouseEmulationEnabled() &&
-                    settings.getMouseEmulationButton() == 0) {
-                if ((context.inputMap & ControllerPacket.PLAY_FLAG) != 0 &&
-                        event.getEventTime() - context.startDownTime > ControllerHandler.START_DOWN_TIME_MOUSE_MODE_MS) {
-                    if (settings.doesMouseEmulationOpenGameMenu()) {
-                        //todo 展示快捷菜单
-                        gestures.showGameMenu(context);
-                    }else{
-                        context.toggleMouseEmulation();
-                    }
-                }
-            }
-            context.inputMap &= ~ControllerPacket.PLAY_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BACK:
-        case KeyEvent.KEYCODE_BUTTON_SELECT:
-            if (settings.isMouseEmulationEnabled() &&
-                    settings.getMouseEmulationButton() == 2) {
-                if ((context.inputMap & ControllerPacket.BACK_FLAG) != 0 &&
-                        event.getEventTime() - context.startDownTime > ControllerHandler.START_DOWN_TIME_MOUSE_MODE_MS) {
-                    if (settings.doesMouseEmulationOpenGameMenu()) {
-                        //todo 展示快捷菜单
-                        gestures.showGameMenu(context);
-                    }else{
-                        context.toggleMouseEmulation();
-                    }
-                }
-            }
-            context.inputMap &= ~ControllerPacket.BACK_FLAG;
-            break;
-        case KeyEvent.KEYCODE_DPAD_LEFT:
-            if (context.hatXAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap &= ~ControllerPacket.LEFT_FLAG;
-            break;
-        case KeyEvent.KEYCODE_DPAD_RIGHT:
-            if (context.hatXAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap &= ~ControllerPacket.RIGHT_FLAG;
-            break;
-        case KeyEvent.KEYCODE_DPAD_UP:
-            if (context.hatYAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap &= ~ControllerPacket.UP_FLAG;
-            break;
-        case KeyEvent.KEYCODE_DPAD_DOWN:
-            if (context.hatYAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap &= ~ControllerPacket.DOWN_FLAG;
-            break;
-        case KeyEvent.KEYCODE_DPAD_UP_LEFT:
-            if (context.hatXAxisUsed && context.hatYAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap &= ~(ControllerPacket.UP_FLAG | ControllerPacket.LEFT_FLAG);
-            break;
-        case KeyEvent.KEYCODE_DPAD_UP_RIGHT:
-            if (context.hatXAxisUsed && context.hatYAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap &= ~(ControllerPacket.UP_FLAG | ControllerPacket.RIGHT_FLAG);
-            break;
-        case KeyEvent.KEYCODE_DPAD_DOWN_LEFT:
-            if (context.hatXAxisUsed && context.hatYAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap &= ~(ControllerPacket.DOWN_FLAG | ControllerPacket.LEFT_FLAG);
-            break;
-        case KeyEvent.KEYCODE_DPAD_DOWN_RIGHT:
-            if (context.hatXAxisUsed && context.hatYAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap &= ~(ControllerPacket.DOWN_FLAG | ControllerPacket.RIGHT_FLAG);
-            break;
-        case KeyEvent.KEYCODE_BUTTON_B:
-            context.inputMap &= ~ControllerPacket.B_FLAG;
-            break;
-        case KeyEvent.KEYCODE_DPAD_CENTER:
-        case KeyEvent.KEYCODE_BUTTON_A:
-            context.inputMap &= ~ControllerPacket.A_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_X:
-            context.inputMap &= ~ControllerPacket.X_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_Y:
-            context.inputMap &= ~ControllerPacket.Y_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_L1:
-            context.inputMap &= ~ControllerPacket.LB_FLAG;
-            context.chordEmulationState.recordLeftBumperUp(
-                    event.getEventTime());
-            break;
-        case KeyEvent.KEYCODE_BUTTON_R1:
-            context.inputMap &= ~ControllerPacket.RB_FLAG;
-            context.chordEmulationState.recordRightBumperUp(
-                    event.getEventTime());
-            break;
-        case KeyEvent.KEYCODE_BUTTON_THUMBL:
-            context.inputMap &= ~ControllerPacket.LS_CLK_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_THUMBR:
-            context.inputMap &= ~ControllerPacket.RS_CLK_FLAG;
-            break;
-        case KeyEvent.KEYCODE_MEDIA_RECORD: // Xbox Series X Share button
-            context.inputMap &= ~ControllerPacket.MISC_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_1: // PS4/PS5 touchpad button (prior to 4.10)
-            context.inputMap &= ~ControllerPacket.TOUCHPAD_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_L2:
-            if (context.leftTriggerAxisUsed) {
-                // Suppress this digital event if an analog trigger is active
-                return true;
-            }
-            context.leftTrigger = 0;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_R2:
-            if (context.rightTriggerAxisUsed) {
-                // Suppress this digital event if an analog trigger is active
-                return true;
-            }
-            context.rightTrigger = 0;
-            break;
-        case KeyEvent.KEYCODE_UNKNOWN:
-            // Paddles aren't mapped in any of the Android key layout files,
-            // so we need to handle the evdev key codes directly.
-            if (context.hasPaddles) {
-                switch (event.getScanCode()) {
-                    case 0x2c4: // BTN_TRIGGER_HAPPY5
-                        context.inputMap &= ~ControllerPacket.PADDLE1_FLAG;
-                        break;
-                    case 0x2c5: // BTN_TRIGGER_HAPPY6
-                        context.inputMap &= ~ControllerPacket.PADDLE2_FLAG;
-                        break;
-                    case 0x2c6: // BTN_TRIGGER_HAPPY7
-                        context.inputMap &= ~ControllerPacket.PADDLE3_FLAG;
-                        break;
-                    case 0x2c7: // BTN_TRIGGER_HAPPY8
-                        context.inputMap &= ~ControllerPacket.PADDLE4_FLAG;
-                        break;
-                    default:
-                        return false;
-                }
-            }
-            else {
-                return false;
-            }
-            break;
-        default:
+        handleMouseEmulationButtonRelease(
+                context,
+                settings,
+                keyCode,
+                event.getEventTime());
+        DigitalButtonApplication application =
+                applyDigitalButton(
+                        context,
+                        event,
+                        keyCode,
+                        false);
+        if (application == DigitalButtonApplication.UNHANDLED) {
             return false;
+        }
+        if (application == DigitalButtonApplication.SUPPRESSED) {
+            return true;
         }
 
         context.inputMap =
@@ -1867,151 +1830,17 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                             keyCode);
         }
 
-        switch (keyCode) {
-        case KeyEvent.KEYCODE_BUTTON_MODE:
-            context.chordEmulationState.observeModeButton();
-            context.inputMap |= ControllerPacket.SPECIAL_BUTTON_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_START:
-        case KeyEvent.KEYCODE_MENU:
-            if (event.getRepeatCount() == 0) {
-                context.startDownTime = event.getEventTime();
-            }
-            context.inputMap |= ControllerPacket.PLAY_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BACK:
-        case KeyEvent.KEYCODE_BUTTON_SELECT:
-            context.chordEmulationState.observeSelectButton();
-            context.inputMap |= ControllerPacket.BACK_FLAG;
-            break;
-        case KeyEvent.KEYCODE_DPAD_LEFT:
-            if (context.hatXAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap |= ControllerPacket.LEFT_FLAG;
-            break;
-        case KeyEvent.KEYCODE_DPAD_RIGHT:
-            if (context.hatXAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap |= ControllerPacket.RIGHT_FLAG;
-            break;
-        case KeyEvent.KEYCODE_DPAD_UP:
-            if (context.hatYAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap |= ControllerPacket.UP_FLAG;
-            break;
-        case KeyEvent.KEYCODE_DPAD_DOWN:
-            if (context.hatYAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap |= ControllerPacket.DOWN_FLAG;
-            break;
-        case KeyEvent.KEYCODE_DPAD_UP_LEFT:
-            if (context.hatXAxisUsed && context.hatYAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap |= ControllerPacket.UP_FLAG | ControllerPacket.LEFT_FLAG;
-            break;
-        case KeyEvent.KEYCODE_DPAD_UP_RIGHT:
-            if (context.hatXAxisUsed && context.hatYAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap |= ControllerPacket.UP_FLAG | ControllerPacket.RIGHT_FLAG;
-            break;
-        case KeyEvent.KEYCODE_DPAD_DOWN_LEFT:
-            if (context.hatXAxisUsed && context.hatYAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap |= ControllerPacket.DOWN_FLAG | ControllerPacket.LEFT_FLAG;
-            break;
-        case KeyEvent.KEYCODE_DPAD_DOWN_RIGHT:
-            if (context.hatXAxisUsed && context.hatYAxisUsed) {
-                // Suppress this duplicate event if we have a hat
-                return true;
-            }
-            context.inputMap |= ControllerPacket.DOWN_FLAG | ControllerPacket.RIGHT_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_B:
-            context.inputMap |= ControllerPacket.B_FLAG;
-            break;
-        case KeyEvent.KEYCODE_DPAD_CENTER:
-        case KeyEvent.KEYCODE_BUTTON_A:
-            context.inputMap |= ControllerPacket.A_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_X:
-            context.inputMap |= ControllerPacket.X_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_Y:
-            context.inputMap |= ControllerPacket.Y_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_L1:
-            context.inputMap |= ControllerPacket.LB_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_R1:
-            context.inputMap |= ControllerPacket.RB_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_THUMBL:
-            context.inputMap |= ControllerPacket.LS_CLK_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_THUMBR:
-            context.inputMap |= ControllerPacket.RS_CLK_FLAG;
-            break;
-        case KeyEvent.KEYCODE_MEDIA_RECORD: // Xbox Series X Share button
-            context.inputMap |= ControllerPacket.MISC_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_1: // PS4/PS5 touchpad button (prior to 4.10)
-            context.inputMap |= ControllerPacket.TOUCHPAD_FLAG;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_L2:
-            if (context.leftTriggerAxisUsed) {
-                // Suppress this digital event if an analog trigger is active
-                return true;
-            }
-            context.leftTrigger = (byte)0xFF;
-            break;
-        case KeyEvent.KEYCODE_BUTTON_R2:
-            if (context.rightTriggerAxisUsed) {
-                // Suppress this digital event if an analog trigger is active
-                return true;
-            }
-            context.rightTrigger = (byte)0xFF;
-            break;
-        case KeyEvent.KEYCODE_UNKNOWN:
-            // Paddles aren't mapped in any of the Android key layout files,
-            // so we need to handle the evdev key codes directly.
-            if (context.hasPaddles) {
-                switch (event.getScanCode()) {
-                    case 0x2c4: // BTN_TRIGGER_HAPPY5
-                        context.inputMap |= ControllerPacket.PADDLE1_FLAG;
-                        break;
-                    case 0x2c5: // BTN_TRIGGER_HAPPY6
-                        context.inputMap |= ControllerPacket.PADDLE2_FLAG;
-                        break;
-                    case 0x2c6: // BTN_TRIGGER_HAPPY7
-                        context.inputMap |= ControllerPacket.PADDLE3_FLAG;
-                        break;
-                    case 0x2c7: // BTN_TRIGGER_HAPPY8
-                        context.inputMap |= ControllerPacket.PADDLE4_FLAG;
-                        break;
-                    default:
-                        return false;
-                }
-            }
-            else {
-                return false;
-            }
-            break;
-        default:
+        DigitalButtonApplication application =
+                applyDigitalButton(
+                        context,
+                        event,
+                        keyCode,
+                        true);
+        if (application == DigitalButtonApplication.UNHANDLED) {
             return false;
+        }
+        if (application == DigitalButtonApplication.SUPPRESSED) {
+            return true;
         }
 
         context.inputMap =

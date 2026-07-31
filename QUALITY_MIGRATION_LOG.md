@@ -1279,3 +1279,20 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Replaced the duplicated physical-controller button-down and button-up
+  switches with immutable `ControllerDigitalButtonMapping`. System, face,
+  cardinal/diagonal D-pad, bumper, stick, digital-trigger, share, touchpad, and
+  four paddle inputs now resolve through one symmetric protocol target table.
+- The handler applies the returned enum singleton directly to the existing
+  shared context, preserving USB/virtual/physical aggregation without adding a
+  second mutable packet state. Hat-axis duplicates and digital triggers after
+  analog-axis use still return before chord processing and packet emission;
+  the realtime event path allocates nothing.
+- Fixtures cover every mapping family, exact protocol masks, unadvertised and
+  unknown paddle scan codes, unsupported keys, and horizontal, vertical, and
+  diagonal Hat suppression rules.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 535 JVM
+  tests per variant (2,140 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.
