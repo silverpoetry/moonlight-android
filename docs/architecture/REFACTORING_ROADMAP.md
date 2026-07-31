@@ -454,6 +454,13 @@ targets.
   public or legacy-reflective Android classification API. Unknown legacy
   results fail safely to external, and one sampled classification is reused by
   context setup and Back-button policy.
+- `ControllerBackButtonPolicy` owns the explicit three-way decision to handle
+  Back as controller input, leave it to Android navigation, or inspect the
+  internal-device inventory. `AndroidControllerBackButtonProbe` performs that
+  inventory scan only when requested, preserving the Serval, axisless remote,
+  ordinary external accessory, GPD-style Select, and SHIELD Portable rules.
+  Shared Android source-bit queries live in
+  `AndroidControllerInputCapabilities` instead of the handler.
 - `StreamInputLifecycleController` is the Activity-independent owner of input
   resume/pause, finishing shutdown, early motion-routing detachment, late
   controller-resource teardown, and the keyboard-listener lease. The explicit

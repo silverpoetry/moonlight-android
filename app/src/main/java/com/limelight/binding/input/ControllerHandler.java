@@ -44,7 +44,6 @@ import com.limelight.utils.Vector2d;
 import org.cgutman.shieldcontrollerextensions.SceManager;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
@@ -88,6 +87,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             controllerArrivalProbe;
     private final AndroidControllerDeviceProfileProbe
             controllerDeviceProfileProbe;
+    private final AndroidControllerBackButtonProbe
+            controllerBackButtonProbe;
     private final Handler mainThreadHandler;
     private final ControllerMouseEmulationSession.Scheduler
             mouseEmulationScheduler;
@@ -369,6 +370,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 new AndroidControllerDeviceProfileProbe(
                         MoonBridge::guessControllerHasPaddles,
                         MoonBridge::guessControllerHasShareButton);
+        this.controllerBackButtonProbe =
+                new AndroidControllerBackButtonProbe(inputManager);
         this.vibrationRenderer = new ControllerVibrationRenderer(
                 settingsState,
                 sceManager,
@@ -542,18 +545,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
     }
 
-    private static boolean hasGamepadButtons(InputDevice device) {
-        return (device.getSources() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD;
-    }
-
     @Override
     public boolean isGameControllerDevice(InputDevice device) {
         if (device == null) {
             return true;
         }
 
-        if (AndroidControllerAxisProbe.hasJoystickAxes(device) ||
-                hasGamepadButtons(device)) {
+        if (AndroidControllerInputCapabilities.isGamepad(device)) {
             // Has real joystick axes or gamepad buttons
             return true;
         }
@@ -573,8 +571,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
                     // If there are any gamepad devices connected, we'll
                     // report that this virtual device is a gamepad.
-                    if (AndroidControllerAxisProbe.hasJoystickAxes(dev) ||
-                            hasGamepadButtons(dev)) {
+                    if (AndroidControllerInputCapabilities.isGamepad(dev)) {
                         return true;
                     }
                 }
@@ -838,75 +835,11 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         return context;
     }
 
-    private boolean shouldIgnoreBack(
-            InputDevice dev,
-            boolean external) {
-        String devName = dev.getName();
-
-        // The Serval has a Select button but the framework doesn't
-        // know about that because it uses a non-standard scancode.
-        if (devName.contains("Razer Serval")) {
-            return true;
-        }
-
-        // Classify this device as a remote by name if it has no joystick axes
-        if (!AndroidControllerAxisProbe.hasJoystickAxes(dev) &&
-                devName.toLowerCase(Locale.ROOT).contains("remote")) {
-            return true;
-        }
-
-        // Otherwise, dynamically try to determine whether we should allow this
-        // back button to function for navigation.
-        //
-        // First, check if this is an internal device we're being called on.
-        if (!external) {
-            InputManager im = (InputManager) activityContext.getSystemService(Context.INPUT_SERVICE);
-
-            boolean foundInternalGamepad = false;
-            boolean foundInternalSelect = false;
-            for (int id : im.getInputDeviceIds()) {
-                InputDevice currentDev = im.getInputDevice(id);
-
-                // Ignore external devices
-                if (currentDev == null ||
-                        AndroidInputDeviceClassifier.isExternal(
-                                currentDev)) {
-                    continue;
-                }
-
-                // Note that we are explicitly NOT excluding the current device we're examining here,
-                // since the other gamepad buttons may be on our current device and that's fine.
-                if (currentDev.hasKeys(KeyEvent.KEYCODE_BUTTON_SELECT)[0]) {
-                    foundInternalSelect = true;
-                }
-
-                // We don't check KEYCODE_BUTTON_A here, since the Shield Android TV has a
-                // virtual mouse device that claims to have KEYCODE_BUTTON_A. Instead, we rely
-                // on the SOURCE_GAMEPAD flag to be set on gamepad devices.
-                if (hasGamepadButtons(currentDev)) {
-                    foundInternalGamepad = true;
-                }
-            }
-
-            // Allow the back button to function for navigation if we either:
-            // a) have no internal gamepad (most phones)
-            // b) have an internal gamepad but also have an internal select button (GPD XD)
-            // but not:
-            // c) have an internal gamepad but no internal select button (NVIDIA SHIELD Portable)
-            return !foundInternalGamepad || foundInternalSelect;
-        }
-        else {
-            // For external devices, we want to pass through the back button if the device
-            // has no gamepad axes or gamepad buttons.
-            return !AndroidControllerAxisProbe.hasJoystickAxes(dev) &&
-                    !hasGamepadButtons(dev);
-        }
-    }
-
     private InputDeviceContext createInputDeviceContextForDevice(InputDevice dev) {
         boolean external =
                 AndroidInputDeviceClassifier.isExternal(dev);
-        boolean ignoreBack = shouldIgnoreBack(dev, external);
+        boolean ignoreBack =
+                controllerBackButtonProbe.shouldIgnore(dev, external);
         AndroidControllerDeviceProfile profile =
                 controllerDeviceProfileProbe.probe(
                         dev,

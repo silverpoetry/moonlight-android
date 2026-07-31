@@ -1249,3 +1249,18 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Extracted Android Back-button ownership into pure
+  `ControllerBackButtonPolicy` and the platform-only
+  `AndroidControllerBackButtonProbe`. Device identity and capability facts now
+  produce an explicit handle/ignore/inspect-inventory result, so internal
+  device enumeration occurs only for the branch that needs it.
+- Policy fixtures preserve the Razer Serval exception, case-insensitive remote
+  detection only without joystick axes, external axis/button requirements,
+  and the internal no-gamepad, gamepad-with-Select, and gamepad-without-Select
+  navigation outcomes. `AndroidControllerInputCapabilities` centralizes the
+  shared gamepad source-bit interpretation used by discovery and this probe.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 521 JVM
+  tests per variant (2,084 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.
