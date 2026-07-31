@@ -882,3 +882,19 @@ Verification on 2026-07-31:
   variants, and both unminified Release APKs. The matching
   `verifyConnected --rerun-tasks --no-daemon` run passed all 296 tasks and
   both 107-test root/non-root instrumentation suites.
+- Added `ControllerMouseEmulationSession` as the single owner of the 50 ms
+  report lifecycle. Activation cancels stale callbacks before scheduling,
+  deactivation and destruction reject late callbacks, and an Android
+  `Handler` adapter is the only platform dependency.
+- Fixed input-device context migration to restore both the active state and
+  its scheduled reporter. The previous code copied only a boolean before
+  destroying the old callback, leaving controller mouse mode visibly enabled
+  but no longer producing stick or trigger reports after a device-change
+  callback.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 373 JVM
+  tests in each variant (1,492 executions total), all Lint variants, and both
+  Release APKs. A final incremental `verifyLocal` rebuilt the Release outputs
+  after the last null-contract cleanup and also passed.
+- The corresponding full `verifyConnected --rerun-tasks --no-daemon` run
+  passed all 296 tasks; the generated API 34 suites record 107 non-root and
+  107 root tests with zero failures, errors, or skips.

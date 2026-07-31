@@ -368,6 +368,11 @@ targets.
   keeps one translator and one reusable work vector; chord definitions are
   immutable, and scheduled mouse reports add no allocation or asynchronous
   hop.
+- `ControllerMouseEmulationSession` owns activation, delayed reports,
+  cancellation, late-callback rejection, context migration, and destruction.
+  Android's main-thread `Handler` is an adapter; input-device recreation now
+  restores an active session together with its scheduler instead of copying a
+  stale boolean.
 - `DecoderSelectionPolicy` owns HEVC/AV1 acceptance decisions and stream color
   defaults. The MediaCodec adapter performs discovery and capability queries,
   and no longer carries the unused metered-network parameter or unreachable

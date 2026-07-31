@@ -93,7 +93,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             mouseEmulationOutput;
     private final Activity activityContext;
     private final double stickDeadzone;
-    private final InputDeviceContext defaultContext = new InputDeviceContext();
+    private final InputDeviceContext defaultContext;
     private final GameGestures gestures;
     private final InputManager inputManager;
     private final UsbManager usbManager;
@@ -102,6 +102,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private final SensorManager deviceSensorManager;
     private final SceManager sceManager;
     private final Handler mainThreadHandler;
+    private final ControllerMouseEmulationSession.Scheduler
+            mouseEmulationScheduler;
     private final HandlerThread backgroundHandlerThread;
     private final Handler backgroundThreadHandler;
     private long lastRazerKishiRefreshTimeMs;
@@ -435,6 +437,24 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         this.deviceSensorManager = (SensorManager) activityContext.getSystemService(Context.SENSOR_SERVICE);
         this.inputManager = (InputManager) activityContext.getSystemService(Context.INPUT_SERVICE);
         this.mainThreadHandler = new Handler(Looper.getMainLooper());
+        this.mouseEmulationScheduler =
+                new ControllerMouseEmulationSession.Scheduler() {
+                    @Override
+                    public void schedule(
+                            Runnable runnable,
+                            long delayMs) {
+                        mainThreadHandler.postDelayed(
+                                runnable,
+                                delayMs);
+                    }
+
+                    @Override
+                    public void cancel(Runnable runnable) {
+                        mainThreadHandler.removeCallbacks(
+                                runnable);
+                    }
+                };
+        this.defaultContext = new InputDeviceContext();
 
         // Create a HandlerThread to process battery state updates. These can be slow enough
         // that they lead to ANRs if we do them on the main thread.
@@ -1498,7 +1518,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             GenericControllerContext context = inputDeviceContexts.valueAt(i);
             if (context.assignedControllerNumber &&
                     context.controllerNumber == controllerNumber &&
-                    context.mouseEmulationActive == originalContext.mouseEmulationActive) {
+                    context.isMouseEmulationActive() ==
+                            originalContext.isMouseEmulationActive()) {
                 inputMap |= context.inputMap;
                 leftTrigger =
                         ControllerAnalogInputCombiner.combineTrigger(
@@ -1530,7 +1551,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             GenericControllerContext context = usbDeviceContexts.valueAt(i);
             if (context.assignedControllerNumber &&
                     context.controllerNumber == controllerNumber &&
-                    context.mouseEmulationActive == originalContext.mouseEmulationActive) {
+                    context.isMouseEmulationActive() ==
+                            originalContext.isMouseEmulationActive()) {
                 inputMap |= context.inputMap;
                 leftTrigger =
                         ControllerAnalogInputCombiner.combineTrigger(
@@ -1586,7 +1608,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                             defaultContext.rightStickY);
         }
 
-        if (originalContext.mouseEmulationActive) {
+        if (originalContext.isMouseEmulationActive()) {
             originalContext.mouseEmulationTranslator.translate(
                     inputMap,
                     mouseEmulationOutput);
@@ -3166,48 +3188,56 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         public byte sensorLeftTrigger =  0x00;
 
-        public boolean mouseEmulationActive;
         public final ControllerMouseEmulationTranslator
                 mouseEmulationTranslator =
                 new ControllerMouseEmulationTranslator();
-        public final int mouseEmulationReportPeriod = 50;
-
-        public final Runnable mouseEmulationRunnable = new Runnable() {
-            @Override
-            public void run() {
-                if (!mouseEmulationActive) {
-                    return;
-                }
-                ControllerSettings settings =
-                        settingsState.get();
-                mouseEmulationTranslator.translateMotion(
-                        leftStickX,
-                        leftStickY,
-                        rightStickX,
-                        rightStickY,
-                        leftTrigger & 0xFF,
-                        rightTrigger & 0xFF,
-                        settings.getMouseSensitivityPercent(),
-                        settings.getAnalogStickForScrolling(),
-                        mouseEmulationOutput);
-                // Requeue the callback
-                mainThreadHandler.postDelayed(this, mouseEmulationReportPeriod);
-            }
-        };
+        private final ControllerMouseEmulationSession
+                mouseEmulationSession =
+                new ControllerMouseEmulationSession(
+                        mouseEmulationScheduler,
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                ControllerSettings settings =
+                                        settingsState.get();
+                                mouseEmulationTranslator
+                                        .translateMotion(
+                                                leftStickX,
+                                                leftStickY,
+                                                rightStickX,
+                                                rightStickY,
+                                                leftTrigger & 0xFF,
+                                                rightTrigger & 0xFF,
+                                                settings
+                                                        .getMouseSensitivityPercent(),
+                                                settings
+                                                        .getAnalogStickForScrolling(),
+                                                mouseEmulationOutput);
+                            }
+                        });
 
         @Override
         public void toggleMouseEmulation() {
-            mainThreadHandler.removeCallbacks(mouseEmulationRunnable);
-            mouseEmulationActive = !mouseEmulationActive;
-            UiToast.makeText(activityContext, "手柄键鼠模式: " + (mouseEmulationActive ? "开启" : "关闭"), UiToast.LENGTH_SHORT).show();
-            if (mouseEmulationActive) {
-                mainThreadHandler.postDelayed(mouseEmulationRunnable, mouseEmulationReportPeriod);
-            }
+            boolean active =
+                    mouseEmulationSession.toggle();
+            UiToast.makeText(
+                    activityContext,
+                    "手柄键鼠模式: " +
+                            (active ? "开启" : "关闭"),
+                    UiToast.LENGTH_SHORT).show();
+        }
+
+        public boolean isMouseEmulationActive() {
+            return mouseEmulationSession.isActive();
+        }
+
+        protected void restoreMouseEmulation(
+                boolean active) {
+            mouseEmulationSession.setActive(active);
         }
 
         public void destroy() {
-            mouseEmulationActive = false;
-            mainThreadHandler.removeCallbacks(mouseEmulationRunnable);
+            mouseEmulationSession.destroy();
         }
 
         public void sendControllerArrival() {}
@@ -3465,6 +3495,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
 
         public void migrateContext(InputDeviceContext oldContext) {
+            boolean restoreMouseEmulationActive =
+                    oldContext.isMouseEmulationActive();
             // Take ownership of the sensor and light sessions
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 this.lightsSession = oldContext.lightsSession;
@@ -3472,8 +3504,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             }
             this.gyroReportRateHz = oldContext.gyroReportRateHz;
             this.accelReportRateHz = oldContext.accelReportRateHz;
-            //todo 键鼠模式标记 ds手柄打开菜单失去焦点走onInputDeviceChanged回调，初始化了键鼠标记和摇杆线程
-            this.mouseEmulationActive = oldContext.mouseEmulationActive;
             // Don't release the controller number, because we will carry it over if it is present.
             // We also want to make sure the change is invisible to the host PC to avoid an add/remove
             // cycle for the gamepad which may break some games.
@@ -3499,6 +3529,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             if (settingsState.get().isBatteryReportingEnabled()) {
                 backgroundThreadHandler.post(batteryStateUpdateRunnable);
             }
+            restoreMouseEmulation(
+                    restoreMouseEmulationActive);
         }
 
         public void disableSensors() {
