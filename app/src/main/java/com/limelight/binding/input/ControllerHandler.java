@@ -99,6 +99,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private final ControllerSlotAllocator slotAllocator;
     private final ControllerInputReportAggregator.Sources
             controllerInputSources;
+    private final ControllerFeedbackRouter.Targets
+            controllerFeedbackTargets;
     private final UsbControllerLifecycleController<
             AbstractController,
             UsbDeviceContext> usbControllerLifecycleController;
@@ -524,6 +526,32 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                         }
                         throw new IndexOutOfBoundsException(
                                 "Controller source index: " + index);
+                    }
+                };
+        this.controllerFeedbackTargets =
+                new ControllerFeedbackRouter.Targets() {
+                    @Override
+                    public int size() {
+                        return inputDeviceContexts.size() +
+                                usbDeviceContexts.size();
+                    }
+
+                    @Override
+                    public ControllerFeedbackRouter.Target targetAt(
+                            int index) {
+                        int inputDeviceCount =
+                                inputDeviceContexts.size();
+                        if (index < inputDeviceCount) {
+                            return inputDeviceContexts.valueAt(index);
+                        }
+
+                        int usbIndex = index - inputDeviceCount;
+                        if (usbIndex < usbDeviceContexts.size()) {
+                            return usbDeviceContexts.valueAt(usbIndex);
+                        }
+                        throw new IndexOutOfBoundsException(
+                                "Controller feedback target index: " +
+                                        index);
                     }
                 };
 
@@ -1220,48 +1248,25 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         return true;
     }
 
-    public void handleRumble(short controllerNumber, short lowFreqMotor, short highFreqMotor) {
-        boolean foundMatchingDevice = false;
-        boolean vibrated = false;
-
+    public void handleRumble(
+            short controllerNumber,
+            short lowFreqMotor,
+            short highFreqMotor) {
         if (stopped) {
             return;
         }
 
-        for (int i = 0; i < inputDeviceContexts.size(); i++) {
-            InputDeviceContext deviceContext = inputDeviceContexts.valueAt(i);
+        ControllerFeedbackRouter.RumbleRouteResult routeResult =
+                ControllerFeedbackRouter.routeRumble(
+                        controllerFeedbackTargets,
+                        controllerNumber,
+                        lowFreqMotor,
+                        highFreqMotor);
 
-            if (deviceContext.slotLease.getControllerNumber() ==
-                    controllerNumber) {
-                foundMatchingDevice = true;
-
-                if (shouldSuppressInputDeviceRumble(deviceContext)) {
-                    continue;
-                }
-
-                vibrated |= rumbleInputDeviceContext(deviceContext, lowFreqMotor, highFreqMotor);
-            }
-        }
-
-        for (int i = 0; i < usbDeviceContexts.size(); i++) {
-            UsbDeviceContext deviceContext = usbDeviceContexts.valueAt(i);
-
-            if (deviceContext.slotLease.getControllerNumber() ==
-                    controllerNumber) {
-                foundMatchingDevice = vibrated = true;
-                if (!shouldSuppressControllerRumble()) {
-                    deviceContext.device.rumble(lowFreqMotor, highFreqMotor);
-                }
-            }
-        }
-
-        // We may decide to rumble the device for player 1
         if (controllerNumber == 0) {
             ControllerSettings settings = settingsState.get();
-            // If we didn't find a matching device, it must be the on-screen
-            // controls that triggered the rumble. Vibrate the device if
-            // the user has requested that behavior.
-            if (!foundMatchingDevice &&
+            if (routeResult ==
+                    ControllerFeedbackRouter.RumbleRouteResult.NO_MATCH &&
                     settings.isOnscreenControllerEnabled() &&
                     !settings.isOnlyL3R3Enabled() &&
                     settings.isOnscreenRumbleEnabled()) {
@@ -1269,12 +1274,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                         lowFreqMotor,
                         highFreqMotor);
             }
-            else if (foundMatchingDevice &&
-                    !vibrated &&
+            else if (routeResult ==
+                    ControllerFeedbackRouter.RumbleRouteResult
+                            .MATCHED_UNAVAILABLE &&
                     settings.isFallbackDeviceRumbleEnabled()) {
-                // We found a device to vibrate but it didn't have rumble support. The user
-                // has requested us to vibrate the device in this case.
-
                 short lowFreqMotorAdjusted =
                         ControllerRumbleAmplitudes
                                 .scaleProtocolMotor(
@@ -1295,37 +1298,19 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
     }
 
-    public void handleRumbleTriggers(short controllerNumber, short leftTrigger, short rightTrigger) {
+    public void handleRumbleTriggers(
+            short controllerNumber,
+            short leftTrigger,
+            short rightTrigger) {
         if (stopped) {
             return;
         }
 
-        for (int i = 0; i < inputDeviceContexts.size(); i++) {
-            InputDeviceContext deviceContext = inputDeviceContexts.valueAt(i);
-
-            if (deviceContext.slotLease.getControllerNumber() ==
-                    controllerNumber) {
-                if (shouldSuppressInputDeviceRumble(deviceContext)) {
-                    continue;
-                }
-
-                vibrationRenderer.rumbleTriggers(
-                        deviceContext.vibrationTarget,
-                        leftTrigger,
-                        rightTrigger);
-            }
-        }
-
-        for (int i = 0; i < usbDeviceContexts.size(); i++) {
-            UsbDeviceContext deviceContext = usbDeviceContexts.valueAt(i);
-
-            if (deviceContext.slotLease.getControllerNumber() ==
-                    controllerNumber) {
-                if (!shouldSuppressControllerRumble()) {
-                    deviceContext.device.rumbleTriggers(leftTrigger, rightTrigger);
-                }
-            }
-        }
+        ControllerFeedbackRouter.routeTriggerRumble(
+                controllerFeedbackTargets,
+                controllerNumber,
+                leftTrigger,
+                rightTrigger);
     }
 
     private SensorEventListener createSensorListener(
@@ -1423,14 +1408,12 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             return;
         }
 
-        for (int i = 0; i < inputDeviceContexts.size(); i++) {
-            InputDeviceContext deviceContext =
-                    inputDeviceContexts.valueAt(i);
-            if (deviceContext.slotLease.getControllerNumber() ==
-                    controllerNumber) {
-                deviceContext.ledSession.setColor(r, g, b);
-            }
-        }
+        ControllerFeedbackRouter.routeLedColor(
+                controllerFeedbackTargets,
+                controllerNumber,
+                r,
+                g,
+                b);
     }
 
     private enum DigitalButtonApplication {
@@ -1961,7 +1944,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     }
 
     class InputDeviceContext extends GenericControllerContext
-            implements AndroidControllerTouchpadAdapter.Target {
+            implements AndroidControllerTouchpadAdapter.Target,
+            ControllerFeedbackRouter.Target {
         public String name;
         public ControllerVibrationRenderer.Target vibrationTarget;
 
@@ -2010,6 +1994,43 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         @Override
         public void sendControllerInput() {
             sendControllerInputPacket(this);
+        }
+
+        @Override
+        public ControllerFeedbackRouter.RumbleDelivery
+                deliverRumble(
+                        short lowFrequencyMotor,
+                        short highFrequencyMotor) {
+            if (shouldSuppressInputDeviceRumble(this)) {
+                return ControllerFeedbackRouter.RumbleDelivery
+                        .SUPPRESSED;
+            }
+            return rumbleInputDeviceContext(
+                    this,
+                    lowFrequencyMotor,
+                    highFrequencyMotor)
+                    ? ControllerFeedbackRouter.RumbleDelivery.DELIVERED
+                    : ControllerFeedbackRouter.RumbleDelivery.UNAVAILABLE;
+        }
+
+        @Override
+        public void deliverTriggerRumble(
+                short leftTriggerMotor,
+                short rightTriggerMotor) {
+            if (!shouldSuppressInputDeviceRumble(this)) {
+                vibrationRenderer.rumbleTriggers(
+                        vibrationTarget,
+                        leftTriggerMotor,
+                        rightTriggerMotor);
+            }
+        }
+
+        @Override
+        public void setLedColor(
+                byte red,
+                byte green,
+                byte blue) {
+            ledSession.setColor(red, green, blue);
         }
 
         private final ControllerButtonMapper buttonMapper;
@@ -2307,7 +2328,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     }
 
     class UsbDeviceContext extends GenericControllerContext
-            implements UsbControllerInputAdapter.Target {
+            implements UsbControllerInputAdapter.Target,
+            ControllerFeedbackRouter.Target {
         public AbstractController device;
 
         @Override
@@ -2334,6 +2356,40 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         @Override
         public void sendControllerInput() {
             sendControllerInputPacket(this);
+        }
+
+        @Override
+        public ControllerFeedbackRouter.RumbleDelivery
+                deliverRumble(
+                        short lowFrequencyMotor,
+                        short highFrequencyMotor) {
+            if (shouldSuppressControllerRumble()) {
+                return ControllerFeedbackRouter.RumbleDelivery
+                        .SUPPRESSED;
+            }
+            device.rumble(
+                    lowFrequencyMotor,
+                    highFrequencyMotor);
+            return ControllerFeedbackRouter.RumbleDelivery.DELIVERED;
+        }
+
+        @Override
+        public void deliverTriggerRumble(
+                short leftTriggerMotor,
+                short rightTriggerMotor) {
+            if (!shouldSuppressControllerRumble()) {
+                device.rumbleTriggers(
+                        leftTriggerMotor,
+                        rightTriggerMotor);
+            }
+        }
+
+        @Override
+        public void setLedColor(
+                byte red,
+                byte green,
+                byte blue) {
+            // The current USB driver contract exposes no LED command.
         }
 
         @Override

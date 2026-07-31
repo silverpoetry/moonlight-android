@@ -473,6 +473,13 @@ targets.
   rumble, including selective Kishi suppression. `ControllerRumbleAmplitudes`
   owns unsigned protocol conversion, motor ordering, single-motor mixing, and
   fallback scaling; Android classes only submit the resulting effects.
+- `ControllerFeedbackRouter` owns slot-level fan-out for ordinary rumble,
+  trigger motors, and controller LEDs across Android and USB targets. Rumble
+  aggregation distinguishes no matching target, matched-but-unavailable
+  hardware, successful delivery, and deliberate audio-haptics suppression;
+  only the unavailable case can activate handset fallback. The router is a
+  stateless bounded traversal with enum results and no event-path allocation,
+  lock, queue, or scheduler hop.
 - `ControllerMotionSession` owns requested accelerometer/gyroscope rates,
   bounded sampling policy, delayed restoration, cancellation generations,
   neutral-gyro output, migration, and destruction. Physical and on-device

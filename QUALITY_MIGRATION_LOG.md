@@ -1453,3 +1453,21 @@ Verification on 2026-07-31:
 - `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 598 JVM
   tests per variant (2,392 executions total), all Lint variants, and both
   unminified Release APKs.
+- `verifyConnected --rerun-tasks --no-daemon` then passed all 296 tasks and
+  both 107-test root/non-root API 34 suites with zero failures, errors, or
+  skips, covering the aggregate input, USB adapter, and USB lifecycle batch.
+- Added stateless `ControllerFeedbackRouter` for ordinary rumble, trigger
+  rumble, and LED fan-out across all physical targets assigned to a protocol
+  slot. Android and USB contexts are narrow delivery adapters; the handler no
+  longer duplicates two platform loops and result aggregation for each
+  feedback family.
+- Rumble routing now models `NO_MATCH`, `MATCHED_UNAVAILABLE`, and `HANDLED`.
+  A deliberate suppression because controller audio haptics owns the device is
+  handled, not a missing vibrator, so it cannot accidentally activate handset
+  fallback. True unavailable hardware and on-screen-controller-only feedback
+  retain their distinct existing fallback paths. Six fixtures lock fan-out,
+  slot filtering, aggregate result precedence, suppression, trigger motors,
+  and LED delivery.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 604 JVM
+  tests per variant (2,416 executions total), all Lint variants, and both
+  unminified Release APKs.
