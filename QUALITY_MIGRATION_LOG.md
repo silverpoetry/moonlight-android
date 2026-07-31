@@ -851,3 +851,23 @@ Verification on 2026-07-31:
   root/non-root debug/release variant (1,440 executions total). A clean
   `verifyConnected --rerun-tasks --no-daemon` run passed all 107 non-root and
   107 root instrumentation tests.
+- Extracted the controller mouse-mode transition table into the stateful
+  `ControllerMouseEmulationTranslator`. A/B mouse buttons, D-pad and desktop
+  keys retain their press/release semantics; stick-click chords remain
+  press-only. Each controller context owns one translator, while the transport
+  output adapter and chord arrays are reused without per-report allocation.
+- Replaced the inherited split-controller analog aggregation with
+  `ControllerAnalogInputCombiner`. The upstream code selected the
+  highest-magnitude candidate and then bitwise-ORed it into the accumulated
+  value, which could manufacture an axis value that no device reported.
+  Trigger bytes were also compared as signed Java values despite being
+  unsigned protocol samples. The new pure policy assigns the selected axis
+  directly and compares triggers as unsigned values, with boundary fixtures
+  covering `0xff` and `Short.MIN_VALUE`.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks. Each
+  root/non-root debug/release variant ran 366 JVM tests, for 1,464 executions
+  total with zero failures, errors, or skips; all Lint variants and both
+  unminified Release APKs passed.
+- `verifyConnected --rerun-tasks --no-daemon` completed successfully on the
+  API 34 emulator. The generated result suites record 107 non-root and 107
+  root instrumentation tests with zero failures, errors, or skips.

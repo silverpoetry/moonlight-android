@@ -46,8 +46,6 @@ import com.limelight.binding.input.driver.UsbDriverService;
 import com.limelight.binding.input.protocol.NvConnectionKeyboardInputSink;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.input.ControllerPacket;
-import com.limelight.nvstream.input.KeyboardPacket;
-import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.audio.StreamAudioSettingsState;
@@ -91,6 +89,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
     private final NvConnection conn;
     private final KeyboardInputSink keyboardInputSink;
+    private final ControllerMouseEmulationTranslator.Output
+            mouseEmulationOutput;
     private final Activity activityContext;
     private final double stickDeadzone;
     private final InputDeviceContext defaultContext = new InputDeviceContext();
@@ -369,6 +369,38 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         this.conn = conn;
         this.keyboardInputSink =
                 new NvConnectionKeyboardInputSink(conn);
+        mouseEmulationOutput =
+                new ControllerMouseEmulationTranslator.Output() {
+                    @Override
+                    public void sendMouseButton(
+                            byte button,
+                            boolean down) {
+                        if (down) {
+                            conn.sendMouseButtonDown(button);
+                        }
+                        else {
+                            conn.sendMouseButtonUp(button);
+                        }
+                    }
+
+                    @Override
+                    public void sendKey(
+                            int keyCode,
+                            byte action) {
+                        keyboardInputSink.sendKey(
+                                (short) keyCode,
+                                action,
+                                (byte) 0,
+                                (byte) 0);
+                    }
+
+                    @Override
+                    public void sendChord(short[] keyCodes) {
+                        KeyboardChordSender.send(
+                                keyboardInputSink,
+                                keyCodes);
+                    }
+                };
         this.gestures = gestures;
         this.settingsState = Objects.requireNonNull(
                 settingsState,
@@ -1333,28 +1365,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         return context;
     }
 
-    private byte maxByMagnitude(byte a, byte b) {
-        int absA = Math.abs(a);
-        int absB = Math.abs(b);
-        if (absA > absB) {
-            return a;
-        }
-        else {
-            return b;
-        }
-    }
-
-    private short maxByMagnitude(short a, short b) {
-        int absA = Math.abs(a);
-        int absB = Math.abs(b);
-        if (absA > absB) {
-            return a;
-        }
-        else {
-            return b;
-        }
-    }
-
     private short getActiveControllerMask() {
         ControllerSettings settings = settingsState.get();
         return slotAllocator.getActiveMask(
@@ -1468,12 +1478,30 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     context.controllerNumber == controllerNumber &&
                     context.mouseEmulationActive == originalContext.mouseEmulationActive) {
                 inputMap |= context.inputMap;
-                leftTrigger |= maxByMagnitude(leftTrigger, context.leftTrigger);
-                rightTrigger |= maxByMagnitude(rightTrigger, context.rightTrigger);
-                leftStickX |= maxByMagnitude(leftStickX, context.leftStickX);
-                leftStickY |= maxByMagnitude(leftStickY, context.leftStickY);
-                rightStickX |= maxByMagnitude(rightStickX, context.rightStickX);
-                rightStickY |= maxByMagnitude(rightStickY, context.rightStickY);
+                leftTrigger =
+                        ControllerAnalogInputCombiner.combineTrigger(
+                                leftTrigger,
+                                context.leftTrigger);
+                rightTrigger =
+                        ControllerAnalogInputCombiner.combineTrigger(
+                                rightTrigger,
+                                context.rightTrigger);
+                leftStickX =
+                        ControllerAnalogInputCombiner.combineAxis(
+                                leftStickX,
+                                context.leftStickX);
+                leftStickY =
+                        ControllerAnalogInputCombiner.combineAxis(
+                                leftStickY,
+                                context.leftStickY);
+                rightStickX =
+                        ControllerAnalogInputCombiner.combineAxis(
+                                rightStickX,
+                                context.rightStickX);
+                rightStickY =
+                        ControllerAnalogInputCombiner.combineAxis(
+                                rightStickY,
+                                context.rightStickY);
             }
         }
         for (int i = 0; i < usbDeviceContexts.size(); i++) {
@@ -1482,219 +1510,64 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     context.controllerNumber == controllerNumber &&
                     context.mouseEmulationActive == originalContext.mouseEmulationActive) {
                 inputMap |= context.inputMap;
-                leftTrigger |= maxByMagnitude(leftTrigger, context.leftTrigger);
-                rightTrigger |= maxByMagnitude(rightTrigger, context.rightTrigger);
-                leftStickX |= maxByMagnitude(leftStickX, context.leftStickX);
-                leftStickY |= maxByMagnitude(leftStickY, context.leftStickY);
-                rightStickX |= maxByMagnitude(rightStickX, context.rightStickX);
-                rightStickY |= maxByMagnitude(rightStickY, context.rightStickY);
+                leftTrigger =
+                        ControllerAnalogInputCombiner.combineTrigger(
+                                leftTrigger,
+                                context.leftTrigger);
+                rightTrigger =
+                        ControllerAnalogInputCombiner.combineTrigger(
+                                rightTrigger,
+                                context.rightTrigger);
+                leftStickX =
+                        ControllerAnalogInputCombiner.combineAxis(
+                                leftStickX,
+                                context.leftStickX);
+                leftStickY =
+                        ControllerAnalogInputCombiner.combineAxis(
+                                leftStickY,
+                                context.leftStickY);
+                rightStickX =
+                        ControllerAnalogInputCombiner.combineAxis(
+                                rightStickX,
+                                context.rightStickX);
+                rightStickY =
+                        ControllerAnalogInputCombiner.combineAxis(
+                                rightStickY,
+                                context.rightStickY);
             }
         }
         if (defaultContext.controllerNumber == controllerNumber) {
             inputMap |= defaultContext.inputMap;
-            leftTrigger |= maxByMagnitude(leftTrigger, defaultContext.leftTrigger);
-            rightTrigger |= maxByMagnitude(rightTrigger, defaultContext.rightTrigger);
-            leftStickX |= maxByMagnitude(leftStickX, defaultContext.leftStickX);
-            leftStickY |= maxByMagnitude(leftStickY, defaultContext.leftStickY);
-            rightStickX |= maxByMagnitude(rightStickX, defaultContext.rightStickX);
-            rightStickY |= maxByMagnitude(rightStickY, defaultContext.rightStickY);
+            leftTrigger =
+                    ControllerAnalogInputCombiner.combineTrigger(
+                            leftTrigger,
+                            defaultContext.leftTrigger);
+            rightTrigger =
+                    ControllerAnalogInputCombiner.combineTrigger(
+                            rightTrigger,
+                            defaultContext.rightTrigger);
+            leftStickX =
+                    ControllerAnalogInputCombiner.combineAxis(
+                            leftStickX,
+                            defaultContext.leftStickX);
+            leftStickY =
+                    ControllerAnalogInputCombiner.combineAxis(
+                            leftStickY,
+                            defaultContext.leftStickY);
+            rightStickX =
+                    ControllerAnalogInputCombiner.combineAxis(
+                            rightStickX,
+                            defaultContext.rightStickX);
+            rightStickY =
+                    ControllerAnalogInputCombiner.combineAxis(
+                            rightStickY,
+                            defaultContext.rightStickY);
         }
 
         if (originalContext.mouseEmulationActive) {
-            int changedMask = inputMap ^  originalContext.mouseEmulationLastInputMap;
-            boolean aDown = (inputMap & ControllerPacket.A_FLAG) != 0;
-            boolean bDown = (inputMap & ControllerPacket.B_FLAG) != 0;
-            originalContext.mouseEmulationLastInputMap = inputMap;
-
-            if ((changedMask & ControllerPacket.A_FLAG) != 0) {
-                if (aDown) {
-                    conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_LEFT);
-                }
-                else {
-                    conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_LEFT);
-                }
-            }
-            if ((changedMask & ControllerPacket.B_FLAG) != 0) {
-                if (bDown) {
-                    conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_RIGHT);
-                }
-                else {
-                    conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_RIGHT);
-                }
-            }
-            //上下左右
-            if ((changedMask & ControllerPacket.UP_FLAG) != 0) {
-//                if ((inputMap & ControllerPacket.UP_FLAG) != 0) {
-//                    conn.sendMouseScroll((byte) 1);
-//                }
-                if ((inputMap & ControllerPacket.UP_FLAG) != 0) {
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_UP,
-                            KeyboardPacket.KEY_DOWN);
-                }else{
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_UP,
-                            KeyboardPacket.KEY_UP);
-                }
-            }
-            if ((changedMask & ControllerPacket.DOWN_FLAG) != 0) {
-//                if ((inputMap & ControllerPacket.DOWN_FLAG) != 0) {
-//                    conn.sendMouseScroll((byte) -1);
-//                }
-                if ((inputMap & ControllerPacket.DOWN_FLAG) != 0) {
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_DOWN,
-                            KeyboardPacket.KEY_DOWN);
-                }else{
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_DOWN,
-                            KeyboardPacket.KEY_UP);
-                }
-            }
-            if ((changedMask & ControllerPacket.RIGHT_FLAG) != 0) {
-//                if ((inputMap & ControllerPacket.RIGHT_FLAG) != 0) {
-//                    conn.sendMouseHScroll((byte) 1);
-//                }
-                if ((inputMap & ControllerPacket.RIGHT_FLAG) != 0) {
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_RIGHT,
-                            KeyboardPacket.KEY_DOWN);
-                }else{
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_RIGHT,
-                            KeyboardPacket.KEY_UP);
-                }
-            }
-            if ((changedMask & ControllerPacket.LEFT_FLAG) != 0) {
-//                if ((inputMap & ControllerPacket.LEFT_FLAG) != 0) {
-//                    conn.sendMouseHScroll((byte) -1);
-//                }
-                if ((inputMap & ControllerPacket.LEFT_FLAG) != 0) {
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_LEFT,
-                            KeyboardPacket.KEY_DOWN);
-                }else{
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_LEFT,
-                            KeyboardPacket.KEY_UP);
-                }
-            }
-
-            //显示左摇杆 显示软键盘
-            if ((changedMask & ControllerPacket.LS_CLK_FLAG) != 0) {
-                if ((inputMap & ControllerPacket.LS_CLK_FLAG) != 0) {
-                    //Win+CTRL+O
-//                    if(activityContext instanceof Game){
-//                        ((Game)activityContext).toggleKeyboard();
-//                    }
-                    KeyboardChordSender.send(
-                            keyboardInputSink,
-                            new short[]{
-                                KeyboardTranslator.VK_LWIN,
-                                KeyboardTranslator.VK_LCONTROL,
-                                KeyboardTranslator.VK_O});
-                }
-            }
-
-            //下压右摇杆 WIN+D 显示桌面
-            if ((changedMask & ControllerPacket.RS_CLK_FLAG) != 0) {
-                if ((inputMap & ControllerPacket.RS_CLK_FLAG) != 0) {
-                    KeyboardChordSender.send(
-                            keyboardInputSink,
-                            new short[]{
-                                KeyboardTranslator.VK_LWIN,
-                                KeyboardTranslator.VK_D});
-                }
-            }
-
-            //X=esc
-            if ((changedMask & ControllerPacket.X_FLAG) != 0) {
-                if ((inputMap & ControllerPacket.X_FLAG) != 0) {
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_ESCAPE,
-                            KeyboardPacket.KEY_DOWN);
-                }else{
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_ESCAPE,
-                            KeyboardPacket.KEY_UP);
-                }
-            }
-
-            //Y=回车
-            if ((changedMask & ControllerPacket.Y_FLAG) != 0) {
-                if ((inputMap & ControllerPacket.Y_FLAG) != 0) {
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_RETURN,
-                            KeyboardPacket.KEY_DOWN);
-                }else{
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_RETURN,
-                            KeyboardPacket.KEY_UP);
-                }
-            }
-            //xbox键 windows键
-            if ((changedMask & ControllerPacket.SPECIAL_BUTTON_FLAG) != 0) {
-                if ((inputMap & ControllerPacket.SPECIAL_BUTTON_FLAG) != 0) {
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_LWIN,
-                            KeyboardPacket.KEY_DOWN);
-                }else{
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_LWIN,
-                            KeyboardPacket.KEY_UP);
-                }
-            }
-            //LB alt
-            if ((changedMask & ControllerPacket.LB_FLAG) != 0) {
-                if ((inputMap & ControllerPacket.LB_FLAG) != 0) {
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_LMENU,
-                            KeyboardPacket.KEY_DOWN);
-                }else{
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_LMENU,
-                            KeyboardPacket.KEY_UP);
-                }
-            }
-
-            //RB tab
-            if ((changedMask & ControllerPacket.RB_FLAG) != 0) {
-                if ((inputMap & ControllerPacket.RB_FLAG) != 0) {
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_TAB,
-                            KeyboardPacket.KEY_DOWN);
-                }else{
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_TAB,
-                            KeyboardPacket.KEY_UP);
-                }
-            }
-
-            //start
-            if ((changedMask & ControllerPacket.PLAY_FLAG) != 0) {
-                if ((inputMap & ControllerPacket.PLAY_FLAG) != 0) {
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_BACK_SPACE,
-                            KeyboardPacket.KEY_DOWN);
-                }else{
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_BACK_SPACE,
-                            KeyboardPacket.KEY_UP);
-                }
-            }
-
-            //select
-            if ((changedMask & ControllerPacket.BACK_FLAG) != 0) {
-                if ((inputMap & ControllerPacket.BACK_FLAG) != 0) {
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_SPACE,
-                            KeyboardPacket.KEY_DOWN);
-                }else{
-                    sendKeyboardKey(
-                            KeyboardTranslator.VK_SPACE,
-                            KeyboardPacket.KEY_UP);
-                }
-            }
+            originalContext.mouseEmulationTranslator.translate(
+                    inputMap,
+                    mouseEmulationOutput);
 
             conn.sendControllerInput(controllerNumber, getActiveControllerMask(),
                     (short)0, (byte)0, (byte)0, (short)0, (short)0, (short)0, (short)0);
@@ -1710,14 +1583,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     leftStickX, leftStickY,
                     rightStickX, rightStickY);
         }
-    }
-
-    private void sendKeyboardKey(int keyCode, byte action) {
-        keyboardInputSink.sendKey(
-                (short) keyCode,
-                action,
-                (byte) 0,
-                (byte) 0);
     }
 
     private short sensorLeftTrigger=0x00;
@@ -3340,7 +3205,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         public byte sensorLeftTrigger =  0x00;
 
         public boolean mouseEmulationActive;
-        public int mouseEmulationLastInputMap;
+        public final ControllerMouseEmulationTranslator
+                mouseEmulationTranslator =
+                new ControllerMouseEmulationTranslator();
         public final int mouseEmulationReportPeriod = 50;
 
         public final Runnable mouseEmulationRunnable = new Runnable() {
