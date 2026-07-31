@@ -125,6 +125,14 @@ text port. Slider limits, keyboard step, custom-editor default, and directory
 summary therefore have one tested owner rather than Activity-local constants
 and provider queries.
 
+User writes cross `SettingsMutationController` before presentation is updated.
+It owns preset-versus-custom resolution semantics, native frame-rate warning
+intent, exact decimal Mbps conversion, validation failure, and the typed
+refresh/reload effect with its delay. `SettingsChangeEffectScheduler` is the
+single Android main-thread adapter for those effects; pending callbacks are
+coalesced by effect type and canceled on Activity teardown. Views never create
+their own delayed persistence or reload callbacks.
+
 ## Snapshot lifecycle
 
 A stream session receives one snapshot during composition. A setting that

@@ -15,7 +15,6 @@ import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
 import android.provider.Settings;
 import android.text.InputFilter;
 import android.text.InputType;
@@ -51,7 +50,6 @@ import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
 import com.limelight.settings.app.AppPresentationSettings;
 import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.input.InputSettingKeys;
-import com.limelight.settings.stream.StreamResolutionCodec;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
@@ -63,7 +61,6 @@ import com.limelight.utils.UiHelper;
 import com.limelight.utils.UiToast;
 import com.limelight.virtualcontrols.layout.android.AndroidVirtualControlLayoutRepository;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 
 import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
@@ -104,6 +101,8 @@ public class StreamSettings extends Activity {
     private boolean sectionActivity;
     private BackNavigationRegistration backNavigationRegistration;
     private SettingsDocumentController documentController;
+    private SettingsMutationController mutationController;
+    private SettingsChangeEffectScheduler changeEffectScheduler;
 
     // HACK for Android 9
     static DisplayCutout displayCutoutP;
@@ -122,7 +121,6 @@ public class StreamSettings extends Activity {
 
         sections = SettingsRegistry.load(this);
         screenModel = new SettingsScreenModel(sections);
-        store = new SettingsStore(this);
         screenModel.linkDependencyDefaults();
         nativeFrameRateValue = null;
         initializeRuntimeSettings();
@@ -154,6 +152,18 @@ public class StreamSettings extends Activity {
         store = new SettingsStore(this);
         AndroidVirtualControlLayoutRepository layoutRepository =
                 new AndroidVirtualControlLayoutRepository(this);
+        mutationController = new SettingsMutationController(store);
+        changeEffectScheduler = new SettingsChangeEffectScheduler(
+                () -> {
+                    if (!isFinishing()) {
+                        reloadSettings();
+                    }
+                },
+                () -> {
+                    if (!isFinishing()) {
+                        refreshAfterItemChanged();
+                    }
+                });
         documentController = new SettingsDocumentController(
                 this,
                 store.repository,
@@ -216,6 +226,10 @@ public class StreamSettings extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (changeEffectScheduler != null) {
+            changeEffectScheduler.destroy();
+            changeEffectScheduler = null;
+        }
         if (documentController != null) {
             documentController.destroy();
             documentController = null;
@@ -763,7 +777,7 @@ public class StreamSettings extends Activity {
                 @Override
                 public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                     store.putBoolean(item, isChecked);
-                    afterItemChanged(item, isChecked, true);
+                    afterItemChanged(item, true);
                 }
             });
             return switchView;
@@ -802,7 +816,7 @@ public class StreamSettings extends Activity {
             case SWITCH:
                 boolean checked = !store.getBoolean(item);
                 store.putBoolean(item, checked);
-                afterItemChanged(item, checked, true);
+                afterItemChanged(item, true);
                 break;
             case LIST:
                 if (AppPresentationSettingKeys.LANGUAGE
@@ -846,10 +860,20 @@ public class StreamSettings extends Activity {
             row.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    if (beforeListValueChanged(item, value)) {
-                        store.putString(item, value);
-                        afterItemChanged(item, value, false);
+                    SettingsMutationController.ListChangeResult result =
+                            mutationController.prepareListChange(
+                                    item,
+                                    value,
+                                    nativeFrameRateValue);
+                    store.putString(item, value);
+                    if (result.shouldShowNativeFrameRateWarning()) {
+                        Dialog.displayDialog(
+                                StreamSettings.this,
+                                getString(R.string.title_native_fps_dialog),
+                                getString(R.string.text_native_res_dialog),
+                                false);
                     }
+                    afterItemChanged(item, false);
                     dialog.dismiss();
                 }
             });
@@ -927,7 +951,7 @@ public class StreamSettings extends Activity {
             public void onClick(View v) {
                 int progress = item.round(seekBar.getProgress());
                 store.putInt(item, progress);
-                afterItemChanged(item, progress, false);
+                afterItemChanged(item, false);
                 dialog.dismiss();
             }
         });
@@ -980,9 +1004,18 @@ public class StreamSettings extends Activity {
             @Override
             public void onClick(View v) {
                 String value = input.getText().toString();
-                if (commitTextValue(item, value)) {
-                    afterItemChanged(item, value, false);
+                SettingsMutationController.TextChangeResult result =
+                        mutationController.commitText(item, value);
+                if (result == SettingsMutationController
+                        .TextChangeResult.ACCEPTED) {
+                    afterItemChanged(item, false);
                     dialog.dismiss();
+                }
+                else {
+                    UiToast.makeText(
+                            StreamSettings.this,
+                            R.string.settings_invalid_bitrate,
+                            UiToast.LENGTH_SHORT).show();
                 }
             }
         });
@@ -1066,105 +1099,14 @@ public class StreamSettings extends Activity {
         }
     }
 
-    private boolean beforeListValueChanged(SettingsItem item, String value) {
-        if (StreamResolutionSettingKeys.RESOLUTION
-                .getName()
-                .equals(item.key)) {
-            store.put(
-                    StreamResolutionSettingKeys.SELECTION,
-                    StreamResolutionCodec.isStandardResolutionPreset(value)
-                            ? StreamResolutionCodec.SELECTION_PRESET
-                            : StreamResolutionCodec
-                                    .SELECTION_CUSTOM_OR_NATIVE);
-        }
-
-        if (StreamResolutionSettingKeys.FPS
-                .getName()
-                .equals(item.key) &&
-                value.equals(nativeFrameRateValue)) {
-            Dialog.displayDialog(this,
-                    getResources().getString(R.string.title_native_fps_dialog),
-                    getResources().getString(R.string.text_native_res_dialog),
-                    false);
-        }
-        return true;
-    }
-
-    private boolean commitTextValue(
+    private void afterItemChanged(
             SettingsItem item,
-            String value) {
-        if (item.isCustomBitrateEditor()) {
-            if (TextUtils.isEmpty(value)) {
-                UiToast.makeText(this, "请输入0-9999的数值。", UiToast.LENGTH_SHORT).show();
-                return false;
-            }
-            try {
-                BigDecimal bitrateMbps =
-                        new BigDecimal(value);
-                if (bitrateMbps.signum() < 0 ||
-                        bitrateMbps.compareTo(
-                                BigDecimal.valueOf(9999)) > 0) {
-                    throw new ArithmeticException(
-                            "Bitrate is outside the editor range");
-                }
-                int bitrateKbps = bitrateMbps
-                        .movePointRight(3)
-                        .intValueExact();
-                store.put(
-                        StreamVideoSettingKeys.BITRATE_KBPS,
-                        bitrateKbps);
-            } catch (NumberFormatException |
-                    ArithmeticException e) {
-                UiToast.makeText(this, "请输入0-9999的数值。", UiToast.LENGTH_SHORT).show();
-                return false;
-            }
-            return true;
-        }
-        store.putString(item, value);
-        return true;
-    }
-
-    private void afterItemChanged(SettingsItem item, Object value, boolean allowSwitchAnimation) {
-        if (InputSettingKeys.BAROMETER_FORCE_PRESS
-                .getName()
-                .equals(item.key)) {
-            new Handler().postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    if (!isFinishing()) {
-                        reloadSettings();
-                    }
-                }
-            }, allowSwitchAnimation ? 180 : 0);
-            return;
-        }
-
-        if (StreamVideoSettingKeys.UNLOCK_FPS
-                .getName()
-                .equals(item.key)) {
-            new Handler().postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    if (!isFinishing()) {
-                        reloadSettings();
-                    }
-                }
-            }, 500);
-            return;
-        }
-
-        if (allowSwitchAnimation) {
-            new Handler().postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    if (!isFinishing()) {
-                        refreshAfterItemChanged();
-                    }
-                }
-            }, 180);
-        }
-        else {
-            refreshAfterItemChanged();
+            boolean allowSwitchAnimation) {
+        if (changeEffectScheduler != null) {
+            changeEffectScheduler.schedule(
+                    mutationController.effectAfterChange(
+                            item,
+                            allowSwitchAnimation));
         }
     }
 

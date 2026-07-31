@@ -295,6 +295,11 @@ A slice is incomplete if callers can still bypass the new boundary.
   bounds/defaults, the explicit bitrate editor default, and the directory
   summary through a localized text port; the Activity no longer resolves
   document providers or owns bitrate metadata constants.
+- Settings writes now pass through `SettingsMutationController`: resolution
+  selection semantics, native-refresh warnings, exact Mbps-to-Kbps parsing,
+  and post-change refresh/reload effects are pure and unit tested. One
+  lifecycle-bound scheduler coalesces delayed UI work and cancels it on
+  teardown; the Activity no longer creates anonymous Handlers per click.
 - The in-stream action catalog and virtual-overlay buttons consume typed UI
   policy plus read-only controller visibility. Persisted startup defaults are
   no longer mutated to represent picture-in-picture or menu presentation, and

@@ -393,6 +393,9 @@ public final class ArchitectureBoundaryTest {
                 .or()
                 .haveFullyQualifiedName(
                         "com.limelight.preferences.SettingsRuntimeText")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsMutationController")
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage("android..")
