@@ -798,3 +798,12 @@ Verification on 2026-07-31:
 - The API 34 emulator passed 107 non-root and 107 root instrumentation tests.
   A complete `verifyConnected` invocation then passed after an installation
   transport timeout in the first root attempt was retried.
+- Replaced the controller handler's duplicated sixteen-slot reservation loops
+  and two mutable masks with `ControllerSlotAllocator`. Initial enumeration,
+  first-input ownership transfer, exhaustion fallback, release/reuse,
+  single-controller mode, and on-screen-controller participation now have one
+  state owner and JVM fixtures.
+- Re-ran `verifyLocal --rerun-tasks` after the slot extraction. Each of the
+  four variants ran 324 JVM tests, for 1,296 executions with zero failures,
+  errors, or skips. A clean `verifyConnected --rerun-tasks --no-daemon` run
+  then passed all 107 non-root and 107 root instrumentation tests.

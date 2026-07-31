@@ -350,6 +350,9 @@ targets.
   readiness, frame-rate hints, decoder stop preparation, and callback
   detachment. Its transition state is platform-independent and tested without
   adding a queue or thread to the render path.
+- `ControllerSlotAllocator` is the sole owner of the protocol's sixteen player
+  slots and the initial-to-active mask transition. Android/USB device code asks
+  for or releases a slot instead of mutating duplicate bitmasks.
 
 ### Exit evidence
 

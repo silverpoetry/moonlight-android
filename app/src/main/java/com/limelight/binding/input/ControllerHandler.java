@@ -82,8 +82,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private static final int EMULATING_SELECT = 0x2;
     private static final int EMULATING_TOUCHPAD = 0x4;
 
-    private static final short MAX_GAMEPADS = 16; // Limited by bits in activeGamepadMask
-
     private static final int BATTERY_RECHECK_INTERVAL_MS = 120 * 1000;
 
     // These API 24 key codes are compile-time integers and may also be reported by
@@ -152,7 +150,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
     private final ControllerSettingsState settingsState;
     private final StreamAudioSettingsState audioSettingsState;
-    private short currentControllers, initialControllers;
+    private final ControllerSlotAllocator slotAllocator;
 
     private boolean shouldUseControllerAudioHaptics() {
         return shouldUseControllerAudioHaptics(
@@ -491,11 +489,12 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         // Get the initially attached set of gamepads. As each gamepad receives
         // its initial InputEvent, we will move these from this set onto the
-        // currentControllers set which will allow them to properly unplug
+        // active reservation set, which allows them to unplug cleanly
         // if they are removed.
-        initialControllers = getAttachedControllerMask(
-                activityContext,
-                settingsState.get());
+        slotAllocator = new ControllerSlotAllocator(
+                getAttachedControllerMask(
+                        activityContext,
+                        settingsState.get()));
 
         // Register ourselves for input device notifications
         inputManager.registerInputDeviceListener(this, null);
@@ -700,11 +699,11 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         // If we reserved a controller number, remove that reservation
         if (context.reservedControllerNumber) {
             LimeLog.info("Controller number "+context.controllerNumber+" is now available");
-            currentControllers &= ~(1 << context.controllerNumber);
+            slotAllocator.release(context.controllerNumber);
         }
 
         // If this device sent data as a gamepad, zero the values before removing.
-        // We must do this after clearing the currentControllers entry so this
+        // We must do this after releasing the slot so this
         // causes the device to be removed on the server PC.
         if (context.assignedControllerNumber) {
             conn.sendControllerInput(context.controllerNumber, getActiveControllerMask(),
@@ -740,6 +739,21 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         return true;
     }
 
+    private void reserveControllerNumber(
+            GenericControllerContext context) {
+        short reservedSlot = slotAllocator.reserveNext();
+        if (reservedSlot == ControllerSlotAllocator.NO_SLOT) {
+            context.controllerNumber = 0;
+            context.reservedControllerNumber = false;
+            LimeLog.warning(
+                    "No controller number is available; " +
+                            "falling back to controller 0");
+            return;
+        }
+        context.controllerNumber = reservedSlot;
+        context.reservedControllerNumber = true;
+    }
+
     // Called before sending input but after we've determined that this
     // is definitely a controller (not a keyboard, mouse, or something else)
     private void assignControllerNumberIfNeeded(GenericControllerContext context) {
@@ -758,22 +772,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             }
             else if (settings.isMultiControllerEnabled() &&
                     devContext.hasJoystickAxes) {
-                context.controllerNumber = 0;
-
                 LimeLog.info("Reserving the next available controller number");
-                for (short i = 0; i < MAX_GAMEPADS; i++) {
-                    if ((currentControllers & (1 << i)) == 0) {
-                        // Found an unused controller value
-                        currentControllers |= (1 << i);
-
-                        // Take this value out of the initial gamepad set
-                        initialControllers &= ~(1 << i);
-
-                        context.controllerNumber = i;
-                        context.reservedControllerNumber = true;
-                        break;
-                    }
-                }
+                reserveControllerNumber(context);
             }
             else if (!devContext.hasJoystickAxes) {
                 // If this device doesn't have joystick axes, it may be an input device associated
@@ -828,22 +828,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
         else {
             if (settings.isMultiControllerEnabled()) {
-                context.controllerNumber = 0;
-
                 LimeLog.info("Reserving the next available controller number");
-                for (short i = 0; i < MAX_GAMEPADS; i++) {
-                    if ((currentControllers & (1 << i)) == 0) {
-                        // Found an unused controller value
-                        currentControllers |= (1 << i);
-
-                        // Take this value out of the initial gamepad set
-                        initialControllers &= ~(1 << i);
-
-                        context.controllerNumber = i;
-                        context.reservedControllerNumber = true;
-                        break;
-                    }
-                }
+                reserveControllerNumber(context);
             }
             else {
                 LimeLog.info("Not reserving a controller number");
@@ -1372,14 +1358,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
     private short getActiveControllerMask() {
         ControllerSettings settings = settingsState.get();
-        if (settings.isMultiControllerEnabled()) {
-            return (short)(currentControllers | initialControllers |
-                    (settings.isOnscreenControllerEnabled() ? 1 : 0));
-        }
-        else {
-            // Only Player 1 is active with multi-controller disabled
-            return 1;
-        }
+        return slotAllocator.getActiveMask(
+                settings.isMultiControllerEnabled(),
+                settings.isOnscreenControllerEnabled());
     }
 
     private static boolean areBatteryCapacitiesEqual(float first, float second) {
