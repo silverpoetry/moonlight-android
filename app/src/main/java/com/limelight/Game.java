@@ -98,6 +98,7 @@ import com.limelight.ui.performance.PerformanceOverlayConfiguration;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.stream.AndroidStreamConnectionMessages;
 import com.limelight.ui.stream.AndroidStreamDisplayController;
+import com.limelight.ui.stream.AndroidExternalDisplayController;
 import com.limelight.ui.stream.AndroidStreamHdrCapabilityProvider;
 import com.limelight.ui.stream.AndroidStreamMediaRuntimeFactory;
 import com.limelight.ui.stream.AndroidStreamOverlayVisibilityHost;
@@ -146,9 +147,6 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
-import android.graphics.Outline;
-import android.graphics.Rect;
-import android.hardware.display.DisplayManager;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.net.ConnectivityManager;
@@ -159,7 +157,6 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
-import android.view.Display;
 import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -170,7 +167,6 @@ import android.view.View.OnGenericMotionListener;
 import android.view.View.OnSystemUiVisibilityChangeListener;
 import android.view.View.OnTouchListener;
 import android.view.ViewGroup;
-import android.view.ViewOutlineProvider;
 import android.view.ViewParent;
 import android.view.Window;
 import android.view.WindowManager;
@@ -279,6 +275,8 @@ public class Game extends Activity implements OnGenericMotionListener,
     private StreamMediaResourceOwner mediaResourceOwner;
     private StreamRenderSurfaceController
             renderSurfaceController;
+    private AndroidExternalDisplayController
+            externalDisplayController;
 
     private StreamWifiLockController wifiLockController;
 
@@ -1267,7 +1265,13 @@ public class Game extends Activity implements OnGenericMotionListener,
 
         //外接显示器模式
         if (streamDisplaySettings.isExternalDisplayEnabled()) {
-            showSecondScreen();
+            externalDisplayController =
+                    new AndroidExternalDisplayController(
+                            this,
+                            streamView,
+                            (ViewGroup) rootView);
+            externalDisplayController
+                    .showOnFirstSecondaryDisplay();
         }
 
         //强制体感
@@ -1574,8 +1578,9 @@ public class Game extends Activity implements OnGenericMotionListener,
                 false,
                 isHdrHighBrightnessEnabled());
 
-        if(presentation!=null){
-            presentation.dismiss();
+        if (externalDisplayController != null) {
+            externalDisplayController.destroy();
+            externalDisplayController = null;
         }
 
         if (usbDriverSessionController != null) {
@@ -2890,50 +2895,6 @@ public class Game extends Activity implements OnGenericMotionListener,
     @Override
     public void applyDualSenseTriggerSettings() {
         refreshAdaptiveTriggerState();
-    }
-
-
-    private SecondaryDisplayPresentation presentation;
-    public void showSecondScreen(){
-        DisplayManager displayManager = (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
-        Display[] displays = displayManager.getDisplays();
-        int mainDisplayId = Display.DEFAULT_DISPLAY;
-        int secondaryDisplayId = -1;
-        for (Display display : displays) {
-//            LimeLog.info(display.toString());
-            if (display.getDisplayId() != mainDisplayId) {
-                secondaryDisplayId = display.getDisplayId();
-                break;
-            }
-        }
-        if (secondaryDisplayId != -1) {
-            Display secondaryDisplay = displayManager.getDisplay(secondaryDisplayId);
-            presentation = new SecondaryDisplayPresentation(this, secondaryDisplay);
-            presentation.show();
-            if(rootView!= null) {
-                ((ViewGroup)rootView).removeView(streamView); // <- fix
-                presentation.addView(streamView);
-            }
-
-        }
-    }
-
-
-    // 设置surfaceView的圆角 setSurfaceviewCorner(UiHelper.dpToPx(this,24));
-    private void setSurfaceviewCorner(final float radius) {
-
-        streamView.setOutlineProvider(new ViewOutlineProvider() {
-            @Override
-            public void getOutline(View view, Outline outline) {
-                Rect rect = new Rect();
-                view.getGlobalVisibleRect(rect);
-                int leftMargin = 0;
-                int topMargin = 0;
-                Rect selfRect = new Rect(leftMargin, topMargin, rect.right - rect.left - leftMargin, rect.bottom - rect.top - topMargin);
-                outline.setRoundRect(selfRect, radius);
-            }
-        });
-        streamView.setClipToOutline(true);
     }
 
     private void startSessionWithRenderTarget(Surface renderTarget) {

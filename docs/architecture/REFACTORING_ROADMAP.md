@@ -443,6 +443,11 @@ targets.
   idempotent, warning changes made while hidden are restored accurately on
   exit, and late callbacks after teardown are rejected through a narrow host
   contract instead of Activity flags.
+- `AndroidExternalDisplayController` owns secondary-display discovery,
+  Presentation creation, StreamView parent transfer, display-removal recovery,
+  and teardown. The first-non-default selection rule is fixture-locked without
+  Android; the ad-hoc root-package Presentation, empty layout resource, and
+  unused rounded-Surface helper are removed from `Game`.
 - `StreamRenderSurfaceController` owns Surface callback registration,
   readiness, frame-rate hints, decoder stop preparation, and callback
   detachment. Its transition state is platform-independent and tested without

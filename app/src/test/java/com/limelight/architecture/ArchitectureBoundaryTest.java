@@ -339,6 +339,22 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void externalDisplaySelectionPolicyIsPlatformIndependent() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.ExternalDisplaySelectionPolicy")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..")
+                .because(
+                        "external display selection consumes sampled display IDs")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamPictureInPictureStateIsPlatformIndependent() {
         noClasses()
                 .that()
@@ -411,6 +427,29 @@ public final class ArchitectureBoundaryTest {
                         "com.limelight.ui.StreamLayoutGeometry")
                 .because(
                         "the Android display controller owns render-surface geometry")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void gameDelegatesExternalDisplayPresentation() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android.hardware.display..")
+                .because(
+                        "the external-display controller owns discovery and Presentation lifecycle")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("android.app.Presentation")
+                .because(
+                        "the external-display controller owns Presentation lifecycle")
                 .check(productionClasses);
     }
 
