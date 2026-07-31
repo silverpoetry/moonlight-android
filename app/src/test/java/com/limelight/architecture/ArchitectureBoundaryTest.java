@@ -209,6 +209,20 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void gameDelegatesControllerFeedbackRouting() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamSessionCallbackRouter$FeedbackHost")
+                .because(
+                        "controller feedback routing belongs to its tested session adapter")
+                .check(productionClasses);
+    }
+
+    @Test
     public void gameActivityDoesNotImplementTransportCallbacks() {
         noClasses()
                 .that()

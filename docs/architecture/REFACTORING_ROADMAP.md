@@ -480,6 +480,10 @@ targets.
   keep-screen-on flags, GameManager notifications, and input-grab changes.
   The tested `StreamSessionUiEffects` transition owner remains unchanged while
   `Game` no longer embeds its platform side-effect implementation.
+- `StreamControllerFeedbackHost` owns callback-thread routing for controller
+  vibration, linked trigger vibration, motion-state requests, controller LEDs,
+  and rumble-overlay observation. Its ports are unit-tested independently and
+  `Game` no longer implements the transport feedback contract.
 - `StreamHdrRequestPolicy` owns HDR request eligibility and user-warning
   selection from immutable settings and device facts. The Android capability
   provider samples OS, firmware, and display HDR10 support once; `Game` no

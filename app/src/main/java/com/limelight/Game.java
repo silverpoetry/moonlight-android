@@ -104,6 +104,7 @@ import com.limelight.ui.stream.AndroidStreamMicrophoneControllerFactory;
 import com.limelight.ui.stream.AndroidStreamOverlayVisibilityHost;
 import com.limelight.ui.stream.AndroidStreamPictureInPictureController;
 import com.limelight.ui.stream.AndroidStreamSessionUiEffectsHost;
+import com.limelight.ui.stream.StreamControllerFeedbackHost;
 import com.limelight.ui.stream.StreamDecoderCapabilities;
 import com.limelight.ui.stream.StreamDisplayRefreshPolicy;
 import com.limelight.ui.stream.StreamFailureDiagnostics;
@@ -181,7 +182,6 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 
 
 public class Game extends Activity implements OnGenericMotionListener,
@@ -893,53 +893,10 @@ public class Game extends Activity implements OnGenericMotionListener,
                         MoonBridge.ML_TEST_RESULT_INCONCLUSIVE);
         sessionCallbackRouter = new StreamSessionCallbackRouter(
                 sessionPresentationController,
-                new StreamSessionCallbackRouter.FeedbackHost() {
-                    @Override
-                    public void onRumble(
-                            short controllerNumber,
-                            short lowFreqMotor,
-                            short highFreqMotor) {
-                        handleRumble(
-                                controllerNumber,
-                                lowFreqMotor,
-                                highFreqMotor);
-                    }
-
-                    @Override
-                    public void onRumbleTriggers(
-                            short controllerNumber,
-                            short leftTrigger,
-                            short rightTrigger) {
-                        handleRumbleTriggers(
-                                controllerNumber,
-                                leftTrigger,
-                                rightTrigger);
-                    }
-
-                    @Override
-                    public void onMotionEventState(
-                            short controllerNumber,
-                            byte motionType,
-                            short reportRateHz) {
-                        handleMotionEventState(
-                                controllerNumber,
-                                motionType,
-                                reportRateHz);
-                    }
-
-                    @Override
-                    public void onControllerLed(
-                            short controllerNumber,
-                            byte red,
-                            byte green,
-                            byte blue) {
-                        handleControllerLed(
-                                controllerNumber,
-                                red,
-                                green,
-                                blue);
-                    }
-                },
+                new StreamControllerFeedbackHost(
+                        controllerHandler,
+                        controllerSettingsState,
+                        performanceOverlayController),
                 mainHandler);
         sessionController = new StreamSessionController(
                 conn,
@@ -2024,38 +1981,6 @@ public class Game extends Activity implements OnGenericMotionListener,
                 UiToast.LENGTH_LONG).show();
     }
 
-    private void handleRumble(
-            short controllerNumber,
-            short lowFreqMotor,
-            short highFreqMotor) {
-        LimeLog.info(String.format((Locale)null, "Rumble on gamepad %d: %04x %04x", controllerNumber, lowFreqMotor, highFreqMotor));
-        controllerHandler.handleRumble(controllerNumber, lowFreqMotor, highFreqMotor);
-        //联动扳机震动
-        if (controllerSettingsState
-                .get()
-                .isTriggerRumbleLinkEnabled()) {
-            handleRumbleTriggers(
-                    controllerNumber,
-                    lowFreqMotor,
-                    highFreqMotor);
-        }
-        if (performanceOverlayController != null) {
-            performanceOverlayController.updateRumble(
-                    controllerNumber,
-                    lowFreqMotor,
-                    highFreqMotor);
-        }
-    }
-
-    private void handleRumbleTriggers(
-            short controllerNumber,
-            short leftTrigger,
-            short rightTrigger) {
-        LimeLog.info(String.format((Locale)null, "Rumble on gamepad triggers %d: %04x %04x", controllerNumber, leftTrigger, rightTrigger));
-
-        controllerHandler.handleRumbleTriggers(controllerNumber, leftTrigger, rightTrigger);
-    }
-
     private void handleHdrModeChanged(
             boolean enabled,
             byte[] hdrMetadata) {
@@ -2065,22 +1990,6 @@ public class Game extends Activity implements OnGenericMotionListener,
                 this,
                 enabled,
                 isHdrHighBrightnessEnabled());
-    }
-
-    private void handleMotionEventState(
-            short controllerNumber,
-            byte motionType,
-            short reportRateHz) {
-        LimeLog.info("axi-->: controllerNumber" + controllerNumber+"-motionType:"+motionType+"-reportRateHz:"+reportRateHz);
-        controllerHandler.handleSetMotionEventState(controllerNumber, motionType, reportRateHz);
-    }
-
-    private void handleControllerLed(
-            short controllerNumber,
-            byte r,
-            byte g,
-            byte b) {
-        controllerHandler.handleSetControllerLED(controllerNumber, r, g, b);
     }
 
     private void handleNativeCursor(
