@@ -70,7 +70,6 @@ import com.limelight.settings.stream.StreamDecoderSettings;
 import com.limelight.settings.stream.StreamDecoderSettingsLoader;
 import com.limelight.settings.stream.StreamDisplaySettings;
 import com.limelight.settings.stream.StreamDisplaySettingsLoader;
-import com.limelight.settings.stream.StreamFramePacingPolicy;
 import com.limelight.settings.stream.StreamVideoSettings;
 import com.limelight.settings.stream.StreamVideoSettingsLoader;
 import com.limelight.settings.stream.StreamVideoSettingsState;
@@ -109,6 +108,8 @@ import com.limelight.ui.stream.StreamMediaResourceOwner;
 import com.limelight.ui.stream.StreamMicrophoneController;
 import com.limelight.ui.stream.StreamRenderSurfaceController;
 import com.limelight.ui.stream.StreamSessionCallbackRouter;
+import com.limelight.ui.stream.StreamSessionConfigurationAdapter;
+import com.limelight.ui.stream.StreamSessionConfigurationPlanner;
 import com.limelight.ui.stream.StreamSessionPresentationController;
 import com.limelight.ui.stream.StreamSessionUiEffects;
 import com.limelight.ui.stream.StreamWifiLockController;
@@ -580,9 +581,9 @@ public class Game extends Activity implements OnGenericMotionListener,
         MediaCodecHelper.initialize(this, glPrefs.glRenderer);
 
         // Check if the user has enabled HDR
-        boolean willStreamHdr = false;
+        boolean hdrRequested = false;
         if (streamVideoSettings.shouldIgnoreHdrCapability()) {
-            willStreamHdr=true;
+            hdrRequested = true;
         }else{
             if (streamDisplaySettings.isHdrEnabled() &&
                     AndroidHdrCompatibility
@@ -597,13 +598,13 @@ public class Game extends Activity implements OnGenericMotionListener,
                         // getHdrCapabilities() returns null on Lenovo Lenovo Mirage Solo (vega), Android 8.0
                         for (int hdrType : hdrCaps.getSupportedHdrTypes()) {
                             if (hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10) {
-                                willStreamHdr = true;
+                                hdrRequested = true;
                                 break;
                             }
                         }
                     }
 
-                    if (!willStreamHdr) {
+                    if (!hdrRequested) {
                         // Nope, no HDR for us :(
                         UiToast.makeText(this, "Display does not support HDR10", UiToast.LENGTH_LONG).show();
                     }
@@ -631,7 +632,7 @@ public class Game extends Activity implements OnGenericMotionListener,
                     }
                 },
                 tombstonePrefs.getInt("CrashCount", 0),
-                willStreamHdr,
+                hdrRequested,
                 glPrefs.glRenderer,
                 performanceOverlayController);
         mediaResourceOwner = StreamMediaResourceOwner.create(
@@ -641,131 +642,65 @@ public class Game extends Activity implements OnGenericMotionListener,
                         controllerHandler,
                         streamAudioSettingsState));
 
-        // Don't stream HDR if the decoder can't support it
-        if (willStreamHdr && !decoderRenderer.isHevcMain10Hdr10Supported() && !decoderRenderer.isAv1Main10Supported()) {
-            willStreamHdr = false;
-            UiToast.makeText(this, "Decoder does not support HDR10 profile", UiToast.LENGTH_LONG).show();
-        }
-        // Display a message to the user if HEVC was forced on but we still didn't find a decoder
-        if (streamDecoderSettings.getVideoFormat() ==
-                StreamDecoderSettings.VideoFormat.FORCE_HEVC &&
-                !decoderRenderer.isHevcSupported()) {
-            UiToast.makeText(this, "No HEVC decoder found", UiToast.LENGTH_LONG).show();
-        }
-
-        // Display a message to the user if AV1 was forced on but we still didn't find a decoder
-        if (streamDecoderSettings.getVideoFormat() ==
-                StreamDecoderSettings.VideoFormat.FORCE_AV1 &&
-                !decoderRenderer.isAv1Supported()) {
-            UiToast.makeText(this, "No AV1 decoder found", UiToast.LENGTH_LONG).show();
-        }
-
-        // H.264 is always supported
-        int supportedVideoFormats = MoonBridge.VIDEO_FORMAT_H264;
-        if (decoderRenderer.isHevcSupported()) {
-            supportedVideoFormats |= MoonBridge.VIDEO_FORMAT_H265;
-            if (willStreamHdr && decoderRenderer.isHevcMain10Hdr10Supported()) {
-                supportedVideoFormats |= MoonBridge.VIDEO_FORMAT_H265_MAIN10;
-            }
-        }
-        if (decoderRenderer.isAv1Supported()) {
-            supportedVideoFormats |= MoonBridge.VIDEO_FORMAT_AV1_MAIN8;
-            if (willStreamHdr && decoderRenderer.isAv1Main10Supported()) {
-                supportedVideoFormats |= MoonBridge.VIDEO_FORMAT_AV1_MAIN10;
-            }
-        }
-
         ControllerSettings controllerSettings =
                 controllerSettingsState.get();
-        int gamepadMask =
+        int discoveredGamepadMask =
                 AndroidControllerInventory.from(this)
                         .getInitialControllerMask(
                                 controllerSettings);
-        if (!controllerSettings.isMultiControllerEnabled()) {
-            // Always set gamepad 1 present for when multi-controller is
-            // disabled for games that don't properly support detection
-            // of gamepads removed and replugged at runtime.
-            gamepadMask = 1;
-        }
-        if (controllerSettings.isOnscreenControllerEnabled()) {
-            // If we're using OSC, always set at least gamepad 1.
-            gamepadMask |= 1;
-        }
 
         // Set to the optimal mode for streaming
         float displayRefreshRate = prepareDisplayForRendering();
         LimeLog.info("Display refresh rate: "+displayRefreshRate);
 
-        // If the user requested frame pacing using a capped FPS, we will need to change our
-        // desired FPS setting here in accordance with the active display refresh rate.
-        StreamFramePacingPolicy.Decision pacingDecision =
-                StreamFramePacingPolicy.resolve(
-                        streamDecoderSettings.getFramePacing(),
-                        streamDecoderSettings.getFps(),
-                        displayRefreshRate);
-        int chosenFrameRate = pacingDecision.getTargetFps();
+        StreamSessionConfigurationPlanner.Plan configurationPlan =
+                StreamSessionConfigurationPlanner.plan(
+                        new StreamSessionConfigurationPlanner
+                                .SettingsSnapshot(
+                                streamDecoderSettings,
+                                streamVideoSettings,
+                                streamAudioSettingsState.get(),
+                                controllerSettings,
+                                inputSettingsState.get(),
+                                transferSettings),
+                        new StreamSessionConfigurationPlanner.Environment(
+                                app,
+                                new StreamSessionConfigurationPlanner
+                                        .DecoderCapabilities(
+                                        decoderRenderer.isHevcSupported(),
+                                        hdrRequested && decoderRenderer
+                                                .isHevcMain10Hdr10Supported(),
+                                        decoderRenderer.isAv1Supported(),
+                                        hdrRequested && decoderRenderer
+                                                .isAv1Main10Supported(),
+                                        decoderRenderer
+                                                .getPreferredColorSpace(),
+                                        decoderRenderer
+                                                .getPreferredColorRange()),
+                                discoveredGamepadMask,
+                                displayRefreshRate,
+                                RazerUtils.getPPI(this),
+                                hdrRequested));
         effectiveFramePacing =
-                pacingDecision.getEffectiveMode();
+                configurationPlan.getEffectiveFramePacing();
+        showStreamConfigurationWarnings(
+                configurationPlan.getWarnings());
+        StreamConfiguration config =
+                StreamSessionConfigurationAdapter
+                        .toTransportConfiguration(
+                                configurationPlan
+                                        .getConfigurationDocument());
         if (effectiveFramePacing !=
                 streamDecoderSettings.getFramePacing()) {
             LimeLog.info(
                     "Using balanced frame pacing for incompatible display refresh rate");
         }
-        else if (chosenFrameRate !=
+        else if (config.getRefreshRate() !=
                 streamDecoderSettings.getFps()) {
             LimeLog.info(
                     "Adjusting FPS target for screen to " +
-                            chosenFrameRate);
+                            config.getRefreshRate());
         }
-
-        StreamConfiguration config = new StreamConfiguration.Builder()
-                .setResolution(
-                        streamDecoderSettings.getWidth(),
-                        streamDecoderSettings.getHeight())
-                .setLaunchRefreshRate(
-                        streamDecoderSettings.getFps())
-                .setRefreshRate(chosenFrameRate)
-                .setApp(app)
-                .setBitrate(
-                        streamDecoderSettings.getBitrateKbps())
-                .setEnableSops(
-                        streamVideoSettings
-                                .shouldOptimizeGameSettings())
-                .enableLocalAudioPlayback(
-                        streamAudioSettingsState
-                                .get()
-                                .shouldPlayHostAudio())
-                .setMaxPacketSize(1392)
-                .setRemoteConfiguration(StreamConfiguration.STREAM_CFG_AUTO) // NvConnection will perform LAN and VPN detection
-                .setSupportedVideoFormats(supportedVideoFormats)
-                .setAttachedGamepadMask(gamepadMask)
-                .setClientRefreshRateX100((int)(displayRefreshRate * 100))
-                .setAudioConfiguration(
-                        toTransportAudioConfiguration(
-                                streamAudioSettingsState
-                                        .get()
-                                        .getChannelConfiguration()))
-                .setColorSpace(decoderRenderer.getPreferredColorSpace())
-                .setColorRange(decoderRenderer.getPreferredColorRange())
-                .setPPI(RazerUtils.getPPI(this))
-                .setRazerVD(
-                        streamVideoSettings
-                                .getVirtualDisplayMode()
-                                .getStorageValue())
-                .setPersistGamepadsAfterDisconnect(
-                        !controllerSettings
-                                .isMultiControllerEnabled())
-                .enableNativeCursor(
-                        inputSettingsState
-                                .get()
-                                .isAbsoluteMouseMode())
-                .enableClipboardSync(
-                        transferSettings.isClipboardSyncEnabled())
-                .disableAdaptiveInputThrottling(
-                        inputSettingsState
-                                .get()
-                                .isAdaptiveInputThrottlingDisabled())
-                .build();
 
         streamReqBean=new StreamReqBean();
         streamReqBean.setAppName(appName);
@@ -2473,6 +2408,37 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
     }
 
+    private void showStreamConfigurationWarnings(
+            List<StreamSessionConfigurationPlanner.Warning> warnings) {
+        for (StreamSessionConfigurationPlanner.Warning warning : warnings) {
+            String message;
+            switch (warning) {
+                case HDR_DECODER_UNSUPPORTED:
+                    message = getString(
+                            R.string
+                                    .stream_warning_hdr_decoder_unsupported);
+                    break;
+                case FORCED_HEVC_DECODER_UNAVAILABLE:
+                    message = getString(
+                            R.string
+                                    .stream_warning_hevc_decoder_unavailable);
+                    break;
+                case FORCED_AV1_DECODER_UNAVAILABLE:
+                    message = getString(
+                            R.string
+                                    .stream_warning_av1_decoder_unavailable);
+                    break;
+                default:
+                    throw new IllegalStateException(
+                            "Unhandled stream warning: " + warning);
+            }
+            UiToast.makeText(
+                    this,
+                    message,
+                    UiToast.LENGTH_LONG).show();
+        }
+    }
+
     private void handleRumble(
             short controllerNumber,
             short lowFreqMotor,
@@ -3431,21 +3397,6 @@ public class Game extends Activity implements OnGenericMotionListener,
             if(controllerHandler!=null){
                 controllerHandler.handleSetMotionEventState((short) 0, MoonBridge.LI_MOTION_TYPE_GYRO, (short) 100);
             }
-        }
-    }
-
-    private static MoonBridge.AudioConfiguration
-            toTransportAudioConfiguration(
-                    StreamAudioSettings.ChannelConfiguration
-                            configuration) {
-        switch (configuration) {
-            case SURROUND_7_1:
-                return MoonBridge.AUDIO_CONFIGURATION_71_SURROUND;
-            case SURROUND_5_1:
-                return MoonBridge.AUDIO_CONFIGURATION_51_SURROUND;
-            case STEREO:
-            default:
-                return MoonBridge.AUDIO_CONFIGURATION_STEREO;
         }
     }
 

@@ -427,6 +427,14 @@ targets.
   behind an Android adapter and preserves protocol error/port formatting under
   JVM fixtures; `Game` now supplies only narrow View, window, and resource
   operations while realtime controller feedback remains on the callback path.
+- `StreamSessionConfigurationPlanner` owns the cross-domain startup document:
+  final HDR eligibility, advertised codecs, forced-codec warnings, display-
+  dependent pacing, initial gamepad policy, audio layout, clipboard/native-
+  cursor capabilities, and every common-c launch field. The document is pure
+  and JNI-free under JVM fixtures; `StreamSessionConfigurationAdapter` is the
+  only step that constructs `StreamConfiguration` and maps transport audio and
+  network constants, with on-device equivalence coverage. `Game` now samples
+  Android decoder/display/controller facts and consumes the completed plan.
 - `StreamMicrophoneController` owns permission deferral, duplicate-toggle
   suppression, serialized background start/stop work, lifecycle cancellation,
   error presentation events, and explicit menu-state invalidation. `Game`

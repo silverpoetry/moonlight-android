@@ -262,6 +262,32 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void streamSessionConfigurationPlanningIsNativeIndependent() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamSessionConfigurationPlanner")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..")
+                .because(
+                        "stream startup policy consumes already-sampled immutable inputs")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamSessionConfigurationPlanner")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.StreamConfiguration")
+                .because(
+                        "the pure configuration document must not load JNI-backed transport defaults")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamMicrophoneControllerUsesOnlyItsEndpointPort() {
         noClasses()
                 .that()
