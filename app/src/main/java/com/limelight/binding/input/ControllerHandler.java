@@ -387,8 +387,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             if ((dev.getSources() & InputDevice.SOURCE_JOYSTICK) != 0 ||
                     (dev.getSources() & InputDevice.SOURCE_GAMEPAD) != 0) {
                 // This looks like a gamepad, but we'll check X and Y to be sure
-                if (getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_X) != null &&
-                    getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_Y) != null) {
+                if (AndroidControllerAxisProbe.hasJoystickAxes(dev)) {
                     // This is a gamepad
                     hasGameController = true;
                 }
@@ -441,62 +440,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         // Register ourselves for input device notifications
         inputManager.registerInputDeviceListener(this, null);
-    }
-
-    private static InputDevice.MotionRange getMotionRangeForJoystickAxis(InputDevice dev, int axis) {
-        InputDevice.MotionRange range;
-
-        // First get the axis for SOURCE_JOYSTICK
-        range = dev.getMotionRange(axis, InputDevice.SOURCE_JOYSTICK);
-        if (range == null) {
-            // Now try the axis for SOURCE_GAMEPAD
-            range = dev.getMotionRange(axis, InputDevice.SOURCE_GAMEPAD);
-        }
-
-        return range;
-    }
-
-    private static boolean hasJoystickAxisPair(
-            InputDevice device,
-            int firstAxis,
-            int secondAxis) {
-        return getMotionRangeForJoystickAxis(device, firstAxis) != null &&
-                getMotionRangeForJoystickAxis(device, secondAxis) != null;
-    }
-
-    private static int toAndroidAxis(
-            ControllerAxisProfile.Axis axis) {
-        switch (axis) {
-            case X:
-                return MotionEvent.AXIS_X;
-            case Y:
-                return MotionEvent.AXIS_Y;
-            case Z:
-                return MotionEvent.AXIS_Z;
-            case RZ:
-                return MotionEvent.AXIS_RZ;
-            case RX:
-                return MotionEvent.AXIS_RX;
-            case RY:
-                return MotionEvent.AXIS_RY;
-            case LEFT_TRIGGER:
-                return MotionEvent.AXIS_LTRIGGER;
-            case RIGHT_TRIGGER:
-                return MotionEvent.AXIS_RTRIGGER;
-            case BRAKE:
-                return MotionEvent.AXIS_BRAKE;
-            case GAS:
-                return MotionEvent.AXIS_GAS;
-            case THROTTLE:
-                return MotionEvent.AXIS_THROTTLE;
-            case HAT_X:
-                return MotionEvent.AXIS_HAT_X;
-            case HAT_Y:
-                return MotionEvent.AXIS_HAT_Y;
-            case NONE:
-            default:
-                return -1;
-        }
     }
 
     @Override
@@ -594,12 +537,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
     }
 
-    private static boolean hasJoystickAxes(InputDevice device) {
-        return (device.getSources() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK &&
-                getMotionRangeForJoystickAxis(device, MotionEvent.AXIS_X) != null &&
-                getMotionRangeForJoystickAxis(device, MotionEvent.AXIS_Y) != null;
-    }
-
     private static boolean hasGamepadButtons(InputDevice device) {
         return (device.getSources() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD;
     }
@@ -610,7 +547,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             return true;
         }
 
-        if (hasJoystickAxes(device) || hasGamepadButtons(device)) {
+        if (AndroidControllerAxisProbe.hasJoystickAxes(device) ||
+                hasGamepadButtons(device)) {
             // Has real joystick axes or gamepad buttons
             return true;
         }
@@ -630,7 +568,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
                     // If there are any gamepad devices connected, we'll
                     // report that this virtual device is a gamepad.
-                    if (hasJoystickAxes(dev) || hasGamepadButtons(dev)) {
+                    if (AndroidControllerAxisProbe.hasJoystickAxes(dev) ||
+                            hasGamepadButtons(dev)) {
                         return true;
                     }
                 }
@@ -655,7 +594,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 continue;
             }
 
-            if (hasJoystickAxes(dev)) {
+            if (AndroidControllerAxisProbe.hasJoystickAxes(dev)) {
                 LimeLog.info("Counting InputDevice: "+dev.getName());
                 mask |= 1 << count++;
             }
@@ -906,7 +845,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
 
         // Classify this device as a remote by name if it has no joystick axes
-        if (!hasJoystickAxes(dev) &&
+        if (!AndroidControllerAxisProbe.hasJoystickAxes(dev) &&
                 devName.toLowerCase(Locale.ROOT).contains("remote")) {
             return true;
         }
@@ -954,7 +893,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         else {
             // For external devices, we want to pass through the back button if the device
             // has no gamepad axes or gamepad buttons.
-            return !hasJoystickAxes(dev) && !hasGamepadButtons(dev);
+            return !AndroidControllerAxisProbe.hasJoystickAxes(dev) &&
+                    !hasGamepadButtons(dev);
         }
     }
 
@@ -1015,71 +955,36 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                         (devName.endsWith(" Touchpad")||devName.startsWith("DualSense")) &&
                 dev.getSources() == (InputDevice.SOURCE_KEYBOARD | InputDevice.SOURCE_MOUSE);
 
-        InputDevice.MotionRange gasRange = getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_GAS);
-        boolean hasRxAndRy =
-                hasJoystickAxisPair(
+        InputDevice.MotionRange gasRange =
+                AndroidControllerAxisProbe.getMotionRange(
                         dev,
-                        MotionEvent.AXIS_RX,
-                        MotionEvent.AXIS_RY);
-        boolean hasSonyButtonC =
-                context.vendorId == 0x054c &&
-                        devName != null &&
-                        hasRxAndRy &&
-                        dev.hasKeys(KeyEvent.KEYCODE_BUTTON_C)[0];
+                        MotionEvent.AXIS_GAS);
         ControllerAxisProfile axisProfile =
-                ControllerAxisProfile.resolve(
-                        context.vendorId,
-                        devName != null,
-                        hasSonyButtonC,
-                        ControllerAxisProfile.Capabilities.builder()
-                                .xAndY(
-                                        hasJoystickAxisPair(
-                                                dev,
-                                                MotionEvent.AXIS_X,
-                                                MotionEvent.AXIS_Y))
-                                .leftTriggerAndRightTrigger(
-                                        hasJoystickAxisPair(
-                                                dev,
-                                                MotionEvent.AXIS_LTRIGGER,
-                                                MotionEvent.AXIS_RTRIGGER))
-                                .brakeAndGas(
-                                        hasJoystickAxisPair(
-                                                dev,
-                                                MotionEvent.AXIS_BRAKE,
-                                                MotionEvent.AXIS_GAS))
-                                .brakeAndThrottle(
-                                        hasJoystickAxisPair(
-                                                dev,
-                                                MotionEvent.AXIS_BRAKE,
-                                                MotionEvent.AXIS_THROTTLE))
-                                .rxAndRy(hasRxAndRy)
-                                .zAndRz(
-                                        hasJoystickAxisPair(
-                                                dev,
-                                                MotionEvent.AXIS_Z,
-                                                MotionEvent.AXIS_RZ))
-                                .hatXAndHatY(
-                                        hasJoystickAxisPair(
-                                                dev,
-                                                MotionEvent.AXIS_HAT_X,
-                                                MotionEvent.AXIS_HAT_Y))
-                                .build());
+                AndroidControllerAxisProbe.probe(dev);
         context.leftStickXAxis =
-                toAndroidAxis(axisProfile.getLeftStickX());
+                AndroidControllerAxisProbe.toAndroidAxis(
+                        axisProfile.getLeftStickX());
         context.leftStickYAxis =
-                toAndroidAxis(axisProfile.getLeftStickY());
+                AndroidControllerAxisProbe.toAndroidAxis(
+                        axisProfile.getLeftStickY());
         context.rightStickXAxis =
-                toAndroidAxis(axisProfile.getRightStickX());
+                AndroidControllerAxisProbe.toAndroidAxis(
+                        axisProfile.getRightStickX());
         context.rightStickYAxis =
-                toAndroidAxis(axisProfile.getRightStickY());
+                AndroidControllerAxisProbe.toAndroidAxis(
+                        axisProfile.getRightStickY());
         context.leftTriggerAxis =
-                toAndroidAxis(axisProfile.getLeftTrigger());
+                AndroidControllerAxisProbe.toAndroidAxis(
+                        axisProfile.getLeftTrigger());
         context.rightTriggerAxis =
-                toAndroidAxis(axisProfile.getRightTrigger());
+                AndroidControllerAxisProbe.toAndroidAxis(
+                        axisProfile.getRightTrigger());
         context.hatXAxis =
-                toAndroidAxis(axisProfile.getHatX());
+                AndroidControllerAxisProbe.toAndroidAxis(
+                        axisProfile.getHatX());
         context.hatYAxis =
-                toAndroidAxis(axisProfile.getHatY());
+                AndroidControllerAxisProbe.toAndroidAxis(
+                        axisProfile.getHatY());
         context.triggersIdleNegative =
                 axisProfile.areTriggersIdleNegative();
         context.hasJoystickAxes = axisProfile.hasLeftStick();
@@ -1109,8 +1014,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
         //todo --trigger
         if (context.leftTriggerAxis != -1 && context.rightTriggerAxis != -1) {
-            InputDevice.MotionRange ltRange = getMotionRangeForJoystickAxis(dev, context.leftTriggerAxis);
-            InputDevice.MotionRange rtRange = getMotionRangeForJoystickAxis(dev, context.rightTriggerAxis);
+            InputDevice.MotionRange ltRange =
+                    AndroidControllerAxisProbe.getMotionRange(
+                            dev,
+                            context.leftTriggerAxis);
+            InputDevice.MotionRange rtRange =
+                    AndroidControllerAxisProbe.getMotionRange(
+                            dev,
+                            context.rightTriggerAxis);
 
             // It's important to have a valid deadzone so controller packet batching works properly
             context.triggerDeadzone = Math.max(Math.abs(ltRange.getFlat()), Math.abs(rtRange.getFlat()));

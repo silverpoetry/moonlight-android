@@ -1216,3 +1216,17 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Added `AndroidControllerAxisProbe` as the only adapter from Android
+  joystick/gamepad motion ranges to `ControllerAxisProfile`. It preserves the
+  `SOURCE_JOYSTICK` then `SOURCE_GAMEPAD` fallback, every axis-pair probe, Sony
+  button-C detection, and the complete profile-to-Android constant mapping.
+- Initial enumeration, controller classification, context construction,
+  trigger deadzone sampling, and controller-arrival Hat reporting now reuse the
+  same adapter instead of carrying parallel range logic. The probe runs only on
+  device attachment or change; no steady-state motion allocation, lock, queue,
+  or thread was introduced.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 512 JVM
+  tests per variant (2,048 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

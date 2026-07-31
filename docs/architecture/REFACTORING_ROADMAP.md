@@ -431,6 +431,11 @@ targets.
   brake/throttle, RX/RY, Z/RZ, old DualShock, Linux DualShock, unnamed-device,
   and incomplete-hat cases are explicit policy fixtures; Android integer-axis
   constants remain in the device adapter.
+- `AndroidControllerAxisProbe` is that single device adapter: it owns
+  joystick-to-gamepad range fallback, axis-pair sampling, Sony button-C
+  detection, profile construction, and Android-axis conversion. Enumeration,
+  Back-button classification, context setup, deadzone sampling, and arrival
+  reporting now consume the same capability view.
 - `ControllerDeviceQuirks` applies known ADT-1, ASUS, NVIDIA, Razer Serval,
   Xbox Bluetooth, and Thrustmaster key-layout corrections to immutable sampled
   facts. Button remapping consumes the resulting profile instead of depending

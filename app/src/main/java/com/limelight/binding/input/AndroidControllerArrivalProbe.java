@@ -61,13 +61,13 @@ final class AndroidControllerArrivalProbe {
                 .hasShareButton(
                         runtimeCapabilities.hasShareButton)
                 .hasHorizontalHatAxis(
-                        hasJoystickAxis(
+                        AndroidControllerAxisProbe.getMotionRange(
                                 device,
-                                MotionEvent.AXIS_HAT_X))
+                                MotionEvent.AXIS_HAT_X) != null)
                 .hasVerticalHatAxis(
-                        hasJoystickAxis(
+                        AndroidControllerAxisProbe.getMotionRange(
                                 device,
-                                MotionEvent.AXIS_HAT_Y))
+                                MotionEvent.AXIS_HAT_Y) != null)
                 .hasAdvancedInputDeviceApis(
                         Build.VERSION.SDK_INT >=
                                 Build.VERSION_CODES.S)
@@ -97,17 +97,6 @@ final class AndroidControllerArrivalProbe {
                         hasTouchpad &&
                                 hasButtonUnderTouchpad(device, type))
                 .build();
-    }
-
-    private static boolean hasJoystickAxis(
-            InputDevice device,
-            int axis) {
-        return device.getMotionRange(
-                        axis,
-                        InputDevice.SOURCE_JOYSTICK) != null ||
-                device.getMotionRange(
-                        axis,
-                        InputDevice.SOURCE_GAMEPAD) != null;
     }
 
     private static boolean hasButtonUnderTouchpad(
