@@ -1151,3 +1151,20 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Extracted controller slot-selection decisions into pure
+  `ControllerAssignmentPolicy` fixtures. Built-in inputs remain fixed to player
+  one, external joysticks reserve only in multi-controller mode, auxiliary
+  inputs always attempt split-device association, and USB controllers preserve
+  the existing single/multi-controller behavior.
+- Extracted the DS4-style split-device identity rule into
+  `ControllerAssociationPolicy`. Tests reject absent and non-joystick
+  candidates, equal-name duplicate controllers, and mismatched descriptors,
+  while accepting only a differently named joystick with the same descriptor.
+  Android orchestration preserves the forward-then-reverse adjacent-device
+  search and creates or assigns the matched joystick context before sharing its
+  established slot.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 500 JVM
+  tests per variant (2,000 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

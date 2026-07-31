@@ -704,29 +704,43 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
     }
 
-    private boolean isAssociatedJoystick(InputDevice originalDevice, InputDevice possibleAssociatedJoystick) {
-        if (possibleAssociatedJoystick == null) {
-            return false;
+    private static ControllerAssociationPolicy.DeviceFacts getAssociationFacts(
+            InputDevice device) {
+        return new ControllerAssociationPolicy.DeviceFacts(
+                device.getName(),
+                device.getDescriptor(),
+                (device.getSources() & InputDevice.SOURCE_JOYSTICK) ==
+                        InputDevice.SOURCE_JOYSTICK);
+    }
+
+    private InputDevice findAssociatedJoystick(
+            InputDevice originalDevice) {
+        ControllerAssociationPolicy.DeviceFacts originalFacts =
+                getAssociationFacts(originalDevice);
+
+        // Android exposes a DS4 touchpad immediately before its joystick.
+        // Check the reverse order as well for other split-device layouts.
+        InputDevice candidate = InputDevice.getDevice(
+                originalDevice.getId() + 1);
+        if (isAssociatedJoystick(originalFacts, candidate)) {
+            return candidate;
         }
 
-        // This can't be an associated joystick if it's not a joystick
-        if ((possibleAssociatedJoystick.getSources() & InputDevice.SOURCE_JOYSTICK) != InputDevice.SOURCE_JOYSTICK) {
-            return false;
-        }
+        candidate = InputDevice.getDevice(
+                originalDevice.getId() - 1);
+        return isAssociatedJoystick(originalFacts, candidate)
+                ? candidate
+                : null;
+    }
 
-        // Make sure the device names *don't* match in order to prevent us from accidentally matching
-        // on another of the exact same device.
-        if (possibleAssociatedJoystick.getName().equals(originalDevice.getName())) {
-            return false;
-        }
-
-        // Make sure the descriptor matches. This can match in cases where two of the exact same
-        // input device are connected, so we perform the name check to exclude that case.
-        if (!possibleAssociatedJoystick.getDescriptor().equals(originalDevice.getDescriptor())) {
-            return false;
-        }
-
-        return true;
+    private boolean isAssociatedJoystick(
+            ControllerAssociationPolicy.DeviceFacts originalFacts,
+            InputDevice candidate) {
+        return ControllerAssociationPolicy.isAssociatedJoystick(
+                originalFacts,
+                candidate == null
+                        ? null
+                        : getAssociationFacts(candidate));
     }
 
     private void reserveControllerNumber(
@@ -735,6 +749,81 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             LimeLog.warning(
                     "No controller number is available; " +
                             "falling back to controller 0");
+        }
+    }
+
+    private void assignAssociatedJoystickNumber(
+            InputDeviceContext context) {
+        InputDevice associatedDevice = findAssociatedJoystick(
+                context.inputDevice);
+        if (associatedDevice == null) {
+            LimeLog.info("No associated joystick device found");
+            context.slotLease.selectFixed((short) 0);
+            return;
+        }
+
+        InputDeviceContext associatedContext =
+                inputDeviceContexts.get(associatedDevice.getId());
+        if (associatedContext == null) {
+            associatedContext = createInputDeviceContextForDevice(
+                    associatedDevice);
+            inputDeviceContexts.put(
+                    associatedDevice.getId(),
+                    associatedContext);
+        }
+
+        if (!associatedContext.slotLease.isAssigned()) {
+            assignControllerNumberIfNeeded(associatedContext);
+        }
+
+        context.slotLease.selectFixed(
+                associatedContext.slotLease.getControllerNumber());
+        LimeLog.info(
+                "Propagated controller number from " +
+                        associatedContext.name);
+    }
+
+    private void applyInputDeviceAssignmentStrategy(
+            InputDeviceContext context,
+            ControllerAssignmentPolicy.Strategy strategy) {
+        switch (strategy) {
+            case FIXED_PLAYER_ONE:
+                LimeLog.info("Using controller number 0");
+                context.slotLease.selectFixed((short) 0);
+                break;
+            case RESERVE_NEXT:
+                LimeLog.info(
+                        "Reserving the next available controller number");
+                reserveControllerNumber(context);
+                break;
+            case FIND_ASSOCIATED_JOYSTICK:
+                assignAssociatedJoystickNumber(context);
+                break;
+            default:
+                throw new AssertionError(
+                        "Unhandled controller assignment strategy: " +
+                                strategy);
+        }
+    }
+
+    private void applyUsbControllerAssignmentStrategy(
+            GenericControllerContext context,
+            ControllerAssignmentPolicy.Strategy strategy) {
+        switch (strategy) {
+            case FIXED_PLAYER_ONE:
+                LimeLog.info("Using controller number 0");
+                context.slotLease.selectFixed((short) 0);
+                break;
+            case RESERVE_NEXT:
+                LimeLog.info(
+                        "Reserving the next available controller number");
+                reserveControllerNumber(context);
+                break;
+            case FIND_ASSOCIATED_JOYSTICK:
+            default:
+                throw new AssertionError(
+                        "Invalid USB controller assignment strategy: " +
+                                strategy);
         }
     }
 
@@ -750,60 +839,12 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             InputDeviceContext devContext = (InputDeviceContext) context;
 
             LimeLog.info(devContext.name+" ("+context.id+") needs a controller number assigned");
-            if (!devContext.external) {
-                LimeLog.info("Built-in buttons hardcoded as controller 0");
-                context.slotLease.selectFixed((short) 0);
-            }
-            else if (settings.isMultiControllerEnabled() &&
-                    devContext.hasJoystickAxes) {
-                LimeLog.info("Reserving the next available controller number");
-                reserveControllerNumber(context);
-            }
-            else if (!devContext.hasJoystickAxes) {
-                // If this device doesn't have joystick axes, it may be an input device associated
-                // with another joystick (like a PS4 touchpad). We'll propagate that joystick's
-                // controller number to this associated device.
-
-                // For the DS4 case, the associated joystick is the next device after the touchpad.
-                // We'll try the opposite case too, just to be a little future-proof.
-                InputDevice associatedDevice = InputDevice.getDevice(devContext.id + 1);
-                if (!isAssociatedJoystick(devContext.inputDevice, associatedDevice)) {
-                    associatedDevice = InputDevice.getDevice(devContext.id - 1);
-                    if (!isAssociatedJoystick(devContext.inputDevice, associatedDevice)) {
-                        LimeLog.info("No associated joystick device found");
-                        associatedDevice = null;
-                    }
-                }
-
-                if (associatedDevice != null) {
-                    InputDeviceContext associatedDeviceContext = inputDeviceContexts.get(associatedDevice.getId());
-
-                    // Create a new context for the associated device if one doesn't exist
-                    if (associatedDeviceContext == null) {
-                        associatedDeviceContext = createInputDeviceContextForDevice(associatedDevice);
-                        inputDeviceContexts.put(associatedDevice.getId(), associatedDeviceContext);
-                    }
-
-                    // Assign a controller number for the associated device if one isn't assigned
-                    if (!associatedDeviceContext.slotLease.isAssigned()) {
-                        assignControllerNumberIfNeeded(associatedDeviceContext);
-                    }
-
-                    // Propagate the associated controller number
-                    context.slotLease.selectFixed(
-                            associatedDeviceContext.slotLease
-                                    .getControllerNumber());
-
-                    LimeLog.info("Propagated controller number from "+associatedDeviceContext.name);
-                }
-                else {
-                    context.slotLease.selectFixed((short) 0);
-                }
-            }
-            else {
-                LimeLog.info("Not reserving a controller number");
-                context.slotLease.selectFixed((short) 0);
-            }
+            applyInputDeviceAssignmentStrategy(
+                    devContext,
+                    ControllerAssignmentPolicy.forInputDevice(
+                            devContext.external,
+                            devContext.hasJoystickAxes,
+                            settings.isMultiControllerEnabled()));
 
             // If the gamepad doesn't have motion sensors, use the on-device sensors as a fallback for player 1
             if (settings
@@ -815,14 +856,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             }
         }
         else {
-            if (settings.isMultiControllerEnabled()) {
-                LimeLog.info("Reserving the next available controller number");
-                reserveControllerNumber(context);
-            }
-            else {
-                LimeLog.info("Not reserving a controller number");
-                context.slotLease.selectFixed((short) 0);
-            }
+            applyUsbControllerAssignmentStrategy(
+                    context,
+                    ControllerAssignmentPolicy.forUsbController(
+                            settings.isMultiControllerEnabled()));
         }
 
         LimeLog.info(

@@ -359,6 +359,13 @@ targets.
   transfers reservation ownership without changing the host-visible slot,
   while the destroyed context retains a read-only routing snapshot for a
   callback already in flight.
+- `ControllerAssignmentPolicy` selects fixed player one, allocator-backed
+  reservation, or split-device association from immutable controller facts.
+  `ControllerAssociationPolicy` separately owns the split-device identity
+  rule: the candidate must be a joystick with a different name and the same
+  descriptor. Android still probes the forward adjacent device before the
+  reverse device and performs context creation, recursion, and slot sharing at
+  the platform edge.
 - `ControllerBatteryReport` owns Android-to-protocol battery conversion and
   duplicate-sample suppression. The Android adapter only samples platform or
   SHIELD APIs and sends the immutable report.
