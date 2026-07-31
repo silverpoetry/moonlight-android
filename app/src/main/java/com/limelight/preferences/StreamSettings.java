@@ -1,6 +1,5 @@
 package com.limelight.preferences;
 
-import androidx.annotation.RequiresApi;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -24,8 +23,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Vibrator;
 import android.provider.Settings;
-import androidx.core.content.FileProvider;
-import androidx.documentfile.provider.DocumentFile;
 import android.text.InputFilter;
 import android.text.InputType;
 import android.text.TextUtils;
@@ -48,15 +45,15 @@ import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
-import com.limelight.utils.UiToast;
+
+import androidx.annotation.RequiresApi;
+import androidx.documentfile.provider.DocumentFile;
 
 import com.limelight.AboutActivity;
 import com.limelight.LimeLog;
 import com.limelight.PcView;
 import com.limelight.R;
 import com.limelight.binding.video.MediaCodecHelper;
-import com.limelight.computers.ComputerDatabaseManager;
-import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.settings.SettingsScreenIds;
 import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.settings.android.AndroidAppPresentationDefaults;
@@ -77,37 +74,21 @@ import com.limelight.settings.transfer.TransferSettings;
 import com.limelight.settings.transfer.TransferSettingsLoader;
 import com.limelight.settings.ui.StreamUiSettingKeys;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
-import com.limelight.settings.virtualcontrols.VirtualControlSettings;
-import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.Dialog;
-import com.limelight.utils.FileUriUtils;
 import com.limelight.utils.HelpLauncher;
 import com.limelight.utils.UiHelper;
-import com.limelight.virtualcontrols.layout.VirtualControlLayoutKey;
-import com.limelight.virtualcontrols.layout.VirtualControlLayoutOrientation;
+import com.limelight.utils.UiToast;
 import com.limelight.virtualcontrols.layout.android.AndroidVirtualControlLayoutRepository;
 
-
-import java.io.File;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.List;
 
 import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
 import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
 import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
 
 public class StreamSettings extends Activity {
-    private static final int READ_REQUEST_CODE = 1001;
-    private static final int GAMEPAD_READ_REQUEST_CODE = 1002;
-    private static final int READ_DATABASE_REQUEST_CODE = 1003;
-    private static final int READ_DATA_CRT_REQUEST_CODE = 1004;
-    private static final int READ_DATA_KEY_REQUEST_CODE = 1005;
-    private static final int READ_REQUEST_SWITCH_BUTTON_CODE = 1007;
-    private static final int READ_REQUEST_SCREEN_IMAGE_CODE = 1008;
-    private static final int CLIPBOARD_DIRECTORY_REQUEST_CODE = 1009;
     private static final int MAX_BITRATE_KBPS = 50000;
     private static final int FEATURED_SECTION_INDEX = -1;
     private static final String CUSTOM_BITRATE_EDITOR_KEY =
@@ -142,8 +123,7 @@ public class StreamSettings extends Activity {
     private boolean wideLayout;
     private boolean sectionActivity;
     private BackNavigationRegistration backNavigationRegistration;
-    private AndroidVirtualControlLayoutRepository
-            virtualControlLayoutRepository;
+    private SettingsDocumentController documentController;
 
     // HACK for Android 9
     static DisplayCutout displayCutoutP;
@@ -191,8 +171,13 @@ public class StreamSettings extends Activity {
 
         AndroidAppLocale.apply(this);
         store = new SettingsStore(this);
-        virtualControlLayoutRepository =
+        AndroidVirtualControlLayoutRepository layoutRepository =
                 new AndroidVirtualControlLayoutRepository(this);
+        documentController = new SettingsDocumentController(
+                this,
+                store.repository,
+                layoutRepository,
+                this::reloadSettings);
         sectionActivity = getIntent().hasExtra(EXTRA_SECTION_INDEX);
         selectedSectionIndex = getIntent().getIntExtra(EXTRA_SECTION_INDEX, -1);
 
@@ -250,6 +235,10 @@ public class StreamSettings extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (documentController != null) {
+            documentController.destroy();
+            documentController = null;
+        }
         if (backNavigationRegistration != null) {
             backNavigationRegistration.unregister();
             backNavigationRegistration = null;
@@ -1238,117 +1227,9 @@ public class StreamSettings extends Activity {
     }
 
     private void performAction(String key) {
-        if (SettingsScreenIds.ACTION_VIRTUAL_KEYBOARD_IMPORT
-                .equals(key)) {
-            openDocument("text/plain", READ_REQUEST_CODE);
+        if (documentController != null) {
+            documentController.perform(key);
         }
-        else if (SettingsScreenIds.ACTION_VIRTUAL_GAMEPAD_IMPORT
-                .equals(key)) {
-            openDocument("text/plain", GAMEPAD_READ_REQUEST_CODE);
-        }
-        else if (SettingsScreenIds.ACTION_BACKUP_HOSTS_IMPORT
-                .equals(key)) {
-            openDocument("*/*", READ_DATABASE_REQUEST_CODE);
-        }
-        else if (SettingsScreenIds.ACTION_BACKUP_CERTIFICATE_IMPORT
-                .equals(key)) {
-            openDocument("*/*", READ_DATA_CRT_REQUEST_CODE);
-        }
-        else if (SettingsScreenIds.ACTION_BACKUP_PRIVATE_KEY_IMPORT
-                .equals(key)) {
-            openDocument("*/*", READ_DATA_KEY_REQUEST_CODE);
-        }
-        else if (SettingsScreenIds.ACTION_ACCESSIBILITY_CONFIG_IMPORT
-                .equals(key)) {
-            openDocument("application/json", READ_REQUEST_SWITCH_BUTTON_CODE);
-        }
-        else if (SettingsScreenIds.ACTION_APP_BACKGROUND_SELECT
-                .equals(key)) {
-            openDocument("image/*", READ_REQUEST_SCREEN_IMAGE_CODE);
-        }
-        else if (TransferSettingKeys
-                .CLIPBOARD_FILE_DIRECTORY_URI
-                .getName()
-                .equals(key)) {
-            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
-                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
-                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION |
-                    Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
-            startActivityForResult(intent, CLIPBOARD_DIRECTORY_REQUEST_CODE);
-        }
-        else if (SettingsScreenIds.ACTION_VIRTUAL_KEYBOARD_EXPORT
-                .equals(key)) {
-            exportKeyboard(false);
-        }
-        else if (SettingsScreenIds.ACTION_VIRTUAL_GAMEPAD_EXPORT
-                .equals(key)) {
-            exportKeyboard(true);
-        }
-        else if (SettingsScreenIds.ACTION_BACKUP_HOSTS_EXPORT
-                .equals(key)) {
-            exportFile(getDatabasePath(ComputerDatabaseManager.COMPUTER_DB_NAME), "*/*");
-        }
-        else if (SettingsScreenIds.ACTION_BACKUP_CERTIFICATE_EXPORT
-                .equals(key)) {
-            exportFile(new File(getFilesDir(), "client.crt"), "*/*");
-        }
-        else if (SettingsScreenIds.ACTION_BACKUP_PRIVATE_KEY_EXPORT
-                .equals(key)) {
-            exportFile(new File(getFilesDir(), "client.key"), "*/*");
-        }
-    }
-
-    private void openDocument(String type, int requestCode) {
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType(type);
-        startActivityForResult(intent, requestCode);
-    }
-
-    private void exportKeyboard(boolean gamepad) {
-        VirtualControlLayoutKey layoutKey =
-                getSelectedLayoutKey(gamepad);
-        Uri uri = virtualControlLayoutRepository
-                .getShareUri(layoutKey);
-        if (uri == null) {
-            UiToast.makeText(
-                    this,
-                    R.string.virtual_control_layout_export_missing,
-                    UiToast.LENGTH_SHORT).show();
-            return;
-        }
-        Intent intent = new Intent(Intent.ACTION_SEND);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        intent.putExtra(Intent.EXTRA_STREAM, uri);
-        intent.setType("text/plain");
-        startActivity(Intent.createChooser(intent, "保存配置文件"));
-    }
-
-    private VirtualControlLayoutKey getSelectedLayoutKey(
-            boolean gamepad) {
-        VirtualControlSettings settings =
-                VirtualControlSettingsLoader.load(
-                        store.repository);
-        return gamepad
-                ? VirtualControlLayoutKey.gamepad(
-                        settings.getGamepadLayoutId(),
-                        VirtualControlLayoutOrientation.LANDSCAPE)
-                : VirtualControlLayoutKey.keyboard(
-                        settings.getKeyboardLayoutId(),
-                        VirtualControlLayoutOrientation.LANDSCAPE);
-    }
-
-    private void exportFile(File file, String type) {
-        if (!file.exists()) {
-            return;
-        }
-        Intent intent = new Intent(Intent.ACTION_SEND);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", file);
-        intent.putExtra(Intent.EXTRA_STREAM, uri);
-        intent.setType(type);
-        startActivity(Intent.createChooser(intent, "保存数据文件"));
     }
 
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
@@ -1882,120 +1763,11 @@ public class StreamSettings extends Activity {
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == CLIPBOARD_DIRECTORY_REQUEST_CODE &&
-                resultCode == Activity.RESULT_OK && data != null &&
-                data.getData() != null) {
-            Uri directory = data.getData();
-            try {
-                if (!FileUriUtils.persistUriPermission(this, data, directory)) {
-                    throw new SecurityException(
-                            "Document provider returned no persistable URI permission");
-                }
-                store.repository.edit()
-                        .put(
-                                TransferSettingKeys
-                                        .CLIPBOARD_FILE_DIRECTORY_URI,
-                                directory.toString())
-                        .apply();
-                reloadSettings();
-            } catch (SecurityException error) {
-                UiToast.makeText(this, "无法保留该目录的访问权限",
-                        UiToast.LENGTH_SHORT).show();
-            }
-            return;
-        }
-        if ((requestCode == READ_REQUEST_CODE || requestCode == GAMEPAD_READ_REQUEST_CODE) && resultCode == Activity.RESULT_OK && data.getData() != null) {
-            try {
-                Uri uri = data.getData();
-                virtualControlLayoutRepository.importFrom(
-                        getContentResolver(),
-                        uri,
-                        getSelectedLayoutKey(
-                                requestCode ==
-                                        GAMEPAD_READ_REQUEST_CODE));
-                UiToast.makeText(
-                        this,
-                        R.string.virtual_control_layout_import_succeeded,
-                        UiToast.LENGTH_SHORT).show();
-            } catch (IOException | IllegalArgumentException error) {
-                LimeLog.warning(
-                        "Unable to import virtual-control layout: " +
-                                error.getMessage());
-                UiToast.makeText(
-                        this,
-                        R.string.virtual_control_layout_import_failed,
-                        UiToast.LENGTH_SHORT).show();
-            }
-            return;
-        }
-
-        if (requestCode == READ_DATABASE_REQUEST_CODE && resultCode == Activity.RESULT_OK && data.getData() != null) {
-            try {
-                Uri uri = data.getData();
-                File dataBaseFile;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    dataBaseFile = FileUriUtils.uriToFileApiQ(uri, this);
-                }
-                else {
-                    String displayName = System.currentTimeMillis() + Math.round((Math.random() + 1) * 1000) + ".db";
-                    dataBaseFile = new File(getCacheDir(), displayName);
-                    FileUriUtils.copyUriToInternalStorage(this, uri, dataBaseFile);
-                }
-                ComputerDatabaseManager importManager = new ComputerDatabaseManager(this, dataBaseFile);
-                List<ComputerDetails> importComputers = importManager.getAllComputers();
-                ComputerDatabaseManager manager = new ComputerDatabaseManager(this);
-                for (ComputerDetails computer : importComputers) {
-                    manager.updateComputer(computer);
-                }
-                UiToast.makeText(this, "导入成功,重新打开APP生效！", UiToast.LENGTH_SHORT).show();
-            } catch (Exception e) {
-                e.printStackTrace();
-                UiToast.makeText(this, "出错啦~" + e.getMessage(), UiToast.LENGTH_SHORT).show();
-            }
-            return;
-        }
-
-        if (requestCode == READ_DATA_CRT_REQUEST_CODE && resultCode == Activity.RESULT_OK && data.getData() != null) {
-            importFile(data.getData(), "client.crt");
-            return;
-        }
-
-        if (requestCode == READ_DATA_KEY_REQUEST_CODE && resultCode == Activity.RESULT_OK && data.getData() != null) {
-            importFile(data.getData(), "client.key");
-            return;
-        }
-
-        if (requestCode == READ_REQUEST_SWITCH_BUTTON_CODE && resultCode == Activity.RESULT_OK && data.getData() != null) {
-            importFile(data.getData(), "axi_switch_keyboard.json");
-            return;
-        }
-
-        if (requestCode == READ_REQUEST_SCREEN_IMAGE_CODE && resultCode == Activity.RESULT_OK && data.getData() != null) {
-            try {
-                String displayName = "axi_screen_bg_" + System.currentTimeMillis() + ".png";
-                File imageFile = new File(getFilesDir(), displayName);
-                FileUriUtils.copyUriToInternalStorage(this, data.getData(), imageFile);
-                store.repository.edit()
-                        .put(
-                                AppPresentationSettingKeys
-                                        .BACKGROUND_FILE,
-                                displayName)
-                        .apply();
-            } catch (Exception e) {
-                e.printStackTrace();
-                UiToast.makeText(this, "出错啦~" + e.getMessage(), UiToast.LENGTH_SHORT).show();
-            }
-        }
-    }
-
-    private void importFile(Uri uri, String displayName) {
-        try {
-            File file = new File(getFilesDir(), displayName);
-            FileUriUtils.copyUriToInternalStorage(this, uri, file);
-            UiToast.makeText(this, "导入成功!", UiToast.LENGTH_SHORT).show();
-        } catch (Exception e) {
-            e.printStackTrace();
-            UiToast.makeText(this, "出错啦~" + e.getMessage(), UiToast.LENGTH_SHORT).show();
+        if (documentController != null) {
+            documentController.handleActivityResult(
+                    requestCode,
+                    resultCode,
+                    data);
         }
     }
 

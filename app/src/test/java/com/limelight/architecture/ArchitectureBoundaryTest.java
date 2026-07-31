@@ -325,6 +325,46 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void settingsDocumentOperationsHaveOneAndroidBoundary() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsDocumentAction")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsDocumentActionRouter")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..")
+                .because(
+                        "settings document action routing is platform-independent")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.StreamSettings")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("com.limelight.computers..")
+                .because(
+                        "the settings Activity delegates database I/O to its lifecycle controller")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.StreamSettings")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.utils.FileUriUtils")
+                .because(
+                        "the settings Activity delegates document I/O to its lifecycle controller")
+                .check(productionClasses);
+    }
+
+    @Test
     public void typedInputSettingsDoNotDependOnAndroidOrLegacyPreferences() {
         noClasses()
                 .that()

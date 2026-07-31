@@ -1,0 +1,18 @@
+package com.limelight.preferences;
+
+/** File- or provider-backed action initiated by a settings row. */
+enum SettingsDocumentAction {
+    IMPORT_VIRTUAL_KEYBOARD,
+    IMPORT_VIRTUAL_GAMEPAD,
+    IMPORT_HOSTS,
+    IMPORT_CERTIFICATE,
+    IMPORT_PRIVATE_KEY,
+    IMPORT_ACCESSIBILITY_CONFIGURATION,
+    SELECT_BACKGROUND,
+    SELECT_CLIPBOARD_DIRECTORY,
+    EXPORT_VIRTUAL_KEYBOARD,
+    EXPORT_VIRTUAL_GAMEPAD,
+    EXPORT_HOSTS,
+    EXPORT_CERTIFICATE,
+    EXPORT_PRIVATE_KEY
+}

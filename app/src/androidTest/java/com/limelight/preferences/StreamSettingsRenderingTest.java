@@ -5,6 +5,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Intent;
 import android.view.View;
@@ -36,6 +37,21 @@ public class StreamSettingsRenderingTest {
             assertNotNull(settingsSwitch);
             assertTrue(settingsSwitch.getWidth() > 0);
             assertTrue(settingsSwitch.getHeight() > 0);
+        });
+    }
+
+    @Test
+    public void canceledDocumentResultDoesNotCrash() {
+        withSettingsActivity(activity -> {
+            Instrumentation instrumentation =
+                    InstrumentationRegistry.getInstrumentation();
+            instrumentation.runOnMainSync(() ->
+                    activity.onActivityResult(
+                            SettingsDocumentController
+                                    .REQUEST_BACKGROUND,
+                            Activity.RESULT_CANCELED,
+                            null));
+            assertFalse(activity.isFinishing());
         });
     }
 

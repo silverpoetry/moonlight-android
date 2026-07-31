@@ -269,6 +269,12 @@ A slice is incomplete if callers can still bypass the new boundary.
   section policy are independently testable, while `SettingsRegistry` is the
   one adapter that validates `preferences.xml` against the typed schema before
   the Activity renders it.
+- Settings document actions resolve from stable row IDs through a pure action
+  router. One lifecycle-bound Android controller owns provider launches,
+  persisted tree grants, virtual-control layout exchange, host database
+  import, credential import/export, and background selection. The Activity no
+  longer performs file, provider, or database I/O, and canceled or incomplete
+  provider results are handled without dereferencing absent data.
 - The in-stream action catalog and virtual-overlay buttons consume typed UI
   policy plus read-only controller visibility. Persisted startup defaults are
   no longer mutated to represent picture-in-picture or menu presentation, and

@@ -704,6 +704,13 @@
     <string name="virtual_control_layout_export_missing">当前布局尚未保存</string>
     <string name="virtual_control_layout_import_succeeded">布局导入成功</string>
     <string name="virtual_control_layout_import_failed">布局导入失败</string>
+    <string name="settings_share_configuration">分享配置文件</string>
+    <string name="settings_share_data">分享数据文件</string>
+    <string name="settings_directory_permission_failed">无法保留该目录的访问权限</string>
+    <string name="settings_hosts_import_succeeded">导入成功，重新打开应用后生效</string>
+    <string name="settings_import_succeeded">导入成功</string>
+    <string name="settings_import_failed">导入失败：%1$s</string>
+    <string name="settings_import_too_large">选择的文件过大</string>
     <string name="category_video_display_settings">视频与显示</string>
     <string name="category_touch_mouse_settings">触控与鼠标</string>
     <string name="category_haptics_settings">震动反馈</string>

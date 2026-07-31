@@ -85,6 +85,14 @@ while `SettingsScreenKeyCatalog` remains the executable contract for storage
 type, validation, and default. Section icons are selected from stable section
 IDs rather than translated titles or legacy-key substrings.
 
+Document-backed actions form a separate Android boundary. A pure
+`SettingsDocumentActionRouter` maps stable, non-persisted row IDs to explicit
+actions. `SettingsDocumentController` then owns Storage Access Framework
+requests, persisted directory grants, virtual-control layout exchange, host
+database import, credentials, accessibility configuration, and background
+selection for the Activity lifecycle. `StreamSettings` only forwards the user
+intent and provider result; it has no file, provider, or database I/O branch.
+
 ## Snapshot lifecycle
 
 A stream session receives one snapshot during composition. A setting that
