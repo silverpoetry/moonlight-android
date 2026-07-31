@@ -429,6 +429,12 @@ targets.
   motor fields. `SingleVibratorRumblePlan` freezes zero/cancel, optional stop
   pulse, forced-strong, amplitude, and legacy PWM decisions before platform
   effects are submitted.
+- `RazerKishiHapticsController` owns the optional Kishi USB sidecars as a
+  synchronized lifecycle: candidate discovery, permission/open/start,
+  refresh throttling, frame submission, stale replacement, policy shutdown,
+  and terminal destruction. Android USB and diagnostic logging are injected
+  adapters, allowing deterministic fixtures without putting test hooks in the
+  production device class.
 - `DecoderSelectionPolicy` owns HEVC/AV1 acceptance decisions and stream color
   defaults. The MediaCodec adapter performs discovery and capability queries,
   and no longer carries the unused metered-network parameter or unreachable

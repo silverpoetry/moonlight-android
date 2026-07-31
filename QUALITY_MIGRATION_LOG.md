@@ -1046,3 +1046,18 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Added `RazerKishiHapticsController` as the synchronized owner of optional USB
+  audio-haptics sidecars. `ControllerHandler` no longer enumerates devices,
+  opens connections, throttles refreshes, stores sidecars, or submits their
+  frames. Backend, clock, policy, and diagnostic adapters keep Android I/O at
+  the edge while tests drive the lifecycle deterministically.
+- The first on-demand refresh is now guaranteed instead of implicitly relying
+  on system uptime already exceeding 1.5 seconds. An existing but stopped
+  sidecar is explicitly closed before replacement, failed starts are closed,
+  stale/disabled devices are removed, and refresh/submission/destruction cannot
+  concurrently mutate the active-device map.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 449 JVM
+  tests per variant (1,796 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.
