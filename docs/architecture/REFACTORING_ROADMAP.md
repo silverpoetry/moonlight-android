@@ -295,11 +295,13 @@ A slice is incomplete if callers can still bypass the new boundary.
   bounds/defaults, the explicit bitrate editor default, and the directory
   summary through a localized text port; the Activity no longer resolves
   document providers or owns bitrate metadata constants.
-- Settings writes now pass through `SettingsMutationController`: resolution
-  selection semantics, native-refresh warnings, exact Mbps-to-Kbps parsing,
-  and post-change refresh/reload effects are pure and unit tested. One
-  lifecycle-bound scheduler coalesces delayed UI work and cancels it on
-  teardown; the Activity no longer creates anonymous Handlers per click.
+- User-initiated boolean, integer, list, and text writes now pass through
+  `SettingsMutationController`. It commits the typed value and returns one
+  explicit result containing validation, native-refresh warning intent, and
+  the post-change refresh/reload effect; resolution selection and exact
+  Mbps-to-Kbps parsing are covered at this boundary. One lifecycle-bound
+  scheduler coalesces effects and cancels them on teardown. The Activity has
+  no direct settings write and creates no anonymous Handler per click.
 - List, slider, and text value-editor windows now belong to one
   lifecycle-bound `SettingsDialogPresenter`. It owns dialog replacement,
   styling, input constraints, validation feedback, and teardown; the Activity

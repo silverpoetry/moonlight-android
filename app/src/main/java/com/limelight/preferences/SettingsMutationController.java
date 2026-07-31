@@ -1,5 +1,6 @@
 package com.limelight.preferences;
 
+import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.stream.StreamResolutionCodec;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
@@ -8,7 +9,9 @@ import com.limelight.settings.stream.StreamVideoSettingKeys;
 import java.math.BigDecimal;
 import java.util.Objects;
 
-/** Pure settings-write policy and post-change presentation effects. */
+/**
+ * Single use-case boundary for settings writes and their presentation effects.
+ */
 final class SettingsMutationController {
     private static final long SWITCH_ANIMATION_DELAY_MS = 180;
     private static final long FRAME_RATE_RELOAD_DELAY_MS = 500;
@@ -19,47 +22,74 @@ final class SettingsMutationController {
         this.store = Objects.requireNonNull(store, "store");
     }
 
-    ListChangeResult prepareListChange(
+    ChangeResult changeBoolean(
+            SettingsItem item,
+            boolean value,
+            boolean allowSwitchAnimation) {
+        Objects.requireNonNull(item, "item");
+        store.putBoolean(item, value);
+        return ChangeResult.accepted(
+                effectAfterChange(item, allowSwitchAnimation),
+                false);
+    }
+
+    ChangeResult changeInteger(
+            SettingsItem item,
+            int value) {
+        Objects.requireNonNull(item, "item");
+        store.putInt(item, value);
+        return ChangeResult.accepted(
+                effectAfterChange(item, false),
+                false);
+    }
+
+    ChangeResult changeList(
             SettingsItem item,
             String value,
             String nativeFrameRateValue) {
         Objects.requireNonNull(item, "item");
         Objects.requireNonNull(value, "value");
+        SettingsRepository.Editor editor =
+                store.repository.edit();
         if (StreamResolutionSettingKeys.RESOLUTION
                 .getName()
                 .equals(item.key)) {
-            store.put(
+            editor.put(
                     StreamResolutionSettingKeys.SELECTION,
                     StreamResolutionCodec.isStandardResolutionPreset(value)
                             ? StreamResolutionCodec.SELECTION_PRESET
                             : StreamResolutionCodec
                                     .SELECTION_CUSTOM_OR_NATIVE);
         }
-        return new ListChangeResult(
+        editor.put(item.stringKey(), value).apply();
+        return ChangeResult.accepted(
+                effectAfterChange(item, false),
                 StreamResolutionSettingKeys.FPS
-                        .getName()
-                        .equals(item.key) &&
+                                .getName()
+                                .equals(item.key) &&
                         value.equals(nativeFrameRateValue));
     }
 
-    TextChangeResult commitText(
+    ChangeResult changeText(
             SettingsItem item,
             String value) {
         Objects.requireNonNull(item, "item");
         Objects.requireNonNull(value, "value");
         if (!item.isCustomBitrateEditor()) {
             store.putString(item, value);
-            return TextChangeResult.ACCEPTED;
+            return ChangeResult.accepted(
+                    effectAfterChange(item, false),
+                    false);
         }
         if (value.isEmpty()) {
-            return TextChangeResult.INVALID_BITRATE;
+            return ChangeResult.invalidBitrate();
         }
         try {
             BigDecimal bitrateMbps = new BigDecimal(value);
             if (bitrateMbps.signum() < 0 ||
                     bitrateMbps.compareTo(
                             BigDecimal.valueOf(9999)) > 0) {
-                return TextChangeResult.INVALID_BITRATE;
+                return ChangeResult.invalidBitrate();
             }
             int bitrateKbps = bitrateMbps
                     .movePointRight(3)
@@ -67,14 +97,16 @@ final class SettingsMutationController {
             store.put(
                     StreamVideoSettingKeys.BITRATE_KBPS,
                     bitrateKbps);
-            return TextChangeResult.ACCEPTED;
+            return ChangeResult.accepted(
+                    effectAfterChange(item, false),
+                    false);
         }
         catch (NumberFormatException | ArithmeticException error) {
-            return TextChangeResult.INVALID_BITRATE;
+            return ChangeResult.invalidBitrate();
         }
     }
 
-    ChangeEffect effectAfterChange(
+    private ChangeEffect effectAfterChange(
             SettingsItem item,
             boolean allowSwitchAnimation) {
         Objects.requireNonNull(item, "item");
@@ -96,16 +128,55 @@ final class SettingsMutationController {
                 : 0);
     }
 
-    enum TextChangeResult {
-        ACCEPTED,
-        INVALID_BITRATE
+    enum ValidationError {
+        NONE,
+        INVALID_BITRATE,
     }
 
-    static final class ListChangeResult {
+    static final class ChangeResult {
+        private final ValidationError validationError;
+        private final ChangeEffect effect;
         private final boolean showNativeFrameRateWarning;
 
-        private ListChangeResult(boolean showNativeFrameRateWarning) {
+        private ChangeResult(
+                ValidationError validationError,
+                ChangeEffect effect,
+                boolean showNativeFrameRateWarning) {
+            this.validationError = validationError;
+            this.effect = effect;
             this.showNativeFrameRateWarning = showNativeFrameRateWarning;
+        }
+
+        static ChangeResult accepted(
+                ChangeEffect effect,
+                boolean showNativeFrameRateWarning) {
+            return new ChangeResult(
+                    ValidationError.NONE,
+                    Objects.requireNonNull(effect, "effect"),
+                    showNativeFrameRateWarning);
+        }
+
+        static ChangeResult invalidBitrate() {
+            return new ChangeResult(
+                    ValidationError.INVALID_BITRATE,
+                    null,
+                    false);
+        }
+
+        boolean isAccepted() {
+            return validationError == ValidationError.NONE;
+        }
+
+        ValidationError getValidationError() {
+            return validationError;
+        }
+
+        ChangeEffect getEffect() {
+            if (effect == null) {
+                throw new IllegalStateException(
+                        "Rejected change has no effect");
+            }
+            return effect;
         }
 
         boolean shouldShowNativeFrameRateWarning() {

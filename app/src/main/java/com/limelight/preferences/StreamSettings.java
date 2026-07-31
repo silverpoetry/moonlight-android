@@ -161,8 +161,10 @@ public class StreamSettings extends Activity {
                     public void onSliderValueSelected(
                             SettingsItem item,
                             int value) {
-                        store.putInt(item, value);
-                        afterItemChanged(item, false);
+                        applyChangeResult(
+                                mutationController.changeInteger(
+                                        item,
+                                        value));
                     }
 
                     @Override
@@ -198,8 +200,11 @@ public class StreamSettings extends Activity {
                     public void onSwitchChanged(
                             SettingsItem item,
                             boolean checked) {
-                        store.putBoolean(item, checked);
-                        afterItemChanged(item, true);
+                        applyChangeResult(
+                                mutationController.changeBoolean(
+                                        item,
+                                        checked,
+                                        true));
                     }
                 });
     }
@@ -343,8 +348,11 @@ public class StreamSettings extends Activity {
         switch (item.type) {
             case SWITCH:
                 boolean checked = !store.getBoolean(item);
-                store.putBoolean(item, checked);
-                afterItemChanged(item, true);
+                applyChangeResult(
+                        mutationController.changeBoolean(
+                                item,
+                                checked,
+                                true));
                 break;
             case LIST:
                 if (AppPresentationSettingKeys.LANGUAGE
@@ -381,12 +389,11 @@ public class StreamSettings extends Activity {
     private void handleListValueSelected(
             SettingsItem item,
             String value) {
-        SettingsMutationController.ListChangeResult result =
-                mutationController.prepareListChange(
+        SettingsMutationController.ChangeResult result =
+                mutationController.changeList(
                         item,
                         value,
                         nativeFrameRateValue);
-        store.putString(item, value);
         if (result.shouldShowNativeFrameRateWarning()) {
             Dialog.displayDialog(
                     this,
@@ -394,30 +401,30 @@ public class StreamSettings extends Activity {
                     getString(R.string.text_native_res_dialog),
                     false);
         }
-        afterItemChanged(item, false);
+        applyChangeResult(result);
     }
 
     private CharSequence handleTextValueSubmitted(
             SettingsItem item,
             String value) {
-        SettingsMutationController.TextChangeResult result =
-                mutationController.commitText(item, value);
-        if (result != SettingsMutationController
-                .TextChangeResult.ACCEPTED) {
+        SettingsMutationController.ChangeResult result =
+                mutationController.changeText(item, value);
+        if (!result.isAccepted()) {
             return getText(R.string.settings_invalid_bitrate);
         }
-        afterItemChanged(item, false);
+        applyChangeResult(result);
         return null;
     }
 
-    private void afterItemChanged(
-            SettingsItem item,
-            boolean allowSwitchAnimation) {
+    private void applyChangeResult(
+            SettingsMutationController.ChangeResult result) {
+        if (!result.isAccepted()) {
+            throw new IllegalArgumentException(
+                    "Cannot apply a rejected settings change");
+        }
         if (changeEffectScheduler != null) {
             changeEffectScheduler.schedule(
-                    mutationController.effectAfterChange(
-                            item,
-                            allowSwitchAnimation));
+                    result.getEffect());
         }
     }
 

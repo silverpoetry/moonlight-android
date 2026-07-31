@@ -126,12 +126,14 @@ summary therefore have one tested owner rather than Activity-local constants
 and provider queries.
 
 User writes cross `SettingsMutationController` before presentation is updated.
-It owns preset-versus-custom resolution semantics, native frame-rate warning
-intent, exact decimal Mbps conversion, validation failure, and the typed
-refresh/reload effect with its delay. `SettingsChangeEffectScheduler` is the
-single Android main-thread adapter for those effects; pending callbacks are
-coalesced by effect type and canceled on Activity teardown. Views never create
-their own delayed persistence or reload callbacks.
+Boolean, integer, list, and text entry points commit the typed value and return
+one explicit result containing validation state, native frame-rate warning
+intent, and the refresh/reload effect with its delay. The controller also owns
+preset-versus-custom resolution semantics and exact decimal Mbps conversion;
+the Activity performs no settings write. `SettingsChangeEffectScheduler` is
+the single Android main-thread adapter for effects; pending callbacks are
+coalesced by type and canceled on teardown. Views never create delayed
+persistence or reload callbacks.
 
 Settings value editors cross `SettingsDialogPresenter`. This lifecycle-bound
 Android adapter is the only settings-screen component that creates list,
