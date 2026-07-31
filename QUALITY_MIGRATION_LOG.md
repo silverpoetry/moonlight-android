@@ -871,3 +871,14 @@ Verification on 2026-07-31:
 - `verifyConnected --rerun-tasks --no-daemon` completed successfully on the
   API 34 emulator. The generated result suites record 107 non-root and 107
   root instrumentation tests with zero failures, errors, or skips.
+- Consolidated scheduled stick, high-resolution scroll, and trigger-repeat
+  output into each context's existing `ControllerMouseEmulationTranslator`.
+  The established cubic response curve, sensitivity scaling, Y-axis
+  directions, stick-selection policy, and per-report trigger repeat are locked
+  by numeric fixtures. A reusable work vector replaces the previous
+  `Vector2d` allocation on every 50 ms report.
+- The follow-up `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks
+  with 369 JVM tests in each variant (1,476 executions total), all Lint
+  variants, and both unminified Release APKs. The matching
+  `verifyConnected --rerun-tasks --no-daemon` run passed all 296 tasks and
+  both 107-test root/non-root instrumentation suites.

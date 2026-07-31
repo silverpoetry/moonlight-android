@@ -3,6 +3,8 @@ package com.limelight.binding.input;
 import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.nvstream.input.KeyboardPacket;
 import com.limelight.nvstream.input.MouseButtonPacket;
+import com.limelight.settings.controller.ControllerSettings;
+import com.limelight.utils.Vector2d;
 
 /**
  * Stateful gamepad-to-desktop input mapping used by controller mouse mode.
@@ -14,6 +16,14 @@ final class ControllerMouseEmulationTranslator {
         void sendKey(int keyCode, byte action);
 
         void sendChord(short[] keyCodes);
+
+        void sendMouseMove(short deltaX, short deltaY);
+
+        void sendHighResolutionScroll(
+                short verticalAmount,
+                short horizontalAmount);
+
+        void sendDiscreteScroll(byte amount);
     }
 
     private static final short[] SHOW_KEYBOARD_CHORD = {
@@ -26,6 +36,12 @@ final class ControllerMouseEmulationTranslator {
             KeyboardTranslator.VK_D
     };
 
+    private static final float STICK_NORMALIZATION_SCALE =
+            1.0f / 32766.0f;
+    private static final float BASE_MOUSE_SPEED = 4.0f;
+    private static final float PERCENT_SCALE = 0.01f;
+
+    private final Vector2d translatedStick = new Vector2d();
     private int previousInputMap;
 
     void translate(int inputMap, Output output) {
@@ -125,6 +141,118 @@ final class ControllerMouseEmulationTranslator {
                 ControllerPacket.BACK_FLAG,
                 KeyboardTranslator.VK_SPACE,
                 output);
+    }
+
+    void translateMotion(
+            short leftStickX,
+            short leftStickY,
+            short rightStickX,
+            short rightStickY,
+            int leftTrigger,
+            int rightTrigger,
+            int sensitivityPercent,
+            ControllerSettings.AnalogStickForScrolling scrollStick,
+            Output output) {
+        if (scrollStick ==
+                ControllerSettings.AnalogStickForScrolling.RIGHT) {
+            sendMouseMove(
+                    leftStickX,
+                    leftStickY,
+                    sensitivityPercent,
+                    output);
+            sendMouseScroll(
+                    rightStickX,
+                    rightStickY,
+                    sensitivityPercent,
+                    output);
+        }
+        else if (scrollStick ==
+                ControllerSettings.AnalogStickForScrolling.LEFT) {
+            sendMouseMove(
+                    rightStickX,
+                    rightStickY,
+                    sensitivityPercent,
+                    output);
+            sendMouseScroll(
+                    leftStickX,
+                    leftStickY,
+                    sensitivityPercent,
+                    output);
+        }
+        else {
+            sendMouseMove(
+                    leftStickX,
+                    leftStickY,
+                    sensitivityPercent,
+                    output);
+            sendMouseMove(
+                    rightStickX,
+                    rightStickY,
+                    sensitivityPercent,
+                    output);
+        }
+
+        // Trigger scrolling intentionally repeats once per scheduled report
+        // while held, matching the existing controller mouse behavior.
+        if (leftTrigger > 0) {
+            output.sendDiscreteScroll((byte) 1);
+        }
+        if (rightTrigger > 0) {
+            output.sendDiscreteScroll((byte) -1);
+        }
+    }
+
+    private void sendMouseMove(
+            short stickX,
+            short stickY,
+            int sensitivityPercent,
+            Output output) {
+        if (!translateStick(
+                stickX,
+                stickY,
+                sensitivityPercent)) {
+            return;
+        }
+        output.sendMouseMove(
+                (short) translatedStick.getX(),
+                (short) -translatedStick.getY());
+    }
+
+    private void sendMouseScroll(
+            short stickX,
+            short stickY,
+            int sensitivityPercent,
+            Output output) {
+        if (!translateStick(
+                stickX,
+                stickY,
+                sensitivityPercent)) {
+            return;
+        }
+        output.sendHighResolutionScroll(
+                (short) translatedStick.getY(),
+                (short) translatedStick.getX());
+    }
+
+    private boolean translateStick(
+            short stickX,
+            short stickY,
+            int sensitivityPercent) {
+        translatedStick.initialize(stickX, stickY);
+        translatedStick.scalarMultiply(
+                STICK_NORMALIZATION_SCALE);
+        translatedStick.scalarMultiply(
+                BASE_MOUSE_SPEED *
+                        sensitivityPercent *
+                        PERCENT_SCALE);
+        if (translatedStick.getMagnitude() > 0) {
+            // Preserve the established cubic response curve.
+            translatedStick.scalarMultiply(
+                    Math.pow(
+                            translatedStick.getMagnitude(),
+                            2));
+        }
+        return translatedStick.getMagnitude() >= 1;
     }
 
     private static void sendMouseButtonChange(

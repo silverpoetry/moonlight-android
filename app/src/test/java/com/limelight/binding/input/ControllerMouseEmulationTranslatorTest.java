@@ -3,6 +3,7 @@ package com.limelight.binding.input;
 import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.nvstream.input.KeyboardPacket;
 import com.limelight.nvstream.input.MouseButtonPacket;
+import com.limelight.settings.controller.ControllerSettings;
 
 import org.junit.Test;
 
@@ -107,11 +108,99 @@ public final class ControllerMouseEmulationTranslatorTest {
                 output.chords.get(1));
     }
 
+    @Test
+    public void motionUsesEstablishedCubicCurveWithoutIdleOutput() {
+        ControllerMouseEmulationTranslator translator =
+                new ControllerMouseEmulationTranslator();
+        RecordingOutput output = new RecordingOutput();
+
+        translator.translateMotion(
+                (short) 0,
+                (short) 0,
+                (short) 0,
+                (short) 0,
+                0,
+                0,
+                100,
+                ControllerSettings.AnalogStickForScrolling.NONE,
+                output);
+        translator.translateMotion(
+                (short) 32766,
+                (short) 0,
+                (short) 16383,
+                (short) 0,
+                0,
+                0,
+                100,
+                ControllerSettings.AnalogStickForScrolling.NONE,
+                output);
+
+        assertEquals(
+                Arrays.asList(
+                        "move:64:0",
+                        "move:8:0"),
+                output.motionEvents);
+    }
+
+    @Test
+    public void selectedStickProducesHighResolutionScroll() {
+        ControllerMouseEmulationTranslator translator =
+                new ControllerMouseEmulationTranslator();
+        RecordingOutput output = new RecordingOutput();
+
+        translator.translateMotion(
+                (short) 32766,
+                (short) 0,
+                (short) 32766,
+                (short) -32766,
+                0,
+                0,
+                100,
+                ControllerSettings.AnalogStickForScrolling.RIGHT,
+                output);
+
+        assertEquals(
+                Arrays.asList(
+                        "move:64:0",
+                        "high-scroll:-128:128"),
+                output.motionEvents);
+    }
+
+    @Test
+    public void triggerScrollRepeatsForEachScheduledReport() {
+        ControllerMouseEmulationTranslator translator =
+                new ControllerMouseEmulationTranslator();
+        RecordingOutput output = new RecordingOutput();
+
+        for (int i = 0; i < 2; i++) {
+            translator.translateMotion(
+                    (short) 0,
+                    (short) 0,
+                    (short) 0,
+                    (short) 0,
+                    255,
+                    128,
+                    100,
+                    ControllerSettings.AnalogStickForScrolling.NONE,
+                    output);
+        }
+
+        assertEquals(
+                Arrays.asList(
+                        "scroll:1",
+                        "scroll:-1",
+                        "scroll:1",
+                        "scroll:-1"),
+                output.motionEvents);
+    }
+
     private static final class RecordingOutput
             implements ControllerMouseEmulationTranslator.Output {
         private final List<String> events = new ArrayList<>();
         private final List<Integer> keyDowns = new ArrayList<>();
         private final List<List<Short>> chords =
+                new ArrayList<>();
+        private final List<String> motionEvents =
                 new ArrayList<>();
 
         @Override
@@ -134,6 +223,30 @@ public final class ControllerMouseEmulationTranslatorTest {
                 copy.add(keyCode);
             }
             chords.add(copy);
+        }
+
+        @Override
+        public void sendMouseMove(
+                short deltaX,
+                short deltaY) {
+            motionEvents.add(
+                    "move:" + deltaX + ":" + deltaY);
+        }
+
+        @Override
+        public void sendHighResolutionScroll(
+                short verticalAmount,
+                short horizontalAmount) {
+            motionEvents.add(
+                    "high-scroll:" +
+                            verticalAmount +
+                            ":" +
+                            horizontalAmount);
+        }
+
+        @Override
+        public void sendDiscreteScroll(byte amount) {
+            motionEvents.add("scroll:" + amount);
         }
     }
 }

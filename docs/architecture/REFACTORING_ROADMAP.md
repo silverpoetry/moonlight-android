@@ -364,9 +364,10 @@ targets.
   aggregation. Triggers are compared as unsigned protocol values and axes by
   signed magnitude; the previous bitwise-OR corruption path has been removed.
 - `ControllerMouseEmulationTranslator` owns the stateful controller-to-desktop
-  button and key transitions. Each controller context keeps one translator,
-  chord definitions are immutable, and the input hot path adds no allocation
-  or asynchronous hop.
+  button, key, stick, scroll, and trigger transitions. Each controller context
+  keeps one translator and one reusable work vector; chord definitions are
+  immutable, and scheduled mouse reports add no allocation or asynchronous
+  hop.
 - `DecoderSelectionPolicy` owns HEVC/AV1 acceptance decisions and stream color
   defaults. The MediaCodec adapter performs discovery and capability queries,
   and no longer carries the unused metered-network parameter or unreachable

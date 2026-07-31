@@ -400,6 +400,28 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                                 keyboardInputSink,
                                 keyCodes);
                     }
+
+                    @Override
+                    public void sendMouseMove(
+                            short deltaX,
+                            short deltaY) {
+                        conn.sendMouseMove(deltaX, deltaY);
+                    }
+
+                    @Override
+                    public void sendHighResolutionScroll(
+                            short verticalAmount,
+                            short horizontalAmount) {
+                        conn.sendMouseHighResScroll(
+                                verticalAmount);
+                        conn.sendMouseHighResHScroll(
+                                horizontalAmount);
+                    }
+
+                    @Override
+                    public void sendDiscreteScroll(byte amount) {
+                        conn.sendMouseScroll(amount);
+                    }
                 };
         this.gestures = gestures;
         this.settingsState = Objects.requireNonNull(
@@ -1873,66 +1895,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         return true;
     }
 
-    private Vector2d convertRawStickAxisToPixelMovement(short stickX, short stickY) {
-        Vector2d vector = new Vector2d();
-        vector.initialize(stickX, stickY);
-        vector.scalarMultiply(1 / 32766.0f);
-        vector.scalarMultiply(
-                4 *
-                        settingsState.get()
-                                .getMouseSensitivityPercent() *
-                        0.01f);
-        if (vector.getMagnitude() > 0) {
-            // Move faster as the stick is pressed further from center
-            vector.scalarMultiply(Math.pow(vector.getMagnitude(), 2));
-        }
-        return vector;
-    }
-
-    private void sendEmulatedMouseMove(short x, short y) {
-        Vector2d vector = convertRawStickAxisToPixelMovement(x, y);
-        if (vector.getMagnitude() >= 1) {
-            conn.sendMouseMove((short)vector.getX(), (short)-vector.getY());
-        }
-    }
-
-    private void sendEmulatedMouseScroll(short x, short y) {
-        Vector2d vector = convertRawStickAxisToPixelMovement(x, y);
-        if (vector.getMagnitude() >= 1) {
-            conn.sendMouseHighResScroll((short)vector.getY());
-            conn.sendMouseHighResHScroll((short)vector.getX());
-        }
-    }
-
-    boolean wasLeftTriggerPressed = false;
-    boolean wasRightTriggerPressed = false;
-
-    private void checkTriggerState(float leftTrigger, float rightTrigger) {
-        final float TRIGGER_THRESHOLD = 0.1f;
-
-        // 左扳机状态变化
-        boolean isLeftTriggerPressed = leftTrigger > TRIGGER_THRESHOLD;
-        if (isLeftTriggerPressed && !wasLeftTriggerPressed) {
-//            System.out.println("左扳机刚刚按下");
-            conn.sendMouseScroll((byte) 1);
-        } else if (!isLeftTriggerPressed && wasLeftTriggerPressed) {
-//            System.out.println("左扳机刚刚抬起");
-            wasLeftTriggerPressed = isLeftTriggerPressed;
-        }
-
-
-        // 右扳机状态变化
-        boolean isRightTriggerPressed = rightTrigger > TRIGGER_THRESHOLD;
-        if (isRightTriggerPressed && !wasRightTriggerPressed) {
-//            System.out.println("右扳机刚刚按下");
-            conn.sendMouseScroll((byte) -1);
-        } else if (!isRightTriggerPressed && wasRightTriggerPressed) {
-//            System.out.println("右扳机刚刚抬起");
-            wasRightTriggerPressed = isRightTriggerPressed;
-        }
-
-    }
-
     @RequiresApi(api = Build.VERSION_CODES.S)
     private boolean hasDualAmplitudeControlledRumbleVibrators(VibratorManager vm) {
         int[] vibratorIds = vm.getVibratorIds();
@@ -3216,29 +3178,18 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 if (!mouseEmulationActive) {
                     return;
                 }
-                ControllerSettings.AnalogStickForScrolling
-                        scrollStick =
-                        settingsState.get()
-                                .getAnalogStickForScrolling();
-                // Send mouse events from analog sticks
-                if (scrollStick ==
-                        ControllerSettings
-                                .AnalogStickForScrolling.RIGHT) {
-                    sendEmulatedMouseMove(leftStickX, leftStickY);
-                    sendEmulatedMouseScroll(rightStickX, rightStickY);
-                }
-                else if (scrollStick ==
-                        ControllerSettings
-                                .AnalogStickForScrolling.LEFT) {
-                    sendEmulatedMouseMove(rightStickX, rightStickY);
-                    sendEmulatedMouseScroll(leftStickX, leftStickY);
-                }
-                else {
-                    sendEmulatedMouseMove(leftStickX, leftStickY);
-                    sendEmulatedMouseMove(rightStickX, rightStickY);
-                }
-
-                checkTriggerState(leftTrigger& 0xFF,rightTrigger& 0xFF);
+                ControllerSettings settings =
+                        settingsState.get();
+                mouseEmulationTranslator.translateMotion(
+                        leftStickX,
+                        leftStickY,
+                        rightStickX,
+                        rightStickY,
+                        leftTrigger & 0xFF,
+                        rightTrigger & 0xFF,
+                        settings.getMouseSensitivityPercent(),
+                        settings.getAnalogStickForScrolling(),
+                        mouseEmulationOutput);
                 // Requeue the callback
                 mainThreadHandler.postDelayed(this, mouseEmulationReportPeriod);
             }
