@@ -5,7 +5,6 @@ import android.app.LocaleManager;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.os.LocaleList;
-import android.preference.PreferenceManager;
 
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.app.AppPresentationSettingKeys;
@@ -46,10 +45,7 @@ public final class AndroidAppLocale {
             localeManager.setApplicationLocales(
                     LocaleList.forLanguageTags(language));
             SettingsRepository repository =
-                    new SharedPreferencesSettingsRepository(
-                            PreferenceManager
-                                    .getDefaultSharedPreferences(
-                                            activity));
+                    AndroidSettingsRepository.create(activity);
             repository.edit()
                     .put(
                             AppPresentationSettingKeys.LANGUAGE,

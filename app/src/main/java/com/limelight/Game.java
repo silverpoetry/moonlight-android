@@ -51,7 +51,7 @@ import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.settings.android.AndroidHdrCompatibility;
 import com.limelight.settings.android.AndroidStreamSettingsBootstrap;
 import com.limelight.settings.android.SharedPreferencesCustomResolutionRepository;
-import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.android.AndroidSettingsRepository;
 import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.audio.StreamAudioSettingsLoader;
 import com.limelight.settings.audio.StreamAudioSettingsState;
@@ -157,7 +157,6 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
-import android.preference.PreferenceManager;
 import android.util.Rational;
 import android.view.Display;
 import android.view.Gravity;
@@ -375,10 +374,7 @@ public class Game extends Activity implements OnGenericMotionListener,
         spinner = SpinnerDialog.displayDialog(this, getResources().getString(R.string.conn_establishing_title),
                 getResources().getString(R.string.conn_establishing_msg), true);
 
-        settingsRepository =
-                new SharedPreferencesSettingsRepository(
-                        PreferenceManager
-                                .getDefaultSharedPreferences(this));
+        settingsRepository = AndroidSettingsRepository.create(this);
         AndroidStreamSettingsBootstrap.prepare(
                 settingsRepository);
         gameMenuCardLayoutRepository =

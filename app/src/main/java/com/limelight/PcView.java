@@ -47,7 +47,6 @@ import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.preference.PreferenceManager;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -137,9 +136,6 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             setShouldDockBigOverlays(false);
         }
-        // Set default preferences if we've never been run
-        PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
-
         ImageView imageView=findViewById(R.id.iv_root_view);
 
         AppPresentationSettings presentationSettings =

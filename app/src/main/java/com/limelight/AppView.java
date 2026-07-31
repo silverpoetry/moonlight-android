@@ -19,7 +19,7 @@ import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
 import com.limelight.settings.android.AndroidDisplayAspectProvider;
 import com.limelight.settings.android.SharedPreferencesCustomResolutionRepository;
-import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.android.AndroidSettingsRepository;
 import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.audio.StreamAudioSettingsLoader;
 import com.limelight.settings.audio.StreamAudioSettingsState;
@@ -55,7 +55,6 @@ import android.graphics.drawable.BitmapDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.preference.PreferenceManager;
 import android.view.View;
 import android.widget.AbsListView;
 import android.widget.AdapterView;
@@ -361,10 +360,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
 
         appPresentationSettings =
                 AndroidAppPresentationSettingsLoader.load(this);
-        settingsRepository =
-                new SharedPreferencesSettingsRepository(
-                        PreferenceManager
-                                .getDefaultSharedPreferences(this));
+        settingsRepository = AndroidSettingsRepository.create(this);
         SettingsMigrationRunner.migrate(settingsRepository);
         streamVideoSettingsState =
                 new StreamVideoSettingsState(

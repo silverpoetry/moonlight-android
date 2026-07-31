@@ -1,11 +1,10 @@
 package com.limelight.preferences;
 
 import android.content.Context;
-import android.preference.PreferenceManager;
 
 import com.limelight.settings.SettingKey;
 import com.limelight.settings.SettingsRepository;
-import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.android.AndroidSettingsRepository;
 
 import java.math.BigDecimal;
 import java.util.Objects;
@@ -15,8 +14,7 @@ final class SettingsStore implements SettingsValueReader {
     final SettingsRepository repository;
 
     SettingsStore(Context context) {
-        this(new SharedPreferencesSettingsRepository(
-                PreferenceManager.getDefaultSharedPreferences(context)));
+        this(AndroidSettingsRepository.create(context));
     }
 
     SettingsStore(SettingsRepository repository) {

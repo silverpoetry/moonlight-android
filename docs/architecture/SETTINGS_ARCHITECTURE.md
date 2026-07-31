@@ -158,6 +158,14 @@ reference and emits stable row IDs. A value change creates a replacement
 snapshot; the renderer applies it to existing controls under a feedback guard,
 so programmatic switch synchronization cannot write back or reset scrolling.
 
+Default Android preference access is composed only by
+`AndroidSettingsRepository`. Activities and feature services receive the
+`SettingsRepository` contract; Android loaders use the same factory.
+`AndroidSettingObserver` owns registration and teardown when a platform
+service genuinely needs a live typed value. `preferences.xml` is presentation
+metadata only and is never used to seed defaults; canonical defaults,
+normalization, and one-time migration come exclusively from typed schema.
+
 ## Snapshot lifecycle
 
 A stream session receives one snapshot during composition. A setting that

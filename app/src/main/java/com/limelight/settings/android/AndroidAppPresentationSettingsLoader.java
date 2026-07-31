@@ -1,7 +1,6 @@
 package com.limelight.settings.android;
 
 import android.content.Context;
-import android.preference.PreferenceManager;
 
 import com.limelight.settings.SettingsMigrationRunner;
 import com.limelight.settings.SettingsRepository;
@@ -21,9 +20,7 @@ public final class AndroidAppPresentationSettingsLoader {
     public static AppPresentationSettings load(Context context) {
         Objects.requireNonNull(context, "context");
         SettingsRepository repository =
-                new SharedPreferencesSettingsRepository(
-                        PreferenceManager
-                                .getDefaultSharedPreferences(context));
+                AndroidSettingsRepository.create(context);
         prepare(
                 repository,
                 AndroidAppPresentationDefaults

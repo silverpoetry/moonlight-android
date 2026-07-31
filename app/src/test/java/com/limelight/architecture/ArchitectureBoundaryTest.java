@@ -479,6 +479,21 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void defaultSettingsStorageHasOneAndroidCompositionPackage() {
+        noClasses()
+                .that()
+                .resideOutsideOfPackages(
+                        "com.limelight.settings.android..")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.preference.PreferenceManager")
+                .because(
+                        "default preferences are composed only through AndroidSettingsRepository")
+                .check(productionClasses);
+    }
+
+    @Test
     public void typedInputSettingsDoNotDependOnAndroidOrLegacyPreferences() {
         noClasses()
                 .that()

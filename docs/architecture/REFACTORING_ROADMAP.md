@@ -190,7 +190,7 @@ A slice is incomplete if callers can still bypass the new boundary.
 
 ## Phase 5 — Typed settings and persistence
 
-**Status:** in progress.
+**Status:** complete.
 
 ### Problems to remove
 
@@ -318,6 +318,12 @@ A slice is incomplete if callers can still bypass the new boundary.
   dependency on registry items, the value reader, or storage, and emits only
   stable row IDs. Replacement snapshots update existing controls under a
   feedback guard, preserving the View tree and scroll position.
+- `AndroidSettingsRepository` is the sole composition entry point for default
+  application settings. Activities, services, and Android loaders no longer
+  construct `SharedPreferencesSettingsRepository` or use
+  `PreferenceManager`; the accessibility service observes its one live key
+  through a lifecycle-bound typed observer. The obsolete XML default seeding
+  call is removed, so schema defaults and migration remain authoritative.
 - The in-stream action catalog and virtual-overlay buttons consume typed UI
   policy plus read-only controller visibility. Persisted startup defaults are
   no longer mutated to represent picture-in-picture or menu presentation, and

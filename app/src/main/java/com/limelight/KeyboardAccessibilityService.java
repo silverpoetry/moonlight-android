@@ -2,9 +2,7 @@ package com.limelight;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
-import android.content.SharedPreferences;
 import android.net.Uri;
-import android.preference.PreferenceManager;
 import androidx.core.content.FileProvider;
 import android.text.TextUtils;
 import android.view.InputDevice;
@@ -13,11 +11,8 @@ import android.view.accessibility.AccessibilityEvent;
 
 import com.limelight.binding.input.StreamInputGateway;
 import com.limelight.binding.input.StreamInputGatewayRegistry;
-import com.limelight.settings.SettingsMigrationRunner;
-import com.limelight.settings.SettingsRepository;
-import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.android.AndroidSettingObserver;
 import com.limelight.settings.input.InputSettingKeys;
-import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.utils.FileUriUtils;
 
 import org.json.JSONArray;
@@ -37,9 +32,7 @@ public class KeyboardAccessibilityService extends AccessibilityService {
             KeyEvent.KEYCODE_VOLUME_DOWN,
             KeyEvent.KEYCODE_POWER
     );
-    private SharedPreferences settingsPreferences;
-    private SharedPreferences.OnSharedPreferenceChangeListener
-            settingsChangeListener;
+    private AndroidSettingObserver<Boolean> keyLoggingObserver;
     private volatile boolean accessibilityKeyLoggingEnabled;
 
     @Override
@@ -131,45 +124,22 @@ public class KeyboardAccessibilityService extends AccessibilityService {
     }
 
     private void observeInputSettings() {
-        if (settingsChangeListener != null) {
+        if (keyLoggingObserver != null) {
             return;
         }
-        settingsPreferences =
-                PreferenceManager.getDefaultSharedPreferences(this);
-        settingsChangeListener =
-                (preferences, key) -> {
-                    if (InputSettingKeys
-                            .ACCESSIBILITY_KEY_LOGGING
-                            .getName()
-                            .equals(key)) {
-                        reloadInputSettings();
-                    }
-                };
-        settingsPreferences.registerOnSharedPreferenceChangeListener(
-                settingsChangeListener);
-        reloadInputSettings();
-    }
-
-    private void reloadInputSettings() {
-        SettingsRepository repository =
-                new SharedPreferencesSettingsRepository(
-                        settingsPreferences);
-        SettingsMigrationRunner.migrate(repository);
-        accessibilityKeyLoggingEnabled =
-                InputSettingsLoader.load(repository)
-                        .isAccessibilityKeyLoggingEnabled();
+        keyLoggingObserver = new AndroidSettingObserver<>(
+                this,
+                InputSettingKeys.ACCESSIBILITY_KEY_LOGGING,
+                value -> accessibilityKeyLoggingEnabled = value);
+        keyLoggingObserver.start();
     }
 
     @Override
     public void onDestroy() {
-        if (settingsPreferences != null &&
-                settingsChangeListener != null) {
-            settingsPreferences
-                    .unregisterOnSharedPreferenceChangeListener(
-                            settingsChangeListener);
+        if (keyLoggingObserver != null) {
+            keyLoggingObserver.close();
+            keyLoggingObserver = null;
         }
-        settingsPreferences = null;
-        settingsChangeListener = null;
         super.onDestroy();
     }
 

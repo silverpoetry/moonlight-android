@@ -1,7 +1,6 @@
 package com.limelight.settings.android;
 
 import android.content.Context;
-import android.preference.PreferenceManager;
 
 import com.limelight.settings.SettingsMigrationRunner;
 import com.limelight.settings.SettingsRepository;
@@ -39,8 +38,6 @@ public final class AndroidStreamDefaults {
 
     private static SettingsRepository repository(Context context) {
         Objects.requireNonNull(context, "context");
-        return new SharedPreferencesSettingsRepository(
-                PreferenceManager.getDefaultSharedPreferences(
-                        context));
+        return AndroidSettingsRepository.create(context);
     }
 }
