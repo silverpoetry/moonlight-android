@@ -435,6 +435,11 @@ targets.
   and terminal destruction. Android USB and diagnostic logging are injected
   adapters, allowing deterministic fixtures without putting test hooks in the
   production device class.
+- `ControllerBatterySession` owns periodic battery reporting for each physical
+  controller. Enable, disable, device migration, and terminal destruction use
+  generation-scoped callbacks, so a canceled or late tick cannot restart
+  polling. Live typed-settings updates now apply immediately to existing
+  controllers instead of taking effect only after device reattachment.
 - `DecoderSelectionPolicy` owns HEVC/AV1 acceptance decisions and stream color
   defaults. The MediaCodec adapter performs discovery and capability queries,
   and no longer carries the unused metered-network parameter or unreachable

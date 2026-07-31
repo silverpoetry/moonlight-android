@@ -1061,3 +1061,17 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Added `ControllerBatterySession` as the per-device owner of controller
+  battery polling. Its generation-scoped scheduled ticks make enable/disable,
+  controller recreation, in-flight callbacks, and terminal destruction
+  deterministic; a callback canceled by a settings change can no longer
+  requeue itself indefinitely.
+- Live controller-settings updates now start or stop reporting on every active
+  physical controller immediately. Teardown always cancels the battery
+  session regardless of the latest preference value, closing the previous
+  enabled-then-disabled lifecycle leak.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 455 JVM
+  tests per variant (1,820 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

@@ -98,6 +98,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             mouseEmulationScheduler;
     private final ControllerMotionSession.Scheduler
             motionSensorScheduler;
+    private final ControllerBatterySession.Scheduler
+            batteryReportScheduler;
     private final HandlerThread backgroundHandlerThread;
     private final Handler backgroundThreadHandler;
     private boolean hasGameController;
@@ -321,6 +323,23 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         this.backgroundHandlerThread = new HandlerThread("ControllerHandler");
         this.backgroundHandlerThread.start();
         this.backgroundThreadHandler = new Handler(backgroundHandlerThread.getLooper());
+        this.batteryReportScheduler =
+                new ControllerBatterySession.Scheduler() {
+                    @Override
+                    public void schedule(
+                            Runnable runnable,
+                            long delayMs) {
+                        backgroundThreadHandler.postDelayed(
+                                runnable,
+                                delayMs);
+                    }
+
+                    @Override
+                    public void cancel(Runnable runnable) {
+                        backgroundThreadHandler.removeCallbacks(
+                                runnable);
+                    }
+                };
         this.motionSensorScheduler =
                 new ControllerMotionSession.Scheduler() {
                     @Override
@@ -1333,6 +1352,19 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     report.getAndroidStatus();
             context.lastReportedBatteryCapacity =
                     report.getCapacity();
+        }
+    }
+
+    public void refreshBatteryReportingState() {
+        if (stopped) {
+            return;
+        }
+
+        boolean enabled = settingsState.get()
+                .isBatteryReportingEnabled();
+        for (int i = 0; i < inputDeviceContexts.size(); i++) {
+            inputDeviceContexts.valueAt(i)
+                    .batterySession.setEnabled(enabled);
         }
     }
 
@@ -2852,15 +2884,12 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         public long startDownTime = 0;
 
-        public final Runnable batteryStateUpdateRunnable = new Runnable() {
-            @Override
-            public void run() {
-                sendControllerBatteryPacket(InputDeviceContext.this);
-
-                // Requeue the callback
-                backgroundThreadHandler.postDelayed(this, BATTERY_RECHECK_INTERVAL_MS);
-            }
-        };
+        private final ControllerBatterySession batterySession =
+                new ControllerBatterySession(
+                        batteryReportScheduler,
+                        () -> sendControllerBatteryPacket(
+                                InputDeviceContext.this),
+                        BATTERY_RECHECK_INTERVAL_MS);
 
         @Override
         public void destroy() {
@@ -2868,15 +2897,12 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             vibrationRenderer.cancel(vibrationTarget);
 
             motionSession.destroy();
+            batterySession.destroy();
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (lightsSession != null) {
                     lightsSession.close();
                 }
-            }
-            //是否上报电池状态
-            if (settingsState.get().isBatteryReportingEnabled()) {
-                backgroundThreadHandler.removeCallbacks(batteryStateUpdateRunnable);
             }
         }
 
@@ -2986,11 +3012,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     report.getSupportedButtonFlags(),
                     report.getCapabilities());
 
-            // After reporting arrival to the host, send initial battery state and begin monitoring
-            //是否上报电池状态
-            if (settingsState.get().isBatteryReportingEnabled()) {
-                backgroundThreadHandler.post(batteryStateUpdateRunnable);
-            }
+            // After reporting arrival to the host, send the initial battery
+            // state and begin monitoring when the feature is enabled.
+            batterySession.setEnabled(settingsState.get()
+                    .isBatteryReportingEnabled());
         }
 
         public void migrateContext(InputDeviceContext oldContext) {
@@ -3026,11 +3051,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             // Re-enable sensors on the new context
             enableSensors();
 
-            // Refresh battery state and start the battery state polling again
-            //是否上报电池状态
-            if (settingsState.get().isBatteryReportingEnabled()) {
-                backgroundThreadHandler.post(batteryStateUpdateRunnable);
-            }
+            // Refresh battery state and start polling on the new context.
+            batterySession.setEnabled(settingsState.get()
+                    .isBatteryReportingEnabled());
             restoreMouseEmulation(
                     restoreMouseEmulationActive);
         }

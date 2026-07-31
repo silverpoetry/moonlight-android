@@ -2992,6 +2992,11 @@ public class Game extends Activity implements OnGenericMotionListener,
                 update.applyTo(previous);
         update.persist(settingsRepository);
         controllerSettingsState.replace(updated);
+        if (previous.isBatteryReportingEnabled() !=
+                updated.isBatteryReportingEnabled() &&
+                controllerHandler != null) {
+            controllerHandler.refreshBatteryReportingState();
+        }
         if (!previous.isForceGyroEnabled() &&
                 updated.isForceGyroEnabled()) {
             setMotionForceGyro();
