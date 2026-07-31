@@ -1264,3 +1264,18 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Added `ControllerChordEmulationState` as the allocation-free per-controller
+  owner of legacy Select, Mode, and clickpad chords, the 100 ms bumper-release
+  grace window, physical Mode/Select discovery, and deferred quit-combo
+  completion. `InputDeviceContext` no longer exposes the six related flags and
+  timestamps as independently mutable fields.
+- Sequence fixtures lock exact-mask quit detection, release-only completion,
+  Start+LB Select emulation, the inclusive left-bumper grace boundary,
+  Select+LB clickpad emulation, both Mode fallback variants, synthesized-button
+  release, and disabling fallbacks after physical buttons are observed. The
+  realtime path still allocates nothing and introduces no scheduler or queue.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 528 JVM
+  tests per variant (2,112 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

@@ -375,6 +375,11 @@ targets.
   learning that disables Start/Select fallbacks after real buttons appear.
   Device discovery builds the policy once; the event adapter performs no
   mapping allocation or device-policy branching.
+- `ControllerChordEmulationState` owns the allocation-free per-session state
+  for Start/LB Select emulation, Select/LB clickpad emulation, Start/Select or
+  Start/RB Mode emulation, the bumper-release grace window, and deferred stream
+  exit. Android key events update the base packet and pass its mask through the
+  state owner; chord flags and timing no longer leak into the device context.
 - `ControllerAnalogInputCombiner` owns split-device trigger and stick
   aggregation. Triggers are compared as unsigned protocol values and axes by
   signed magnitude; the previous bitwise-OR corruption path has been removed.

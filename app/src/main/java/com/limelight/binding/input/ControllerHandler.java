@@ -50,15 +50,9 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
 public class ControllerHandler implements InputManager.InputDeviceListener,
         UsbDriverListener, GamepadInputHandler,
         StreamInputLifecycleController.ControllerDevices {
-    private static final int MAXIMUM_BUMPER_UP_DELAY_MS = 100;
-
     private static final int START_DOWN_TIME_MOUSE_MODE_MS = 750;
 
     private static final int MINIMUM_BUTTON_DOWN_TIME_MS = 25;
-
-    private static final int EMULATING_SPECIAL = 0x1;
-    private static final int EMULATING_SELECT = 0x2;
-    private static final int EMULATING_TOUCHPAD = 0x4;
 
     private static final int BATTERY_RECHECK_INTERVAL_MS = 120 * 1000;
 
@@ -387,7 +381,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                         .ignoreBack(true)
                         .hasHatAxes(true)
                         .build(),
-                new ControllerButtonMappingState(false, false));
+                new ControllerButtonMappingState(false, false),
+                new ControllerChordEmulationState(false, false));
         this.defaultContext.vibrationTarget =
                 vibrationRenderer.emptyTarget();
 
@@ -1776,11 +1771,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             break;
         case KeyEvent.KEYCODE_BUTTON_L1:
             context.inputMap &= ~ControllerPacket.LB_FLAG;
-            context.lastLbUpTime = event.getEventTime();
+            context.chordEmulationState.recordLeftBumperUp(
+                    event.getEventTime());
             break;
         case KeyEvent.KEYCODE_BUTTON_R1:
             context.inputMap &= ~ControllerPacket.RB_FLAG;
-            context.lastRbUpTime = event.getEventTime();
+            context.chordEmulationState.recordRightBumperUp(
+                    event.getEventTime());
             break;
         case KeyEvent.KEYCODE_BUTTON_THUMBL:
             context.inputMap &= ~ControllerPacket.LS_CLK_FLAG;
@@ -1837,49 +1834,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             return false;
         }
 
-        // Check if we're emulating the select button
-        if ((context.emulatingButtonFlags & ControllerHandler.EMULATING_SELECT) != 0)
-        {
-            // If either start or LB is up, select comes up too
-            if ((context.inputMap & ControllerPacket.PLAY_FLAG) == 0 ||
-                (context.inputMap & ControllerPacket.LB_FLAG) == 0)
-            {
-                context.inputMap &= ~ControllerPacket.BACK_FLAG;
-
-                context.emulatingButtonFlags &= ~ControllerHandler.EMULATING_SELECT;
-            }
-        }
-
-        // Check if we're emulating the special button
-        if ((context.emulatingButtonFlags & ControllerHandler.EMULATING_SPECIAL) != 0)
-        {
-            // If either start or select and RB is up, the special button comes up too
-            if ((context.inputMap & ControllerPacket.PLAY_FLAG) == 0 ||
-                ((context.inputMap & ControllerPacket.BACK_FLAG) == 0 &&
-                 (context.inputMap & ControllerPacket.RB_FLAG) == 0))
-            {
-                context.inputMap &= ~ControllerPacket.SPECIAL_BUTTON_FLAG;
-
-                context.emulatingButtonFlags &= ~ControllerHandler.EMULATING_SPECIAL;
-            }
-        }
-
-        // Check if we're emulating the touchpad button
-        if ((context.emulatingButtonFlags & ControllerHandler.EMULATING_TOUCHPAD) != 0)
-        {
-            // If either select or LB is up, touchpad comes up too
-            if ((context.inputMap & ControllerPacket.BACK_FLAG) == 0 ||
-                    (context.inputMap & ControllerPacket.LB_FLAG) == 0)
-            {
-                context.inputMap &= ~ControllerPacket.TOUCHPAD_FLAG;
-
-                context.emulatingButtonFlags &= ~ControllerHandler.EMULATING_TOUCHPAD;
-            }
-        }
+        context.inputMap =
+                context.chordEmulationState.applyButtonUp(
+                        context.inputMap);
 
         sendControllerInputPacket(context);
 
-        if (context.pendingExit && context.inputMap == 0) {
+        if (context.chordEmulationState
+                .shouldFinishAfterButtonUp(context.inputMap)) {
             // All buttons from the quit combo are lifted. Finish the activity now.
             activityContext.finish();
         }
@@ -1907,7 +1869,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         switch (keyCode) {
         case KeyEvent.KEYCODE_BUTTON_MODE:
-            context.hasMode = true;
+            context.chordEmulationState.observeModeButton();
             context.inputMap |= ControllerPacket.SPECIAL_BUTTON_FLAG;
             break;
         case KeyEvent.KEYCODE_BUTTON_START:
@@ -1919,7 +1881,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             break;
         case KeyEvent.KEYCODE_BACK:
         case KeyEvent.KEYCODE_BUTTON_SELECT:
-            context.hasSelect = true;
+            context.chordEmulationState.observeSelectButton();
             context.inputMap |= ControllerPacket.BACK_FLAG;
             break;
         case KeyEvent.KEYCODE_DPAD_LEFT:
@@ -2052,61 +2014,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             return false;
         }
 
-        // Start+Back+LB+RB is the quit combo
-        if (context.inputMap == (ControllerPacket.BACK_FLAG | ControllerPacket.PLAY_FLAG |
-                                 ControllerPacket.LB_FLAG | ControllerPacket.RB_FLAG)) {
-            // Wait for the combo to lift and then finish the activity
-            context.pendingExit = true;
-        }
-
-        // Start+LB acts like select for controllers with one button
-        if (!context.hasSelect) {
-            if (context.inputMap == (ControllerPacket.PLAY_FLAG | ControllerPacket.LB_FLAG) ||
-                    (context.inputMap == ControllerPacket.PLAY_FLAG &&
-                            event.getEventTime() - context.lastLbUpTime <= MAXIMUM_BUMPER_UP_DELAY_MS))
-            {
-                context.inputMap &= ~(ControllerPacket.PLAY_FLAG | ControllerPacket.LB_FLAG);
-                context.inputMap |= ControllerPacket.BACK_FLAG;
-
-                context.emulatingButtonFlags |= ControllerHandler.EMULATING_SELECT;
-            }
-        }
-        else if (context.needsClickpadEmulation) {
-            // Select+LB acts like the clickpad when we're faking a PS4 controller for motion support
-            if (context.inputMap == (ControllerPacket.BACK_FLAG | ControllerPacket.LB_FLAG) ||
-                    (context.inputMap == ControllerPacket.BACK_FLAG &&
-                            event.getEventTime() - context.lastLbUpTime <= MAXIMUM_BUMPER_UP_DELAY_MS))
-            {
-                context.inputMap &= ~(ControllerPacket.BACK_FLAG | ControllerPacket.LB_FLAG);
-                context.inputMap |= ControllerPacket.TOUCHPAD_FLAG;
-
-                context.emulatingButtonFlags |= ControllerHandler.EMULATING_TOUCHPAD;
-            }
-        }
-
-        // If there is a physical select button, we'll use Start+Select as the special button combo
-        // otherwise we'll use Start+RB.
-        if (!context.hasMode) {
-            if (context.hasSelect) {
-                if (context.inputMap == (ControllerPacket.PLAY_FLAG | ControllerPacket.BACK_FLAG)) {
-                    context.inputMap &= ~(ControllerPacket.PLAY_FLAG | ControllerPacket.BACK_FLAG);
-                    context.inputMap |= ControllerPacket.SPECIAL_BUTTON_FLAG;
-
-                    context.emulatingButtonFlags |= ControllerHandler.EMULATING_SPECIAL;
-                }
-            }
-            else {
-                if (context.inputMap == (ControllerPacket.PLAY_FLAG | ControllerPacket.RB_FLAG) ||
-                        (context.inputMap == ControllerPacket.PLAY_FLAG &&
-                                event.getEventTime() - context.lastRbUpTime <= MAXIMUM_BUMPER_UP_DELAY_MS))
-                {
-                    context.inputMap &= ~(ControllerPacket.PLAY_FLAG | ControllerPacket.RB_FLAG);
-                    context.inputMap |= ControllerPacket.SPECIAL_BUTTON_FLAG;
-
-                    context.emulatingButtonFlags |= ControllerHandler.EMULATING_SPECIAL;
-                }
-            }
-        }
+        context.inputMap =
+                context.chordEmulationState.applyButtonDown(
+                        context.inputMap,
+                        event.getEventTime());
 
         // We don't need to send repeat key down events, but the platform
         // sends us events that claim to be repeats but they're from different
@@ -2397,24 +2308,17 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         private final ControllerButtonMapper buttonMapper;
         private final ControllerButtonMappingState buttonMappingState;
+        private final ControllerChordEmulationState
+                chordEmulationState;
         public boolean hasJoystickAxes;
-        public boolean pendingExit;
-
-        public int emulatingButtonFlags = 0;
-        public boolean hasSelect;
-        public boolean hasMode;
         public boolean hasPaddles;
         public boolean hasShare;
-        public boolean needsClickpadEmulation;
 
         // Used for OUYA bumper state tracking since they force all buttons
         // up when the OUYA button goes down. We watch the last time we get
         // a bumper up and compare that to our maximum delay when we receive
         // a Start button press to see if we should activate one of our
         // emulated button combos.
-        public long lastLbUpTime = 0;
-        public long lastRbUpTime = 0;
-
         public long startDownTime = 0;
 
         private final ControllerBatterySession batterySession;
@@ -2423,7 +2327,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 ControllerLedSession ledSession,
                 ControllerBatteryReporter.Source batterySource,
                 ControllerButtonMapper buttonMapper,
-                ControllerButtonMappingState buttonMappingState) {
+                ControllerButtonMappingState buttonMappingState,
+                ControllerChordEmulationState chordEmulationState) {
             this.ledSession = Objects.requireNonNull(
                     ledSession,
                     "ledSession");
@@ -2433,6 +2338,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             this.buttonMappingState = Objects.requireNonNull(
                     buttonMappingState,
                     "buttonMappingState");
+            this.chordEmulationState = Objects.requireNonNull(
+                    chordEmulationState,
+                    "chordEmulationState");
             ControllerBatteryReporter batteryReporter =
                     new ControllerBatteryReporter(
                             batterySource,
@@ -2481,7 +2389,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     ledSession,
                     batterySource,
                     profile.getButtonMapper(),
-                    profile.createButtonMappingState());
+                    profile.createButtonMappingState(),
+                    new ControllerChordEmulationState(
+                            profile.hasModeButton(),
+                            profile.hasSelectButton()));
             this.inputDevice = Objects.requireNonNull(
                     inputDevice,
                     "inputDevice");
@@ -2497,8 +2408,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             productId = profile.getProductId();
             hasPaddles = profile.hasPaddles();
             hasShare = profile.hasShareButton();
-            hasMode = profile.hasModeButton();
-            hasSelect = profile.hasSelectButton();
             touchpadXRange = profile.getTouchpadXRange();
             touchpadYRange = profile.getTouchpadYRange();
             touchpadPressureRange =
@@ -2586,9 +2495,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                                             motionRegistrations.hasManager())
                                     .build());
 
-            needsClickpadEmulation =
-                    report.isClickpadEmulationRequired();
-            if (needsClickpadEmulation) {
+            chordEmulationState.setClickpadEmulationRequired(
+                    report.isClickpadEmulationRequired());
+            if (chordEmulationState
+                    .isClickpadEmulationRequired()) {
                 LimeLog.info(
                         "Reporting an unknown controller type while " +
                                 "emulating motion sensors");
@@ -2634,7 +2544,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             ledSession.restoreDesiredState(ledState);
 
             // Copy state initialized in reportControllerArrival()
-            this.needsClickpadEmulation = oldContext.needsClickpadEmulation;
+            chordEmulationState.setClickpadEmulationRequired(
+                    oldContext.chordEmulationState
+                            .isClickpadEmulationRequired());
 
             // Re-enable sensors on the new context
             enableSensors();
