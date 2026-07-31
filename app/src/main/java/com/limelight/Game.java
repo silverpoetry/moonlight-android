@@ -57,6 +57,8 @@ import com.limelight.settings.stream.StreamDisplaySettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsState;
+import com.limelight.virtualcontrols.layout.VirtualControlLayoutRepository;
+import com.limelight.virtualcontrols.layout.android.AndroidVirtualControlLayoutRepository;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 import com.limelight.ui.gamemenu.GameMenuFragment;
 import com.limelight.ui.gamemenu.GameMenuHost;
@@ -170,6 +172,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private ControllerHandler controllerHandler;
     private ControllerSettingsState controllerSettingsState;
     private VirtualControlSettingsState virtualControlSettingsState;
+    private VirtualControlLayoutRepository virtualControlLayoutRepository;
     private KeyboardInputController keyboardInputController;
     private KeyBoardController virtualController;
 
@@ -349,6 +352,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 new VirtualControlSettingsState(
                         VirtualControlSettingsLoader.load(
                                 settingsRepository));
+        virtualControlLayoutRepository =
+                new AndroidVirtualControlLayoutRepository(this);
         tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
         backNavigationRegistration =
                 BackNavigationRegistration.register(this, this::handleStreamBackPressed);
@@ -1088,6 +1093,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 this,
                 inputSettingsState,
                 virtualControlSettingsState,
+                virtualControlLayoutRepository,
                 false, this, this);
 //        keyBoardController.refreshLayout();
         keyBoardController.show();
@@ -1101,6 +1107,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 this,
                 inputSettingsState,
                 virtualControlSettingsState,
+                virtualControlLayoutRepository,
                 true, this, this);
 //        virtualController.refreshLayout();
         virtualController.show();

@@ -1,6 +1,7 @@
 package com.limelight.settings.virtualcontrols;
 
 import com.limelight.settings.SettingKey;
+import com.limelight.virtualcontrols.layout.VirtualControlLayoutProfiles;
 
 /**
  * Canonical persisted schema for on-screen controls and keyboard overlays.
@@ -92,21 +93,13 @@ public final class VirtualControlSettingKeys {
     public static final SettingKey<String> KEYBOARD_LAYOUT_ID =
             SettingKey.stringSetKey(
                     "keyboard_axi_list",
-                    "OSC_Keyboard",
-                    "OSC_Keyboard",
-                    "OSC_Keyboard_2",
-                    "OSC_Keyboard_3",
-                    "OSC_Keyboard_4",
-                    "OSC_Keyboard_5");
+                    VirtualControlLayoutProfiles.DEFAULT_KEYBOARD,
+                    VirtualControlLayoutProfiles.keyboardIds());
     public static final SettingKey<String> GAMEPAD_LAYOUT_ID =
             SettingKey.stringSetKey(
                     "gamepad_axi_list",
-                    "gamePad",
-                    "gamePad",
-                    "gamePad_2",
-                    "gamePad_3",
-                    "gamePad_4",
-                    "gamePad_5");
+                    VirtualControlLayoutProfiles.DEFAULT_GAMEPAD,
+                    VirtualControlLayoutProfiles.gamepadIds());
 
     private VirtualControlSettingKeys() {
     }

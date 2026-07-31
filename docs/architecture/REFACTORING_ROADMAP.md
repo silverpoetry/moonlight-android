@@ -210,6 +210,17 @@ A slice is incomplete if callers can still bypass the new boundary.
 - Explicit dependency rules for conditional visibility and compatibility
   rather than listeners mutating neighboring preferences.
 
+### Completed slices
+
+- Stream display/resolution and decoder snapshots.
+- Input/gesture, physical-controller, and virtual-control snapshots with
+  explicit live-update state owners.
+- Versioned legacy preference migration through schema version 2.
+- A platform-independent virtual-control layout identity/repository contract,
+  Android atomic-file adapter, bounded and validated import, and one shared
+  runtime/settings I/O path. Historical file names remain an adapter-only
+  compatibility detail.
+
 ### Migration order
 
 1. Inventory every persisted key, default, writer, reader, and sensitivity.

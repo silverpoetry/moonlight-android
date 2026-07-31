@@ -41,10 +41,15 @@ import com.limelight.ui.StreamUiActions;
 import com.limelight.ui.gamemenu.GameKeyboardUpdateFragment;
 import com.limelight.ui.gamemenu.GamePadAddFragment;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
-import com.limelight.utils.FileUriUtils;
 import com.limelight.utils.SeekBarValueRange;
 import com.limelight.utils.UiHelper;
+import com.limelight.virtualcontrols.layout.VirtualControlLayoutDocument;
+import com.limelight.virtualcontrols.layout.VirtualControlLayoutKey;
+import com.limelight.virtualcontrols.layout.VirtualControlLayoutOrientation;
+import com.limelight.virtualcontrols.layout.VirtualControlLayoutReadResult;
+import com.limelight.virtualcontrols.layout.VirtualControlLayoutRepository;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -125,9 +130,10 @@ public class KeyBoardController {
     private int buttonWidth;
     private int buttonHeight;
 
-    private String fileName="vk_1.txt";
+    private VirtualControlLayoutKey layoutKey;
 
     private boolean isGamePadMode;
+    private final VirtualControlLayoutRepository layoutRepository;
 
     public KeyBoardController(final ControllerHandler controllerHandler,
                               FrameLayout layout,
@@ -135,6 +141,7 @@ public class KeyBoardController {
                               InputSettingsState inputSettingsState,
                               VirtualControlSettingsState
                                       virtualControlSettingsState,
+                              VirtualControlLayoutRepository layoutRepository,
                               boolean isGamePadMode,
                               StreamInputGateway inputGateway,
                               StreamUiActions uiActions) {
@@ -151,6 +158,9 @@ public class KeyBoardController {
         this.virtualControlSettingsState = Objects.requireNonNull(
                 virtualControlSettingsState,
                 "virtualControlSettingsState");
+        this.layoutRepository = Objects.requireNonNull(
+                layoutRepository,
+                "layoutRepository");
         this.vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
         buttonConfigure=View.inflate(context,R.layout.axi_keyboard_top_right_view,null);
         buttonConfigure.setAlpha(
@@ -434,15 +444,39 @@ public class KeyBoardController {
     private String tips;
 
     private void initData(){
-        String res=FileUriUtils.getKeyBoardJson(context,fileName);
-        if(!TextUtils.isEmpty(res)){
-            LimeLog.info("axi->"+res);
-            GameMenuQuickBean[] beans=new Gson().fromJson(res,GameMenuQuickBean[].class);
-            Collections.addAll(beanList, beans);
+        try {
+            VirtualControlLayoutReadResult result =
+                    layoutRepository.load(layoutKey);
+            if (result.isFound()) {
+                try {
+                    GameMenuQuickBean[] beans =
+                            new Gson().fromJson(
+                                    result.getDocument().getJson(),
+                                    GameMenuQuickBean[].class);
+                    if (beans != null) {
+                        Collections.addAll(beanList, beans);
+                    }
+                }
+                catch (RuntimeException error) {
+                    LimeLog.warning(
+                            "Ignoring corrupt virtual-control layout " +
+                                    layoutKey +
+                                    ": " +
+                                    error.getMessage());
+                }
+            }
+        }
+        catch (IOException error) {
+            LimeLog.warning(
+                    "Unable to read virtual-control layout " +
+                            layoutKey +
+                            ": " +
+                            error.getMessage());
         }
         LimeLog.info("axi->"+getControllerMode());
         if(getControllerMode()==ControllerMode.Active&& beanList.isEmpty()){
-            if (fileName.endsWith("_1.txt") &&
+            if (layoutKey.getOrientation() ==
+                            VirtualControlLayoutOrientation.PORTRAIT &&
                     !getSettings()
                             .isAutomaticScreenOrientationEnabled()) {
                 return;
@@ -608,8 +642,24 @@ public class KeyBoardController {
     }
 
     private void save(){
-        LimeLog.info("axi->保存："+fileName);
-        FileUriUtils.saveKeyBoardJson(context,fileName,new Gson().toJson(beanList));
+        try {
+            layoutRepository.save(
+                    layoutKey,
+                    VirtualControlLayoutDocument.fromJson(
+                            new Gson().toJson(beanList)));
+        }
+        catch (IOException | IllegalArgumentException error) {
+            LimeLog.warning(
+                    "Unable to save virtual-control layout " +
+                            layoutKey +
+                            ": " +
+                            error.getMessage());
+            UiToast.makeText(
+                    context,
+                    R.string.virtual_control_layout_save_failed,
+                    UiToast.LENGTH_SHORT).show();
+            return;
+        }
         this.currentMode=ControllerMode.Active;
         buttonConfigure.setVisibility(View.GONE);
         lv_left_view.setVisibility(View.GONE);
@@ -734,11 +784,19 @@ public class KeyBoardController {
         if(isGamePadMode){
             name = settings.getGamepadLayoutId();
         }
-        if(!isLandscape(context)){
-            name+="_1";
-        }
-        fileName="axi_"+name+".txt";
-        LimeLog.info("axi->refreshLayout："+fileName);
+        VirtualControlLayoutOrientation orientation =
+                isLandscape(context)
+                        ? VirtualControlLayoutOrientation.LANDSCAPE
+                        : VirtualControlLayoutOrientation.PORTRAIT;
+        layoutKey =
+                isGamePadMode
+                        ? VirtualControlLayoutKey.gamepad(
+                                name,
+                                orientation)
+                        : VirtualControlLayoutKey.keyboard(
+                                name,
+                                orientation);
+        LimeLog.info("Refreshing virtual-control layout: " + layoutKey);
         initView();
         currentIndex=-1;
         beanList.clear();

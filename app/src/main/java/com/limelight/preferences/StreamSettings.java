@@ -57,19 +57,25 @@ import com.limelight.AboutActivity;
 import com.limelight.LimeLog;
 import com.limelight.PcView;
 import com.limelight.R;
-import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.computers.ComputerDatabaseManager;
 import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.virtualcontrols.VirtualControlSettings;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.FileUriUtils;
 import com.limelight.utils.HelpLauncher;
 import com.limelight.utils.UiHelper;
+import com.limelight.virtualcontrols.layout.VirtualControlLayoutKey;
+import com.limelight.virtualcontrols.layout.VirtualControlLayoutOrientation;
+import com.limelight.virtualcontrols.layout.android.AndroidVirtualControlLayoutRepository;
 
 import org.xmlpull.v1.XmlPullParser;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -122,6 +128,8 @@ public class StreamSettings extends Activity {
     private boolean wideLayout;
     private boolean sectionActivity;
     private BackNavigationRegistration backNavigationRegistration;
+    private AndroidVirtualControlLayoutRepository
+            virtualControlLayoutRepository;
 
     // HACK for Android 9
     static DisplayCutout displayCutoutP;
@@ -153,6 +161,8 @@ public class StreamSettings extends Activity {
         previousPrefs = PreferenceConfiguration.readPreferences(this);
         UiHelper.setLocale(this);
         store = new SettingsStore(this);
+        virtualControlLayoutRepository =
+                new AndroidVirtualControlLayoutRepository(this);
         sectionActivity = getIntent().hasExtra(EXTRA_SECTION_INDEX);
         selectedSectionIndex = getIntent().getIntExtra(EXTRA_SECTION_INDEX, -1);
 
@@ -1205,13 +1215,15 @@ public class StreamSettings extends Activity {
     }
 
     private void exportKeyboard(boolean gamepad) {
-        String key = gamepad ? KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE :
-                KeyBoardControllerConfigurationLoader.OSC_PREFERENCE;
-        String defaultValue = gamepad ? KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE_VALUE :
-                KeyBoardControllerConfigurationLoader.OSC_PREFERENCE_VALUE;
-        String name = store.prefs.getString(key, defaultValue);
-        Uri uri = FileUriUtils.getKeyBoardFile(this, "axi_" + name + ".txt");
+        VirtualControlLayoutKey layoutKey =
+                getSelectedLayoutKey(gamepad);
+        Uri uri = virtualControlLayoutRepository
+                .getShareUri(layoutKey);
         if (uri == null) {
+            UiToast.makeText(
+                    this,
+                    R.string.virtual_control_layout_export_missing,
+                    UiToast.LENGTH_SHORT).show();
             return;
         }
         Intent intent = new Intent(Intent.ACTION_SEND);
@@ -1219,6 +1231,21 @@ public class StreamSettings extends Activity {
         intent.putExtra(Intent.EXTRA_STREAM, uri);
         intent.setType("text/plain");
         startActivity(Intent.createChooser(intent, "保存配置文件"));
+    }
+
+    private VirtualControlLayoutKey getSelectedLayoutKey(
+            boolean gamepad) {
+        VirtualControlSettings settings =
+                VirtualControlSettingsLoader.load(
+                        new SharedPreferencesSettingsRepository(
+                                store.prefs));
+        return gamepad
+                ? VirtualControlLayoutKey.gamepad(
+                        settings.getGamepadLayoutId(),
+                        VirtualControlLayoutOrientation.LANDSCAPE)
+                : VirtualControlLayoutKey.keyboard(
+                        settings.getKeyboardLayoutId(),
+                        VirtualControlLayoutOrientation.LANDSCAPE);
     }
 
     private void exportFile(File file, String type) {
@@ -1714,20 +1741,24 @@ public class StreamSettings extends Activity {
         if ((requestCode == READ_REQUEST_CODE || requestCode == GAMEPAD_READ_REQUEST_CODE) && resultCode == Activity.RESULT_OK && data.getData() != null) {
             try {
                 Uri uri = data.getData();
-                String json = FileUriUtils.openUriForRead(this, uri);
-                if (TextUtils.isEmpty(json)) {
-                    UiToast.makeText(this, "空文件~", UiToast.LENGTH_SHORT).show();
-                    return;
-                }
-                String name = store.prefs.getString(KeyBoardControllerConfigurationLoader.OSC_PREFERENCE, KeyBoardControllerConfigurationLoader.OSC_PREFERENCE_VALUE);
-                if (requestCode == GAMEPAD_READ_REQUEST_CODE) {
-                    name = store.prefs.getString(KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE, KeyBoardControllerConfigurationLoader.OSC_GAMEPAD_PREFERENCE_VALUE);
-                }
-                boolean result = FileUriUtils.saveKeyBoardJson(this, "axi_" + name + ".txt", json);
-                UiToast.makeText(this, result ? "导入成功！" : "导入失败！", UiToast.LENGTH_SHORT).show();
-            } catch (Exception e) {
-                e.printStackTrace();
-                UiToast.makeText(this, "出错啦~" + e.getMessage(), UiToast.LENGTH_SHORT).show();
+                virtualControlLayoutRepository.importFrom(
+                        getContentResolver(),
+                        uri,
+                        getSelectedLayoutKey(
+                                requestCode ==
+                                        GAMEPAD_READ_REQUEST_CODE));
+                UiToast.makeText(
+                        this,
+                        R.string.virtual_control_layout_import_succeeded,
+                        UiToast.LENGTH_SHORT).show();
+            } catch (IOException | IllegalArgumentException error) {
+                LimeLog.warning(
+                        "Unable to import virtual-control layout: " +
+                                error.getMessage());
+                UiToast.makeText(
+                        this,
+                        R.string.virtual_control_layout_import_failed,
+                        UiToast.LENGTH_SHORT).show();
             }
             return;
         }

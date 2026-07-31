@@ -761,4 +761,8 @@
     <string name="accessibility_developer_website">打开开发者网站</string>
     <string name="accessibility_virtual_controller">Virtual controller</string>
 
+    <string name="virtual_control_layout_save_failed">无法保存虚拟控制布局</string>
+    <string name="virtual_control_layout_export_missing">当前布局尚未保存</string>
+    <string name="virtual_control_layout_import_succeeded">布局导入成功</string>
+    <string name="virtual_control_layout_import_failed">布局导入失败</string>
 </resources>

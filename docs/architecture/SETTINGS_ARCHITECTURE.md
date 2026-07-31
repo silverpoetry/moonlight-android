@@ -67,7 +67,7 @@ persistent settings.
 | Stream video/decoder | `StreamDecoderSettings`; typed resolution aggregate | Decoder and performance-statistics paths no longer receive `PreferenceConfiguration`; resolution/FPS parsing and repair have one safe codec | Pending remaining stream settings migration |
 | Input and gestures | `InputSettings` with one atomic `InputSettingsState` per stream | Pointer, touchscreen/touchpad, gesture, keyboard, and virtual-touchpad runtime paths no longer read storage or receive `PreferenceConfiguration`; explicitly live settings publish one replacement snapshot | Temporary legacy UI fields remain to be migrated |
 | Physical controllers | `ControllerSettings` with one atomic `ControllerSettingsState` per stream | `ControllerHandler` no longer receives `PreferenceConfiguration` or rereads storage from controller, sensor, rumble, battery, or USB callbacks | USB service settings remain to be migrated |
-| On-screen controls | `VirtualControlSettings` with one atomic `VirtualControlSettingsState` per stream | Active virtual gamepad, virtual-key, touchpad-button, and full-keyboard rendering/input paths consume typed snapshots; stream-menu writers emit immutable domain updates | Named layout persistence still requires a dedicated repository; unused legacy configuration-loader paths remain to be removed |
+| On-screen controls | `VirtualControlSettings` with one atomic `VirtualControlSettingsState` per stream | Active virtual gamepad, virtual-key, touchpad-button, and full-keyboard rendering/input paths consume typed snapshots; stream-menu writers emit immutable domain updates; named layouts use `VirtualControlLayoutRepository` rather than direct file access | Layout element DTO/codec separation from the game-menu model remains; unused named-`SharedPreferences` loader path has been removed |
 | Audio and microphone | Pending | Pending | Pending |
 | Clipboard and transfer | Pending | Pending | Pending |
 | General UI and host list | Pending | Pending | Pending |
@@ -75,3 +75,22 @@ persistent settings.
 The ledger is complete only when direct default-preference reads are confined to
 the repository, legacy migrations, and platform preference widgets that have
 not yet emitted a typed update intent.
+
+## Editable layout documents
+
+Virtual-control layouts are user-authored documents, not settings values. The
+selected keyboard/gamepad profile remains a typed setting, while the document
+content crosses a separate `VirtualControlLayoutRepository` port.
+
+- `VirtualControlLayoutKey` accepts only the five canonical profile IDs for its
+  keyboard or gamepad family and an explicit orientation.
+- The Android adapter alone maps that key to the historical
+  `axi_<profile>[_1].txt` name, preserving existing user layouts without
+  exposing a path-bearing API.
+- Documents are UTF-8, bounded to 1 MiB, and written with `AtomicFile`.
+- Imported documents must contain a JSON array before they replace the active
+  file. A malformed existing document is isolated as an empty layout and
+  reported through release-gated diagnostics rather than crashing the stream.
+- Settings export/import and the runtime overlay use the same repository and
+  identity mapping. The former direct `FileUriUtils` path and unused legacy
+  configuration-loader persistence path no longer exist.

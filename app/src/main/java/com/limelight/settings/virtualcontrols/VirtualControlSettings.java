@@ -1,5 +1,8 @@
 package com.limelight.settings.virtualcontrols;
 
+import com.limelight.virtualcontrols.layout.VirtualControlLayoutKind;
+import com.limelight.virtualcontrols.layout.VirtualControlLayoutProfiles;
+
 import java.util.Objects;
 
 /**
@@ -54,10 +57,12 @@ public final class VirtualControlSettings {
                 builder.keyboardCombinationModeEnabled;
         keyboardLayoutId = requireLayoutId(
                 builder.keyboardLayoutId,
+                VirtualControlLayoutKind.KEYBOARD,
                 VirtualControlSettingKeys.KEYBOARD_LAYOUT_ID
                         .getDefaultValue());
         gamepadLayoutId = requireLayoutId(
                 builder.gamepadLayoutId,
+                VirtualControlLayoutKind.GAMEPAD,
                 VirtualControlSettingKeys.GAMEPAD_LAYOUT_ID
                         .getDefaultValue());
     }
@@ -152,8 +157,9 @@ public final class VirtualControlSettings {
 
     private static String requireLayoutId(
             String value,
+            VirtualControlLayoutKind kind,
             String defaultValue) {
-        if (value == null || value.trim().isEmpty()) {
+        if (!VirtualControlLayoutProfiles.isKnown(kind, value)) {
             return defaultValue;
         }
         return value;

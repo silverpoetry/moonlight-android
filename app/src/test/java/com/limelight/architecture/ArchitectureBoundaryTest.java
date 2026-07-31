@@ -266,6 +266,35 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void virtualControlLayoutDomainDoesNotDependOnAndroid() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.virtualcontrols.layout")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..", "androidx..")
+                .because(
+                        "layout identity and persistence ports are platform independent")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void virtualControlRuntimeDoesNotDependOnFileUtilities() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.binding.input.virtual_controller..")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.utils.FileUriUtils")
+                .because(
+                        "editable layouts are loaded through their repository port")
+                .check(productionClasses);
+    }
+
+    @Test
     public void videoBindingDoesNotDependOnLegacyPreferences() {
         noClasses()
                 .that()
