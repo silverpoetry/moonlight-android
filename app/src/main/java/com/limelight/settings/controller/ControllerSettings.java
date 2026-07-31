@@ -105,6 +105,10 @@ public final class ControllerSettings {
         return new Builder();
     }
 
+    public Builder toBuilder() {
+        return new Builder(this);
+    }
+
     public int getStickDeadzonePercent() {
         return stickDeadzonePercent;
     }
@@ -272,6 +276,63 @@ public final class ControllerSettings {
         private boolean batteryReportingEnabled = true;
 
         private Builder() {
+        }
+
+        private Builder(ControllerSettings settings) {
+            stickDeadzonePercent =
+                    settings.stickDeadzonePercent;
+            multiControllerEnabled =
+                    settings.multiControllerEnabled;
+            usbDriverEnabled = settings.usbDriverEnabled;
+            claimAllUsbDevices = settings.claimAllUsbDevices;
+            onscreenControllerEnabled =
+                    settings.onscreenControllerEnabled;
+            onlyL3R3Enabled = settings.onlyL3R3Enabled;
+            triggerDeadzoneDisabled =
+                    settings.triggerDeadzoneDisabled;
+            deviceRumbleEnabled = settings.deviceRumbleEnabled;
+            motionSensorsEnabled =
+                    settings.motionSensorsEnabled;
+            motionSensorsFallbackToDevice =
+                    settings.motionSensorsFallbackToDevice;
+            joyConFixEnabled = settings.joyConFixEnabled;
+            touchpadAsMouse = settings.touchpadAsMouse;
+            mouseSensitivityPercent =
+                    settings.mouseSensitivityPercent;
+            rumbleMotorsFlipped =
+                    settings.rumbleMotorsFlipped;
+            forceStrongVibrations =
+                    settings.forceStrongVibrations;
+            forceStrongVibrationsStopPulse =
+                    settings.forceStrongVibrationsStopPulse;
+            onscreenRumbleEnabled =
+                    settings.onscreenRumbleEnabled;
+            fallbackDeviceRumbleEnabled =
+                    settings.fallbackDeviceRumbleEnabled;
+            fallbackDeviceRumbleStrengthPercent =
+                    settings
+                            .fallbackDeviceRumbleStrengthPercent;
+            forceGyroEnabled = settings.forceGyroEnabled;
+            forceGyroRequiresLeftTrigger =
+                    settings.forceGyroRequiresLeftTrigger;
+            forceGyroAxesSwapped =
+                    settings.forceGyroAxesSwapped;
+            forceGyroSensitivityPercent =
+                    settings.forceGyroSensitivityPercent;
+            virtualControllerMotionEnabled =
+                    settings.virtualControllerMotionEnabled;
+            faceButtonsFlipped = settings.faceButtonsFlipped;
+            mouseEmulationEnabled =
+                    settings.mouseEmulationEnabled;
+            mouseEmulationButton = settings.mouseEmulationButton;
+            mouseEmulationOpensGameMenu =
+                    settings.mouseEmulationOpensGameMenu;
+            usbGyroscopeReportingEnabled =
+                    settings.usbGyroscopeReportingEnabled;
+            analogStickForScrolling =
+                    settings.analogStickForScrolling;
+            batteryReportingEnabled =
+                    settings.batteryReportingEnabled;
         }
 
         public Builder setStickDeadzonePercent(int value) {

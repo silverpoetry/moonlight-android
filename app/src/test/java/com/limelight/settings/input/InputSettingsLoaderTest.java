@@ -30,6 +30,9 @@ public class InputSettingsLoaderTest {
                 5,
                 settings.getExternalTouchpadScrollAmount());
         assertEquals(
+                5,
+                settings.getMouseWheelScrollAmount());
+        assertEquals(
                 0.18f,
                 settings.getBarometerForcePressThresholdHpa(),
                 0f);
@@ -52,6 +55,9 @@ public class InputSettingsLoaderTest {
         repository.values.put(
                 "touchpad_equipment_amount",
                 500);
+        repository.values.put(
+                "mouse_sc_amount",
+                -500);
 
         InputSettings settings =
                 InputSettingsLoader.load(repository);
@@ -67,6 +73,9 @@ public class InputSettingsLoaderTest {
         assertEquals(
                 InputSettingKeys.MAX_SCROLL_AMOUNT,
                 settings.getExternalTouchpadScrollAmount());
+        assertEquals(
+                InputSettingKeys.MIN_SCROLL_AMOUNT,
+                settings.getMouseWheelScrollAmount());
     }
 
     @Test

@@ -59,16 +59,24 @@ domain.
 No input, audio, video, controller-report, or transfer packet callback may read
 persistent settings.
 
+The stream touch-settings dialog receives immutable `InputSettings` and
+`ControllerSettings` snapshots. Each user action emits a schema-normalized
+domain update object; the composition root applies it to the current snapshot,
+persists only its owned canonical keys, and publishes the replacement. Reset is
+one multi-key input intent, so state and persistence cannot observe a partially
+reset sensitivity configuration. Programmatic seek-bar rendering never emits
+updates.
+
 ## Migration ledger
 
 | Domain | Typed snapshot | Runtime storage reads removed | Legacy adapter removed |
 | --- | --- | --- | --- |
 | Stream display/FSR/window | `StreamDisplaySettings` | `Game` no longer reads FSR target, sharpness, HDR mode, or gravity | Pending full stream settings migration |
 | Stream video/decoder | `StreamDecoderSettings`; typed resolution aggregate | Decoder and performance-statistics paths no longer receive `PreferenceConfiguration`; resolution/FPS parsing and repair have one safe codec | Pending remaining stream settings migration |
-| Input and gestures | `InputSettings` with one atomic `InputSettingsState` per stream | Pointer, touchscreen/touchpad, gesture, keyboard, and virtual-touchpad runtime paths no longer read storage or receive `PreferenceConfiguration`; explicitly live settings publish one replacement snapshot | Temporary legacy UI fields remain to be migrated |
-| Physical controllers | `ControllerSettings` with one atomic `ControllerSettingsState` per stream | `ControllerHandler` and `UsbDriverService` no longer receive `PreferenceConfiguration` or reread storage from controller, sensor, rumble, battery, USB attach, or permission callbacks; the service is configured before enumeration and observes coherent live snapshot replacements | Remaining controller menu writers and adaptive-trigger settings still require typed intents |
+| Input and gestures | `InputSettings` with one atomic `InputSettingsState` per stream | Pointer, touchscreen/touchpad, gesture, keyboard, virtual-touchpad, and mouse-wheel runtime paths no longer read storage or receive `PreferenceConfiguration`; the live touch-sensitivity menu emits typed update intents and publishes one replacement snapshot | Remaining generic settings rows and miscellaneous stream-menu writers still require typed intents |
+| Physical controllers | `ControllerSettings` with one atomic `ControllerSettingsState` per stream | `ControllerHandler` and `UsbDriverService` no longer receive `PreferenceConfiguration` or reread storage from controller, sensor, rumble, battery, USB attach, or permission callbacks; the service is configured before enumeration and observes coherent live snapshot replacements; touch-menu controller sensitivity uses the same typed update boundary | Remaining device-menu writers and adaptive-trigger settings still require typed intents |
 | On-screen controls | `VirtualControlSettings` with one atomic `VirtualControlSettingsState` per stream | Active virtual gamepad, virtual-key, touchpad-button, and full-keyboard rendering/input paths consume typed snapshots; stream-menu writers emit immutable domain updates; named layouts use `VirtualControlLayoutRepository` rather than direct file access | Layout element DTO/codec separation from the game-menu model remains; unused named-`SharedPreferences` loader path has been removed |
-| Stream audio | `StreamAudioSettings` with one atomic `StreamAudioSettingsState` per stream | Playback, mute, audio effects, and phone/controller audio-haptics consume the same typed snapshot; PCM callbacks perform no preference I/O; controller rumble suppression and USB/Kishi routing no longer duplicate audio policy inside `ControllerSettings` | Restart-only settings still use the legacy settings screen; microphone uplink policy is the next slice |
+| Stream audio | `StreamAudioSettings` with one atomic `StreamAudioSettingsState` per stream | Playback, mute, audio effects, and phone/controller audio-haptics consume the same typed snapshot; PCM callbacks perform no preference I/O; controller rumble suppression and USB/Kishi routing no longer duplicate audio policy inside `ControllerSettings` | Restart-only settings still use the legacy settings screen |
 | Microphone | No persisted policy; protocol-v1 invariants live in immutable `MicrophoneUplinkConfig` | Capture is an injected Android adapter; the platform-independent lifecycle controller owns all start/stop/error transitions and is unit tested without `AudioRecord` or JNI | No legacy preference exists; future formats require explicit protocol negotiation rather than a hidden setting |
 | Clipboard and transfer | `TransferSettings` captures clipboard enablement and the bounded persisted document-tree URI | Stream composition no longer reads the legacy preference bag for capability enablement; pull-to-device UI reads, repairs, and writes the directory through `SettingsRepository` and typed keys | Generic settings-row writers still need the typed-intent migration; clipboard loop-suppression checkpoints are operational state, not user settings, and move behind a storage port in phase 8 |
 | General UI and host list | Pending | Pending | Pending |

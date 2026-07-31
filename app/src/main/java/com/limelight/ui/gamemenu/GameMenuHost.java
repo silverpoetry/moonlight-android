@@ -2,6 +2,10 @@ package com.limelight.ui.gamemenu;
 
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.controller.ControllerSettings;
+import com.limelight.settings.controller.ControllerSettingsUpdate;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 
@@ -71,6 +75,15 @@ public interface GameMenuHost {
     void applyInputSettingsFromStorage();
 
     void applyControllerSettingsFromStorage();
+
+    InputSettings getInputSettings();
+
+    ControllerSettings getControllerSettings();
+
+    void applyInputSettingsUpdate(InputSettingsUpdate update);
+
+    void applyControllerSettingsUpdate(
+            ControllerSettingsUpdate<?> update);
 
     void applyDualSenseTriggerSettings();
 

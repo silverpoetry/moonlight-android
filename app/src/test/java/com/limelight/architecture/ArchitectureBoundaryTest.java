@@ -488,6 +488,37 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void touchSettingsUiUsesTypedSettingsIntents() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameTouchFragment")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android.preference..",
+                        "com.limelight.preferences..")
+                .because(
+                        "touch settings UI emits typed domain intents")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void touchSettingsUiDoesNotDependOnSharedPreferences() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameTouchFragment")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.content.SharedPreferences")
+                .because(
+                        "touch settings UI cannot address persistence directly")
+                .check(productionClasses);
+    }
+
+    @Test
     public void usbDriverServiceDoesNotReadPersistenceOrLegacySettings() {
         noClasses()
                 .that()

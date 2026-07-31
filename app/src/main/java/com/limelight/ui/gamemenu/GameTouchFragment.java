@@ -1,6 +1,5 @@
 package com.limelight.ui.gamemenu;
 
-import android.preference.PreferenceManager;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
@@ -8,22 +7,27 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 import com.limelight.R;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.controller.ControllerSettings;
+import com.limelight.settings.controller.ControllerSettingsUpdate;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.utils.SeekBarValueRange;
 
-import static com.limelight.preferences.PreferenceConfiguration.TOUCH_SENSITIVITY;
+import java.util.Objects;
 
 /**
- * Description
- * Date: 2024-10-20
- * Time: 16:07
+ * Edits live input sensitivity through typed settings intents.
  */
-public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClickListener, SeekBar.OnSeekBarChangeListener {
+public final class GameTouchFragment
+        extends BaseGameMenuDialog
+        implements View.OnClickListener,
+        SeekBar.OnSeekBarChangeListener {
     public interface Listener {
-        void onInputSettingsChanged();
+        void onInputSettingsUpdate(InputSettingsUpdate update);
 
-        void onControllerSettingsChanged();
+        void onControllerSettingsUpdate(
+                ControllerSettingsUpdate<?> update);
     }
 
     private static final SeekBarValueRange MULTITOUCH_RANGE =
@@ -33,248 +37,325 @@ public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClic
     private static final SeekBarValueRange DISTANCE_RANGE =
             new SeekBarValueRange(1, 30);
 
+    private ImageButton backButton;
+    private TextView titleView;
+    private Button directTouchToggle;
+    private Button recenterToggle;
+    private Button globalSensitivityToggle;
+    private SeekBar directTouchX;
+    private SeekBar directTouchY;
+    private SeekBar touchpadPointerX;
+    private SeekBar touchpadPointerY;
+    private SeekBar virtualTouchpadX;
+    private SeekBar virtualTouchpadY;
+    private TextView directTouchXValue;
+    private TextView directTouchYValue;
+    private TextView touchpadPointerXValue;
+    private TextView touchpadPointerYValue;
+    private TextView virtualTouchpadXValue;
+    private TextView virtualTouchpadYValue;
+    private SeekBar controllerMouseSensitivity;
+    private TextView controllerMouseSensitivityValue;
+    private SeekBar mouseWheelAmount;
+    private TextView mouseWheelAmountValue;
+    private SeekBar externalTouchpadX;
+    private SeekBar externalTouchpadY;
+    private SeekBar externalTouchpadScrollAmount;
+    private TextView externalTouchpadXValue;
+    private TextView externalTouchpadYValue;
+    private TextView externalTouchpadScrollAmountValue;
+
+    private String title;
+    private InputSettings inputSettings;
+    private ControllerSettings controllerSettings;
+    private Listener listener;
+
     @Override
     public int getLayoutRes() {
         return R.layout.dialog_game_menu_touch;
     }
 
-    private ImageButton ibtn_back;
-    private TextView tx_title;
-
-    private String title;
-
-    private Button btn_touch_switch;
-
-    private Button btn_touch_center;
-
-    private Button btn_touch_all;
-
-    private SeekBar sb_touch_x;
-
-    private SeekBar sb_touch_y;
-
-    private SeekBar sb_touchpad_x;
-
-    private SeekBar sb_touchpad_y;
-
-    private SeekBar sb_touchpad_view_x;
-
-    private SeekBar sb_touchpad_view_y;
-
-    private TextView tx_touch_x;
-
-    private TextView tx_touch_y;
-
-    private TextView tx_touchpad_x;
-
-    private TextView tx_touchpad_y;
-
-    private TextView tx_touchpad_view_x;
-
-    private TextView tx_touchpad_view_y;
-    private SeekBar sb_mouse_gamepad_sensitity;
-    private TextView tx_mouse_gamepad_sensitity;
-
-    private SeekBar sb_mouse_sc_amount;
-    private TextView tx_mouse_sc_amount;
-    private SeekBar sb_touchpad_equipment_view_x;
-    private SeekBar sb_touchpad_equipment_view_y;
-    private SeekBar sb_touchpad_equipment_amount;
-    private TextView tx_touchpad_equipment_view_x;
-    private TextView tx_touchpad_equipment_view_y;
-    private TextView tx_touchpad_equipment_amount;
-
     @Override
-    public void bindView(View v) {
-        super.bindView(v);
-        ibtn_back=v.findViewById(R.id.ibtn_back);
-        tx_title=v.findViewById(R.id.tx_title);
+    public void bindView(View view) {
+        super.bindView(view);
+        requireSettings();
 
-        btn_touch_switch=v.findViewById(R.id.btn_touch_switch);
-        btn_touch_center=v.findViewById(R.id.btn_touch_center);
-        btn_touch_all=v.findViewById(R.id.btn_touch_all);
-
-        sb_touch_x=v.findViewById(R.id.sb_touch_x);
-        sb_touch_y=v.findViewById(R.id.sb_touch_y);
-        sb_touchpad_x=v.findViewById(R.id.sb_touchpad_x);
-        sb_touchpad_y=v.findViewById(R.id.sb_touchpad_y);
-        sb_touchpad_view_x=v.findViewById(R.id.sb_touchpad_view_x);
-        sb_touchpad_view_y=v.findViewById(R.id.sb_touchpad_view_y);
-
-        tx_touch_x=v.findViewById(R.id.tx_touch_x);
-        tx_touch_y=v.findViewById(R.id.tx_touch_y);
-        tx_touchpad_x=v.findViewById(R.id.tx_touchpad_x);
-        tx_touchpad_y=v.findViewById(R.id.tx_touchpad_y);
-        tx_touchpad_view_x=v.findViewById(R.id.tx_touchpad_view_x);
-        tx_touchpad_view_y=v.findViewById(R.id.tx_touchpad_view_y);
-
-        sb_mouse_gamepad_sensitity=v.findViewById(R.id.sb_mouse_gamepad_sensitity);
-        tx_mouse_gamepad_sensitity=v.findViewById(R.id.tx_mouse_gamepad_sensitity);
-
-        sb_mouse_sc_amount=v.findViewById(R.id.sb_mouse_sc_amount);
-        tx_mouse_sc_amount=v.findViewById(R.id.tx_mouse_sc_amount);
-        sb_touchpad_equipment_view_x=v.findViewById(R.id.sb_touchpad_equipment_view_x);
-        sb_touchpad_equipment_view_y=v.findViewById(R.id.sb_touchpad_equipment_view_y);
-        sb_touchpad_equipment_amount=v.findViewById(R.id.sb_touchpad_equipment_amount);
-        tx_touchpad_equipment_view_x=v.findViewById(R.id.tx_touchpad_equipment_view_x);
-        tx_touchpad_equipment_view_y=v.findViewById(R.id.tx_touchpad_equipment_view_y);
-        tx_touchpad_equipment_amount=v.findViewById(R.id.tx_touchpad_equipment_amount);
+        backButton = view.findViewById(R.id.ibtn_back);
+        titleView = view.findViewById(R.id.tx_title);
+        directTouchToggle =
+                view.findViewById(R.id.btn_touch_switch);
+        recenterToggle =
+                view.findViewById(R.id.btn_touch_center);
+        globalSensitivityToggle =
+                view.findViewById(R.id.btn_touch_all);
+        directTouchX = view.findViewById(R.id.sb_touch_x);
+        directTouchY = view.findViewById(R.id.sb_touch_y);
+        touchpadPointerX =
+                view.findViewById(R.id.sb_touchpad_x);
+        touchpadPointerY =
+                view.findViewById(R.id.sb_touchpad_y);
+        virtualTouchpadX =
+                view.findViewById(R.id.sb_touchpad_view_x);
+        virtualTouchpadY =
+                view.findViewById(R.id.sb_touchpad_view_y);
+        directTouchXValue =
+                view.findViewById(R.id.tx_touch_x);
+        directTouchYValue =
+                view.findViewById(R.id.tx_touch_y);
+        touchpadPointerXValue =
+                view.findViewById(R.id.tx_touchpad_x);
+        touchpadPointerYValue =
+                view.findViewById(R.id.tx_touchpad_y);
+        virtualTouchpadXValue =
+                view.findViewById(R.id.tx_touchpad_view_x);
+        virtualTouchpadYValue =
+                view.findViewById(R.id.tx_touchpad_view_y);
+        controllerMouseSensitivity =
+                view.findViewById(
+                        R.id.sb_mouse_gamepad_sensitity);
+        controllerMouseSensitivityValue =
+                view.findViewById(
+                        R.id.tx_mouse_gamepad_sensitity);
+        mouseWheelAmount =
+                view.findViewById(R.id.sb_mouse_sc_amount);
+        mouseWheelAmountValue =
+                view.findViewById(R.id.tx_mouse_sc_amount);
+        externalTouchpadX =
+                view.findViewById(
+                        R.id.sb_touchpad_equipment_view_x);
+        externalTouchpadY =
+                view.findViewById(
+                        R.id.sb_touchpad_equipment_view_y);
+        externalTouchpadScrollAmount =
+                view.findViewById(
+                        R.id.sb_touchpad_equipment_amount);
+        externalTouchpadXValue =
+                view.findViewById(
+                        R.id.tx_touchpad_equipment_view_x);
+        externalTouchpadYValue =
+                view.findViewById(
+                        R.id.tx_touchpad_equipment_view_y);
+        externalTouchpadScrollAmountValue =
+                view.findViewById(
+                        R.id.tx_touchpad_equipment_amount);
 
         configureSeekBars();
-        tx_title.setText(title);
-        initViewData();
-        initViewTouch();
-        initViewTouchPad();
-        initViewTouchPadView();
-        initViewMouseGamePadView();
+        titleView.setText(title);
+        renderAll();
 
-        initViewMouseSCView();
-        initViewExternalTouchPadView();
+        backButton.setOnClickListener(this);
+        directTouchToggle.setOnClickListener(this);
+        recenterToggle.setOnClickListener(this);
+        globalSensitivityToggle.setOnClickListener(this);
+        view.findViewById(R.id.btn_right)
+                .setOnClickListener(this);
 
-        ibtn_back.setOnClickListener(this);
-        btn_touch_switch.setOnClickListener(this);
-        btn_touch_center.setOnClickListener(this);
-        btn_touch_all.setOnClickListener(this);
-
-        v.findViewById(R.id.btn_right).setOnClickListener(this);
-
-        sb_touch_x.setOnSeekBarChangeListener(this);
-        sb_touch_y.setOnSeekBarChangeListener(this);
-        sb_touchpad_x.setOnSeekBarChangeListener(this);
-        sb_touchpad_y.setOnSeekBarChangeListener(this);
-        sb_touchpad_view_x.setOnSeekBarChangeListener(this);
-        sb_touchpad_view_y.setOnSeekBarChangeListener(this);
-        sb_mouse_gamepad_sensitity.setOnSeekBarChangeListener(this);
-        sb_mouse_sc_amount.setOnSeekBarChangeListener(this);
-        sb_touchpad_equipment_view_x.setOnSeekBarChangeListener(this);
-        sb_touchpad_equipment_view_y.setOnSeekBarChangeListener(this);
-        sb_touchpad_equipment_amount.setOnSeekBarChangeListener(this);
-    }
-
-    @Override
-    public float getDimAmount() {
-        return super.getDimAmount();
+        directTouchX.setOnSeekBarChangeListener(this);
+        directTouchY.setOnSeekBarChangeListener(this);
+        touchpadPointerX.setOnSeekBarChangeListener(this);
+        touchpadPointerY.setOnSeekBarChangeListener(this);
+        virtualTouchpadX.setOnSeekBarChangeListener(this);
+        virtualTouchpadY.setOnSeekBarChangeListener(this);
+        controllerMouseSensitivity
+                .setOnSeekBarChangeListener(this);
+        mouseWheelAmount.setOnSeekBarChangeListener(this);
+        externalTouchpadX.setOnSeekBarChangeListener(this);
+        externalTouchpadY.setOnSeekBarChangeListener(this);
+        externalTouchpadScrollAmount
+                .setOnSeekBarChangeListener(this);
     }
 
     public void setTitle(String title) {
         this.title = title;
     }
 
-
-    private void initViewData(){
-        btn_touch_switch.setBackgroundResource(prefConfig.enableTouchSensitivity?R.drawable.ic_game_menu_btn_green_selector:R.drawable.ic_game_menu_btn_selector);
-        btn_touch_center.setBackgroundResource(prefConfig.touchSensitivityRotationAuto?R.drawable.ic_game_menu_btn_green_selector:R.drawable.ic_game_menu_btn_selector);
-        btn_touch_all.setBackgroundResource(prefConfig.touchSensitivityGlobal?R.drawable.ic_game_menu_btn_green_selector:R.drawable.ic_game_menu_btn_selector);
+    public void setSettings(
+            InputSettings inputSettings,
+            ControllerSettings controllerSettings) {
+        this.inputSettings = Objects.requireNonNull(
+                inputSettings,
+                "inputSettings");
+        this.controllerSettings = Objects.requireNonNull(
+                controllerSettings,
+                "controllerSettings");
     }
 
-    private void initViewTouch(){
-        setSeekBarValue(
-                sb_touch_x, MULTITOUCH_RANGE,
-                prefConfig.touchSensitivityX);
-        setSeekBarValue(
-                sb_touch_y, MULTITOUCH_RANGE,
-                prefConfig.touchSensitivityY);
-        tx_touch_x.setText(getString(
+    public void setListener(Listener listener) {
+        this.listener = listener;
+    }
+
+    private void requireSettings() {
+        if (inputSettings == null || controllerSettings == null) {
+            throw new IllegalStateException(
+                    "Touch settings must be supplied before showing");
+        }
+    }
+
+    private void renderAll() {
+        renderToggles();
+        renderDirectTouch();
+        renderTouchpadPointer();
+        renderVirtualTouchpad();
+        renderControllerMouse();
+        renderMouseWheel();
+        renderExternalTouchpad();
+    }
+
+    private void renderToggles() {
+        directTouchToggle.setBackgroundResource(
+                selector(
+                        inputSettings
+                                .isDirectTouchSensitivityEnabled()));
+        recenterToggle.setBackgroundResource(
+                selector(
+                        inputSettings
+                                .isDirectTouchRecenterEnabled()));
+        globalSensitivityToggle.setBackgroundResource(
+                selector(
+                        inputSettings
+                                .isDirectTouchSensitivityGlobal()));
+    }
+
+    private static int selector(boolean enabled) {
+        return enabled
+                ? R.drawable.ic_game_menu_btn_green_selector
+                : R.drawable.ic_game_menu_btn_selector;
+    }
+
+    private void renderDirectTouch() {
+        int x = inputSettings.getDirectTouchSensitivityX();
+        int y = inputSettings.getDirectTouchSensitivityY();
+        setSeekBarValue(directTouchX, MULTITOUCH_RANGE, x);
+        setSeekBarValue(directTouchY, MULTITOUCH_RANGE, y);
+        directTouchXValue.setText(getString(
                 R.string.game_menu_axis_x_format,
-                prefConfig.touchSensitivityX));
-        tx_touch_y.setText(getString(
+                x));
+        directTouchYValue.setText(getString(
                 R.string.game_menu_axis_y_format,
-                prefConfig.touchSensitivityY));
+                y));
     }
 
-    private void initViewTouchPad(){
+    private void renderTouchpadPointer() {
+        int x = inputSettings.getTouchpadPointerSensitivityX();
+        int y = inputSettings.getTouchpadPointerSensitivityY();
         setSeekBarValue(
-                sb_touchpad_x, SENSITIVITY_RANGE,
-                prefConfig.mouseTouchPadSensitityX);
+                touchpadPointerX,
+                SENSITIVITY_RANGE,
+                x);
         setSeekBarValue(
-                sb_touchpad_y, SENSITIVITY_RANGE,
-                prefConfig.mouseTouchPadSensitityY);
-        tx_touchpad_x.setText(getString(
+                touchpadPointerY,
+                SENSITIVITY_RANGE,
+                y);
+        touchpadPointerXValue.setText(getString(
                 R.string.game_menu_axis_x_format,
-                prefConfig.mouseTouchPadSensitityX));
-        tx_touchpad_y.setText(getString(
+                x));
+        touchpadPointerYValue.setText(getString(
                 R.string.game_menu_axis_y_format,
-                prefConfig.mouseTouchPadSensitityY));
+                y));
     }
 
-    private void initViewTouchPadView(){
+    private void renderVirtualTouchpad() {
+        int x = inputSettings.getVirtualTouchpadSensitivityX();
+        int y = inputSettings.getVirtualTouchpadSensitivityY();
         setSeekBarValue(
-                sb_touchpad_view_x, SENSITIVITY_RANGE,
-                prefConfig.touchPadSensitivity);
+                virtualTouchpadX,
+                SENSITIVITY_RANGE,
+                x);
         setSeekBarValue(
-                sb_touchpad_view_y, SENSITIVITY_RANGE,
-                prefConfig.touchPadYSensitity);
-        tx_touchpad_view_x.setText(getString(
+                virtualTouchpadY,
+                SENSITIVITY_RANGE,
+                y);
+        virtualTouchpadXValue.setText(getString(
                 R.string.game_menu_axis_x_format,
-                prefConfig.touchPadSensitivity));
-        tx_touchpad_view_y.setText(getString(
+                x));
+        virtualTouchpadYValue.setText(getString(
                 R.string.game_menu_axis_y_format,
-                prefConfig.touchPadYSensitity));
+                y));
     }
 
-    private void initViewMouseGamePadView(){
+    private void renderControllerMouse() {
+        int value =
+                controllerSettings.getMouseSensitivityPercent();
         setSeekBarValue(
-                sb_mouse_gamepad_sensitity, SENSITIVITY_RANGE,
-                prefConfig.mouseGamePadSensitity);
-        tx_mouse_gamepad_sensitity.setText(getString(
+                controllerMouseSensitivity,
+                SENSITIVITY_RANGE,
+                value);
+        controllerMouseSensitivityValue.setText(getString(
                 R.string.game_menu_sensitivity_format,
-                prefConfig.mouseGamePadSensitity));
+                value));
     }
 
-    private void initViewMouseSCView(){
+    private void renderMouseWheel() {
+        int value = inputSettings.getMouseWheelScrollAmount();
         setSeekBarValue(
-                sb_mouse_sc_amount, DISTANCE_RANGE,
-                prefConfig.mouseSCAmount);
-        tx_mouse_sc_amount.setText(getString(
+                mouseWheelAmount,
+                DISTANCE_RANGE,
+                value);
+        mouseWheelAmountValue.setText(getString(
                 R.string.game_menu_distance_format,
-                prefConfig.mouseSCAmount));
+                value));
     }
 
-    private void initViewExternalTouchPadView(){
+    private void renderExternalTouchpad() {
+        int x = inputSettings.getExternalTouchpadSensitivityX();
+        int y = inputSettings.getExternalTouchpadSensitivityY();
+        int scroll =
+                inputSettings.getExternalTouchpadScrollAmount();
         setSeekBarValue(
-                sb_touchpad_equipment_view_x, SENSITIVITY_RANGE,
-                prefConfig.externalTouchPadSensitityX);
+                externalTouchpadX,
+                SENSITIVITY_RANGE,
+                x);
         setSeekBarValue(
-                sb_touchpad_equipment_view_y, SENSITIVITY_RANGE,
-                prefConfig.externalTouchPadSensitityY);
+                externalTouchpadY,
+                SENSITIVITY_RANGE,
+                y);
         setSeekBarValue(
-                sb_touchpad_equipment_amount, DISTANCE_RANGE,
-                prefConfig.externalTouchPadScrollAmount);
-        tx_touchpad_equipment_view_x.setText(getString(
+                externalTouchpadScrollAmount,
+                DISTANCE_RANGE,
+                scroll);
+        externalTouchpadXValue.setText(getString(
                 R.string.game_menu_axis_x_format,
-                prefConfig.externalTouchPadSensitityX));
-        tx_touchpad_equipment_view_y.setText(getString(
+                x));
+        externalTouchpadYValue.setText(getString(
                 R.string.game_menu_axis_y_format,
-                prefConfig.externalTouchPadSensitityY));
-        tx_touchpad_equipment_amount.setText(getString(
+                y));
+        externalTouchpadScrollAmountValue.setText(getString(
                 R.string.game_menu_scroll_speed_format,
-                prefConfig.externalTouchPadScrollAmount));
+                scroll));
     }
 
     private void configureSeekBars() {
-        configureSeekBar(sb_touch_x, MULTITOUCH_RANGE);
-        configureSeekBar(sb_touch_y, MULTITOUCH_RANGE);
-        configureSeekBar(sb_touchpad_x, SENSITIVITY_RANGE);
-        configureSeekBar(sb_touchpad_y, SENSITIVITY_RANGE);
-        configureSeekBar(sb_touchpad_view_x, SENSITIVITY_RANGE);
-        configureSeekBar(sb_touchpad_view_y, SENSITIVITY_RANGE);
-        configureSeekBar(sb_mouse_gamepad_sensitity, SENSITIVITY_RANGE);
-        configureSeekBar(sb_mouse_sc_amount, DISTANCE_RANGE);
+        configureSeekBar(directTouchX, MULTITOUCH_RANGE);
+        configureSeekBar(directTouchY, MULTITOUCH_RANGE);
+        configureSeekBar(touchpadPointerX, SENSITIVITY_RANGE);
+        configureSeekBar(touchpadPointerY, SENSITIVITY_RANGE);
+        configureSeekBar(virtualTouchpadX, SENSITIVITY_RANGE);
+        configureSeekBar(virtualTouchpadY, SENSITIVITY_RANGE);
         configureSeekBar(
-                sb_touchpad_equipment_view_x, SENSITIVITY_RANGE);
+                controllerMouseSensitivity,
+                SENSITIVITY_RANGE);
+        configureSeekBar(mouseWheelAmount, DISTANCE_RANGE);
         configureSeekBar(
-                sb_touchpad_equipment_view_y, SENSITIVITY_RANGE);
+                externalTouchpadX,
+                SENSITIVITY_RANGE);
         configureSeekBar(
-                sb_touchpad_equipment_amount, DISTANCE_RANGE);
+                externalTouchpadY,
+                SENSITIVITY_RANGE);
+        configureSeekBar(
+                externalTouchpadScrollAmount,
+                DISTANCE_RANGE);
     }
 
     private static void configureSeekBar(
-            SeekBar seekBar, SeekBarValueRange range) {
+            SeekBar seekBar,
+            SeekBarValueRange range) {
         seekBar.setMax(range.getProgressMaximum());
     }
 
     private static void setSeekBarValue(
-            SeekBar seekBar, SeekBarValueRange range, int value) {
+            SeekBar seekBar,
+            SeekBarValueRange range,
+            int value) {
         int progress = range.valueToProgress(value);
         if (seekBar.getProgress() != progress) {
             seekBar.setProgress(progress);
@@ -282,229 +363,156 @@ public class GameTouchFragment extends BaseGameMenuDialog implements View.OnClic
     }
 
     private SeekBarValueRange getRange(SeekBar seekBar) {
-        if (seekBar == sb_touch_x || seekBar == sb_touch_y) {
+        if (seekBar == directTouchX || seekBar == directTouchY) {
             return MULTITOUCH_RANGE;
         }
-        if (seekBar == sb_mouse_sc_amount ||
-                seekBar == sb_touchpad_equipment_amount) {
+        if (seekBar == mouseWheelAmount ||
+                seekBar == externalTouchpadScrollAmount) {
             return DISTANCE_RANGE;
         }
         return SENSITIVITY_RANGE;
     }
 
     @Override
-    public void onClick(View v) {
-        if(v.getId()==R.id.ibtn_back){
+    public void onClick(View view) {
+        int id = view.getId();
+        if (id == R.id.ibtn_back) {
             dismiss();
             return;
         }
-
-        if(v.getId()==R.id.btn_right){
-            //鼠标触控板模式
-            prefConfig.mouseTouchPadSensitityX=100;
-            prefConfig.mouseTouchPadSensitityY=100;
-            //多点触控屏幕灵敏度
-            prefConfig.enableTouchSensitivity=false;
-            prefConfig.touchSensitivityX=100;
-            prefConfig.touchSensitivityY=100;
-            prefConfig.touchSensitivityGlobal=false;
-            prefConfig.touchSensitivityRotationAuto=true;
-
-            //触控板模式灵敏度
-            prefConfig.touchPadSensitivity=100;
-            prefConfig.touchPadYSensitity=100;
-            prefConfig.externalTouchPadSensitityX=100;
-            prefConfig.externalTouchPadSensitityY=100;
-            prefConfig.externalTouchPadScrollAmount=5;
-
-            prefConfig.mouseSCAmount=5;
-
-            prefConfig.mouseGamePadSensitity=100;
-
-            saveSetting(TOUCH_SENSITIVITY,100);
-            saveSetting("seekbar_touch_sensitivity_opacity_y",100);
-            saveSetting("seekbar_mouse_touchpad_sensitivity_x_opacity",100);
-            saveSetting("seekbar_mouse_touchpad_sensitivity_y_opacity",100);
-            saveSetting("seekbar_touchpad_sensitivity_opacity",100);
-            saveSetting("seekbar_touchpad_sensitivity_y_opacity",100);
-            saveSetting("touchpad_equipment_view_x",100);
-            saveSetting("touchpad_equipment_view_y",100);
-            saveSetting("touchpad_equipment_amount",5);
-            saveSetting("mouse_gamepad_sensitity",100);
-            saveSetting("mouse_sc_amount",5);
-
-            saveSetting("checkbox_enable_touch_sensitivity",prefConfig.enableTouchSensitivity);
-            saveSetting("checkbox_enable_touch_sensitivity_rotation_auto",prefConfig.touchSensitivityRotationAuto);
-            saveSetting("checkbox_enable_global_touch_sensitivity",prefConfig.touchSensitivityGlobal);
-
-            initViewData();
-            initViewTouch();
-            initViewTouchPad();
-            initViewTouchPadView();
-
-            initViewMouseGamePadView();
-            initViewMouseSCView();
-            initViewExternalTouchPadView();
-            notifyInputSettingsChanged();
-            notifyControllerSettingsChanged();
-
+        if (id == R.id.btn_right) {
+            dispatchInput(InputSettingsUpdate.resetSensitivity());
+            dispatchController(
+                    ControllerSettingsUpdate
+                            .mouseSensitivityPercent(100));
+            renderAll();
             return;
         }
-        if(v.getId()==R.id.btn_touch_switch){
-            prefConfig.enableTouchSensitivity=!prefConfig.enableTouchSensitivity;
-            saveSetting("checkbox_enable_touch_sensitivity",prefConfig.enableTouchSensitivity);
-            initViewData();
-            notifyInputSettingsChanged();
+        if (id == R.id.btn_touch_switch) {
+            dispatchInput(
+                    InputSettingsUpdate
+                            .directTouchSensitivityEnabled(
+                                    !inputSettings
+                                            .isDirectTouchSensitivityEnabled()));
+            renderToggles();
             return;
         }
-
-        if(v.getId()==R.id.btn_touch_center){
-            prefConfig.touchSensitivityRotationAuto=!prefConfig.touchSensitivityRotationAuto;
-            saveSetting("checkbox_enable_touch_sensitivity_rotation_auto",prefConfig.touchSensitivityRotationAuto);
-            initViewData();
-            notifyInputSettingsChanged();
+        if (id == R.id.btn_touch_center) {
+            dispatchInput(
+                    InputSettingsUpdate
+                            .directTouchRecenterEnabled(
+                                    !inputSettings
+                                            .isDirectTouchRecenterEnabled()));
+            renderToggles();
             return;
         }
-
-        if(v.getId()==R.id.btn_touch_all){
-            prefConfig.touchSensitivityGlobal=!prefConfig.touchSensitivityGlobal;
-            saveSetting("checkbox_enable_global_touch_sensitivity",prefConfig.touchSensitivityGlobal);
-            initViewData();
-            notifyInputSettingsChanged();
-            return;
+        if (id == R.id.btn_touch_all) {
+            dispatchInput(
+                    InputSettingsUpdate
+                            .directTouchSensitivityGlobal(
+                                    !inputSettings
+                                            .isDirectTouchSensitivityGlobal()));
+            renderToggles();
         }
-    }
-
-    private PreferenceConfiguration prefConfig;
-    private Listener listener;
-
-    public void setPrefConfig(PreferenceConfiguration prefConfig) {
-        this.prefConfig = prefConfig;
-    }
-
-    public void setListener(Listener listener) {
-        this.listener = listener;
     }
 
     @Override
-    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+    public void onProgressChanged(
+            SeekBar seekBar,
+            int progress,
+            boolean fromUser) {
+        if (!fromUser) {
+            return;
+        }
         int value = getRange(seekBar).progressToValue(progress);
-        if(seekBar==sb_touch_x){
-            prefConfig.touchSensitivityX=value;
-            saveSetting(TOUCH_SENSITIVITY,value);
-            initViewTouch();
+        if (seekBar == directTouchX) {
+            dispatchInput(
+                    InputSettingsUpdate
+                            .directTouchSensitivityX(value));
+            renderDirectTouch();
         }
-        if(seekBar==sb_touch_y){
-            prefConfig.touchSensitivityY=value;
-            saveSetting("seekbar_touch_sensitivity_opacity_y",value);
-            initViewTouch();
+        else if (seekBar == directTouchY) {
+            dispatchInput(
+                    InputSettingsUpdate
+                            .directTouchSensitivityY(value));
+            renderDirectTouch();
         }
-        if(seekBar==sb_touchpad_x){
-            prefConfig.mouseTouchPadSensitityX=value;
-            saveSetting("seekbar_mouse_touchpad_sensitivity_x_opacity",value);
-            initViewTouchPad();
+        else if (seekBar == touchpadPointerX) {
+            dispatchInput(
+                    InputSettingsUpdate
+                            .touchpadPointerSensitivityX(value));
+            renderTouchpadPointer();
         }
-        if(seekBar==sb_touchpad_y){
-            prefConfig.mouseTouchPadSensitityY=value;
-            saveSetting("seekbar_mouse_touchpad_sensitivity_y_opacity",value);
-            initViewTouchPad();
+        else if (seekBar == touchpadPointerY) {
+            dispatchInput(
+                    InputSettingsUpdate
+                            .touchpadPointerSensitivityY(value));
+            renderTouchpadPointer();
         }
-        if(seekBar==sb_touchpad_view_x){
-            prefConfig.touchPadSensitivity=value;
-            saveSetting("seekbar_touchpad_sensitivity_opacity",value);
-            initViewTouchPadView();
+        else if (seekBar == virtualTouchpadX) {
+            dispatchInput(
+                    InputSettingsUpdate
+                            .virtualTouchpadSensitivityX(value));
+            renderVirtualTouchpad();
         }
-        if(seekBar==sb_touchpad_view_y){
-            prefConfig.touchPadYSensitity=value;
-            saveSetting("seekbar_touchpad_sensitivity_y_opacity",value);
-            initViewTouchPadView();
+        else if (seekBar == virtualTouchpadY) {
+            dispatchInput(
+                    InputSettingsUpdate
+                            .virtualTouchpadSensitivityY(value));
+            renderVirtualTouchpad();
         }
+        else if (seekBar == controllerMouseSensitivity) {
+            dispatchController(
+                    ControllerSettingsUpdate
+                            .mouseSensitivityPercent(value));
+            renderControllerMouse();
+        }
+        else if (seekBar == mouseWheelAmount) {
+            dispatchInput(
+                    InputSettingsUpdate
+                            .mouseWheelScrollAmount(value));
+            renderMouseWheel();
+        }
+        else if (seekBar == externalTouchpadX) {
+            dispatchInput(
+                    InputSettingsUpdate
+                            .externalTouchpadSensitivityX(value));
+            renderExternalTouchpad();
+        }
+        else if (seekBar == externalTouchpadY) {
+            dispatchInput(
+                    InputSettingsUpdate
+                            .externalTouchpadSensitivityY(value));
+            renderExternalTouchpad();
+        }
+        else if (seekBar == externalTouchpadScrollAmount) {
+            dispatchInput(
+                    InputSettingsUpdate
+                            .externalTouchpadScrollAmount(value));
+            renderExternalTouchpad();
+        }
+    }
 
-        if(seekBar==sb_mouse_gamepad_sensitity){
-            prefConfig.mouseGamePadSensitity=value;
-            saveSetting("mouse_gamepad_sensitity",value);
-            initViewMouseGamePadView();
+    private void dispatchInput(InputSettingsUpdate update) {
+        inputSettings = update.applyTo(inputSettings);
+        if (listener != null) {
+            listener.onInputSettingsUpdate(update);
         }
+    }
 
-        if(seekBar==sb_mouse_sc_amount){
-            prefConfig.mouseSCAmount=value;
-            saveSetting("mouse_sc_amount",value);
-            initViewMouseSCView();
-        }
-
-        if(seekBar==sb_touchpad_equipment_view_x){
-            prefConfig.externalTouchPadSensitityX=value;
-            saveSetting("touchpad_equipment_view_x",value);
-            initViewExternalTouchPadView();
-        }
-
-        if(seekBar==sb_touchpad_equipment_view_y){
-            prefConfig.externalTouchPadSensitityY=value;
-            saveSetting("touchpad_equipment_view_y",value);
-            initViewExternalTouchPadView();
-        }
-
-        if(seekBar==sb_touchpad_equipment_amount){
-            prefConfig.externalTouchPadScrollAmount=value;
-            saveSetting("touchpad_equipment_amount",value);
-            initViewExternalTouchPadView();
-        }
-
-        if (fromUser &&
-                seekBar == sb_mouse_gamepad_sensitity) {
-            notifyControllerSettingsChanged();
-        }
-        else if (fromUser &&
-                (seekBar == sb_touch_x ||
-                        seekBar == sb_touch_y ||
-                        seekBar == sb_touchpad_x ||
-                        seekBar == sb_touchpad_y ||
-                        seekBar == sb_touchpad_view_x ||
-                        seekBar == sb_touchpad_view_y ||
-                        seekBar ==
-                                sb_touchpad_equipment_view_x ||
-                        seekBar ==
-                                sb_touchpad_equipment_view_y ||
-                        seekBar ==
-                                sb_touchpad_equipment_amount)) {
-            notifyInputSettingsChanged();
+    private void dispatchController(
+            ControllerSettingsUpdate<?> update) {
+        controllerSettings = update.applyTo(controllerSettings);
+        if (listener != null) {
+            listener.onControllerSettingsUpdate(update);
         }
     }
 
     @Override
     public void onStartTrackingTouch(SeekBar seekBar) {
-
     }
 
     @Override
     public void onStopTrackingTouch(SeekBar seekBar) {
-
-    }
-
-    private void saveSetting(String name,int value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putInt(name,value)
-                .apply();
-    }
-
-
-    private void saveSetting(String name,boolean value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putBoolean(name,value)
-                .apply();
-    }
-
-    private void notifyInputSettingsChanged() {
-        if (listener != null) {
-            listener.onInputSettingsChanged();
-        }
-    }
-
-    private void notifyControllerSettingsChanged() {
-        if (listener != null) {
-            listener.onControllerSettingsChanged();
-        }
     }
 }

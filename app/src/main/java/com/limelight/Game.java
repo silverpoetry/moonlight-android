@@ -54,9 +54,11 @@ import com.limelight.settings.controller.ControllerSettingKeys;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsLoader;
 import com.limelight.settings.controller.ControllerSettingsState;
+import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettings;
 import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.settings.input.InputSettingsState;
+import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.settings.stream.StreamDecoderSettings;
 import com.limelight.settings.stream.StreamDisplaySettings;
 import com.limelight.settings.transfer.TransferSettings;
@@ -2785,7 +2787,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     public void mouseHighResScroll(boolean up){
-        conn.sendMouseHighResScroll((short) (up?prefConfig.mouseSCAmount*50:-50*prefConfig.mouseSCAmount));
+        int amount =
+                inputSettingsState
+                        .get()
+                        .getMouseWheelScrollAmount() *
+                        50;
+        conn.sendMouseHighResScroll(
+                (short) (up ? amount : -amount));
     }
 
     @Override
@@ -2969,6 +2977,34 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         ControllerSettings settings =
                 ControllerSettingsLoader.load(settingsRepository);
         controllerSettingsState.replace(settings);
+    }
+
+    @Override
+    public InputSettings getInputSettings() {
+        return inputSettingsState.get();
+    }
+
+    @Override
+    public ControllerSettings getControllerSettings() {
+        return controllerSettingsState.get();
+    }
+
+    @Override
+    public void applyInputSettingsUpdate(
+            InputSettingsUpdate update) {
+        InputSettings updated =
+                update.applyTo(inputSettingsState.get());
+        update.persist(settingsRepository);
+        inputSettingsState.replace(updated);
+    }
+
+    @Override
+    public void applyControllerSettingsUpdate(
+            ControllerSettingsUpdate<?> update) {
+        ControllerSettings updated =
+                update.applyTo(controllerSettingsState.get());
+        update.persist(settingsRepository);
+        controllerSettingsState.replace(updated);
     }
 
     private PerformanceOverlayRuntimeState

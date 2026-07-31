@@ -390,7 +390,6 @@ public class PreferenceConfiguration {
     public int performanceOverlayLiteMaginTop;
 
     //鼠标滚轮移动距离
-    public int mouseSCAmount;
     //强制体感模拟右摇杆
     public boolean gameForceGyro;
     //按住左扳机生效
@@ -1045,7 +1044,6 @@ public class PreferenceConfiguration {
         config.axFloatingPostionY =prefs.getFloat("ax_floating_postion_y",-1);
         config.axFloatingPostionIsNearestLeft =prefs.getBoolean("ax_floating_postion_isnearestleft",true);
 
-        config.mouseSCAmount=prefs.getInt("mouse_sc_amount",5);
 
         config.gameForceGyroLeftTrigger =
                 controllerSettings

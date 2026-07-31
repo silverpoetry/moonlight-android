@@ -100,6 +100,13 @@ public final class InputSettingKeys {
                     DEFAULT_SCROLL_AMOUNT,
                     MIN_SCROLL_AMOUNT,
                     MAX_SCROLL_AMOUNT);
+    public static final SettingKey<Integer>
+            MOUSE_WHEEL_SCROLL_AMOUNT =
+            SettingKey.integerKey(
+                    "mouse_sc_amount",
+                    DEFAULT_SCROLL_AMOUNT,
+                    MIN_SCROLL_AMOUNT,
+                    MAX_SCROLL_AMOUNT);
     public static final SettingKey<Boolean>
             DIRECT_TOUCH_SENSITIVITY_ENABLED =
             SettingKey.booleanKey(

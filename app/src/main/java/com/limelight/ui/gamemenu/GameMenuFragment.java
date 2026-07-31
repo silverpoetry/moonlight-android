@@ -22,6 +22,8 @@ import com.limelight.R;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.controller.ControllerSettingsUpdate;
+import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
@@ -615,19 +617,23 @@ public class GameMenuFragment extends BaseGameMenuDialog
             GameTouchFragment fragment=new GameTouchFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle("触控灵敏度");
-            fragment.setPrefConfig(host.getStreamPreferences());
+            fragment.setSettings(
+                    host.getInputSettings(),
+                    host.getControllerSettings());
             fragment.setListener(new GameTouchFragment.Listener() {
                 @Override
-                public void onInputSettingsChanged() {
+                public void onInputSettingsUpdate(
+                        InputSettingsUpdate update) {
                     if (host != null) {
-                        host.applyInputSettingsFromStorage();
+                        host.applyInputSettingsUpdate(update);
                     }
                 }
 
                 @Override
-                public void onControllerSettingsChanged() {
+                public void onControllerSettingsUpdate(
+                        ControllerSettingsUpdate<?> update) {
                     if (host != null) {
-                        host.applyControllerSettingsFromStorage();
+                        host.applyControllerSettingsUpdate(update);
                     }
                 }
             });

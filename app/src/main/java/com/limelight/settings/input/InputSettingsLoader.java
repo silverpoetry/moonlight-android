@@ -61,6 +61,9 @@ public final class InputSettingsLoader {
                 .setExternalTouchpadScrollAmount(repository.get(
                         InputSettingKeys
                                 .EXTERNAL_TOUCHPAD_SCROLL_AMOUNT))
+                .setMouseWheelScrollAmount(repository.get(
+                        InputSettingKeys
+                                .MOUSE_WHEEL_SCROLL_AMOUNT))
                 .setDirectTouchSensitivityEnabled(repository.get(
                         InputSettingKeys
                                 .DIRECT_TOUCH_SENSITIVITY_ENABLED))

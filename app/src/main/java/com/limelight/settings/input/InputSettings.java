@@ -18,6 +18,7 @@ public final class InputSettings {
     private final int externalTouchpadSensitivityX;
     private final int externalTouchpadSensitivityY;
     private final int externalTouchpadScrollAmount;
+    private final int mouseWheelScrollAmount;
     private final boolean directTouchSensitivityEnabled;
     private final int directTouchSensitivityX;
     private final int directTouchSensitivityY;
@@ -61,6 +62,10 @@ public final class InputSettings {
                 builder.externalTouchpadSensitivityY);
         externalTouchpadScrollAmount = clamp(
                 builder.externalTouchpadScrollAmount,
+                InputSettingKeys.MIN_SCROLL_AMOUNT,
+                InputSettingKeys.MAX_SCROLL_AMOUNT);
+        mouseWheelScrollAmount = clamp(
+                builder.mouseWheelScrollAmount,
                 InputSettingKeys.MIN_SCROLL_AMOUNT,
                 InputSettingKeys.MAX_SCROLL_AMOUNT);
         directTouchSensitivityEnabled =
@@ -145,6 +150,10 @@ public final class InputSettings {
         return externalTouchpadScrollAmount;
     }
 
+    public int getMouseWheelScrollAmount() {
+        return mouseWheelScrollAmount;
+    }
+
     public boolean isDirectTouchSensitivityEnabled() {
         return directTouchSensitivityEnabled;
     }
@@ -223,6 +232,8 @@ public final class InputSettings {
                 InputSettingKeys.DEFAULT_SENSITIVITY_PERCENT;
         private int externalTouchpadScrollAmount =
                 InputSettingKeys.DEFAULT_SCROLL_AMOUNT;
+        private int mouseWheelScrollAmount =
+                InputSettingKeys.DEFAULT_SCROLL_AMOUNT;
         private boolean directTouchSensitivityEnabled;
         private int directTouchSensitivityX =
                 InputSettingKeys.DEFAULT_SENSITIVITY_PERCENT;
@@ -262,6 +273,8 @@ public final class InputSettings {
                     settings.externalTouchpadSensitivityY;
             externalTouchpadScrollAmount =
                     settings.externalTouchpadScrollAmount;
+            mouseWheelScrollAmount =
+                    settings.mouseWheelScrollAmount;
             directTouchSensitivityEnabled =
                     settings.directTouchSensitivityEnabled;
             directTouchSensitivityX =
@@ -341,6 +354,11 @@ public final class InputSettings {
         public Builder setExternalTouchpadScrollAmount(
                 int amount) {
             externalTouchpadScrollAmount = amount;
+            return this;
+        }
+
+        public Builder setMouseWheelScrollAmount(int amount) {
+            mouseWheelScrollAmount = amount;
             return this;
         }
 

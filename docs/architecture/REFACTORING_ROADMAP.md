@@ -231,6 +231,10 @@ A slice is incomplete if callers can still bypass the new boundary.
   are decoded together as `TransferSettings`; stream composition and the
   pull-to-device UI no longer use the legacy preference bag or direct default
   preferences for those decisions.
+- The live touch-sensitivity menu consumes immutable input/controller snapshots
+  and emits schema-normalized typed intents. Mouse-wheel distance now belongs
+  to `InputSettings`, and its runtime sender reads the same atomic state that
+  the menu updates; the corresponding legacy property-bag field is removed.
 - Versioned legacy preference migration through schema version 2.
 - A platform-independent virtual-control layout identity/repository contract,
   Android atomic-file adapter, bounded and validated import, and one shared
