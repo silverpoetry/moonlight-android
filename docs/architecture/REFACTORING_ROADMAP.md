@@ -370,6 +370,9 @@ targets.
 - `DecoderStatisticsTracker` owns active, previous, and cumulative decoder
   windows plus all per-frame counters. The realtime threads perform lock-free
   scalar updates; only the optional one-second overlay snapshot allocates.
+- `CodecRecoveryCoordinator` owns recovery priority, attempt budget, and
+  three-thread quiescence state. The renderer retains the monitor and MediaCodec
+  operations, while atomic promotion rules are deterministic under JVM tests.
 
 ### Exit evidence
 

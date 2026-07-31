@@ -843,3 +843,11 @@ Verification on 2026-07-31:
   root/non-root debug/release variant (1,416 executions total). A clean
   `verifyConnected --rerun-tasks --no-daemon` run passed all 107 non-root and
   107 root instrumentation tests.
+- Added `CodecRecoveryCoordinator` as the owner of recovery severity,
+  promotion, retry budget, and input/render/Choreographer quiescence state.
+  MediaCodec calls and the existing recovery monitor remain in the renderer;
+  no new worker, wait, or hot-path allocation was introduced.
+- `verifyLocal --rerun-tasks` passed all 193 tasks with 360 JVM tests in each
+  root/non-root debug/release variant (1,440 executions total). A clean
+  `verifyConnected --rerun-tasks --no-daemon` run passed all 107 non-root and
+  107 root instrumentation tests.

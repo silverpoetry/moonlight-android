@@ -8,7 +8,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jcodec.codecs.h264.H264Utils;
 import org.jcodec.codecs.h264.io.model.SeqParameterSet;
@@ -75,21 +74,12 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private PerfOverlayListener perfListener;
 
     private static final int CR_MAX_TRIES = 10;
-    private static final int CR_RECOVERY_TYPE_NONE = 0;
-    private static final int CR_RECOVERY_TYPE_FLUSH = 1;
-    private static final int CR_RECOVERY_TYPE_RESTART = 2;
-    private static final int CR_RECOVERY_TYPE_RESET = 3;
-    private AtomicInteger codecRecoveryType = new AtomicInteger(CR_RECOVERY_TYPE_NONE);
+    private final CodecRecoveryCoordinator recoveryCoordinator =
+            new CodecRecoveryCoordinator();
     private final Object codecRecoveryMonitor = new Object();
 
     // Each thread that touches the MediaCodec object or any associated buffers must have a flag
     // here and must call doCodecRecoveryIfRequired() on a regular basis.
-    private static final int CR_FLAG_INPUT_THREAD = 0x1;
-    private static final int CR_FLAG_RENDER_THREAD = 0x2;
-    private static final int CR_FLAG_CHOREOGRAPHER = 0x4;
-    private static final int CR_FLAG_ALL = CR_FLAG_INPUT_THREAD | CR_FLAG_RENDER_THREAD | CR_FLAG_CHOREOGRAPHER;
-    private int codecRecoveryThreadQuiescedFlags = 0;
-    private int codecRecoveryAttempts = 0;
 
     private MediaFormat inputFormat;
     private MediaFormat outputFormat;
@@ -278,9 +268,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             LimeLog.info("Updated MediaCodec output surface without restart");
         } catch (IllegalStateException | IllegalArgumentException e) {
             LimeLog.warning("Unable to hot-swap MediaCodec output surface; requesting decoder restart");
-            if (!codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_NONE, CR_RECOVERY_TYPE_RESTART)) {
-                codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_FLUSH, CR_RECOVERY_TYPE_RESTART);
-            }
+            recoveryCoordinator.request(
+                    CodecRecoveryCoordinator
+                            .RecoveryType.RESTART);
         }
     }
 
@@ -722,84 +712,93 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private boolean doCodecRecoveryIfRequired(int quiescenceFlag) {
         // NB: We cannot check 'stopping' here because we could end up bailing in a partially
         // quiesced state that will cause the quiesced threads to never wake up.
-        if (codecRecoveryType.get() == CR_RECOVERY_TYPE_NONE) {
+        if (!recoveryCoordinator.hasPendingRecovery()) {
             // Common case
             return false;
         }
 
         // We need some sort of recovery, so quiesce all threads before starting that
         synchronized (codecRecoveryMonitor) {
-            if (choreographerHandlerThread == null) {
-                // If we have no choreographer thread, we can just mark that as quiesced right now.
-                codecRecoveryThreadQuiescedFlags |= CR_FLAG_CHOREOGRAPHER;
-            }
-
-            codecRecoveryThreadQuiescedFlags |= quiescenceFlag;
+            recoveryCoordinator.markThreadQuiesced(
+                    quiescenceFlag,
+                    choreographerHandlerThread != null);
 
             // This is the final thread to quiesce, so let's perform the codec recovery now.
-            if (codecRecoveryThreadQuiescedFlags == CR_FLAG_ALL) {
+            if (recoveryCoordinator.areAllThreadsQuiesced()) {
                 // Input and output buffers are invalidated by stop() and reset().
                 nextInputBuffer = null;
                 nextInputBufferIndex = -1;
                 outputBufferQueue.clear();
 
                 // If we just need a flush, do so now with all threads quiesced.
-                if (codecRecoveryType.get() == CR_RECOVERY_TYPE_FLUSH) {
+                if (recoveryCoordinator.getRecoveryType() ==
+                        CodecRecoveryCoordinator
+                                .RecoveryType.FLUSH) {
                     LimeLog.warning("Flushing decoder");
                     try {
                         videoDecoder.flush();
-                        codecRecoveryType.set(CR_RECOVERY_TYPE_NONE);
+                        recoveryCoordinator.completeRecovery();
                     } catch (IllegalStateException e) {
                         e.printStackTrace();
 
                         // Something went wrong during the restart, let's use a bigger hammer
                         // and try a reset instead.
-                        codecRecoveryType.set(CR_RECOVERY_TYPE_RESTART);
+                        recoveryCoordinator.request(
+                                CodecRecoveryCoordinator
+                                        .RecoveryType.RESTART);
                     }
                 }
 
                 // We don't count flushes as codec recovery attempts
-                if (codecRecoveryType.get() != CR_RECOVERY_TYPE_NONE) {
-                    codecRecoveryAttempts++;
-                    LimeLog.info("Codec recovery attempt: "+codecRecoveryAttempts);
+                if (recoveryCoordinator.hasPendingRecovery()) {
+                    LimeLog.info(
+                            "Codec recovery attempt: " +
+                                    recoveryCoordinator
+                                            .beginRecoveryAttempt());
                 }
 
                 // For "recoverable" exceptions, we can just stop, reconfigure, and restart.
-                if (codecRecoveryType.get() == CR_RECOVERY_TYPE_RESTART) {
+                if (recoveryCoordinator.getRecoveryType() ==
+                        CodecRecoveryCoordinator
+                                .RecoveryType.RESTART) {
                     LimeLog.warning("Trying to restart decoder after CodecException");
                     try {
                         videoDecoder.stop();
                         configureAndStartDecoder(configuredFormat);
-                        codecRecoveryType.set(CR_RECOVERY_TYPE_NONE);
+                        recoveryCoordinator.completeRecovery();
                     } catch (IllegalArgumentException e) {
                         e.printStackTrace();
 
                         // Our Surface is probably invalid, so just stop
                         stopping = true;
-                        codecRecoveryType.set(CR_RECOVERY_TYPE_NONE);
+                        recoveryCoordinator.completeRecovery();
                     } catch (IllegalStateException e) {
                         e.printStackTrace();
 
                         // Something went wrong during the restart, let's use a bigger hammer
                         // and try a reset instead.
-                        codecRecoveryType.set(CR_RECOVERY_TYPE_RESET);
+                        recoveryCoordinator.request(
+                                CodecRecoveryCoordinator
+                                        .RecoveryType.RESET);
                     }
                 }
 
                 // For "non-recoverable" exceptions on L+, we can call reset() to recover
                 // without having to recreate the entire decoder again.
-                if (codecRecoveryType.get() == CR_RECOVERY_TYPE_RESET) {
+                if (recoveryCoordinator.getRecoveryType() ==
+                        CodecRecoveryCoordinator
+                                .RecoveryType.RESET) {
                     LimeLog.warning("Trying to reset decoder after CodecException");
                     try {
                         videoDecoder.reset();
                         configureAndStartDecoder(configuredFormat);
-                        codecRecoveryType.set(CR_RECOVERY_TYPE_NONE);
+                        recoveryCoordinator.completeRecovery();
                     } catch (IllegalArgumentException e) {
                         e.printStackTrace();
 
                         // Our Surface is probably invalid, so just stop
                         stopping = true;
-                        codecRecoveryType.set(CR_RECOVERY_TYPE_NONE);
+                        recoveryCoordinator.completeRecovery();
                     } catch (IllegalStateException e) {
                         e.printStackTrace();
 
@@ -810,7 +809,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
                 // If we _still_ haven't managed to recover, go for the nuclear option and just
                 // throw away the old decoder and reinitialize a new one from scratch.
-                if (codecRecoveryType.get() == CR_RECOVERY_TYPE_RESET) {
+                if (recoveryCoordinator.getRecoveryType() ==
+                        CodecRecoveryCoordinator
+                                .RecoveryType.RESET) {
                     LimeLog.warning("Trying to recreate decoder after CodecException");
                     videoDecoder.release();
 
@@ -819,13 +820,13 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                         if (err != 0) {
                             throw new IllegalStateException("Decoder reset failed: " + err);
                         }
-                        codecRecoveryType.set(CR_RECOVERY_TYPE_NONE);
+                        recoveryCoordinator.completeRecovery();
                     } catch (IllegalArgumentException e) {
                         e.printStackTrace();
 
                         // Our Surface is probably invalid, so just stop
                         stopping = true;
-                        codecRecoveryType.set(CR_RECOVERY_TYPE_NONE);
+                        recoveryCoordinator.completeRecovery();
                     } catch (IllegalStateException e) {
                         // If we failed to recover after all of these attempts, just crash
                         if (!reportedCrash) {
@@ -837,15 +838,18 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 }
 
                 // Wake all quiesced threads and allow them to begin work again
-                codecRecoveryThreadQuiescedFlags = 0;
+                recoveryCoordinator.clearQuiescedThreads();
                 codecRecoveryMonitor.notifyAll();
             }
             else {
                 // If we haven't quiesced all threads yet, wait to be signalled after recovery.
                 // The final thread to be quiesced will handle the codec recovery.
-                while (codecRecoveryType.get() != CR_RECOVERY_TYPE_NONE) {
+                while (recoveryCoordinator.hasPendingRecovery()) {
                     try {
-                        LimeLog.info("Waiting to quiesce decoder threads: "+codecRecoveryThreadQuiescedFlags);
+                        LimeLog.info(
+                                "Waiting to quiesce decoder threads: " +
+                                        recoveryCoordinator
+                                                .getQuiescedThreads());
                         codecRecoveryMonitor.wait(1000);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
@@ -883,37 +887,28 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             LimeLog.severe(codecExc.getDiagnosticInfo());
 
             // We can attempt a recovery or reset at this stage to try to start decoding again
-            if (codecRecoveryAttempts < CR_MAX_TRIES) {
+            if (recoveryCoordinator
+                    .hasAttemptsRemaining(CR_MAX_TRIES)) {
                 // If the exception is non-recoverable or we already require a reset, perform a reset.
                 // If we have no prior unrecoverable failure, we will try a restart instead.
                 if (codecExc.isRecoverable()) {
-                    if (codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_NONE, CR_RECOVERY_TYPE_RESTART)) {
-                        LimeLog.info("Decoder requires restart for recoverable CodecException");
+                    if (recoveryCoordinator.request(
+                            CodecRecoveryCoordinator
+                                    .RecoveryType.RESTART)) {
+                        LimeLog.info(
+                                "Decoder requires restart for " +
+                                        "recoverable CodecException");
                         e.printStackTrace();
-                    }
-                    else if (codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_FLUSH, CR_RECOVERY_TYPE_RESTART)) {
-                        LimeLog.info("Decoder flush promoted to restart for recoverable CodecException");
-                        e.printStackTrace();
-                    }
-                    else if (codecRecoveryType.get() != CR_RECOVERY_TYPE_RESET && codecRecoveryType.get() != CR_RECOVERY_TYPE_RESTART) {
-                        throw new IllegalStateException("Unexpected codec recovery type: " + codecRecoveryType.get());
                     }
                 }
                 else if (!codecExc.isRecoverable()) {
-                    if (codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_NONE, CR_RECOVERY_TYPE_RESET)) {
-                        LimeLog.info("Decoder requires reset for non-recoverable CodecException");
+                    if (recoveryCoordinator.request(
+                            CodecRecoveryCoordinator
+                                    .RecoveryType.RESET)) {
+                        LimeLog.info(
+                                "Decoder requires reset for " +
+                                        "non-recoverable CodecException");
                         e.printStackTrace();
-                    }
-                    else if (codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_FLUSH, CR_RECOVERY_TYPE_RESET)) {
-                        LimeLog.info("Decoder flush promoted to reset for non-recoverable CodecException");
-                        e.printStackTrace();
-                    }
-                    else if (codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_RESTART, CR_RECOVERY_TYPE_RESET)) {
-                        LimeLog.info("Decoder restart promoted to reset for non-recoverable CodecException");
-                        e.printStackTrace();
-                    }
-                    else if (codecRecoveryType.get() != CR_RECOVERY_TYPE_RESET) {
-                        throw new IllegalStateException("Unexpected codec recovery type: " + codecRecoveryType.get());
                     }
                 }
 
@@ -926,21 +921,15 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             // Recovery from this requires a full decoder reset.
             //
             // NB: CodecException is an IllegalStateException, so we must check for it first.
-            if (codecRecoveryAttempts < CR_MAX_TRIES) {
-                if (codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_NONE, CR_RECOVERY_TYPE_RESET)) {
-                    LimeLog.info("Decoder requires reset for IllegalStateException");
+            if (recoveryCoordinator
+                    .hasAttemptsRemaining(CR_MAX_TRIES)) {
+                if (recoveryCoordinator.request(
+                        CodecRecoveryCoordinator
+                                .RecoveryType.RESET)) {
+                    LimeLog.info(
+                            "Decoder requires reset for " +
+                                    "IllegalStateException");
                     e.printStackTrace();
-                }
-                else if (codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_FLUSH, CR_RECOVERY_TYPE_RESET)) {
-                    LimeLog.info("Decoder flush promoted to reset for IllegalStateException");
-                    e.printStackTrace();
-                }
-                else if (codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_RESTART, CR_RECOVERY_TYPE_RESET)) {
-                    LimeLog.info("Decoder restart promoted to reset for IllegalStateException");
-                    e.printStackTrace();
-                }
-                else if (codecRecoveryType.get() != CR_RECOVERY_TYPE_RESET) {
-                    throw new IllegalStateException("Unexpected codec recovery type: " + codecRecoveryType.get());
                 }
 
                 return false;
@@ -948,7 +937,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         }
 
         // Only throw if we're not in the middle of codec recovery
-        if (codecRecoveryType.get() == CR_RECOVERY_TYPE_NONE) {
+        if (!recoveryCoordinator.hasPendingRecovery()) {
             //
             // There seems to be a race condition with decoder/surface teardown causing some
             // decoders to to throw IllegalStateExceptions even before 'stopping' is set.
@@ -1019,7 +1008,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
         // Attempt codec recovery even if we have nothing to render right now. Recovery can still
         // be required even if the codec died before giving any output.
-        doCodecRecoveryIfRequired(CR_FLAG_CHOREOGRAPHER);
+        doCodecRecoveryIfRequired(
+                CodecRecoveryCoordinator.CHOREOGRAPHER_THREAD);
 
         // Request another callback for next frame
         Choreographer.getInstance().postFrameCallback(this);
@@ -1143,7 +1133,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                     } catch (IllegalStateException e) {
                         handleDecoderException(e);
                     } finally {
-                        doCodecRecoveryIfRequired(CR_FLAG_RENDER_THREAD);
+                        doCodecRecoveryIfRequired(
+                                CodecRecoveryCoordinator
+                                        .RENDER_THREAD);
                     }
                 }
             }
@@ -1186,7 +1178,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             handleDecoderException(e);
             return false;
         } finally {
-            codecRecovered = doCodecRecoveryIfRequired(CR_FLAG_INPUT_THREAD);
+            codecRecovered = doCodecRecoveryIfRequired(
+                    CodecRecoveryCoordinator.INPUT_THREAD);
         }
 
         // If codec recovery is required, always return false to ensure the caller will request
@@ -1237,7 +1230,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
         // Stop any active codec recovery operations
         synchronized (codecRecoveryMonitor) {
-            codecRecoveryType.set(CR_RECOVERY_TYPE_NONE);
+            recoveryCoordinator.completeRecovery();
             codecRecoveryMonitor.notifyAll();
         }
 
@@ -1314,12 +1307,11 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             // or output buffer.
 
             // HACK: Reset codec recovery attempt counter, since this is an expected "recovery"
-            codecRecoveryAttempts = 0;
+            recoveryCoordinator.resetAttempts();
 
-            // Promote None/Flush to Restart and leave Reset alone
-            if (!codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_NONE, CR_RECOVERY_TYPE_RESTART)) {
-                codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_FLUSH, CR_RECOVERY_TYPE_RESTART);
-            }
+            recoveryCoordinator.request(
+                    CodecRecoveryCoordinator
+                            .RecoveryType.RESTART);
         }
     }
 
@@ -1349,7 +1341,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             }
             return false;
         } finally {
-            codecRecovered = doCodecRecoveryIfRequired(CR_FLAG_INPUT_THREAD);
+            codecRecovered = doCodecRecoveryIfRequired(
+                    CodecRecoveryCoordinator.INPUT_THREAD);
         }
 
         // If codec recovery is required, always return false to ensure the caller will request
