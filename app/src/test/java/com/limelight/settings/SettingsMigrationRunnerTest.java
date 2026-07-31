@@ -2,6 +2,7 @@ package com.limelight.settings;
 
 import com.limelight.settings.audio.StreamAudioSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
+import com.limelight.settings.stream.StreamVideoSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
 
@@ -135,6 +136,38 @@ public class SettingsMigrationRunnerTest {
                 repository.values.get("settings_schema_version"));
         assertTrue((Boolean) repository.values.get(
                 "checkbox_clipboard_sync"));
+    }
+
+    @Test
+    public void legacyBitrateMigratesWithoutOverwritingCurrentValue() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put(
+                "seekbar_bitrate",
+                50);
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertEquals(
+                50_000,
+                repository.values.get("seekbar_bitrate_kbps"));
+        assertFalse(repository.values.containsKey(
+                "seekbar_bitrate"));
+
+        repository.values.put(
+                "seekbar_bitrate",
+                75);
+        repository.values.put(
+                "seekbar_bitrate_kbps",
+                60_000);
+        SettingsMigrationRunner.migrate(repository);
+
+        assertEquals(
+                60_000,
+                repository.values.get("seekbar_bitrate_kbps"));
+        assertFalse(repository.values.containsKey(
+                StreamVideoSettingKeys
+                        .LEGACY_BITRATE_MBPS
+                        .getName()));
     }
 
     private static final class FakeRepository

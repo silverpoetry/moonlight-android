@@ -4,7 +4,7 @@ package com.limelight.settings;
  * Versioned schema metadata for default application preferences.
  */
 public final class SettingsSchema {
-    public static final int CURRENT_VERSION = 2;
+    public static final int CURRENT_VERSION = 3;
 
     public static final SettingKey<Integer> VERSION =
             SettingKey.integerKey(

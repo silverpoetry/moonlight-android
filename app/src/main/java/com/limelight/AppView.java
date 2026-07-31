@@ -17,9 +17,24 @@ import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.SettingsMigrationRunner;
+import com.limelight.settings.SettingsRepository;
+import com.limelight.settings.android.AndroidDisplayAspectProvider;
+import com.limelight.settings.android.SharedPreferencesCustomResolutionRepository;
+import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.audio.StreamAudioSettings;
+import com.limelight.settings.audio.StreamAudioSettingsLoader;
+import com.limelight.settings.audio.StreamAudioSettingsState;
+import com.limelight.settings.audio.StreamAudioSettingsUpdate;
+import com.limelight.settings.stream.CustomResolutionRepository;
+import com.limelight.settings.stream.StreamVideoSettings;
+import com.limelight.settings.stream.StreamVideoSettingsLoader;
+import com.limelight.settings.stream.StreamVideoSettingsState;
+import com.limelight.settings.stream.StreamVideoSettingsUpdate;
 import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.ui.gamemenu.GameDisplayFragment;
+import com.limelight.ui.gamemenu.GameDisplayHost;
 import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.Dialog;
@@ -54,7 +69,8 @@ import com.limelight.utils.UiToast;
 
 import org.xmlpull.v1.XmlPullParserException;
 
-public class AppView extends Activity implements AdapterFragmentCallbacks {
+public class AppView extends Activity implements AdapterFragmentCallbacks,
+        GameDisplayHost {
     private AppGridAdapter appGridAdapter;
     private String uuidString;
     private ShortcutHelper shortcutHelper;
@@ -297,6 +313,11 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
     private GameDisplayFragment dialogFragment;
 
     private PreferenceConfiguration pref;
+    private SettingsRepository settingsRepository;
+    private StreamVideoSettingsState streamVideoSettingsState;
+    private StreamAudioSettingsState streamAudioSettingsState;
+    private CustomResolutionRepository
+            customResolutionRepository;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -336,6 +357,27 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         ImageView imageView=findViewById(R.id.iv_root_view);
 
         pref=PreferenceConfiguration.readPreferences(this);
+        settingsRepository =
+                new SharedPreferencesSettingsRepository(
+                        PreferenceManager
+                                .getDefaultSharedPreferences(this));
+        SettingsMigrationRunner.migrate(settingsRepository);
+        streamVideoSettingsState =
+                new StreamVideoSettingsState(
+                        StreamVideoSettingsLoader.load(
+                                settingsRepository,
+                                AndroidDisplayAspectProvider
+                                        .get(this)));
+        streamAudioSettingsState =
+                new StreamAudioSettingsState(
+                        StreamAudioSettingsLoader.load(
+                                settingsRepository));
+        customResolutionRepository =
+                new SharedPreferencesCustomResolutionRepository(
+                        getSharedPreferences(
+                                SharedPreferencesCustomResolutionRepository
+                                        .PREFERENCES_NAME,
+                                MODE_PRIVATE));
 
         if(pref.enableScreenBg&&Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q){
             String fileName= PreferenceManager.getDefaultSharedPreferences(this).getString("screen_bg_file_name","axi_screen_bg.png");
@@ -368,11 +410,9 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                     dialogFragment.dismiss();
                     dialogFragment=null;
                 }
-                dialogFragment=new GameDisplayFragment();
+                dialogFragment =
+                        GameDisplayFragment.newInstance(false);
                 dialogFragment.setWidth(UiHelper.dpToPx(AppView.this,364));
-                dialogFragment.setTitle(R.string.game_menu_display_title);
-                dialogFragment.setShowLock(false);
-                dialogFragment.setPrefConfig(pref);
                 dialogFragment.show(getFragmentManager());
             }
         });
@@ -380,6 +420,45 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         // Bind to the computer manager service
         bindService(new Intent(this, ComputerManagerService.class), serviceConnection,
                 Service.BIND_AUTO_CREATE);
+    }
+
+    @Override
+    public StreamVideoSettings getStreamVideoSettings() {
+        return streamVideoSettingsState.get();
+    }
+
+    @Override
+    public void applyStreamVideoSettingsUpdate(
+            StreamVideoSettingsUpdate update) {
+        StreamVideoSettings updated =
+                update.applyTo(streamVideoSettingsState.get());
+        update.persist(settingsRepository);
+        streamVideoSettingsState.replace(updated);
+    }
+
+    @Override
+    public CustomResolutionRepository
+            getCustomResolutionRepository() {
+        return customResolutionRepository;
+    }
+
+    @Override
+    public StreamAudioSettings getStreamAudioSettings() {
+        return streamAudioSettingsState.get();
+    }
+
+    @Override
+    public void applyStreamAudioSettingsUpdate(
+            StreamAudioSettingsUpdate update) {
+        StreamAudioSettings updated =
+                update.applyTo(streamAudioSettingsState.get());
+        update.persist(settingsRepository);
+        streamAudioSettingsState.replace(updated);
+    }
+
+    @Override
+    public void onDisplayConfigurationApplied() {
+        // App-list changes apply to the next stream without navigation.
     }
 
     private void updateHiddenApps(boolean hideImmediately) {

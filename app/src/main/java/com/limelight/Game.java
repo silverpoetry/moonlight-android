@@ -47,6 +47,8 @@ import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.preferences.LegacyPreferenceSettingsAdapter;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.android.SharedPreferencesCustomResolutionRepository;
+import com.limelight.settings.android.AndroidDisplayAspectProvider;
 import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.audio.StreamAudioSettingsLoader;
 import com.limelight.settings.audio.StreamAudioSettingsState;
@@ -62,6 +64,11 @@ import com.limelight.settings.input.InputSettingsState;
 import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.settings.stream.StreamDecoderSettings;
 import com.limelight.settings.stream.StreamDisplaySettings;
+import com.limelight.settings.stream.CustomResolutionRepository;
+import com.limelight.settings.stream.StreamVideoSettings;
+import com.limelight.settings.stream.StreamVideoSettingsLoader;
+import com.limelight.settings.stream.StreamVideoSettingsState;
+import com.limelight.settings.stream.StreamVideoSettingsUpdate;
 import com.limelight.settings.transfer.TransferSettings;
 import com.limelight.settings.transfer.TransferSettingsLoader;
 import com.limelight.settings.ui.StreamUiSettings;
@@ -200,6 +207,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public PreferenceConfiguration prefConfig;
     private StreamDisplaySettings streamDisplaySettings;
     private StreamDecoderSettings streamDecoderSettings;
+    private StreamVideoSettingsState streamVideoSettingsState;
+    private CustomResolutionRepository
+            customResolutionRepository;
     private TransferSettings transferSettings;
     private SettingsRepository settingsRepository;
     private SharedPreferences tombstonePrefs;
@@ -361,6 +371,18 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         streamDecoderSettings =
                 LegacyPreferenceSettingsAdapter
                         .loadStreamDecoderSettings(prefConfig);
+        streamVideoSettingsState =
+                new StreamVideoSettingsState(
+                        StreamVideoSettingsLoader.load(
+                                settingsRepository,
+                                AndroidDisplayAspectProvider
+                                        .get(this)));
+        customResolutionRepository =
+                new SharedPreferencesCustomResolutionRepository(
+                        getSharedPreferences(
+                                SharedPreferencesCustomResolutionRepository
+                                        .PREFERENCES_NAME,
+                                Context.MODE_PRIVATE));
         transferSettings =
                 TransferSettingsLoader.load(settingsRepository);
         inputSettingsState =
@@ -1989,7 +2011,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         .apply();
             }
         }
-        if (prefConfig.enableScreenOnAuto != 0 && !isFinishing()) {
+        if (streamVideoSettingsState
+                .get()
+                .getScreenOnPolicy() !=
+                StreamVideoSettings.ScreenOnPolicy.DISABLED &&
+                !isFinishing()) {
             PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
             if (powerManager != null && powerManager.isInteractive()) {
                 AutoReconnectHelper.savePendingStream(getIntent());
@@ -2006,11 +2032,18 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public void finish() {
         AutoReconnectHelper.clearPendingStream();
         super.finish();
-        if(prefConfig.enableScreenOnAuto==1){
-            PreferenceManager.getDefaultSharedPreferences(this)
-                    .edit()
-                    .putInt("enable_screen_on_auto",0)
-                    .apply();
+        if (streamVideoSettingsState != null &&
+                streamVideoSettingsState
+                        .get()
+                        .getScreenOnPolicy() ==
+                        StreamVideoSettings
+                                .ScreenOnPolicy
+                                .CURRENT_SESSION) {
+            applyStreamVideoSettingsUpdate(
+                    StreamVideoSettingsUpdate.screenOnPolicy(
+                            StreamVideoSettings
+                                    .ScreenOnPolicy
+                                    .DISABLED));
         }
     }
 
@@ -3002,6 +3035,34 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     public StreamAudioSettings getStreamAudioSettings() {
         return streamAudioSettingsState.get();
+    }
+
+    @Override
+    public StreamVideoSettings getStreamVideoSettings() {
+        return streamVideoSettingsState.get();
+    }
+
+    @Override
+    public void applyStreamVideoSettingsUpdate(
+            StreamVideoSettingsUpdate update) {
+        StreamVideoSettings updated =
+                update.applyTo(streamVideoSettingsState.get());
+        update.persist(settingsRepository);
+        streamVideoSettingsState.replace(updated);
+    }
+
+    @Override
+    public void onDisplayConfigurationApplied() {
+        if (dialogGameMenu != null) {
+            dialogGameMenu.dismiss();
+        }
+        requestStreamDisconnect();
+    }
+
+    @Override
+    public CustomResolutionRepository
+            getCustomResolutionRepository() {
+        return customResolutionRepository;
     }
 
     @Override

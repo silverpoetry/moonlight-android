@@ -245,7 +245,13 @@ A slice is incomplete if callers can still bypass the new boundary.
   controls report settled positions without owning persistence policy, while
   performance overlays consume a typed projection rather than the legacy
   application-wide settings bag.
-- Versioned legacy preference migration through schema version 2.
+- Both display-settings entry points consume one immutable video/audio
+  snapshot and emit typed intents. Immediate options update only their owned
+  canonical key, while resolution, FPS, bitrate, orientation,
+  external-display mode, and FSR values are committed as one explicit Apply
+  transaction. Custom resolutions cross a repository port, and unknown future
+  FSR values round-trip unchanged until the user explicitly replaces them.
+- Versioned legacy preference migration through schema version 3.
 - A platform-independent virtual-control layout identity/repository contract,
   Android atomic-file adapter, bounded and validated import, and one shared
   runtime/settings I/O path. Historical file names remain an adapter-only

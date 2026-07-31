@@ -5,13 +5,12 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.preference.PreferenceManager;
-import android.view.Display;
-import android.view.WindowManager;
 
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.settings.SettingsMigrationRunner;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.android.AndroidDisplayAspectProvider;
 import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.audio.StreamAudioSettingsLoader;
 import com.limelight.settings.controller.ControllerSettingKeys;
@@ -24,6 +23,8 @@ import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.stream.StreamResolutionCodec;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.settings.stream.StreamResolutionSettingsLoader;
+import com.limelight.settings.stream.StreamBitratePolicy;
+import com.limelight.settings.stream.StreamVideoSettingKeys;
 import com.limelight.settings.transfer.TransferSettings;
 import com.limelight.settings.transfer.TransferSettingsLoader;
 import com.limelight.settings.ui.StreamUiSettings;
@@ -54,8 +55,10 @@ public class PreferenceConfiguration {
             StreamResolutionSettingKeys.ASPECT_RATIO.getName();
     public static final String FPS_PREF_STRING =
             StreamResolutionSettingKeys.FPS.getName();
-    public static final String BITRATE_PREF_STRING = "seekbar_bitrate_kbps";
-    public static final String BITRATE_PREF_OLD_STRING = "seekbar_bitrate";
+    public static final String BITRATE_PREF_STRING =
+            StreamVideoSettingKeys.BITRATE_KBPS.getName();
+    public static final String BITRATE_PREF_OLD_STRING =
+            StreamVideoSettingKeys.LEGACY_BITRATE_MBPS.getName();
     private static final String STRETCH_PREF_STRING = "checkbox_stretch_video";
     private static final String SOPS_PREF_STRING = "checkbox_enable_sops";
     private static final String DISABLE_TOASTS_PREF_STRING = "checkbox_disable_warnings";
@@ -403,29 +406,7 @@ public class PreferenceConfiguration {
 
     private static StreamResolutionCodec.DisplayAspect getDisplayAspect(
             Context context) {
-        int displayWidth = 16;
-        int displayHeight = 9;
-
-        WindowManager windowManager = (WindowManager)
-                context.getSystemService(Context.WINDOW_SERVICE);
-        if (windowManager != null) {
-            Display display = windowManager.getDefaultDisplay();
-            if (display != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    Display.Mode mode = display.getMode();
-                    displayWidth = mode.getPhysicalWidth();
-                    displayHeight = mode.getPhysicalHeight();
-                }
-                else {
-                    displayWidth = display.getWidth();
-                    displayHeight = display.getHeight();
-                }
-            }
-        }
-
-        return new StreamResolutionCodec.DisplayAspect(
-                displayWidth,
-                displayHeight);
+        return AndroidDisplayAspectProvider.get(context);
     }
 
     public static int getDefaultBitrate(Context context, String resString, String fpsString,
@@ -447,62 +428,10 @@ public class PreferenceConfiguration {
             int width,
             int height,
             int fps) {
-        // This logic is shamelessly stolen from Moonlight Qt:
-        // https://github.com/moonlight-stream/moonlight-qt/blob/master/app/settings/streamingpreferences.cpp
-
-        // Don't scale bitrate linearly beyond 60 FPS. It's definitely not a linear
-        // bitrate increase for frame rate once we get to values that high.
-        double frameRateFactor = (fps <= 60 ? fps : (Math.sqrt(fps / 60.f) * 60.f)) / 30.f;
-
-        // TODO: Collect some empirical data to see if these defaults make sense.
-        // We're just using the values that the Shield used, as we have for years.
-        int[] pixelVals = {
-            640 * 360,
-            854 * 480,
-            1280 * 720,
-            1920 * 1080,
-            2560 * 1440,
-            3840 * 2160,
-            -1,
-        };
-        int[] factorVals = {
-            1,
-            2,
-            5,
-            10,
-            20,
-            40,
-            -1
-        };
-
-        // Calculate the resolution factor by linear interpolation of the resolution table
-        float resolutionFactor;
-        int pixels = width * height;
-        for (int i = 0; ; i++) {
-            if (pixels == pixelVals[i]) {
-                // We can bail immediately for exact matches
-                resolutionFactor = factorVals[i];
-                break;
-            }
-            else if (pixels < pixelVals[i]) {
-                if (i == 0) {
-                    // Never go below the lowest resolution entry
-                    resolutionFactor = factorVals[i];
-                }
-                else {
-                    // Interpolate between the entry greater than the chosen resolution (i) and the entry less than the chosen resolution (i-1)
-                    resolutionFactor = ((float)(pixels - pixelVals[i-1]) / (pixelVals[i] - pixelVals[i-1])) * (factorVals[i] - factorVals[i-1]) + factorVals[i-1];
-                }
-                break;
-            }
-            else if (pixelVals[i] == -1) {
-                // Never go above the highest resolution entry
-                resolutionFactor = factorVals[i-1];
-                break;
-            }
-        }
-
-        return (int)Math.round(resolutionFactor * frameRateFactor) * 1000;
+        return StreamBitratePolicy.calculateDefaultBitrateKbps(
+                width,
+                height,
+                fps);
     }
 
     public static int getDefaultBitrate(Context context, String resString, String fpsString) {

@@ -133,6 +133,32 @@ public final class StreamAudioSettingsUpdateTest {
         assertEquals(1, repository.applyCount);
     }
 
+    @Test
+    public void hostAudioUpdatePreservesPlaybackPolicy() {
+        FakeRepository repository = new FakeRepository();
+        StreamAudioSettings original = representativeSettings();
+        StreamAudioSettingsUpdate update =
+                StreamAudioSettingsUpdate.playHostAudio(false);
+
+        StreamAudioSettings updated = update.applyTo(original);
+        update.persist(repository);
+
+        assertFalse(updated.shouldPlayHostAudio());
+        assertTrue(updated.areAudioEffectsEnabled());
+        assertTrue(updated.areAudioHapticsEnabled());
+        assertEquals(
+                HapticsOutputTarget.CONTROLLER,
+                updated.getHapticsOutputTarget());
+        assertEquals(
+                false,
+                repository.values.get(
+                        StreamAudioSettingKeys
+                                .PLAY_HOST_AUDIO
+                                .getName()));
+        assertEquals(1, repository.values.size());
+        assertEquals(1, repository.applyCount);
+    }
+
     private static StreamAudioSettings representativeSettings() {
         return StreamAudioSettings.builder()
                 .setChannelConfiguration(

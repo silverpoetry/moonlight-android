@@ -147,4 +147,27 @@ public class SharedPreferencesSettingsRepositoryTest {
                         "gamepad_axi_list",
                         null));
     }
+
+    @Test
+    public void versionThreeMigratesLegacyBitrateWithoutOverwritingCurrentValue() {
+        preferences.edit()
+                .putInt("settings_schema_version", 2)
+                .putInt("seekbar_bitrate", 75)
+                .putInt("seekbar_bitrate_kbps", 60_000)
+                .commit();
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertEquals(
+                SettingsSchema.CURRENT_VERSION,
+                preferences.getInt(
+                        "settings_schema_version",
+                        -1));
+        assertEquals(
+                60_000,
+                preferences.getInt(
+                        "seekbar_bitrate_kbps",
+                        -1));
+        assertFalse(preferences.contains("seekbar_bitrate"));
+    }
 }

@@ -1,6 +1,6 @@
 package com.limelight.ui.gamemenu;
 
-import androidx.annotation.StringRes;
+import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.Display;
 import android.view.View;
@@ -8,20 +8,30 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import androidx.annotation.StringRes;
+
 import com.limelight.R;
-import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.utils.UiToast;
 
 public class GameDisplayFpsFragment
         extends BaseGameMenuDialog implements View.OnClickListener {
+    private static final String ARG_UNLOCK_FPS = "unlock_fps";
     private static final int MIN_FPS = 1;
     private static final int MAX_CUSTOM_FPS = 999;
 
-    private int titleRes = R.string.game_menu_fps;
     private EditText fpsInput;
     private int maxSupportedFps;
-    private Listener listener;
+
+    public static GameDisplayFpsFragment newInstance(
+            boolean unlockFps) {
+        GameDisplayFpsFragment fragment =
+                new GameDisplayFpsFragment();
+        Bundle arguments = new Bundle();
+        arguments.putBoolean(ARG_UNLOCK_FPS, unlockFps);
+        fragment.setArguments(arguments);
+        return fragment;
+    }
 
     @Override
     public int getLayoutRes() {
@@ -33,7 +43,7 @@ public class GameDisplayFpsFragment
         super.bindView(view);
 
         TextView titleView = view.findViewById(R.id.tx_title);
-        titleView.setText(titleRes);
+        titleView.setText(R.string.game_menu_fps);
         fpsInput = view.findViewById(R.id.edt_fps);
 
         view.findViewById(R.id.ibtn_back).setOnClickListener(this);
@@ -54,9 +64,9 @@ public class GameDisplayFpsFragment
         Display display =
                 getActivity().getWindowManager().getDefaultDisplay();
         maxSupportedFps = Math.round(display.getRefreshRate());
-        boolean unlockFps = PreferenceConfiguration
-                .readPreferences(getActivity()).unlockFps;
-
+        Bundle arguments = getArguments();
+        boolean unlockFps = arguments != null &&
+                arguments.getBoolean(ARG_UNLOCK_FPS, false);
         setVisible(
                 view.findViewById(R.id.bt_display_fps_90),
                 maxSupportedFps >= 90 || unlockFps);
@@ -128,9 +138,7 @@ public class GameDisplayFpsFragment
     }
 
     private void selectFps(int fps) {
-        if (listener != null) {
-            listener.onFpsSelected(fps);
-        }
+        requireTargetListener().onFpsSelected(fps);
         dismiss();
     }
 
@@ -139,12 +147,12 @@ public class GameDisplayFpsFragment
                 getActivity(), messageRes, UiToast.LENGTH_SHORT).show();
     }
 
-    public void setTitle(@StringRes int titleRes) {
-        this.titleRes = titleRes;
-    }
-
-    public void setListener(Listener listener) {
-        this.listener = listener;
+    private Listener requireTargetListener() {
+        if (!(getTargetFragment() instanceof Listener)) {
+            throw new IllegalStateException(
+                    "FPS dialog target must implement Listener");
+        }
+        return (Listener) getTargetFragment();
     }
 
     public interface Listener {

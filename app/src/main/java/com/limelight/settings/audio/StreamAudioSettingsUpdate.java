@@ -39,6 +39,14 @@ public final class StreamAudioSettingsUpdate {
                 StreamAudioSettings.Builder::setMuted);
     }
 
+    public static StreamAudioSettingsUpdate playHostAudio(
+            boolean enabled) {
+        return single(
+                StreamAudioSettingKeys.PLAY_HOST_AUDIO,
+                enabled,
+                StreamAudioSettings.Builder::setPlayHostAudio);
+    }
+
     public static StreamAudioSettingsUpdate hapticsEnabled(
             boolean enabled) {
         return single(

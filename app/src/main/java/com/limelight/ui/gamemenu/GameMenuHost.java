@@ -6,8 +6,6 @@ import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettings;
 import com.limelight.settings.input.InputSettingsUpdate;
-import com.limelight.settings.audio.StreamAudioSettings;
-import com.limelight.settings.audio.StreamAudioSettingsUpdate;
 import com.limelight.settings.ui.StreamUiSettings;
 import com.limelight.settings.ui.StreamUiSettingsUpdate;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
@@ -19,7 +17,7 @@ import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
  * <p>The menu obtains this contract from its attached Activity. It must not
  * retain the Activity after {@code onDetach()}.</p>
  */
-public interface GameMenuHost {
+public interface GameMenuHost extends GameDisplayHost {
     PreferenceConfiguration getStreamPreferences();
 
     boolean isInputReady();
@@ -84,11 +82,6 @@ public interface GameMenuHost {
 
     void applyControllerSettingsUpdate(
             ControllerSettingsUpdate update);
-
-    StreamAudioSettings getStreamAudioSettings();
-
-    void applyStreamAudioSettingsUpdate(
-            StreamAudioSettingsUpdate update);
 
     StreamUiSettings getStreamUiSettings();
 

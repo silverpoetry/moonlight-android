@@ -2,6 +2,7 @@ package com.limelight.settings;
 
 import com.limelight.settings.audio.StreamAudioSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
+import com.limelight.settings.stream.StreamVideoSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
 
@@ -32,6 +33,12 @@ public final class SettingsMigrationRunner {
         if (storedVersion < 2) {
             migrateToVersion2(repository, editor);
         }
+        if (storedVersion < 3 ||
+                repository.contains(
+                        StreamVideoSettingKeys
+                                .LEGACY_BITRATE_MBPS)) {
+            migrateToVersion3(repository, editor);
+        }
         if (storedVersion < SettingsSchema.CURRENT_VERSION) {
             editor.put(
                     SettingsSchema.VERSION,
@@ -50,7 +57,10 @@ public final class SettingsMigrationRunner {
                                 .LEGACY_DISABLE_FRAME_DROP) ||
                 repository.contains(
                         TransferSettingKeys
-                                .LEGACY_CLIPBOARD_IMAGE_SYNC);
+                                .LEGACY_CLIPBOARD_IMAGE_SYNC) ||
+                repository.contains(
+                        StreamVideoSettingKeys
+                                .LEGACY_BITRATE_MBPS);
     }
 
     private static void migrateToVersion1(
@@ -119,5 +129,30 @@ public final class SettingsMigrationRunner {
                             VirtualControlSettingKeys
                                     .GAMEPAD_LAYOUT_ID));
         }
+    }
+
+    private static void migrateToVersion3(
+            SettingsRepository repository,
+            SettingsRepository.Editor editor) {
+        if (!repository.contains(
+                StreamVideoSettingKeys.LEGACY_BITRATE_MBPS)) {
+            return;
+        }
+        if (!repository.contains(
+                StreamVideoSettingKeys.BITRATE_KBPS)) {
+            long legacyKbps =
+                    (long) repository.get(
+                            StreamVideoSettingKeys
+                                    .LEGACY_BITRATE_MBPS) *
+                            1000L;
+            editor.put(
+                    StreamVideoSettingKeys.BITRATE_KBPS,
+                    (int) Math.min(
+                            StreamVideoSettingKeys
+                                    .MAX_BITRATE_KBPS,
+                            legacyKbps));
+        }
+        editor.remove(
+                StreamVideoSettingKeys.LEGACY_BITRATE_MBPS);
     }
 }

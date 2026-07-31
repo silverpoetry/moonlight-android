@@ -1,11 +1,9 @@
 package com.limelight.ui.gamemenu;
 
+import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Context;
-import android.content.SharedPreferences;
 import android.graphics.Rect;
 import android.os.Build;
-import androidx.annotation.StringRes;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -13,7 +11,11 @@ import android.view.WindowMetrics;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import androidx.annotation.StringRes;
+
 import com.limelight.R;
+import com.limelight.settings.stream.CustomResolution;
+import com.limelight.settings.stream.CustomResolutionRepository;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.utils.UiToast;
 
@@ -27,20 +29,34 @@ import java.util.Set;
 
 public class GameDisplayResolutionFragment
         extends BaseGameMenuDialog implements View.OnClickListener {
-    private static final String PREFS_NAME = "CustomResolutions";
-    private static final String KEY_RESOLUTIONS = "resolutions";
-    private static final int MIN_DIMENSION = 1;
-    private static final int MAX_DIMENSION = 99_999;
     private static final int PRESET_COUNT = 6;
 
-    private final Set<String> defaultResolutions = new HashSet<>();
+    private final Set<CustomResolution> defaultResolutions =
+            new HashSet<>();
 
-    private int titleRes = R.string.game_menu_resolution;
     private EditText widthInput;
     private EditText heightInput;
     private FlowLayout customResolutionFlow;
     private TextView customResolutionTitle;
-    private Listener listener;
+    private CustomResolutionRepository repository;
+
+    @Override
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        if (!(activity instanceof GameDisplayHost)) {
+            throw new IllegalStateException(
+                    "Resolution dialog host must implement GameDisplayHost");
+        }
+        repository =
+                ((GameDisplayHost) activity)
+                        .getCustomResolutionRepository();
+    }
+
+    @Override
+    public void onDetach() {
+        repository = null;
+        super.onDetach();
+    }
 
     @Override
     public int getLayoutRes() {
@@ -50,9 +66,13 @@ public class GameDisplayResolutionFragment
     @Override
     public void bindView(View view) {
         super.bindView(view);
+        if (repository == null) {
+            throw new IllegalStateException(
+                    "Custom resolution repository is required");
+        }
 
         TextView titleView = view.findViewById(R.id.tx_title);
-        titleView.setText(titleRes);
+        titleView.setText(R.string.game_menu_resolution);
         widthInput = view.findViewById(R.id.edt_width);
         heightInput = view.findViewById(R.id.edt_height);
         customResolutionFlow = view.findViewById(R.id.flow_custom);
@@ -67,8 +87,10 @@ public class GameDisplayResolutionFragment
         for (int index = 0; index < PRESET_COUNT; index++) {
             TextView preset = view.findViewWithTag(
                     Integer.toString(index));
-            String resolution = preset.getText().toString().trim();
-            if (parseResolution(resolution) == null) {
+            CustomResolution resolution =
+                    CustomResolution.parse(
+                            preset.getText().toString());
+            if (resolution == null) {
                 preset.setEnabled(false);
                 continue;
             }
@@ -98,15 +120,16 @@ public class GameDisplayResolutionFragment
 
     private void loadCustomResolutions() {
         customResolutionFlow.removeAllViews();
-        Set<String> savedResolutions = getSavedResolutions();
+        Set<CustomResolution> savedResolutions =
+                repository.load();
 
         boolean hasCustomResolution = false;
-        List<String> sortedResolutions =
+        List<CustomResolution> sortedResolutions =
                 new ArrayList<>(savedResolutions);
         Collections.sort(sortedResolutions);
-        for (String resolution : sortedResolutions) {
-            if (!defaultResolutions.contains(resolution) &&
-                    parseResolution(resolution) != null) {
+        for (CustomResolution resolution :
+                sortedResolutions) {
+            if (!defaultResolutions.contains(resolution)) {
                 addResolutionToFlow(resolution);
                 hasCustomResolution = true;
             }
@@ -115,14 +138,15 @@ public class GameDisplayResolutionFragment
                 hasCustomResolution ? View.VISIBLE : View.GONE);
     }
 
-    private void addResolutionToFlow(String resolution) {
+    private void addResolutionToFlow(
+            CustomResolution resolution) {
         TextView resolutionView = (TextView) LayoutInflater
                 .from(getActivity())
                 .inflate(
                         R.layout.layout_resolution_item,
                         customResolutionFlow,
                         false);
-        resolutionView.setText(resolution);
+        resolutionView.setText(resolution.toStorageValue());
         resolutionView.setOnClickListener(
                 view -> selectResolution(resolution));
         resolutionView.setOnLongClickListener(view -> {
@@ -132,24 +156,21 @@ public class GameDisplayResolutionFragment
         customResolutionFlow.addView(resolutionView);
     }
 
-    private void selectResolution(String resolution) {
-        int[] dimensions = parseResolution(resolution);
-        if (dimensions == null) {
-            return;
-        }
-        if (listener != null) {
-            listener.onResolutionSelected(
-                    dimensions[0], dimensions[1]);
-        }
+    private void selectResolution(
+            CustomResolution resolution) {
+        requireTargetListener().onResolutionSelected(
+                resolution.getWidth(),
+                resolution.getHeight());
         dismiss();
     }
 
-    private void showDeleteConfirmDialog(String resolution) {
+    private void showDeleteConfirmDialog(
+            CustomResolution resolution) {
         new AlertDialog.Builder(getActivity())
                 .setTitle(R.string.game_menu_resolution_delete_title)
                 .setMessage(getString(
                         R.string.game_menu_resolution_delete_message,
-                        resolution))
+                        resolution.toStorageValue()))
                 .setPositiveButton(
                         R.string.game_menu_delete,
                         (dialog, which) ->
@@ -159,40 +180,19 @@ public class GameDisplayResolutionFragment
                 .show();
     }
 
-    private void deleteResolution(String resolution) {
-        Set<String> resolutions = getSavedResolutions();
-        if (resolutions.remove(resolution)) {
-            getPreferences().edit()
-                    .putStringSet(KEY_RESOLUTIONS, resolutions)
-                    .apply();
-            loadCustomResolutions();
-        }
+    private void deleteResolution(
+            CustomResolution resolution) {
+        repository.remove(resolution);
+        loadCustomResolutions();
     }
 
     private void saveResolution(int width, int height) {
-        String resolution = getResolutionText(width, height);
+        CustomResolution resolution =
+                new CustomResolution(width, height);
         if (defaultResolutions.contains(resolution)) {
             return;
         }
-
-        Set<String> resolutions = getSavedResolutions();
-        if (resolutions.add(resolution)) {
-            getPreferences().edit()
-                    .putStringSet(KEY_RESOLUTIONS, resolutions)
-                    .apply();
-        }
-    }
-
-    private SharedPreferences getPreferences() {
-        return getActivity().getSharedPreferences(
-                PREFS_NAME, Context.MODE_PRIVATE);
-    }
-
-    private Set<String> getSavedResolutions() {
-        Set<String> savedResolutions = getPreferences().getStringSet(
-                KEY_RESOLUTIONS, null);
-        return savedResolutions == null ?
-                new HashSet<>() : new HashSet<>(savedResolutions);
+        repository.add(resolution);
     }
 
     private String getResolutionText(int width, int height) {
@@ -200,22 +200,6 @@ public class GameDisplayResolutionFragment
                 R.string.game_menu_resolution_format,
                 width,
                 height);
-    }
-
-    private static int[] parseResolution(String resolution) {
-        if (resolution == null) {
-            return null;
-        }
-        String[] dimensions = resolution.split("x", -1);
-        if (dimensions.length != 2) {
-            return null;
-        }
-        Integer width = BoundedIntegerParser.parse(
-                dimensions[0], MIN_DIMENSION, MAX_DIMENSION);
-        Integer height = BoundedIntegerParser.parse(
-                dimensions[1], MIN_DIMENSION, MAX_DIMENSION);
-        return width != null && height != null ?
-                new int[] {width, height} : null;
     }
 
     @Override
@@ -242,18 +226,22 @@ public class GameDisplayResolutionFragment
         }
 
         Integer width = BoundedIntegerParser.parse(
-                widthText, MIN_DIMENSION, MAX_DIMENSION);
+                widthText,
+                CustomResolution.MIN_DIMENSION,
+                CustomResolution.MAX_DIMENSION);
         Integer height = BoundedIntegerParser.parse(
-                heightText, MIN_DIMENSION, MAX_DIMENSION);
+                heightText,
+                CustomResolution.MIN_DIMENSION,
+                CustomResolution.MAX_DIMENSION);
         if (width == null || height == null) {
             showToast(R.string.game_menu_resolution_invalid);
             return;
         }
 
         saveResolution(width, height);
-        if (listener != null) {
-            listener.onResolutionSelected(width, height);
-        }
+        requireTargetListener().onResolutionSelected(
+                width,
+                height);
         dismiss();
     }
 
@@ -262,12 +250,12 @@ public class GameDisplayResolutionFragment
                 getActivity(), messageRes, UiToast.LENGTH_SHORT).show();
     }
 
-    public void setTitle(@StringRes int titleRes) {
-        this.titleRes = titleRes;
-    }
-
-    public void setListener(Listener listener) {
-        this.listener = listener;
+    private Listener requireTargetListener() {
+        if (!(getTargetFragment() instanceof Listener)) {
+            throw new IllegalStateException(
+                    "Resolution dialog target must implement Listener");
+        }
+        return (Listener) getTargetFragment();
     }
 
     public interface Listener {

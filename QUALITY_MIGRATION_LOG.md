@@ -345,3 +345,53 @@ Verification on 2026-07-30:
 - Live cancellation during HTTP launch, native startup, and an active stream remains a
   manual device regression gate; the automated tests do not claim those host-dependent
   paths were exercised.
+
+## Typed stream-video settings boundary
+
+- Added one immutable `StreamVideoSettings` snapshot and atomic state owner for
+  resolution, FPS, bitrate, codec preference, HDR policy, window/display policy,
+  and FSR presentation.
+- Both the in-stream menu and app-list display dialog now receive snapshots and
+  emit typed update intents. They no longer read default preferences or mutate
+  `PreferenceConfiguration`.
+- The platform can recreate the display dialog without restoring
+  process-local setter fields: it resolves a narrow lifecycle host from the
+  attached Activity, and nested resolution/FPS/bitrate dialogs return results
+  through a restorable Fragment target.
+- Resolution, FPS, bitrate, portrait mode, external-display mode, and the three
+  FSR values are persisted by the explicit Apply action as one ten-key
+  transaction. Immediate radio options write only their owned key, and a stale
+  dialog draft cannot roll those values back.
+- Unknown future FSR strings remain byte-for-byte unchanged unless the user
+  explicitly selects a replacement. Invalid enum/range data resolves to the
+  canonical schema default without crashing settings or stream composition.
+- Moved Moonlight's bitrate-default calculation into a pure policy using
+  overflow-safe pixel arithmetic. Schema version 3 migrates the historical Mbps
+  key to canonical Kbps without overwriting a newer value.
+- Custom resolutions now cross a platform-independent repository port. The
+  Android adapter copies mutable preference sets, filters invalid/unbounded
+  dimensions, returns immutable snapshots, and confines the historical named
+  store to the composition boundary.
+- Added architecture rules that prevent the three display-settings fragments
+  from reintroducing legacy preference, Android preference, adapter, or raw
+  `SharedPreferences` dependencies.
+
+Verification on 2026-07-31:
+
+- Focused stream-video, migration, audio-intent, and architecture tests: passed.
+- `verifyLocal --rerun-tasks`: passed; 1,036 JVM test executions across all four
+  variants, zero failures, errors, or skips; all Lint variants passed; both
+  unminified Release APKs built.
+- API 34 emulator: 103 root and 103 non-root instrumentation tests passed,
+  including real `SharedPreferences` migration and custom-resolution adapter
+  coverage.
+- Release artifacts:
+
+| Flavor | Size | SHA-256 |
+| --- | ---: | --- |
+| `nonRootRelease` | 16,001,802 bytes | `10BE7EC1400D2117BD0D30E85F52A9A482FB5044B7DB31D969B91D8F0BFEE364` |
+| `rootRelease` | 16,022,357 bytes | `304ADD71FC543D74F4BE0A2F7399C4BFB77BBA9628F11534BEA99DAC400BAA96` |
+
+- Opening both dialog entry points and reconnecting a live Sunshine stream after
+  Apply remain manual behavior checks; the automated evidence does not claim
+  those host-dependent interactions passed.

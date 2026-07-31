@@ -647,19 +647,9 @@ public class GameMenuFragment extends BaseGameMenuDialog
         }
 
         if(v.getId()==R.id.bt_display){
-            GameDisplayFragment fragment=new GameDisplayFragment();
+            GameDisplayFragment fragment =
+                    GameDisplayFragment.newInstance(true);
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle(R.string.game_menu_display_title);
-            fragment.setListener(new GameDisplayFragment.Listener() {
-                @Override
-                public void onDisplayConfigurationApplied() {
-                    dismiss();
-                    if (host != null) {
-                        host.requestStreamDisconnect();
-                    }
-                }
-            });
-            fragment.setPrefConfig(host.getStreamPreferences());
             fragment.show(getFragmentManager());
             return;
         }

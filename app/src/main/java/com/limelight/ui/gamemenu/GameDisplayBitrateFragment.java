@@ -18,9 +18,7 @@ public class GameDisplayBitrateFragment
             20, 50, 60, 100, 150, 200, 300
     };
 
-    private int titleRes = R.string.game_menu_bitrate;
     private EditText bitrateInput;
-    private Listener listener;
 
     @Override
     public int getLayoutRes() {
@@ -32,7 +30,7 @@ public class GameDisplayBitrateFragment
         super.bindView(view);
 
         TextView titleView = view.findViewById(R.id.tx_title);
-        titleView.setText(titleRes);
+        titleView.setText(R.string.game_menu_bitrate);
         bitrateInput = view.findViewById(R.id.edt_bitrate);
 
         view.findViewById(R.id.ibtn_back).setOnClickListener(this);
@@ -76,9 +74,7 @@ public class GameDisplayBitrateFragment
     }
 
     private void selectBitrate(int bitrate) {
-        if (listener != null) {
-            listener.onBitrateSelected(bitrate);
-        }
+        requireTargetListener().onBitrateSelected(bitrate);
         dismiss();
     }
 
@@ -87,12 +83,12 @@ public class GameDisplayBitrateFragment
                 getActivity(), messageRes, UiToast.LENGTH_SHORT).show();
     }
 
-    public void setTitle(@StringRes int titleRes) {
-        this.titleRes = titleRes;
-    }
-
-    public void setListener(Listener listener) {
-        this.listener = listener;
+    private Listener requireTargetListener() {
+        if (!(getTargetFragment() instanceof Listener)) {
+            throw new IllegalStateException(
+                    "Bitrate dialog target must implement Listener");
+        }
+        return (Listener) getTargetFragment();
     }
 
     public interface Listener {

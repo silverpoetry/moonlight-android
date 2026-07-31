@@ -46,7 +46,9 @@ the old 5.1-audio, never-drop-frames, and image-only clipboard switches in one
 transaction while preserving their user-visible choices. It also detects
 legacy values reintroduced by a downgrade without ever reducing a newer stored
 schema version. Version 2 repairs the invalid historical on-screen gamepad
-layout default to the first valid layout identifier.
+layout default to the first valid layout identifier. Version 3 migrates the
+legacy Mbps bitrate key to the canonical Kbps key without overwriting a value
+already written by a newer build, then removes the obsolete key.
 
 ## Snapshot lifecycle
 
@@ -79,8 +81,8 @@ same `ControllerSettingsState`.
 
 | Domain | Typed snapshot | Runtime storage reads removed | Legacy adapter removed |
 | --- | --- | --- | --- |
-| Stream display/FSR/window | `StreamDisplaySettings` | `Game` no longer reads FSR target, sharpness, HDR mode, or gravity | Pending full stream settings migration |
-| Stream video/decoder | `StreamDecoderSettings`; typed resolution aggregate | Decoder and performance-statistics paths no longer receive `PreferenceConfiguration`; resolution/FPS parsing and repair have one safe codec | Pending remaining stream settings migration |
+| Stream display/FSR/window | `StreamDisplaySettings`; `StreamVideoSettings` with one atomic `StreamVideoSettingsState` per active UI/session scope | `Game` no longer reads FSR target, sharpness, HDR mode, or gravity; both display-dialog entry points consume one typed snapshot and emit typed intents | Remaining launch/window settings still use the legacy aggregate |
+| Stream video/decoder | `StreamDecoderSettings`; typed resolution and video aggregates | Decoder and performance-statistics paths no longer receive `PreferenceConfiguration`; resolution/FPS/bitrate parsing, repair, and default policy have one safe codec/policy; display Apply persists its ten owned values atomically | Remaining launch-only decoder rows still use the legacy settings screen |
 | Input and gestures | `InputSettings` with one atomic `InputSettingsState` per stream | Pointer, touchscreen/touchpad, gesture, keyboard, virtual-touchpad, and mouse-wheel runtime paths no longer read storage or receive `PreferenceConfiguration`; the live touch-sensitivity and miscellaneous menus emit typed update intents and publish one replacement snapshot | Remaining generic settings rows still require typed intents |
 | Physical controllers | `ControllerSettings` with one atomic `ControllerSettingsState` per stream | `ControllerHandler` and `UsbDriverService` no longer receive `PreferenceConfiguration` or reread storage from controller, sensor, rumble, battery, USB attach, or permission callbacks; touch, device, and miscellaneous menus emit typed controller intents; rumble-trigger linkage, force-gyro policy, and DualSense adaptive-trigger application consume the same live snapshot | Remaining generic settings rows still require typed intents |
 | On-screen controls | `VirtualControlSettings` with one atomic `VirtualControlSettingsState` per stream | Active virtual gamepad, virtual-key, touchpad-button, and full-keyboard rendering/input paths consume typed snapshots; stream-menu writers emit immutable domain updates; named layouts use `VirtualControlLayoutRepository` rather than direct file access | Layout element DTO/codec separation from the game-menu model remains; unused named-`SharedPreferences` loader path has been removed |
@@ -93,6 +95,14 @@ same `ControllerSettingsState`.
 The ledger is complete only when direct default-preference reads are confined to
 the repository, legacy migrations, and platform preference widgets that have
 not yet emitted a typed update intent.
+
+Display dialogs resolve `GameDisplayHost` from their attached Activity rather
+than receiving repositories, snapshots, or persistence callbacks through
+instance-field setters. Nested resolution, FPS, and bitrate dialogs return
+their typed selection to the display dialog through a Fragment target that the
+platform restores with Fragment state. Consequently, process or configuration
+recreation cannot leave a visible display dialog with an unbound persistence
+dependency.
 
 Audio effects, channel layout, and host-side playback are captured when a
 stream is composed. Mute and audio-haptics policy are intentionally

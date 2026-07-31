@@ -1,730 +1,743 @@
 package com.limelight.ui.gamemenu;
 
-import android.preference.PreferenceManager;
-import androidx.annotation.StringRes;
+import android.app.Activity;
+import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
-import android.widget.ImageButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
-import com.limelight.utils.UiToast;
 
 import com.limelight.R;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.audio.StreamAudioSettings;
+import com.limelight.settings.audio.StreamAudioSettingsUpdate;
+import com.limelight.settings.stream.StreamDecoderSettings.VideoFormat;
+import com.limelight.settings.stream.StreamDisplaySettings.FsrHdrOutput;
+import com.limelight.settings.stream.StreamDisplaySettings.FsrSharpness;
+import com.limelight.settings.stream.StreamDisplaySettings.FsrTarget;
+import com.limelight.settings.stream.StreamVideoSettings;
+import com.limelight.settings.stream.StreamVideoSettings.ScreenOnPolicy;
+import com.limelight.settings.stream.StreamVideoSettings.VirtualDisplayMode;
+import com.limelight.settings.stream.StreamVideoSettingsUpdate;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.utils.UiHelper;
+import com.limelight.utils.UiToast;
 
 /**
- * Description
- * Date: 2024-10-20
- * Time: 16:07
+ * Edits the next stream's video configuration through typed intents.
+ *
+ * <p>Resolution, FPS, bitrate, orientation, external-display mode, and FSR
+ * form one explicit Apply transaction. Independent radio settings preserve
+ * their historical immediate-persistence behavior.</p>
  */
-public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnClickListener{
+public final class GameDisplayFragment
+        extends BaseGameMenuDialog
+        implements View.OnClickListener,
+        GameDisplayResolutionFragment.Listener,
+        GameDisplayBitrateFragment.Listener,
+        GameDisplayFpsFragment.Listener {
+    private static final String ARG_SHOW_LOCK = "show_lock";
+
+    private boolean showLock;
+    private GameDisplayHost host;
+    private StreamVideoSettings videoSettings;
+    private StreamVideoSettings draft;
+    private StreamAudioSettings audioSettings;
+    private TextView resolutionSummary;
+    private TextView bitrateSummary;
+    private TextView fpsSummary;
+    private TextView orientationSummary;
+    private TextView externalDisplaySummary;
+    private RadioGroup screenOnPolicy;
+    private RadioGroup videoFormat;
+    private RadioGroup playHostAudio;
+    private RadioGroup hdr;
+    private RadioGroup virtualDisplayMode;
+    private RadioGroup enforceDisplayMode;
+    private RadioGroup lowLatency;
+    private RadioGroup ignoreHdrCapability;
+    private View hdrHighBrightnessContainer;
+    private RadioGroup hdrHighBrightness;
+    private RadioGroup fsrTarget;
+    private View fsrDetails;
+    private RadioGroup fsrSharpness;
+    private RadioGroup fsrHdrOutput;
+
+    public static GameDisplayFragment newInstance(
+            boolean showLock) {
+        GameDisplayFragment fragment =
+                new GameDisplayFragment();
+        Bundle arguments = new Bundle();
+        arguments.putBoolean(ARG_SHOW_LOCK, showLock);
+        fragment.setArguments(arguments);
+        return fragment;
+    }
+
+    @Override
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        if (!(activity instanceof GameDisplayHost)) {
+            throw new IllegalStateException(
+                    "GameDisplayFragment host must implement GameDisplayHost");
+        }
+        host = (GameDisplayHost) activity;
+    }
+
+    @Override
+    public void onDetach() {
+        host = null;
+        videoSettings = null;
+        draft = null;
+        audioSettings = null;
+        super.onDetach();
+    }
+
     @Override
     public int getLayoutRes() {
         return R.layout.dialog_game_menu_display;
     }
 
-    private ImageButton ibtn_back;
-    private TextView tx_title;
-
-    private int titleRes = R.string.game_menu_display_title;
-
-    private Button bt_display_screen;
-
-    private Button bt_display_exchange;
-
-    private Button bt_display_direction;
-
-    private Button bt_display_bitrate;
-
-    private Button bt_display_fps;
-
-    private TextView tx_game_display_screen;
-
-    private TextView tx_game_display_bit;
-
-    private TextView tx_game_display_fps;
-
-    private TextView tx_game_display_direction;
-
-    private TextView tx_game_display_ex;
-
-    private RadioGroup rg_game_display_lock;
-
-    private RadioGroup rg_game_display_video_format;
-
-    private RadioGroup rg_game_display_audio;
-
-    private RadioGroup rg_game_display_hdr;
-
-    private RadioGroup rg_game_display_vd;
-
-    private RadioGroup rg_game_display_enforce;
-
-    private RadioGroup rg_game_display_lowlatency;
-
-    private RadioGroup rg_game_display_ignore_hdr;
-
-    private View v_game_display_hdr_high_brightness;
-
-    private RadioGroup rg_game_display_hdr_high_brightness;
-
-    private RadioGroup rg_game_display_fsr;
-
-    private View v_game_display_fsr_details;
-
-    private RadioGroup rg_game_display_fsr_sharpness;
-
-    private RadioGroup rg_game_display_fsr_hdr_output;
-
-    private int width;
-
-    private int height;
-
-    private int bitrate;
-
-    private int fps;
-
-    private boolean direction;
-
-    private boolean externalDisplay;
-
-    private String fsrTargetPending = "off";
-
-    private String fsrSharpnessPending = "standard";
-
-    private String fsrHdrOutputPending = "native";
-
-    private boolean showLock = true;
     @Override
-    public void bindView(View v) {
-        super.bindView(v);
-        ibtn_back=v.findViewById(R.id.ibtn_back);
-        tx_title=v.findViewById(R.id.tx_title);
-
-        bt_display_screen=v.findViewById(R.id.bt_display_screen);
-        bt_display_exchange=v.findViewById(R.id.bt_display_exchange);
-        bt_display_direction=v.findViewById(R.id.bt_display_direction);
-
-        bt_display_bitrate=v.findViewById(R.id.bt_display_bitrate);
-        bt_display_fps=v.findViewById(R.id.bt_display_fps);
-        tx_game_display_screen=v.findViewById(R.id.tx_game_display_screen);
-        tx_game_display_bit=v.findViewById(R.id.tx_game_display_bit);
-        tx_game_display_fps=v.findViewById(R.id.tx_game_display_fps);
-        tx_game_display_direction=v.findViewById(R.id.tx_game_display_direction);
-        tx_game_display_ex=v.findViewById(R.id.tx_game_display_ex);
-
-        rg_game_display_lock=v.findViewById(R.id.rg_game_display_lock);
-        rg_game_display_video_format=v.findViewById(R.id.rg_game_display_video_format);
-        rg_game_display_hdr=v.findViewById(R.id.rg_game_display_hdr);
-        rg_game_display_audio=v.findViewById(R.id.rg_game_display_audio);
-        rg_game_display_vd=v.findViewById(R.id.rg_game_display_vd);
-        rg_game_display_enforce=v.findViewById(R.id.rg_game_display_enforce);
-        rg_game_display_lowlatency=v.findViewById(R.id.rg_game_display_lowlatency);
-
-        rg_game_display_ignore_hdr=v.findViewById(R.id.rg_game_display_ignore_hdr);
-        v_game_display_hdr_high_brightness=v.findViewById(R.id.v_game_display_hdr_high_brightness);
-        rg_game_display_hdr_high_brightness=v.findViewById(R.id.rg_game_display_hdr_high_brightness);
-        rg_game_display_fsr=v.findViewById(R.id.rg_game_display_fsr);
-        v_game_display_fsr_details=v.findViewById(R.id.v_game_display_fsr_details);
-        rg_game_display_fsr_sharpness=v.findViewById(R.id.rg_game_display_fsr_sharpness);
-        rg_game_display_fsr_hdr_output=v.findViewById(R.id.rg_game_display_fsr_hdr_output);
-
-        tx_title.setText(titleRes);
-        ((Button) v.findViewById(R.id.btn_right))
+    public void bindView(View view) {
+        super.bindView(view);
+        requireHost();
+        Bundle arguments = getArguments();
+        showLock = arguments == null ||
+                arguments.getBoolean(ARG_SHOW_LOCK, true);
+        videoSettings = host.getStreamVideoSettings();
+        draft = videoSettings;
+        audioSettings = host.getStreamAudioSettings();
+        bindControls(view);
+        ((TextView) view.findViewById(R.id.tx_title))
+                .setText(R.string.game_menu_display_title);
+        ((Button) view.findViewById(R.id.btn_right))
                 .setText(R.string.game_menu_apply_configuration);
+        view.findViewById(R.id.lv_display_lock)
+                .setVisibility(
+                        showLock ? View.VISIBLE : View.GONE);
+        renderAll();
+        bindListeners(view);
+    }
 
-        v.findViewById(R.id.lv_display_lock).setVisibility(showLock?View.VISIBLE:View.GONE);
-
-        if(prefConfig!=null){
-            width=prefConfig.width;
-            height=prefConfig.height;
-            bitrate=prefConfig.bitrate;
-            fps=prefConfig.fps;
-            direction=prefConfig.enablePortrait;
-            externalDisplay=prefConfig.enableExDisplay;
+    private void requireHost() {
+        if (host == null) {
+            throw new IllegalStateException(
+                    "Display settings host is not attached");
         }
-        fsrTargetPending = PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .getString("list_fsr_target", "off");
-        fsrSharpnessPending = PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .getString("list_fsr_sharpness", "standard");
-        fsrHdrOutputPending = PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .getString("list_fsr_hdr_output", "native");
-        initViewData();
-        initLock();
-        initAudio();
-        initHDR();
-        initIgnoreHDR();
-        initHdrHighBrightness();
-        initLowLatency();
-        initVD();
-        initVideoFormat();
-        initEnforce();
-        initFsr();
-        initFsrSharpness();
-        initFsrHdrOutput();
-        ibtn_back.setOnClickListener(this);
-        bt_display_screen.setOnClickListener(this);
-        bt_display_exchange.setOnClickListener(this);
-        bt_display_direction.setOnClickListener(this);
-        bt_display_fps.setOnClickListener(this);
-        bt_display_bitrate.setOnClickListener(this);
-        v.findViewById(R.id.btn_right).setOnClickListener(this);
-        v.findViewById(R.id.bt_display_ex).setOnClickListener(this);
-
-        rg_game_display_lock.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if(checkedId==R.id.rbt_game_display_lock_1){
-                    prefConfig.enableScreenOnAuto=0;
-                    saveLock(0);
-                    dismiss();
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_display_lock_2){
-                    prefConfig.enableScreenOnAuto=1;
-                    saveLock(1);
-                    dismiss();
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_display_lock_3){
-                    prefConfig.enableScreenOnAuto=2;
-                    saveLock(2);
-                    dismiss();
-                    return;
-                }
-            }
-        });
-
-        rg_game_display_video_format.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if(checkedId==R.id.rbt_game_display_video_format_1){
-                    saveVideoFormat("auto");
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_display_video_format_2){
-                    saveVideoFormat("neverh265");
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_display_video_format_3){
-                    saveVideoFormat("forceh265");
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_display_video_format_4){
-                    saveVideoFormat("forceav1");
-                    return;
-                }
-            }
-        });
-
-        rg_game_display_audio.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if(checkedId==R.id.rbt_game_display_audio_1){
-                    saveAudio(false);
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_display_audio_2){
-                    saveAudio(true);
-                    return;
-                }
-            }
-        });
-
-        rg_game_display_hdr.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if(checkedId==R.id.rbt_game_display_hdr_1){
-                    saveHDR(true);
-                    updateHdrHighBrightnessVisibility(true);
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_display_hdr_2){
-                    saveHDR(false);
-                    updateHdrHighBrightnessVisibility(false);
-                    return;
-                }
-            }
-        });
-
-        rg_game_display_vd.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if(checkedId==R.id.rbt_game_display_vd_1){
-                    saveVD(0);
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_display_vd_2){
-                    saveVD(1);
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_display_vd_3){
-                    saveVD(2);
-                    return;
-                }
-            }
-        });
-
-        rg_game_display_enforce.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if(checkedId==R.id.rbt_game_display_enforce_1){
-                    saveEnforce(true);
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_display_enforce_2){
-                    saveEnforce(false);
-                    return;
-                }
-            }
-        });
-
-        rg_game_display_lowlatency.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if(checkedId==R.id.rbt_game_display_lowlatency_1){
-                    saveLowLatency(true);
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_display_lowlatency_2){
-                    saveLowLatency(false);
-                    return;
-                }
-            }
-        });
-
-        rg_game_display_ignore_hdr.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if(checkedId==R.id.rbt_game_display_ignore_hdr_1){
-                    saveIgnoreHDR(true);
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_display_ignore_hdr_2){
-                    saveIgnoreHDR(false);
-                    return;
-                }
-            }
-        });
-
-        rg_game_display_fsr.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if (checkedId == R.id.rbt_game_display_fsr_1) {
-                    fsrTargetPending = "off";
-                }
-                else if (checkedId == R.id.rbt_game_display_fsr_2) {
-                    fsrTargetPending = "2k";
-                }
-                else if (checkedId == R.id.rbt_game_display_fsr_3) {
-                    fsrTargetPending = "4k";
-                }
-                else if (checkedId == R.id.rbt_game_display_fsr_4) {
-                    fsrTargetPending = "native_height";
-                }
-                updateFsrDetailState();
-            }
-        });
-
-        rg_game_display_fsr_sharpness.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if (checkedId == R.id.rbt_game_display_fsr_sharpness_1) {
-                    fsrSharpnessPending = "soft";
-                }
-                else if (checkedId == R.id.rbt_game_display_fsr_sharpness_2) {
-                    fsrSharpnessPending = "standard";
-                }
-                else if (checkedId == R.id.rbt_game_display_fsr_sharpness_3) {
-                    fsrSharpnessPending = "strong";
-                }
-                else if (checkedId == R.id.rbt_game_display_fsr_sharpness_4) {
-                    fsrSharpnessPending = "max";
-                }
-            }
-        });
-
-        rg_game_display_hdr_high_brightness.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if (checkedId == R.id.rbt_game_display_hdr_high_brightness_1) {
-                    saveHdrHighBrightness(true);
-                    return;
-                }
-                if (checkedId == R.id.rbt_game_display_hdr_high_brightness_2) {
-                    saveHdrHighBrightness(false);
-                    return;
-                }
-            }
-        });
-
-        rg_game_display_fsr_hdr_output.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if (checkedId == R.id.rbt_game_display_fsr_hdr_output_2) {
-                    fsrHdrOutputPending = "native";
-                } else {
-                    fsrHdrOutputPending = "sdr";
-                }
-            }
-        });
-
     }
 
-    private void initEnforce() {
-        boolean foceFlag=PreferenceManager.getDefaultSharedPreferences(getActivity()).getBoolean("checkbox_enforce_display_mode",false);
-        rg_game_display_enforce.check(foceFlag?R.id.rbt_game_display_enforce_1:R.id.rbt_game_display_enforce_2);
+    private void bindControls(View view) {
+        resolutionSummary =
+                view.findViewById(R.id.tx_game_display_screen);
+        bitrateSummary =
+                view.findViewById(R.id.tx_game_display_bit);
+        fpsSummary =
+                view.findViewById(R.id.tx_game_display_fps);
+        orientationSummary =
+                view.findViewById(
+                        R.id.tx_game_display_direction);
+        externalDisplaySummary =
+                view.findViewById(R.id.tx_game_display_ex);
+        screenOnPolicy =
+                view.findViewById(R.id.rg_game_display_lock);
+        videoFormat =
+                view.findViewById(
+                        R.id.rg_game_display_video_format);
+        playHostAudio =
+                view.findViewById(R.id.rg_game_display_audio);
+        hdr = view.findViewById(R.id.rg_game_display_hdr);
+        virtualDisplayMode =
+                view.findViewById(R.id.rg_game_display_vd);
+        enforceDisplayMode =
+                view.findViewById(
+                        R.id.rg_game_display_enforce);
+        lowLatency =
+                view.findViewById(
+                        R.id.rg_game_display_lowlatency);
+        ignoreHdrCapability =
+                view.findViewById(
+                        R.id.rg_game_display_ignore_hdr);
+        hdrHighBrightnessContainer =
+                view.findViewById(
+                        R.id.v_game_display_hdr_high_brightness);
+        hdrHighBrightness =
+                view.findViewById(
+                        R.id.rg_game_display_hdr_high_brightness);
+        fsrTarget =
+                view.findViewById(R.id.rg_game_display_fsr);
+        fsrDetails =
+                view.findViewById(
+                        R.id.v_game_display_fsr_details);
+        fsrSharpness =
+                view.findViewById(
+                        R.id.rg_game_display_fsr_sharpness);
+        fsrHdrOutput =
+                view.findViewById(
+                        R.id.rg_game_display_fsr_hdr_output);
     }
 
-    private void initViewData() {
-        tx_game_display_screen.setText(getString(
-                R.string.game_menu_resolution_summary, width, height));
-        tx_game_display_bit.setText(getString(
-                R.string.game_menu_bitrate_summary, bitrate / 1000));
-        tx_game_display_fps.setText(getString(
-                R.string.game_menu_fps_summary, fps));
-        tx_game_display_direction.setText(getString(
+    private void renderAll() {
+        renderDraftSummaries();
+        renderScreenOnPolicy();
+        renderVideoFormat();
+        playHostAudio.check(
+                audioSettings.shouldPlayHostAudio()
+                        ? R.id.rbt_game_display_audio_2
+                        : R.id.rbt_game_display_audio_1);
+        hdr.check(
+                videoSettings.isHdrEnabled()
+                        ? R.id.rbt_game_display_hdr_1
+                        : R.id.rbt_game_display_hdr_2);
+        hdrHighBrightness.check(
+                videoSettings.isHdrHighBrightnessEnabled()
+                        ? R.id.rbt_game_display_hdr_high_brightness_1
+                        : R.id.rbt_game_display_hdr_high_brightness_2);
+        updateHdrHighBrightnessVisibility(
+                videoSettings.isHdrEnabled());
+        ignoreHdrCapability.check(
+                videoSettings.shouldIgnoreHdrCapability()
+                        ? R.id.rbt_game_display_ignore_hdr_1
+                        : R.id.rbt_game_display_ignore_hdr_2);
+        lowLatency.check(
+                videoSettings
+                        .isLowLatencyExperimentEnabled()
+                        ? R.id.rbt_game_display_lowlatency_1
+                        : R.id.rbt_game_display_lowlatency_2);
+        enforceDisplayMode.check(
+                videoSettings.shouldEnforceDisplayMode()
+                        ? R.id.rbt_game_display_enforce_1
+                        : R.id.rbt_game_display_enforce_2);
+        renderVirtualDisplayMode();
+        renderFsr();
+    }
+
+    private void renderDraftSummaries() {
+        resolutionSummary.setText(getString(
+                R.string.game_menu_resolution_summary,
+                draft.getWidth(),
+                draft.getHeight()));
+        bitrateSummary.setText(getString(
+                R.string.game_menu_bitrate_summary,
+                draft.getBitrateKbps() / 1000));
+        fpsSummary.setText(getString(
+                R.string.game_menu_fps_summary,
+                draft.getFps()));
+        orientationSummary.setText(getString(
                 R.string.game_menu_direction_summary,
-                getString(direction ?
-                        R.string.game_menu_orientation_portrait :
-                        R.string.game_menu_orientation_landscape)));
-        tx_game_display_ex.setText(getString(
+                getString(
+                        draft.isPortrait()
+                                ? R.string
+                                        .game_menu_orientation_portrait
+                                : R.string
+                                        .game_menu_orientation_landscape)));
+        externalDisplaySummary.setText(getString(
                 R.string.game_menu_mode_summary,
-                getString(externalDisplay ?
-                        R.string.game_menu_display_mode_external :
-                        R.string.game_menu_display_mode_normal)));
+                getString(
+                        draft.isExternalDisplay()
+                                ? R.string
+                                        .game_menu_display_mode_external
+                                : R.string
+                                        .game_menu_display_mode_normal)));
     }
 
-    private void initLock(){
-        int lockFlag=PreferenceManager.getDefaultSharedPreferences(getActivity()).getInt("enable_screen_on_auto",0);
-        switch (lockFlag){
-            case 0:
-                rg_game_display_lock.check(R.id.rbt_game_display_lock_1);
+    private void renderScreenOnPolicy() {
+        int id;
+        switch (videoSettings.getScreenOnPolicy()) {
+            case CURRENT_SESSION:
+                id = R.id.rbt_game_display_lock_2;
                 break;
-            case 1:
-                rg_game_display_lock.check(R.id.rbt_game_display_lock_2);
+            case ALWAYS:
+                id = R.id.rbt_game_display_lock_3;
                 break;
-            case 2:
-                rg_game_display_lock.check(R.id.rbt_game_display_lock_3);
-                break;
-        }
-    }
-
-    private void initAudio(){
-        boolean audioFlag=PreferenceManager.getDefaultSharedPreferences(getActivity()).getBoolean("checkbox_host_audio",false);
-        rg_game_display_audio.check(audioFlag?R.id.rbt_game_display_audio_2:R.id.rbt_game_display_audio_1);
-    }
-
-    private void initHDR(){
-        boolean hdrFlag=PreferenceManager.getDefaultSharedPreferences(getActivity()).getBoolean("checkbox_enable_hdr",false);
-        rg_game_display_hdr.check(hdrFlag?R.id.rbt_game_display_hdr_1:R.id.rbt_game_display_hdr_2);
-    }
-    private void initIgnoreHDR(){
-        boolean hdrFlag=PreferenceManager.getDefaultSharedPreferences(getActivity()).getBoolean("ignoreCheckHDR",false);
-        rg_game_display_ignore_hdr.check(hdrFlag?R.id.rbt_game_display_ignore_hdr_1:R.id.rbt_game_display_ignore_hdr_2);
-    }
-
-    private void initHdrHighBrightness() {
-        updateHdrHighBrightnessVisibility(PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .getBoolean("checkbox_enable_hdr", false));
-        boolean hdrHighBrightness = PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .getBoolean(PreferenceConfiguration.ENABLE_HDR_HIGH_BRIGHTNESS_PREF_STRING, false);
-        rg_game_display_hdr_high_brightness.check(hdrHighBrightness
-                ? R.id.rbt_game_display_hdr_high_brightness_1
-                : R.id.rbt_game_display_hdr_high_brightness_2);
-    }
-
-    private void updateHdrHighBrightnessVisibility(boolean hdrEnabled) {
-        if (v_game_display_hdr_high_brightness != null) {
-            v_game_display_hdr_high_brightness.setVisibility(hdrEnabled ? View.VISIBLE : View.GONE);
-        }
-    }
-
-
-    private void initLowLatency(){
-        boolean lowFlag=PreferenceManager.getDefaultSharedPreferences(getActivity()).getBoolean("enable_lowLatency_experiment",false);
-        rg_game_display_lowlatency.check(lowFlag?R.id.rbt_game_display_lowlatency_1:R.id.rbt_game_display_lowlatency_2);
-    }
-
-    private void initVD(){
-        int vddValue=PreferenceManager.getDefaultSharedPreferences(getActivity()).getInt("vdValue",0);
-        switch (vddValue){
-            case 0://关闭
-                rg_game_display_vd.check(R.id.rbt_game_display_vd_1);
-                break;
-            case 1://扩展虚拟屏
-                rg_game_display_vd.check(R.id.rbt_game_display_vd_2);
-                break;
-            case 2://仅虚拟屏
-                rg_game_display_vd.check(R.id.rbt_game_display_vd_3);
+            case DISABLED:
+            default:
+                id = R.id.rbt_game_display_lock_1;
                 break;
         }
+        screenOnPolicy.check(id);
     }
 
-
-    private void initVideoFormat(){
-        String format=PreferenceManager.getDefaultSharedPreferences(getActivity()).getString("video_format","auto");
-        switch (format){
-            case "auto":
-                rg_game_display_video_format.check(R.id.rbt_game_display_video_format_1);
+    private void renderVideoFormat() {
+        int id;
+        switch (videoSettings.getVideoFormat()) {
+            case FORCE_H264:
+                id = R.id.rbt_game_display_video_format_2;
                 break;
-            case "neverh265":
-                rg_game_display_video_format.check(R.id.rbt_game_display_video_format_2);
+            case FORCE_HEVC:
+                id = R.id.rbt_game_display_video_format_3;
                 break;
-            case "forceh265":
-                rg_game_display_video_format.check(R.id.rbt_game_display_video_format_3);
+            case FORCE_AV1:
+                id = R.id.rbt_game_display_video_format_4;
                 break;
-            case "forceav1":
-                rg_game_display_video_format.check(R.id.rbt_game_display_video_format_4);
+            case AUTO:
+            default:
+                id = R.id.rbt_game_display_video_format_1;
                 break;
         }
+        videoFormat.check(id);
     }
 
-    private void initFsr() {
-        if ("2k".equalsIgnoreCase(fsrTargetPending)) {
-            rg_game_display_fsr.check(R.id.rbt_game_display_fsr_2);
+    private void renderVirtualDisplayMode() {
+        int id;
+        switch (videoSettings.getVirtualDisplayMode()) {
+            case EXTENDED:
+                id = R.id.rbt_game_display_vd_2;
+                break;
+            case VIRTUAL_ONLY:
+                id = R.id.rbt_game_display_vd_3;
+                break;
+            case DISABLED:
+            default:
+                id = R.id.rbt_game_display_vd_1;
+                break;
         }
-        else if ("4k".equalsIgnoreCase(fsrTargetPending)) {
-            rg_game_display_fsr.check(R.id.rbt_game_display_fsr_3);
+        virtualDisplayMode.check(id);
+    }
+
+    private void renderFsr() {
+        int targetId;
+        switch (draft.getFsrTarget()) {
+            case OUTPUT_2K:
+                targetId = R.id.rbt_game_display_fsr_2;
+                break;
+            case OUTPUT_4K:
+                targetId = R.id.rbt_game_display_fsr_3;
+                break;
+            case NATIVE_HEIGHT:
+                targetId = R.id.rbt_game_display_fsr_4;
+                break;
+            case OFF:
+            case UNKNOWN:
+            default:
+                targetId = R.id.rbt_game_display_fsr_1;
+                break;
         }
-        else if ("native_height".equalsIgnoreCase(fsrTargetPending)) {
-            rg_game_display_fsr.check(R.id.rbt_game_display_fsr_4);
+        fsrTarget.check(targetId);
+
+        int sharpnessId;
+        switch (draft.getFsrSharpness()) {
+            case SOFT:
+                sharpnessId =
+                        R.id.rbt_game_display_fsr_sharpness_1;
+                break;
+            case STRONG:
+                sharpnessId =
+                        R.id.rbt_game_display_fsr_sharpness_3;
+                break;
+            case MAXIMUM:
+                sharpnessId =
+                        R.id.rbt_game_display_fsr_sharpness_4;
+                break;
+            case STANDARD:
+            default:
+                sharpnessId =
+                        R.id.rbt_game_display_fsr_sharpness_2;
+                break;
         }
-        else {
-            rg_game_display_fsr.check(R.id.rbt_game_display_fsr_1);
-        }
+        fsrSharpness.check(sharpnessId);
+        fsrHdrOutput.check(
+                draft.getFsrHdrOutput() == FsrHdrOutput.NATIVE
+                        ? R.id.rbt_game_display_fsr_hdr_output_2
+                        : R.id.rbt_game_display_fsr_hdr_output_1);
         updateFsrDetailState();
     }
 
-    private void initFsrSharpness() {
-        if ("soft".equalsIgnoreCase(fsrSharpnessPending)) {
-            rg_game_display_fsr_sharpness.check(R.id.rbt_game_display_fsr_sharpness_1);
-        }
-        else if ("strong".equalsIgnoreCase(fsrSharpnessPending)) {
-            rg_game_display_fsr_sharpness.check(R.id.rbt_game_display_fsr_sharpness_3);
-        }
-        else if ("max".equalsIgnoreCase(fsrSharpnessPending)) {
-            rg_game_display_fsr_sharpness.check(R.id.rbt_game_display_fsr_sharpness_4);
-        }
-        else {
-            rg_game_display_fsr_sharpness.check(R.id.rbt_game_display_fsr_sharpness_2);
-        }
-    }
-
-    private void initFsrHdrOutput() {
-        rg_game_display_fsr_hdr_output.check("native".equalsIgnoreCase(fsrHdrOutputPending)
-                ? R.id.rbt_game_display_fsr_hdr_output_2
-                : R.id.rbt_game_display_fsr_hdr_output_1);
-    }
-
     private void updateFsrDetailState() {
-        boolean fsrEnabledPending = !"off".equalsIgnoreCase(fsrTargetPending);
-        int visibility = fsrEnabledPending ? View.VISIBLE : View.GONE;
-        v_game_display_fsr_details.setVisibility(visibility);
+        fsrDetails.setVisibility(
+                draft.getFsrTarget() == FsrTarget.OFF
+                        ? View.GONE
+                        : View.VISIBLE);
     }
 
-    public void setShowLock(boolean showLock) {
-        this.showLock = showLock;
+    private void updateHdrHighBrightnessVisibility(
+            boolean hdrEnabled) {
+        hdrHighBrightnessContainer.setVisibility(
+                hdrEnabled ? View.VISIBLE : View.GONE);
+    }
+
+    private void bindListeners(View view) {
+        view.findViewById(R.id.ibtn_back)
+                .setOnClickListener(this);
+        view.findViewById(R.id.btn_right)
+                .setOnClickListener(this);
+        view.findViewById(R.id.bt_display_screen)
+                .setOnClickListener(this);
+        view.findViewById(R.id.bt_display_exchange)
+                .setOnClickListener(this);
+        view.findViewById(R.id.bt_display_direction)
+                .setOnClickListener(this);
+        view.findViewById(R.id.bt_display_bitrate)
+                .setOnClickListener(this);
+        view.findViewById(R.id.bt_display_fps)
+                .setOnClickListener(this);
+        view.findViewById(R.id.bt_display_ex)
+                .setOnClickListener(this);
+
+        screenOnPolicy.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    ScreenOnPolicy policy;
+                    if (checkedId ==
+                            R.id.rbt_game_display_lock_2) {
+                        policy = ScreenOnPolicy.CURRENT_SESSION;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_lock_3) {
+                        policy = ScreenOnPolicy.ALWAYS;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_lock_1) {
+                        policy = ScreenOnPolicy.DISABLED;
+                    }
+                    else {
+                        return;
+                    }
+                    dispatchVideo(
+                            StreamVideoSettingsUpdate
+                                    .screenOnPolicy(policy));
+                    dismiss();
+                });
+        videoFormat.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    VideoFormat format;
+                    if (checkedId ==
+                            R.id.rbt_game_display_video_format_2) {
+                        format = VideoFormat.FORCE_H264;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_video_format_3) {
+                        format = VideoFormat.FORCE_HEVC;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_video_format_4) {
+                        format = VideoFormat.FORCE_AV1;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_video_format_1) {
+                        format = VideoFormat.AUTO;
+                    }
+                    else {
+                        return;
+                    }
+                    dispatchVideo(
+                            StreamVideoSettingsUpdate
+                                    .videoFormat(format));
+                });
+        playHostAudio.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    if (checkedId ==
+                            R.id.rbt_game_display_audio_1) {
+                        dispatchAudio(
+                                StreamAudioSettingsUpdate
+                                        .playHostAudio(false));
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_audio_2) {
+                        dispatchAudio(
+                                StreamAudioSettingsUpdate
+                                        .playHostAudio(true));
+                    }
+                });
+        hdr.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    if (checkedId ==
+                            R.id.rbt_game_display_hdr_1) {
+                        dispatchVideo(
+                                StreamVideoSettingsUpdate
+                                        .hdrEnabled(true));
+                        updateHdrHighBrightnessVisibility(true);
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_hdr_2) {
+                        dispatchVideo(
+                                StreamVideoSettingsUpdate
+                                        .hdrEnabled(false));
+                        updateHdrHighBrightnessVisibility(false);
+                    }
+                });
+        virtualDisplayMode.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    VirtualDisplayMode mode;
+                    if (checkedId ==
+                            R.id.rbt_game_display_vd_2) {
+                        mode = VirtualDisplayMode.EXTENDED;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_vd_3) {
+                        mode = VirtualDisplayMode.VIRTUAL_ONLY;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_vd_1) {
+                        mode = VirtualDisplayMode.DISABLED;
+                    }
+                    else {
+                        return;
+                    }
+                    dispatchVideo(
+                            StreamVideoSettingsUpdate
+                                    .virtualDisplayMode(mode));
+                });
+        enforceDisplayMode.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    if (checkedId ==
+                            R.id.rbt_game_display_enforce_1) {
+                        dispatchVideo(
+                                StreamVideoSettingsUpdate
+                                        .enforceDisplayMode(true));
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_enforce_2) {
+                        dispatchVideo(
+                                StreamVideoSettingsUpdate
+                                        .enforceDisplayMode(false));
+                    }
+                });
+        lowLatency.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    if (checkedId ==
+                            R.id.rbt_game_display_lowlatency_1) {
+                        dispatchVideo(
+                                StreamVideoSettingsUpdate
+                                        .lowLatencyExperimentEnabled(
+                                                true));
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_lowlatency_2) {
+                        dispatchVideo(
+                                StreamVideoSettingsUpdate
+                                        .lowLatencyExperimentEnabled(
+                                                false));
+                    }
+                });
+        ignoreHdrCapability.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    if (checkedId ==
+                            R.id.rbt_game_display_ignore_hdr_1) {
+                        dispatchVideo(
+                                StreamVideoSettingsUpdate
+                                        .ignoreHdrCapability(true));
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_ignore_hdr_2) {
+                        dispatchVideo(
+                                StreamVideoSettingsUpdate
+                                        .ignoreHdrCapability(false));
+                    }
+                });
+        hdrHighBrightness.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    if (checkedId ==
+                            R.id.rbt_game_display_hdr_high_brightness_1) {
+                        dispatchVideo(
+                                StreamVideoSettingsUpdate
+                                        .hdrHighBrightness(true));
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_hdr_high_brightness_2) {
+                        dispatchVideo(
+                                StreamVideoSettingsUpdate
+                                        .hdrHighBrightness(false));
+                    }
+                });
+        fsrTarget.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    FsrTarget target;
+                    if (checkedId ==
+                            R.id.rbt_game_display_fsr_2) {
+                        target = FsrTarget.OUTPUT_2K;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_fsr_3) {
+                        target = FsrTarget.OUTPUT_4K;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_fsr_4) {
+                        target = FsrTarget.NATIVE_HEIGHT;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_fsr_1) {
+                        target = FsrTarget.OFF;
+                    }
+                    else {
+                        return;
+                    }
+                    draft = draft.toBuilder()
+                            .setFsrTarget(target)
+                            .build();
+                    updateFsrDetailState();
+                });
+        fsrSharpness.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    FsrSharpness sharpness;
+                    if (checkedId ==
+                            R.id.rbt_game_display_fsr_sharpness_1) {
+                        sharpness = FsrSharpness.SOFT;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_fsr_sharpness_3) {
+                        sharpness = FsrSharpness.STRONG;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_fsr_sharpness_4) {
+                        sharpness = FsrSharpness.MAXIMUM;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_fsr_sharpness_2) {
+                        sharpness = FsrSharpness.STANDARD;
+                    }
+                    else {
+                        return;
+                    }
+                    draft = draft.toBuilder()
+                            .setFsrSharpness(sharpness)
+                            .build();
+                });
+        fsrHdrOutput.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    if (checkedId ==
+                            R.id.rbt_game_display_fsr_hdr_output_2) {
+                        draft = draft.toBuilder()
+                                .setFsrHdrOutput(
+                                        FsrHdrOutput.NATIVE)
+                                .build();
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_display_fsr_hdr_output_1) {
+                        draft = draft.toBuilder()
+                                .setFsrHdrOutput(
+                                        FsrHdrOutput.SDR)
+                                .build();
+                    }
+                });
     }
 
     @Override
-    public float getDimAmount() {
-        return super.getDimAmount();
+    public void onClick(View view) {
+        int id = view.getId();
+        if (id == R.id.ibtn_back) {
+            dismiss();
+            return;
+        }
+        if (id == R.id.btn_right) {
+            applyDisplayConfiguration();
+            return;
+        }
+        if (id == R.id.bt_display_screen) {
+            showResolutionDialog();
+            return;
+        }
+        if (id == R.id.bt_display_exchange) {
+            draft = draft.toBuilder()
+                    .setDimensions(
+                            draft.getHeight(),
+                            draft.getWidth())
+                    .build();
+            renderDraftSummaries();
+            return;
+        }
+        if (id == R.id.bt_display_direction) {
+            draft = draft.toBuilder()
+                    .setPortrait(!draft.isPortrait())
+                    .build();
+            renderDraftSummaries();
+            return;
+        }
+        if (id == R.id.bt_display_bitrate) {
+            showBitrateDialog();
+            return;
+        }
+        if (id == R.id.bt_display_fps) {
+            showFpsDialog();
+            return;
+        }
+        if (id == R.id.bt_display_ex) {
+            draft = draft.toBuilder()
+                    .setExternalDisplay(
+                            !draft.isExternalDisplay())
+                    .build();
+            renderDraftSummaries();
+        }
     }
 
-    public void setTitle(@StringRes int titleRes) {
-        this.titleRes = titleRes;
+    private void applyDisplayConfiguration() {
+        if (draft.getWidth() <= 0 ||
+                draft.getHeight() <= 0 ||
+                draft.getBitrateKbps() <= 0 ||
+                draft.getFps() <= 0) {
+            UiToast.makeText(
+                    getActivity(),
+                    R.string.game_menu_invalid_display_configuration,
+                    UiToast.LENGTH_SHORT)
+                    .show();
+            return;
+        }
+        dispatchVideo(
+                StreamVideoSettingsUpdate
+                        .displayConfiguration(draft));
+        dismiss();
+        host.onDisplayConfigurationApplied();
     }
 
-
-    private void saveVideoFormat(String value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putString("video_format",value)
-                .apply();
+    private void showResolutionDialog() {
+        GameDisplayResolutionFragment fragment =
+                new GameDisplayResolutionFragment();
+        fragment.setWidth(
+                UiHelper.dpToPx(getActivity(), 364));
+        fragment.setTargetFragment(this, 0);
+        fragment.show(getFragmentManager());
     }
 
-    private void saveLock(int value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putInt("enable_screen_on_auto",value)
-                .apply();
+    private void showBitrateDialog() {
+        GameDisplayBitrateFragment fragment =
+                new GameDisplayBitrateFragment();
+        fragment.setWidth(
+                UiHelper.dpToPx(getActivity(), 364));
+        fragment.setTargetFragment(this, 0);
+        fragment.show(getFragmentManager());
     }
 
-
-    private void saveAudio(boolean value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putBoolean("checkbox_host_audio",value)
-                .apply();
+    private void showFpsDialog() {
+        GameDisplayFpsFragment fragment =
+                GameDisplayFpsFragment.newInstance(
+                        videoSettings.isFpsUnlocked());
+        fragment.setWidth(
+                UiHelper.dpToPx(getActivity(), 364));
+        fragment.setTargetFragment(this, 0);
+        fragment.show(getFragmentManager());
     }
 
-    private void saveHDR(boolean value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putBoolean("checkbox_enable_hdr",value)
-                .apply();
+    private void dispatchVideo(
+            StreamVideoSettingsUpdate update) {
+        videoSettings = update.applyTo(videoSettings);
+        draft = update.applyTo(draft);
+        host.applyStreamVideoSettingsUpdate(update);
     }
 
-    private void saveVD(int value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putInt("vdValue",value)
-                .apply();
-    }
-
-    private void saveEnforce(boolean value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putBoolean("checkbox_enforce_display_mode",value)
-                .apply();
-    }
-
-    private void saveLowLatency(boolean value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putBoolean("enable_lowLatency_experiment",value)
-                .apply();
-    }
-
-    private void saveIgnoreHDR(boolean value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putBoolean("ignoreCheckHDR",value)
-                .apply();
-    }
-
-    private void saveHdrHighBrightness(boolean value) {
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putBoolean(PreferenceConfiguration.ENABLE_HDR_HIGH_BRIGHTNESS_PREF_STRING, value)
-                .apply();
+    private void dispatchAudio(
+            StreamAudioSettingsUpdate update) {
+        audioSettings = update.applyTo(audioSettings);
+        host.applyStreamAudioSettingsUpdate(update);
     }
 
     @Override
-    public void onClick(View v) {
-        if(v.getId()==R.id.ibtn_back){
-            dismiss();
-            return;
-        }
-
-        if(v.getId()==R.id.btn_right){
-            if(width==0||height==0||bitrate==0||fps==0){
-                UiToast.makeText(
-                        getActivity(),
-                        R.string.game_menu_invalid_display_configuration,
-                        UiToast.LENGTH_SHORT).show();
-                return;
-            }
-            PreferenceManager.getDefaultSharedPreferences(getActivity())
-                    .edit()
-                    .putString(PreferenceConfiguration.RESOLUTION_PREF_STRING,width+"x"+height)
-                    .putString(PreferenceConfiguration.RESOLUTION_SELECTION_PREF_STRING,
-                            PreferenceConfiguration.RESOLUTION_SELECTION_CUSTOM_OR_NATIVE)
-                    .putString(PreferenceConfiguration.FPS_PREF_STRING,String.valueOf(fps))
-                    .putInt(PreferenceConfiguration.BITRATE_PREF_STRING,bitrate)
-                    .putString("edit_diy_w_h",width+"x"+height)
-                    .putBoolean("checkbox_enable_exdisplay", externalDisplay)
-                    .putBoolean(PreferenceConfiguration.CHECKBOX_ENABLE_PORTRAIT,direction)
-                    .putString("list_fsr_target", fsrTargetPending)
-                    .putString("list_fsr_sharpness", fsrSharpnessPending)
-                    .putString("list_fsr_hdr_output", fsrHdrOutputPending)
-                    .apply();
-            if(prefConfig!=null){
-                prefConfig.width=width;
-                prefConfig.height=height;
-                prefConfig.bitrate=bitrate;
-                prefConfig.fps=fps;
-                prefConfig.resolutionSelection = PreferenceConfiguration.ResolutionSelection.CUSTOM_OR_NATIVE;
-                prefConfig.enablePortrait=direction;
-                prefConfig.enableExDisplay=externalDisplay;
-            }
-            dismiss();
-            if (listener != null) {
-                listener.onDisplayConfigurationApplied();
-            }
-            return;
-        }
-        if(v.getId()==R.id.bt_display_screen){
-            GameDisplayResolutionFragment fragment=new GameDisplayResolutionFragment();
-            fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle(R.string.game_menu_resolution);
-            fragment.setListener(new GameDisplayResolutionFragment.Listener() {
-                @Override
-                public void onResolutionSelected(int w, int h) {
-                    width=w;
-                    height=h;
-                    initViewData();
-                }
-            });
-            fragment.show(getFragmentManager());
-            return;
-        }
-
-        if(v.getId()==R.id.bt_display_exchange){
-            int h=height;
-            int w=width;
-            width=h;
-            height=w;
-            initViewData();
-            return;
-        }
-        if(v.getId()==R.id.bt_display_direction){
-            direction=!direction;
-            initViewData();
-            return;
-        }
-
-        if(v.getId()==R.id.bt_display_bitrate){
-            GameDisplayBitrateFragment fragment=new GameDisplayBitrateFragment();
-            fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle(R.string.game_menu_bitrate);
-            fragment.setListener(new GameDisplayBitrateFragment.Listener() {
-                @Override
-                public void onBitrateSelected(int num) {
-                    bitrate=num*1000;
-                    initViewData();
-                }
-            });
-            fragment.show(getFragmentManager());
-            return;
-        }
-        if(v.getId()==R.id.bt_display_fps){
-            GameDisplayFpsFragment fragment=new GameDisplayFpsFragment();
-            fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle(R.string.game_menu_fps);
-            fragment.setListener(new GameDisplayFpsFragment.Listener() {
-                @Override
-                public void onFpsSelected(int fps2) {
-                    fps=fps2;
-                    initViewData();
-                }
-            });
-            fragment.show(getFragmentManager());
-            return;
-        }
-
-        if(v.getId()==R.id.bt_display_ex){
-            externalDisplay = !externalDisplay;
-            initViewData();
-            return;
-        }
+    public void onResolutionSelected(int width, int height) {
+        draft = draft.toBuilder()
+                .setDimensions(width, height)
+                .build();
+        renderDraftSummaries();
     }
 
-    private PreferenceConfiguration prefConfig;
-
-    public void setPrefConfig(PreferenceConfiguration prefConfig) {
-        this.prefConfig = prefConfig;
-    }
-    private Listener listener;
-
-    public interface Listener {
-        void onDisplayConfigurationApplied();
+    @Override
+    public void onBitrateSelected(int bitrateMbps) {
+        draft = draft.toBuilder()
+                .setBitrateKbps(bitrateMbps * 1000)
+                .build();
+        renderDraftSummaries();
     }
 
-    public void setListener(Listener listener) {
-        this.listener = listener;
+    @Override
+    public void onFpsSelected(int fps) {
+        draft = draft.toBuilder()
+                .setFps(fps)
+                .build();
+        renderDraftSummaries();
     }
 }
