@@ -961,3 +961,16 @@ Verification on 2026-07-31:
   tests per variant (1,608 executions total), every Lint variant, and both
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites.
+- Added immutable `ControllerAxisProfile` ownership for controller stick,
+  trigger, and hat assignment. The Android adapter now reports only complete
+  axis-pair capabilities and maps the selected semantic axes back to Android;
+  trigger precedence and the old/Linux DualShock distinction no longer mutate
+  a partially initialized device context across nested branches.
+- Fixtures preserve dedicated-trigger precedence, brake/gas and
+  brake/throttle controllers, RX/RY versus Z/RZ fallback, centered trigger
+  semantics, both DualShock layouts, unnamed-device behavior, and the rule that
+  a hat is usable only when both axes exist.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 409 JVM
+  tests per variant (1,636 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites.

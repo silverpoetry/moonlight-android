@@ -576,6 +576,49 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         return range;
     }
 
+    private static boolean hasJoystickAxisPair(
+            InputDevice device,
+            int firstAxis,
+            int secondAxis) {
+        return getMotionRangeForJoystickAxis(device, firstAxis) != null &&
+                getMotionRangeForJoystickAxis(device, secondAxis) != null;
+    }
+
+    private static int toAndroidAxis(
+            ControllerAxisProfile.Axis axis) {
+        switch (axis) {
+            case X:
+                return MotionEvent.AXIS_X;
+            case Y:
+                return MotionEvent.AXIS_Y;
+            case Z:
+                return MotionEvent.AXIS_Z;
+            case RZ:
+                return MotionEvent.AXIS_RZ;
+            case RX:
+                return MotionEvent.AXIS_RX;
+            case RY:
+                return MotionEvent.AXIS_RY;
+            case LEFT_TRIGGER:
+                return MotionEvent.AXIS_LTRIGGER;
+            case RIGHT_TRIGGER:
+                return MotionEvent.AXIS_RTRIGGER;
+            case BRAKE:
+                return MotionEvent.AXIS_BRAKE;
+            case GAS:
+                return MotionEvent.AXIS_GAS;
+            case THROTTLE:
+                return MotionEvent.AXIS_THROTTLE;
+            case HAT_X:
+                return MotionEvent.AXIS_HAT_X;
+            case HAT_Y:
+                return MotionEvent.AXIS_HAT_Y;
+            case NONE:
+            default:
+                return -1;
+        }
+    }
+
     @Override
     public void onInputDeviceAdded(int deviceId) {
         // Nothing happening here yet
@@ -1076,8 +1119,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         context.vendorId = dev.getVendorId();
         context.productId = dev.getProductId();
 
-        boolean nonStandardDualShock4 = false;
-        boolean linuxStandardFaceButtons = false;
         boolean nonStandardXboxBluetooth = false;
         boolean serval = false;
         boolean backIsStart = false;
@@ -1159,15 +1200,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         context.touchpadYRange = dev.getMotionRange(MotionEvent.AXIS_Y, InputDevice.SOURCE_TOUCHPAD);
         context.touchpadPressureRange = dev.getMotionRange(MotionEvent.AXIS_PRESSURE, InputDevice.SOURCE_TOUCHPAD);
 
-        context.leftStickXAxis = MotionEvent.AXIS_X;
-        context.leftStickYAxis = MotionEvent.AXIS_Y;
-        if (getMotionRangeForJoystickAxis(dev, context.leftStickXAxis) != null &&
-                getMotionRangeForJoystickAxis(dev, context.leftStickYAxis) != null) {
-            // This is a gamepad
-            hasGameController = true;
-            context.hasJoystickAxes = true;
-        }
-
         // This is hack to deal with the Nvidia Shield's modifications that causes the DS4 clickpad
         // to work as a duplicate Select button instead of a unique button we can handle separately.
         boolean dualShockStandaloneTouchpad =
@@ -1175,100 +1207,89 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                         (devName.endsWith(" Touchpad")||devName.startsWith("DualSense")) &&
                 dev.getSources() == (InputDevice.SOURCE_KEYBOARD | InputDevice.SOURCE_MOUSE);
 
-        InputDevice.MotionRange leftTriggerRange = getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_LTRIGGER);
-        InputDevice.MotionRange rightTriggerRange = getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_RTRIGGER);
-        InputDevice.MotionRange brakeRange = getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_BRAKE);
         InputDevice.MotionRange gasRange = getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_GAS);
-        InputDevice.MotionRange throttleRange = getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_THROTTLE);
-        if (leftTriggerRange != null && rightTriggerRange != null)
-        {
-            // Some controllers use LTRIGGER and RTRIGGER (like Ouya)
-            context.leftTriggerAxis = MotionEvent.AXIS_LTRIGGER;
-            context.rightTriggerAxis = MotionEvent.AXIS_RTRIGGER;
-        }
-        else if (brakeRange != null && gasRange != null)
-        {
-            // Others use GAS and BRAKE (like Moga)
-            context.leftTriggerAxis = MotionEvent.AXIS_BRAKE;
-            context.rightTriggerAxis = MotionEvent.AXIS_GAS;
-        }
-        else if (brakeRange != null && throttleRange != null)
-        {
-            // Others use THROTTLE and BRAKE (like Xiaomi)
-            context.leftTriggerAxis = MotionEvent.AXIS_BRAKE;
-            context.rightTriggerAxis = MotionEvent.AXIS_THROTTLE;
-        }
-        else
-        {
-            InputDevice.MotionRange rxRange = getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_RX);
-            InputDevice.MotionRange ryRange = getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_RY);
-            if (rxRange != null && ryRange != null && devName != null) {
-                if (dev.getVendorId() == 0x054c) { // Sony
-                    if (dev.hasKeys(KeyEvent.KEYCODE_BUTTON_C)[0]) {
-                        LimeLog.info("Detected non-standard DualShock 4 mapping");
-                        nonStandardDualShock4 = true;
-                    } else {
-                        LimeLog.info("Detected DualShock 4 (Linux standard mapping)");
-                        linuxStandardFaceButtons = true;
-                    }
-                }
-
-                if (nonStandardDualShock4) {
-                    // The old DS4 driver uses RX and RY for triggers
-                    context.leftTriggerAxis = MotionEvent.AXIS_RX;
-                    context.rightTriggerAxis = MotionEvent.AXIS_RY;
-
-                    // DS4 has Select and Mode buttons (possibly mapped non-standard)
-                    context.hasSelect = true;
-                    context.hasMode = true;
-                }
-                else {
-                    // If it's not a non-standard DS4 controller, it's probably an Xbox controller or
-                    // other sane controller that uses RX and RY for right stick and Z and RZ for triggers.
-                    context.rightStickXAxis = MotionEvent.AXIS_RX;
-                    context.rightStickYAxis = MotionEvent.AXIS_RY;
-
-                    // While it's likely that Z and RZ are triggers, we may have digital trigger buttons
-                    // instead. We must check that we actually have Z and RZ axes before assigning them.
-                    if (getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_Z) != null &&
-                            getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_RZ) != null) {
-                        context.leftTriggerAxis = MotionEvent.AXIS_Z;
-                        context.rightTriggerAxis = MotionEvent.AXIS_RZ;
-                    }
-                }
-
-                // Triggers always idle negative on axes that are centered at zero
-                context.triggersIdleNegative = true;
-            }
-        }
-
-        if (context.rightStickXAxis == -1 && context.rightStickYAxis == -1) {
-            InputDevice.MotionRange zRange = getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_Z);
-            InputDevice.MotionRange rzRange = getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_RZ);
-
-            // Most other controllers use Z and RZ for the right stick
-            if (zRange != null && rzRange != null) {
-                context.rightStickXAxis = MotionEvent.AXIS_Z;
-                context.rightStickYAxis = MotionEvent.AXIS_RZ;
-            }
-            else {
-                InputDevice.MotionRange rxRange = getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_RX);
-                InputDevice.MotionRange ryRange = getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_RY);
-
-                // Try RX and RY now
-                if (rxRange != null && ryRange != null) {
-                    context.rightStickXAxis = MotionEvent.AXIS_RX;
-                    context.rightStickYAxis = MotionEvent.AXIS_RY;
-                }
-            }
+        boolean hasRxAndRy =
+                hasJoystickAxisPair(
+                        dev,
+                        MotionEvent.AXIS_RX,
+                        MotionEvent.AXIS_RY);
+        boolean hasSonyButtonC =
+                context.vendorId == 0x054c &&
+                        devName != null &&
+                        hasRxAndRy &&
+                        dev.hasKeys(KeyEvent.KEYCODE_BUTTON_C)[0];
+        ControllerAxisProfile axisProfile =
+                ControllerAxisProfile.resolve(
+                        context.vendorId,
+                        devName != null,
+                        hasSonyButtonC,
+                        ControllerAxisProfile.Capabilities.builder()
+                                .xAndY(
+                                        hasJoystickAxisPair(
+                                                dev,
+                                                MotionEvent.AXIS_X,
+                                                MotionEvent.AXIS_Y))
+                                .leftTriggerAndRightTrigger(
+                                        hasJoystickAxisPair(
+                                                dev,
+                                                MotionEvent.AXIS_LTRIGGER,
+                                                MotionEvent.AXIS_RTRIGGER))
+                                .brakeAndGas(
+                                        hasJoystickAxisPair(
+                                                dev,
+                                                MotionEvent.AXIS_BRAKE,
+                                                MotionEvent.AXIS_GAS))
+                                .brakeAndThrottle(
+                                        hasJoystickAxisPair(
+                                                dev,
+                                                MotionEvent.AXIS_BRAKE,
+                                                MotionEvent.AXIS_THROTTLE))
+                                .rxAndRy(hasRxAndRy)
+                                .zAndRz(
+                                        hasJoystickAxisPair(
+                                                dev,
+                                                MotionEvent.AXIS_Z,
+                                                MotionEvent.AXIS_RZ))
+                                .hatXAndHatY(
+                                        hasJoystickAxisPair(
+                                                dev,
+                                                MotionEvent.AXIS_HAT_X,
+                                                MotionEvent.AXIS_HAT_Y))
+                                .build());
+        context.leftStickXAxis =
+                toAndroidAxis(axisProfile.getLeftStickX());
+        context.leftStickYAxis =
+                toAndroidAxis(axisProfile.getLeftStickY());
+        context.rightStickXAxis =
+                toAndroidAxis(axisProfile.getRightStickX());
+        context.rightStickYAxis =
+                toAndroidAxis(axisProfile.getRightStickY());
+        context.leftTriggerAxis =
+                toAndroidAxis(axisProfile.getLeftTrigger());
+        context.rightTriggerAxis =
+                toAndroidAxis(axisProfile.getRightTrigger());
+        context.hatXAxis =
+                toAndroidAxis(axisProfile.getHatX());
+        context.hatYAxis =
+                toAndroidAxis(axisProfile.getHatY());
+        context.triggersIdleNegative =
+                axisProfile.areTriggersIdleNegative();
+        context.hasJoystickAxes = axisProfile.hasLeftStick();
+        if (context.hasJoystickAxes) {
+            hasGameController = true;
         }
 
-        // Some devices have "hats" for d-pads
-        InputDevice.MotionRange hatXRange = getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_HAT_X);
-        InputDevice.MotionRange hatYRange = getMotionRangeForJoystickAxis(dev, MotionEvent.AXIS_HAT_Y);
-        if (hatXRange != null && hatYRange != null) {
-            context.hatXAxis = MotionEvent.AXIS_HAT_X;
-            context.hatYAxis = MotionEvent.AXIS_HAT_Y;
+        boolean nonStandardDualShock4 =
+                axisProfile.isNonStandardDualShock4();
+        boolean linuxStandardFaceButtons =
+                axisProfile.hasLinuxStandardFaceButtons();
+        if (nonStandardDualShock4) {
+            LimeLog.info("Detected non-standard DualShock 4 mapping");
+            context.hasSelect = true;
+            context.hasMode = true;
+        }
+        else if (linuxStandardFaceButtons) {
+            LimeLog.info("Detected DualShock 4 (Linux standard mapping)");
         }
 
         if (context.leftStickXAxis != -1 && context.leftStickYAxis != -1) {

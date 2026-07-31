@@ -392,6 +392,11 @@ targets.
   customized deadzone, response curve, smoothing, inversion, and clamp state;
   force-gyro trigger state is isolated by protocol slot instead of shared
   across all attached controllers.
+- `ControllerAxisProfile` resolves immutable stick, trigger, and hat-axis
+  assignments from platform-probed axis pairs. Dedicated, brake/gas,
+  brake/throttle, RX/RY, Z/RZ, old DualShock, Linux DualShock, unnamed-device,
+  and incomplete-hat cases are explicit policy fixtures; Android integer-axis
+  constants remain in the device adapter.
 - `DecoderSelectionPolicy` owns HEVC/AV1 acceptance decisions and stream color
   defaults. The MediaCodec adapter performs discovery and capability queries,
   and no longer carries the unused metered-network parameter or unreachable
