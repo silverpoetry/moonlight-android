@@ -95,6 +95,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private final ControllerSettingsState settingsState;
     private final StreamAudioSettingsState audioSettingsState;
     private final ControllerSlotAllocator slotAllocator;
+    private final ControllerInputReportAggregator.Sources
+            controllerInputSources;
 
     private boolean shouldUseControllerAudioHaptics() {
         return ControllerHapticsPolicy
@@ -426,7 +428,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                         .build(),
                 new ControllerButtonMappingState(false, false),
                 new ControllerChordEmulationState(false, false),
-                new ControllerMouseModeActivationState());
+                new ControllerMouseModeActivationState(),
+                true);
         this.defaultContext.vibrationTarget =
                 vibrationRenderer.emptyTarget();
 
@@ -454,6 +457,35 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         defaultContext.slotLease.selectFixed((short) 0);
         defaultContext.slotLease.completeAssignment();
         defaultContext.external = false;
+        this.controllerInputSources =
+                new ControllerInputReportAggregator.Sources() {
+                    @Override
+                    public int size() {
+                        return inputDeviceContexts.size() +
+                                usbDeviceContexts.size() + 1;
+                    }
+
+                    @Override
+                    public ControllerInputReportAggregator.Source sourceAt(
+                            int index) {
+                        int inputDeviceCount =
+                                inputDeviceContexts.size();
+                        if (index < inputDeviceCount) {
+                            return inputDeviceContexts.valueAt(index);
+                        }
+
+                        int usbIndex = index - inputDeviceCount;
+                        int usbDeviceCount = usbDeviceContexts.size();
+                        if (usbIndex < usbDeviceCount) {
+                            return usbDeviceContexts.valueAt(usbIndex);
+                        }
+                        if (usbIndex == usbDeviceCount) {
+                            return defaultContext;
+                        }
+                        throw new IndexOutOfBoundsException(
+                                "Controller source index: " + index);
+                    }
+                };
 
         // Some devices (GPD XD) have a back button which sends input events
         // with device ID == 0. This hits the default context which would normally
@@ -898,140 +930,63 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
     }
 
-    private void sendControllerInputPacket(GenericControllerContext originalContext) {
+    private void sendControllerInputPacket(
+            GenericControllerContext originalContext) {
         assignControllerNumberIfNeeded(originalContext);
 
-        // Take the context's controller number and fuse all inputs with the same number
         short controllerNumber =
                 originalContext.slotLease.getControllerNumber();
-        int inputMap = 0;
-        byte leftTrigger = 0;
-        byte rightTrigger = 0;
-        short leftStickX = 0;
-        short leftStickY = 0;
-        short rightStickX = 0;
-        short rightStickY = 0;
+        ControllerInputReportAggregator.aggregateAndSend(
+                controllerInputSources,
+                controllerNumber,
+                originalContext.isMouseEmulationActive(),
+                originalContext.aggregatedInputOutput);
+    }
 
-        // In order to properly handle controllers that are split into multiple devices,
-        // we must aggregate all controllers with the same controller number into a single
-        // device before we send it.
-        for (int i = 0; i < inputDeviceContexts.size(); i++) {
-            GenericControllerContext context = inputDeviceContexts.valueAt(i);
-            if (context.slotLease.isAssigned() &&
-                    context.slotLease.getControllerNumber() ==
-                            controllerNumber &&
-                    context.isMouseEmulationActive() ==
-                            originalContext.isMouseEmulationActive()) {
-                inputMap |= context.inputState.getInputMap();
-                leftTrigger =
-                        ControllerAnalogInputCombiner.combineTrigger(
-                                leftTrigger,
-                                context.inputState.getLeftTrigger());
-                rightTrigger =
-                        ControllerAnalogInputCombiner.combineTrigger(
-                                rightTrigger,
-                                context.inputState.getRightTrigger());
-                leftStickX =
-                        ControllerAnalogInputCombiner.combineAxis(
-                                leftStickX,
-                                context.inputState.getLeftStickX());
-                leftStickY =
-                        ControllerAnalogInputCombiner.combineAxis(
-                                leftStickY,
-                                context.inputState.getLeftStickY());
-                rightStickX =
-                        ControllerAnalogInputCombiner.combineAxis(
-                                rightStickX,
-                                context.inputState.getRightStickX());
-                rightStickY =
-                        ControllerAnalogInputCombiner.combineAxis(
-                                rightStickY,
-                                context.inputState.getRightStickY());
-            }
-        }
-        for (int i = 0; i < usbDeviceContexts.size(); i++) {
-            GenericControllerContext context = usbDeviceContexts.valueAt(i);
-            if (context.slotLease.isAssigned() &&
-                    context.slotLease.getControllerNumber() ==
-                            controllerNumber &&
-                    context.isMouseEmulationActive() ==
-                            originalContext.isMouseEmulationActive()) {
-                inputMap |= context.inputState.getInputMap();
-                leftTrigger =
-                        ControllerAnalogInputCombiner.combineTrigger(
-                                leftTrigger,
-                                context.inputState.getLeftTrigger());
-                rightTrigger =
-                        ControllerAnalogInputCombiner.combineTrigger(
-                                rightTrigger,
-                                context.inputState.getRightTrigger());
-                leftStickX =
-                        ControllerAnalogInputCombiner.combineAxis(
-                                leftStickX,
-                                context.inputState.getLeftStickX());
-                leftStickY =
-                        ControllerAnalogInputCombiner.combineAxis(
-                                leftStickY,
-                                context.inputState.getLeftStickY());
-                rightStickX =
-                        ControllerAnalogInputCombiner.combineAxis(
-                                rightStickX,
-                                context.inputState.getRightStickX());
-                rightStickY =
-                        ControllerAnalogInputCombiner.combineAxis(
-                                rightStickY,
-                                context.inputState.getRightStickY());
-            }
-        }
-        if (defaultContext.slotLease.getControllerNumber() ==
-                controllerNumber) {
-            inputMap |= defaultContext.inputState.getInputMap();
-            leftTrigger =
-                    ControllerAnalogInputCombiner.combineTrigger(
-                            leftTrigger,
-                            defaultContext.inputState.getLeftTrigger());
-            rightTrigger =
-                    ControllerAnalogInputCombiner.combineTrigger(
-                            rightTrigger,
-                            defaultContext.inputState.getRightTrigger());
-            leftStickX =
-                    ControllerAnalogInputCombiner.combineAxis(
-                            leftStickX,
-                            defaultContext.inputState.getLeftStickX());
-            leftStickY =
-                    ControllerAnalogInputCombiner.combineAxis(
-                            leftStickY,
-                            defaultContext.inputState.getLeftStickY());
-            rightStickX =
-                    ControllerAnalogInputCombiner.combineAxis(
-                            rightStickX,
-                            defaultContext.inputState.getRightStickX());
-            rightStickY =
-                    ControllerAnalogInputCombiner.combineAxis(
-                            rightStickY,
-                            defaultContext.inputState.getRightStickY());
-        }
-
+    private void emitAggregatedControllerInput(
+            GenericControllerContext originalContext,
+            int inputMap,
+            byte leftTrigger,
+            byte rightTrigger,
+            short leftStickX,
+            short leftStickY,
+            short rightStickX,
+            short rightStickY) {
+        short controllerNumber =
+                originalContext.slotLease.getControllerNumber();
+        short activeControllerMask = getActiveControllerMask();
         if (originalContext.isMouseEmulationActive()) {
             originalContext.mouseEmulationTranslator.translate(
                     inputMap,
                     mouseEmulationOutput);
 
-            conn.sendControllerInput(controllerNumber, getActiveControllerMask(),
-                    (short)0, (byte)0, (byte)0, (short)0, (short)0, (short)0, (short)0);
+            conn.sendControllerInput(
+                    controllerNumber,
+                    activeControllerMask,
+                    (short) 0,
+                    (byte) 0,
+                    (byte) 0,
+                    (short) 0,
+                    (short) 0,
+                    (short) 0,
+                    (short) 0);
         }
         else {
-            //强制体感模拟右摇杆
             if (settingsState.get().isForceGyroEnabled()) {
                 setControllerLeftTriggerState(
                         controllerNumber,
                         leftTrigger);
             }
-            conn.sendControllerInput(controllerNumber, getActiveControllerMask(),
+            conn.sendControllerInput(
+                    controllerNumber,
+                    activeControllerMask,
                     inputMap,
-                    leftTrigger, rightTrigger,
-                    leftStickX, leftStickY,
-                    rightStickX, rightStickY);
+                    leftTrigger,
+                    rightTrigger,
+                    leftStickX,
+                    leftStickY,
+                    rightStickX,
+                    rightStickY);
         }
     }
 
@@ -1770,7 +1725,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         return controllerType;
     }
 
-    class GenericControllerContext implements GameInputDevice{
+    class GenericControllerContext implements GameInputDevice,
+            ControllerInputReportAggregator.Source {
         public int id;
         public boolean external;
 
@@ -1780,6 +1736,16 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         public float leftStickDeadzoneRadius;
         public float rightStickDeadzoneRadius;
         public float triggerDeadzone;
+        private final boolean includedAcrossMouseModes;
+
+        GenericControllerContext() {
+            this(false);
+        }
+
+        GenericControllerContext(boolean includedAcrossMouseModes) {
+            this.includedAcrossMouseModes =
+                    includedAcrossMouseModes;
+        }
 
         final ControllerSlotLease slotLease =
                 new ControllerSlotLease();
@@ -1823,6 +1789,49 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                                                 mouseEmulationOutput);
                             }
                         });
+        private final ControllerInputReportAggregator.Output
+                aggregatedInputOutput =
+                new ControllerInputReportAggregator.Output() {
+                    @Override
+                    public void send(
+                            int inputMap,
+                            byte leftTrigger,
+                            byte rightTrigger,
+                            short leftStickX,
+                            short leftStickY,
+                            short rightStickX,
+                            short rightStickY) {
+                        emitAggregatedControllerInput(
+                                GenericControllerContext.this,
+                                inputMap,
+                                leftTrigger,
+                                rightTrigger,
+                                leftStickX,
+                                leftStickY,
+                                rightStickX,
+                                rightStickY);
+                    }
+                };
+
+        @Override
+        public boolean isAssigned() {
+            return slotLease.isAssigned();
+        }
+
+        @Override
+        public short getControllerNumber() {
+            return slotLease.getControllerNumber();
+        }
+
+        @Override
+        public boolean isIncludedAcrossMouseModes() {
+            return includedAcrossMouseModes;
+        }
+
+        @Override
+        public ControllerInputState getControllerInputState() {
+            return inputState;
+        }
 
         @Override
         public void toggleMouseEmulation() {
@@ -1835,6 +1844,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     UiToast.LENGTH_SHORT).show();
         }
 
+        @Override
         public boolean isMouseEmulationActive() {
             return mouseEmulationSession.isActive();
         }
@@ -1885,16 +1895,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         InputDevice.MotionRange touchpadPressureRange;
 
         @Override
-        public short getControllerNumber() {
-            return slotLease.getControllerNumber();
-        }
-
-        @Override
-        public ControllerInputState getControllerInputState() {
-            return inputState;
-        }
-
-        @Override
         public InputDevice.MotionRange getTouchpadXRange() {
             return touchpadXRange;
         }
@@ -1935,7 +1935,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 ControllerButtonMappingState buttonMappingState,
                 ControllerChordEmulationState chordEmulationState,
                 ControllerMouseModeActivationState
-                        mouseModeActivationState) {
+                        mouseModeActivationState,
+                boolean includedAcrossMouseModes) {
+            super(includedAcrossMouseModes);
             this.ledSession = Objects.requireNonNull(
                     ledSession,
                     "ledSession");
@@ -2012,7 +2014,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     new ControllerChordEmulationState(
                             profile.hasModeButton(),
                             profile.hasSelectButton()),
-                    new ControllerMouseModeActivationState());
+                    new ControllerMouseModeActivationState(),
+                    false);
             this.inputDevice = Objects.requireNonNull(
                     inputDevice,
                     "inputDevice");

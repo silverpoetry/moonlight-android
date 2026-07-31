@@ -1412,3 +1412,16 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Extracted `ControllerInputReportAggregator` from the duplicated Android/USB/
+  virtual-source loops in `ControllerHandler`. It performs one ordered,
+  allocation-free traversal for an assigned protocol slot, preserves the
+  established mouse-mode partition and cross-mode virtual-default behavior,
+  then emits exactly one report through a context-bound output.
+- Aggregation intermediates remain method-local rather than becoming a shared
+  scratch report, so overlapping input execution domains cannot corrupt each
+  other's reduction. Fixtures lock assignment and slot filtering, mouse-mode
+  ownership, the virtual-default exception, button union, unsigned trigger
+  magnitude, signed axis magnitude, and neutral-report emission.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 587 JVM
+  tests per variant (2,348 executions total), all Lint variants, and both
+  unminified Release APKs.

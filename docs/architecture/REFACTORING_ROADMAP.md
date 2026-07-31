@@ -437,6 +437,12 @@ targets.
 - `ControllerAnalogInputCombiner` owns split-device trigger and stick
   aggregation. Triggers are compared as unsigned protocol values and axes by
   signed magnitude; the previous bitwise-OR corruption path has been removed.
+- `ControllerInputReportAggregator` owns complete slot-level report fusion
+  across Android, USB, and virtual sources. Assignment, slot, mouse-mode, and
+  cross-mode-default participation are explicit source facts; button, trigger,
+  and axis reduction runs in one ordered traversal before one output call. The
+  aggregator is stateless and keeps every intermediate field method-local, so
+  it adds no allocation, shared scratch state, lock, queue, or scheduler hop.
 - `ControllerMouseEmulationTranslator` owns the stateful controller-to-desktop
   button, key, stick, scroll, and trigger transitions. Each controller context
   keeps one translator and one reusable work vector; chord definitions are
