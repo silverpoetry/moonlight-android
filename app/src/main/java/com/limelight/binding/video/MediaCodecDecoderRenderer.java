@@ -195,32 +195,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 decoderCanMeetPerformancePoint(hevcCaps);
     }
 
-    private boolean decoderCanMeetPerformancePointWithAv1AndNotHevc(
-            MediaCodecInfo av1DecoderInfo,
-            MediaCodecInfo hevcDecoderInfo) {
-        MediaCodecInfo.VideoCapabilities av1Caps = av1DecoderInfo.getCapabilitiesForType("video/av01").getVideoCapabilities();
-        MediaCodecInfo.VideoCapabilities hevcCaps = hevcDecoderInfo.getCapabilitiesForType("video/hevc").getVideoCapabilities();
-
-        return !decoderCanMeetPerformancePoint(hevcCaps) &&
-                decoderCanMeetPerformancePoint(av1Caps);
-    }
-
-    private boolean decoderCanMeetPerformancePointWithAv1AndNotAvc(
-            MediaCodecInfo av1DecoderInfo,
-            MediaCodecInfo avcDecoderInfo) {
-        MediaCodecInfo.VideoCapabilities avcCaps = avcDecoderInfo.getCapabilitiesForType("video/avc").getVideoCapabilities();
-        MediaCodecInfo.VideoCapabilities av1Caps = av1DecoderInfo.getCapabilitiesForType("video/av01").getVideoCapabilities();
-
-        return !decoderCanMeetPerformancePoint(avcCaps) &&
-                decoderCanMeetPerformancePoint(av1Caps);
-    }
-
-    private MediaCodecInfo findHevcDecoder(
-            boolean meteredNetwork,
-            boolean requestedHdr) {
-        // Don't return anything if H.264 is forced
-        if (settings.getVideoFormat() ==
-                StreamDecoderSettings.VideoFormat.FORCE_H264) {
+    private MediaCodecInfo findHevcDecoder(boolean requestedHdr) {
+        if (!DecoderSelectionPolicy.shouldAttemptHevc(
+                settings.getVideoFormat())) {
             return null;
         }
 
@@ -231,32 +208,41 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         // for even required levels of HEVC.
         MediaCodecInfo hevcDecoderInfo = MediaCodecHelper.findProbableSafeDecoder("video/hevc", -1);
         if (hevcDecoderInfo != null) {
-            if (!MediaCodecHelper.decoderIsWhitelistedForHevc(hevcDecoderInfo)) {
+            boolean whitelisted =
+                    MediaCodecHelper.decoderIsWhitelistedForHevc(
+                            hevcDecoderInfo);
+            if (!whitelisted) {
                 LimeLog.info("Found HEVC decoder, but it's not whitelisted - "+hevcDecoderInfo.getName());
 
-                // Force HEVC enabled if the user asked for it
-                if (settings.getVideoFormat() ==
-                        StreamDecoderSettings.VideoFormat.FORCE_HEVC) {
-                    LimeLog.info("Forcing HEVC enabled despite non-whitelisted decoder");
-                }
-                // HDR implies HEVC forced on, since HEVCMain10HDR10 is required for HDR.
-                else if (requestedHdr) {
-                    LimeLog.info("Forcing HEVC enabled for HDR streaming");
-                }
-                // > 4K streaming also requires HEVC, so force it on there too.
-                else if (settings.getWidth() > 4096 ||
-                        settings.getHeight() > 4096) {
-                    LimeLog.info("Forcing HEVC enabled for over 4K streaming");
-                }
-                // Use HEVC if the H.264 decoder is unable to meet the performance point
-                else if (avcDecoder != null &&
-                        decoderCanMeetPerformancePointWithHevcAndNotAvc(
-                                hevcDecoderInfo,
-                                avcDecoder)) {
-                    LimeLog.info("Using non-whitelisted HEVC decoder to meet performance point");
-                }
-                else {
-                    return null;
+                DecoderSelectionPolicy
+                        .NonWhitelistedHevcDecision decision =
+                        DecoderSelectionPolicy
+                                .evaluateNonWhitelistedHevc(
+                                        settings.getVideoFormat(),
+                                        requestedHdr,
+                                        settings.getWidth(),
+                                        settings.getHeight());
+                switch (decision) {
+                    case ACCEPT_FORCED:
+                        LimeLog.info("Forcing HEVC enabled despite non-whitelisted decoder");
+                        break;
+                    case ACCEPT_HDR_REQUIRED:
+                        LimeLog.info("Forcing HEVC enabled for HDR streaming");
+                        break;
+                    case ACCEPT_RESOLUTION_REQUIRED:
+                        LimeLog.info("Forcing HEVC enabled for over 4K streaming");
+                        break;
+                    case CHECK_PERFORMANCE:
+                        if (avcDecoder == null ||
+                                !decoderCanMeetPerformancePointWithHevcAndNotAvc(
+                                        hevcDecoderInfo,
+                                        avcDecoder)) {
+                            return null;
+                        }
+                        LimeLog.info("Using non-whitelisted HEVC decoder to meet performance point");
+                        break;
+                    default:
+                        throw new AssertionError(decision);
                 }
             }
         }
@@ -265,40 +251,18 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     }
 
     private MediaCodecInfo findAv1Decoder() {
-        // For now, don't use AV1 unless explicitly requested
-        if (settings.getVideoFormat() !=
-                StreamDecoderSettings.VideoFormat.FORCE_AV1) {
+        if (!DecoderSelectionPolicy.shouldAttemptAv1(
+                settings.getVideoFormat())) {
             return null;
         }
 
         MediaCodecInfo decoderInfo = MediaCodecHelper.findProbableSafeDecoder("video/av01", -1);
-        if (decoderInfo != null) {
-            if (!MediaCodecHelper.isDecoderWhitelistedForAv1(decoderInfo)) {
-                LimeLog.info("Found AV1 decoder, but it's not whitelisted - "+decoderInfo.getName());
-
-                // Force HEVC enabled if the user asked for it
-                if (settings.getVideoFormat() ==
-                        StreamDecoderSettings.VideoFormat.FORCE_AV1) {
-                    LimeLog.info("Forcing AV1 enabled despite non-whitelisted decoder");
-                }
-                // Use AV1 if the HEVC decoder is unable to meet the performance point
-                else if (hevcDecoder != null &&
-                        decoderCanMeetPerformancePointWithAv1AndNotHevc(
-                                decoderInfo,
-                                hevcDecoder)) {
-                    LimeLog.info("Using non-whitelisted AV1 decoder to meet performance point");
-                }
-                // Use AV1 if the H.264 decoder is unable to meet the performance point and we have no HEVC decoder
-                else if (hevcDecoder == null &&
-                        decoderCanMeetPerformancePointWithAv1AndNotAvc(
-                                decoderInfo,
-                                avcDecoder)) {
-                    LimeLog.info("Using non-whitelisted AV1 decoder to meet performance point");
-                }
-                else {
-                    return null;
-                }
-            }
+        if (decoderInfo != null &&
+                !MediaCodecHelper
+                        .isDecoderWhitelistedForAv1(
+                                decoderInfo)) {
+            LimeLog.info("Found AV1 decoder, but it's not whitelisted - "+decoderInfo.getName());
+            LimeLog.info("Forcing AV1 enabled despite non-whitelisted decoder");
         }
 
         return decoderInfo;
@@ -328,7 +292,6 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             StreamDecoderSettings settings,
             CrashListener crashListener,
             int consecutiveCrashCount,
-            boolean meteredData,
             boolean requestedHdr,
             String glRenderer,
             PerfOverlayListener perfListener) {
@@ -356,7 +319,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             LimeLog.warning("No AVC decoder found");
         }
 
-        hevcDecoder = findHevcDecoder(meteredData, requestedHdr);
+        hevcDecoder = findHevcDecoder(requestedHdr);
         if (hevcDecoder != null) {
             LimeLog.info("Selected HEVC decoder: "+hevcDecoder.getName());
         }
@@ -466,28 +429,15 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     }
 
     public int getPreferredColorSpace() {
-        // Default to Rec 709 which is probably better supported on modern devices.
-        //
-        // We are sticking to Rec 601 on older devices unless the device has an HEVC decoder
-        // to avoid possible regressions (and they are < 5% of installed devices). If we have
-        // an HEVC decoder, we will use Rec 709 (even for H.264) since we can't choose a
-        // colorspace by codec (and it's probably safe to say a SoC with HEVC decoding is
-        // plenty modern enough to handle H.264 VUI colorspace info).
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O || hevcDecoder != null || av1Decoder != null) {
-            return MoonBridge.COLORSPACE_REC_709;
-        }
-        else {
-            return MoonBridge.COLORSPACE_REC_601;
-        }
+        return DecoderSelectionPolicy.getPreferredColorSpace(
+                Build.VERSION.SDK_INT,
+                hevcDecoder != null,
+                av1Decoder != null);
     }
 
     public int getPreferredColorRange() {
-        if (settings.isFullRange()) {
-            return MoonBridge.COLOR_RANGE_FULL;
-        }
-        else {
-            return MoonBridge.COLOR_RANGE_LIMITED;
-        }
+        return DecoderSelectionPolicy.getPreferredColorRange(
+                settings.isFullRange());
     }
 
     public void notifyVideoForeground() {

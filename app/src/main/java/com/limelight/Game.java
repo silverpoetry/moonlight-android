@@ -624,7 +624,6 @@ public class Game extends Activity implements OnGenericMotionListener,
                     }
                 },
                 tombstonePrefs.getInt("CrashCount", 0),
-                connMgr.isActiveNetworkMetered(),
                 willStreamHdr,
                 glPrefs.glRenderer,
                 performanceOverlayController);

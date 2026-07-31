@@ -360,6 +360,10 @@ targets.
   vendor key-layout corrections, face-button swapping, and stateful
   Start/Select fallbacks. Device discovery builds its profile once; the event
   adapter performs no mapping allocation or device-policy branching.
+- `DecoderSelectionPolicy` owns HEVC/AV1 acceptance decisions and stream color
+  defaults. The MediaCodec adapter performs discovery and capability queries,
+  and no longer carries the unused metered-network parameter or unreachable
+  AV1 fallback branches.
 
 ### Exit evidence
 

@@ -820,3 +820,11 @@ Verification on 2026-07-31:
   tests, for 1,368 executions with zero failures, errors, or skips. A clean
   `verifyConnected --rerun-tasks --no-daemon` run passed all 107 non-root and
   107 root instrumentation tests.
+- Extracted HEVC/AV1 acceptance and color-default decisions into
+  `DecoderSelectionPolicy`. Removed an unused metered-network constructor
+  parameter and AV1 performance fallback branches that were unreachable while
+  AV1 remained explicit-opt-in, without changing codec selection behavior.
+- Re-ran `verifyLocal --rerun-tasks`: all 193 tasks passed, with 347 JVM tests
+  in each root/non-root debug/release variant (1,388 executions total). A clean
+  `verifyConnected --rerun-tasks --no-daemon` run passed all 107 non-root and
+  107 root instrumentation tests.
