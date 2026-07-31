@@ -83,7 +83,7 @@ public interface GameMenuHost {
     void applyInputSettingsUpdate(InputSettingsUpdate update);
 
     void applyControllerSettingsUpdate(
-            ControllerSettingsUpdate<?> update);
+            ControllerSettingsUpdate update);
 
     void applyDualSenseTriggerSettings();
 

@@ -519,6 +519,37 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void deviceSettingsUiUsesTypedControllerIntents() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameDisplayDeviceFragment")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android.preference..",
+                        "com.limelight.preferences..")
+                .because(
+                        "device settings UI emits typed controller intents")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void deviceSettingsUiDoesNotDependOnSharedPreferences() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameDisplayDeviceFragment")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.content.SharedPreferences")
+                .because(
+                        "device settings UI cannot address persistence directly")
+                .check(productionClasses);
+    }
+
+    @Test
     public void usbDriverServiceDoesNotReadPersistenceOrLegacySettings() {
         noClasses()
                 .that()

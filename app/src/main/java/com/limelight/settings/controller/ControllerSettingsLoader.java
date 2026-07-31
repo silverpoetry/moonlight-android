@@ -100,6 +100,22 @@ public final class ControllerSettingsLoader {
                                         .ANALOG_STICK_FOR_SCROLLING)))
                 .setBatteryReportingEnabled(repository.get(
                         ControllerSettingKeys.BATTERY_REPORTING))
+                .setTriggerRumbleLinkEnabled(repository.get(
+                        ControllerSettingKeys.TRIGGER_RUMBLE_LINK))
+                .setAdaptiveTriggerMode(repository.get(
+                        ControllerSettingKeys.ADAPTIVE_TRIGGER_MODE))
+                .setAdaptiveTriggerStrength(repository.get(
+                        ControllerSettingKeys
+                                .ADAPTIVE_TRIGGER_STRENGTH))
+                .setAdaptiveTriggerFrequency(repository.get(
+                        ControllerSettingKeys
+                                .ADAPTIVE_TRIGGER_FREQUENCY))
+                .setAdaptiveTriggerStartPosition(repository.get(
+                        ControllerSettingKeys
+                                .ADAPTIVE_TRIGGER_START_POSITION))
+                .setAdaptiveTriggerEndPosition(repository.get(
+                        ControllerSettingKeys
+                                .ADAPTIVE_TRIGGER_END_POSITION))
                 .build();
     }
 

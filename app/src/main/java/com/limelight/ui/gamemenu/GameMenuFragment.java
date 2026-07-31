@@ -631,7 +631,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
 
                 @Override
                 public void onControllerSettingsUpdate(
-                        ControllerSettingsUpdate<?> update) {
+                        ControllerSettingsUpdate update) {
                     if (host != null) {
                         host.applyControllerSettingsUpdate(update);
                     }
@@ -673,13 +673,15 @@ public class GameMenuFragment extends BaseGameMenuDialog
                         }
 
                         @Override
-                        public void onControllerSettingsChanged() {
+                        public void onControllerSettingsUpdate(
+                                ControllerSettingsUpdate update) {
                             if (host != null) {
-                                host.applyControllerSettingsFromStorage();
+                                host.applyControllerSettingsUpdate(
+                                        update);
                             }
                         }
                     });
-            fragment.setPrefConfig(host.getStreamPreferences());
+            fragment.setSettings(host.getControllerSettings());
             fragment.show(getFragmentManager());
             return;
         }

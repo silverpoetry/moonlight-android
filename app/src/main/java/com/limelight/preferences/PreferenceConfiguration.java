@@ -348,17 +348,6 @@ public class PreferenceConfiguration {
     //显示震动信息HUD
     public boolean showRumbleHUD;
 
-    //ds5自适应扳机模式
-    public int ds5TriggerMode;
-    //ds5自适应扳机震动强度
-    public int ds5TriggerStrength;
-    //ds5自适应扳机频率
-    public int ds5TriggerFrequency;
-    //ds5自适应扳机开始位置
-    public int ds5TriggerStart;
-    //ds5自适应扳机结束位置
-    public int ds5TriggerEnd;
-
     //usb手柄驱动 上报陀螺仪信息
     public boolean usbGyroscopeReport;
 
@@ -398,9 +387,6 @@ public class PreferenceConfiguration {
     public boolean gameForceGyroXYSwitch;
     //强制体感灵敏度
     public int gameForceGyroSensitivity;
-
-    //握把震动联动扳机震动
-    public boolean gameTriggerRumbleLink;
 
     //性能信息缩放比例
     public int gameSettingPrefZoom;
@@ -996,12 +982,6 @@ public class PreferenceConfiguration {
 
         config.razerVD=prefs.getInt("vdValue",0);
 
-        config.ds5TriggerMode=prefs.getInt("ds5TriggerMode",0);
-        config.ds5TriggerStrength=prefs.getInt("ds5TriggerStrength",230);
-        config.ds5TriggerFrequency=prefs.getInt("ds5TriggerFrequency",10);
-        config.ds5TriggerStart=prefs.getInt("ds5TriggerStart",40);
-        config.ds5TriggerEnd=prefs.getInt("ds5TriggerEnd",100);
-
         config.usbGyroscopeReport =
                 controllerSettings
                         .isUsbGyroscopeReportingEnabled();
@@ -1056,8 +1036,6 @@ public class PreferenceConfiguration {
         config.gameForceGyroSensitivity =
                 controllerSettings
                         .getForceGyroSensitivityPercent();
-
-        config.gameTriggerRumbleLink=prefs.getBoolean("gameTriggerRumbleLink",false);
 
         config.gameSettingPrefZoom=prefs.getInt("game_setting_pref_zoom",100);
 

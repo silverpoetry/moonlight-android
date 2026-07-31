@@ -2522,7 +2522,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         LimeLog.info(String.format((Locale)null, "Rumble on gamepad %d: %04x %04x", controllerNumber, lowFreqMotor, highFreqMotor));
         controllerHandler.handleRumble(controllerNumber, lowFreqMotor, highFreqMotor);
         //联动扳机震动
-        if(prefConfig.gameTriggerRumbleLink){
+        if (controllerSettingsState
+                .get()
+                .isTriggerRumbleLinkEnabled()) {
             handleRumbleTriggers(
                     controllerNumber,
                     lowFreqMotor,
@@ -3000,7 +3002,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void applyControllerSettingsUpdate(
-            ControllerSettingsUpdate<?> update) {
+            ControllerSettingsUpdate update) {
         ControllerSettings updated =
                 update.applyTo(controllerSettingsState.get());
         update.persist(settingsRepository);
@@ -3592,9 +3594,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     //设置ds5手柄的自适应扳机
     public void setDualSenseTrigger(){
-        controllerHandler.setDualSenseTrigger(prefConfig.ds5TriggerMode,
-                prefConfig.ds5TriggerStrength,
-                prefConfig.ds5TriggerFrequency,prefConfig.ds5TriggerStart,prefConfig.ds5TriggerEnd);
+        ControllerSettings settings =
+                controllerSettingsState.get();
+        controllerHandler.setDualSenseTrigger(
+                settings.getAdaptiveTriggerMode(),
+                settings.getAdaptiveTriggerStrength(),
+                settings.getAdaptiveTriggerFrequency(),
+                settings.getAdaptiveTriggerStartPosition(),
+                settings.getAdaptiveTriggerEndPosition());
     }
 
     public void setMotionForceGyro(){

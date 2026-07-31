@@ -27,7 +27,7 @@ public final class GameTouchFragment
         void onInputSettingsUpdate(InputSettingsUpdate update);
 
         void onControllerSettingsUpdate(
-                ControllerSettingsUpdate<?> update);
+                ControllerSettingsUpdate update);
     }
 
     private static final SeekBarValueRange MULTITOUCH_RANGE =
@@ -501,7 +501,7 @@ public final class GameTouchFragment
     }
 
     private void dispatchController(
-            ControllerSettingsUpdate<?> update) {
+            ControllerSettingsUpdate update) {
         controllerSettings = update.applyTo(controllerSettings);
         if (listener != null) {
             listener.onControllerSettingsUpdate(update);

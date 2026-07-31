@@ -26,6 +26,12 @@ public final class ControllerSettingsUpdateTest {
                         .setMouseSensitivityPercent(150)
                         .setForceGyro(true, true, false, 175)
                         .setBatteryReportingEnabled(false)
+                        .setTriggerRumbleLinkEnabled(true)
+                        .setAdaptiveTriggerMode(6)
+                        .setAdaptiveTriggerStrength(200)
+                        .setAdaptiveTriggerFrequency(12)
+                        .setAdaptiveTriggerStartPosition(50)
+                        .setAdaptiveTriggerEndPosition(150)
                         .build();
 
         ControllerSettings copy = original.toBuilder().build();
@@ -42,12 +48,18 @@ public final class ControllerSettingsUpdateTest {
         assertFalse(copy.areForceGyroAxesSwapped());
         assertEquals(175, copy.getForceGyroSensitivityPercent());
         assertFalse(copy.isBatteryReportingEnabled());
+        assertTrue(copy.isTriggerRumbleLinkEnabled());
+        assertEquals(6, copy.getAdaptiveTriggerMode());
+        assertEquals(200, copy.getAdaptiveTriggerStrength());
+        assertEquals(12, copy.getAdaptiveTriggerFrequency());
+        assertEquals(50, copy.getAdaptiveTriggerStartPosition());
+        assertEquals(150, copy.getAdaptiveTriggerEndPosition());
     }
 
     @Test
     public void typedUpdateNormalizesStateAndCanonicalStorage() {
         FakeRepository repository = new FakeRepository();
-        ControllerSettingsUpdate<Integer> update =
+        ControllerSettingsUpdate update =
                 ControllerSettingsUpdate
                         .mouseSensitivityPercent(5_000);
 
@@ -65,6 +77,88 @@ public final class ControllerSettingsUpdateTest {
                         ControllerSettingKeys
                                 .MOUSE_SENSITIVITY_PERCENT
                                 .getName()));
+        assertEquals(1, repository.applyCount);
+    }
+
+    @Test
+    public void claimAllUsbIsOneCompoundPolicyTransaction() {
+        FakeRepository repository = new FakeRepository();
+        ControllerSettings original =
+                ControllerSettings.builder()
+                        .setUsbDriverEnabled(false)
+                        .setClaimAllUsbDevices(false)
+                        .build();
+        ControllerSettingsUpdate enable =
+                ControllerSettingsUpdate
+                        .claimAllUsbDevices(true);
+
+        ControllerSettings enabled = enable.applyTo(original);
+        enable.persist(repository);
+
+        assertTrue(enabled.isUsbDriverEnabled());
+        assertTrue(enabled.shouldClaimAllUsbDevices());
+        assertEquals(
+                true,
+                repository.values.get(
+                        ControllerSettingKeys.USB_DRIVER.getName()));
+        assertEquals(
+                true,
+                repository.values.get(
+                        ControllerSettingKeys
+                                .CLAIM_ALL_USB_DEVICES
+                                .getName()));
+        assertEquals(1, repository.applyCount);
+
+        repository.values.clear();
+        ControllerSettingsUpdate disable =
+                ControllerSettingsUpdate
+                        .claimAllUsbDevices(false);
+        ControllerSettings disabled = disable.applyTo(enabled);
+        disable.persist(repository);
+
+        assertTrue(disabled.isUsbDriverEnabled());
+        assertFalse(disabled.shouldClaimAllUsbDevices());
+        assertFalse(repository.values.containsKey(
+                ControllerSettingKeys.USB_DRIVER.getName()));
+        assertEquals(
+                false,
+                repository.values.get(
+                        ControllerSettingKeys
+                                .CLAIM_ALL_USB_DEVICES
+                                .getName()));
+        assertEquals(2, repository.applyCount);
+    }
+
+    @Test
+    public void adaptiveTriggerUpdatesNormalizeIndependently() {
+        FakeRepository repository = new FakeRepository();
+        ControllerSettings original =
+                ControllerSettings.builder()
+                        .setAdaptiveTriggerMode(6)
+                        .setAdaptiveTriggerStrength(200)
+                        .setAdaptiveTriggerFrequency(12)
+                        .setAdaptiveTriggerStartPosition(50)
+                        .setAdaptiveTriggerEndPosition(150)
+                        .build();
+        ControllerSettingsUpdate update =
+                ControllerSettingsUpdate
+                        .adaptiveTriggerStrength(5_000);
+
+        ControllerSettings updated = update.applyTo(original);
+        update.persist(repository);
+
+        assertEquals(6, updated.getAdaptiveTriggerMode());
+        assertEquals(255, updated.getAdaptiveTriggerStrength());
+        assertEquals(12, updated.getAdaptiveTriggerFrequency());
+        assertEquals(50, updated.getAdaptiveTriggerStartPosition());
+        assertEquals(150, updated.getAdaptiveTriggerEndPosition());
+        assertEquals(
+                255,
+                repository.values.get(
+                        ControllerSettingKeys
+                                .ADAPTIVE_TRIGGER_STRENGTH
+                                .getName()));
+        assertEquals(1, repository.values.size());
         assertEquals(1, repository.applyCount);
     }
 

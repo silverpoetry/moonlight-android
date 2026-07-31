@@ -41,6 +41,12 @@ public final class ControllerSettings {
     private final boolean usbGyroscopeReportingEnabled;
     private final AnalogStickForScrolling analogStickForScrolling;
     private final boolean batteryReportingEnabled;
+    private final boolean triggerRumbleLinkEnabled;
+    private final int adaptiveTriggerMode;
+    private final int adaptiveTriggerStrength;
+    private final int adaptiveTriggerFrequency;
+    private final int adaptiveTriggerStartPosition;
+    private final int adaptiveTriggerEndPosition;
 
     private ControllerSettings(Builder builder) {
         stickDeadzonePercent = clamp(
@@ -99,6 +105,30 @@ public final class ControllerSettings {
                         ? AnalogStickForScrolling.RIGHT
                         : builder.analogStickForScrolling;
         batteryReportingEnabled = builder.batteryReportingEnabled;
+        triggerRumbleLinkEnabled =
+                builder.triggerRumbleLinkEnabled;
+        adaptiveTriggerMode =
+                ControllerSettingKeys.ADAPTIVE_TRIGGER_MODE
+                        .normalizeValue(
+                                builder.adaptiveTriggerMode);
+        adaptiveTriggerStrength =
+                ControllerSettingKeys.ADAPTIVE_TRIGGER_STRENGTH
+                        .normalizeValue(
+                                builder.adaptiveTriggerStrength);
+        adaptiveTriggerFrequency =
+                ControllerSettingKeys.ADAPTIVE_TRIGGER_FREQUENCY
+                        .normalizeValue(
+                                builder.adaptiveTriggerFrequency);
+        adaptiveTriggerStartPosition =
+                ControllerSettingKeys
+                        .ADAPTIVE_TRIGGER_START_POSITION
+                        .normalizeValue(
+                                builder.adaptiveTriggerStartPosition);
+        adaptiveTriggerEndPosition =
+                ControllerSettingKeys
+                        .ADAPTIVE_TRIGGER_END_POSITION
+                        .normalizeValue(
+                                builder.adaptiveTriggerEndPosition);
     }
 
     public static Builder builder() {
@@ -233,6 +263,30 @@ public final class ControllerSettings {
         return batteryReportingEnabled;
     }
 
+    public boolean isTriggerRumbleLinkEnabled() {
+        return triggerRumbleLinkEnabled;
+    }
+
+    public int getAdaptiveTriggerMode() {
+        return adaptiveTriggerMode;
+    }
+
+    public int getAdaptiveTriggerStrength() {
+        return adaptiveTriggerStrength;
+    }
+
+    public int getAdaptiveTriggerFrequency() {
+        return adaptiveTriggerFrequency;
+    }
+
+    public int getAdaptiveTriggerStartPosition() {
+        return adaptiveTriggerStartPosition;
+    }
+
+    public int getAdaptiveTriggerEndPosition() {
+        return adaptiveTriggerEndPosition;
+    }
+
     private static int normalizeMouseEmulationButton(int value) {
         return value >= 0 && value <= 2 ? value : 0;
     }
@@ -274,6 +328,24 @@ public final class ControllerSettings {
         private AnalogStickForScrolling analogStickForScrolling =
                 AnalogStickForScrolling.RIGHT;
         private boolean batteryReportingEnabled = true;
+        private boolean triggerRumbleLinkEnabled;
+        private int adaptiveTriggerMode =
+                ControllerSettingKeys.ADAPTIVE_TRIGGER_MODE
+                        .getDefaultValue();
+        private int adaptiveTriggerStrength =
+                ControllerSettingKeys.ADAPTIVE_TRIGGER_STRENGTH
+                        .getDefaultValue();
+        private int adaptiveTriggerFrequency =
+                ControllerSettingKeys.ADAPTIVE_TRIGGER_FREQUENCY
+                        .getDefaultValue();
+        private int adaptiveTriggerStartPosition =
+                ControllerSettingKeys
+                        .ADAPTIVE_TRIGGER_START_POSITION
+                        .getDefaultValue();
+        private int adaptiveTriggerEndPosition =
+                ControllerSettingKeys
+                        .ADAPTIVE_TRIGGER_END_POSITION
+                        .getDefaultValue();
 
         private Builder() {
         }
@@ -333,6 +405,18 @@ public final class ControllerSettings {
                     settings.analogStickForScrolling;
             batteryReportingEnabled =
                     settings.batteryReportingEnabled;
+            triggerRumbleLinkEnabled =
+                    settings.triggerRumbleLinkEnabled;
+            adaptiveTriggerMode =
+                    settings.adaptiveTriggerMode;
+            adaptiveTriggerStrength =
+                    settings.adaptiveTriggerStrength;
+            adaptiveTriggerFrequency =
+                    settings.adaptiveTriggerFrequency;
+            adaptiveTriggerStartPosition =
+                    settings.adaptiveTriggerStartPosition;
+            adaptiveTriggerEndPosition =
+                    settings.adaptiveTriggerEndPosition;
         }
 
         public Builder setStickDeadzonePercent(int value) {
@@ -477,6 +561,39 @@ public final class ControllerSettings {
 
         public Builder setBatteryReportingEnabled(boolean enabled) {
             batteryReportingEnabled = enabled;
+            return this;
+        }
+
+        public Builder setTriggerRumbleLinkEnabled(
+                boolean enabled) {
+            triggerRumbleLinkEnabled = enabled;
+            return this;
+        }
+
+        public Builder setAdaptiveTriggerMode(int mode) {
+            adaptiveTriggerMode = mode;
+            return this;
+        }
+
+        public Builder setAdaptiveTriggerStrength(int strength) {
+            adaptiveTriggerStrength = strength;
+            return this;
+        }
+
+        public Builder setAdaptiveTriggerFrequency(int frequency) {
+            adaptiveTriggerFrequency = frequency;
+            return this;
+        }
+
+        public Builder setAdaptiveTriggerStartPosition(
+                int position) {
+            adaptiveTriggerStartPosition = position;
+            return this;
+        }
+
+        public Builder setAdaptiveTriggerEndPosition(
+                int position) {
+            adaptiveTriggerEndPosition = position;
             return this;
         }
 

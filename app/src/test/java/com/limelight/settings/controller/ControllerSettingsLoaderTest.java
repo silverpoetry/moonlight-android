@@ -32,6 +32,12 @@ public final class ControllerSettingsLoaderTest {
                 AnalogStickForScrolling.RIGHT,
                 settings.getAnalogStickForScrolling());
         assertTrue(settings.isBatteryReportingEnabled());
+        assertFalse(settings.isTriggerRumbleLinkEnabled());
+        assertEquals(0, settings.getAdaptiveTriggerMode());
+        assertEquals(230, settings.getAdaptiveTriggerStrength());
+        assertEquals(10, settings.getAdaptiveTriggerFrequency());
+        assertEquals(40, settings.getAdaptiveTriggerStartPosition());
+        assertEquals(100, settings.getAdaptiveTriggerEndPosition());
     }
 
     @Test
@@ -63,6 +69,26 @@ public final class ControllerSettingsLoaderTest {
         repository.put(
                 ControllerSettingKeys.ANALOG_STICK_FOR_SCROLLING,
                 "left");
+        repository.put(
+                ControllerSettingKeys.TRIGGER_RUMBLE_LINK,
+                true);
+        repository.put(
+                ControllerSettingKeys.ADAPTIVE_TRIGGER_MODE,
+                6);
+        repository.put(
+                ControllerSettingKeys.ADAPTIVE_TRIGGER_STRENGTH,
+                200);
+        repository.put(
+                ControllerSettingKeys.ADAPTIVE_TRIGGER_FREQUENCY,
+                12);
+        repository.put(
+                ControllerSettingKeys
+                        .ADAPTIVE_TRIGGER_START_POSITION,
+                50);
+        repository.put(
+                ControllerSettingKeys
+                        .ADAPTIVE_TRIGGER_END_POSITION,
+                150);
         ControllerSettings settings =
                 ControllerSettingsLoader.load(repository);
 
@@ -78,6 +104,12 @@ public final class ControllerSettingsLoaderTest {
         assertEquals(
                 AnalogStickForScrolling.LEFT,
                 settings.getAnalogStickForScrolling());
+        assertTrue(settings.isTriggerRumbleLinkEnabled());
+        assertEquals(6, settings.getAdaptiveTriggerMode());
+        assertEquals(200, settings.getAdaptiveTriggerStrength());
+        assertEquals(12, settings.getAdaptiveTriggerFrequency());
+        assertEquals(50, settings.getAdaptiveTriggerStartPosition());
+        assertEquals(150, settings.getAdaptiveTriggerEndPosition());
     }
 
     @Test
@@ -98,6 +130,21 @@ public final class ControllerSettingsLoaderTest {
                         .ANALOG_STICK_FOR_SCROLLING
                         .getName(),
                 "broken");
+        repository.values.put(
+                ControllerSettingKeys
+                        .ADAPTIVE_TRIGGER_MODE
+                        .getName(),
+                5);
+        repository.values.put(
+                ControllerSettingKeys
+                        .ADAPTIVE_TRIGGER_STRENGTH
+                        .getName(),
+                5_000);
+        repository.values.put(
+                ControllerSettingKeys
+                        .ADAPTIVE_TRIGGER_FREQUENCY
+                        .getName(),
+                -100);
 
         ControllerSettings settings =
                 ControllerSettingsLoader.load(repository);
@@ -107,6 +154,9 @@ public final class ControllerSettingsLoaderTest {
         assertEquals(
                 AnalogStickForScrolling.RIGHT,
                 settings.getAnalogStickForScrolling());
+        assertEquals(0, settings.getAdaptiveTriggerMode());
+        assertEquals(255, settings.getAdaptiveTriggerStrength());
+        assertEquals(5, settings.getAdaptiveTriggerFrequency());
     }
 
     @Test

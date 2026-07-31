@@ -235,6 +235,11 @@ A slice is incomplete if callers can still bypass the new boundary.
   and emits schema-normalized typed intents. Mouse-wheel distance now belongs
   to `InputSettings`, and its runtime sender reads the same atomic state that
   the menu updates; the corresponding legacy property-bag field is removed.
+- The device settings menu emits typed controller intents. USB claim policy,
+  device/gyro/rumble options, rumble-trigger linkage, and every DualSense
+  adaptive-trigger parameter now share the stream-owned
+  `ControllerSettingsState`; their obsolete legacy property-bag fields and
+  direct preference access are removed.
 - Versioned legacy preference migration through schema version 2.
 - A platform-independent virtual-control layout identity/repository contract,
   Android atomic-file adapter, bounded and validated import, and one shared

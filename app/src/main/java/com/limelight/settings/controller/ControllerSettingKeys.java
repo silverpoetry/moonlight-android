@@ -129,6 +129,47 @@ public final class ControllerSettingKeys {
             SettingKey.booleanKey(
                     "checkbox_gamepad_enable_battery_report",
                     true);
+    public static final SettingKey<Boolean> TRIGGER_RUMBLE_LINK =
+            SettingKey.booleanKey(
+                    "gameTriggerRumbleLink",
+                    false);
+    public static final SettingKey<Integer> ADAPTIVE_TRIGGER_MODE =
+            SettingKey.integerSetKey(
+                    "ds5TriggerMode",
+                    0,
+                    0,
+                    1,
+                    2,
+                    6);
+    public static final SettingKey<Integer>
+            ADAPTIVE_TRIGGER_STRENGTH =
+            SettingKey.integerKey(
+                    "ds5TriggerStrength",
+                    230,
+                    10,
+                    255);
+    public static final SettingKey<Integer>
+            ADAPTIVE_TRIGGER_FREQUENCY =
+            SettingKey.integerKey(
+                    "ds5TriggerFrequency",
+                    10,
+                    5,
+                    15);
+    public static final SettingKey<Integer>
+            ADAPTIVE_TRIGGER_START_POSITION =
+            SettingKey.integerKey(
+                    "ds5TriggerStart",
+                    40,
+                    10,
+                    255);
+    public static final SettingKey<Integer>
+            ADAPTIVE_TRIGGER_END_POSITION =
+            SettingKey.integerKey(
+                    "ds5TriggerEnd",
+                    100,
+                    10,
+                    255);
+
     private ControllerSettingKeys() {
     }
 }
