@@ -162,6 +162,75 @@ public final class ControllerSettingsUpdateTest {
         assertEquals(1, repository.applyCount);
     }
 
+    @Test
+    public void mouseEmulationIsOneCompoundPolicyTransaction() {
+        FakeRepository repository = new FakeRepository();
+        ControllerSettings original =
+                ControllerSettings.builder()
+                        .setMouseEmulationEnabled(false)
+                        .setMouseEmulationButton(0)
+                        .setForceGyro(true, true, false, 175)
+                        .build();
+        ControllerSettingsUpdate update =
+                ControllerSettingsUpdate.mouseEmulation(
+                        true,
+                        99);
+
+        ControllerSettings updated = update.applyTo(original);
+        update.persist(repository);
+
+        assertTrue(updated.isMouseEmulationEnabled());
+        assertEquals(0, updated.getMouseEmulationButton());
+        assertTrue(updated.isForceGyroEnabled());
+        assertTrue(updated.isForceGyroLeftTriggerRequired());
+        assertEquals(
+                true,
+                repository.values.get(
+                        ControllerSettingKeys
+                                .MOUSE_EMULATION
+                                .getName()));
+        assertEquals(
+                0,
+                repository.values.get(
+                        ControllerSettingKeys
+                                .MOUSE_EMULATION_BUTTON
+                                .getName()));
+        assertEquals(2, repository.values.size());
+        assertEquals(1, repository.applyCount);
+    }
+
+    @Test
+    public void forceGyroScalarUpdatePreservesOtherPolicy() {
+        FakeRepository repository = new FakeRepository();
+        ControllerSettings original =
+                ControllerSettings.builder()
+                        .setForceGyro(true, true, false, 175)
+                        .setAdaptiveTriggerMode(6)
+                        .build();
+        ControllerSettingsUpdate update =
+                ControllerSettingsUpdate
+                        .forceGyroSensitivityPercent(5_000);
+
+        ControllerSettings updated = update.applyTo(original);
+        update.persist(repository);
+
+        assertEquals(
+                200,
+                updated.getForceGyroSensitivityPercent());
+        assertTrue(updated.isForceGyroEnabled());
+        assertTrue(updated.isForceGyroLeftTriggerRequired());
+        assertFalse(updated.areForceGyroAxesSwapped());
+        assertEquals(6, updated.getAdaptiveTriggerMode());
+        assertEquals(
+                200,
+                repository.values.get(
+                        ControllerSettingKeys
+                                .FORCE_GYRO_SENSITIVITY_PERCENT
+                                .getName()));
+        assertEquals(1, repository.values.size());
+        assertEquals(1, repository.applyCount);
+    }
+
     private static final class FakeRepository
             implements SettingsRepository {
         private final Map<String, Object> values =

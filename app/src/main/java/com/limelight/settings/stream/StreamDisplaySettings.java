@@ -198,6 +198,10 @@ public final class StreamDisplaySettings {
         return externalDisplayEnabled;
     }
 
+    public boolean isHdrEnabled() {
+        return hdrEnabled;
+    }
+
     public Gravity getGravity() {
         return gravity;
     }

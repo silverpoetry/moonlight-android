@@ -1,27 +1,34 @@
 package com.limelight.ui.gamemenu;
 
-import android.preference.PreferenceManager;
-import androidx.annotation.StringRes;
 import android.view.View;
 import android.widget.CheckBox;
-import android.widget.CompoundButton;
-import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import androidx.annotation.StringRes;
+
 import com.limelight.R;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.audio.StreamAudioSettings;
+import com.limelight.settings.audio.StreamAudioSettingsUpdate;
+import com.limelight.settings.controller.ControllerSettings;
+import com.limelight.settings.controller.ControllerSettingsUpdate;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsUpdate;
+import com.limelight.settings.ui.StreamUiSettings;
+import com.limelight.settings.ui.StreamUiSettingsUpdate;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.utils.SeekBarValueRange;
 
-import static com.limelight.preferences.PreferenceConfiguration.TOUCH_SENSITIVITY;
+import java.util.Objects;
 
 /**
- * 游戏菜单-杂项
+ * Edits cross-domain live stream settings through typed intents.
  */
-public class GameDisplaySettingFragment extends BaseGameMenuDialog {
+public final class GameDisplaySettingFragment
+        extends BaseGameMenuDialog
+        implements SeekBar.OnSeekBarChangeListener {
     private static final SeekBarValueRange GYRO_SENSITIVITY_RANGE =
             new SeekBarValueRange(50, 200);
     private static final SeekBarValueRange PERFORMANCE_SCALE_RANGE =
@@ -31,736 +38,681 @@ public class GameDisplaySettingFragment extends BaseGameMenuDialog {
     private static final SeekBarValueRange AUDIO_HAPTICS_STRENGTH_RANGE =
             new SeekBarValueRange(25, 200);
 
+    private int titleRes = R.string.game_menu_misc_title;
+    private StreamUiSettings uiSettings;
+    private InputSettings inputSettings;
+    private ControllerSettings controllerSettings;
+    private StreamAudioSettings audioSettings;
+    private Listener listener;
+
+    private CheckBox floatingControl;
+    private CheckBox rememberFloatingPosition;
+    private CheckBox audioMute;
+    private CheckBox compactPerformanceDetails;
+    private CheckBox compactPerformanceInteractive;
+    private CheckBox forceStrongVibrations;
+    private CheckBox stopStrongVibrationPulse;
+    private CheckBox rumbleOverlay;
+    private RadioGroup mouseEmulationMode;
+    private RadioGroup softKeyboardGesture;
+    private RadioGroup floatingAction;
+    private CheckBox forceGyro;
+    private CheckBox forceGyroRequiresLeftTrigger;
+    private CheckBox forceGyroAxesSwapped;
+    private RadioGroup audioHapticsEnabled;
+    private RadioGroup audioHapticsVoiceFilter;
+    private RadioGroup audioHapticsOutputTarget;
+    private RadioGroup keepControllerRumble;
+    private LinearLayout audioHapticsDetails;
+    private TextView keepControllerRumbleLabel;
+    private SeekBar performanceScale;
+    private SeekBar performanceMargin;
+    private SeekBar gyroSensitivity;
+    private SeekBar audioHapticsStrength;
+    private TextView performanceScaleValue;
+    private TextView performanceMarginValue;
+    private TextView gyroSensitivityValue;
+    private TextView audioHapticsStrengthValue;
+
     @Override
     public int getLayoutRes() {
         return R.layout.dialog_game_menu_setting;
     }
 
-    private ImageButton ibtn_back;
-    private TextView tx_title;
-
-    private int titleRes = R.string.game_menu_misc_title;
-
-    private CheckBox btn_game_float_ball;
-    private CheckBox btn_game_audio_mute;
-    private CheckBox btn_game_lite_ext;
-    private CheckBox btn_game_lite_click;
-    private CheckBox btn_game_rumble_force;
-    private CheckBox btn_game_rumble_force_stop;
-
-    //悬浮球记住位置
-    private CheckBox btn_game_float_ball_postion;
-
-    private CheckBox btn_game_rumble_hud;
-
-    private RadioGroup rg_game_setting_control;
-
-    private RadioGroup rg_game_setting_touch;
-
-    private RadioGroup rg_game_setting_float_ball;
-
-
-    private CheckBox btn_game_force_gyro;
-    private CheckBox btn_game_force_gyro_left_trgger;
-    private CheckBox btn_game_force_gyro_switch;
-    private RadioGroup rg_game_audio_haptics_enable;
-
-    private SeekBar sb_game_setting_pref_zoom;
-
-    private SeekBar sb_game_setting_pref_magin_top;
-    private SeekBar sb_game_audio_haptics_strength;
-
-    private TextView tx_game_setting_pref_magin_top;
-
-    private TextView tx_game_setting_pref_zoom;
-
-    private TextView tx_game_setting_gyro_sensitivity;
-    private TextView tx_game_audio_haptics_strength;
-
-    private SeekBar sb_game_setting_gyro_sensitivity;
-    private RadioGroup rg_game_audio_haptics_voice_filter;
-    private RadioGroup rg_game_audio_haptics_output_target;
-    private RadioGroup rg_game_audio_haptics_keep_controller_rumble;
-    private LinearLayout layout_game_audio_haptics_details;
-    private TextView tx_game_audio_haptics_keep_controller_rumble;
-
     @Override
-    public void bindView(View v) {
-        super.bindView(v);
-        ibtn_back=v.findViewById(R.id.ibtn_back);
-        tx_title=v.findViewById(R.id.tx_title);
-
-        btn_game_float_ball=v.findViewById(R.id.btn_game_float_ball);
-        btn_game_audio_mute=v.findViewById(R.id.btn_game_audio_mute);
-        btn_game_lite_ext=v.findViewById(R.id.btn_game_lite_ext);
-        btn_game_lite_click=v.findViewById(R.id.btn_game_lite_click);
-        btn_game_float_ball_postion=v.findViewById(R.id.btn_game_float_ball_postion);
-        rg_game_setting_control=v.findViewById(R.id.rg_game_setting_control);
-        rg_game_setting_touch =v.findViewById(R.id.rg_game_setting_touch);
-        btn_game_rumble_force=v.findViewById(R.id.btn_game_rumble_force);
-        btn_game_rumble_force_stop=v.findViewById(R.id.btn_game_rumble_force_stop);
-        btn_game_rumble_hud=v.findViewById(R.id.btn_game_rumble_hud);
-        rg_game_setting_float_ball=v.findViewById(R.id.rg_game_setting_float_ball);
-        btn_game_force_gyro=v.findViewById(R.id.btn_game_force_gyro);
-        btn_game_force_gyro_left_trgger=v.findViewById(R.id.btn_game_force_gyro_left_trgger);
-        btn_game_force_gyro_switch=v.findViewById(R.id.btn_game_force_gyro_switch);
-        rg_game_audio_haptics_enable=v.findViewById(R.id.rg_game_audio_haptics_enable);
-        sb_game_setting_pref_zoom=v.findViewById(R.id.sb_game_setting_pref_zoom);
-        tx_game_setting_pref_zoom=v.findViewById(R.id.tx_game_setting_pref_zoom);
-
-        tx_game_setting_pref_magin_top=v.findViewById(R.id.tx_game_setting_pref_magin_top);
-        sb_game_setting_pref_magin_top=v.findViewById(R.id.sb_game_setting_pref_magin_top);
-
-        tx_game_setting_gyro_sensitivity=v.findViewById(R.id.tx_game_setting_gyro_sensitivity);
-        sb_game_setting_gyro_sensitivity=v.findViewById(R.id.sb_game_setting_gyro_sensitivity);
-        tx_game_audio_haptics_strength=v.findViewById(R.id.tx_game_audio_haptics_strength);
-        sb_game_audio_haptics_strength=v.findViewById(R.id.sb_game_audio_haptics_strength);
-        rg_game_audio_haptics_voice_filter=v.findViewById(R.id.rg_game_audio_haptics_voice_filter);
-        rg_game_audio_haptics_output_target=v.findViewById(R.id.rg_game_audio_haptics_output_target);
-        rg_game_audio_haptics_keep_controller_rumble=v.findViewById(R.id.rg_game_audio_haptics_keep_controller_rumble);
-        layout_game_audio_haptics_details=v.findViewById(R.id.layout_game_audio_haptics_details);
-        tx_game_audio_haptics_keep_controller_rumble=v.findViewById(R.id.tx_game_audio_haptics_keep_controller_rumble);
-
-        tx_title.setText(titleRes);
+    public void bindView(View view) {
+        super.bindView(view);
+        requireSettings();
+        bindControls(view);
         configureSeekBars();
-        initViewData();
-        initControl();
-        initTouchNumber();
-        initFloatBall();
-        initPrefZoom();
-        initPrefMagin();
-        initGyroSensitivity();
-        initAudioHaptics();
-        ibtn_back.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                dismiss();
-            }
-        });
-
-        btn_game_float_ball.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            prefConfig.enableAXFloating=isChecked;
-            setSetting("checkbox_enable_ax_floating",isChecked);
-            if(onClick!=null){
-                onClick.click(0,isChecked);
-            }
-        });
-
-        btn_game_float_ball_postion.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                prefConfig.axFloatingPostionAuto =isChecked;
-                setSetting("ax_floating_postion_auto",isChecked);
-                if(!isChecked){
-                    saveSettingFloat("ax_floating_postion_x",-1);
-                    saveSettingFloat("ax_floating_postion_y",-1);
-                }
-            }
-        });
-
-        btn_game_audio_mute.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            prefConfig.audioMute=isChecked;
-            setSetting("ax_audio_mute",isChecked);
-            notifyAudioSettingsChanged();
-        });
-        btn_game_lite_ext.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            prefConfig.enablePerfOverlayLiteExt=isChecked;
-            setSetting("checkbox_enable_perf_overlay_lite_ext",isChecked);
-        });
-        btn_game_lite_click.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            prefConfig.enablePerfOverlayLiteDialog=isChecked;
-            setSetting("checkbox_enable_perf_overlay_lite_dialog",isChecked);
-            if(onClick!=null){
-                onClick.click(2,isChecked);
-            }
-        });
-
-        btn_game_rumble_force.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                prefConfig.enableForceStrongVibrations=isChecked;
-                setSetting("enable_force_strong_vibrations",isChecked);
-                notifyControllerSettingsChanged();
-            }
-        });
-        btn_game_rumble_force_stop.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                prefConfig.enableForceStrongVibrationsStop=isChecked;
-                setSetting("enable_force_strong_vibrations_stop",isChecked);
-                notifyControllerSettingsChanged();
-            }
-        });
-
-        btn_game_rumble_hud.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                prefConfig.showRumbleHUD=isChecked;
-                setSetting("rumble_HUD_show",isChecked);
-                if(onClick!=null){
-                    onClick.click(1,isChecked);
-                }
-            }
-        });
-
-        rg_game_setting_control.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                //关闭
-                if(checkedId==R.id.rbt_game_setting_control_1){
-                    prefConfig.mouseEmulation=false;
-                    saveSetting("checkbox_mouse_emulation",false);
-                    prefConfig.mouseEmulationGameMenu=0;
-                    saveSetting("ax_quick_game_menu_key",0);
-                    notifyControllerSettingsChanged();
-                    return;
-                }
-                //开始键长按
-                if(checkedId==R.id.rbt_game_setting_control_2){
-                    prefConfig.mouseEmulation=true;
-                    saveSetting("checkbox_mouse_emulation",true);
-                    prefConfig.mouseEmulationGameMenu=0;
-                    saveSetting("ax_quick_game_menu_key",0);
-                    notifyControllerSettingsChanged();
-                    return;
-                }
-                //xbox键单机
-                if(checkedId==R.id.rbt_game_setting_control_3){
-                    prefConfig.mouseEmulation=true;
-                    saveSetting("checkbox_mouse_emulation",true);
-                    prefConfig.mouseEmulationGameMenu=1;
-                    saveSetting("ax_quick_game_menu_key",1);
-                    notifyControllerSettingsChanged();
-                    return;
-                }
-                //菜单键 长按
-                if(checkedId==R.id.rbt_game_setting_control_4){
-                    prefConfig.mouseEmulation=true;
-                    saveSetting("checkbox_mouse_emulation",true);
-                    prefConfig.mouseEmulationGameMenu=2;
-                    saveSetting("ax_quick_game_menu_key",2);
-                    notifyControllerSettingsChanged();
-                    return;
-                }
-            }
-        });
-
-        rg_game_setting_touch.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if(checkedId==R.id.rbt_game_setting_touch_1){
-                    prefConfig.quickSoftKeyboardFingers=0;
-                    saveSetting("touch_number_quick_soft_keyboard",0);
-                    notifyInputSettingsChanged();
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_setting_touch_2){
-                    prefConfig.quickSoftKeyboardFingers=3;
-                    saveSetting("touch_number_quick_soft_keyboard",3);
-                    notifyInputSettingsChanged();
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_setting_touch_3){
-                    prefConfig.quickSoftKeyboardFingers=4;
-                    saveSetting("touch_number_quick_soft_keyboard",4);
-                    notifyInputSettingsChanged();
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_setting_touch_4){
-                    prefConfig.quickSoftKeyboardFingers=5;
-                    saveSetting("touch_number_quick_soft_keyboard",5);
-                    notifyInputSettingsChanged();
-                    return;
-                }
-            }
-        });
-
-        rg_game_setting_float_ball.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                if(checkedId==R.id.rbt_game_setting_float_ball_1){
-                    prefConfig.axFloatingOperate=0;
-                    saveSetting("ax_floating_operate",0);
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_setting_float_ball_2){
-                    prefConfig.axFloatingOperate=1;
-                    saveSetting("ax_floating_operate",1);
-                    return;
-                }
-                if(checkedId==R.id.rbt_game_setting_float_ball_3){
-                    prefConfig.axFloatingOperate=2;
-                    saveSetting("ax_floating_operate",2);
-                    return;
-                }
-
-            }
-        });
-
-        btn_game_force_gyro.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                prefConfig.gameForceGyro=isChecked;
-                setSetting("gameForceGyro",isChecked);
-                if(onClick!=null){
-                    onClick.click(4,isChecked);
-                }
-            }
-        });
-
-        btn_game_force_gyro_left_trgger.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                prefConfig.gameForceGyroLeftTrigger=isChecked;
-                setSetting("gameForceGyroLeftTrigger",isChecked);
-                notifyControllerSettingsChanged();
-            }
-        });
-        btn_game_force_gyro_switch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                prefConfig.gameForceGyroXYSwitch=isChecked;
-                setSetting("gameForceGyroXYSwitch",isChecked);
-                notifyControllerSettingsChanged();
-            }
-        });
-
-        rg_game_audio_haptics_enable.setOnCheckedChangeListener((group, checkedId) -> {
-            if (checkedId == R.id.rbt_game_audio_haptics_enable_on) {
-                prefConfig.enableAudioHaptics = true;
-            }
-            else if (checkedId == R.id.rbt_game_audio_haptics_enable_off) {
-                prefConfig.enableAudioHaptics = false;
-            }
-            else {
-                return;
-            }
-
-            setSetting("checkbox_enable_audio_haptics", prefConfig.enableAudioHaptics);
-            updateAudioHapticsVisibility();
-            notifyAudioSettingsChanged();
-        });
-
-        rg_game_audio_haptics_voice_filter.setOnCheckedChangeListener((group, checkedId) -> {
-            if (checkedId == R.id.rbt_game_audio_haptics_voice_filter_1) {
-                prefConfig.audioHapticsVoiceFilter = "off";
-            }
-            else if (checkedId == R.id.rbt_game_audio_haptics_voice_filter_2) {
-                prefConfig.audioHapticsVoiceFilter = "low";
-            }
-            else if (checkedId == R.id.rbt_game_audio_haptics_voice_filter_3) {
-                prefConfig.audioHapticsVoiceFilter = "medium";
-            }
-            else if (checkedId == R.id.rbt_game_audio_haptics_voice_filter_4) {
-                prefConfig.audioHapticsVoiceFilter = "high";
-            }
-            else {
-                return;
-            }
-
-            saveSetting("list_audio_haptics_voice_filter", prefConfig.audioHapticsVoiceFilter);
-            notifyAudioSettingsChanged();
-        });
-
-        rg_game_audio_haptics_output_target.setOnCheckedChangeListener((group, checkedId) -> {
-            if (checkedId == R.id.rbt_game_audio_haptics_output_target_phone) {
-                prefConfig.audioHapticsOutputTarget = "phone";
-            }
-            else if (checkedId == R.id.rbt_game_audio_haptics_output_target_controller) {
-                prefConfig.audioHapticsOutputTarget = "controller";
-            }
-            else {
-                return;
-            }
-
-            saveSetting("list_audio_haptics_output_target", prefConfig.audioHapticsOutputTarget);
-            updateAudioHapticsVisibility();
-            notifyAudioSettingsChanged();
-        });
-
-        rg_game_audio_haptics_keep_controller_rumble.setOnCheckedChangeListener((group, checkedId) -> {
-            if (checkedId == R.id.rbt_game_audio_haptics_keep_controller_rumble_on) {
-                prefConfig.audioHapticsKeepControllerRumble = true;
-            }
-            else if (checkedId == R.id.rbt_game_audio_haptics_keep_controller_rumble_off) {
-                prefConfig.audioHapticsKeepControllerRumble = false;
-            }
-            else {
-                return;
-            }
-
-            saveSetting("checkbox_audio_haptics_keep_controller_rumble", prefConfig.audioHapticsKeepControllerRumble);
-            updateAudioHapticsVisibility();
-            notifyAudioSettingsChanged();
-        });
-
-        sb_game_setting_pref_zoom.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (!fromUser) {
-                    return;
-                }
-                int value = PERFORMANCE_SCALE_RANGE
-                        .progressToValue(progress);
-                prefConfig.gameSettingPrefZoom=value;
-                saveSetting("game_setting_pref_zoom",value);
-                initPrefZoom();
-                if(onClick!=null){
-                    onClick.click(3,false);
-                }
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-
-            }
-        });
-
-        sb_game_setting_pref_magin_top.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (!fromUser) {
-                    return;
-                }
-                int value = PERFORMANCE_MARGIN_RANGE
-                        .progressToValue(progress);
-                prefConfig.performanceOverlayLiteMaginTop=value;
-                saveSetting("performance_overlayLite_magin_top",value);
-                initPrefMagin();
-                if(onClick!=null){
-                    onClick.click(5,false);
-                }
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-
-            }
-        });
-
-        sb_game_setting_gyro_sensitivity.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (!fromUser) {
-                    return;
-                }
-                int value = GYRO_SENSITIVITY_RANGE
-                        .progressToValue(progress);
-                prefConfig.gameForceGyroSensitivity=value;
-                saveSetting("gameForceGyroSensitivity",value);
-                initGyroSensitivity();
-                notifyControllerSettingsChanged();
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-
-            }
-        });
-
-        sb_game_audio_haptics_strength.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (!fromUser) {
-                    return;
-                }
-                int value = AUDIO_HAPTICS_STRENGTH_RANGE
-                        .progressToValue(progress);
-                prefConfig.audioHapticsStrength = value;
-                saveSetting("seekbar_audio_haptics_strength", value);
-                initAudioHapticsStrength();
-                notifyAudioSettingsChanged();
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-
-            }
-        });
-    }
-
-    private void configureSeekBars() {
-        sb_game_setting_gyro_sensitivity.setMax(
-                GYRO_SENSITIVITY_RANGE.getProgressMaximum());
-        sb_game_setting_pref_zoom.setMax(
-                PERFORMANCE_SCALE_RANGE.getProgressMaximum());
-        sb_game_setting_pref_magin_top.setMax(
-                PERFORMANCE_MARGIN_RANGE.getProgressMaximum());
-        sb_game_audio_haptics_strength.setMax(
-                AUDIO_HAPTICS_STRENGTH_RANGE.getProgressMaximum());
-    }
-
-
-    private void initControl(){
-        boolean enableKey=PreferenceManager.getDefaultSharedPreferences(getActivity()).getBoolean("checkbox_mouse_emulation",false);
-        if(!enableKey){
-            rg_game_setting_control.check(R.id.rbt_game_setting_control_1);
-            return;
-        }
-        int keyFlag=PreferenceManager.getDefaultSharedPreferences(getActivity()).getInt("ax_quick_game_menu_key",0);
-        switch (keyFlag){
-            case 0:
-                rg_game_setting_control.check(R.id.rbt_game_setting_control_2);
-                break;
-            case 1:
-                rg_game_setting_control.check(R.id.rbt_game_setting_control_3);
-                break;
-            case 2:
-                rg_game_setting_control.check(R.id.rbt_game_setting_control_4);
-                break;
-        }
-    }
-
-    private void initTouchNumber(){
-        int keyFlag=PreferenceManager.getDefaultSharedPreferences(getActivity()).getInt("touch_number_quick_soft_keyboard",0);
-        switch (keyFlag){
-            case 0:
-                rg_game_setting_touch.check(R.id.rbt_game_setting_touch_1);
-                break;
-            case 3:
-                rg_game_setting_touch.check(R.id.rbt_game_setting_touch_2);
-                break;
-            case 4:
-                rg_game_setting_touch.check(R.id.rbt_game_setting_touch_3);
-                break;
-            case 5:
-                rg_game_setting_touch.check(R.id.rbt_game_setting_touch_4);
-                break;
-        }
-    }
-
-    private void initFloatBall(){
-        int keyFlag=PreferenceManager.getDefaultSharedPreferences(getActivity()).getInt("ax_floating_operate",0);
-        switch (keyFlag){
-            case 0:
-                rg_game_setting_float_ball.check(R.id.rbt_game_setting_float_ball_1);
-                break;
-            case 1:
-                rg_game_setting_float_ball.check(R.id.rbt_game_setting_float_ball_2);
-                break;
-            case 2:
-                rg_game_setting_float_ball.check(R.id.rbt_game_setting_float_ball_3);
-                break;
-        }
-    }
-
-    private void saveSetting(String name,int value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putInt(name,value)
-                .apply();
-    }
-
-    private void saveSetting(String name,String value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putString(name,value)
-                .apply();
-    }
-
-    private void saveSettingFloat(String name,float value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putFloat(name,value)
-                .apply();
-    }
-
-    private void saveSetting(String name,boolean value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putBoolean(name,value)
-                .apply();
-    }
-
-    private void setSetting(String name,boolean value){
-        PreferenceManager.getDefaultSharedPreferences(getActivity())
-                .edit()
-                .putBoolean(name,value)
-                .apply();
-        initViewData();
-    }
-
-    private void initViewData() {
-        if(prefConfig==null){
-            return;
-        }
-        btn_game_float_ball.setChecked(prefConfig.enableAXFloating);
-        btn_game_float_ball_postion.setChecked(prefConfig.axFloatingPostionAuto);
-        btn_game_audio_mute.setChecked(prefConfig.audioMute);
-        btn_game_lite_ext.setChecked(prefConfig.enablePerfOverlayLiteExt);
-        btn_game_lite_click.setChecked(prefConfig.enablePerfOverlayLiteDialog);
-        btn_game_rumble_force.setChecked(prefConfig.enableForceStrongVibrations);
-        btn_game_rumble_force_stop.setChecked(prefConfig.enableForceStrongVibrationsStop);
-        btn_game_rumble_hud.setChecked(prefConfig.showRumbleHUD);
-
-        btn_game_force_gyro.setChecked(prefConfig.gameForceGyro);
-        btn_game_force_gyro_left_trgger.setChecked(prefConfig.gameForceGyroLeftTrigger);
-        btn_game_force_gyro_switch.setChecked(prefConfig.gameForceGyroXYSwitch);
-        if (prefConfig.enableAudioHaptics) {
-            rg_game_audio_haptics_enable.check(R.id.rbt_game_audio_haptics_enable_on);
-        }
-        else {
-            rg_game_audio_haptics_enable.check(R.id.rbt_game_audio_haptics_enable_off);
-        }
-    }
-
-    private void initPrefZoom(){
-        tx_game_setting_pref_zoom.setText(getString(
-                R.string.game_menu_performance_scale_format,
-                prefConfig.gameSettingPrefZoom));
-        sb_game_setting_pref_zoom.setProgress(
-                PERFORMANCE_SCALE_RANGE.valueToProgress(
-                        prefConfig.gameSettingPrefZoom));
-    }
-
-    private void initPrefMagin(){
-        tx_game_setting_pref_magin_top.setText(getString(
-                R.string.game_menu_performance_margin_format,
-                prefConfig.performanceOverlayLiteMaginTop));
-        sb_game_setting_pref_magin_top.setProgress(
-                PERFORMANCE_MARGIN_RANGE.valueToProgress(
-                        prefConfig.performanceOverlayLiteMaginTop));
-    }
-
-    private void initGyroSensitivity(){
-        tx_game_setting_gyro_sensitivity.setText(getString(
-                R.string.game_menu_gyro_sensitivity_format,
-                prefConfig.gameForceGyroSensitivity));
-        sb_game_setting_gyro_sensitivity.setProgress(
-                GYRO_SENSITIVITY_RANGE.valueToProgress(
-                        prefConfig.gameForceGyroSensitivity));
-    }
-
-    private void initAudioHaptics() {
-        initAudioHapticsOutputTarget();
-        initAudioHapticsVoiceFilter();
-        initAudioHapticsStrength();
-        updateAudioHapticsVisibility();
-    }
-
-    private void initAudioHapticsOutputTarget() {
-        if ("controller".equals(prefConfig.audioHapticsOutputTarget)) {
-            rg_game_audio_haptics_output_target.check(R.id.rbt_game_audio_haptics_output_target_controller);
-        }
-        else {
-            rg_game_audio_haptics_output_target.check(R.id.rbt_game_audio_haptics_output_target_phone);
-        }
-    }
-
-    private void initAudioHapticsVoiceFilter() {
-        String filter = prefConfig.audioHapticsVoiceFilter;
-        if ("low".equals(filter)) {
-            rg_game_audio_haptics_voice_filter.check(R.id.rbt_game_audio_haptics_voice_filter_2);
-        }
-        else if ("medium".equals(filter)) {
-            rg_game_audio_haptics_voice_filter.check(R.id.rbt_game_audio_haptics_voice_filter_3);
-        }
-        else if ("high".equals(filter)) {
-            rg_game_audio_haptics_voice_filter.check(R.id.rbt_game_audio_haptics_voice_filter_4);
-        }
-        else {
-            rg_game_audio_haptics_voice_filter.check(R.id.rbt_game_audio_haptics_voice_filter_1);
-        }
-    }
-
-    private void initAudioHapticsStrength() {
-        tx_game_audio_haptics_strength.setText(getString(
-                R.string.game_menu_audio_haptics_strength_format,
-                prefConfig.audioHapticsStrength));
-        sb_game_audio_haptics_strength.setProgress(
-                AUDIO_HAPTICS_STRENGTH_RANGE.valueToProgress(
-                        prefConfig.audioHapticsStrength));
-    }
-
-    private void updateAudioHapticsVisibility() {
-        if (layout_game_audio_haptics_details != null) {
-            layout_game_audio_haptics_details.setVisibility(prefConfig.enableAudioHaptics ? View.VISIBLE : View.GONE);
-        }
-        boolean showKeepControllerRumble = prefConfig.enableAudioHaptics &&
-                "controller".equals(prefConfig.audioHapticsOutputTarget);
-        if (tx_game_audio_haptics_keep_controller_rumble != null) {
-            tx_game_audio_haptics_keep_controller_rumble.setVisibility(
-                    showKeepControllerRumble ? View.VISIBLE : View.GONE);
-        }
-        if (rg_game_audio_haptics_keep_controller_rumble != null) {
-            rg_game_audio_haptics_keep_controller_rumble.check(prefConfig.audioHapticsKeepControllerRumble ?
-                    R.id.rbt_game_audio_haptics_keep_controller_rumble_on :
-                    R.id.rbt_game_audio_haptics_keep_controller_rumble_off);
-            rg_game_audio_haptics_keep_controller_rumble.setVisibility(
-                    showKeepControllerRumble ? View.VISIBLE : View.GONE);
-        }
-    }
-
-    private void notifyAudioSettingsChanged() {
-        if (onClick != null) {
-            onClick.onAudioSettingsChanged();
-        }
-    }
-
-    @Override
-    public float getDimAmount() {
-        return super.getDimAmount();
+        ((TextView) view.findViewById(R.id.tx_title))
+                .setText(titleRes);
+        renderAll();
+        bindListeners(view);
     }
 
     public void setTitle(@StringRes int titleRes) {
         this.titleRes = titleRes;
     }
 
-    private PreferenceConfiguration prefConfig;
-
-    public void setPrefConfig(PreferenceConfiguration prefConfig) {
-        this.prefConfig = prefConfig;
+    public void setSettings(
+            StreamUiSettings uiSettings,
+            InputSettings inputSettings,
+            ControllerSettings controllerSettings,
+            StreamAudioSettings audioSettings) {
+        this.uiSettings = Objects.requireNonNull(
+                uiSettings,
+                "uiSettings");
+        this.inputSettings = Objects.requireNonNull(
+                inputSettings,
+                "inputSettings");
+        this.controllerSettings = Objects.requireNonNull(
+                controllerSettings,
+                "controllerSettings");
+        this.audioSettings = Objects.requireNonNull(
+                audioSettings,
+                "audioSettings");
     }
 
-    private onClick onClick;
-
-    public interface onClick{
-        void click(int index,boolean flag);
-
-        default void onInputSettingsChanged() {
-        }
-
-        default void onControllerSettingsChanged() {
-        }
-
-        default void onAudioSettingsChanged() {
-        }
+    public void setListener(Listener listener) {
+        this.listener = listener;
     }
 
-    public void setOnClick(onClick onClick) {
-        this.onClick = onClick;
-    }
-
-    private void notifyInputSettingsChanged() {
-        if (onClick != null) {
-            onClick.onInputSettingsChanged();
-        }
-    }
-
-    private void notifyControllerSettingsChanged() {
-        if (onClick != null) {
-            onClick.onControllerSettingsChanged();
+    private void requireSettings() {
+        if (uiSettings == null ||
+                inputSettings == null ||
+                controllerSettings == null ||
+                audioSettings == null) {
+            throw new IllegalStateException(
+                    "Misc settings must be supplied before showing");
         }
     }
 
+    private void bindControls(View view) {
+        floatingControl =
+                view.findViewById(R.id.btn_game_float_ball);
+        rememberFloatingPosition =
+                view.findViewById(
+                        R.id.btn_game_float_ball_postion);
+        audioMute =
+                view.findViewById(R.id.btn_game_audio_mute);
+        compactPerformanceDetails =
+                view.findViewById(R.id.btn_game_lite_ext);
+        compactPerformanceInteractive =
+                view.findViewById(R.id.btn_game_lite_click);
+        forceStrongVibrations =
+                view.findViewById(R.id.btn_game_rumble_force);
+        stopStrongVibrationPulse =
+                view.findViewById(
+                        R.id.btn_game_rumble_force_stop);
+        rumbleOverlay =
+                view.findViewById(R.id.btn_game_rumble_hud);
+        mouseEmulationMode =
+                view.findViewById(R.id.rg_game_setting_control);
+        softKeyboardGesture =
+                view.findViewById(R.id.rg_game_setting_touch);
+        floatingAction =
+                view.findViewById(
+                        R.id.rg_game_setting_float_ball);
+        forceGyro =
+                view.findViewById(R.id.btn_game_force_gyro);
+        forceGyroRequiresLeftTrigger =
+                view.findViewById(
+                        R.id.btn_game_force_gyro_left_trgger);
+        forceGyroAxesSwapped =
+                view.findViewById(
+                        R.id.btn_game_force_gyro_switch);
+        audioHapticsEnabled =
+                view.findViewById(
+                        R.id.rg_game_audio_haptics_enable);
+        audioHapticsVoiceFilter =
+                view.findViewById(
+                        R.id.rg_game_audio_haptics_voice_filter);
+        audioHapticsOutputTarget =
+                view.findViewById(
+                        R.id.rg_game_audio_haptics_output_target);
+        keepControllerRumble =
+                view.findViewById(
+                        R.id.rg_game_audio_haptics_keep_controller_rumble);
+        audioHapticsDetails =
+                view.findViewById(
+                        R.id.layout_game_audio_haptics_details);
+        keepControllerRumbleLabel =
+                view.findViewById(
+                        R.id.tx_game_audio_haptics_keep_controller_rumble);
+        performanceScale =
+                view.findViewById(
+                        R.id.sb_game_setting_pref_zoom);
+        performanceMargin =
+                view.findViewById(
+                        R.id.sb_game_setting_pref_magin_top);
+        gyroSensitivity =
+                view.findViewById(
+                        R.id.sb_game_setting_gyro_sensitivity);
+        audioHapticsStrength =
+                view.findViewById(
+                        R.id.sb_game_audio_haptics_strength);
+        performanceScaleValue =
+                view.findViewById(
+                        R.id.tx_game_setting_pref_zoom);
+        performanceMarginValue =
+                view.findViewById(
+                        R.id.tx_game_setting_pref_magin_top);
+        gyroSensitivityValue =
+                view.findViewById(
+                        R.id.tx_game_setting_gyro_sensitivity);
+        audioHapticsStrengthValue =
+                view.findViewById(
+                        R.id.tx_game_audio_haptics_strength);
+    }
+
+    private void configureSeekBars() {
+        performanceScale.setMax(
+                PERFORMANCE_SCALE_RANGE.getProgressMaximum());
+        performanceMargin.setMax(
+                PERFORMANCE_MARGIN_RANGE.getProgressMaximum());
+        gyroSensitivity.setMax(
+                GYRO_SENSITIVITY_RANGE.getProgressMaximum());
+        audioHapticsStrength.setMax(
+                AUDIO_HAPTICS_STRENGTH_RANGE
+                        .getProgressMaximum());
+    }
+
+    private void renderAll() {
+        floatingControl.setChecked(
+                uiSettings.isFloatingControlEnabled());
+        rememberFloatingPosition.setChecked(
+                uiSettings.shouldRememberFloatingPosition());
+        audioMute.setChecked(audioSettings.isMuted());
+        compactPerformanceDetails.setChecked(
+                uiSettings
+                        .areCompactPerformanceDetailsEnabled());
+        compactPerformanceInteractive.setChecked(
+                uiSettings
+                        .isCompactPerformanceInteractive());
+        forceStrongVibrations.setChecked(
+                controllerSettings
+                        .isForceStrongVibrationsEnabled());
+        stopStrongVibrationPulse.setChecked(
+                controllerSettings
+                        .isForceStrongVibrationsStopPulseEnabled());
+        rumbleOverlay.setChecked(
+                uiSettings.isRumbleOverlayEnabled());
+        forceGyro.setChecked(
+                controllerSettings.isForceGyroEnabled());
+        forceGyroRequiresLeftTrigger.setChecked(
+                controllerSettings
+                        .isForceGyroLeftTriggerRequired());
+        forceGyroAxesSwapped.setChecked(
+                controllerSettings.areForceGyroAxesSwapped());
+
+        renderMouseEmulationMode();
+        renderSoftKeyboardGesture();
+        renderFloatingAction();
+        renderPerformanceSliders();
+        renderGyroSensitivity();
+        renderAudioHaptics();
+    }
+
+    private void renderMouseEmulationMode() {
+        if (!controllerSettings.isMouseEmulationEnabled()) {
+            mouseEmulationMode.check(
+                    R.id.rbt_game_setting_control_1);
+            return;
+        }
+        int button = controllerSettings.getMouseEmulationButton();
+        mouseEmulationMode.check(
+                button == 1
+                        ? R.id.rbt_game_setting_control_3
+                        : button == 2
+                                ? R.id.rbt_game_setting_control_4
+                                : R.id.rbt_game_setting_control_2);
+    }
+
+    private void renderSoftKeyboardGesture() {
+        int fingers = inputSettings.getSoftKeyboardGestureFingers();
+        softKeyboardGesture.check(
+                fingers == 3
+                        ? R.id.rbt_game_setting_touch_2
+                        : fingers == 4
+                                ? R.id.rbt_game_setting_touch_3
+                                : fingers == 5
+                                        ? R.id.rbt_game_setting_touch_4
+                                        : R.id.rbt_game_setting_touch_1);
+    }
+
+    private void renderFloatingAction() {
+        int id;
+        switch (uiSettings.getFloatingAction()) {
+            case SOFT_KEYBOARD:
+                id = R.id.rbt_game_setting_float_ball_2;
+                break;
+            case FULL_KEYBOARD:
+                id = R.id.rbt_game_setting_float_ball_3;
+                break;
+            case GAME_MENU:
+            default:
+                id = R.id.rbt_game_setting_float_ball_1;
+                break;
+        }
+        floatingAction.check(id);
+    }
+
+    private void renderPerformanceSliders() {
+        int scale =
+                uiSettings.getCompactPerformanceScalePercent();
+        int margin =
+                uiSettings.getCompactPerformanceMarginTopDp();
+        setSeekBarValue(
+                performanceScale,
+                PERFORMANCE_SCALE_RANGE,
+                scale);
+        setSeekBarValue(
+                performanceMargin,
+                PERFORMANCE_MARGIN_RANGE,
+                margin);
+        performanceScaleValue.setText(getString(
+                R.string.game_menu_performance_scale_format,
+                scale));
+        performanceMarginValue.setText(getString(
+                R.string.game_menu_performance_margin_format,
+                margin));
+    }
+
+    private void renderGyroSensitivity() {
+        int value =
+                controllerSettings
+                        .getForceGyroSensitivityPercent();
+        setSeekBarValue(
+                gyroSensitivity,
+                GYRO_SENSITIVITY_RANGE,
+                value);
+        gyroSensitivityValue.setText(getString(
+                R.string.game_menu_gyro_sensitivity_format,
+                value));
+    }
+
+    private void renderAudioHaptics() {
+        audioHapticsEnabled.check(
+                audioSettings.areAudioHapticsEnabled()
+                        ? R.id.rbt_game_audio_haptics_enable_on
+                        : R.id.rbt_game_audio_haptics_enable_off);
+        audioHapticsOutputTarget.check(
+                audioSettings.isControllerHapticsTarget()
+                        ? R.id.rbt_game_audio_haptics_output_target_controller
+                        : R.id.rbt_game_audio_haptics_output_target_phone);
+        int voiceFilterId;
+        switch (audioSettings.getVoiceFilter()) {
+            case LOW:
+                voiceFilterId =
+                        R.id.rbt_game_audio_haptics_voice_filter_2;
+                break;
+            case MEDIUM:
+                voiceFilterId =
+                        R.id.rbt_game_audio_haptics_voice_filter_3;
+                break;
+            case HIGH:
+                voiceFilterId =
+                        R.id.rbt_game_audio_haptics_voice_filter_4;
+                break;
+            case OFF:
+            default:
+                voiceFilterId =
+                        R.id.rbt_game_audio_haptics_voice_filter_1;
+                break;
+        }
+        audioHapticsVoiceFilter.check(voiceFilterId);
+        keepControllerRumble.check(
+                audioSettings.shouldKeepControllerRumble()
+                        ? R.id.rbt_game_audio_haptics_keep_controller_rumble_on
+                        : R.id.rbt_game_audio_haptics_keep_controller_rumble_off);
+        int strength =
+                audioSettings.getHapticsStrengthPercent();
+        setSeekBarValue(
+                audioHapticsStrength,
+                AUDIO_HAPTICS_STRENGTH_RANGE,
+                strength);
+        audioHapticsStrengthValue.setText(getString(
+                R.string.game_menu_audio_haptics_strength_format,
+                strength));
+        updateAudioHapticsVisibility();
+    }
+
+    private static void setSeekBarValue(
+            SeekBar seekBar,
+            SeekBarValueRange range,
+            int value) {
+        int progress = range.valueToProgress(value);
+        if (seekBar.getProgress() != progress) {
+            seekBar.setProgress(progress);
+        }
+    }
+
+    private void updateAudioHapticsVisibility() {
+        boolean enabled = audioSettings.areAudioHapticsEnabled();
+        audioHapticsDetails.setVisibility(
+                enabled ? View.VISIBLE : View.GONE);
+        boolean showKeepRumble =
+                enabled &&
+                        audioSettings.isControllerHapticsTarget();
+        int visibility =
+                showKeepRumble ? View.VISIBLE : View.GONE;
+        keepControllerRumbleLabel.setVisibility(visibility);
+        keepControllerRumble.setVisibility(visibility);
+    }
+
+    private void bindListeners(View view) {
+        view.findViewById(R.id.ibtn_back)
+                .setOnClickListener(clicked -> dismiss());
+        floatingControl.setOnCheckedChangeListener(
+                (button, checked) -> dispatchUi(
+                        StreamUiSettingsUpdate
+                                .floatingControlEnabled(checked)));
+        rememberFloatingPosition.setOnCheckedChangeListener(
+                (button, checked) -> dispatchUi(
+                        StreamUiSettingsUpdate
+                                .rememberFloatingPosition(checked)));
+        audioMute.setOnCheckedChangeListener(
+                (button, checked) -> dispatchAudio(
+                        StreamAudioSettingsUpdate.muted(checked)));
+        compactPerformanceDetails.setOnCheckedChangeListener(
+                (button, checked) -> dispatchUi(
+                        StreamUiSettingsUpdate
+                                .compactPerformanceDetails(checked)));
+        compactPerformanceInteractive.setOnCheckedChangeListener(
+                (button, checked) -> dispatchUi(
+                        StreamUiSettingsUpdate
+                                .compactPerformanceInteractive(
+                                        checked)));
+        forceStrongVibrations.setOnCheckedChangeListener(
+                (button, checked) -> dispatchController(
+                        ControllerSettingsUpdate
+                                .forceStrongVibrationsEnabled(
+                                        checked)));
+        stopStrongVibrationPulse.setOnCheckedChangeListener(
+                (button, checked) -> dispatchController(
+                        ControllerSettingsUpdate
+                                .forceStrongVibrationsStopPulseEnabled(
+                                        checked)));
+        rumbleOverlay.setOnCheckedChangeListener(
+                (button, checked) -> dispatchUi(
+                        StreamUiSettingsUpdate
+                                .rumbleOverlayEnabled(checked)));
+        forceGyro.setOnCheckedChangeListener(
+                (button, checked) -> dispatchController(
+                        ControllerSettingsUpdate
+                                .forceGyroEnabled(checked)));
+        forceGyroRequiresLeftTrigger.setOnCheckedChangeListener(
+                (button, checked) -> dispatchController(
+                        ControllerSettingsUpdate
+                                .forceGyroRequiresLeftTrigger(
+                                        checked)));
+        forceGyroAxesSwapped.setOnCheckedChangeListener(
+                (button, checked) -> dispatchController(
+                        ControllerSettingsUpdate
+                                .forceGyroAxesSwapped(checked)));
+
+        mouseEmulationMode.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    if (checkedId ==
+                            R.id.rbt_game_setting_control_1) {
+                        dispatchController(
+                                ControllerSettingsUpdate
+                                        .mouseEmulation(false, 0));
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_setting_control_2) {
+                        dispatchController(
+                                ControllerSettingsUpdate
+                                        .mouseEmulation(true, 0));
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_setting_control_3) {
+                        dispatchController(
+                                ControllerSettingsUpdate
+                                        .mouseEmulation(true, 1));
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_setting_control_4) {
+                        dispatchController(
+                                ControllerSettingsUpdate
+                                        .mouseEmulation(true, 2));
+                    }
+                });
+        softKeyboardGesture.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    int fingers;
+                    if (checkedId ==
+                            R.id.rbt_game_setting_touch_2) {
+                        fingers = 3;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_setting_touch_3) {
+                        fingers = 4;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_setting_touch_4) {
+                        fingers = 5;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_setting_touch_1) {
+                        fingers = 0;
+                    }
+                    else {
+                        return;
+                    }
+                    dispatchInput(
+                            InputSettingsUpdate
+                                    .softKeyboardGestureFingers(
+                                            fingers));
+                });
+        floatingAction.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    StreamUiSettings.FloatingAction action;
+                    if (checkedId ==
+                            R.id.rbt_game_setting_float_ball_2) {
+                        action = StreamUiSettings.FloatingAction
+                                .SOFT_KEYBOARD;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_setting_float_ball_3) {
+                        action = StreamUiSettings.FloatingAction
+                                .FULL_KEYBOARD;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_setting_float_ball_1) {
+                        action = StreamUiSettings.FloatingAction
+                                .GAME_MENU;
+                    }
+                    else {
+                        return;
+                    }
+                    dispatchUi(
+                            StreamUiSettingsUpdate
+                                    .floatingAction(action));
+                });
+        audioHapticsEnabled.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    if (checkedId ==
+                            R.id.rbt_game_audio_haptics_enable_on) {
+                        dispatchAudio(
+                                StreamAudioSettingsUpdate
+                                        .hapticsEnabled(true));
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_audio_haptics_enable_off) {
+                        dispatchAudio(
+                                StreamAudioSettingsUpdate
+                                        .hapticsEnabled(false));
+                    }
+                    updateAudioHapticsVisibility();
+                });
+        audioHapticsVoiceFilter.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    StreamAudioSettings.VoiceFilter filter;
+                    if (checkedId ==
+                            R.id.rbt_game_audio_haptics_voice_filter_2) {
+                        filter = StreamAudioSettings.VoiceFilter.LOW;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_audio_haptics_voice_filter_3) {
+                        filter =
+                                StreamAudioSettings.VoiceFilter.MEDIUM;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_audio_haptics_voice_filter_4) {
+                        filter = StreamAudioSettings.VoiceFilter.HIGH;
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_audio_haptics_voice_filter_1) {
+                        filter = StreamAudioSettings.VoiceFilter.OFF;
+                    }
+                    else {
+                        return;
+                    }
+                    dispatchAudio(
+                            StreamAudioSettingsUpdate
+                                    .voiceFilter(filter));
+                });
+        audioHapticsOutputTarget.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    if (checkedId ==
+                            R.id.rbt_game_audio_haptics_output_target_phone) {
+                        dispatchAudio(
+                                StreamAudioSettingsUpdate
+                                        .hapticsOutputTarget(
+                                                StreamAudioSettings
+                                                        .HapticsOutputTarget
+                                                        .PHONE));
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_audio_haptics_output_target_controller) {
+                        dispatchAudio(
+                                StreamAudioSettingsUpdate
+                                        .hapticsOutputTarget(
+                                                StreamAudioSettings
+                                                        .HapticsOutputTarget
+                                                        .CONTROLLER));
+                    }
+                    updateAudioHapticsVisibility();
+                });
+        keepControllerRumble.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    if (checkedId ==
+                            R.id.rbt_game_audio_haptics_keep_controller_rumble_on) {
+                        dispatchAudio(
+                                StreamAudioSettingsUpdate
+                                        .keepControllerRumble(true));
+                    }
+                    else if (checkedId ==
+                            R.id.rbt_game_audio_haptics_keep_controller_rumble_off) {
+                        dispatchAudio(
+                                StreamAudioSettingsUpdate
+                                        .keepControllerRumble(false));
+                    }
+                });
+
+        performanceScale.setOnSeekBarChangeListener(this);
+        performanceMargin.setOnSeekBarChangeListener(this);
+        gyroSensitivity.setOnSeekBarChangeListener(this);
+        audioHapticsStrength.setOnSeekBarChangeListener(this);
+    }
+
+    @Override
+    public void onProgressChanged(
+            SeekBar seekBar,
+            int progress,
+            boolean fromUser) {
+        if (!fromUser) {
+            return;
+        }
+        if (seekBar == performanceScale) {
+            dispatchUi(
+                    StreamUiSettingsUpdate
+                            .compactPerformanceScalePercent(
+                                    PERFORMANCE_SCALE_RANGE
+                                            .progressToValue(
+                                                    progress)));
+            renderPerformanceSliders();
+        }
+        else if (seekBar == performanceMargin) {
+            dispatchUi(
+                    StreamUiSettingsUpdate
+                            .compactPerformanceMarginTopDp(
+                                    PERFORMANCE_MARGIN_RANGE
+                                            .progressToValue(
+                                                    progress)));
+            renderPerformanceSliders();
+        }
+        else if (seekBar == gyroSensitivity) {
+            dispatchController(
+                    ControllerSettingsUpdate
+                            .forceGyroSensitivityPercent(
+                                    GYRO_SENSITIVITY_RANGE
+                                            .progressToValue(
+                                                    progress)));
+            renderGyroSensitivity();
+        }
+        else if (seekBar == audioHapticsStrength) {
+            dispatchAudio(
+                    StreamAudioSettingsUpdate
+                            .hapticsStrengthPercent(
+                                    AUDIO_HAPTICS_STRENGTH_RANGE
+                                            .progressToValue(
+                                                    progress)));
+            renderAudioHaptics();
+        }
+    }
+
+    @Override
+    public void onStartTrackingTouch(SeekBar seekBar) {
+    }
+
+    @Override
+    public void onStopTrackingTouch(SeekBar seekBar) {
+    }
+
+    private void dispatchUi(StreamUiSettingsUpdate update) {
+        uiSettings = update.applyTo(uiSettings);
+        if (listener != null) {
+            listener.onStreamUiSettingsUpdate(update);
+        }
+    }
+
+    private void dispatchInput(InputSettingsUpdate update) {
+        inputSettings = update.applyTo(inputSettings);
+        if (listener != null) {
+            listener.onInputSettingsUpdate(update);
+        }
+    }
+
+    private void dispatchController(
+            ControllerSettingsUpdate update) {
+        controllerSettings =
+                update.applyTo(controllerSettings);
+        if (listener != null) {
+            listener.onControllerSettingsUpdate(update);
+        }
+    }
+
+    private void dispatchAudio(
+            StreamAudioSettingsUpdate update) {
+        audioSettings = update.applyTo(audioSettings);
+        if (listener != null) {
+            listener.onStreamAudioSettingsUpdate(update);
+        }
+    }
+
+    public interface Listener {
+        void onStreamUiSettingsUpdate(
+                StreamUiSettingsUpdate update);
+
+        void onInputSettingsUpdate(InputSettingsUpdate update);
+
+        void onControllerSettingsUpdate(
+                ControllerSettingsUpdate update);
+
+        void onStreamAudioSettingsUpdate(
+                StreamAudioSettingsUpdate update);
+    }
 }

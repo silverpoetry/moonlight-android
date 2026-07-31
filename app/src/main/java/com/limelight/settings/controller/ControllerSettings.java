@@ -526,6 +526,28 @@ public final class ControllerSettings {
             return this;
         }
 
+        public Builder setForceGyroEnabled(boolean enabled) {
+            forceGyroEnabled = enabled;
+            return this;
+        }
+
+        public Builder setForceGyroRequiresLeftTrigger(
+                boolean required) {
+            forceGyroRequiresLeftTrigger = required;
+            return this;
+        }
+
+        public Builder setForceGyroAxesSwapped(boolean swapped) {
+            forceGyroAxesSwapped = swapped;
+            return this;
+        }
+
+        public Builder setForceGyroSensitivityPercent(
+                int percent) {
+            forceGyroSensitivityPercent = percent;
+            return this;
+        }
+
         public Builder setVirtualControllerMotionEnabled(
                 boolean enabled) {
             virtualControllerMotionEnabled = enabled;
@@ -544,6 +566,16 @@ public final class ControllerSettings {
             mouseEmulationEnabled = enabled;
             mouseEmulationButton = button;
             mouseEmulationOpensGameMenu = openGameMenu;
+            return this;
+        }
+
+        public Builder setMouseEmulationEnabled(boolean enabled) {
+            mouseEmulationEnabled = enabled;
+            return this;
+        }
+
+        public Builder setMouseEmulationButton(int button) {
+            mouseEmulationButton = button;
             return this;
         }
 

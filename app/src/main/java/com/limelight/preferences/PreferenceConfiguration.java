@@ -26,6 +26,8 @@ import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.settings.stream.StreamResolutionSettingsLoader;
 import com.limelight.settings.transfer.TransferSettings;
 import com.limelight.settings.transfer.TransferSettingsLoader;
+import com.limelight.settings.ui.StreamUiSettings;
+import com.limelight.settings.ui.StreamUiSettingsLoader;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
@@ -181,12 +183,6 @@ public class PreferenceConfiguration {
     public boolean enableHdrHighBrightness;
     public boolean enablePip;
     public boolean enablePerfOverlay;
-    //简化版性能信息
-    public boolean enablePerfOverlayLite;
-
-    public boolean enablePerfOverlayLiteDialog;
-    //额外扩展参数
-    public boolean enablePerfOverlayLiteExt;
 
     public boolean enableLatencyToast;
     //软键盘
@@ -271,11 +267,6 @@ public class PreferenceConfiguration {
     public boolean enableClipboardSync;
     public boolean disableAdaptiveInputThrottling;
     public boolean enableAudioFx;
-    public boolean enableAudioHaptics;
-    public String audioHapticsOutputTarget;
-    public int audioHapticsStrength;
-    public String audioHapticsVoiceFilter;
-    public boolean audioHapticsKeepControllerRumble;
     public boolean reduceRefreshRate;
     public boolean fullRange;
     public boolean gamepadMotionSensors;
@@ -290,18 +281,6 @@ public class PreferenceConfiguration {
 
     //部分页面主题色白色
     public boolean uiThemeColorWhite;
-
-    //打开输入法软键盘的手指数量
-    public int quickSoftKeyboardFingers;
-
-    //启用悬浮球
-    public boolean enableAXFloating;
-
-    //悬浮球操作
-//    public boolean enableAXFloatingOperate;
-
-    //悬浮球操作
-    public int axFloatingOperate;
 
     //禁用扳机死区
     public boolean disableTriggerDeadzone;
@@ -324,9 +303,6 @@ public class PreferenceConfiguration {
     //主屏幕文本
     public String screenLabel;
 
-    //设备静音
-    public boolean audioMute;
-
     //忽略应用列表的弹出菜单
     public boolean passAppMenu;
 
@@ -338,15 +314,6 @@ public class PreferenceConfiguration {
 
     //内置的虚拟按键布局
     public int virtualKeyboardFileUsed;
-
-    //强制强烈震动
-    public boolean enableForceStrongVibrations;
-
-    //震动停止开关
-    public boolean enableForceStrongVibrationsStop;
-
-    //显示震动信息HUD
-    public boolean showRumbleHUD;
 
     //usb手柄驱动 上报陀螺仪信息
     public boolean usbGyroscopeReport;
@@ -368,28 +335,6 @@ public class PreferenceConfiguration {
 
     //禁用虚拟手柄摇杆l3r3
     public boolean disableRockerClickL3R3;
-
-    //记住上次悬浮球位置
-    public boolean axFloatingPostionAuto;
-    public float axFloatingPostionX;
-    public float axFloatingPostionY;
-    public boolean axFloatingPostionIsNearestLeft;
-
-    //精简性能信息顶部边距
-    public int performanceOverlayLiteMaginTop;
-
-    //鼠标滚轮移动距离
-    //强制体感模拟右摇杆
-    public boolean gameForceGyro;
-    //按住左扳机生效
-    public boolean gameForceGyroLeftTrigger;
-    //强制体感反转xy轴方向
-    public boolean gameForceGyroXYSwitch;
-    //强制体感灵敏度
-    public int gameForceGyroSensitivity;
-
-    //性能信息缩放比例
-    public int gameSettingPrefZoom;
 
     //忽略校验HDR
     public boolean ignoreCheckHDR;
@@ -658,21 +603,6 @@ public class PreferenceConfiguration {
         }
     }
 
-    private static String toLegacyVoiceFilter(
-            StreamAudioSettings.VoiceFilter filter) {
-        switch (filter) {
-            case LOW:
-                return "low";
-            case MEDIUM:
-                return "medium";
-            case HIGH:
-                return "high";
-            case OFF:
-            default:
-                return "off";
-        }
-    }
-
     /**
      * Updates the temporary legacy view from the canonical audio snapshot.
      *
@@ -701,18 +631,6 @@ public class PreferenceConfiguration {
 
         playHostAudio = settings.shouldPlayHostAudio();
         enableAudioFx = settings.areAudioEffectsEnabled();
-        audioMute = settings.isMuted();
-        enableAudioHaptics = settings.areAudioHapticsEnabled();
-        audioHapticsOutputTarget =
-                settings.isControllerHapticsTarget()
-                        ? "controller"
-                        : "phone";
-        audioHapticsStrength =
-                settings.getHapticsStrengthPercent();
-        audioHapticsVoiceFilter =
-                toLegacyVoiceFilter(settings.getVoiceFilter());
-        audioHapticsKeepControllerRumble =
-                settings.shouldKeepControllerRumble();
     }
 
     public static void resetStreamingSettings(Context context) {
@@ -790,6 +708,8 @@ public class PreferenceConfiguration {
                 TransferSettingsLoader.load(repository);
         VirtualControlSettings virtualControlSettings =
                 VirtualControlSettingsLoader.load(repository);
+        StreamUiSettings streamUiSettings =
+                StreamUiSettingsLoader.load(repository);
 
         // This must happen after the preferences migration to ensure the preferences are populated
         config.bitrate = prefs.getInt(BITRATE_PREF_STRING, prefs.getInt(BITRATE_PREF_OLD_STRING, 0) * 1000);
@@ -829,9 +749,8 @@ public class PreferenceConfiguration {
         config.enableHdrHighBrightness = prefs.getBoolean(ENABLE_HDR_HIGH_BRIGHTNESS_PREF_STRING,
                 DEFAULT_ENABLE_HDR_HIGH_BRIGHTNESS);
         config.enablePip = prefs.getBoolean(ENABLE_PIP_PREF_STRING, DEFAULT_ENABLE_PIP);
-        config.enablePerfOverlay = prefs.getBoolean(ENABLE_PERF_OVERLAY_STRING, DEFAULT_ENABLE_PERF_OVERLAY);
-        config.enablePerfOverlayLite=prefs.getBoolean("checkbox_enable_perf_overlay_lite",DEFAULT_ENABLE_PERF_OVERLAY);
-        config.enablePerfOverlayLiteExt=prefs.getBoolean("checkbox_enable_perf_overlay_lite_ext",true);
+        config.enablePerfOverlay =
+                streamUiSettings.isPerformanceOverlayEnabled();
         config.bindAllUsb =
                 controllerSettings.shouldClaimAllUsbDevices();
         config.mouseEmulation =
@@ -899,8 +818,6 @@ public class PreferenceConfiguration {
 
         config.enableMouseLocalCursor=prefs.getBoolean("checkbox_mouse_local_cursor",false);
 
-        config.enablePerfOverlayLiteDialog=prefs.getBoolean("checkbox_enable_perf_overlay_lite_dialog",false);
-
         config.enableClearDefaultSpecial=prefs.getBoolean("checkbox_enable_clear_default_special_button", false);
 
         config.enableDeviceRumble =
@@ -938,12 +855,6 @@ public class PreferenceConfiguration {
                 inputSettings.getExternalTouchpadScrollAmount();
 
         config.uiThemeColorWhite=prefs.getBoolean("checkbox_ui_theme_white",true);
-        config.quickSoftKeyboardFingers =
-                inputSettings.getSoftKeyboardGestureFingers();
-
-        config.enableAXFloating=prefs.getBoolean("checkbox_enable_ax_floating",true);
-        config.axFloatingOperate =prefs.getInt("ax_floating_operate",0);
-
         config.disableTriggerDeadzone =
                 controllerSettings.isTriggerDeadzoneDisabled();
 
@@ -969,16 +880,6 @@ public class PreferenceConfiguration {
                 virtualControlSettings.getNormalColor();
 
         config.virtualKeyboardFileUsed=prefs.getInt("virtual_Key_board_file_used",0);
-
-        config.enableForceStrongVibrations =
-                controllerSettings
-                        .isForceStrongVibrationsEnabled();
-
-        config.enableForceStrongVibrationsStop =
-                controllerSettings
-                        .isForceStrongVibrationsStopPulseEnabled();
-
-        config.showRumbleHUD=prefs.getBoolean("rumble_HUD_show",false);
 
         config.razerVD=prefs.getInt("vdValue",0);
 
@@ -1016,28 +917,6 @@ public class PreferenceConfiguration {
         config.gamepadMotionSensorsFallbackToDevice =
                 controllerSettings
                         .isMotionSensorsFallbackToDeviceEnabled();
-
-        config.performanceOverlayLiteMaginTop=prefs.getInt("performance_overlayLite_magin_top",4);
-
-        config.axFloatingPostionAuto =prefs.getBoolean("ax_floating_postion_auto",false);
-        config.axFloatingPostionX =prefs.getFloat("ax_floating_postion_x",-1);
-        config.axFloatingPostionY =prefs.getFloat("ax_floating_postion_y",-1);
-        config.axFloatingPostionIsNearestLeft =prefs.getBoolean("ax_floating_postion_isnearestleft",true);
-
-
-        config.gameForceGyroLeftTrigger =
-                controllerSettings
-                        .isForceGyroLeftTriggerRequired();
-        config.gameForceGyro =
-                controllerSettings.isForceGyroEnabled();
-        config.gameForceGyroXYSwitch =
-                controllerSettings.areForceGyroAxesSwapped();
-
-        config.gameForceGyroSensitivity =
-                controllerSettings
-                        .getForceGyroSensitivityPercent();
-
-        config.gameSettingPrefZoom=prefs.getInt("game_setting_pref_zoom",100);
 
         config.ignoreCheckHDR=prefs.getBoolean("ignoreCheckHDR",false);
 

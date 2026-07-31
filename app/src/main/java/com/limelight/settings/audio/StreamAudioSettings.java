@@ -60,6 +60,10 @@ public final class StreamAudioSettings {
         return new Builder();
     }
 
+    public Builder toBuilder() {
+        return new Builder(this);
+    }
+
     public ChannelConfiguration getChannelConfiguration() {
         return channelConfiguration;
     }
@@ -124,6 +128,24 @@ public final class StreamAudioSettings {
         private Builder() {
         }
 
+        private Builder(StreamAudioSettings settings) {
+            channelConfiguration =
+                    settings.channelConfiguration;
+            playHostAudio = settings.playHostAudio;
+            audioEffectsEnabled =
+                    settings.audioEffectsEnabled;
+            muted = settings.muted;
+            audioHapticsEnabled =
+                    settings.audioHapticsEnabled;
+            hapticsOutputTarget =
+                    settings.hapticsOutputTarget;
+            hapticsStrengthPercent =
+                    settings.hapticsStrengthPercent;
+            voiceFilter = settings.voiceFilter;
+            keepControllerRumble =
+                    settings.keepControllerRumble;
+        }
+
         public Builder setChannelConfiguration(
                 ChannelConfiguration value) {
             channelConfiguration = value;
@@ -155,6 +177,33 @@ public final class StreamAudioSettings {
             hapticsOutputTarget = outputTarget;
             hapticsStrengthPercent = strengthPercent;
             voiceFilter = filter;
+            keepControllerRumble = keepRumble;
+            return this;
+        }
+
+        public Builder setAudioHapticsEnabled(boolean enabled) {
+            audioHapticsEnabled = enabled;
+            return this;
+        }
+
+        public Builder setHapticsOutputTarget(
+                HapticsOutputTarget target) {
+            hapticsOutputTarget = target;
+            return this;
+        }
+
+        public Builder setHapticsStrengthPercent(int percent) {
+            hapticsStrengthPercent = percent;
+            return this;
+        }
+
+        public Builder setVoiceFilter(VoiceFilter filter) {
+            voiceFilter = filter;
+            return this;
+        }
+
+        public Builder setKeepControllerRumble(
+                boolean keepRumble) {
             keepControllerRumble = keepRumble;
             return this;
         }

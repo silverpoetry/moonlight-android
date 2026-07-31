@@ -240,6 +240,11 @@ A slice is incomplete if callers can still bypass the new boundary.
   adaptive-trigger parameter now share the stream-owned
   `ControllerSettingsState`; their obsolete legacy property-bag fields and
   direct preference access are removed.
+- The miscellaneous in-stream settings menu consumes immutable UI, input,
+  controller, and audio snapshots and emits typed domain intents. Floating
+  controls report settled positions without owning persistence policy, while
+  performance overlays consume a typed projection rather than the legacy
+  application-wide settings bag.
 - Versioned legacy preference migration through schema version 2.
 - A platform-independent virtual-control layout identity/repository contract,
   Android atomic-file adapter, bounded and validated import, and one shared

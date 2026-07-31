@@ -1,7 +1,10 @@
 package com.limelight.ui.performance;
 
 import com.limelight.binding.video.PerfOverlayStats;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.audio.StreamAudioSettings;
+import com.limelight.settings.controller.ControllerSettings;
+import com.limelight.settings.stream.StreamDecoderSettings;
+import com.limelight.settings.stream.StreamDisplaySettings;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,7 +41,7 @@ public final class PerformanceOverlayFormatter {
 
     public String formatCompact(
             PerfOverlayStats stats,
-            PreferenceConfiguration preferences,
+            PerformanceOverlayConfiguration configuration,
             PerformanceOverlayRuntimeState runtime) {
         if (stats == null) {
             return "--";
@@ -50,10 +53,12 @@ public final class PerformanceOverlayFormatter {
                     .append(formatThroughput(stats.networkRateKbps))
                     .append("  ");
         }
-        if (preferences.enablePerfOverlayLiteExt) {
+        if (configuration
+                .getUiSettings()
+                .areCompactPerformanceDetailsEnabled()) {
             builder.append(resolution(
                     stats,
-                    preferences,
+                    configuration,
                     false));
             builder.append(" ");
             builder.append(nonEmpty(stats.codecName, "--"));
@@ -93,7 +98,7 @@ public final class PerformanceOverlayFormatter {
 
     public List<Row> formatExpanded(
             PerfOverlayStats stats,
-            PreferenceConfiguration preferences,
+            PerformanceOverlayConfiguration configuration,
             PerformanceOverlayRuntimeState runtime) {
         if (stats == null) {
             return Collections.singletonList(
@@ -103,7 +108,7 @@ public final class PerformanceOverlayFormatter {
         List<Row> rows = new ArrayList<>();
         rows.add(new Row(
                 "分辨率",
-                resolution(stats, preferences, true)));
+                resolution(stats, configuration, true)));
         rows.add(new Row(
                 "编码",
                 nonEmpty(stats.codecName, "--")));
@@ -111,12 +116,16 @@ public final class PerformanceOverlayFormatter {
                 "目标码率",
                 formatMbps(stats.targetBitrateKbps > 0 ?
                         stats.targetBitrateKbps :
-                        preferences.bitrate)));
+                        configuration
+                                .getDecoderSettings()
+                                .getBitrateKbps())));
         rows.add(new Row(
                 "目标帧率",
                 (stats.targetFps > 0 ?
                         stats.targetFps :
-                        preferences.fps) + " FPS"));
+                        configuration
+                                .getDecoderSettings()
+                                .getFps()) + " FPS"));
         rows.add(new Row(
                 "实时帧率",
                 formatFps(stats.totalFps)));
@@ -186,25 +195,32 @@ public final class PerformanceOverlayFormatter {
                         "关闭"));
         rows.add(new Row(
                 "音频震动",
-                formatAudioHaptics(preferences)));
+                formatAudioHaptics(
+                        configuration.getAudioSettings())));
         rows.add(new Row(
                 "USB手柄",
-                formatUsbController(preferences, runtime)));
+                formatUsbController(
+                        configuration.getControllerSettings(),
+                        runtime)));
         return Collections.unmodifiableList(rows);
     }
 
     private String resolution(PerfOverlayStats stats,
-                              PreferenceConfiguration preferences,
+                              PerformanceOverlayConfiguration configuration,
                               boolean includeHdr) {
+        StreamDecoderSettings decoder =
+                configuration.getDecoderSettings();
+        StreamDisplaySettings display =
+                configuration.getDisplaySettings();
         int width = stats.width > 0 ?
                 stats.width :
-                preferences.width;
+                decoder.getWidth();
         int height = stats.height > 0 ?
                 stats.height :
-                preferences.height;
+                decoder.getHeight();
         boolean hdr = stats.width > 0 && stats.height > 0 ?
                 stats.hdr :
-                preferences.enableHdr;
+                display.isHdrEnabled();
         return width + "x" + height +
                 (includeHdr && hdr ? " HDR" : "");
     }
@@ -232,9 +248,9 @@ public final class PerformanceOverlayFormatter {
     }
 
     private String formatUsbController(
-            PreferenceConfiguration preferences,
+            ControllerSettings settings,
             PerformanceOverlayRuntimeState runtime) {
-        if (!preferences.usbDriver) {
+        if (!settings.isUsbDriverEnabled()) {
             return "关闭";
         }
         if (runtime.usbControllerActive) {
@@ -249,34 +265,35 @@ public final class PerformanceOverlayFormatter {
     }
 
     private String formatAudioHaptics(
-            PreferenceConfiguration preferences) {
-        if (!preferences.enableAudioHaptics) {
+            StreamAudioSettings settings) {
+        if (!settings.areAudioHapticsEnabled()) {
             return "关闭";
         }
         return "开 / " +
-                ("controller".equals(
-                        preferences.audioHapticsOutputTarget) ?
+                (settings.isControllerHapticsTarget() ?
                         "手柄" :
                         "手机") +
                 " / " +
                 audioHapticsFilterName(
-                        preferences.audioHapticsVoiceFilter) +
+                        settings.getVoiceFilter()) +
                 " / " +
-                preferences.audioHapticsStrength +
+                settings.getHapticsStrengthPercent() +
                 "%";
     }
 
-    private String audioHapticsFilterName(String filter) {
-        if ("low".equals(filter)) {
-            return "低";
+    private String audioHapticsFilterName(
+            StreamAudioSettings.VoiceFilter filter) {
+        switch (filter) {
+            case LOW:
+                return "低";
+            case MEDIUM:
+                return "中";
+            case HIGH:
+                return "高";
+            case OFF:
+            default:
+                return "关";
         }
-        if ("medium".equals(filter)) {
-            return "中";
-        }
-        if ("high".equals(filter)) {
-            return "高";
-        }
-        return "关";
     }
 
     private String formatSessionDuration(

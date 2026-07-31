@@ -22,8 +22,10 @@ import com.limelight.R;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.audio.StreamAudioSettingsUpdate;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettingsUpdate;
+import com.limelight.settings.ui.StreamUiSettingsUpdate;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
@@ -353,7 +355,9 @@ public class GameMenuFragment extends BaseGameMenuDialog
         PreferenceConfiguration preferences =
                 host.getStreamPreferences();
         setActionButtonActive(
-                btn_performance, preferences.enablePerfOverlay);
+                btn_performance,
+                host.getStreamUiSettings()
+                        .isPerformanceOverlayEnabled());
         setActionButtonActive(
                 btn_game_pad, preferences.onscreenController);
         setActionButtonActive(
@@ -508,7 +512,8 @@ public class GameMenuFragment extends BaseGameMenuDialog
             host.showHUD();
             setActionButtonActive(
                     btn_performance,
-                    host.getStreamPreferences().enablePerfOverlay);
+                    host.getStreamUiSettings()
+                            .isPerformanceOverlayEnabled());
             return;
         }
 
@@ -690,70 +695,45 @@ public class GameMenuFragment extends BaseGameMenuDialog
             GameDisplaySettingFragment fragment=new GameDisplaySettingFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle(R.string.game_menu_misc_title);
-            fragment.setOnClick(new GameDisplaySettingFragment.onClick() {
+            fragment.setSettings(
+                    host.getStreamUiSettings(),
+                    host.getInputSettings(),
+                    host.getControllerSettings(),
+                    host.getStreamAudioSettings());
+            fragment.setListener(
+                    new GameDisplaySettingFragment.Listener() {
                 @Override
-                public void click(int index,boolean flag) {
-                    if (host == null) {
-                        return;
-                    }
-                    //悬浮球
-                    if(index==0){
-                        if(flag){
-                            host.showFloatView();
-                            return;
-                        }
-                        host.hideFloatView();
-                        return;
-                    }
-                    //显示震动信息
-                    if(index==1){
-                        host.applyRumbleOverlayVisibility();
-                        return;
-                    }
-                    //性能信息点击
-                    if(index==2){
-                        host.applyPerformanceOverlayInteractivity();
-                        return;
-                    }
-                    //性能信息缩放
-                    if(index==3){
-                        host.applyPerformanceOverlayScale();
-                        return;
-                    }
-                    //模拟体感
-                    if(index==4){
-                        host.applyMotionEmulationSettings();
-                        return;
-                    }
-                    //性能信息 边距
-                    if(index==5){
-                        host.applyPerformanceOverlayMargin();
-                        return;
+                public void onStreamUiSettingsUpdate(
+                        StreamUiSettingsUpdate update) {
+                    if (host != null) {
+                        host.applyStreamUiSettingsUpdate(update);
                     }
                 }
 
                 @Override
-                public void onInputSettingsChanged() {
+                public void onInputSettingsUpdate(
+                        InputSettingsUpdate update) {
                     if (host != null) {
-                        host.applyInputSettingsFromStorage();
+                        host.applyInputSettingsUpdate(update);
                     }
                 }
 
                 @Override
-                public void onControllerSettingsChanged() {
+                public void onControllerSettingsUpdate(
+                        ControllerSettingsUpdate update) {
                     if (host != null) {
-                        host.applyControllerSettingsFromStorage();
+                        host.applyControllerSettingsUpdate(update);
                     }
                 }
 
                 @Override
-                public void onAudioSettingsChanged() {
+                public void onStreamAudioSettingsUpdate(
+                        StreamAudioSettingsUpdate update) {
                     if (host != null) {
-                        host.applyAudioSettingsFromStorage();
+                        host.applyStreamAudioSettingsUpdate(update);
                     }
                 }
             });
-            fragment.setPrefConfig(host.getStreamPreferences());
             fragment.show(getFragmentManager());
             return;
         }

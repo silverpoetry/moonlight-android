@@ -4,19 +4,26 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.os.Handler;
 import android.os.Looper;
-import android.preference.PreferenceManager;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.ui.StreamUiSettings;
+
+import java.util.Objects;
 
 /**
 * 自动吸附悬浮窗view
 * Date: 2024/9/14 星期六
 */
 public class AXFloatingMagnetView extends FrameLayout {
+    public interface PositionListener {
+        void onPositionSettled(
+                float x,
+                float y,
+                boolean nearestLeft);
+    }
 
     public static final int MARGIN_EDGE = 13;
     private float mOriginalRawX;
@@ -33,8 +40,10 @@ public class AXFloatingMagnetView extends FrameLayout {
     private boolean isNearestLeft = true;
     private float mPortraitY;
 
-    private Handler mHandler = new Handler(Looper.getMainLooper());
+    private final Handler mHandler =
+            new Handler(Looper.getMainLooper());
     private Runnable delayedAction;
+    private PositionListener positionListener;
 
     public void setFloatingViewListener(AXFloatingViewListener listener) {
         this.mAXFloatingViewListener = listener;
@@ -57,14 +66,23 @@ public class AXFloatingMagnetView extends FrameLayout {
         mMoveAnimator = new MoveAnimator();
         mStatusBarHeight = 0;
         setClickable(true);
-        if(PreferenceConfiguration.readPreferences(getContext()).axFloatingPostionAuto
-                &&PreferenceConfiguration.readPreferences(getContext()).axFloatingPostionX !=-1){
-            setX(PreferenceConfiguration.readPreferences(getContext()).axFloatingPostionX);
-            setY(PreferenceConfiguration.readPreferences(getContext()).axFloatingPostionY);
-            isNearestLeft=PreferenceConfiguration.readPreferences(getContext()).axFloatingPostionIsNearestLeft;
-        }
         startDelayedAction();
 //        updateSize();
+    }
+
+    public void configurePosition(
+            StreamUiSettings settings,
+            PositionListener positionListener) {
+        Objects.requireNonNull(settings, "settings");
+        this.positionListener = Objects.requireNonNull(
+                positionListener,
+                "positionListener");
+        if (settings.hasRememberedFloatingPosition()) {
+            setX(settings.getFloatingPositionX());
+            setY(settings.getFloatingPositionY());
+            isNearestLeft =
+                    settings.isFloatingPositionNearestLeft();
+        }
     }
 
     // 新增部分：延迟2秒修改透明度和位置
@@ -77,19 +95,12 @@ public class AXFloatingMagnetView extends FrameLayout {
                 animate().alpha(0.35f).setDuration(100).start();
                 float x=isNearestLeft? (float) -getWidth() /2:getX()+ (float) getWidth() /2;
                 animate().translationX(x).setDuration(100).start();
-                if(PreferenceConfiguration.readPreferences(getContext()).axFloatingPostionAuto){
-                    PreferenceManager.getDefaultSharedPreferences(getContext())
-                            .edit()
-                            .putFloat("ax_floating_postion_x",getX())
-                            .apply();
-                    PreferenceManager.getDefaultSharedPreferences(getContext())
-                            .edit()
-                            .putFloat("ax_floating_postion_y",getY())
-                            .apply();
-                    PreferenceManager.getDefaultSharedPreferences(getContext())
-                            .edit()
-                            .putBoolean("ax_floating_postion_isnearestleft",isNearestLeft)
-                            .apply();
+                PositionListener listener = positionListener;
+                if (listener != null) {
+                    listener.onPositionSettled(
+                            getX(),
+                            getY(),
+                            isNearestLeft);
                 }
             }
         };
@@ -258,5 +269,17 @@ public class AXFloatingMagnetView extends FrameLayout {
         if (isLandscape) {
             mPortraitY = getY();
         }
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        if (delayedAction != null) {
+            mHandler.removeCallbacks(delayedAction);
+            delayedAction = null;
+        }
+        animate().cancel();
+        mMoveAnimator.stop();
+        positionListener = null;
+        super.onDetachedFromWindow();
     }
 }

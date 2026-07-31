@@ -46,13 +46,7 @@ public final class PreferenceConfigurationControllerSettingsTest {
                 .putBoolean("checkbox_usb_bind_all", true)
                 .putBoolean("checkbox_mouse_emulation", false)
                 .putInt("mouse_gamepad_sensitity", 175)
-                .putBoolean("gameForceGyro", true)
-                .putInt("gameForceGyroSensitivity", 150)
                 .putString("analog_scrolling", "left")
-                .putBoolean("checkbox_enable_audio_haptics", true)
-                .putString(
-                        "list_audio_haptics_output_target",
-                        "controller")
                 .commit();
 
         PreferenceConfiguration configuration =
@@ -63,12 +57,6 @@ public final class PreferenceConfigurationControllerSettingsTest {
         assertTrue(configuration.bindAllUsb);
         assertFalse(configuration.mouseEmulation);
         assertEquals(175, configuration.mouseGamePadSensitity);
-        assertTrue(configuration.gameForceGyro);
-        assertEquals(150, configuration.gameForceGyroSensitivity);
-        assertTrue(configuration.enableAudioHaptics);
-        assertEquals(
-                "controller",
-                configuration.audioHapticsOutputTarget);
     }
 
     @Test
@@ -78,9 +66,6 @@ public final class PreferenceConfigurationControllerSettingsTest {
                 .putInt("mouse_gamepad_sensitity", -20)
                 .putInt("ax_quick_game_menu_key", 99)
                 .putString("analog_scrolling", "broken")
-                .putString(
-                        "list_audio_haptics_output_target",
-                        "broken")
                 .commit();
 
         PreferenceConfiguration configuration =
@@ -89,8 +74,5 @@ public final class PreferenceConfigurationControllerSettingsTest {
         assertEquals(50, configuration.deadzonePercentage);
         assertEquals(10, configuration.mouseGamePadSensitity);
         assertEquals(0, configuration.mouseEmulationGameMenu);
-        assertEquals(
-                "phone",
-                configuration.audioHapticsOutputTarget);
     }
 }

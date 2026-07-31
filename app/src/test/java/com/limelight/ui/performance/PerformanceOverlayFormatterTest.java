@@ -1,7 +1,11 @@
 package com.limelight.ui.performance;
 
 import com.limelight.binding.video.PerfOverlayStats;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.audio.StreamAudioSettings;
+import com.limelight.settings.controller.ControllerSettings;
+import com.limelight.settings.stream.StreamDecoderSettings;
+import com.limelight.settings.stream.StreamDisplaySettings;
+import com.limelight.settings.ui.StreamUiSettings;
 
 import org.junit.Test;
 
@@ -17,13 +21,14 @@ public final class PerformanceOverlayFormatterTest {
 
     @Test
     public void compactOverlayPreservesStreamingSignals() {
-        PreferenceConfiguration preferences = preferences();
+        PerformanceOverlayConfiguration configuration =
+                configuration();
         PerfOverlayStats stats = stats();
         PerformanceOverlayRuntimeState runtime = runtime();
 
         String text = formatter.formatCompact(
                 stats,
-                preferences,
+                configuration,
                 runtime);
 
         assertTrue(text.contains("带宽：100.00K/s"));
@@ -37,7 +42,8 @@ public final class PerformanceOverlayFormatterTest {
 
     @Test
     public void expandedOverlayUsesRuntimeAndPreferenceFallbacks() {
-        PreferenceConfiguration preferences = preferences();
+        PerformanceOverlayConfiguration configuration =
+                configuration();
         PerfOverlayStats stats = stats();
         stats.targetBitrateKbps = 0;
         stats.targetFps = 0;
@@ -46,7 +52,7 @@ public final class PerformanceOverlayFormatterTest {
         List<PerformanceOverlayFormatter.Row> rows =
                 formatter.formatExpanded(
                         stats,
-                        preferences,
+                        configuration,
                         runtime);
 
         assertEquals(
@@ -80,7 +86,7 @@ public final class PerformanceOverlayFormatterTest {
         List<PerformanceOverlayFormatter.Row> rows =
                 formatter.formatExpanded(
                         null,
-                        preferences(),
+                        configuration(),
                         runtime());
 
         assertEquals(1, rows.size());
@@ -90,25 +96,62 @@ public final class PerformanceOverlayFormatterTest {
                 "--",
                 formatter.formatCompact(
                         null,
-                        preferences(),
+                        configuration(),
                         runtime()));
     }
 
-    private static PreferenceConfiguration preferences() {
-        PreferenceConfiguration preferences =
-                new PreferenceConfiguration();
-        preferences.width = 1920;
-        preferences.height = 1080;
-        preferences.bitrate = 80000;
-        preferences.fps = 120;
-        preferences.enableHdr = true;
-        preferences.enablePerfOverlayLiteExt = true;
-        preferences.usbDriver = true;
-        preferences.enableAudioHaptics = true;
-        preferences.audioHapticsOutputTarget = "controller";
-        preferences.audioHapticsVoiceFilter = "medium";
-        preferences.audioHapticsStrength = 65;
-        return preferences;
+    private static PerformanceOverlayConfiguration
+            configuration() {
+        StreamUiSettings uiSettings =
+                StreamUiSettings.builder()
+                        .setCompactPerformanceDetails(true)
+                        .build();
+        StreamDecoderSettings decoderSettings =
+                new StreamDecoderSettings(
+                        1920,
+                        1080,
+                        120,
+                        80000,
+                        StreamDecoderSettings.VideoFormat.AUTO,
+                        StreamDecoderSettings.FramePacing.BALANCED,
+                        false,
+                        false,
+                        true,
+                        2);
+        StreamDisplaySettings displaySettings =
+                new StreamDisplaySettings(
+                        1920,
+                        1080,
+                        false,
+                        false,
+                        false,
+                        false,
+                        true,
+                        StreamDisplaySettings.Gravity.DEFAULT,
+                        StreamDisplaySettings.FsrTarget.OFF,
+                        StreamDisplaySettings.FsrSharpness.STANDARD,
+                        StreamDisplaySettings.FsrHdrOutput.SDR);
+        StreamAudioSettings audioSettings =
+                StreamAudioSettings.builder()
+                        .setAudioHaptics(
+                                true,
+                                StreamAudioSettings
+                                        .HapticsOutputTarget
+                                        .CONTROLLER,
+                                65,
+                                StreamAudioSettings.VoiceFilter.MEDIUM,
+                                false)
+                        .build();
+        ControllerSettings controllerSettings =
+                ControllerSettings.builder()
+                        .setUsbDriverEnabled(true)
+                        .build();
+        return new PerformanceOverlayConfiguration(
+                uiSettings,
+                decoderSettings,
+                displaySettings,
+                audioSettings,
+                controllerSettings);
     }
 
     private static PerfOverlayStats stats() {

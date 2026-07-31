@@ -99,6 +99,31 @@ public final class InputSettingsUpdateTest {
         assertEquals(1, repository.applyCount);
     }
 
+    @Test
+    public void softKeyboardGestureUsesAllowedFingerCounts() {
+        FakeRepository repository = new FakeRepository();
+        InputSettings original = representativeSettings();
+        InputSettingsUpdate update =
+                InputSettingsUpdate
+                        .softKeyboardGestureFingers(99);
+
+        InputSettings updated = update.applyTo(original);
+        update.persist(repository);
+
+        assertEquals(0, updated.getSoftKeyboardGestureFingers());
+        assertEquals(
+                original.getMouseWheelScrollAmount(),
+                updated.getMouseWheelScrollAmount());
+        assertEquals(
+                0,
+                repository.values.get(
+                        InputSettingKeys
+                                .SOFT_KEYBOARD_GESTURE_FINGERS
+                                .getName()));
+        assertEquals(1, repository.values.size());
+        assertEquals(1, repository.applyCount);
+    }
+
     private static InputSettings representativeSettings() {
         return InputSettings.builder()
                 .setTouchModePreferenceValue(5)

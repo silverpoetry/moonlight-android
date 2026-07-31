@@ -78,6 +78,26 @@ public final class ControllerSettingsUpdate {
     }
 
     public static ControllerSettingsUpdate
+            forceStrongVibrationsEnabled(boolean enabled) {
+        return single(
+                ControllerSettingKeys.FORCE_STRONG_VIBRATIONS,
+                enabled,
+                ControllerSettings.Builder
+                        ::setForceStrongVibrations);
+    }
+
+    public static ControllerSettingsUpdate
+            forceStrongVibrationsStopPulseEnabled(
+                    boolean enabled) {
+        return single(
+                ControllerSettingKeys
+                        .FORCE_STRONG_VIBRATIONS_STOP_PULSE,
+                enabled,
+                ControllerSettings.Builder
+                        ::setForceStrongVibrationsStopPulse);
+    }
+
+    public static ControllerSettingsUpdate
             triggerDeadzoneDisabled(boolean disabled) {
         return single(
                 ControllerSettingKeys.DISABLE_TRIGGER_DEADZONE,
@@ -138,6 +158,66 @@ public final class ControllerSettingsUpdate {
                 enabled,
                 ControllerSettings.Builder
                         ::setTriggerRumbleLinkEnabled);
+    }
+
+    public static ControllerSettingsUpdate mouseEmulation(
+            boolean enabled,
+            int button) {
+        int normalizedButton =
+                ControllerSettingKeys.MOUSE_EMULATION_BUTTON
+                        .normalizeValue(button);
+        return new ControllerSettingsUpdate(
+                settings -> settings.toBuilder()
+                        .setMouseEmulationEnabled(enabled)
+                        .setMouseEmulationButton(normalizedButton)
+                        .build(),
+                editor -> editor
+                        .put(
+                                ControllerSettingKeys
+                                        .MOUSE_EMULATION,
+                                enabled)
+                        .put(
+                                ControllerSettingKeys
+                                        .MOUSE_EMULATION_BUTTON,
+                                normalizedButton));
+    }
+
+    public static ControllerSettingsUpdate forceGyroEnabled(
+            boolean enabled) {
+        return single(
+                ControllerSettingKeys.FORCE_GYRO,
+                enabled,
+                ControllerSettings.Builder
+                        ::setForceGyroEnabled);
+    }
+
+    public static ControllerSettingsUpdate
+            forceGyroRequiresLeftTrigger(boolean required) {
+        return single(
+                ControllerSettingKeys
+                        .FORCE_GYRO_REQUIRES_LEFT_TRIGGER,
+                required,
+                ControllerSettings.Builder
+                        ::setForceGyroRequiresLeftTrigger);
+    }
+
+    public static ControllerSettingsUpdate
+            forceGyroAxesSwapped(boolean swapped) {
+        return single(
+                ControllerSettingKeys.FORCE_GYRO_SWAP_AXES,
+                swapped,
+                ControllerSettings.Builder
+                        ::setForceGyroAxesSwapped);
+    }
+
+    public static ControllerSettingsUpdate
+            forceGyroSensitivityPercent(int percent) {
+        return single(
+                ControllerSettingKeys
+                        .FORCE_GYRO_SENSITIVITY_PERCENT,
+                percent,
+                ControllerSettings.Builder
+                        ::setForceGyroSensitivityPercent);
     }
 
     public static ControllerSettingsUpdate adaptiveTriggerMode(

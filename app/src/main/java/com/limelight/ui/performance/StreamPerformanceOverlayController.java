@@ -22,7 +22,8 @@ import androidx.appcompat.content.res.AppCompatResources;
 import com.limelight.R;
 import com.limelight.binding.video.PerfOverlayListener;
 import com.limelight.binding.video.PerfOverlayStats;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.ui.StreamUiSettings;
+import com.limelight.settings.ui.StreamUiSettingsState;
 import com.limelight.utils.UiHelper;
 
 import java.util.List;
@@ -38,8 +39,13 @@ public final class StreamPerformanceOverlayController
         PerformanceOverlayRuntimeState get();
     }
 
+    public interface ConfigurationProvider {
+        PerformanceOverlayConfiguration get();
+    }
+
     private final Activity activity;
-    private final PreferenceConfiguration preferences;
+    private final StreamUiSettingsState uiSettingsState;
+    private final ConfigurationProvider configurationProvider;
     private final RuntimeStateProvider
             runtimeStateSupplier;
     private final Runnable compactOverlayAction;
@@ -53,16 +59,20 @@ public final class StreamPerformanceOverlayController
 
     public StreamPerformanceOverlayController(
             Activity activity,
-            PreferenceConfiguration preferences,
+            StreamUiSettingsState uiSettingsState,
+            ConfigurationProvider configurationProvider,
             RuntimeStateProvider
                     runtimeStateSupplier,
             Runnable compactOverlayAction) {
         this.activity = Objects.requireNonNull(
                 activity,
                 "activity");
-        this.preferences = Objects.requireNonNull(
-                preferences,
-                "preferences");
+        this.uiSettingsState = Objects.requireNonNull(
+                uiSettingsState,
+                "uiSettingsState");
+        this.configurationProvider = Objects.requireNonNull(
+                configurationProvider,
+                "configurationProvider");
         this.runtimeStateSupplier = Objects.requireNonNull(
                 runtimeStateSupplier,
                 "runtimeStateSupplier");
@@ -84,7 +94,9 @@ public final class StreamPerformanceOverlayController
         rumbleOverlay = requireView(R.id.performanceRumble);
 
         compactOverlay.setOnClickListener(view -> {
-            if (preferences.enablePerfOverlayLiteDialog) {
+            if (uiSettingsState
+                    .get()
+                    .isCompactPerformanceInteractive()) {
                 this.compactOverlayAction.run();
             }
         });
@@ -99,36 +111,52 @@ public final class StreamPerformanceOverlayController
             }
             PerformanceOverlayRuntimeState runtime =
                     runtimeStateSupplier.get();
-            if (preferences.enablePerfOverlayLite) {
+            PerformanceOverlayConfiguration configuration =
+                    requireConfiguration();
+            if (configuration
+                    .getUiSettings()
+                    .isCompactPerformanceOverlay()) {
                 String text = formatter.formatCompact(
                         stats,
-                        preferences,
+                        configuration,
                         runtime);
                 compactOverlay.setText(
                         applyHighlighting(text, runtime));
             }
             else {
-                renderExpanded(stats, runtime);
+                renderExpanded(
+                        stats,
+                        configuration,
+                        runtime);
             }
         });
     }
 
     public void toggleVisibility() {
-        preferences.enablePerfOverlay =
-                !preferences.enablePerfOverlay;
+        StreamUiSettings settings = uiSettingsState.get();
+        uiSettingsState.replace(settings.toBuilder()
+                .setPerformanceOverlayEnabled(
+                        !settings
+                                .isPerformanceOverlayEnabled())
+                .build());
         applyOverlayVisibility();
     }
 
     public void toggleExpandedMode() {
-        preferences.enablePerfOverlayLite =
-                !preferences.enablePerfOverlayLite;
+        StreamUiSettings settings = uiSettingsState.get();
+        StreamUiSettings updated = settings.toBuilder()
+                .setCompactPerformanceOverlay(
+                        !settings
+                                .isCompactPerformanceOverlay())
+                .build();
+        uiSettingsState.replace(updated);
         overlay.setVisibility(View.VISIBLE);
         compactOverlay.setVisibility(
-                preferences.enablePerfOverlayLite ?
+                updated.isCompactPerformanceOverlay() ?
                         View.VISIBLE :
                         View.GONE);
         expandedOverlay.setVisibility(
-                preferences.enablePerfOverlayLite ?
+                updated.isCompactPerformanceOverlay() ?
                         View.GONE :
                         View.VISIBLE);
     }
@@ -143,7 +171,9 @@ public final class StreamPerformanceOverlayController
 
     public void applyRumbleVisibility() {
         rumbleOverlay.setVisibility(
-                preferences.showRumbleHUD ?
+                uiSettingsState
+                        .get()
+                        .isRumbleOverlayEnabled() ?
                         View.VISIBLE :
                         View.GONE);
     }
@@ -152,11 +182,14 @@ public final class StreamPerformanceOverlayController
             short controllerNumber,
             short lowFrequencyMotor,
             short highFrequencyMotor) {
-        if (!preferences.showRumbleHUD) {
+        if (!uiSettingsState.get().isRumbleOverlayEnabled()) {
             return;
         }
         activity.runOnUiThread(() -> {
-            if (destroyed || !preferences.showRumbleHUD) {
+            if (destroyed ||
+                    !uiSettingsState
+                            .get()
+                            .isRumbleOverlayEnabled()) {
                 return;
             }
             rumbleOverlay.setText(String.format(
@@ -170,20 +203,25 @@ public final class StreamPerformanceOverlayController
 
     public void applyCompactInteractivity() {
         compactOverlay.setClickable(
-                preferences.enablePerfOverlayLiteDialog);
+                uiSettingsState
+                        .get()
+                        .isCompactPerformanceInteractive());
     }
 
     public void applyCompactScale() {
         compactOverlay.setTextSize(
                 TypedValue.COMPLEX_UNIT_SP,
-                preferences.gameSettingPrefZoom * 0.1f);
+                uiSettingsState
+                        .get()
+                        .getCompactPerformanceScalePercent() *
+                        0.1f);
         applyNetworkIcon();
     }
 
     public void applyCompactMargin() {
-        if (preferences.performanceOverlayLiteMaginTop == 4) {
-            return;
-        }
+        int marginTopDp = uiSettingsState
+                .get()
+                .getCompactPerformanceMarginTopDp();
         LinearLayout.LayoutParams params =
                 (LinearLayout.LayoutParams)
                         compactOverlay.getLayoutParams();
@@ -191,7 +229,7 @@ public final class StreamPerformanceOverlayController
                 0,
                 UiHelper.dpToPx(
                         activity,
-                        preferences.performanceOverlayLiteMaginTop),
+                        marginTopDp),
                 0,
                 0);
         compactOverlay.setLayoutParams(params);
@@ -211,7 +249,8 @@ public final class StreamPerformanceOverlayController
     }
 
     private void applyOverlayVisibility() {
-        if (!preferences.enablePerfOverlay) {
+        StreamUiSettings settings = uiSettingsState.get();
+        if (!settings.isPerformanceOverlayEnabled()) {
             overlay.setVisibility(View.GONE);
             compactOverlay.setVisibility(View.GONE);
             expandedOverlay.setVisibility(View.GONE);
@@ -220,27 +259,35 @@ public final class StreamPerformanceOverlayController
 
         overlay.setVisibility(View.VISIBLE);
         compactOverlay.setVisibility(
-                preferences.enablePerfOverlayLite ?
+                settings.isCompactPerformanceOverlay() ?
                         View.VISIBLE :
                         View.GONE);
         expandedOverlay.setVisibility(
-                preferences.enablePerfOverlayLite ?
+                settings.isCompactPerformanceOverlay() ?
                         View.GONE :
                         View.VISIBLE);
     }
 
     private void renderExpanded(
             PerfOverlayStats stats,
+            PerformanceOverlayConfiguration configuration,
             PerformanceOverlayRuntimeState runtime) {
         expandedContent.removeAllViews();
         List<PerformanceOverlayFormatter.Row> rows =
                 formatter.formatExpanded(
                         stats,
-                        preferences,
+                        configuration,
                         runtime);
         for (PerformanceOverlayFormatter.Row row : rows) {
             addRow(row, runtime);
         }
+    }
+
+    private PerformanceOverlayConfiguration
+            requireConfiguration() {
+        return Objects.requireNonNull(
+                configurationProvider.get(),
+                "configurationProvider returned null");
     }
 
     private void addRow(

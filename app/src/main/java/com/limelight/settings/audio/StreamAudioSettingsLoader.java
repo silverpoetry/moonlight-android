@@ -1,12 +1,6 @@
 package com.limelight.settings.audio;
 
 import com.limelight.settings.SettingsRepository;
-import com.limelight.settings.audio.StreamAudioSettings
-        .ChannelConfiguration;
-import com.limelight.settings.audio.StreamAudioSettings
-        .HapticsOutputTarget;
-import com.limelight.settings.audio.StreamAudioSettings.VoiceFilter;
-
 import java.util.Objects;
 
 /**
@@ -50,34 +44,20 @@ public final class StreamAudioSettingsLoader {
                 .build();
     }
 
-    private static ChannelConfiguration
+    private static StreamAudioSettings.ChannelConfiguration
             parseChannelConfiguration(String value) {
-        if ("71".equals(value)) {
-            return ChannelConfiguration.SURROUND_7_1;
-        }
-        if ("51".equals(value)) {
-            return ChannelConfiguration.SURROUND_5_1;
-        }
-        return ChannelConfiguration.STEREO;
+        return StreamAudioSettingsCodec
+                .decodeChannelConfiguration(value);
     }
 
-    private static HapticsOutputTarget parseOutputTarget(
-            String value) {
-        return "controller".equals(value)
-                ? HapticsOutputTarget.CONTROLLER
-                : HapticsOutputTarget.PHONE;
+    private static StreamAudioSettings.HapticsOutputTarget
+            parseOutputTarget(String value) {
+        return StreamAudioSettingsCodec
+                .decodeHapticsOutputTarget(value);
     }
 
-    private static VoiceFilter parseVoiceFilter(String value) {
-        if ("low".equals(value)) {
-            return VoiceFilter.LOW;
-        }
-        if ("medium".equals(value)) {
-            return VoiceFilter.MEDIUM;
-        }
-        if ("high".equals(value)) {
-            return VoiceFilter.HIGH;
-        }
-        return VoiceFilter.OFF;
+    private static StreamAudioSettings.VoiceFilter
+            parseVoiceFilter(String value) {
+        return StreamAudioSettingsCodec.decodeVoiceFilter(value);
     }
 }

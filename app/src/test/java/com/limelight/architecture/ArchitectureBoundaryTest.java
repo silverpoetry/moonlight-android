@@ -550,6 +550,81 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void miscellaneousStreamSettingsUiUsesTypedIntents() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameDisplaySettingFragment")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android.preference..",
+                        "com.limelight.preferences..")
+                .because(
+                        "miscellaneous stream settings UI emits typed domain intents")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void streamOverlayUiDoesNotReadSettingsStorage() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.performance.StreamPerformanceOverlayController")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.performance.PerformanceOverlayFormatter")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.floatingview.AXFloatingMagnetView")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android.preference..",
+                        "com.limelight.preferences..",
+                        "com.limelight.settings.android..")
+                .because(
+                        "overlay runtime consumes immutable settings snapshots")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void floatingViewDoesNotOwnMutableSettingsState() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.floatingview.AXFloatingMagnetView")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.settings.ui.StreamUiSettingsState")
+                .because(
+                        "the View renders an immutable snapshot and emits position events")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void miscellaneousStreamUiDoesNotUseSharedPreferences() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameDisplaySettingFragment")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.performance.StreamPerformanceOverlayController")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.floatingview.AXFloatingMagnetView")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.content.SharedPreferences")
+                .because(
+                        "runtime UI cannot address persistence directly")
+                .check(productionClasses);
+    }
+
+    @Test
     public void usbDriverServiceDoesNotReadPersistenceOrLegacySettings() {
         noClasses()
                 .that()

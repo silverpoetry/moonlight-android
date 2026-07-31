@@ -43,6 +43,16 @@ public final class InputSettingsUpdate {
     }
 
     public static InputSettingsUpdate
+            softKeyboardGestureFingers(int fingerCount) {
+        return single(
+                InputSettingKeys.SOFT_KEYBOARD_GESTURE_FINGERS,
+                fingerCount,
+                (settings, normalized) -> settings.toBuilder()
+                        .setSoftKeyboardGestureFingers(normalized)
+                        .build());
+    }
+
+    public static InputSettingsUpdate
             directTouchRecenterEnabled(boolean enabled) {
         return single(
                 InputSettingKeys.DIRECT_TOUCH_RECENTER,

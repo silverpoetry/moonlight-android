@@ -50,6 +50,7 @@ import com.limelight.settings.android.SharedPreferencesSettingsRepository;
 import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.audio.StreamAudioSettingsLoader;
 import com.limelight.settings.audio.StreamAudioSettingsState;
+import com.limelight.settings.audio.StreamAudioSettingsUpdate;
 import com.limelight.settings.controller.ControllerSettingKeys;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsLoader;
@@ -63,6 +64,10 @@ import com.limelight.settings.stream.StreamDecoderSettings;
 import com.limelight.settings.stream.StreamDisplaySettings;
 import com.limelight.settings.transfer.TransferSettings;
 import com.limelight.settings.transfer.TransferSettingsLoader;
+import com.limelight.settings.ui.StreamUiSettings;
+import com.limelight.settings.ui.StreamUiSettingsLoader;
+import com.limelight.settings.ui.StreamUiSettingsState;
+import com.limelight.settings.ui.StreamUiSettingsUpdate;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsState;
@@ -74,6 +79,7 @@ import com.limelight.ui.gamemenu.GameMenuHost;
 import com.limelight.ui.gamemenu.GameMenuSession;
 import com.limelight.ui.clipboard.RemoteClipboardFileTransferController;
 import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
+import com.limelight.ui.performance.PerformanceOverlayConfiguration;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.stream.StreamFailureDiagnostics;
 import com.limelight.ui.stream.StreamLaunchReporter;
@@ -181,6 +187,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private ControllerHandler controllerHandler;
     private ControllerSettingsState controllerSettingsState;
     private StreamAudioSettingsState streamAudioSettingsState;
+    private StreamUiSettingsState streamUiSettingsState;
     private VirtualControlSettingsState virtualControlSettingsState;
     private VirtualControlLayoutRepository virtualControlLayoutRepository;
     private KeyboardInputController keyboardInputController;
@@ -368,6 +375,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 new StreamAudioSettingsState(
                         StreamAudioSettingsLoader.load(
                                 settingsRepository));
+        streamUiSettingsState =
+                new StreamUiSettingsState(
+                        StreamUiSettingsLoader.load(
+                                settingsRepository));
         virtualControlSettingsState =
                 new VirtualControlSettingsState(
                         VirtualControlSettingsLoader.load(
@@ -518,7 +529,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         performanceOverlayController =
                 new StreamPerformanceOverlayController(
                         this,
-                        prefConfig,
+                        streamUiSettingsState,
+                        this::createPerformanceOverlayConfiguration,
                         this::createPerformanceOverlayRuntimeState,
                         () -> showGameMenu(null));
 
@@ -1079,7 +1091,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         //悬浮球
-        if(prefConfig.enableAXFloating){
+        if (streamUiSettingsState
+                .get()
+                .isFloatingControlEnabled()) {
             initFloatingView();
         }
 
@@ -2952,36 +2966,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     @Override
-    public void applyInputSettingsFromStorage() {
-        if (streamInputController == null) {
-            return;
-        }
-
-        InputSettings current =
-                streamInputController.getSettings();
-        InputSettings updated = InputSettingsLoader
-                .load(settingsRepository)
-                .toBuilder()
-                .setTouchModePreferenceValue(
-                        current.getTouchModePreferenceValue())
-                .setAbsoluteMouseMode(
-                        current.isAbsoluteMouseMode())
-                .build();
-        streamInputController.replaceLiveSettings(updated);
-    }
-
-    @Override
-    public void applyControllerSettingsFromStorage() {
-        if (controllerSettingsState == null) {
-            return;
-        }
-
-        ControllerSettings settings =
-                ControllerSettingsLoader.load(settingsRepository);
-        controllerSettingsState.replace(settings);
-    }
-
-    @Override
     public InputSettings getInputSettings() {
         return inputSettingsState.get();
     }
@@ -3003,10 +2987,88 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     public void applyControllerSettingsUpdate(
             ControllerSettingsUpdate update) {
+        ControllerSettings previous =
+                controllerSettingsState.get();
         ControllerSettings updated =
-                update.applyTo(controllerSettingsState.get());
+                update.applyTo(previous);
         update.persist(settingsRepository);
         controllerSettingsState.replace(updated);
+        if (!previous.isForceGyroEnabled() &&
+                updated.isForceGyroEnabled()) {
+            setMotionForceGyro();
+        }
+    }
+
+    @Override
+    public StreamAudioSettings getStreamAudioSettings() {
+        return streamAudioSettingsState.get();
+    }
+
+    @Override
+    public void applyStreamAudioSettingsUpdate(
+            StreamAudioSettingsUpdate update) {
+        StreamAudioSettings updated =
+                update.applyTo(streamAudioSettingsState.get());
+        update.persist(settingsRepository);
+        streamAudioSettingsState.replace(updated);
+        if (mediaResourceOwner != null) {
+            mediaResourceOwner.updateAudioSettings(updated);
+        }
+        if (controllerHandler != null) {
+            controllerHandler.refreshAudioHapticsState();
+        }
+    }
+
+    @Override
+    public StreamUiSettings getStreamUiSettings() {
+        return streamUiSettingsState.get();
+    }
+
+    @Override
+    public void applyStreamUiSettingsUpdate(
+            StreamUiSettingsUpdate update) {
+        StreamUiSettings previous =
+                streamUiSettingsState.get();
+        StreamUiSettings updated =
+                update.applyTo(previous);
+        update.persist(settingsRepository);
+        streamUiSettingsState.replace(updated);
+        applyStreamUiSettingsEffects(previous, updated);
+    }
+
+    private void applyStreamUiSettingsEffects(
+            StreamUiSettings previous,
+            StreamUiSettings updated) {
+        if (previous.isFloatingControlEnabled() !=
+                updated.isFloatingControlEnabled()) {
+            if (updated.isFloatingControlEnabled()) {
+                showFloatView();
+            }
+            else {
+                hideFloatView();
+            }
+        }
+        if (performanceOverlayController == null) {
+            return;
+        }
+        if (previous.isRumbleOverlayEnabled() !=
+                updated.isRumbleOverlayEnabled()) {
+            performanceOverlayController
+                    .applyRumbleVisibility();
+        }
+        if (previous.isCompactPerformanceInteractive() !=
+                updated.isCompactPerformanceInteractive()) {
+            performanceOverlayController
+                    .applyCompactInteractivity();
+        }
+        if (previous.getCompactPerformanceScalePercent() !=
+                updated.getCompactPerformanceScalePercent()) {
+            performanceOverlayController.applyCompactScale();
+        }
+        if (previous.getCompactPerformanceMarginTopDp() !=
+                updated.getCompactPerformanceMarginTopDp()) {
+            performanceOverlayController.applyCompactMargin();
+        }
     }
 
     private PerformanceOverlayRuntimeState
@@ -3031,6 +3093,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 usbControllerActive,
                 usbControllerType,
                 connectedToUsbDriverService);
+    }
+
+    private PerformanceOverlayConfiguration
+            createPerformanceOverlayConfiguration() {
+        return new PerformanceOverlayConfiguration(
+                streamUiSettingsState.get(),
+                streamDecoderSettings,
+                streamDisplaySettings,
+                streamAudioSettingsState.get(),
+                controllerSettingsState.get());
     }
 
     public void showHUD(){
@@ -3277,45 +3349,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         setDualSenseTrigger();
     }
 
-    @Override
-    public void applyRumbleOverlayVisibility() {
-        if (performanceOverlayController != null) {
-            performanceOverlayController.applyRumbleVisibility();
-        }
-    }
-
-    @Override
-    public void applyPerformanceOverlayInteractivity() {
-        if (performanceOverlayController != null) {
-            performanceOverlayController.applyCompactInteractivity();
-        }
-    }
-
-    @Override
-    public void applyPerformanceOverlayScale() {
-        if (performanceOverlayController != null) {
-            performanceOverlayController.applyCompactScale();
-        }
-    }
-
-    @Override
-    public void applyMotionEmulationSettings() {
-        applyControllerSettingsFromStorage();
-        setMotionForceGyro();
-    }
-
-    @Override
-    public void applyPerformanceOverlayMargin() {
-        if (performanceOverlayController != null) {
-            performanceOverlayController.applyCompactMargin();
-        }
-    }
-
-    @Override
-    public void applyAudioSettingsFromStorage() {
-        reloadAudioSettings();
-    }
-
 
     private SecondaryDisplayPresentation presentation;
     public void showSecondScreen(){
@@ -3515,6 +3548,20 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private AXFloatingView floatingView;
     private void initFloatingView(){
         floatingView = new AXFloatingView(this);
+        floatingView.configurePosition(
+                streamUiSettingsState.get(),
+                (x, y, nearestLeft) -> {
+                    if (streamUiSettingsState
+                            .get()
+                            .shouldRememberFloatingPosition()) {
+                        applyStreamUiSettingsUpdate(
+                                StreamUiSettingsUpdate
+                                        .floatingPosition(
+                                                x,
+                                                y,
+                                                nearestLeft));
+                    }
+                });
         floatingView.setIconImage(R.drawable.app_icon_axi);
         floatingView.setLayoutParams(AXFloatingView.getLayParams());
         ViewGroup decorViewGroup= (ViewGroup) getWindow().getDecorView();
@@ -3522,14 +3569,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         floatingView.setFloatingViewListener(new AXFloatingViewListener() {
             @Override
             public void onClick(AXFloatingMagnetView magnetView) {
-                switch (prefConfig.axFloatingOperate){
-                    case 0://游戏菜单
+                switch (streamUiSettingsState
+                        .get()
+                        .getFloatingAction()) {
+                    case GAME_MENU:
                         showGameMenu(null);
                         break;
-                    case 1://软键盘
+                    case SOFT_KEYBOARD:
                         toggleKeyboard();
                         break;
-                    case 2://全键盘
+                    case FULL_KEYBOARD:
                         showHidekeyBoardLayoutController();
                         break;
                 }
@@ -3605,7 +3654,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     public void setMotionForceGyro(){
-        if(prefConfig.gameForceGyro){
+        if (controllerSettingsState
+                .get()
+                .isForceGyroEnabled()) {
             if(controllerHandler!=null){
                 controllerHandler.handleSetMotionEventState((short) 0, MoonBridge.LI_MOTION_TYPE_GYRO, (short) 100);
             }
@@ -3614,20 +3665,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     public KeyBoardController getKeyBoardController(){
         return keyBoardController;
-    }
-
-    private void reloadAudioSettings() {
-        StreamAudioSettings settings =
-                StreamAudioSettingsLoader.load(
-                        settingsRepository);
-        streamAudioSettingsState.replace(settings);
-        prefConfig.applyAudioSettings(settings);
-        if (mediaResourceOwner != null) {
-            mediaResourceOwner.updateAudioSettings(settings);
-        }
-        if (controllerHandler != null) {
-            controllerHandler.refreshAudioHapticsState();
-        }
     }
 
     private static MoonBridge.AudioConfiguration

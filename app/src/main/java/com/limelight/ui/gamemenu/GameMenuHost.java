@@ -6,6 +6,10 @@ import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettings;
 import com.limelight.settings.input.InputSettingsUpdate;
+import com.limelight.settings.audio.StreamAudioSettings;
+import com.limelight.settings.audio.StreamAudioSettingsUpdate;
+import com.limelight.settings.ui.StreamUiSettings;
+import com.limelight.settings.ui.StreamUiSettingsUpdate;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 
@@ -72,10 +76,6 @@ public interface GameMenuHost {
 
     void switchMouseModel(int mode);
 
-    void applyInputSettingsFromStorage();
-
-    void applyControllerSettingsFromStorage();
-
     InputSettings getInputSettings();
 
     ControllerSettings getControllerSettings();
@@ -85,23 +85,17 @@ public interface GameMenuHost {
     void applyControllerSettingsUpdate(
             ControllerSettingsUpdate update);
 
+    StreamAudioSettings getStreamAudioSettings();
+
+    void applyStreamAudioSettingsUpdate(
+            StreamAudioSettingsUpdate update);
+
+    StreamUiSettings getStreamUiSettings();
+
+    void applyStreamUiSettingsUpdate(
+            StreamUiSettingsUpdate update);
+
     void applyDualSenseTriggerSettings();
-
-    void showFloatView();
-
-    void hideFloatView();
-
-    void applyRumbleOverlayVisibility();
-
-    void applyPerformanceOverlayInteractivity();
-
-    void applyPerformanceOverlayScale();
-
-    void applyMotionEmulationSettings();
-
-    void applyPerformanceOverlayMargin();
-
-    void applyAudioSettingsFromStorage();
 
     void updateVirtualView();
 
