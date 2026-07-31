@@ -435,6 +435,11 @@ targets.
   Xbox Bluetooth, and Thrustmaster key-layout corrections to immutable sampled
   facts. Button remapping consumes the resulting profile instead of depending
   on mutation order inside device-context construction.
+- `ControllerExternalDevicePolicy` owns product-specific external/internal
+  overrides, while `AndroidInputDeviceClassifier` is the only adapter for the
+  public or legacy-reflective Android classification API. Unknown legacy
+  results fail safely to external, and one sampled classification is reused by
+  context setup and Back-button policy.
 - `StreamInputLifecycleController` is the Activity-independent owner of input
   resume/pause, finishing shutdown, early motion-routing detachment, late
   controller-resource teardown, and the keyboard-listener lease. The explicit

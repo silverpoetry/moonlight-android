@@ -43,7 +43,6 @@ import com.limelight.utils.Vector2d;
 
 import org.cgutman.shieldcontrollerextensions.SceManager;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -895,51 +894,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         return context;
     }
 
-    private static boolean isExternal(InputDevice dev) {
-        // The ASUS Tinker Board inaccurately reports Bluetooth gamepads as internal,
-        // causing shouldIgnoreBack() to believe it should pass through back as a
-        // navigation event for any attached gamepads.
-        if (Build.MODEL.equals("Tinker Board")) {
-            return true;
-        }
-
-        String deviceName = dev.getName();
-        if (deviceName.contains("gpio") || // This is the back button on Shield portable consoles
-                deviceName.contains("joy_key") || // These are the gamepad buttons on the Archos Gamepad 2
-                deviceName.contains("keypad") || // These are gamepad buttons on the XPERIA Play
-                deviceName.equalsIgnoreCase("NVIDIA Corporation NVIDIA Controller v01.01") || // Gamepad on Shield Portable
-                deviceName.equalsIgnoreCase("NVIDIA Corporation NVIDIA Controller v01.02") || // Gamepad on Shield Portable (?)
-                deviceName.equalsIgnoreCase("GR0006") // Gamepad on Logitech G Cloud
-        )
-        {
-            LimeLog.info(dev.getName()+" is internal by hardcoded mapping");
-            return false;
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Landroid/view/InputDevice;->isExternal()Z is officially public on Android Q
-            return dev.isExternal();
-        }
-        else {
-            try {
-                // Landroid/view/InputDevice;->isExternal()Z is on the light graylist in Android P
-                return (Boolean)dev.getClass().getMethod("isExternal").invoke(dev);
-            } catch (NoSuchMethodException e) {
-                e.printStackTrace();
-            } catch (IllegalAccessException e) {
-                e.printStackTrace();
-            } catch (InvocationTargetException e) {
-                e.printStackTrace();
-            } catch (ClassCastException e) {
-                e.printStackTrace();
-            }
-        }
-
-        // Answer true if we don't know
-        return true;
-    }
-
-    private boolean shouldIgnoreBack(InputDevice dev) {
+    private boolean shouldIgnoreBack(
+            InputDevice dev,
+            boolean external) {
         String devName = dev.getName();
 
         // The Serval has a Select button but the framework doesn't
@@ -958,7 +915,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         // back button to function for navigation.
         //
         // First, check if this is an internal device we're being called on.
-        if (!isExternal(dev)) {
+        if (!external) {
             InputManager im = (InputManager) activityContext.getSystemService(Context.INPUT_SERVICE);
 
             boolean foundInternalGamepad = false;
@@ -967,7 +924,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 InputDevice currentDev = im.getInputDevice(id);
 
                 // Ignore external devices
-                if (currentDev == null || isExternal(currentDev)) {
+                if (currentDev == null ||
+                        AndroidInputDeviceClassifier.isExternal(
+                                currentDev)) {
                     continue;
                 }
 
@@ -1016,7 +975,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         context.inputDevice = dev;
         context.name = devName;
         context.id = dev.getId();
-        context.external = isExternal(dev);
+        context.external =
+                AndroidInputDeviceClassifier.isExternal(dev);
 
         context.vendorId = dev.getVendorId();
         context.productId = dev.getProductId();
@@ -1165,7 +1125,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             }
         }
 
-        boolean ignoreBack = shouldIgnoreBack(dev);
+        boolean ignoreBack = shouldIgnoreBack(
+                dev,
+                context.external);
         boolean hasStartOrMenu = false;
         if (devName != null &&
                 devName.contains("ASUS Gamepad")) {

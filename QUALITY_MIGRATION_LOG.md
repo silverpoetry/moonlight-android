@@ -1201,3 +1201,18 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Extracted external/input-device classification into
+  `ControllerExternalDevicePolicy` and `AndroidInputDeviceClassifier`. Fixtures
+  preserve the Tinker Board external override; the SHIELD Portable, Archos,
+  Xperia Play, NVIDIA v01.01/v01.02, and Logitech G Cloud internal mappings;
+  the original case sensitivity; and platform fallback for ordinary devices.
+- Android Q+ uses the public platform value, older releases isolate hidden-API
+  reflection in the adapter, and an unavailable legacy result keeps the
+  original safe external default without printing exception stacks in release
+  logs. Context construction samples its classification once and reuses it for
+  Back-button policy instead of querying the same device twice.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 511 JVM
+  tests per variant (2,044 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.
