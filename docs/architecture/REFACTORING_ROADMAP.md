@@ -353,6 +353,13 @@ targets.
 - `ControllerSlotAllocator` is the sole owner of the protocol's sixteen player
   slots and the initial-to-active mask transition. Android/USB device code asks
   for or releases a slot instead of mutating duplicate bitmasks.
+- `ControllerBatteryReport` owns Android-to-protocol battery conversion and
+  duplicate-sample suppression. The Android adapter only samples platform or
+  SHIELD APIs and sends the immutable report.
+- `ControllerButtonMapper` owns the Android key-to-protocol capability table,
+  vendor key-layout corrections, face-button swapping, and stateful
+  Start/Select fallbacks. Device discovery builds its profile once; the event
+  adapter performs no mapping allocation or device-policy branching.
 
 ### Exit evidence
 

@@ -1,6 +1,5 @@
 package com.limelight.binding.input;
 
-import android.annotation.SuppressLint;
 import androidx.annotation.RequiresApi;
 import android.app.Activity;
 import android.content.Context;
@@ -83,45 +82,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private static final int EMULATING_TOUCHPAD = 0x4;
 
     private static final int BATTERY_RECHECK_INTERVAL_MS = 120 * 1000;
-
-    // These API 24 key codes are compile-time integers and may also be reported by
-    // external input devices on older Android releases, so retaining the mappings
-    // is both binary-compatible and useful below API 24.
-    @SuppressLint("InlinedApi")
-    private static final Map<Integer, Integer> ANDROID_TO_LI_BUTTON_MAP = Map.ofEntries(
-            Map.entry(KeyEvent.KEYCODE_BUTTON_A, ControllerPacket.A_FLAG),
-            Map.entry(KeyEvent.KEYCODE_BUTTON_B, ControllerPacket.B_FLAG),
-            Map.entry(KeyEvent.KEYCODE_BUTTON_X, ControllerPacket.X_FLAG),
-            Map.entry(KeyEvent.KEYCODE_BUTTON_Y, ControllerPacket.Y_FLAG),
-            Map.entry(KeyEvent.KEYCODE_DPAD_UP, ControllerPacket.UP_FLAG),
-            Map.entry(KeyEvent.KEYCODE_DPAD_DOWN, ControllerPacket.DOWN_FLAG),
-            Map.entry(KeyEvent.KEYCODE_DPAD_LEFT, ControllerPacket.LEFT_FLAG),
-            Map.entry(KeyEvent.KEYCODE_DPAD_RIGHT, ControllerPacket.RIGHT_FLAG),
-            Map.entry(KeyEvent.KEYCODE_DPAD_UP_LEFT, ControllerPacket.UP_FLAG | ControllerPacket.LEFT_FLAG),
-            Map.entry(KeyEvent.KEYCODE_DPAD_UP_RIGHT, ControllerPacket.UP_FLAG | ControllerPacket.RIGHT_FLAG),
-            Map.entry(KeyEvent.KEYCODE_DPAD_DOWN_LEFT, ControllerPacket.DOWN_FLAG | ControllerPacket.LEFT_FLAG),
-            Map.entry(KeyEvent.KEYCODE_DPAD_DOWN_RIGHT, ControllerPacket.DOWN_FLAG | ControllerPacket.RIGHT_FLAG),
-            Map.entry(KeyEvent.KEYCODE_BUTTON_L1, ControllerPacket.LB_FLAG),
-            Map.entry(KeyEvent.KEYCODE_BUTTON_R1, ControllerPacket.RB_FLAG),
-            Map.entry(KeyEvent.KEYCODE_BUTTON_THUMBL, ControllerPacket.LS_CLK_FLAG),
-            Map.entry(KeyEvent.KEYCODE_BUTTON_THUMBR, ControllerPacket.RS_CLK_FLAG),
-            Map.entry(KeyEvent.KEYCODE_BUTTON_START, ControllerPacket.PLAY_FLAG),
-            Map.entry(KeyEvent.KEYCODE_MENU, ControllerPacket.PLAY_FLAG),
-            Map.entry(KeyEvent.KEYCODE_BUTTON_SELECT, ControllerPacket.BACK_FLAG),
-            Map.entry(KeyEvent.KEYCODE_BACK, ControllerPacket.BACK_FLAG),
-            Map.entry(KeyEvent.KEYCODE_BUTTON_MODE, ControllerPacket.SPECIAL_BUTTON_FLAG),
-
-            // This is the Xbox Series X Share button
-            Map.entry(KeyEvent.KEYCODE_MEDIA_RECORD, ControllerPacket.MISC_FLAG),
-
-            // This is a weird one, but it's what Android does prior to 4.10 kernels
-            // where DualShock/DualSense touchpads weren't mapped as separate devices.
-            // https://android.googlesource.com/platform/frameworks/base/+/master/data/keyboards/Vendor_054c_Product_0ce6_fallback.kl
-            // https://android.googlesource.com/platform/frameworks/base/+/master/data/keyboards/Vendor_054c_Product_09cc.kl
-            Map.entry(KeyEvent.KEYCODE_BUTTON_1, ControllerPacket.TOUCHPAD_FLAG)
-
-            // FIXME: Paddles?
-    );
 
     private final Vector2d inputVector = new Vector2d();
 
@@ -485,7 +445,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         // with device ID == 0. This hits the default context which would normally
         // consume these. Instead, let's ignore them since that's probably the
         // most likely case.
-        defaultContext.ignoreBack = true;
+        defaultContext.buttonMapper =
+                ControllerButtonMapper.builder(
+                                0,
+                                0,
+                                Build.VERSION.SDK_INT)
+                        .ignoreBack(true)
+                        .hasHatAxes(true)
+                        .build();
 
         // Get the initially attached set of gamepads. As each gamepad receives
         // its initial InputEvent, we will move these from this set onto the
@@ -1010,6 +977,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         context.vendorId = dev.getVendorId();
         context.productId = dev.getProductId();
 
+        boolean nonStandardDualShock4 = false;
+        boolean linuxStandardFaceButtons = false;
+        boolean nonStandardXboxBluetooth = false;
+        boolean serval = false;
+        boolean backIsStart = false;
+        boolean modeIsSelect = false;
+        boolean searchIsMode = false;
+
         // These aren't always present in the Android key layout files, so they won't show up
         // in our normal InputDevice.hasKeys() probing.
         context.hasPaddles = MoonBridge.guessControllerHasPaddles(context.vendorId, context.productId);
@@ -1096,7 +1071,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         // This is hack to deal with the Nvidia Shield's modifications that causes the DS4 clickpad
         // to work as a duplicate Select button instead of a unique button we can handle separately.
-        context.isDualShockStandaloneTouchpad =
+        boolean dualShockStandaloneTouchpad =
                 context.vendorId == 0x054c && // Sony
                         (devName.endsWith(" Touchpad")||devName.startsWith("DualSense")) &&
                 dev.getSources() == (InputDevice.SOURCE_KEYBOARD | InputDevice.SOURCE_MOUSE);
@@ -1132,14 +1107,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 if (dev.getVendorId() == 0x054c) { // Sony
                     if (dev.hasKeys(KeyEvent.KEYCODE_BUTTON_C)[0]) {
                         LimeLog.info("Detected non-standard DualShock 4 mapping");
-                        context.isNonStandardDualShock4 = true;
+                        nonStandardDualShock4 = true;
                     } else {
                         LimeLog.info("Detected DualShock 4 (Linux standard mapping)");
-                        context.usesLinuxGamepadStandardFaceButtons = true;
+                        linuxStandardFaceButtons = true;
                     }
                 }
 
-                if (context.isNonStandardDualShock4) {
+                if (nonStandardDualShock4) {
                     // The old DS4 driver uses RX and RY for triggers
                     context.leftTriggerAxis = MotionEvent.AXIS_RX;
                     context.rightTriggerAxis = MotionEvent.AXIS_RY;
@@ -1224,14 +1199,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         // The ADT-1 controller needs a similar fixup to the ASUS Gamepad
         if (dev.getVendorId() == 0x18d1 && dev.getProductId() == 0x2c40) {
-            context.backIsStart = true;
-            context.modeIsSelect = true;
+            backIsStart = true;
+            modeIsSelect = true;
             context.triggerDeadzone = 0.30f;
             context.hasSelect = true;
             context.hasMode = false;
         }
 
-        context.ignoreBack = shouldIgnoreBack(dev);
+        boolean ignoreBack = shouldIgnoreBack(dev);
 
         if (devName != null) {
             // For the Nexus Player (and probably other ATV devices), we should
@@ -1240,8 +1215,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             if (devName.contains("ASUS Gamepad")) {
                 boolean[] hasStartKey = dev.hasKeys(KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_MENU, 0);
                 if (!hasStartKey[0] && !hasStartKey[1]) {
-                    context.backIsStart = true;
-                    context.modeIsSelect = true;
+                    backIsStart = true;
+                    modeIsSelect = true;
                     context.hasSelect = true;
                     context.hasMode = false;
                 }
@@ -1256,14 +1231,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 // summons the Google Assistant on the Shield TV. On my Pixel 4, it seems to do
                 // nothing, so we can hijack it to act like a mode button.
                 if (devName.contains("NVIDIA Controller v01.03") || devName.contains("NVIDIA Controller v01.04")) {
-                    context.searchIsMode = true;
+                    searchIsMode = true;
                     context.hasMode = true;
                 }
             }
             // The Serval has a couple of unknown buttons that are start and select. It also has
             // a back button which we want to ignore since there's already a select button.
             else if (devName.contains("Razer Serval")) {
-                context.isServal = true;
+                serval = true;
 
                 // Serval has Select and Mode buttons (possibly mapped non-standard)
                 context.hasMode = true;
@@ -1277,7 +1252,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             // required fixup is ignoring the select button.
             else if (devName.equals("Xbox Wireless Controller")) {
                 if (gasRange == null) {
-                    context.isNonStandardXboxBtController = true;
+                    nonStandardXboxBluetooth = true;
 
                     // Xbox One S has Select and Mode buttons (possibly mapped non-standard)
                     context.hasMode = true;
@@ -1294,6 +1269,30 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         LimeLog.info("Analog stick deadzone: "+context.leftStickDeadzoneRadius+" "+context.rightStickDeadzoneRadius);
         LimeLog.info("Trigger deadzone: "+context.triggerDeadzone);
+
+        context.buttonMapper =
+                ControllerButtonMapper.builder(
+                                context.vendorId,
+                                context.productId,
+                                Build.VERSION.SDK_INT)
+                        .ignoreBack(ignoreBack)
+                        .hasShare(context.hasShare)
+                        .dualShockStandaloneTouchpad(
+                                dualShockStandaloneTouchpad)
+                        .linuxStandardFaceButtons(
+                                linuxStandardFaceButtons)
+                        .nonStandardDualShock4(
+                                nonStandardDualShock4)
+                        .serval(serval)
+                        .nonStandardXboxBluetooth(
+                                nonStandardXboxBluetooth)
+                        .backIsStart(backIsStart)
+                        .modeIsSelect(modeIsSelect)
+                        .searchIsMode(searchIsMode)
+                        .hasHatAxes(
+                                context.hatXAxis != -1 ||
+                                        context.hatYAxis != -1)
+                        .build();
 
         return context;
     }
@@ -1363,18 +1362,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 settings.isOnscreenControllerEnabled());
     }
 
-    private static boolean areBatteryCapacitiesEqual(float first, float second) {
-        // With no NaNs involved, it is a simple equality comparison.
-        if (!Float.isNaN(first) && !Float.isNaN(second)) {
-            return first == second;
-        }
-        else {
-            // If we have a NaN in one or both positions, compare NaN-ness instead.
-            // Equality comparisons will always return false for NaN.
-            return Float.isNaN(first) == Float.isNaN(second);
-        }
-    }
-
     // This must not be called on the main thread due to risk of ANRs!
     private void sendControllerBatteryPacket(InputDeviceContext context) {
         int currentBatteryStatus;
@@ -1439,47 +1426,23 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             return;
         }
 
-        if (currentBatteryStatus != context.lastReportedBatteryStatus ||
-                !areBatteryCapacitiesEqual(currentBatteryCapacity, context.lastReportedBatteryCapacity)) {
-            byte state;
-            byte percentage;
+        ControllerBatteryReport report =
+                ControllerBatteryReport.fromAndroidSample(
+                        currentBatteryStatus,
+                        currentBatteryCapacity);
+        if (report != null &&
+                report.differsFrom(
+                        context.lastReportedBatteryStatus,
+                        context.lastReportedBatteryCapacity)) {
+            conn.sendControllerBatteryEvent(
+                    (byte) context.controllerNumber,
+                    report.getProtocolState(),
+                    report.getPercentage());
 
-            switch (currentBatteryStatus) {
-                case BatteryManager.BATTERY_STATUS_UNKNOWN:
-                    state = MoonBridge.LI_BATTERY_STATE_UNKNOWN;
-                    break;
-
-                case BatteryManager.BATTERY_STATUS_CHARGING:
-                    state = MoonBridge.LI_BATTERY_STATE_CHARGING;
-                    break;
-
-                case BatteryManager.BATTERY_STATUS_DISCHARGING:
-                    state = MoonBridge.LI_BATTERY_STATE_DISCHARGING;
-                    break;
-
-                case BatteryManager.BATTERY_STATUS_NOT_CHARGING:
-                    state = MoonBridge.LI_BATTERY_STATE_NOT_CHARGING;
-                    break;
-
-                case BatteryManager.BATTERY_STATUS_FULL:
-                    state = MoonBridge.LI_BATTERY_STATE_FULL;
-                    break;
-
-                default:
-                    return;
-            }
-
-            if (Float.isNaN(currentBatteryCapacity)) {
-                percentage = MoonBridge.LI_BATTERY_PERCENTAGE_UNKNOWN;
-            }
-            else {
-                percentage = (byte)(currentBatteryCapacity * 100);
-            }
-
-            conn.sendControllerBatteryEvent((byte)context.controllerNumber, state, percentage);
-
-            context.lastReportedBatteryStatus = currentBatteryStatus;
-            context.lastReportedBatteryCapacity = currentBatteryCapacity;
+            context.lastReportedBatteryStatus =
+                    report.getAndroidStatus();
+            context.lastReportedBatteryCapacity =
+                    report.getCapacity();
         }
     }
 
@@ -1759,316 +1722,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
     private short sensorLeftTrigger=0x00;
 
-    private final int REMAP_IGNORE = -1;
-    private final int REMAP_CONSUME = -2;
-
-    // Return a valid keycode, -2 to consume, or -1 to not consume the event
-    // Device MAY BE NULL
     private int handleRemapping(InputDeviceContext context, KeyEvent event) {
-        // Don't capture the back button if configured
-        if (context.ignoreBack) {
-            if (event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
-                return REMAP_IGNORE;
-            }
-        }
-
-        // If we know this gamepad has a share button and receive an unmapped
-        // KEY_RECORD event, report that as a share button press.
-        if (context.hasShare) {
-            if (event.getKeyCode() == KeyEvent.KEYCODE_UNKNOWN &&
-                    event.getScanCode() == 167) {
-                return KeyEvent.KEYCODE_MEDIA_RECORD;
-            }
-        }
-
-        // The Shield's key layout files map the DualShock 4 clickpad button to
-        // BUTTON_SELECT instead of something sane like BUTTON_1 as the standard AOSP
-        // mapping does. If we get a button from a Sony device reported as BUTTON_SELECT
-        // that matches the keycode used by hid-sony for the clickpad or it's from the
-        // separate touchpad input device, remap it to BUTTON_1 to match the current AOSP
-        // layout and trigger our touchpad button logic.
-        if (context.vendorId == 0x054c &&
-                event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_SELECT &&
-                (event.getScanCode() == 317 || context.isDualShockStandaloneTouchpad)) {
-            return KeyEvent.KEYCODE_BUTTON_1;
-        }
-
-        // Override mode button for 8BitDo controllers
-        if (context.vendorId == 0x2dc8 && event.getScanCode() == 306) {
-            return KeyEvent.KEYCODE_BUTTON_MODE;
-        }
-
-        // This mapping was adding in Android 10, then changed based on
-        // kernel changes (adding hid-nintendo) in Android 11. If we're
-        // on anything newer than Pie, just use the built-in mapping.
-        if ((context.vendorId == 0x057e && context.productId == 0x2009 && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) || // Switch Pro controller
-                (context.vendorId == 0x0f0d && context.productId == 0x00c1)) { // HORIPAD for Switch
-            switch (event.getScanCode()) {
-                case 0x130://304
-                    return KeyEvent.KEYCODE_BUTTON_A;
-                case 0x131:
-                    return KeyEvent.KEYCODE_BUTTON_B;
-                case 0x132:
-                    return KeyEvent.KEYCODE_BUTTON_X;
-                case 0x133:
-                    return KeyEvent.KEYCODE_BUTTON_Y;
-                case 0x134:
-                    return KeyEvent.KEYCODE_BUTTON_L1;
-                case 0x135:
-                    return KeyEvent.KEYCODE_BUTTON_R1;
-                case 0x136:
-                    return KeyEvent.KEYCODE_BUTTON_L2;
-                case 0x137:
-                    return KeyEvent.KEYCODE_BUTTON_R2;
-                case 0x138:
-                    return KeyEvent.KEYCODE_BUTTON_SELECT;
-                case 0x139:
-                    return KeyEvent.KEYCODE_BUTTON_START;
-                case 0x13A:
-                    return KeyEvent.KEYCODE_BUTTON_THUMBL;
-                case 0x13B:
-                    return KeyEvent.KEYCODE_BUTTON_THUMBR;
-                case 0x13D:
-                    return KeyEvent.KEYCODE_BUTTON_MODE;
-            }
-        }
-
-
-        //fix joycon-left 十字键
-        if (settingsState.get().isJoyConFixEnabled() &&
-                context.vendorId == 0x057e &&
-                context.productId == 0x2006) {
-            switch (event.getScanCode())
-            {
-                case 546://十字键
-                    return KeyEvent.KEYCODE_DPAD_LEFT;
-                case 547:
-                    return KeyEvent.KEYCODE_DPAD_RIGHT;
-                case 544:
-                    return KeyEvent.KEYCODE_DPAD_UP;
-                case 545:
-                    return KeyEvent.KEYCODE_DPAD_DOWN;
-                case 309://截图键
-                    return KeyEvent.KEYCODE_BUTTON_MODE;
-                case 310:
-                    return KeyEvent.KEYCODE_BUTTON_L1;
-                case 312:
-                    return KeyEvent.KEYCODE_BUTTON_L2;
-                case 314:
-                    return KeyEvent.KEYCODE_BUTTON_SELECT;
-                case 317:
-                    return KeyEvent.KEYCODE_BUTTON_THUMBL;
-            }
-        }
-        //fix JoyCon-right xy互换
-        if (settingsState.get().isJoyConFixEnabled() &&
-                context.vendorId == 0x057e &&
-                context.productId == 0x2007) {
-            switch (event.getScanCode())
-            {
-                case 307://XY相反
-                    return KeyEvent.KEYCODE_BUTTON_Y;
-                case 308:
-                    return KeyEvent.KEYCODE_BUTTON_X;
-                case 304:
-                    return KeyEvent.KEYCODE_BUTTON_A;
-                case 305:
-                    return KeyEvent.KEYCODE_BUTTON_B;
-                case 311:
-                    return KeyEvent.KEYCODE_BUTTON_R1;
-                case 313:
-                    return KeyEvent.KEYCODE_BUTTON_R2;
-                case 315:
-                    return KeyEvent.KEYCODE_BUTTON_START;
-                case 316:
-                    return KeyEvent.KEYCODE_BUTTON_MODE;
-                case 318:
-                    return KeyEvent.KEYCODE_BUTTON_THUMBR;
-            }
-        }
-
-
-        if (context.usesLinuxGamepadStandardFaceButtons) {
-            // Android's Generic.kl swaps BTN_NORTH and BTN_WEST
-            switch (event.getScanCode()) {
-                case 304:
-                    return KeyEvent.KEYCODE_BUTTON_A;
-                case 305:
-                    return KeyEvent.KEYCODE_BUTTON_B;
-                case 307:
-                    return KeyEvent.KEYCODE_BUTTON_Y;
-                case 308:
-                    return KeyEvent.KEYCODE_BUTTON_X;
-            }
-        }
-
-        if (context.isNonStandardDualShock4) {
-            switch (event.getScanCode()) {
-                case 304:
-                    return KeyEvent.KEYCODE_BUTTON_X;
-                case 305:
-                    return KeyEvent.KEYCODE_BUTTON_A;
-                case 306:
-                    return KeyEvent.KEYCODE_BUTTON_B;
-                case 307:
-                    return KeyEvent.KEYCODE_BUTTON_Y;
-                case 308:
-                    return KeyEvent.KEYCODE_BUTTON_L1;
-                case 309:
-                    return KeyEvent.KEYCODE_BUTTON_R1;
-                /*
-                **** Using analog triggers instead ****
-                case 310:
-                    return KeyEvent.KEYCODE_BUTTON_L2;
-                case 311:
-                    return KeyEvent.KEYCODE_BUTTON_R2;
-                */
-                case 312:
-                    return KeyEvent.KEYCODE_BUTTON_SELECT;
-                case 313:
-                    return KeyEvent.KEYCODE_BUTTON_START;
-                case 314:
-                    return KeyEvent.KEYCODE_BUTTON_THUMBL;
-                case 315:
-                    return KeyEvent.KEYCODE_BUTTON_THUMBR;
-                case 316:
-                    return KeyEvent.KEYCODE_BUTTON_MODE;
-                default:
-                    return REMAP_CONSUME;
-            }
-        }
-        // If this is a Serval controller sending an unknown key code, it's probably
-        // the start and select buttons
-        else if (context.isServal && event.getKeyCode() == KeyEvent.KEYCODE_UNKNOWN) {
-            switch (event.getScanCode())  {
-                case 314:
-                    return KeyEvent.KEYCODE_BUTTON_SELECT;
-                case 315:
-                    return KeyEvent.KEYCODE_BUTTON_START;
-            }
-        }
-        else if (context.isNonStandardXboxBtController) {
-            switch (event.getScanCode()) {
-                case 306:
-                    return KeyEvent.KEYCODE_BUTTON_X;
-                case 307:
-                    return KeyEvent.KEYCODE_BUTTON_Y;
-                case 308:
-                    return KeyEvent.KEYCODE_BUTTON_L1;
-                case 309:
-                    return KeyEvent.KEYCODE_BUTTON_R1;
-                case 310:
-                    return KeyEvent.KEYCODE_BUTTON_SELECT;
-                case 311:
-                    return KeyEvent.KEYCODE_BUTTON_START;
-                case 312:
-                    return KeyEvent.KEYCODE_BUTTON_THUMBL;
-                case 313:
-                    return KeyEvent.KEYCODE_BUTTON_THUMBR;
-                case 139:
-                    return KeyEvent.KEYCODE_BUTTON_MODE;
-                default:
-                    // Other buttons are mapped correctly
-            }
-
-            // The Xbox button is sent as MENU
-            if (event.getKeyCode() == KeyEvent.KEYCODE_MENU) {
-                return KeyEvent.KEYCODE_BUTTON_MODE;
-            }
-        }
-        else if (context.vendorId == 0x0b05 && // ASUS
-                     (context.productId == 0x7900 || // Kunai - USB
-                      context.productId == 0x7902)) // Kunai - Bluetooth
-        {
-            // ROG Kunai has special M1-M4 buttons that are accessible via the
-            // joycon-style detachable controllers that we should map to Start
-            // and Select.
-            switch (event.getScanCode()) {
-                case 264:
-                case 266:
-                    return KeyEvent.KEYCODE_BUTTON_START;
-
-                case 265:
-                case 267:
-                    return KeyEvent.KEYCODE_BUTTON_SELECT;
-            }
-        }
-
-        if (context.hatXAxis == -1 &&
-                 context.hatYAxis == -1 &&
-                 /* FIXME: There's no good way to know for sure if xpad is bound
-                    to this device, so we won't use the name to validate if these
-                    scancodes should be mapped to DPAD
-
-                    context.isXboxController &&
-                  */
-                 event.getKeyCode() == KeyEvent.KEYCODE_UNKNOWN) {
-            // If there's not a proper Xbox controller mapping, we'll translate the raw d-pad
-            // scan codes into proper key codes
-            switch (event.getScanCode())
-            {
-            case 704:
-                return KeyEvent.KEYCODE_DPAD_LEFT;
-            case 705:
-                return KeyEvent.KEYCODE_DPAD_RIGHT;
-            case 706:
-                return KeyEvent.KEYCODE_DPAD_UP;
-            case 707:
-                return KeyEvent.KEYCODE_DPAD_DOWN;
-            }
-        }
-
-        // Past here we can fixup the keycode and potentially trigger
-        // another special case so we need to remember what keycode we're using
-        int keyCode = event.getKeyCode();
-
-        // This is a hack for (at least) the "Tablet Remote" app
-        // which sends BACK with META_ALT_ON instead of KEYCODE_BUTTON_B
-        if (keyCode == KeyEvent.KEYCODE_BACK &&
-                !event.hasNoModifiers() &&
-                (event.getFlags() & KeyEvent.FLAG_SOFT_KEYBOARD) != 0)
-        {
-            keyCode = KeyEvent.KEYCODE_BUTTON_B;
-        }
-
-        if (keyCode == KeyEvent.KEYCODE_BUTTON_START ||
-                keyCode == KeyEvent.KEYCODE_MENU) {
-            // Ensure that we never use back as start if we have a real start
-            context.backIsStart = false;
-        }
-        else if (keyCode == KeyEvent.KEYCODE_BUTTON_SELECT) {
-            // Don't use mode as select if we have a select
-            context.modeIsSelect = false;
-        }
-        else if (context.backIsStart && keyCode == KeyEvent.KEYCODE_BACK) {
-            // Emulate the start button with back
-            return KeyEvent.KEYCODE_BUTTON_START;
-        }
-        else if (context.modeIsSelect && keyCode == KeyEvent.KEYCODE_BUTTON_MODE) {
-            // Emulate the select button with mode
-            return KeyEvent.KEYCODE_BUTTON_SELECT;
-        }
-        else if (context.searchIsMode && keyCode == KeyEvent.KEYCODE_SEARCH) {
-            // Emulate the mode button with search
-            return KeyEvent.KEYCODE_BUTTON_MODE;
-        }
-
-        return keyCode;
-    }
-
-    private int handleFlipFaceButtons(int keyCode) {
-        switch (keyCode) {
-            case KeyEvent.KEYCODE_BUTTON_A:
-                return KeyEvent.KEYCODE_BUTTON_B;
-            case KeyEvent.KEYCODE_BUTTON_B:
-                return KeyEvent.KEYCODE_BUTTON_A;
-            case KeyEvent.KEYCODE_BUTTON_X:
-                return KeyEvent.KEYCODE_BUTTON_Y;
-            case KeyEvent.KEYCODE_BUTTON_Y:
-                return KeyEvent.KEYCODE_BUTTON_X;
-            default:
-                return keyCode;
-        }
+        return context.buttonMapper.remap(
+                event.getKeyCode(),
+                event.getScanCode(),
+                event.getFlags(),
+                event.hasNoModifiers(),
+                settingsState.get().isJoyConFixEnabled());
     }
 
     private Vector2d populateCachedVector(float x, float y) {
@@ -3008,11 +2668,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         int keyCode = handleRemapping(context, event);
         if (keyCode < 0) {
-            return (keyCode == REMAP_CONSUME);
+            return keyCode == ControllerButtonMapper.CONSUME;
         }
 
         if (settings.areFaceButtonsFlipped()) {
-            keyCode = handleFlipFaceButtons(keyCode);
+            keyCode =
+                    ControllerButtonMapper.flipFaceButtons(
+                            keyCode);
         }
 
         // If the button hasn't been down long enough, sleep for a bit before sending the up event
@@ -3276,11 +2938,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         int keyCode = handleRemapping(context, event);
         if (keyCode < 0) {
-            return (keyCode == REMAP_CONSUME);
+            return keyCode == ControllerButtonMapper.CONSUME;
         }
 
         if (settingsState.get().areFaceButtonsFlipped()) {
-            keyCode = handleFlipFaceButtons(keyCode);
+            keyCode =
+                    ControllerButtonMapper.flipFaceButtons(
+                            keyCode);
         }
 
         switch (keyCode) {
@@ -3774,17 +3438,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         InputDevice.MotionRange touchpadYRange;
         InputDevice.MotionRange touchpadPressureRange;
 
-        public boolean isNonStandardDualShock4;
-        public boolean usesLinuxGamepadStandardFaceButtons;
-        public boolean isNonStandardXboxBtController;
-        public boolean isServal;
-        public boolean backIsStart;
-        public boolean modeIsSelect;
-        public boolean searchIsMode;
-        public boolean ignoreBack;
+        private ControllerButtonMapper buttonMapper;
         public boolean hasJoystickAxes;
         public boolean pendingExit;
-        public boolean isDualShockStandaloneTouchpad;
 
         public int emulatingButtonFlags = 0;
         public boolean hasSelect;
@@ -3876,7 +3532,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             }
 
             int supportedButtonFlags = 0;
-            for (Map.Entry<Integer, Integer> entry : ANDROID_TO_LI_BUTTON_MAP.entrySet()) {
+            for (Map.Entry<Integer, Integer> entry :
+                    ControllerButtonMapper
+                            .getProtocolButtonMappings()
+                            .entrySet()) {
                 if (inputDevice.hasKeys(entry.getKey())[0]) {
                     supportedButtonFlags |= entry.getValue();
                 }

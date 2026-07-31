@@ -807,3 +807,16 @@ Verification on 2026-07-31:
   four variants ran 324 JVM tests, for 1,296 executions with zero failures,
   errors, or skips. A clean `verifyConnected --rerun-tasks --no-daemon` run
   then passed all 107 non-root and 107 root instrumentation tests.
+- Extracted Android battery-state conversion and unchanged-sample suppression
+  into the immutable `ControllerBatteryReport`, leaving platform battery
+  acquisition and transport emission in the controller adapter.
+- Extracted controller key-layout policy into `ControllerButtonMapper`.
+  Device-specific mappings, Joy-Con opt-in corrections, raw D-pad fallback,
+  soft-keyboard handling, face-button swapping, and stateful Start/Select
+  fallback behavior now have focused JVM fixtures and add no allocation to the
+  input-event path.
+- Re-ran `verifyLocal --rerun-tasks` after the battery and mapping extraction.
+  All 193 tasks passed; each root/non-root debug/release variant ran 342 JVM
+  tests, for 1,368 executions with zero failures, errors, or skips. A clean
+  `verifyConnected --rerun-tasks --no-daemon` run passed all 107 non-root and
+  107 root instrumentation tests.
