@@ -68,6 +68,7 @@ Each mutable state has exactly one owner:
 | Window, video rectangle, and coordinate transforms | Viewport controller |
 | Surface, decoder, FSR, and HDR resources | Render controller |
 | Persistent configuration | Settings repository |
+| User-authored layout and shortcut documents | Domain-specific document repositories |
 | Controller devices, slots, and reports | Controller subsystem |
 | Clipboard and file-transfer jobs | Transfer service |
 

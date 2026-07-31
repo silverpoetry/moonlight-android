@@ -262,6 +262,13 @@ A slice is incomplete if callers can still bypass the new boundary.
   are pure with respect to persistence; schema version 4 migrates and removes
   the former action-only order/hidden keys without retaining a runtime
   compatibility branch.
+- Stream-menu shortcut payloads use an immutable, bounded domain document
+  behind `GameMenuShortcutRepository`. The Activity-owned Android adapter
+  performs a one-time import of both historical named preference sources,
+  preserves stable card references and deterministic order, removes the old
+  values only after the canonical write commits, and never retains a runtime
+  dual-read fallback. Shortcut Fragments and catalogs no longer parse JSON or
+  address persistence.
 - A platform-independent virtual-control layout identity/repository contract,
   Android atomic-file adapter, bounded and validated import, and one shared
   runtime/settings I/O path. Historical file names remain an adapter-only

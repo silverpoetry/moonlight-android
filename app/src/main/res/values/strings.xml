@@ -550,6 +550,8 @@
     <string name="keyboard_square_button">方形按钮</string>
     <string name="keyboard_delete">删除</string>
     <string name="keyboard_cancel">取消</string>
+    <string name="keyboard_delete_confirmation">是否删除此快捷键？</string>
+    <string name="keyboard_shortcut_save_failed">快捷键保存失败</string>
     <string name="keyboard_touchpad">触控板</string>
     <string name="keyboard_normal_mode">常规模式</string>
     <string name="accessibility_open_game_menu">打开游戏菜单</string>

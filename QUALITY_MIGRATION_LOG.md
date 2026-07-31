@@ -495,3 +495,63 @@ Verification on 2026-07-31:
   confirming an upgrade from a device that still contains the v1 layout
   remain manual UI checks. Automated evidence does not claim those
   interactions passed.
+
+## Canonical stream-menu shortcut documents
+
+- Replaced the stream-menu Fragment and shortcut catalog's two direct named
+  `SharedPreferences` readers plus ad-hoc Gson/JSON parsing with immutable
+  `GameMenuShortcut` values and a consumer-owned
+  `GameMenuShortcutRepository`.
+- Shortcut values defensively copy all key arrays and explicitly distinguish
+  Moonlight protocol key codes from Android key codes. IDs, names,
+  descriptions, chord lengths, key ranges, document size, document count,
+  version, identity class, and editability are bounded and validated.
+- The pure shortcut catalog now combines fixed built-ins with one supplied
+  repository snapshot. The card catalog, shortcut picker, and mapper cannot
+  address preference storage or the Android adapter.
+- The Android adapter migrates the historical `specialPrefs/special_key`
+  array first, then the dynamically keyed `quick_axi_keyAssemble` values in
+  deterministic key order. It commits one canonical document before cleaning
+  either source and retains imported/custom stable IDs, so existing card
+  references survive.
+- Once a canonical document exists, legacy values are cleanup-only and are
+  never used as a fallback. Invalid documents fail closed; invalid individual
+  entries are isolated and counted without logging their payloads. A malformed,
+  wrong-typed, or unsupported-version canonical document cannot be overwritten
+  by a subsequent save/delete intent.
+- The mutable `GameMenuQuickBean` remains behind one explicit UI mapper because
+  it is still shared by the separate virtual-keyboard layout editor. It is no
+  longer a persistence or catalog-domain model for stream-menu shortcuts.
+- Architecture tests enforce a platform-independent shortcut domain and keep
+  UI/catalog code away from Android preference adapters and raw
+  `SharedPreferences`.
+
+Verification on 2026-07-31:
+
+- Focused immutable-model, canonical-codec, legacy-codec, catalog, architecture,
+  and real `SharedPreferences` migration tests passed. Coverage includes
+  defensive copies, both key representations, malformed and duplicate entry
+  isolation, unsupported versions and wrong primitive storage types,
+  deterministic bounded two-source migration, idempotent reload, canonical
+  save/delete, invalid-document preservation, and absence of a legacy
+  fallback.
+- `verifyLocal --rerun-tasks`: passed with all 193 tasks executed. Each of the
+  four root/non-root debug/release variants ran 292 JVM tests, for 1,168
+  executions total with zero failures, errors, or skips. All Lint variants
+  passed, including the API 21 gate, and both unminified Release APKs built.
+- `verifyConnected --rerun-tasks` on the API 34 emulator: all 296 tasks
+  executed; 110 non-root and 110 root instrumentation tests passed with zero
+  failures, errors, or skips. Both flavors exercised the canonical repository
+  against real named Android preferences.
+- Release artifacts:
+
+| Flavor | Size | SHA-256 |
+| --- | ---: | --- |
+| `nonRootRelease` | 16,010,378 bytes | `E36986CA3C5B056C2BAFA1656BBC8AA30C65560194C0F2B86A5CAAD051257FD8` |
+| `rootRelease` | 16,029,547 bytes | `287354661E641A061C58DD2DCEB694364F3C44E83F2D5FA23B0AA2432FB4DC4B` |
+
+- Opening a live stream, migrating real historical shortcut data, adding and
+  deleting a shortcut, executing both shortcut representations, and
+  confirming that an existing customized first-page shortcut card remains
+  selected are manual UI/host checks. Automated evidence does not claim those
+  interactions passed.

@@ -862,4 +862,63 @@ public final class ArchitectureBoundaryTest {
                         "card identity, codec, schema, and repository port are pure Java")
                 .check(productionClasses);
     }
+
+    @Test
+    public void gameMenuShortcutUiCannotAddressPersistence() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameListQuickFragment")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuShortcutCatalog")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuShortcutMapper")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuCardCatalog")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android.preference..",
+                        "com.limelight.preferences..",
+                        "com.limelight.settings.android..",
+                        "com.limelight.shortcuts.android..")
+                .because(
+                        "shortcut UI consumes immutable snapshots and emits intents through its host")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameListQuickFragment")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuShortcutCatalog")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.content.SharedPreferences")
+                .because(
+                        "the Activity composition root owns shortcut storage")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void gameMenuShortcutDomainIsPlatformIndependent() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.shortcuts")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..",
+                        "com.limelight.ui..")
+                .because(
+                        "shortcut identity, documents, codecs, and persistence port are pure Java")
+                .check(productionClasses);
+    }
 }

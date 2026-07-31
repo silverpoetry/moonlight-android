@@ -4,6 +4,7 @@ import android.content.Context;
 
 import com.limelight.R;
 import com.limelight.settings.ui.GameMenuCardIds;
+import com.limelight.shortcuts.GameMenuShortcut;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +48,9 @@ final class GameMenuCardCatalog {
     }
 
     static List<Card> load(
-            Context context, boolean includeBuiltInShortcuts) {
+            Context context,
+            List<GameMenuShortcut> persistedShortcuts,
+            boolean includeBuiltInShortcuts) {
         List<Card> cards = new ArrayList<>();
         for (GameMenuActionCatalog.Action action :
                 GameMenuActionCatalog.all()) {
@@ -62,10 +65,12 @@ final class GameMenuCardCatalog {
         }
         for (GameMenuShortcutCatalog.Entry shortcut :
                 GameMenuShortcutCatalog.load(
-                        context, includeBuiltInShortcuts)) {
+                        persistedShortcuts,
+                        includeBuiltInShortcuts)) {
             cards.add(new Card(
                     shortcut.id,
-                    compactShortcutLabel(shortcut.shortcut.getName()),
+                    compactShortcutLabel(
+                            shortcut.shortcut.getName()),
                     shortcut.shortcut.getName(),
                     R.drawable.ic_axi_quick,
                     false,

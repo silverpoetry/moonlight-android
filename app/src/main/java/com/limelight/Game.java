@@ -75,6 +75,9 @@ import com.limelight.settings.ui.GameMenuCardLayout;
 import com.limelight.settings.ui.GameMenuCardLayoutLoadResult;
 import com.limelight.settings.ui.GameMenuCardLayoutRepository;
 import com.limelight.settings.ui.SettingsGameMenuCardLayoutRepository;
+import com.limelight.shortcuts.GameMenuShortcut;
+import com.limelight.shortcuts.GameMenuShortcutRepository;
+import com.limelight.shortcuts.android.SharedPreferencesGameMenuShortcutRepository;
 import com.limelight.settings.ui.StreamUiSettings;
 import com.limelight.settings.ui.StreamUiSettingsLoader;
 import com.limelight.settings.ui.StreamUiSettingsState;
@@ -219,6 +222,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private SettingsRepository settingsRepository;
     private GameMenuCardLayoutRepository
             gameMenuCardLayoutRepository;
+    private GameMenuShortcutRepository
+            gameMenuShortcutRepository;
     private SharedPreferences tombstonePrefs;
 
     private NvConnection conn;
@@ -373,6 +378,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         gameMenuCardLayoutRepository =
                 new SettingsGameMenuCardLayoutRepository(
                         settingsRepository);
+        gameMenuShortcutRepository =
+                new SharedPreferencesGameMenuShortcutRepository(
+                        getSharedPreferences(
+                                SharedPreferencesGameMenuShortcutRepository
+                                        .PREFERENCES_NAME,
+                                Context.MODE_PRIVATE),
+                        getSharedPreferences(
+                                SharedPreferencesGameMenuShortcutRepository
+                                        .LEGACY_IMPORTED_PREFERENCES_NAME,
+                                Context.MODE_PRIVATE));
         streamDisplaySettings =
                 LegacyPreferenceSettingsAdapter
                         .loadStreamDisplaySettings(
@@ -3340,6 +3355,23 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public void saveGameMenuCardLayout(
             GameMenuCardLayout layout) {
         gameMenuCardLayoutRepository.save(layout);
+    }
+
+    @Override
+    public List<GameMenuShortcut> loadGameMenuShortcuts() {
+        return gameMenuShortcutRepository.load();
+    }
+
+    @Override
+    public boolean saveGameMenuShortcut(
+            GameMenuShortcut shortcut) {
+        return gameMenuShortcutRepository.save(shortcut);
+    }
+
+    @Override
+    public boolean deleteGameMenuShortcut(
+            String shortcutId) {
+        return gameMenuShortcutRepository.delete(shortcutId);
     }
 
     @Override

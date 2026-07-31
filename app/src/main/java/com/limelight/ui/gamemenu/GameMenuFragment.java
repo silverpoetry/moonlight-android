@@ -8,7 +8,6 @@ import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -27,8 +26,8 @@ import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.settings.ui.GameMenuCardLayout;
 import com.limelight.settings.ui.StreamUiSettingsUpdate;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
+import com.limelight.shortcuts.GameMenuShortcut;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
-import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
 import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.UiHelper;
 
@@ -288,7 +287,9 @@ public class GameMenuFragment extends BaseGameMenuDialog
                 !host.getStreamUiSettings()
                         .shouldHideBuiltInShortcuts();
         return GameMenuCardCatalog.load(
-                getActivity(), includeBuiltInShortcuts);
+                getActivity(),
+                host.loadGameMenuShortcuts(),
+                includeBuiltInShortcuts);
     }
 
     private Button createShortcutButton(
@@ -592,12 +593,8 @@ public class GameMenuFragment extends BaseGameMenuDialog
             fragment.setHideBuiltInShortcuts(
                     host.getStreamUiSettings()
                             .shouldHideBuiltInShortcuts());
-            fragment.setOnClick(new GameListQuickFragment.onClick() {
-                @Override
-                public void click(GameMenuQuickBean bean) {
-                    executeShortcut(bean);
-                }
-            });
+            fragment.setOnShortcutSelectedListener(
+                    this::executeShortcut);
             fragment.setOnShortcutsChangedListener(
                     this::rebuildActionGrid);
             fragment.show(getFragmentManager());
@@ -837,27 +834,18 @@ public class GameMenuFragment extends BaseGameMenuDialog
                 POWER_MENU_STEP_DELAY_MS);
     }
 
-    private void sendQuickKeylist(String codes) {
-        if (TextUtils.isEmpty(codes) || host == null) {
-            return;
-        }
-        String[] encodedKeys = codes.split(",");
-        int[] keyCodes = new int[encodedKeys.length];
-        for (int index = 0; index < encodedKeys.length; index++) {
-            keyCodes[index] = Integer.parseInt(encodedKeys[index]);
-        }
-        host.sendAndroidKeyChord(keyCodes);
-    }
-
-    private void executeShortcut(GameMenuQuickBean shortcut) {
+    private void executeShortcut(GameMenuShortcut shortcut) {
         if (shortcut == null) {
             return;
         }
-        short[] keys = shortcut.getDatas();
-        if (keys != null && keys.length > 0) {
-            sendKeyboardChord(keys);
+        if (shortcut.usesMoonlightKeyCodes()) {
+            sendKeyboardChord(
+                    shortcut.getMoonlightKeyCodes());
             return;
         }
-        sendQuickKeylist(shortcut.getCodes());
+        if (host != null) {
+            host.sendAndroidKeyChord(
+                    shortcut.getAndroidKeyCodes());
+        }
     }
 }

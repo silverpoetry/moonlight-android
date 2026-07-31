@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.limelight.ui.gamemenu.GameListKeyBoardFragment.PREF_KEYBOARD_LIST_KEY;
-import static com.limelight.ui.gamemenu.GameListQuickFragment.PREF_QUICK_LIST_KEY;
 
 public class GamePadAddFragment extends BaseGameMenuDialog implements View.OnClickListener{
     @Override

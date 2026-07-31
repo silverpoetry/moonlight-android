@@ -1,43 +1,26 @@
 package com.limelight.ui.gamemenu;
 
-import android.app.Activity;
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.text.TextUtils;
-
-import com.google.gson.Gson;
-import com.limelight.LimeLog;
 import com.limelight.binding.input.KeyboardTranslator;
-import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
+import com.limelight.shortcuts.GameMenuShortcut;
+import com.limelight.shortcuts.GameMenuShortcutIds;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Provides the same shortcuts shown by {@link GameListQuickFragment}, together
- * with stable IDs suitable for storing references in the game menu layout.
+ * Pure catalog policy that combines fixed shortcuts with one persisted
+ * shortcut snapshot. Storage and migration belong to the Activity-owned
+ * repository adapter.
  */
 final class GameMenuShortcutCatalog {
-    private static final String IMPORTED_SHORTCUT_PREFERENCES =
-            "specialPrefs";
-    private static final String IMPORTED_SHORTCUT_KEY = "special_key";
-
     static final class Entry {
         final String id;
-        final GameMenuQuickBean shortcut;
+        final GameMenuShortcut shortcut;
 
-        Entry(String id, GameMenuQuickBean shortcut) {
-            this.id = id;
+        Entry(GameMenuShortcut shortcut) {
+            this.id = shortcut.getId();
             this.shortcut = shortcut;
         }
     }
@@ -45,21 +28,29 @@ final class GameMenuShortcutCatalog {
     private GameMenuShortcutCatalog() {
     }
 
-    static List<Entry> load(Context context,
-                            boolean includeBuiltInShortcuts) {
-        LinkedHashMap<String, Entry> entries = new LinkedHashMap<>();
+    static List<Entry> load(
+            List<GameMenuShortcut> persistedShortcuts,
+            boolean includeBuiltInShortcuts) {
+        LinkedHashMap<String, Entry> entries =
+                new LinkedHashMap<>();
         if (includeBuiltInShortcuts) {
             addBuiltInShortcuts(entries);
         }
-        addImportedShortcuts(context, entries);
-        addSavedShortcuts(context, entries);
+        for (GameMenuShortcut shortcut :
+                persistedShortcuts) {
+            add(entries, new Entry(shortcut));
+        }
         return new ArrayList<>(entries.values());
     }
 
-    static List<GameMenuQuickBean> loadBeans(
-            Context context, boolean includeBuiltInShortcuts) {
-        List<GameMenuQuickBean> shortcuts = new ArrayList<>();
-        for (Entry entry : load(context, includeBuiltInShortcuts)) {
+    static List<GameMenuShortcut> loadShortcuts(
+            List<GameMenuShortcut> persistedShortcuts,
+            boolean includeBuiltInShortcuts) {
+        List<GameMenuShortcut> shortcuts =
+                new ArrayList<>();
+        for (Entry entry : load(
+                persistedShortcuts,
+                includeBuiltInShortcuts)) {
             shortcuts.add(entry.shortcut);
         }
         return shortcuts;
@@ -143,114 +134,18 @@ final class GameMenuShortcutCatalog {
         for (int index = 0; index < keyCodes.length; index++) {
             keys[index] = (short) keyCodes[index];
         }
-        add(destination, new Entry(
-                "shortcut:builtin:" + id,
-                new GameMenuQuickBean(name, keys)));
-    }
-
-    private static void addImportedShortcuts(
-            Context context, Map<String, Entry> destination) {
-        SharedPreferences preferences = context.getSharedPreferences(
-                IMPORTED_SHORTCUT_PREFERENCES, Activity.MODE_PRIVATE);
-        String value = preferences.getString(IMPORTED_SHORTCUT_KEY, "");
-        if (TextUtils.isEmpty(value)) {
-            return;
-        }
-
-        try {
-            JSONArray array = new JSONObject(value).optJSONArray("data");
-            if (array == null) {
-                return;
-            }
-            for (int index = 0; index < array.length(); index++) {
-                JSONObject shortcutObject = array.getJSONObject(index);
-                String name = shortcutObject.optString("name");
-                JSONArray keyArray = shortcutObject.getJSONArray("data");
-                short[] keys = new short[keyArray.length()];
-                for (int keyIndex = 0;
-                     keyIndex < keyArray.length(); keyIndex++) {
-                    String code = keyArray.getString(keyIndex);
-                    keys[keyIndex] = (short) Integer.parseInt(
-                            code.substring(2), 16);
-                }
-                GameMenuQuickBean shortcut =
-                        new GameMenuQuickBean(name, keys);
-                String fingerprint =
-                        name + '\n' + Arrays.toString(keys);
-                add(destination, new Entry(
-                        "shortcut:imported:" + sha256(fingerprint),
-                        shortcut));
-            }
-        } catch (Exception error) {
-            LimeLog.warning(
-                    "Ignoring invalid imported shortcut data: " +
-                            error.getMessage());
-        }
-    }
-
-    private static void addSavedShortcuts(
-            Context context, Map<String, Entry> destination) {
-        SharedPreferences preferences = context.getSharedPreferences(
-                GameListQuickFragment.PREF_QUICK_LIST_NAME,
-                Activity.MODE_PRIVATE);
-        List<Map.Entry<String, ?>> storedEntries =
-                new ArrayList<>(preferences.getAll().entrySet());
-        Collections.sort(
-                storedEntries,
-                (left, right) ->
-                        left.getKey().compareTo(right.getKey()));
-
-        Gson gson = new Gson();
-        for (Map.Entry<String, ?> storedEntry : storedEntries) {
-            if (!(storedEntry.getValue() instanceof String)) {
-                continue;
-            }
-            try {
-                GameMenuQuickBean shortcut = gson.fromJson(
-                        (String) storedEntry.getValue(),
-                        GameMenuQuickBean.class);
-                if (shortcut == null) {
-                    continue;
-                }
-                String shortcutId = shortcut.getId();
-                if (TextUtils.isEmpty(shortcutId)) {
-                    shortcutId = storedEntry.getKey();
-                    shortcut.setId(shortcutId);
-                }
-                add(destination, new Entry(
-                        "shortcut:custom:" + shortcutId,
-                        shortcut));
-            } catch (RuntimeException error) {
-                LimeLog.warning(
-                        "Ignoring invalid saved shortcut " +
-                                storedEntry.getKey() + ": " +
-                                error.getMessage());
-            }
-        }
+        GameMenuShortcut shortcut =
+                GameMenuShortcut.moonlightChord(
+                        GameMenuShortcutIds.builtIn(id),
+                        name,
+                        "",
+                        keys,
+                        false);
+        add(destination, new Entry(shortcut));
     }
 
     private static void add(
             Map<String, Entry> destination, Entry entry) {
-        if (!TextUtils.isEmpty(entry.shortcut.getName())) {
-            destination.put(entry.id, entry);
-        }
-    }
-
-    private static String sha256(String value) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(value.getBytes(StandardCharsets.UTF_8));
-            StringBuilder result = new StringBuilder(digest.length * 2);
-            for (byte valueByte : digest) {
-                int unsignedByte = valueByte & 0xff;
-                if (unsignedByte < 0x10) {
-                    result.append('0');
-                }
-                result.append(Integer.toHexString(unsignedByte));
-            }
-            return result.toString();
-        } catch (NoSuchAlgorithmException error) {
-            throw new AssertionError("SHA-256 is unavailable", error);
-        }
+        destination.put(entry.id, entry);
     }
 }

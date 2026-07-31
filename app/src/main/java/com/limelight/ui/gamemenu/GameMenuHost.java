@@ -11,6 +11,9 @@ import com.limelight.settings.ui.StreamUiSettings;
 import com.limelight.settings.ui.StreamUiSettingsUpdate;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
+import com.limelight.shortcuts.GameMenuShortcut;
+
+import java.util.List;
 
 /**
  * Lifecycle-bound capabilities exposed by the streaming Activity to its menu.
@@ -34,6 +37,12 @@ public interface GameMenuHost extends GameDisplayHost {
     GameMenuCardLayoutLoadResult loadGameMenuCardLayout();
 
     void saveGameMenuCardLayout(GameMenuCardLayout layout);
+
+    List<GameMenuShortcut> loadGameMenuShortcuts();
+
+    boolean saveGameMenuShortcut(GameMenuShortcut shortcut);
+
+    boolean deleteGameMenuShortcut(String shortcutId);
 
     KeyBoardController.ControllerMode getVirtualControllerMode();
 

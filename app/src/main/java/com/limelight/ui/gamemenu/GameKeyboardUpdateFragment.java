@@ -14,6 +14,7 @@ import android.widget.TextView;
 import com.google.gson.Gson;
 import com.limelight.LimeLog;
 import com.limelight.R;
+import com.limelight.shortcuts.GameMenuShortcutIds;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
 import com.limelight.utils.UiToast;
@@ -22,7 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.limelight.ui.gamemenu.GameListKeyBoardFragment.PREF_KEYBOARD_LIST_KEY;
-import static com.limelight.ui.gamemenu.GameListQuickFragment.PREF_QUICK_LIST_KEY;
 
 public class GameKeyboardUpdateFragment
         extends BaseGameMenuDialog implements View.OnClickListener {
@@ -253,10 +253,10 @@ public class GameKeyboardUpdateFragment
 
         GameMenuQuickBean item = new GameMenuQuickBean();
         item.setName(name);
-        item.setId((keyFrom == KEY_FROM_SHORTCUT_LIST
-                ? PREF_QUICK_LIST_KEY
-                : PREF_KEYBOARD_LIST_KEY)
-                + System.currentTimeMillis());
+        item.setId(keyFrom == KEY_FROM_SHORTCUT_LIST
+                ? GameMenuShortcutIds.newCustom()
+                : PREF_KEYBOARD_LIST_KEY +
+                        System.currentTimeMillis());
         item.setBtnType(BUTTON_TYPE_KEYBOARD);
         item.setCodes(chordSelection.getEncodedKeyCodes());
         item.setDesc(chordSelection.getDisplayName());

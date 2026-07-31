@@ -3,8 +3,6 @@ package com.limelight.ui.gamemenu;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
-import android.content.SharedPreferences;
 import android.graphics.Rect;
 import android.os.Build;
 import android.text.TextUtils;
@@ -16,172 +14,219 @@ import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import com.google.gson.Gson;
 import com.limelight.R;
+import com.limelight.shortcuts.GameMenuShortcut;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.ui.gamemenu.adapter.GameMenuQuickKeyboardAdapter;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
+import com.limelight.utils.UiToast;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-
-import static com.limelight.ui.gamemenu.GameListKeyBoardFragment.PREF_KEYBOARD_LIST_NAME;
 
 /**
- * Description
- * Date: 2024-10-20
- * Time: 16:07
+ * Stream-menu shortcut picker and editor.
+ *
+ * <p>Persistence is owned by the attached {@link GameMenuHost}; this dialog
+ * only renders immutable shortcut snapshots and emits user intents.</p>
  */
 public class GameListQuickFragment extends BaseGameMenuDialog {
+    private GameMenuHost host;
+    private String title;
+    private boolean hideBuiltInShortcuts;
+    private GameMenuQuickKeyboardAdapter adapter;
+    private List<GameMenuShortcut> shortcuts =
+            new ArrayList<>();
+
+    @Override
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        if (!(activity instanceof GameMenuHost)) {
+            throw new IllegalStateException(
+                    "GameListQuickFragment host must implement GameMenuHost");
+        }
+        host = (GameMenuHost) activity;
+    }
+
+    @Override
+    public void onDetach() {
+        host = null;
+        super.onDetach();
+    }
+
     @Override
     public int getLayoutRes() {
         return R.layout.dialog_game_menu_list;
     }
 
-    private ListView lv_menu;
-    private ImageButton ibtn_back;
-    private TextView tx_title;
-
-    private String title;
-    private Button btn_right;
-    private boolean hideBuiltInShortcuts;
-
-    private GameMenuQuickKeyboardAdapter adapter;
-
-    private List<GameMenuQuickBean> gameMenus;
-
     @Override
-    public void bindView(View v) {
-        super.bindView(v);
-        ibtn_back=v.findViewById(R.id.ibtn_back);
-        lv_menu=v.findViewById(R.id.lv_menu);
-        tx_title=v.findViewById(R.id.tx_title);
-        btn_right=v.findViewById(R.id.btn_right);
-        if(!TextUtils.isEmpty(title)){
-            tx_title.setText(title);
+    public void bindView(View view) {
+        super.bindView(view);
+        ImageButton backButton =
+                view.findViewById(R.id.ibtn_back);
+        ListView shortcutList =
+                view.findViewById(R.id.lv_menu);
+        TextView titleView =
+                view.findViewById(R.id.tx_title);
+        Button addButton = view.findViewById(R.id.btn_right);
+
+        if (!TextUtils.isEmpty(title)) {
+            titleView.setText(title);
         }
+        backButton.setOnClickListener(ignored -> dismiss());
+        addButton.setVisibility(View.VISIBLE);
+        addButton.setOnClickListener(
+                ignored -> showShortcutEditor());
 
-        ibtn_back.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                dismiss();
-            }
-        });
-        btn_right.setVisibility(View.VISIBLE);
-
-        btn_right.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                GameKeyboardUpdateFragment fragment=new GameKeyboardUpdateFragment();
-                if(isLandscape(getActivity())){
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        WindowMetrics windowMetrics = getActivity().getWindowManager().getCurrentWindowMetrics();
-                        Rect bounds = windowMetrics.getBounds();
-                        fragment.setWidth(bounds.width());
-                    }else{
-                        fragment.setWidth(getActivity().getResources().getDisplayMetrics().widthPixels);
-                    }
-                }else{
-                    fragment.setWidth((getActivity().getResources().getDisplayMetrics().heightPixels*2)/3);
-                }
-                fragment.setDimAmount(0.8f);
-                fragment.setTitle(
-                        R.string.keyboard_shortcut_setup_title);
-                fragment.setKeyFrom(1);
-                fragment.setOnClick(new GameKeyboardUpdateFragment.onClick() {
-                    @Override
-                    public void click(GameMenuQuickBean bean) {
-                        saveKeyBoardListData(getActivity(),bean);
-                        updateData();
-                        notifyShortcutsChanged();
+        shortcuts = loadShortcuts();
+        adapter = new GameMenuQuickKeyboardAdapter(
+                getActivity(), toRows(shortcuts));
+        shortcutList.setAdapter(adapter);
+        shortcutList.setOnItemClickListener(
+                (parent, row, position, id) -> {
+                    if (shortcutSelectedListener != null) {
+                        shortcutSelectedListener.onShortcutSelected(
+                                shortcuts.get(position));
                     }
                 });
-                fragment.show(getFragmentManager());
-            }
-        });
+        shortcutList.setOnItemLongClickListener(
+                this::requestShortcutDeletion);
+    }
 
-        gameMenus = loadShortcutBeans();
+    private void showShortcutEditor() {
+        GameKeyboardUpdateFragment fragment =
+                new GameKeyboardUpdateFragment();
+        if (isLandscape(getActivity())) {
+            if (Build.VERSION.SDK_INT >=
+                    Build.VERSION_CODES.R) {
+                WindowMetrics windowMetrics =
+                        getActivity()
+                                .getWindowManager()
+                                .getCurrentWindowMetrics();
+                Rect bounds = windowMetrics.getBounds();
+                fragment.setWidth(bounds.width());
+            }
+            else {
+                fragment.setWidth(
+                        getActivity()
+                                .getResources()
+                                .getDisplayMetrics()
+                                .widthPixels);
+            }
+        }
+        else {
+            fragment.setWidth(
+                    (getActivity()
+                            .getResources()
+                            .getDisplayMetrics()
+                            .heightPixels * 2) / 3);
+        }
+        fragment.setDimAmount(0.8f);
+        fragment.setTitle(
+                R.string.keyboard_shortcut_setup_title);
+        fragment.setKeyFrom(1);
+        fragment.setOnClick(bean -> {
+            if (host == null) {
+                return;
+            }
+            try {
+                if (!host.saveGameMenuShortcut(
+                        GameMenuShortcutMapper.fromEditor(bean))) {
+                    showPersistenceFailure();
+                    return;
+                }
+                updateData();
+                notifyShortcutsChanged();
+            }
+            catch (IllegalArgumentException error) {
+                showPersistenceFailure();
+            }
+        });
+        fragment.show(getFragmentManager());
+    }
 
-        adapter=new GameMenuQuickKeyboardAdapter(getActivity(), gameMenus);
-        lv_menu.setAdapter(adapter);
-        adapter.notifyDataSetChanged();
-        lv_menu.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                if(onClick!=null){
-                    onClick.click(gameMenus.get(position));
-                }
-            }
-        });
-        lv_menu.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
-            @Override
-            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
-                if(TextUtils.isEmpty(gameMenus.get(position).getId())){
-                    return false;
-                }
-                new AlertDialog.Builder(getActivity())
-                        .setTitle(gameMenus.get(position).getName())
-                        .setMessage("是否删除此键值？")
-                        .setPositiveButton("删除", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                removeKeyBoardListData(getActivity(), gameMenus.get(position));
-                                updateData();
-                                notifyShortcutsChanged();
+    private boolean requestShortcutDeletion(
+            AdapterView<?> parent,
+            View view,
+            int position,
+            long id) {
+        GameMenuShortcut shortcut = shortcuts.get(position);
+        if (!shortcut.isEditable()) {
+            return true;
+        }
+        new AlertDialog.Builder(getActivity())
+                .setTitle(shortcut.getName())
+                .setMessage(R.string.keyboard_delete_confirmation)
+                .setPositiveButton(
+                        R.string.keyboard_delete,
+                        (dialog, which) -> {
+                            if (host == null ||
+                                    !host.deleteGameMenuShortcut(
+                                            shortcut.getId())) {
+                                showPersistenceFailure();
+                                return;
                             }
+                            updateData();
+                            notifyShortcutsChanged();
                         })
-                        .setNegativeButton("取消", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                dialog.dismiss();
-                            }
-                        })
-                        .create()
-                        .show();
-                return false;
-            }
-        });
+                .setNegativeButton(
+                        R.string.keyboard_cancel,
+                        (dialog, which) -> dialog.dismiss())
+                .create()
+                .show();
+        return true;
     }
 
     public void setHideBuiltInShortcuts(boolean hide) {
         hideBuiltInShortcuts = hide;
     }
 
-    public void updateData(){
-        gameMenus.clear();
-        gameMenus.addAll(loadShortcutBeans());
-        adapter.setDatas(gameMenus);
+    private void updateData() {
+        shortcuts = loadShortcuts();
+        adapter.setDatas(toRows(shortcuts));
         adapter.notifyDataSetChanged();
     }
 
-    private List<GameMenuQuickBean> loadShortcutBeans() {
-        return GameMenuShortcutCatalog.loadBeans(
-                getActivity(), !hideBuiltInShortcuts);
+    private List<GameMenuShortcut> loadShortcuts() {
+        if (host == null) {
+            return new ArrayList<>();
+        }
+        return GameMenuShortcutCatalog.loadShortcuts(
+                host.loadGameMenuShortcuts(),
+                !hideBuiltInShortcuts);
     }
 
-    @Override
-    public float getDimAmount() {
-        return super.getDimAmount();
+    private static List<GameMenuQuickBean> toRows(
+            List<GameMenuShortcut> source) {
+        List<GameMenuQuickBean> rows =
+                new ArrayList<>(source.size());
+        for (GameMenuShortcut shortcut : source) {
+            rows.add(GameMenuShortcutMapper.toRow(shortcut));
+        }
+        return rows;
     }
 
     public void setTitle(String title) {
         this.title = title;
     }
 
-    private onClick onClick;
+    private ShortcutSelectedListener
+            shortcutSelectedListener;
 
-    public interface onClick{
-        void click(GameMenuQuickBean bean);
+    public interface ShortcutSelectedListener {
+        void onShortcutSelected(
+                GameMenuShortcut shortcut);
     }
 
-    public void setOnClick(GameListQuickFragment.onClick onClick) {
-        this.onClick = onClick;
+    public void setOnShortcutSelectedListener(
+            ShortcutSelectedListener listener) {
+        shortcutSelectedListener = listener;
     }
 
     private Runnable shortcutsChangedListener;
 
-    public void setOnShortcutsChangedListener(Runnable listener) {
+    public void setOnShortcutsChangedListener(
+            Runnable listener) {
         shortcutsChangedListener = listener;
     }
 
@@ -191,32 +236,20 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
         }
     }
 
-    public List<GameMenuQuickBean> getKeyBoardList(Context context){
-        SharedPreferences pref = context.getSharedPreferences(PREF_QUICK_LIST_NAME, Activity.MODE_PRIVATE);
-        Map<String,String> map= (Map<String, String>) pref.getAll();
-        List<GameMenuQuickBean> quickBeans=new ArrayList<>();
-        for (Map.Entry<String, String> entry : map.entrySet()) {
-            String key = entry.getKey();
-            String value = entry.getValue();
-            quickBeans.add(new Gson().fromJson(value,GameMenuQuickBean.class));
+    private static boolean isLandscape(Context context) {
+        return context.getResources()
+                .getDisplayMetrics().widthPixels >
+                context.getResources()
+                        .getDisplayMetrics().heightPixels;
+    }
+
+    private void showPersistenceFailure() {
+        if (getActivity() != null) {
+            UiToast.makeText(
+                    getActivity(),
+                    R.string.keyboard_shortcut_save_failed,
+                    UiToast.LENGTH_SHORT)
+                    .show();
         }
-        return quickBeans;
-    }
-
-    public boolean isLandscape(Context context) {
-        return context.getResources().getDisplayMetrics().widthPixels>context.getResources().getDisplayMetrics().heightPixels;
-    }
-
-    public void removeKeyBoardListData(Context context,GameMenuQuickBean bean){
-        SharedPreferences pref = context.getSharedPreferences(PREF_QUICK_LIST_NAME, Activity.MODE_PRIVATE);
-        pref.edit().remove(bean.getId()).apply();
-    }
-
-    public static final String PREF_QUICK_LIST_NAME="quick_axi_keyAssemble";
-    public static final String PREF_QUICK_LIST_KEY="quick_assemble_key_";
-
-    public void saveKeyBoardListData(Context context,GameMenuQuickBean bean){
-        SharedPreferences pref = context.getSharedPreferences(PREF_QUICK_LIST_NAME, Activity.MODE_PRIVATE);
-        pref.edit().putString(bean.getId(),new Gson().toJson(bean)).apply();
     }
 }

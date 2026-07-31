@@ -92,7 +92,7 @@ same `ControllerSettingsState`.
 | Stream audio | `StreamAudioSettings` with one atomic `StreamAudioSettingsState` per stream | Playback, mute, audio effects, and phone/controller audio-haptics consume the same typed snapshot; the miscellaneous menu emits typed live-audio intents; PCM callbacks perform no preference I/O; controller rumble suppression and USB/Kishi routing no longer duplicate audio policy inside `ControllerSettings` | Restart-only settings still use the legacy settings screen |
 | Microphone | No persisted policy; protocol-v1 invariants live in immutable `MicrophoneUplinkConfig` | Capture is an injected Android adapter; the platform-independent lifecycle controller owns all start/stop/error transitions and is unit tested without `AudioRecord` or JNI | No legacy preference exists; future formats require explicit protocol negotiation rather than a hidden setting |
 | Clipboard and transfer | `TransferSettings` captures clipboard enablement and the bounded persisted document-tree URI | Stream composition no longer reads the legacy preference bag for capability enablement; pull-to-device UI reads, repairs, and writes the directory through `SettingsRepository` and typed keys | Generic settings-row writers still need the typed-intent migration; clipboard loop-suppression checkpoints are operational state, not user settings, and move behind a storage port in phase 8 |
-| In-stream UI | `StreamUiSettings` with one atomic `StreamUiSettingsState` per stream; immutable `GameMenuCardLayout` behind `GameMenuCardLayoutRepository` | Floating-control behavior and remembered position, compact/expanded performance presentation, interaction, scale, margin, rumble HUD, and built-in shortcut catalog policy consume one typed snapshot; card layout stores bounded stable IDs through the Activity-owned repository while the Fragment/editor perform no preference or repository I/O; the stream menu no longer receives `PreferenceConfiguration`; Views emit events and do not read settings storage or own persistence decisions | Shortcut payload persistence and generic app UI, host-list presentation, and settings-screen rows remain |
+| In-stream UI | `StreamUiSettings` with one atomic `StreamUiSettingsState` per stream; immutable `GameMenuCardLayout` and `GameMenuShortcut` documents behind consumer-owned repository ports | Floating-control behavior and remembered position, compact/expanded performance presentation, interaction, scale, margin, rumble HUD, and built-in shortcut catalog policy consume one typed snapshot; card layout stores bounded stable IDs; shortcut payloads use a bounded immutable document with defensive key arrays; both repositories are Activity-owned while Fragments/catalogs perform no preference or adapter I/O; the stream menu no longer receives `PreferenceConfiguration`; Views emit events and do not read settings storage or own persistence decisions | The separate virtual-keyboard layout list and generic app UI, host-list presentation, and settings-screen rows remain |
 | General UI and host list | Pending | Pending | Pending |
 
 The ledger is complete only when direct default-preference reads are confined to
@@ -145,6 +145,24 @@ those IDs against the current catalog, ignores removed cards, applies defaults
 to newly discovered cards, and serializes no UI resources. The Fragment and
 editor emit a layout save intent through `GameMenuHost`; only the Activity
 composition root reaches `GameMenuCardLayoutRepository`.
+
+Stream-menu shortcuts are a separate user-authored payload document.
+`GameMenuShortcut` is immutable, defensively copies its chord arrays, and
+explicitly distinguishes Moonlight protocol key codes from Android key codes.
+The pure catalog combines one repository snapshot with fixed built-ins; it
+cannot read preferences, parse JSON, or run migrations.
+
+`SharedPreferencesGameMenuShortcutRepository` is the sole Android adapter for
+this document. On first access it imports the historical `specialPrefs`
+payload and sorted dynamic `quick_axi_keyAssemble` entries, commits one
+versioned and bounded canonical document, and only then removes both legacy
+sources. Imported IDs and custom IDs remain stable so existing first-page card
+references survive the migration. Once the canonical document exists, legacy
+values are cleanup-only and are never a fallback runtime source. Malformed
+entries are isolated and counted without exposing their contents in logs. A
+malformed, wrong-typed, or newer-version canonical document is read-only:
+runtime rendering fails closed and edit intents cannot overwrite the stored
+bytes.
 
 The microphone uplink intentionally has no settings snapshot. Its 48 kHz mono,
 960-sample/20 ms frames, 40 kbps Opus target, and four-frame capture buffer are
