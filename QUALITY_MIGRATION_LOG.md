@@ -555,3 +555,42 @@ Verification on 2026-07-31:
   confirming that an existing customized first-page shortcut card remains
   selected are manual UI/host checks. Automated evidence does not claim those
   interactions passed.
+
+## Remove dead virtual-control element library
+
+- Proved that `GameListKeyBoardFragment` had no production, resource,
+  Manifest, or test entry point and that its named
+  `keyboard_axi_keyAssemble` store had no other reader. It was not the active
+  virtual-control persistence path.
+- Deleted the unreachable Fragment and its direct `SharedPreferences`/Gson
+  CRUD path. Editable controls continue to persist only through the existing
+  bounded, atomic `VirtualControlLayoutRepository` document.
+- Moved new element identity into the platform-independent layout domain.
+  Existing layout IDs remain unchanged; newly created keyboard, mouse, and
+  gamepad elements retain the historical prefix but use UUID suffixes instead
+  of collision-prone millisecond timestamps.
+- Added a focused identity test. The existing architecture rule keeps the
+  layout identity domain independent of Android.
+
+Verification on 2026-07-31:
+
+- Repository-wide reference search confirmed there is no remaining entry
+  point or reader for the deleted Fragment/store.
+- `verifyLocal --rerun-tasks`: passed with all 193 tasks executed. Each of the
+  four root/non-root debug/release variants ran 293 JVM tests, for 1,172
+  executions total with zero failures, errors, or skips. All Lint variants
+  passed, and both unminified Release APKs built. The former unchecked-cast
+  compiler warning from the deleted Fragment is absent.
+- `verifyConnected --rerun-tasks` on the API 34 emulator: all 296 tasks
+  executed; 110 non-root and 110 root instrumentation tests passed with zero
+  failures, errors, or skips.
+- Release artifacts:
+
+| Flavor | Size | SHA-256 |
+| --- | ---: | --- |
+| `nonRootRelease` | 16,009,442 bytes | `6BF65491311C1C142EE956E7E7F51AF11FFB9744DB8E00994AFED5B3A7F8DE0A` |
+| `rootRelease` | 16,028,292 bytes | `35DEB6B546C661B00849DACAFBBFC2987AAC13EA30D8A89959AAF99041BA41CB` |
+
+- Creating, saving, reloading, and operating every virtual keyboard/gamepad
+  element type in a live stream remains the manual layout regression gate.
+  Automated evidence does not claim that host-dependent interaction passed.

@@ -18,11 +18,11 @@ import com.limelight.shortcuts.GameMenuShortcutIds;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
 import com.limelight.utils.UiToast;
+import com.limelight.virtualcontrols.layout.VirtualControlElementIds;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.limelight.ui.gamemenu.GameListKeyBoardFragment.PREF_KEYBOARD_LIST_KEY;
 
 public class GameKeyboardUpdateFragment
         extends BaseGameMenuDialog implements View.OnClickListener {
@@ -208,8 +208,7 @@ public class GameKeyboardUpdateFragment
     }
 
     private void selectPreset(GameMenuQuickBean item) {
-        item.setId(PREF_KEYBOARD_LIST_KEY
-                + System.currentTimeMillis());
+        item.setId(VirtualControlElementIds.newId());
         LimeLog.info("Virtual input preset selected: "
                 + new Gson().toJson(item));
         if (listener != null) {
@@ -255,8 +254,7 @@ public class GameKeyboardUpdateFragment
         item.setName(name);
         item.setId(keyFrom == KEY_FROM_SHORTCUT_LIST
                 ? GameMenuShortcutIds.newCustom()
-                : PREF_KEYBOARD_LIST_KEY +
-                        System.currentTimeMillis());
+                : VirtualControlElementIds.newId());
         item.setBtnType(BUTTON_TYPE_KEYBOARD);
         item.setCodes(chordSelection.getEncodedKeyCodes());
         item.setDesc(chordSelection.getDisplayName());

@@ -272,7 +272,9 @@ A slice is incomplete if callers can still bypass the new boundary.
 - A platform-independent virtual-control layout identity/repository contract,
   Android atomic-file adapter, bounded and validated import, and one shared
   runtime/settings I/O path. Historical file names remain an adapter-only
-  compatibility detail.
+  compatibility detail. The unreachable parallel keyboard-element list and
+  its named preference store are removed; element identity now belongs to the
+  layout domain.
 
 ### Migration order
 

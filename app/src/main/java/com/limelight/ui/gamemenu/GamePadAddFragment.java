@@ -21,11 +21,11 @@ import com.limelight.R;
 import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
+import com.limelight.virtualcontrols.layout.VirtualControlElementIds;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.limelight.ui.gamemenu.GameListKeyBoardFragment.PREF_KEYBOARD_LIST_KEY;
 
 public class GamePadAddFragment extends BaseGameMenuDialog implements View.OnClickListener{
     @Override
@@ -126,7 +126,7 @@ public class GamePadAddFragment extends BaseGameMenuDialog implements View.OnCli
 
         rv_keyboard_gamepad.setOnItemClickListener((parent, view, position, id) -> {
             GameMenuQuickBean bean=beanGamePadList.get(position);
-            bean.setId( PREF_KEYBOARD_LIST_KEY+System.currentTimeMillis());
+            bean.setId(VirtualControlElementIds.newId());
             LimeLog.info("axi->rv:"+new Gson().toJson(bean));
             onClick.click(bean);
             dismiss();
