@@ -1,7 +1,7 @@
 package com.limelight.preferences;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertFalse;
 
 import android.app.Instrumentation;
 import android.content.Intent;
@@ -27,7 +27,7 @@ public final class SettingsScreenRendererTest {
                 InstrumentationRegistry.getInstrumentation();
         StreamSettings activity = startSettingsActivity(instrumentation);
         AtomicInteger changeCount = new AtomicInteger();
-        AtomicReference<SettingsItem> changedItem =
+        AtomicReference<String> changedItem =
                 new AtomicReference<>();
 
         try {
@@ -45,17 +45,13 @@ public final class SettingsScreenRendererTest {
                 ArrayList<SettingsSection> sections =
                         new ArrayList<>();
                 sections.add(section);
-                SettingsScreenModel model =
-                        new SettingsScreenModel(sections);
-
                 SettingsScreenRenderer renderer =
                         new SettingsScreenRenderer(
                                 activity,
-                                new FalseValues(),
                                 new NoOpListener() {
                                     @Override
                                     public void onSwitchChanged(
-                                            SettingsItem selected,
+                                            String selected,
                                             boolean checked) {
                                         changedItem.set(selected);
                                         if (checked) {
@@ -65,8 +61,10 @@ public final class SettingsScreenRendererTest {
                                 });
                 View root = renderer.createRootView();
                 renderer.setContent(
-                        model,
-                        sections,
+                        SettingsScreenStateFactory.create(
+                                sections,
+                                new FalseValues(),
+                                "Open"),
                         0,
                         true,
                         "Test profile");
@@ -75,7 +73,16 @@ public final class SettingsScreenRendererTest {
                 Switch switchView = findFirst(root, Switch.class);
                 switchView.performClick();
                 assertEquals(1, changeCount.get());
-                assertSame(item, changedItem.get());
+                assertEquals(item.key, changedItem.get());
+
+                renderer.updateState(
+                        SettingsScreenStateFactory.create(
+                                sections,
+                                new FalseValues(),
+                                "Open"),
+                        "Updated profile");
+                assertFalse(switchView.isChecked());
+                assertEquals(1, changeCount.get());
 
                 renderer.destroy();
                 switchView.performClick();
@@ -143,12 +150,12 @@ public final class SettingsScreenRendererTest {
         }
 
         @Override
-        public void onItemRequested(SettingsItem item) {
+        public void onItemRequested(String itemId) {
         }
 
         @Override
         public void onSwitchChanged(
-                SettingsItem item,
+                String itemId,
                 boolean checked) {
         }
     }

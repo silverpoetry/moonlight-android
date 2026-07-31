@@ -312,6 +312,12 @@ A slice is incomplete if callers can still bypass the new boundary.
   restoration, insets, and section selection while exposing only back,
   section, item, and switch intents. `StreamSettings` has no Android widget
   dependency and remains the composition and navigation boundary.
+- Mutable XML metadata is frozen after capability policy into an immutable
+  `SettingsScreenState`. Sections and rows expose unmodifiable copies and
+  precomputed enabled, checked, and display values. The renderer has no
+  dependency on registry items, the value reader, or storage, and emits only
+  stable row IDs. Replacement snapshots update existing controls under a
+  feedback guard, preserving the View tree and scroll position.
 - The in-stream action catalog and virtual-overlay buttons consume typed UI
   policy plus read-only controller visibility. Persisted startup defaults are
   no longer mutated to represent picture-in-picture or menu presentation, and

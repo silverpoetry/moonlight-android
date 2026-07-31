@@ -89,8 +89,7 @@ public class StreamSettings extends Activity {
                         selectedSectionIndex);
         if (screenRenderer != null) {
             screenRenderer.setContent(
-                    screenModel,
-                    sections,
+                    createScreenState(),
                     selectedSectionIndex,
                     sectionActivity,
                     getCurrentProfileSummary());
@@ -179,7 +178,6 @@ public class StreamSettings extends Activity {
     private SettingsScreenRenderer createScreenRenderer() {
         return new SettingsScreenRenderer(
                 this,
-                store,
                 new SettingsScreenRenderer.Listener() {
                     @Override
                     public void onBackRequested() {
@@ -192,17 +190,17 @@ public class StreamSettings extends Activity {
                     }
 
                     @Override
-                    public void onItemRequested(SettingsItem item) {
-                        handleItemClick(item);
+                    public void onItemRequested(String itemId) {
+                        handleItemClick(requireItem(itemId));
                     }
 
                     @Override
                     public void onSwitchChanged(
-                            SettingsItem item,
+                            String itemId,
                             boolean checked) {
                         applyChangeResult(
                                 mutationController.changeBoolean(
-                                        item,
+                                        requireItem(itemId),
                                         checked,
                                         true));
                     }
@@ -430,7 +428,9 @@ public class StreamSettings extends Activity {
 
     private void refreshAfterItemChanged() {
         if (screenRenderer != null) {
-            screenRenderer.refreshRows();
+            screenRenderer.updateState(
+                    createScreenState(),
+                    getCurrentProfileSummary());
         }
     }
 
@@ -493,6 +493,22 @@ public class StreamSettings extends Activity {
 
     private SettingsItem findItem(String key) {
         return screenModel.findItem(key);
+    }
+
+    private SettingsItem requireItem(String key) {
+        SettingsItem item = findItem(key);
+        if (item == null) {
+            throw new IllegalStateException(
+                    "Rendered settings item is missing: " + key);
+        }
+        return item;
+    }
+
+    private SettingsScreenState createScreenState() {
+        return SettingsScreenStateFactory.create(
+                sections,
+                store,
+                getText(R.string.settings_action_open));
     }
 
     private String getCurrentProfileSummary() {

@@ -150,6 +150,14 @@ animation. It receives the one `SettingsScreenModel` graph and a read-only
 intents. It has no settings write API; `StreamSettings` owns navigation and
 routes intents to use-case controllers.
 
+Registry metadata is mutable only during screen composition. After runtime
+capability, visibility, and dependency policy have been applied,
+`SettingsScreenStateFactory` freezes it into immutable section and row values.
+The renderer receives no `SettingsItem`, `SettingsValueReader`, or storage
+reference and emits stable row IDs. A value change creates a replacement
+snapshot; the renderer applies it to existing controls under a feedback guard,
+so programmatic switch synchronization cannot write back or reset scrolling.
+
 ## Snapshot lifecycle
 
 A stream session receives one snapshot during composition. A setting that

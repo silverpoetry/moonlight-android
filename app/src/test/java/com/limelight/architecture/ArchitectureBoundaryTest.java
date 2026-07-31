@@ -387,6 +387,26 @@ public final class ArchitectureBoundaryTest {
                 .because(
                         "settings Views and row rendering belong to SettingsScreenRenderer")
                 .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsScreenRenderer")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsItem")
+                .orShould()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsStore")
+                .orShould()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsValueReader")
+                .because(
+                        "the renderer consumes only immutable settings screen state")
+                .check(productionClasses);
     }
 
     @Test

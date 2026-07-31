@@ -23,13 +23,10 @@ import android.widget.Switch;
 import android.widget.TextView;
 
 import com.limelight.R;
-import com.limelight.settings.input.InputSettingKeys;
-import com.limelight.settings.stream.StreamResolutionSettingKeys;
-import com.limelight.settings.stream.StreamVideoSettingKeys;
-import com.limelight.settings.transfer.TransferSettingKeys;
 import com.limelight.utils.UiHelper;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -43,31 +40,19 @@ final class SettingsScreenRenderer {
 
         void onSectionRequested(int sectionIndex);
 
-        void onItemRequested(SettingsItem item);
+        void onItemRequested(String itemId);
 
-        void onSwitchChanged(SettingsItem item, boolean checked);
+        void onSwitchChanged(String itemId, boolean checked);
     }
 
     private static final int FEATURED_SECTION_INDEX = -1;
     private static final int WIDE_LAYOUT_MIN_WIDTH_DP = 720;
-    private static final String[] ROOT_FEATURED_SETTING_KEYS =
-            new String[] {
-                    StreamResolutionSettingKeys.RESOLUTION.getName(),
-                    StreamResolutionSettingKeys.ASPECT_RATIO.getName(),
-                    StreamResolutionSettingKeys.FPS.getName(),
-                    StreamVideoSettingKeys.BITRATE_KBPS.getName(),
-                    InputSettingKeys.TOUCH_MODE.getName(),
-                    TransferSettingKeys.CLIPBOARD_SYNC.getName(),
-            };
-
     private final Context context;
-    private final SettingsValueReader values;
     private Listener listener;
     private final ArrayList<RenderedSettingsRow> renderedRows =
             new ArrayList<>();
 
-    private SettingsScreenModel screenModel;
-    private ArrayList<SettingsSection> sections;
+    private SettingsScreenState state;
     private FrameLayout root;
     private LinearLayout outerContainer;
     private FrameLayout mainContainer;
@@ -80,14 +65,13 @@ final class SettingsScreenRenderer {
     private int selectedSectionIndex = FEATURED_SECTION_INDEX;
     private boolean sectionActivity;
     private boolean wideLayout;
+    private boolean updatingControls;
     private boolean destroyed;
 
     SettingsScreenRenderer(
             Context context,
-            SettingsValueReader values,
             Listener listener) {
         this.context = Objects.requireNonNull(context, "context");
-        this.values = Objects.requireNonNull(values, "values");
         this.listener = Objects.requireNonNull(listener, "listener");
     }
 
@@ -165,20 +149,14 @@ final class SettingsScreenRenderer {
     }
 
     void setContent(
-            SettingsScreenModel screenModel,
-            ArrayList<SettingsSection> sections,
+            SettingsScreenState state,
             int selectedSectionIndex,
             boolean sectionActivity,
             CharSequence profileSummary) {
         if (destroyed) {
             return;
         }
-        this.screenModel = Objects.requireNonNull(
-                screenModel,
-                "screenModel");
-        this.sections = Objects.requireNonNull(
-                sections,
-                "sections");
+        this.state = Objects.requireNonNull(state, "state");
         this.selectedSectionIndex = selectedSectionIndex;
         this.sectionActivity = sectionActivity;
         this.profileSummary = profileSummary == null
@@ -187,7 +165,7 @@ final class SettingsScreenRenderer {
     }
 
     void render() {
-        if (destroyed || mainContainer == null || sections == null) {
+        if (destroyed || mainContainer == null || state == null) {
             return;
         }
 
@@ -212,7 +190,7 @@ final class SettingsScreenRenderer {
     }
 
     boolean hasContent() {
-        return !destroyed && sections != null;
+        return !destroyed && state != null;
     }
 
     int getSelectedSectionIndex() {
@@ -233,12 +211,33 @@ final class SettingsScreenRenderer {
         scrollView.post(() -> scrollView.scrollTo(0, scrollY));
     }
 
-    void refreshRows() {
-        if (destroyed) {
+    void updateState(
+            SettingsScreenState updatedState,
+            CharSequence updatedProfileSummary) {
+        if (destroyed || state == null) {
             return;
         }
-        for (RenderedSettingsRow row : renderedRows) {
-            row.refresh(values);
+        state = Objects.requireNonNull(updatedState, "updatedState");
+        profileSummary = updatedProfileSummary == null
+                ? ""
+                : updatedProfileSummary;
+        if (subtitleView != null &&
+                (selectedSectionIndex == FEATURED_SECTION_INDEX ||
+                        (!wideLayout && !sectionActivity))) {
+            subtitleView.setText(profileSummary);
+        }
+        updatingControls = true;
+        try {
+            for (RenderedSettingsRow row : renderedRows) {
+                SettingsScreenState.Row updated =
+                        state.findRow(row.itemId);
+                if (updated != null) {
+                    row.refresh(updated);
+                }
+            }
+        }
+        finally {
+            updatingControls = false;
         }
     }
 
@@ -293,8 +292,7 @@ final class SettingsScreenRenderer {
         activeContentScrollView = null;
         wideSectionList = null;
         wideItemContainer = null;
-        screenModel = null;
-        sections = null;
+        state = null;
     }
 
     private LinearLayout createPageContainer() {
@@ -330,6 +328,8 @@ final class SettingsScreenRenderer {
 
         sectionList.addView(createFeaturedSectionRow(
                 selectedSectionIndex == FEATURED_SECTION_INDEX));
+        List<SettingsScreenState.Section> sections =
+                state.getSections();
         for (int index = 0; index < sections.size(); index++) {
             sectionList.addView(createSectionRow(
                     sections.get(index),
@@ -404,6 +404,8 @@ final class SettingsScreenRenderer {
 
         addRootFeaturedItems(list);
         addListHeader(list, R.string.settings_more_settings);
+        List<SettingsScreenState.Section> sections =
+                state.getSections();
         for (int index = 0; index < sections.size(); index++) {
             list.addView(createSectionRow(
                     sections.get(index),
@@ -427,17 +429,14 @@ final class SettingsScreenRenderer {
     }
 
     private void addRootFeaturedItems(LinearLayout list) {
-        boolean hasFeaturedItems = false;
-        for (String key : ROOT_FEATURED_SETTING_KEYS) {
-            SettingsItem item = screenModel.findItem(key);
-            if (item == null || !item.visible) {
-                continue;
-            }
-            if (!hasFeaturedItems) {
-                addListHeader(list, R.string.settings_featured_settings);
-                hasFeaturedItems = true;
-            }
-            list.addView(createItemRow(item));
+        List<SettingsScreenState.Row> featuredRows =
+                state.getFeaturedRows();
+        if (featuredRows.isEmpty()) {
+            return;
+        }
+        addListHeader(list, R.string.settings_featured_settings);
+        for (SettingsScreenState.Row row : featuredRows) {
+            list.addView(createItemRow(row));
         }
     }
 
@@ -458,13 +457,14 @@ final class SettingsScreenRenderer {
             LinearLayout page,
             int sectionIndex) {
         renderedRows.clear();
-        SettingsSection section = sections.get(sectionIndex);
-        ArrayList<SettingsItem> visibleItems = section.visibleItems();
-        titleView.setText(section.title);
+        SettingsScreenState.Section section =
+                state.getSections().get(sectionIndex);
+        List<SettingsScreenState.Row> rows = section.getRows();
+        titleView.setText(section.getTitle());
         subtitleView.setText(context.getResources().getQuantityString(
                 R.plurals.settings_item_count,
-                visibleItems.size(),
-                visibleItems.size()));
+                rows.size(),
+                rows.size()));
 
         ScrollView scroll = createScrollView();
         activeContentScrollView = scroll;
@@ -473,7 +473,7 @@ final class SettingsScreenRenderer {
         page.addView(scroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
-        addSectionItems(list, visibleItems);
+        addSectionItems(list, rows);
     }
 
     private ScrollView createScrollView() {
@@ -493,7 +493,7 @@ final class SettingsScreenRenderer {
     }
 
     private View createSectionRow(
-            SettingsSection section,
+            SettingsScreenState.Section section,
             int index,
             boolean selected) {
         LinearLayout row = new LinearLayout(context);
@@ -506,7 +506,7 @@ final class SettingsScreenRenderer {
         row.setPadding(dp(14), dp(12), dp(14), dp(12));
 
         ImageView icon = new ImageView(context);
-        icon.setImageResource(section.iconRes);
+        icon.setImageResource(section.getIconRes());
         icon.setAlpha(0.88f);
         row.addView(icon, new LinearLayout.LayoutParams(
                 dp(24),
@@ -523,13 +523,13 @@ final class SettingsScreenRenderer {
         row.addView(textBlock, textParams);
 
         TextView title = new TextView(context);
-        title.setText(section.title);
+        title.setText(section.getTitle());
         title.setTextColor(Color.WHITE);
         title.setTextSize(16);
         title.setTypeface(null, Typeface.BOLD);
         textBlock.addView(title);
 
-        int itemCount = section.visibleItems().size();
+        int itemCount = section.getRows().size();
         TextView summary = new TextView(context);
         summary.setText(context.getResources().getQuantityString(
                 R.plurals.settings_item_count,
@@ -556,10 +556,12 @@ final class SettingsScreenRenderer {
     }
 
     private View createFeaturedSectionRow(boolean selected) {
-        SettingsSection section = new SettingsSection(
+        SettingsScreenState.Section section =
+                new SettingsScreenState.Section(
                 "featured_settings",
                 context.getText(R.string.settings_featured_settings),
-                R.drawable.ic_axi_quick);
+                R.drawable.ic_axi_quick,
+                state.getFeaturedRows());
         return createSectionRow(
                 section,
                 FEATURED_SECTION_INDEX,
@@ -579,8 +581,8 @@ final class SettingsScreenRenderer {
 
     private void addSectionItems(
             LinearLayout list,
-            ArrayList<SettingsItem> items) {
-        if (items.isEmpty()) {
+            List<SettingsScreenState.Row> rows) {
+        if (rows.isEmpty()) {
             TextView empty = new TextView(context);
             empty.setText(R.string.settings_no_items);
             empty.setTextColor(0xCCFFFFFF);
@@ -590,13 +592,13 @@ final class SettingsScreenRenderer {
             return;
         }
 
-        for (SettingsItem item : items) {
-            list.addView(createItemRow(item));
+        for (SettingsScreenState.Row row : rows) {
+            list.addView(createItemRow(row));
         }
     }
 
-    private View createItemRow(SettingsItem item) {
-        boolean enabled = item.isEnabled(values);
+    private View createItemRow(SettingsScreenState.Row item) {
+        boolean enabled = item.isEnabled();
         LinearLayout row = new LinearLayout(context);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -606,7 +608,7 @@ final class SettingsScreenRenderer {
                 R.drawable.ic_game_menu_btn_selector);
 
         ImageView icon = new ImageView(context);
-        icon.setImageResource(item.iconRes);
+        icon.setImageResource(item.getIconRes());
         icon.setAlpha(enabled ? 0.86f : 0.35f);
         row.addView(icon, new LinearLayout.LayoutParams(
                 dp(22),
@@ -623,7 +625,7 @@ final class SettingsScreenRenderer {
         row.addView(textBlock, textParams);
 
         TextView title = new TextView(context);
-        title.setText(item.title);
+        title.setText(item.getTitle());
         title.setTextColor(enabled ? Color.WHITE : 0x80FFFFFF);
         title.setTextSize(16);
         title.setTypeface(null, Typeface.BOLD);
@@ -631,9 +633,9 @@ final class SettingsScreenRenderer {
         title.setEllipsize(TextUtils.TruncateAt.END);
         textBlock.addView(title);
 
-        if (!TextUtils.isEmpty(item.summary)) {
+        if (!TextUtils.isEmpty(item.getSummary())) {
             TextView summary = new TextView(context);
-            summary.setText(item.summary);
+            summary.setText(item.getSummary());
             summary.setTextColor(enabled
                     ? 0xBFFFFFFF
                     : 0x66FFFFFF);
@@ -662,19 +664,19 @@ final class SettingsScreenRenderer {
         row.setEnabled(enabled);
         row.setAlpha(enabled ? 1f : 0.55f);
         row.setOnClickListener(view -> {
-            if (!item.isEnabled(values)) {
+            if (!item.isEnabled()) {
                 return;
             }
-            if (item.type == SettingsItem.Type.SWITCH &&
+            if (item.hasSwitchControl() &&
                     control instanceof CompoundButton) {
                 control.performClick();
             }
             else if (listener != null) {
-                listener.onItemRequested(item);
+                listener.onItemRequested(item.getId());
             }
         });
         renderedRows.add(new RenderedSettingsRow(
-                item,
+                item.getId(),
                 row,
                 icon,
                 title,
@@ -683,18 +685,20 @@ final class SettingsScreenRenderer {
     }
 
     @SuppressLint("UseSwitchCompatOrMaterialCode")
-    private View createControlView(SettingsItem item) {
-        if (item.type == SettingsItem.Type.SWITCH) {
+    private View createControlView(SettingsScreenState.Row item) {
+        if (item.hasSwitchControl()) {
             Switch switchView = new Switch(context);
             switchView.setShowText(false);
             switchView.setMinimumWidth(dp(52));
-            switchView.setChecked(values.getBoolean(item));
-            switchView.setEnabled(item.isEnabled(values));
+            switchView.setChecked(item.isChecked());
+            switchView.setEnabled(item.isEnabled());
             tintSwitch(switchView);
             switchView.setOnCheckedChangeListener(
                     (button, checked) -> {
-                        if (listener != null) {
-                            listener.onSwitchChanged(item, checked);
+                        if (!updatingControls && listener != null) {
+                            listener.onSwitchChanged(
+                                    item.getId(),
+                                    checked);
                         }
                     });
             return switchView;
@@ -707,32 +711,8 @@ final class SettingsScreenRenderer {
         value.setMaxWidth(dp(180));
         value.setSingleLine(true);
         value.setEllipsize(TextUtils.TruncateAt.END);
-        updateValueText(value, item, values);
+        value.setText(item.getValueText());
         return value;
-    }
-
-    private void updateValueText(
-            TextView value,
-            SettingsItem item,
-            SettingsValueReader reader) {
-        switch (item.type) {
-            case LIST:
-                value.setText(item.getSelectedEntry(reader));
-                break;
-            case SLIDER:
-                value.setText(item.formatSliderValue(
-                        item.round(reader.getInt(item))));
-                break;
-            case TEXT:
-                value.setText(reader.getText(item));
-                break;
-            case ACTION:
-            case WEB:
-                value.setText(R.string.settings_action_open);
-                break;
-            default:
-                break;
-        }
     }
 
     @SuppressLint("UseSwitchCompatOrMaterialCode")
@@ -763,27 +743,27 @@ final class SettingsScreenRenderer {
     }
 
     private final class RenderedSettingsRow {
-        private final SettingsItem item;
+        private final String itemId;
         private final View row;
         private final ImageView icon;
         private final TextView title;
         private final View control;
 
         RenderedSettingsRow(
-                SettingsItem item,
+                String itemId,
                 View row,
                 ImageView icon,
                 TextView title,
                 View control) {
-            this.item = item;
+            this.itemId = itemId;
             this.row = row;
             this.icon = icon;
             this.title = title;
             this.control = control;
         }
 
-        void refresh(SettingsValueReader reader) {
-            boolean enabled = item.isEnabled(reader);
+        void refresh(SettingsScreenState.Row item) {
+            boolean enabled = item.isEnabled();
             row.setEnabled(enabled);
             row.setAlpha(enabled ? 1f : 0.55f);
             icon.setAlpha(enabled ? 0.86f : 0.35f);
@@ -795,12 +775,13 @@ final class SettingsScreenRenderer {
                 return;
             }
             control.setEnabled(enabled);
-            if (control instanceof TextView &&
+            if (control instanceof Switch) {
+                ((Switch) control).setChecked(item.isChecked());
+            }
+            else if (control instanceof TextView &&
                     !(control instanceof CompoundButton)) {
-                updateValueText(
-                        (TextView) control,
-                        item,
-                        reader);
+                ((TextView) control).setText(
+                        item.getValueText());
             }
         }
     }
