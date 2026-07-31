@@ -101,6 +101,7 @@ import com.limelight.ui.stream.AndroidStreamConnectionMessages;
 import com.limelight.ui.stream.AndroidStreamDisplayController;
 import com.limelight.ui.stream.AndroidStreamHdrCapabilityProvider;
 import com.limelight.ui.stream.AndroidStreamMediaRuntimeFactory;
+import com.limelight.ui.stream.AndroidStreamPictureInPictureController;
 import com.limelight.ui.stream.StreamDecoderCapabilities;
 import com.limelight.ui.stream.StreamDisplayRefreshPolicy;
 import com.limelight.ui.stream.StreamFailureDiagnostics;
@@ -131,12 +132,10 @@ import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.StreamOrientationController;
 import com.limelight.utils.StreamOrientationRequest;
 import com.limelight.utils.UiHelper;
-import com.limelight.utils.ViewWindowGeometry;
 import android.annotation.SuppressLint;
 import androidx.annotation.RequiresApi;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.PictureInPictureParams;
 import android.app.Service;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -159,7 +158,6 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
-import android.util.Rational;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.InputDevice;
@@ -241,8 +239,8 @@ public class Game extends Activity implements OnGenericMotionListener,
     private SpinnerDialog spinner;
     private RemoteClipboardFileTransferController
             clipboardFileTransferController;
-    private boolean autoEnterPip = false;
-    private int suppressPipRefCount = 0;
+    private AndroidStreamPictureInPictureController
+            pictureInPictureController;
     private String pcName;
     private String appName;
     private String streamHost;
@@ -334,7 +332,6 @@ public class Game extends Activity implements OnGenericMotionListener,
     private BackNavigationRegistration backNavigationRegistration;
     private StreamInputGatewayRegistry.Registration inputGatewayRegistration;
     private boolean showSoftKeyboardWhenFocused;
-    private final int[] windowLocationScratch = new int[2];
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -574,6 +571,18 @@ public class Game extends Activity implements OnGenericMotionListener,
             finish();
             return;
         }
+
+        pictureInPictureController =
+                new AndroidStreamPictureInPictureController(
+                        this,
+                        streamView,
+                        streamDecoderSettings.getWidth(),
+                        streamDecoderSettings.getHeight(),
+                        streamUiSettingsState
+                                .get()
+                                .isPictureInPictureEnabled(),
+                        appName,
+                        pcName);
 
         StreamHdrRequestPolicy.Decision hdrDecision =
                 StreamHdrRequestPolicy.decide(
@@ -1397,60 +1406,6 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
-    private PictureInPictureParams getPictureInPictureParams(boolean autoEnter) {
-        PictureInPictureParams.Builder builder =
-                new PictureInPictureParams.Builder()
-                        .setAspectRatio(new Rational(
-                                streamDecoderSettings.getWidth(),
-                                streamDecoderSettings.getHeight()));
-        Rect sourceBounds = new Rect();
-        if (ViewWindowGeometry.getVisibleBoundsInWindow(
-                streamView,
-                getWindow().getDecorView(),
-                sourceBounds,
-                windowLocationScratch)) {
-            builder.setSourceRectHint(sourceBounds);
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            builder.setAutoEnterEnabled(autoEnter);
-            builder.setSeamlessResizeEnabled(true);
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (appName != null) {
-                builder.setTitle(appName);
-                if (pcName != null) {
-                    builder.setSubtitle(pcName);
-                }
-            }
-            else if (pcName != null) {
-                builder.setTitle(pcName);
-            }
-        }
-
-        return builder.build();
-    }
-
-    private void updatePipAutoEnter() {
-        if (!streamUiSettingsState
-                .get()
-                .isPictureInPictureEnabled()) {
-            return;
-        }
-
-        boolean autoEnter = isSessionConnected() &&
-                suppressPipRefCount == 0;
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            setPictureInPictureParams(getPictureInPictureParams(autoEnter));
-        }
-        else {
-            autoEnterPip = autoEnter;
-        }
-    }
-
     public void setMetaKeyCaptureState(boolean enabled) {
         // This uses custom APIs present on some Samsung devices to allow capture of
         // meta key events while streaming.
@@ -1483,29 +1438,17 @@ public class Game extends Activity implements OnGenericMotionListener,
     @Override
     public void onUserLeaveHint() {
         super.onUserLeaveHint();
-
-        // PiP is only supported on Oreo and later, and we don't need to manually enter PiP on
-        // Android S and later. On Android R, we will use onPictureInPictureRequested() instead.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            if (autoEnterPip) {
-                try {
-                    // This has thrown all sorts of weird exceptions on Samsung devices
-                    // running Oreo. Just eat them and close gracefully on leave, rather
-                    // than crashing.
-                    enterPictureInPictureMode(getPictureInPictureParams(false));
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
+        if (pictureInPictureController != null) {
+            pictureInPictureController.onUserLeaveHint();
         }
     }
 
     @Override
     @RequiresApi(api = Build.VERSION_CODES.R)
     public boolean onPictureInPictureRequested() {
-        // Enter PiP when requested unless we're on Android 12 which supports auto-enter.
-        if (autoEnterPip && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            enterPictureInPictureMode(getPictureInPictureParams(false));
+        if (pictureInPictureController != null) {
+            return pictureInPictureController
+                    .onPictureInPictureRequested();
         }
         return true;
     }
@@ -1608,6 +1551,10 @@ public class Game extends Activity implements OnGenericMotionListener,
         sessionDependenciesReady = false;
         unregisterInputGateway();
         cancelPendingUiCallbacks();
+        if (pictureInPictureController != null) {
+            pictureInPictureController.destroy();
+            pictureInPictureController = null;
+        }
         if (renderSurfaceController != null) {
             renderSurfaceController.destroy();
             renderSurfaceController = null;
@@ -2083,7 +2030,10 @@ public class Game extends Activity implements OnGenericMotionListener,
                     this,
                     false,
                     isHdrHighBrightnessEnabled());
-            updatePipAutoEnter();
+            if (pictureInPictureController != null) {
+                pictureInPictureController
+                        .setSessionConnected(false);
+            }
             mediaResourceOwner.releaseStartResources();
 
             controllerHandler.stop();
@@ -2125,7 +2075,9 @@ public class Game extends Activity implements OnGenericMotionListener,
 
     private void onSessionConnected() {
         streamStartElapsedMs = SystemClock.elapsedRealtime();
-        updatePipAutoEnter();
+        if (pictureInPictureController != null) {
+            pictureInPictureController.setSessionConnected(true);
+        }
 
         sessionUiEffects.onConnected();
         if (launchReporter != null) {
@@ -2420,10 +2372,10 @@ public class Game extends Activity implements OnGenericMotionListener,
         if (spinner != null) {
             spinner.setFinishOnCancelEnabled(false);
         }
-        // Disable PiP auto-enter while the USB permission prompt is on-screen. This prevents
-        // us from entering PiP while the user is interacting with the OS permission dialog.
-        suppressPipRefCount++;
-        updatePipAutoEnter();
+        if (pictureInPictureController != null) {
+            pictureInPictureController
+                    .acquireAutoEnterSuppression();
+        }
     }
 
     @Override
@@ -2431,8 +2383,10 @@ public class Game extends Activity implements OnGenericMotionListener,
         if (spinner != null) {
             spinner.setFinishOnCancelEnabled(true);
         }
-        suppressPipRefCount--;
-        updatePipAutoEnter();
+        if (pictureInPictureController != null) {
+            pictureInPictureController
+                    .releaseAutoEnterSuppression();
+        }
     }
 
     @Override
@@ -2658,6 +2612,12 @@ public class Game extends Activity implements OnGenericMotionListener,
     private void applyStreamUiSettingsEffects(
             StreamUiSettings previous,
             StreamUiSettings updated) {
+        if (previous.isPictureInPictureEnabled() !=
+                updated.isPictureInPictureEnabled() &&
+                pictureInPictureController != null) {
+            pictureInPictureController.setEnabled(
+                    updated.isPictureInPictureEnabled());
+        }
         if (previous.isFloatingControlEnabled() !=
                 updated.isFloatingControlEnabled()) {
             if (floatingControlController != null) {

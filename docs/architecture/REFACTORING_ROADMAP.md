@@ -423,6 +423,13 @@ targets.
   `StreamDisplayRefreshPolicy` preserves pacing-dependent reduction and device
   family decisions under JVM fixtures; `Game` no longer implements either
   algorithm.
+- `AndroidStreamPictureInPictureController` owns version-specific PiP
+  parameters, source bounds, labels, auto-entry application, and the guarded
+  Android 8 manual-entry path. `StreamPictureInPictureState` separately owns
+  connection and nested suppression state with underflow-safe JVM fixtures;
+  USB permission prompts can no longer corrupt an Activity-level counter, and
+  live PiP setting changes immediately revoke or reapply auto-entry while
+  `Game` only forwards lifecycle and settings events.
 - `StreamRenderSurfaceController` owns Surface callback registration,
   readiness, frame-rate hints, decoder stop preparation, and callback
   detachment. Its transition state is platform-independent and tested without

@@ -339,6 +339,22 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void streamPictureInPictureStateIsPlatformIndependent() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamPictureInPictureState")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..")
+                .because(
+                        "PiP session and suppression state must be deterministic in JVM tests")
+                .check(productionClasses);
+    }
+
+    @Test
     public void gameDelegatesPhysicalDisplayPreparation() {
         noClasses()
                 .that()
@@ -360,6 +376,20 @@ public final class ArchitectureBoundaryTest {
                         "com.limelight.ui.StreamLayoutGeometry")
                 .because(
                         "the Android display controller owns render-surface geometry")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void gameDelegatesPictureInPictureParameters() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.app.PictureInPictureParams")
+                .because(
+                        "the PiP controller owns platform parameters and API dispatch")
                 .check(productionClasses);
     }
 
