@@ -999,3 +999,19 @@ Verification on 2026-07-31:
   tests per variant (1,684 executions total), all Lint variants, and both
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites.
+- Added `UsbDriverSessionController` as the sole owner of the stream Activity's
+  USB service binding and callback endpoint. A binding accepted before
+  `onServiceConnected()` is now still unbound during teardown, endpoint
+  callbacks are revoked before `ControllerHandler` destruction, reconnect and
+  replacement are explicit, and all terminal paths are idempotent.
+- Replaced the USB Binder's independently mutable configure/listener/start API
+  with one session attach/detach contract. `UsbDriverCallbackRegistry` publishes
+  the input and state listeners as one atomic immutable snapshot and assigns a
+  generation-scoped lease, preventing a stale overlapping Activity from
+  clearing a newer session's callbacks while also providing cross-thread
+  visibility to USB report threads.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 430 JVM
+  tests per variant (1,720 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

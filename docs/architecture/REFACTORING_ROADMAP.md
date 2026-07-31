@@ -406,6 +406,14 @@ targets.
   controller-resource teardown, and the keyboard-listener lease. The explicit
   two-stage destroy preserves media/audio-haptics ordering while making
   duplicate and partial lifecycle callbacks deterministic.
+- `UsbDriverSessionController` owns the Activity-to-service binding lease,
+  including accepted-but-not-yet-connected teardown, reconnects, endpoint
+  replacement, and callback revocation before controller destruction.
+  `UsbDriverCallbackRegistry` publishes one atomic callback snapshot and uses
+  generation-scoped leases, so an overlapping old Activity cannot clear the
+  callbacks of a newer stream session. The Binder exposes one session-level
+  attach/detach contract rather than independently mutable settings, listener,
+  state-listener, start, and stop calls.
 - `DecoderSelectionPolicy` owns HEVC/AV1 acceptance decisions and stream color
   defaults. The MediaCodec adapter performs discovery and capability queries,
   and no longer carries the unused metered-network parameter or unreachable

@@ -42,32 +42,72 @@ public class UsbDriverService extends Service implements UsbDriverListener {
 
     private final ArrayList<AbstractController> controllers = new ArrayList<>();
 
-    private UsbDriverListener listener;
-    private UsbDriverStateListener stateListener;
+    private final UsbDriverCallbackRegistry callbackRegistry =
+            new UsbDriverCallbackRegistry();
     private int nextDeviceId;
 
     @Override
-    public void reportControllerState(int controllerId, int buttonFlags, float leftStickX, float leftStickY,
-                                      float rightStickX, float rightStickY, float leftTrigger, float rightTrigger) {
-        // Call through to the client's listener
-        if (listener != null) {
-            listener.reportControllerState(controllerId, buttonFlags, leftStickX, leftStickY, rightStickX, rightStickY, leftTrigger, rightTrigger);
+    public void reportControllerState(
+            int controllerId,
+            int buttonFlags,
+            float leftStickX,
+            float leftStickY,
+            float rightStickX,
+            float rightStickY,
+            float leftTrigger,
+            float rightTrigger) {
+        UsbDriverCallbackRegistry.Callbacks callbacks =
+                callbackRegistry.get();
+        if (callbacks != null) {
+            callbacks.inputListener.reportControllerState(
+                    controllerId,
+                    buttonFlags,
+                    leftStickX,
+                    leftStickY,
+                    rightStickX,
+                    rightStickY,
+                    leftTrigger,
+                    rightTrigger);
         }
     }
 
     @Override
-    public void reportControllerMotion(int controllerId, byte motionType, float motionX, float motionY, float motionZ) {
-        // Call through to the client's listener
-        if (listener != null) {
-            listener.reportControllerMotion(controllerId, motionType, motionX, motionY, motionZ);
+    public void reportControllerMotion(
+            int controllerId,
+            byte motionType,
+            float motionX,
+            float motionY,
+            float motionZ) {
+        UsbDriverCallbackRegistry.Callbacks callbacks =
+                callbackRegistry.get();
+        if (callbacks != null) {
+            callbacks.inputListener.reportControllerMotion(
+                    controllerId,
+                    motionType,
+                    motionX,
+                    motionY,
+                    motionZ);
         }
     }
 
     @Override
-    public void reportControllerTouchpadEvent(int controllerId, byte eventType, int pointerId,
-                                              float x, float y, float pressure) {
-        if (listener != null) {
-            listener.reportControllerTouchpadEvent(controllerId, eventType, pointerId, x, y, pressure);
+    public void reportControllerTouchpadEvent(
+            int controllerId,
+            byte eventType,
+            int pointerId,
+            float x,
+            float y,
+            float pressure) {
+        UsbDriverCallbackRegistry.Callbacks callbacks =
+                callbackRegistry.get();
+        if (callbacks != null) {
+            callbacks.inputListener.reportControllerTouchpadEvent(
+                    controllerId,
+                    eventType,
+                    pointerId,
+                    x,
+                    y,
+                    pressure);
         }
     }
 
@@ -76,17 +116,19 @@ public class UsbDriverService extends Service implements UsbDriverListener {
         // Remove the the controller from our list (if not removed already)
         controllers.remove(controller);
 
-        // Call through to the client's listener
-        if (listener != null) {
-            listener.deviceRemoved(controller);
+        UsbDriverCallbackRegistry.Callbacks callbacks =
+                callbackRegistry.get();
+        if (callbacks != null) {
+            callbacks.inputListener.deviceRemoved(controller);
         }
     }
 
     @Override
     public void deviceAdded(AbstractController controller) {
-        // Call through to the client's listener
-        if (listener != null) {
-            listener.deviceAdded(controller);
+        UsbDriverCallbackRegistry.Callbacks callbacks =
+                callbackRegistry.get();
+        if (callbacks != null) {
+            callbacks.inputListener.deviceAdded(controller);
         }
     }
 
@@ -119,8 +161,11 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                 UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
 
                 // Permission dialog is now closed
-                if (stateListener != null) {
-                    stateListener.onUsbPermissionPromptCompleted();
+                UsbDriverCallbackRegistry.Callbacks callbacks =
+                        callbackRegistry.get();
+                if (callbacks != null) {
+                    callbacks.stateListener
+                            .onUsbPermissionPromptCompleted();
                 }
 
                 // If we got this far, we've already found we're able to handle this device
@@ -132,28 +177,11 @@ public class UsbDriverService extends Service implements UsbDriverListener {
     }
 
     public class UsbDriverBinder extends Binder {
-        public void setListener(UsbDriverListener listener) {
-            UsbDriverService.this.listener = listener;
-
-            // Report all controllerMap that already exist
-            if (listener != null) {
-                for (AbstractController controller : controllers) {
-                    listener.deviceAdded(controller);
-                }
-            }
-        }
-
-        public void setStateListener(UsbDriverStateListener stateListener) {
-            UsbDriverService.this.stateListener = stateListener;
-        }
-
-        public void configureSettings(
+        public long attachSession(
                 ControllerSettingsState settingsState,
-                StreamAudioSettingsState audioSettingsState) {
-            if (started) {
-                throw new IllegalStateException(
-                    "USB settings must be configured before start");
-            }
+                StreamAudioSettingsState audioSettingsState,
+                UsbDriverListener listener,
+                UsbDriverStateListener stateListener) {
             UsbDriverService.this.settingsState =
                     Objects.requireNonNull(
                             settingsState,
@@ -162,16 +190,27 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                     Objects.requireNonNull(
                             audioSettingsState,
                             "audioSettingsState");
+            boolean wasStarted = started;
+            long leaseId = callbackRegistry.acquire(
+                    listener,
+                    stateListener);
+            try {
+                UsbDriverService.this.start();
+                if (wasStarted) {
+                    for (AbstractController controller : controllers) {
+                        listener.deviceAdded(controller);
+                    }
+                }
+                return leaseId;
+            } catch (RuntimeException error) {
+                callbackRegistry.release(leaseId);
+                throw error;
+            }
         }
 
-        public void start() {
-            UsbDriverService.this.start();
+        public void detachSession(long leaseId) {
+            callbackRegistry.release(leaseId);
         }
-
-        public void stop() {
-            UsbDriverService.this.stop();
-        }
-
     }
 
     private boolean shouldUseRazerKishiController(
@@ -211,8 +250,11 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                 // Let's ask for permission
                 try {
                     // Tell the state listener that we're about to display a permission dialog
-                    if (stateListener != null) {
-                        stateListener.onUsbPermissionPromptStarting();
+                    UsbDriverCallbackRegistry.Callbacks callbacks =
+                            callbackRegistry.get();
+                    if (callbacks != null) {
+                        callbacks.stateListener
+                                .onUsbPermissionPromptStarting();
                     }
 
                     int intentFlags = 0;
@@ -232,11 +274,23 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                     Intent i = new Intent(ACTION_USB_PERMISSION);
                     i.setPackage(getPackageName());
 
-                    usbManager.requestPermission(device, PendingIntent.getBroadcast(UsbDriverService.this, 0, i, intentFlags));
+                    usbManager.requestPermission(
+                            device,
+                            PendingIntent.getBroadcast(
+                                    UsbDriverService.this,
+                                    0,
+                                    i,
+                                    intentFlags));
                 } catch (SecurityException e) {
-                    UiToast.makeText(this, this.getText(R.string.error_usb_prohibited), UiToast.LENGTH_LONG).show();
-                    if (stateListener != null) {
-                        stateListener.onUsbPermissionPromptCompleted();
+                    UiToast.makeText(
+                            this,
+                            getText(R.string.error_usb_prohibited),
+                            UiToast.LENGTH_LONG).show();
+                    UsbDriverCallbackRegistry.Callbacks callbacks =
+                            callbackRegistry.get();
+                    if (callbacks != null) {
+                        callbacks.stateListener
+                                .onUsbPermissionPromptCompleted();
                     }
                 }
                 return;
@@ -291,9 +345,11 @@ public class UsbDriverService extends Service implements UsbDriverListener {
 
             // Add this controller to the list
             controllers.add(controller);
-        }else{
-            if (stateListener != null) {
-                stateListener.onUSBInfo(device);
+        } else {
+            UsbDriverCallbackRegistry.Callbacks callbacks =
+                    callbackRegistry.get();
+            if (callbacks != null) {
+                callbacks.stateListener.onUSBInfo(device);
             }
         }
     }
@@ -429,9 +485,7 @@ public class UsbDriverService extends Service implements UsbDriverListener {
     public void onDestroy() {
         stop();
 
-        // Remove listeners
-        listener = null;
-        stateListener = null;
+        callbackRegistry.clear();
         settingsState = null;
         audioSettingsState = null;
     }

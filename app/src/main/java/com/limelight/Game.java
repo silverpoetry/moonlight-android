@@ -20,6 +20,8 @@ import com.limelight.binding.input.protocol.NvConnectionKeyboardInputSink;
 import com.limelight.binding.input.capture.InputCaptureManager;
 import com.limelight.binding.input.capture.InputCaptureProvider;
 import com.limelight.binding.input.driver.UsbDriverService;
+import com.limelight.binding.input.driver.UsbDriverServiceEndpoint;
+import com.limelight.binding.input.driver.UsbDriverSessionController;
 import com.limelight.binding.input.evdev.EvdevListener;
 import com.limelight.binding.input.pointer.ExternalPointerInputController;
 import com.limelight.binding.input.touch.DirectContactInputController;
@@ -290,23 +292,32 @@ public class Game extends Activity implements OnGenericMotionListener,
 
     private StreamWifiLockController wifiLockController;
 
-    private boolean connectedToUsbDriverService = false;
-    private ServiceConnection usbDriverServiceConnection = new ServiceConnection() {
+    private UsbDriverSessionController usbDriverSessionController;
+    private final ServiceConnection usbDriverServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
-            UsbDriverService.UsbDriverBinder binder = (UsbDriverService.UsbDriverBinder) iBinder;
-            binder.configureSettings(
-                    controllerSettingsState,
-                    streamAudioSettingsState);
-            binder.setListener(controllerHandler);
-            binder.setStateListener(Game.this);
-            binder.start();
-            connectedToUsbDriverService = true;
+            UsbDriverService.UsbDriverBinder binder =
+                    (UsbDriverService.UsbDriverBinder) iBinder;
+            UsbDriverSessionController sessionController =
+                    usbDriverSessionController;
+            if (sessionController != null) {
+                sessionController.onConnected(
+                        new UsbDriverServiceEndpoint(
+                                binder,
+                                controllerSettingsState,
+                                streamAudioSettingsState,
+                                controllerHandler,
+                                Game.this));
+            }
         }
 
         @Override
         public void onServiceDisconnected(ComponentName componentName) {
-            connectedToUsbDriverService = false;
+            UsbDriverSessionController sessionController =
+                    usbDriverSessionController;
+            if (sessionController != null) {
+                sessionController.onDisconnected();
+            }
         }
     };
 
@@ -1114,9 +1125,27 @@ public class Game extends Activity implements OnGenericMotionListener,
         if (controllerSettingsState
                 .get()
                 .isUsbDriverEnabled()) {
-            // Start the USB driver
-            bindService(new Intent(this, UsbDriverService.class),
-                    usbDriverServiceConnection, Service.BIND_AUTO_CREATE);
+            usbDriverSessionController =
+                    new UsbDriverSessionController(
+                            new UsbDriverSessionController
+                                    .ServiceBinding() {
+                                @Override
+                                public boolean bind() {
+                                    return bindService(
+                                            new Intent(
+                                                    Game.this,
+                                                    UsbDriverService.class),
+                                            usbDriverServiceConnection,
+                                            Service.BIND_AUTO_CREATE);
+                                }
+
+                                @Override
+                                public void unbind() {
+                                    unbindService(
+                                            usbDriverServiceConnection);
+                                }
+                            });
+            usbDriverSessionController.bind();
         }
 
         //悬浮球
@@ -1886,6 +1915,11 @@ public class Game extends Activity implements OnGenericMotionListener,
             presentation.dismiss();
         }
 
+        if (usbDriverSessionController != null) {
+            usbDriverSessionController.destroy();
+            usbDriverSessionController = null;
+        }
+
         if (inputLifecycleController != null) {
             inputLifecycleController.destroy();
             inputLifecycleController = null;
@@ -1896,11 +1930,6 @@ public class Game extends Activity implements OnGenericMotionListener,
         if (wifiLockController != null) {
             wifiLockController.destroy();
             wifiLockController = null;
-        }
-
-        if (connectedToUsbDriverService) {
-            // Unbind from the discovery service
-            unbindService(usbDriverServiceConnection);
         }
 
         // Destroy the capture provider
@@ -3098,7 +3127,8 @@ public class Game extends Activity implements OnGenericMotionListener,
                 SystemClock.elapsedRealtime(),
                 usbControllerActive,
                 usbControllerType,
-                connectedToUsbDriverService);
+                usbDriverSessionController != null &&
+                        usbDriverSessionController.isConnected());
     }
 
     private PerformanceOverlayConfiguration
