@@ -11,9 +11,6 @@ import com.limelight.R;
 import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.audio.StreamAudioSettingsUpdate;
 import com.limelight.settings.stream.StreamDecoderSettings.VideoFormat;
-import com.limelight.settings.stream.StreamDisplaySettings.FsrHdrOutput;
-import com.limelight.settings.stream.StreamDisplaySettings.FsrSharpness;
-import com.limelight.settings.stream.StreamDisplaySettings.FsrTarget;
 import com.limelight.settings.stream.StreamVideoSettings;
 import com.limelight.settings.stream.StreamVideoSettings.ScreenOnPolicy;
 import com.limelight.settings.stream.StreamVideoSettings.VirtualDisplayMode;
@@ -25,8 +22,8 @@ import com.limelight.utils.UiToast;
 /**
  * Edits the next stream's video configuration through typed intents.
  *
- * <p>Resolution, FPS, bitrate, orientation, external-display mode, and FSR
- * form one explicit Apply transaction. Independent radio settings preserve
+ * <p>Resolution, FPS, bitrate, orientation, and external-display mode form
+ * one explicit Apply transaction. Independent radio settings preserve
  * their historical immediate-persistence behavior.</p>
  */
 public final class GameDisplayFragment
@@ -57,10 +54,6 @@ public final class GameDisplayFragment
     private RadioGroup ignoreHdrCapability;
     private View hdrHighBrightnessContainer;
     private RadioGroup hdrHighBrightness;
-    private RadioGroup fsrTarget;
-    private View fsrDetails;
-    private RadioGroup fsrSharpness;
-    private RadioGroup fsrHdrOutput;
 
     public static GameDisplayFragment newInstance(
             boolean showLock) {
@@ -162,17 +155,6 @@ public final class GameDisplayFragment
         hdrHighBrightness =
                 view.findViewById(
                         R.id.rg_game_display_hdr_high_brightness);
-        fsrTarget =
-                view.findViewById(R.id.rg_game_display_fsr);
-        fsrDetails =
-                view.findViewById(
-                        R.id.v_game_display_fsr_details);
-        fsrSharpness =
-                view.findViewById(
-                        R.id.rg_game_display_fsr_sharpness);
-        fsrHdrOutput =
-                view.findViewById(
-                        R.id.rg_game_display_fsr_hdr_output);
     }
 
     private void renderAll() {
@@ -207,7 +189,6 @@ public final class GameDisplayFragment
                         ? R.id.rbt_game_display_enforce_1
                         : R.id.rbt_game_display_enforce_2);
         renderVirtualDisplayMode();
-        renderFsr();
     }
 
     private void renderDraftSummaries() {
@@ -291,61 +272,6 @@ public final class GameDisplayFragment
                 break;
         }
         virtualDisplayMode.check(id);
-    }
-
-    private void renderFsr() {
-        int targetId;
-        switch (draft.getFsrTarget()) {
-            case OUTPUT_2K:
-                targetId = R.id.rbt_game_display_fsr_2;
-                break;
-            case OUTPUT_4K:
-                targetId = R.id.rbt_game_display_fsr_3;
-                break;
-            case NATIVE_HEIGHT:
-                targetId = R.id.rbt_game_display_fsr_4;
-                break;
-            case OFF:
-            case UNKNOWN:
-            default:
-                targetId = R.id.rbt_game_display_fsr_1;
-                break;
-        }
-        fsrTarget.check(targetId);
-
-        int sharpnessId;
-        switch (draft.getFsrSharpness()) {
-            case SOFT:
-                sharpnessId =
-                        R.id.rbt_game_display_fsr_sharpness_1;
-                break;
-            case STRONG:
-                sharpnessId =
-                        R.id.rbt_game_display_fsr_sharpness_3;
-                break;
-            case MAXIMUM:
-                sharpnessId =
-                        R.id.rbt_game_display_fsr_sharpness_4;
-                break;
-            case STANDARD:
-            default:
-                sharpnessId =
-                        R.id.rbt_game_display_fsr_sharpness_2;
-                break;
-        }
-        fsrSharpness.check(sharpnessId);
-        fsrHdrOutput.check(
-                draft.getFsrHdrOutput() == FsrHdrOutput.NATIVE
-                        ? R.id.rbt_game_display_fsr_hdr_output_2
-                        : R.id.rbt_game_display_fsr_hdr_output_1);
-        updateFsrDetailState();
-    }
-
-    private void updateFsrDetailState() {
-        fsrDetails.setVisibility(
-                draft.getFsrTarget() == FsrTarget.OFF
-                        ? View.GONE
-                        : View.VISIBLE);
     }
 
     private void updateHdrHighBrightnessVisibility(
@@ -535,76 +461,6 @@ public final class GameDisplayFragment
                         dispatchVideo(
                                 StreamVideoSettingsUpdate
                                         .hdrHighBrightness(false));
-                    }
-                });
-        fsrTarget.setOnCheckedChangeListener(
-                (group, checkedId) -> {
-                    FsrTarget target;
-                    if (checkedId ==
-                            R.id.rbt_game_display_fsr_2) {
-                        target = FsrTarget.OUTPUT_2K;
-                    }
-                    else if (checkedId ==
-                            R.id.rbt_game_display_fsr_3) {
-                        target = FsrTarget.OUTPUT_4K;
-                    }
-                    else if (checkedId ==
-                            R.id.rbt_game_display_fsr_4) {
-                        target = FsrTarget.NATIVE_HEIGHT;
-                    }
-                    else if (checkedId ==
-                            R.id.rbt_game_display_fsr_1) {
-                        target = FsrTarget.OFF;
-                    }
-                    else {
-                        return;
-                    }
-                    draft = draft.toBuilder()
-                            .setFsrTarget(target)
-                            .build();
-                    updateFsrDetailState();
-                });
-        fsrSharpness.setOnCheckedChangeListener(
-                (group, checkedId) -> {
-                    FsrSharpness sharpness;
-                    if (checkedId ==
-                            R.id.rbt_game_display_fsr_sharpness_1) {
-                        sharpness = FsrSharpness.SOFT;
-                    }
-                    else if (checkedId ==
-                            R.id.rbt_game_display_fsr_sharpness_3) {
-                        sharpness = FsrSharpness.STRONG;
-                    }
-                    else if (checkedId ==
-                            R.id.rbt_game_display_fsr_sharpness_4) {
-                        sharpness = FsrSharpness.MAXIMUM;
-                    }
-                    else if (checkedId ==
-                            R.id.rbt_game_display_fsr_sharpness_2) {
-                        sharpness = FsrSharpness.STANDARD;
-                    }
-                    else {
-                        return;
-                    }
-                    draft = draft.toBuilder()
-                            .setFsrSharpness(sharpness)
-                            .build();
-                });
-        fsrHdrOutput.setOnCheckedChangeListener(
-                (group, checkedId) -> {
-                    if (checkedId ==
-                            R.id.rbt_game_display_fsr_hdr_output_2) {
-                        draft = draft.toBuilder()
-                                .setFsrHdrOutput(
-                                        FsrHdrOutput.NATIVE)
-                                .build();
-                    }
-                    else if (checkedId ==
-                            R.id.rbt_game_display_fsr_hdr_output_1) {
-                        draft = draft.toBuilder()
-                                .setFsrHdrOutput(
-                                        FsrHdrOutput.SDR)
-                                .build();
                     }
                 });
     }

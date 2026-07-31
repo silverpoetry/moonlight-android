@@ -6,7 +6,7 @@ import java.util.Objects;
 
 /**
  * Projects persisted stream-video policy into the immutable display contract
- * consumed by layout and FSR code.
+ * consumed by layout and presentation code.
  */
 public final class StreamDisplaySettingsLoader {
     private StreamDisplaySettingsLoader() {
@@ -28,9 +28,6 @@ public final class StreamDisplaySettingsLoader {
                 videoSettings.isHdrEnabled(),
                 StreamDisplaySettings.Gravity.fromStorageValue(
                         repository.get(
-                                StreamDisplaySettingKeys.GRAVITY)),
-                videoSettings.getFsrTarget(),
-                videoSettings.getFsrSharpness(),
-                videoSettings.getFsrHdrOutput());
+                                StreamDisplaySettingKeys.GRAVITY)));
     }
 }

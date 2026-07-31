@@ -41,41 +41,6 @@
         <item>120</item>
     </string-array>
 
-    <string-array name="fsr_target_names">
-        <item>@string/fsr_target_off</item>
-        <item>2K</item>
-        <item>4K</item>
-        <item>@string/fsr_target_native_height</item>
-    </string-array>
-    <string-array name="fsr_target_values" translatable="false">
-        <item>off</item>
-        <item>2k</item>
-        <item>4k</item>
-        <item>native_height</item>
-    </string-array>
-
-    <string-array name="fsr_sharpness_names">
-        <item>柔和</item>
-        <item>标准</item>
-        <item>强</item>
-        <item>极强</item>
-    </string-array>
-    <string-array name="fsr_sharpness_values" translatable="false">
-        <item>soft</item>
-        <item>standard</item>
-        <item>strong</item>
-        <item>max</item>
-    </string-array>
-
-    <string-array name="fsr_hdr_output_names">
-        <item>兼容 SDR 映射</item>
-        <item>原生 HDR 直出</item>
-    </string-array>
-    <string-array name="fsr_hdr_output_values" translatable="false">
-        <item>sdr</item>
-        <item>native</item>
-    </string-array>
-
     <string-array name="audio_config_names">
         <item>@string/audioconf_stereo</item>
         <item>@string/audioconf_51surround</item>

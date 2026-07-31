@@ -46,7 +46,7 @@ During the package-first migration, the intended domains are:
 - `ui`: Android rendering, navigation, permissions, and lifecycle adapters.
 - `binding.input`: input arbitration and device adapters.
 - `stream`: stream-session state and resource ownership.
-- `render`: viewport, Surface, decoder, FSR, and HDR coordination.
+- `render`: viewport, Surface, decoder, and HDR coordination.
 - `settings`: typed configuration and persistence.
 - `hosts`: discovery, pairing, certificates, and stored-host data.
 - `transfer`: clipboard, file, image, and microphone capabilities.
@@ -66,7 +66,7 @@ Each mutable state has exactly one owner:
 | Local cursor reference position | Local cursor controller |
 | Connection and stream lifecycle | Stream session controller |
 | Window, video rectangle, and coordinate transforms | Viewport controller |
-| Surface, decoder, FSR, and HDR resources | Render controller |
+| Surface, decoder, and HDR resources | Render controller |
 | Persistent configuration | Settings repository |
 | User-authored layout and shortcut documents | Domain-specific document repositories |
 | Controller devices, slots, and reports | Controller subsystem |

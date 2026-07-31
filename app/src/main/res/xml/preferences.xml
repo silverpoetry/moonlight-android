@@ -60,31 +60,6 @@
             android:summary="(实验性) 高通8Gen1及以上和联发科9300及以下芯片机型生效。"
             android:defaultValue="true" />
 
-        <ListPreference
-            android:key="list_fsr_target"
-            android:title="超分目标"
-            android:entries="@array/fsr_target_names"
-            android:entryValues="@array/fsr_target_values"
-            android:summary="GLES 渲染下启用 FSR 超分到 2K 或 4K。"
-            android:defaultValue="off" />
-
-        <ListPreference
-            android:key="list_fsr_sharpness"
-            android:dependency="list_fsr_target"
-            android:title="锐化程度"
-            android:entries="@array/fsr_sharpness_names"
-            android:entryValues="@array/fsr_sharpness_values"
-            android:summary="仅在启用 FSR 超分时生效，数值越高边缘越锐利。"
-            android:defaultValue="standard" />
-
-        <ListPreference
-            android:key="list_fsr_hdr_output"
-            android:dependency="list_fsr_target"
-            android:title="FSR HDR输出"
-            android:entries="@array/fsr_hdr_output_names"
-            android:entryValues="@array/fsr_hdr_output_values"
-            android:summary="兼容 SDR 映射更稳定；原生 HDR 直出为实验性，需要设备支持 BT2020 PQ。"
-            android:defaultValue="native" />
         <CheckBoxPreference
             android:key="checkbox_stretch_video"
             android:title="@string/title_checkbox_stretch_video"
@@ -728,12 +703,6 @@
             android:summary="输入你喜欢的文本"
             android:dialogMessage="输入你喜欢的文本~"
             android:title="设置主屏幕左侧文本" />
-
-        <CheckBoxPreference
-            android:key="checkbox_enable_pass_menu"
-            android:title="忽略掉应用列表菜单选项"
-            android:summary="开启此功能，点击图标可直接进入串流界面，无需再点击弹出的菜单选项。"
-            android:defaultValue="false" />
 
     </PreferenceCategory>
 

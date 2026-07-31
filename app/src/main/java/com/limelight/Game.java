@@ -30,8 +30,6 @@ import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardLayoutCon
 import com.limelight.binding.video.CrashListener;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
-import com.limelight.fsr.FsrVideoProcessor;
-import com.limelight.fsr.VideoProcessingGLSurfaceView;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.StreamConfiguration;
 import com.limelight.nvstream.StreamSessionController;
@@ -138,11 +136,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
-import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Outline;
-import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.hardware.display.DisplayManager;
@@ -275,8 +271,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 InputMethodManager.SHOW_IMPLICIT);
     };
     private NativeCursorOverlayView nativeCursorOverlayView;
-    private VideoProcessingGLSurfaceView fsrView;
-    private FsrVideoProcessor fsrVideoProcessor;
 
     private boolean isHidingOverlays;
     private TextView notificationOverlayView;
@@ -327,12 +321,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private StreamReqBean streamReqBean;
     private ConnectivityManager connManager;
 
-    private boolean fsrEnabled;
-    private boolean fsrInputSurfaceReady;
-    private boolean fsrDisplaySurfaceCreated;
     private volatile boolean streamRenderSurfaceReady;
-    private boolean usbPermissionPromptVisible;
-    private boolean fsrViewLifecyclePaused;
     private BackNavigationRegistration backNavigationRegistration;
     private StreamInputGatewayRegistry.Registration inputGatewayRegistration;
     private boolean showSoftKeyboardWhenFocused;
@@ -472,84 +461,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         streamView.setOnKeyListener(this);
         streamView.setInputGateway(this);
 
-        fsrEnabled = isFsrEnabled();
-        configureFsrWindowColorMode();
-
         FrameLayout.LayoutParams params =
                 (FrameLayout.LayoutParams) streamView.getLayoutParams();
         params.gravity = resolvePhysicalStreamGravity(
                 streamDisplaySettings.getGravity(),
                 params.gravity);
-
-        if (fsrEnabled) {
-            fsrVideoProcessor = new FsrVideoProcessor(this);
-            fsrVideoProcessor.setSharpness(
-                    streamDisplaySettings
-                            .getFsrSharpness()
-                            .getFactor());
-            fsrVideoProcessor.setFsrEnabled(true);
-            fsrView = new VideoProcessingGLSurfaceView(this, false, isFsrNativeHdrOutputEnabled(), fsrVideoProcessor,
-                    new VideoProcessingGLSurfaceView.SurfaceListener() {
-                        @Override
-                        public void onInputSurfaceAvailable(android.graphics.SurfaceTexture surfaceTexture) {
-                            Surface inputSurface =
-                                    new Surface(surfaceTexture);
-                            StreamMediaResourceOwner resources =
-                                    mediaResourceOwner;
-                            if (resources == null) {
-                                inputSurface.release();
-                                return;
-                            }
-                            resources.replaceFsrInputSurface(
-                                    inputSurface);
-                            fsrInputSurfaceReady = true;
-                            if (hasSessionStarted()) {
-                                resources.setRenderTarget(
-                                        inputSurface);
-                            }
-                            startConnectionIfReady();
-                        }
-
-                        @Override
-                        public void onInputSurfaceDestroyed() {
-                            fsrInputSurfaceReady = false;
-                            if (mediaResourceOwner != null) {
-                                mediaResourceOwner
-                                        .releaseFsrInputSurface();
-                            }
-                        }
-                    });
-            fsrView.setFocusable(false);
-            fsrView.setFocusableInTouchMode(false);
-            fsrView.setClickable(false);
-
-            FrameLayout.LayoutParams fsrLayoutParams = new FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT);
-            fsrLayoutParams.gravity = params.gravity;
-            fsrView.setLayoutParams(fsrLayoutParams);
-
-            ViewGroup parent = (ViewGroup) streamView.getParent();
-            int streamIndex = parent.indexOfChild(streamView);
-            parent.addView(fsrView, streamIndex + 1);
-
-            streamView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
-            streamView.setZOrderMediaOverlay(true);
-            fsrView.getHolder().addCallback(this);
-            fsrView.setFrameInputSize(
-                    streamDecoderSettings.getWidth(),
-                    streamDecoderSettings.getHeight());
-            if (isFsrNativeHeightTarget()) {
-                fsrView.setFixedSurfacePixelSize(0, 0);
-            }
-            else {
-                StreamLayoutGeometry.Size fsrOutputSize =
-                        getFsrOutputSize();
-                fsrView.setFixedSurfacePixelSize(
-                        fsrOutputSize.width,
-                        fsrOutputSize.height);
-            }
-        }
 
         // Listen for touch events on the background touch view to enable trackpad mode
         // to work on areas outside of the StreamView itself. We use a separate View
@@ -1207,9 +1123,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         // The connection will be started when the surface gets created
-        if (!fsrEnabled) {
-            streamView.getHolder().addCallback(this);
-        }
+        streamView.getHolder().addCallback(this);
 
         //外接显示器模式
         if (streamDisplaySettings.isExternalDisplayEnabled()) {
@@ -1808,16 +1722,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     streamDecoderSettings.getWidth(),
                     streamDecoderSettings.getHeight());
             streamView.setDesiredAspectRatio(0.0);
-            if (fsrView != null) {
-                fsrView.setDesiredAspectRatio(0.0);
-            }
         }
         else {
             // Set the surface to scale based on the aspect ratio of the stream
             streamView.setDesiredAspectRatio(desiredAspectRatio);
-            if (fsrView != null) {
-                fsrView.setDesiredAspectRatio(desiredAspectRatio);
-            }
             LimeLog.info("surfaceChanged-->" + desiredAspectRatio);
         }
 
@@ -1996,21 +1904,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             streamInputController.start();
         }
 
-        if (fsrView != null && fsrViewLifecyclePaused) {
-            fsrView.onResume();
-            fsrViewLifecyclePaused = false;
-        }
     }
 
     @Override
     protected void onPause() {
         if (streamInputController != null) {
             streamInputController.stop();
-        }
-
-        if (fsrView != null && !(usbPermissionPromptVisible && !isFinishing())) {
-            fsrView.onPause();
-            fsrViewLifecyclePaused = true;
         }
 
         if (isFinishing()) {
@@ -2721,9 +2620,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             byte[] hdrMetadata) {
         LimeLog.info("Display HDR mode: " + (enabled ? "enabled" : "disabled"));
         mediaResourceOwner.setHdrMode(enabled, hdrMetadata);
-        if (fsrVideoProcessor != null) {
-            fsrVideoProcessor.setHdrToneMappingEnabled(enabled);
-        }
         UiHelper.notifyHdrWindowStatus(
                 this,
                 enabled,
@@ -2784,10 +2680,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        if (fsrEnabled && (fsrView == null || holder != fsrView.getHolder())) {
-            return;
-        }
-
         if (!surfaceCreated) {
             throw new IllegalStateException("Surface changed before creation!");
         }
@@ -2797,9 +2689,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         "----" +
                         streamDecoderSettings.getWidth() + " x " +
                         streamDecoderSettings.getHeight());
-        if (fsrEnabled) {
-            return;
-        }
         streamRenderSurfaceReady =
                 holder.getSurface().isValid();
         startConnectionIfReady();
@@ -2808,14 +2697,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         float desiredFrameRate;
-
-        if (fsrEnabled) {
-            if (fsrView == null || holder != fsrView.getHolder()) {
-                return;
-            }
-            fsrDisplaySurfaceCreated = true;
-            startConnectionIfReady();
-        }
 
         surfaceCreated = true;
 
@@ -2857,13 +2738,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        if (fsrEnabled) {
-            if (fsrView == null || holder != fsrView.getHolder()) {
-                return;
-            }
-            fsrDisplaySurfaceCreated = false;
-        }
-
         if (!surfaceCreated) {
             throw new IllegalStateException("Surface destroyed before creation!");
         }
@@ -3009,7 +2883,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void onUsbPermissionPromptStarting() {
-        usbPermissionPromptVisible = true;
         if (spinner != null) {
             spinner.setFinishOnCancelEnabled(false);
         }
@@ -3021,7 +2894,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void onUsbPermissionPromptCompleted() {
-        usbPermissionPromptVisible = false;
         if (spinner != null) {
             spinner.setFinishOnCancelEnabled(true);
         }
@@ -3290,10 +3162,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                                 .getActiveUsbControllerTypeDisplayName() :
                         null;
         return new PerformanceOverlayRuntimeState(
-                fsrEnabled,
-                getFsrTargetDisplayName(),
-                getFsrSharpnessDisplayName(),
-                isFsrNativeHdrOutputEnabled(),
                 conn != null && conn.isMicUplinkActive(),
                 streamHost,
                 streamStartElapsedMs,
@@ -3635,71 +3503,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         streamView.setClipToOutline(true);
     }
 
-    private boolean isFsrEnabled() {
-        return streamDisplaySettings.isFsrEnabled();
-    }
-
-    private StreamLayoutGeometry.Size getFsrOutputSize() {
-        StreamDisplaySettings.FsrTarget target =
-                streamDisplaySettings.getFsrTarget();
-        return StreamLayoutGeometry.getEvenOutputSize(
-                streamDisplaySettings.getStreamWidth(),
-                streamDisplaySettings.getStreamHeight(),
-                target.getOutputHeight(),
-                target.getMinimumOutputWidth());
-    }
-
-    private boolean isFsrNativeHeightTarget() {
-        return streamDisplaySettings.isNativeHeightFsrTarget();
-    }
-
-    private String getFsrTargetDisplayName() {
-        switch (streamDisplaySettings.getFsrTarget()) {
-            case OUTPUT_4K:
-                return "4K";
-            case OUTPUT_2K:
-                return "2K";
-            case NATIVE_HEIGHT:
-                return getString(
-                        R.string.fsr_target_native_height);
-            case UNKNOWN:
-            case OFF:
-            default:
-                return "关闭";
-        }
-    }
-
-    private String getFsrSharpnessDisplayName() {
-        switch (streamDisplaySettings.getFsrSharpness()) {
-            case SOFT:
-                return "柔和";
-            case STRONG:
-                return "强";
-            case MAXIMUM:
-                return "极强";
-            case STANDARD:
-            default:
-                return "标准";
-        }
-    }
-
-    private boolean isFsrNativeHdrOutputEnabled() {
-        return streamDisplaySettings
-                .isNativeHdrOutputEnabled();
-    }
-
-    private void configureFsrWindowColorMode() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || !fsrEnabled) {
-            return;
-        }
-        boolean nativeHdrOutput = isFsrNativeHdrOutputEnabled();
-        getWindow().setColorMode(nativeHdrOutput
-                ? ActivityInfo.COLOR_MODE_HDR
-                : ActivityInfo.COLOR_MODE_DEFAULT);
-        LimeLog.info("HDR validation: FSR window color mode="
-                + (nativeHdrOutput ? "HDR (native output)" : "DEFAULT (software tone-map)"));
-    }
-
     private void startConnectionIfReady() {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             runOnUiThread(this::startConnectionIfReady);
@@ -3708,19 +3511,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (!sessionDependenciesReady ||
                 sessionController == null ||
                 !sessionController.canStart()) {
-            return;
-        }
-
-        if (fsrEnabled) {
-            if (!fsrInputSurfaceReady ||
-                    !fsrDisplaySurfaceCreated) {
-                return;
-            }
-            Surface fsrInputSurface =
-                    mediaResourceOwner.getFsrInputSurface();
-            if (fsrInputSurface != null) {
-                startSessionWithRenderTarget(fsrInputSurface);
-            }
             return;
         }
 

@@ -17,8 +17,7 @@ import java.util.Objects;
  *
  * <p>The transport remains responsible for invoking renderer cleanup after a
  * successful start. This owner controls when render targets and the active
- * audio renderer become reachable from the UI, and it owns the FSR input
- * surface itself.</p>
+ * audio renderer become reachable from the UI.</p>
  */
 public final class StreamMediaResourceOwner {
     public interface AudioRendererFactory {
@@ -58,12 +57,6 @@ public final class StreamMediaResourceOwner {
         AudioResource create();
     }
 
-    interface OwnedSurface {
-        Surface getSurface();
-
-        void release();
-    }
-
     interface RenderTarget {
         Surface getSurface();
     }
@@ -92,7 +85,6 @@ public final class StreamMediaResourceOwner {
     private final AudioResourceFactory audioResourceFactory;
 
     private AudioResource activeAudioResource;
-    private OwnedSurface fsrInputSurface;
     private boolean startPrepared;
     private boolean destroyed;
 
@@ -155,40 +147,6 @@ public final class StreamMediaResourceOwner {
     @MainThread
     public void releaseStartResources() {
         activeAudioResource = null;
-    }
-
-    @MainThread
-    public void replaceFsrInputSurface(Surface surface) {
-        replaceFsrInputSurface(
-                new AndroidOwnedSurface(
-                        Objects.requireNonNull(surface, "surface")));
-    }
-
-    @MainThread
-    void replaceFsrInputSurface(OwnedSurface surface) {
-        Objects.requireNonNull(surface, "surface");
-        if (destroyed) {
-            surface.release();
-            return;
-        }
-        releaseFsrInputSurface();
-        fsrInputSurface = surface;
-    }
-
-    @MainThread
-    public void releaseFsrInputSurface() {
-        if (fsrInputSurface == null) {
-            return;
-        }
-        fsrInputSurface.release();
-        fsrInputSurface = null;
-    }
-
-    @MainThread
-    public Surface getFsrInputSurface() {
-        return fsrInputSurface == null
-                ? null
-                : fsrInputSurface.getSurface();
     }
 
     @MainThread
@@ -267,7 +225,6 @@ public final class StreamMediaResourceOwner {
         }
         destroyed = true;
         activeAudioResource = null;
-        releaseFsrInputSurface();
     }
 
     private void checkActive() {
@@ -359,22 +316,4 @@ public final class StreamMediaResourceOwner {
         }
     }
 
-    private static final class AndroidOwnedSurface
-            implements OwnedSurface {
-        private final Surface surface;
-
-        private AndroidOwnedSurface(Surface surface) {
-            this.surface = surface;
-        }
-
-        @Override
-        public Surface getSurface() {
-            return surface;
-        }
-
-        @Override
-        public void release() {
-            surface.release();
-        }
-    }
 }

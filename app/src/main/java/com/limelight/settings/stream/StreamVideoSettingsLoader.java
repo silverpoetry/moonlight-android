@@ -82,15 +82,6 @@ public final class StreamVideoSettingsLoader {
                                 .fromStorageValue(repository.get(
                                         StreamVideoSettingKeys
                                                 .SCREEN_ON_POLICY)))
-                .setPersistedFsrValues(
-                        repository.get(
-                                StreamDisplaySettingKeys.FSR_TARGET),
-                        repository.get(
-                                StreamDisplaySettingKeys
-                                        .FSR_SHARPNESS),
-                        repository.get(
-                                StreamDisplaySettingKeys
-                                        .FSR_HDR_OUTPUT))
                 .build();
     }
 }

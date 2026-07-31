@@ -407,19 +407,6 @@
     <string name="game_menu_hdr_high_brightness_help">在 HDR 模式下将串流窗口亮度提高到最大，默认关闭。</string>
     <string name="game_menu_decoder_low_latency">解码低延迟模式（测试）</string>
     <string name="game_menu_decoder_low_latency_help">仅在支持的高通和联发科设备上生效。</string>
-    <string name="game_menu_fsr" translatable="false">FSR 超分</string>
-    <string name="game_menu_fsr_help">选择超分输出目标，HDR 由渲染链路自动处理。</string>
-    <string name="game_menu_fsr_off">关闭</string>
-    <string name="game_menu_fsr_2k" translatable="false">2K</string>
-    <string name="game_menu_fsr_4k" translatable="false">4K</string>
-    <string name="game_menu_fsr_sharpness">锐化程度</string>
-    <string name="game_menu_fsr_soft">柔和</string>
-    <string name="game_menu_fsr_standard">标准</string>
-    <string name="game_menu_fsr_strong">强</string>
-    <string name="game_menu_fsr_max">极强</string>
-    <string name="game_menu_fsr_hdr_output">FSR HDR 输出</string>
-    <string name="game_menu_fsr_sdr_mapping">SDR 映射</string>
-    <string name="game_menu_fsr_hdr_native">HDR 直出</string>
     <string name="game_menu_ignore_hdr_check">忽略 HDR 校验</string>
     <string name="game_menu_virtual_display">虚拟显示器</string>
     <string name="game_menu_virtual_display_help">适用于 Sunshine·阿西西、雷蛇雷游，并兼容 Apollo 扩展模式。</string>
@@ -669,9 +656,6 @@
     <string name="resolution_4k">4K</string>
     <string name="resolution_aspect_ratio_16_9">16:9</string>
     <string name="resolution_aspect_ratio_native">Native</string>
-    <string name="fsr_target_off">Off</string>
-    <string name="fsr_target_native_height">Native height</string>
-
     <string name="fps_30">30 FPS</string>
     <string name="fps_60">60 FPS</string>
     <string name="fps_90">90 FPS</string>

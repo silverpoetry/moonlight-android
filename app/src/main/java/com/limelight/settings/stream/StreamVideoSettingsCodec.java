@@ -1,9 +1,6 @@
 package com.limelight.settings.stream;
 
 import com.limelight.settings.stream.StreamDecoderSettings.VideoFormat;
-import com.limelight.settings.stream.StreamDisplaySettings.FsrHdrOutput;
-import com.limelight.settings.stream.StreamDisplaySettings.FsrSharpness;
-import com.limelight.settings.stream.StreamDisplaySettings.FsrTarget;
 
 /**
  * Canonical conversion between stream-video domain enums and persisted
@@ -38,42 +35,5 @@ final class StreamVideoSettingsCodec {
             default:
                 return "auto";
         }
-    }
-
-    static String encodeFsrTarget(FsrTarget value) {
-        switch (value) {
-            case OUTPUT_2K:
-                return "2k";
-            case OUTPUT_4K:
-                return "4k";
-            case NATIVE_HEIGHT:
-                return "native_height";
-            case OFF:
-                return "off";
-            case UNKNOWN:
-            default:
-                throw new IllegalArgumentException(
-                        "Unknown FSR target cannot be selected");
-        }
-    }
-
-    static String encodeFsrSharpness(FsrSharpness value) {
-        switch (value) {
-            case SOFT:
-                return "soft";
-            case STRONG:
-                return "strong";
-            case MAXIMUM:
-                return "max";
-            case STANDARD:
-            default:
-                return "standard";
-        }
-    }
-
-    static String encodeFsrHdrOutput(FsrHdrOutput value) {
-        return value == FsrHdrOutput.NATIVE
-                ? "native"
-                : "sdr";
     }
 }

@@ -733,6 +733,45 @@ Verification on 2026-07-31:
   non-root and 105 root instrumentation tests, all Lint variants, and both
   Release APKs passed. The audit-only delta changed comments, documentation,
   and the architecture test; it did not change runtime bytecode behavior.
-- Physical phone/tablet checks across rotation, zoom/FSR, cutouts, native
+- Physical phone/tablet checks across rotation, zoom, cutouts, native
   touchpad gestures, stylus contacts, and host cursor shapes remain the manual
   hardware matrix. Automated evidence does not claim those checks passed.
+
+## Remove the unused upscaling pipeline and type the settings screen
+
+- Removed the optional post-processing renderer vertically: its shaders,
+  GLES implementation, intermediate Surface, lifecycle flags, settings keys,
+  settings and in-stream menu controls, performance-overlay fields, and tests.
+  Stream video now has one render path: decoder output directly to the system
+  Surface.
+- Reduced stream display and video settings to policy that is still supported.
+  Display Apply now owns seven persisted values instead of carrying three
+  inactive rendering values.
+- Bound persisted settings-screen rows to the canonical `SettingKey` catalog.
+  XML describes presentation; setting type, default, validation, and storage
+  ownership remain in the settings domain.
+- Replaced the AppCompat-only switch used under the framework Material theme
+  with the matching framework control. Ordinary setting changes update the
+  existing row in place; collection-changing settings preserve scroll
+  position when the screen must be rebuilt.
+
+Verification on 2026-07-31:
+
+- Production, JVM-test, and instrumentation-test source contains no remaining
+  reference to the removed upscaling feature, and no matching source or asset
+  path remains.
+- `verifyLocal --rerun-tasks`: all 193 tasks executed successfully. Each of
+  the four root/non-root debug/release variants ran 308 JVM tests, for 1,232
+  executions total with zero failures, errors, or skips. All Lint variants
+  passed, including the API 21 gate, and both unminified Release APKs built.
+- `verifyConnected --rerun-tasks` on the API 34 emulator: all 296 tasks
+  executed successfully; 107 non-root and 107 root instrumentation tests
+  passed with zero failures, errors, or skips.
+- Instrumentation covers settings activity launch, visible switch geometry,
+  and scroll-position stability across a switch update.
+- Release artifacts:
+
+| Flavor | Size | SHA-256 |
+| --- | ---: | --- |
+| `nonRootRelease` | 15,933,885 bytes | `C0F87F732DF3644306B55F8443B2950216A6676A136AFC94B7F516F038377EDF` |
+| `rootRelease` | 15,954,332 bytes | `CC5D83A31D1CD8822D16393D2C2239BDBAE358F29E5F56B5382AAC3A9BA19D9B` |

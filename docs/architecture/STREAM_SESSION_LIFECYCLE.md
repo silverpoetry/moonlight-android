@@ -71,10 +71,9 @@ queued presentation work. `Game` now supplies narrow UI and feedback hosts
 instead of implementing the transport listener.
 
 `StreamMediaResourceOwner` is the main-thread owner for the decoder reference,
-single-use audio renderer reference, render-target binding, and FSR input
-surface. The transport still performs renderer cleanup after a successful
-start; the UI owner controls reachability and releases its owned Surface
-exactly once. Failed starts, normal stops, and Activity destruction all clear
+single-use audio renderer reference, and render-target binding. The transport
+still performs renderer cleanup after a successful start; the UI owner controls
+reachability. Failed starts, normal stops, and Activity destruction all clear
 the active audio reference through the same boundary.
 
 Activity teardown detaches session callbacks, cancels owned UI tasks, releases

@@ -1,12 +1,12 @@
 package com.limelight.preferences;
 
 import androidx.annotation.RequiresApi;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.content.res.ColorStateList;
@@ -29,7 +29,6 @@ import android.preference.PreferenceManager;
 import android.provider.Settings;
 import androidx.core.content.FileProvider;
 import androidx.documentfile.provider.DocumentFile;
-import androidx.appcompat.widget.SwitchCompat;
 import android.text.InputFilter;
 import android.text.InputType;
 import android.text.TextUtils;
@@ -50,6 +49,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
+import android.widget.Switch;
 import android.widget.TextView;
 import com.limelight.utils.UiToast;
 
@@ -60,6 +60,8 @@ import com.limelight.R;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.computers.ComputerDatabaseManager;
 import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.settings.SettingKey;
+import com.limelight.settings.SettingsScreenKeyCatalog;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.settings.android.AndroidAppPresentationDefaults;
@@ -93,6 +95,7 @@ import org.xmlpull.v1.XmlPullParser;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -116,14 +119,14 @@ public class StreamSettings extends Activity {
     private static final int CLIPBOARD_DIRECTORY_REQUEST_CODE = 1009;
     private static final int MAX_BITRATE_KBPS = 50000;
     private static final int FEATURED_SECTION_INDEX = -1;
+    private static final String CUSTOM_BITRATE_EDITOR_KEY =
+            "edit_diy_bitrate";
     private static final String EXTRA_SECTION_INDEX = "com.limelight.preferences.StreamSettings.SECTION_INDEX";
     private static final String[] ROOT_FEATURED_SETTING_KEYS = new String[] {
             StreamResolutionSettingKeys.RESOLUTION.getName(),
             StreamResolutionSettingKeys.ASPECT_RATIO.getName(),
             StreamResolutionSettingKeys.FPS.getName(),
             StreamVideoSettingKeys.BITRATE_KBPS.getName(),
-            "list_fsr_target",
-            "list_fsr_sharpness",
             "mouse_model_list_axi",
             TransferSettingKeys.CLIPBOARD_SYNC.getName(),
     };
@@ -139,6 +142,9 @@ public class StreamSettings extends Activity {
     private TextView titleView;
     private TextView subtitleView;
     private ImageButton backButton;
+    private ScrollView activeContentScrollView;
+    private final ArrayList<RenderedSettingsRow>
+            renderedSettingsRows = new ArrayList<>();
     private int selectedSectionIndex = -1;
     private int nativeResolutionStartIndex = Integer.MAX_VALUE;
     private boolean nativeFramerateShown;
@@ -152,6 +158,12 @@ public class StreamSettings extends Activity {
     static DisplayCutout displayCutoutP;
 
     void reloadSettings() {
+        int previousScrollY = activeContentScrollView == null
+                ? 0
+                : activeContentScrollView.getScrollY();
+        boolean restoreScroll =
+                activeContentScrollView != null;
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Display.Mode mode = getWindowManager().getDefaultDisplay().getMode();
             previousDisplayPixelCount = mode.getPhysicalWidth() * mode.getPhysicalHeight();
@@ -166,6 +178,14 @@ public class StreamSettings extends Activity {
         removeEmptySections();
         selectedSectionIndex = clampSelectedSection(selectedSectionIndex);
         render();
+        if (restoreScroll && activeContentScrollView != null) {
+            ScrollView restoredScrollView =
+                    activeContentScrollView;
+            restoredScrollView.post(
+                    () -> restoredScrollView.scrollTo(
+                            0,
+                            previousScrollY));
+        }
     }
 
     @Override
@@ -463,11 +483,13 @@ public class StreamSettings extends Activity {
     }
 
     private void renderSectionList(LinearLayout page) {
+        renderedSettingsRows.clear();
         titleView.setText(R.string.settings_title);
         subtitleView.setText(getCurrentProfileSummary());
         backButton.setVisibility(View.VISIBLE);
 
         ScrollView scroll = createScrollView();
+        activeContentScrollView = scroll;
         LinearLayout list = createVerticalList();
         scroll.addView(list);
         page.addView(scroll, new LinearLayout.LayoutParams(
@@ -482,11 +504,13 @@ public class StreamSettings extends Activity {
     }
 
     private void renderFeaturedSettings(LinearLayout page) {
+        renderedSettingsRows.clear();
         titleView.setText(R.string.settings_featured_settings);
         subtitleView.setText(getCurrentProfileSummary());
         backButton.setVisibility(View.VISIBLE);
 
         ScrollView scroll = createScrollView();
+        activeContentScrollView = scroll;
         LinearLayout list = createVerticalList();
         scroll.addView(list);
         page.addView(scroll, new LinearLayout.LayoutParams(
@@ -524,6 +548,7 @@ public class StreamSettings extends Activity {
     }
 
     private void renderSectionDetail(LinearLayout page, int sectionIndex) {
+        renderedSettingsRows.clear();
         SettingsSection section = sections.get(sectionIndex);
         titleView.setText(section.title);
         subtitleView.setText(getResources().getQuantityString(
@@ -531,6 +556,7 @@ public class StreamSettings extends Activity {
         backButton.setVisibility(View.VISIBLE);
 
         ScrollView scroll = createScrollView();
+        activeContentScrollView = scroll;
         LinearLayout list = createVerticalList();
         scroll.addView(list);
         page.addView(scroll, new LinearLayout.LayoutParams(
@@ -746,27 +772,36 @@ public class StreamSettings extends Activity {
                     return;
                 }
                 if (item.type == SettingsItem.Type.SWITCH &&
-                        control instanceof SwitchCompat) {
+                        control instanceof CompoundButton) {
                     control.performClick();
                     return;
                 }
                 handleItemClick(item);
             }
         });
+        renderedSettingsRows.add(
+                new RenderedSettingsRow(
+                        item,
+                        row,
+                        icon,
+                        title,
+                        control));
         return row;
     }
 
+    @SuppressLint("UseSwitchCompatOrMaterialCode")
     private View createControlView(final SettingsItem item) {
         if (item.type == SettingsItem.Type.SWITCH) {
-            SwitchCompat switchView = new SwitchCompat(this);
+            Switch switchView = new Switch(this);
             switchView.setShowText(false);
+            switchView.setMinimumWidth(dp(52));
             switchView.setChecked(store.getBoolean(item));
             switchView.setEnabled(item.isEnabled(store));
             tintSwitch(switchView);
             switchView.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
                 @Override
                 public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                    store.putBoolean(item.key, isChecked);
+                    store.putBoolean(item, isChecked);
                     afterItemChanged(item, isChecked, true);
                 }
             });
@@ -789,7 +824,7 @@ public class StreamSettings extends Activity {
                 value.setText(item.formatSliderValue(item.round(store.getInt(item))));
                 break;
             case TEXT:
-                value.setText(store.getString(item));
+                value.setText(store.getText(item));
                 break;
             case ACTION:
             case WEB:
@@ -804,8 +839,9 @@ public class StreamSettings extends Activity {
     private void handleItemClick(SettingsItem item) {
         switch (item.type) {
             case SWITCH:
-                store.putBoolean(item.key, !store.getBoolean(item));
-                afterItemChanged(item, store.getBoolean(item), true);
+                boolean checked = !store.getBoolean(item);
+                store.putBoolean(item, checked);
+                afterItemChanged(item, checked, true);
                 break;
             case LIST:
                 if (AppPresentationSettingKeys.LANGUAGE
@@ -850,7 +886,7 @@ public class StreamSettings extends Activity {
                 @Override
                 public void onClick(View v) {
                     if (beforeListValueChanged(item, value)) {
-                        store.putString(item.key, value);
+                        store.putString(item, value);
                         afterItemChanged(item, value, false);
                     }
                     dialog.dismiss();
@@ -929,7 +965,7 @@ public class StreamSettings extends Activity {
             @Override
             public void onClick(View v) {
                 int progress = item.round(seekBar.getProgress());
-                store.putInt(item.key, progress);
+                store.putInt(item, progress);
                 afterItemChanged(item, progress, false);
                 dialog.dismiss();
             }
@@ -952,13 +988,13 @@ public class StreamSettings extends Activity {
         }
 
         final EditText input = new EditText(this);
-        input.setText(store.getString(item));
+        input.setText(store.getText(item));
         input.setSingleLine(true);
         input.setTextColor(Color.WHITE);
         input.setHintTextColor(0x88FFFFFF);
         input.setSelectAllOnFocus(true);
         input.setPadding(dp(12), dp(8), dp(12), dp(8));
-        if ("edit_diy_bitrate".equals(item.key)) {
+        if (item.isCustomBitrateEditor()) {
             input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
             input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(5)});
         }
@@ -983,8 +1019,7 @@ public class StreamSettings extends Activity {
             @Override
             public void onClick(View v) {
                 String value = input.getText().toString();
-                if (beforeTextValueChanged(item, value)) {
-                    store.putString(item.key, value);
+                if (commitTextValue(item, value)) {
                     afterItemChanged(item, value, false);
                     dialog.dismiss();
                 }
@@ -1081,8 +1116,8 @@ public class StreamSettings extends Activity {
                     break;
                 }
             }
-            store.putString(
-                    StreamResolutionSettingKeys.SELECTION.getName(),
+            store.put(
+                    StreamResolutionSettingKeys.SELECTION,
                     isNativeRes ?
                             StreamResolutionCodec
                                     .SELECTION_CUSTOM_OR_NATIVE :
@@ -1104,23 +1139,37 @@ public class StreamSettings extends Activity {
         return true;
     }
 
-    private boolean beforeTextValueChanged(SettingsItem item, String value) {
-        if ("edit_diy_bitrate".equals(item.key)) {
+    private boolean commitTextValue(
+            SettingsItem item,
+            String value) {
+        if (item.isCustomBitrateEditor()) {
             if (TextUtils.isEmpty(value)) {
                 UiToast.makeText(this, "请输入0-9999的数值。", UiToast.LENGTH_SHORT).show();
                 return false;
             }
             try {
-                float bitrateValue = Float.valueOf(value) * 1000;
-                store.putInt(
-                        StreamVideoSettingKeys.BITRATE_KBPS
-                                .getName(),
-                        (int) bitrateValue);
-            } catch (NumberFormatException e) {
+                BigDecimal bitrateMbps =
+                        new BigDecimal(value);
+                if (bitrateMbps.signum() < 0 ||
+                        bitrateMbps.compareTo(
+                                BigDecimal.valueOf(9999)) > 0) {
+                    throw new ArithmeticException(
+                            "Bitrate is outside the editor range");
+                }
+                int bitrateKbps = bitrateMbps
+                        .movePointRight(3)
+                        .intValueExact();
+                store.put(
+                        StreamVideoSettingKeys.BITRATE_KBPS,
+                        bitrateKbps);
+            } catch (NumberFormatException |
+                    ArithmeticException e) {
                 UiToast.makeText(this, "请输入0-9999的数值。", UiToast.LENGTH_SHORT).show();
                 return false;
             }
+            return true;
         }
+        store.putString(item, value);
         return true;
     }
 
@@ -1169,15 +1218,16 @@ public class StreamSettings extends Activity {
     }
 
     private void refreshAfterItemChanged() {
-        if (wideLayout && wideItemContainer != null) {
-            renderWideItemContent(false);
-        }
-        else {
-            render();
+        for (RenderedSettingsRow renderedRow :
+                renderedSettingsRows) {
+            renderedRow.refresh(store);
         }
     }
 
-    private void tintSwitch(SwitchCompat switchView) {
+    // This Activity intentionally uses the framework Material theme. A
+    // compat switch has no themed thumb or track in that environment.
+    @SuppressLint("UseSwitchCompatOrMaterialCode")
+    private void tintSwitch(Switch switchView) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             return;
         }
@@ -1276,8 +1326,7 @@ public class StreamSettings extends Activity {
             boolean gamepad) {
         VirtualControlSettings settings =
                 VirtualControlSettingsLoader.load(
-                        new SharedPreferencesSettingsRepository(
-                                store.prefs));
+                        store.repository);
         return gamepad
                 ? VirtualControlLayoutKey.gamepad(
                         settings.getGamepadLayoutId(),
@@ -1354,8 +1403,15 @@ public class StreamSettings extends Activity {
             return;
         }
 
-        bitrate.defaultInt =
+        int defaultBitrateKbps =
                 AndroidStreamDefaults.getDefaultBitrateKbps(this);
+        bitrate.displayDefaultInteger = defaultBitrateKbps;
+        SettingsItem customBitrateEditor =
+                findItem(CUSTOM_BITRATE_EDITOR_KEY);
+        if (customBitrateEditor != null) {
+            customBitrateEditor.displayDefaultInteger =
+                    defaultBitrateKbps;
+        }
         bitrate.max = MAX_BITRATE_KBPS;
         if (bitrate.keyStep <= 0) {
             bitrate.keyStep = 1000;
@@ -1391,9 +1447,8 @@ public class StreamSettings extends Activity {
                             .BAROMETER_FORCE_PRESS_MINIMUM_DURATION
                             .getName());
         }
-        else if (!store.getBoolean(
-                InputSettingKeys.BAROMETER_FORCE_PRESS.getName(),
-                false)) {
+        else if (!store.get(
+                InputSettingKeys.BAROMETER_FORCE_PRESS)) {
             hideItem(
                     InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD
                             .getName());
@@ -1438,7 +1493,8 @@ public class StreamSettings extends Activity {
     }
 
     private void addCustomResolution() {
-        String diy = store.prefs.getString("edit_diy_w_h", "");
+        String diy = store.get(
+                StreamVideoSettingKeys.CUSTOM_RESOLUTION_TEXT);
         if (!TextUtils.isEmpty(diy)) {
             String[] diys = diy.split("x");
             if (diys.length == 2) {
@@ -1610,7 +1666,9 @@ public class StreamSettings extends Activity {
         else if (!AndroidHdrCompatibility
                 .isHdrStreamingAllowed()) {
             hdrItem.enabled = false;
-            store.putBoolean("checkbox_enable_hdr", false);
+            store.put(
+                    StreamVideoSettingKeys.HDR_ENABLED,
+                    false);
             hdrItem.summary = "Update the firmware on your NVIDIA SHIELD Android TV to enable HDR";
         }
     }
@@ -1705,9 +1763,8 @@ public class StreamSettings extends Activity {
             if (StreamResolutionSettingKeys.RESOLUTION
                     .getName()
                     .equals(preferenceKey)) {
-                store.putString(
-                        StreamResolutionSettingKeys.SELECTION
-                                .getName(),
+                store.put(
+                        StreamResolutionSettingKeys.SELECTION,
                         StreamResolutionCodec
                                 .isStandardResolutionPreset(
                                         fallbackValue) ?
@@ -1716,7 +1773,7 @@ public class StreamSettings extends Activity {
                                 StreamResolutionCodec
                                         .SELECTION_CUSTOM_OR_NATIVE);
             }
-            store.putString(preferenceKey, fallbackValue);
+            store.putString(item, fallbackValue);
         }
     }
 
@@ -1764,10 +1821,13 @@ public class StreamSettings extends Activity {
             for (SettingsItem item : section.items) {
                 if (!TextUtils.isEmpty(item.dependency)) {
                     SettingsItem dependency = findItem(item.dependency);
-                    if (dependency != null) {
-                        item.dependencyDefault = dependency.defaultBoolean;
-                        item.dependencyItemRef = dependency;
+                    if (dependency == null) {
+                        throw new IllegalStateException(
+                                "Unknown settings dependency " +
+                                        item.dependency +
+                                        " for " + item.key);
                     }
+                    item.dependencyItemRef = dependency;
                 }
             }
         }
@@ -1927,65 +1987,119 @@ public class StreamSettings extends Activity {
     }
 
     private static final class SettingsStore {
-        final SharedPreferences prefs;
         final SettingsRepository repository;
 
         SettingsStore(Context context) {
-            prefs = PreferenceManager.getDefaultSharedPreferences(context);
             repository =
-                    new SharedPreferencesSettingsRepository(prefs);
+                    new SharedPreferencesSettingsRepository(
+                            PreferenceManager
+                                    .getDefaultSharedPreferences(context));
         }
 
         boolean getBoolean(SettingsItem item) {
-            try {
-                return prefs.getBoolean(item.key, item.defaultBoolean);
-            } catch (ClassCastException e) {
-                return Boolean.parseBoolean(prefs.getString(item.key, Boolean.toString(item.defaultBoolean)));
-            }
+            return repository.get(item.booleanKey());
         }
 
-        boolean getBoolean(String key, boolean defaultValue) {
-            try {
-                return prefs.getBoolean(key, defaultValue);
-            } catch (ClassCastException e) {
-                return Boolean.parseBoolean(prefs.getString(key, Boolean.toString(defaultValue)));
-            }
+        <T> T get(SettingKey<T> key) {
+            return repository.get(key);
         }
 
         int getInt(SettingsItem item) {
-            try {
-                return prefs.getInt(item.key, item.defaultInt);
-            } catch (ClassCastException e) {
-                try {
-                    return Integer.parseInt(prefs.getString(item.key, Integer.toString(item.defaultInt)));
-                } catch (NumberFormatException ignored) {
-                    return item.defaultInt;
-                }
+            int value = repository.get(item.integerKey());
+            if (value == 0 &&
+                    item.displayDefaultInteger != null) {
+                return item.displayDefaultInteger;
             }
+            return value;
         }
 
         String getString(SettingsItem item) {
-            try {
-                return prefs.getString(item.key, item.defaultString);
-            } catch (ClassCastException e) {
-                try {
-                    return Integer.toString(prefs.getInt(item.key, item.defaultInt));
-                } catch (ClassCastException ignored) {
-                    return Boolean.toString(prefs.getBoolean(item.key, item.defaultBoolean));
-                }
+            return repository.get(item.stringKey());
+        }
+
+        String getText(SettingsItem item) {
+            if (!item.isCustomBitrateEditor()) {
+                return getString(item);
             }
+            int bitrateKbps = getInt(item);
+            return BigDecimal.valueOf(bitrateKbps, 3)
+                    .stripTrailingZeros()
+                    .toPlainString();
         }
 
-        void putBoolean(String key, boolean value) {
-            prefs.edit().putBoolean(key, value).apply();
+        void putBoolean(SettingsItem item, boolean value) {
+            put(item.booleanKey(), value);
         }
 
-        void putInt(String key, int value) {
-            prefs.edit().putInt(key, value).apply();
+        void putInt(SettingsItem item, int value) {
+            put(item.integerKey(), value);
         }
 
-        void putString(String key, String value) {
-            prefs.edit().putString(key, value).apply();
+        void putString(SettingsItem item, String value) {
+            put(item.stringKey(), value);
+        }
+
+        <T> void put(SettingKey<T> key, T value) {
+            repository.edit()
+                    .put(key, value)
+                    .apply();
+        }
+    }
+
+    private static final class RenderedSettingsRow {
+        private final SettingsItem item;
+        private final View row;
+        private final ImageView icon;
+        private final TextView title;
+        private final View control;
+
+        RenderedSettingsRow(
+                SettingsItem item,
+                View row,
+                ImageView icon,
+                TextView title,
+                View control) {
+            this.item = item;
+            this.row = row;
+            this.icon = icon;
+            this.title = title;
+            this.control = control;
+        }
+
+        void refresh(SettingsStore store) {
+            boolean enabled = item.isEnabled(store);
+            row.setEnabled(enabled);
+            row.setAlpha(enabled ? 1.0f : 0.55f);
+            icon.setAlpha(enabled ? 0.86f : 0.35f);
+            title.setTextColor(enabled
+                    ? Color.WHITE
+                    : 0x80FFFFFF);
+
+            if (control == null) {
+                return;
+            }
+            control.setEnabled(enabled);
+            if (!(control instanceof TextView) ||
+                    control instanceof CompoundButton) {
+                return;
+            }
+
+            TextView valueView = (TextView) control;
+            switch (item.type) {
+                case LIST:
+                    valueView.setText(
+                            item.getSelectedEntry(store));
+                    break;
+                case SLIDER:
+                    valueView.setText(item.formatSliderValue(
+                            item.round(store.getInt(item))));
+                    break;
+                case TEXT:
+                    valueView.setText(store.getText(item));
+                    break;
+                default:
+                    break;
+            }
         }
     }
 
@@ -2024,18 +2138,16 @@ public class StreamSettings extends Activity {
         }
 
         String key;
+        SettingKey<?> settingKey;
         Type type;
         CharSequence title;
         CharSequence summary;
         String dependency;
-        boolean dependencyDefault;
         SettingsItem dependencyItemRef;
         String url;
         boolean visible = true;
         boolean enabled = true;
-        boolean defaultBoolean;
-        int defaultInt;
-        String defaultString;
+        Integer displayDefaultInteger;
         int min;
         int max;
         int step;
@@ -2055,11 +2167,16 @@ public class StreamSettings extends Activity {
             if (TextUtils.isEmpty(dependency)) {
                 return true;
             }
-            if (dependencyItemRef != null && dependencyItemRef.type == Type.LIST) {
+            if (dependencyItemRef == null) {
+                throw new IllegalStateException(
+                        "Unresolved dependency for " + key +
+                                ": " + dependency);
+            }
+            if (dependencyItemRef.type == Type.LIST) {
                 String value = store.getString(dependencyItemRef);
                 return !TextUtils.isEmpty(value) && !"off".equals(value) && !"false".equals(value) && !"0".equals(value);
             }
-            return store.getBoolean(dependency, dependencyDefault);
+            return store.getBoolean(dependencyItemRef);
         }
 
         CharSequence getSelectedEntry(SettingsStore store) {
@@ -2103,6 +2220,40 @@ public class StreamSettings extends Activity {
             entryValues = Arrays.copyOf(entryValues, entryValues.length + 1);
             entries[entries.length - 1] = entry;
             entryValues[entryValues.length - 1] = value;
+        }
+
+        boolean isCustomBitrateEditor() {
+            return CUSTOM_BITRATE_EDITOR_KEY.equals(key);
+        }
+
+        @SuppressWarnings("unchecked")
+        SettingKey<Boolean> booleanKey() {
+            return (SettingKey<Boolean>) requireStorageType(
+                    SettingKey.StorageType.BOOLEAN);
+        }
+
+        @SuppressWarnings("unchecked")
+        SettingKey<Integer> integerKey() {
+            return (SettingKey<Integer>) requireStorageType(
+                    SettingKey.StorageType.INTEGER);
+        }
+
+        @SuppressWarnings("unchecked")
+        SettingKey<String> stringKey() {
+            return (SettingKey<String>) requireStorageType(
+                    SettingKey.StorageType.STRING);
+        }
+
+        private SettingKey<?> requireStorageType(
+                SettingKey.StorageType expected) {
+            if (settingKey == null ||
+                    settingKey.getStorageType() != expected) {
+                throw new IllegalStateException(
+                        "Setting " + key +
+                                " requires " + expected +
+                                " storage");
+            }
+            return settingKey;
         }
     }
 
@@ -2151,17 +2302,11 @@ public class StreamSettings extends Activity {
             item.title = attrText(context, parser, "title");
             item.summary = attrText(context, parser, "summary");
             item.dependency = attrString(context, parser, "dependency");
-            item.defaultString = attrString(context, parser, "defaultValue");
-            item.defaultBoolean = Boolean.parseBoolean(item.defaultString);
-            item.defaultInt = parseInt(item.defaultString, 0);
             item.url = parser.getAttributeValue(null, "url");
             item.iconRes = iconForItem(item.key);
 
             if (tag.endsWith("SmallIconCheckboxPreference")) {
                 item.type = SettingsItem.Type.SWITCH;
-                item.defaultBoolean =
-                        AndroidAppPresentationDefaults
-                                .shouldUseSmallAppIcons(context);
             }
             else if (tag.endsWith("CheckBoxPreference")) {
                 item.type = SettingsItem.Type.SWITCH;
@@ -2202,7 +2347,54 @@ public class StreamSettings extends Activity {
             else {
                 return null;
             }
+            bindSchemaKey(item);
             return item;
+        }
+
+        private static void bindSchemaKey(SettingsItem item) {
+            if (item.isCustomBitrateEditor()) {
+                item.settingKey =
+                        StreamVideoSettingKeys.BITRATE_KBPS;
+                return;
+            }
+
+            item.settingKey =
+                    SettingsScreenKeyCatalog.find(item.key);
+            if (item.type == SettingsItem.Type.ACTION ||
+                    item.type == SettingsItem.Type.WEB) {
+                return;
+            }
+            if (item.settingKey == null) {
+                throw new IllegalStateException(
+                        "Persisted settings item has no typed schema: " +
+                                item.key);
+            }
+
+            SettingKey.StorageType expected;
+            switch (item.type) {
+                case SWITCH:
+                    expected = SettingKey.StorageType.BOOLEAN;
+                    break;
+                case LIST:
+                case TEXT:
+                    expected = SettingKey.StorageType.STRING;
+                    break;
+                case SLIDER:
+                    expected = SettingKey.StorageType.INTEGER;
+                    break;
+                default:
+                    throw new AssertionError(
+                            "Unhandled persisted item type: " +
+                                    item.type);
+            }
+            if (item.settingKey.getStorageType() != expected) {
+                throw new IllegalStateException(
+                        "Settings item " + item.key +
+                                " uses " + item.settingKey
+                                .getStorageType() +
+                                " storage but XML requires " +
+                                expected);
+            }
         }
 
         private static CharSequence attrText(Context context, XmlResourceParser parser, String name) {
@@ -2216,17 +2408,6 @@ public class StreamSettings extends Activity {
         private static String attrString(Context context, XmlResourceParser parser, String name) {
             CharSequence text = attrText(context, parser, name);
             return text == null ? null : text.toString();
-        }
-
-        private static int parseInt(String value, int fallback) {
-            if (TextUtils.isEmpty(value)) {
-                return fallback;
-            }
-            try {
-                return Integer.parseInt(value);
-            } catch (NumberFormatException e) {
-                return fallback;
-            }
         }
 
         private static int iconForSection(String key, CharSequence title, int index) {
@@ -2256,7 +2437,6 @@ public class StreamSettings extends Activity {
             if (key.contains("fps")) return R.drawable.ic_axi_game_pad_fps;
             if (key.contains("bitrate")) return R.drawable.ic_axi_game_pad_bitrate;
             if (key.contains("hdr")) return R.drawable.ic_axi_hdr;
-            if (key.contains("fsr") || key.contains("sharpness")) return R.drawable.ic_axi_zoom;
             if (key.contains("audio") || key.contains("haptics")) return R.drawable.ic_axi_mic;
             if (key.contains("rumble") || key.contains("vibrate")) return R.drawable.ic_axi_vibrate;
             if (key.contains("gamepad") || key.contains("controller")) return R.drawable.ic_axi_game_pad;
@@ -2285,8 +2465,7 @@ public class StreamSettings extends Activity {
                 return R.drawable.ic_axi_game_pad_bitrate;
             }
             if ("frame_pacing".equals(key) || "enable_lowLatency_experiment".equals(key)) return R.drawable.ic_axi_performance;
-            if ("list_fsr_target".equals(key) || "list_fsr_sharpness".equals(key)) return R.drawable.ic_axi_zoom;
-            if ("list_fsr_hdr_output".equals(key) || "checkbox_enable_hdr".equals(key)) return R.drawable.ic_axi_hdr;
+            if ("checkbox_enable_hdr".equals(key)) return R.drawable.ic_axi_hdr;
             if ("checkbox_stretch_video".equals(key) || "screen_gravity_list".equals(key)) return R.drawable.ic_axi_win_center;
             if ("checkbox_cutout_mode_video".equals(key)) return R.drawable.ic_axi_win_p;
             if ("checkbox_auto_screen_orientation".equals(key)) return R.drawable.ic_axi_switch_screen;
@@ -2411,7 +2590,6 @@ public class StreamSettings extends Activity {
                     .equals(key)) {
                 return R.drawable.ic_axi_keyboard;
             }
-            if ("checkbox_enable_pass_menu".equals(key)) return R.drawable.ic_axi_game_pad_pass;
             return 0;
         }
     }

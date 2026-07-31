@@ -157,7 +157,7 @@ A slice is incomplete if callers can still bypass the new boundary.
 - Named coordinate spaces for encoded frame, host reference, stream View,
   overlay View, and inset-adjusted content.
 - One pure geometry implementation for pixel-grid mapping, aspect fitting,
-  display compatibility, and FSR sizing.
+  and display compatibility.
 - One Android View mapper shared by native cursor rendering, direct contacts,
   absolute pointer input, and legacy absolute gestures.
 - Correct point, vector, size, contact-axis, orientation, and hotspot
@@ -184,7 +184,7 @@ A slice is incomplete if callers can still bypass the new boundary.
 - The repository contains no competing stream coordinate algorithm.
 - Identity-transform behavior remains byte-for-byte equivalent.
 - Instrumentation covers transformed siblings, system bars, cutouts, rotation,
-  zoom, FSR, and both absolute and relative modes.
+  zoom, and both absolute and relative modes.
 - Local cursor drawing and the submitted canonical pointer position use the same
   mapped value.
 
@@ -251,10 +251,9 @@ A slice is incomplete if callers can still bypass the new boundary.
   application-wide settings bag.
 - Both display-settings entry points consume one immutable video/audio
   snapshot and emit typed intents. Immediate options update only their owned
-  canonical key, while resolution, FPS, bitrate, orientation,
-  external-display mode, and FSR values are committed as one explicit Apply
-  transaction. Custom resolutions cross a repository port, and unknown future
-  FSR values round-trip unchanged until the user explicitly replaces them.
+  canonical key, while resolution, FPS, bitrate, orientation, and
+  external-display mode are committed as one explicit Apply transaction.
+  Custom resolutions cross a repository port.
 - Versioned legacy preference migration through schema version 4.
 - The in-stream action catalog and virtual-overlay buttons consume typed UI
   policy plus read-only controller visibility. Persisted startup defaults are
@@ -495,7 +494,7 @@ agree across all participants.
 | Area | Required evidence |
 | --- | --- |
 | Input | 120 Hz device matrix; p99 client processing below 1 ms; no new steady-state MOVE allocation; no stuck remote state |
-| Rendering | Surface/codec/FSR/HDR lifecycle, rotation, cutout, PiP, background/foreground, and decoder fallback |
+| Rendering | Surface/codec/HDR lifecycle, rotation, cutout, PiP, background/foreground, and decoder fallback |
 | Controllers | USB/Bluetooth/evdev, slots, reconnect, sensors, rumble, virtual controls, and unsupported devices |
 | Hosts | discovery, manual/remote endpoints, pairing failure/retry, certificate persistence, upgrade migration |
 | Transfer | text/image/file/folder, large trees, empty files, Unicode, conflicts, cancel/retry, both directions and clients |

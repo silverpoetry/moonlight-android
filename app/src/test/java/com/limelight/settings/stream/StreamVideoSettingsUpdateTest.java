@@ -3,9 +3,6 @@ package com.limelight.settings.stream;
 import com.limelight.settings.SettingKey;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.stream.StreamDecoderSettings.VideoFormat;
-import com.limelight.settings.stream.StreamDisplaySettings.FsrHdrOutput;
-import com.limelight.settings.stream.StreamDisplaySettings.FsrSharpness;
-import com.limelight.settings.stream.StreamDisplaySettings.FsrTarget;
 import com.limelight.settings.stream.StreamVideoSettings.ScreenOnPolicy;
 import com.limelight.settings.stream.StreamVideoSettings.VirtualDisplayMode;
 
@@ -37,9 +34,6 @@ public final class StreamVideoSettingsUpdateTest {
         assertEquals(
                 original.getScreenOnPolicy(),
                 updated.getScreenOnPolicy());
-        assertEquals(
-                original.getFsrTarget(),
-                updated.getFsrTarget());
     }
 
     @Test
@@ -52,9 +46,6 @@ public final class StreamVideoSettingsUpdateTest {
                 .setBitrateKbps(120_000)
                 .setPortrait(true)
                 .setExternalDisplay(true)
-                .setFsrTarget(FsrTarget.NATIVE_HEIGHT)
-                .setFsrSharpness(FsrSharpness.MAXIMUM)
-                .setFsrHdrOutput(FsrHdrOutput.SDR)
                 .setVideoFormat(VideoFormat.FORCE_H264)
                 .setHdrEnabled(false)
                 .build();
@@ -71,16 +62,6 @@ public final class StreamVideoSettingsUpdateTest {
         assertEquals(120_000, updated.getBitrateKbps());
         assertTrue(updated.isPortrait());
         assertTrue(updated.isExternalDisplay());
-        assertEquals(
-                FsrTarget.NATIVE_HEIGHT,
-                updated.getFsrTarget());
-        assertEquals(
-                FsrSharpness.MAXIMUM,
-                updated.getFsrSharpness());
-        assertEquals(
-                FsrHdrOutput.SDR,
-                updated.getFsrHdrOutput());
-
         assertEquals(
                 current.getVideoFormat(),
                 updated.getVideoFormat());
@@ -112,35 +93,8 @@ public final class StreamVideoSettingsUpdateTest {
         assertEquals(
                 "3440x1440",
                 repository.values.get("edit_diy_w_h"));
-        assertEquals(10, repository.values.size());
+        assertEquals(7, repository.values.size());
         assertEquals(1, repository.applyCount);
-    }
-
-    @Test
-    public void displayApplyPreservesUnknownFsrStorage() {
-        FakeRepository repository = new FakeRepository();
-        StreamVideoSettings draft =
-                representativeSettings().toBuilder()
-                        .setPersistedFsrValues(
-                                "future-target",
-                                "future-sharpness",
-                                "future-output")
-                        .build();
-        StreamVideoSettingsUpdate update =
-                StreamVideoSettingsUpdate
-                        .displayConfiguration(draft);
-
-        update.persist(repository);
-
-        assertEquals(
-                "future-target",
-                repository.values.get("list_fsr_target"));
-        assertEquals(
-                "future-sharpness",
-                repository.values.get("list_fsr_sharpness"));
-        assertEquals(
-                "future-output",
-                repository.values.get("list_fsr_hdr_output"));
     }
 
     @Test
@@ -203,9 +157,6 @@ public final class StreamVideoSettingsUpdateTest {
                         VirtualDisplayMode.EXTENDED)
                 .setEnforceDisplayMode(true)
                 .setScreenOnPolicy(ScreenOnPolicy.ALWAYS)
-                .setFsrTarget(FsrTarget.OUTPUT_4K)
-                .setFsrSharpness(FsrSharpness.STRONG)
-                .setFsrHdrOutput(FsrHdrOutput.NATIVE)
                 .build();
     }
 

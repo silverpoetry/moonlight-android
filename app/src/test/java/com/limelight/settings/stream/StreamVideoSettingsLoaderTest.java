@@ -3,9 +3,6 @@ package com.limelight.settings.stream;
 import com.limelight.settings.SettingKey;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.stream.StreamDecoderSettings.VideoFormat;
-import com.limelight.settings.stream.StreamDisplaySettings.FsrHdrOutput;
-import com.limelight.settings.stream.StreamDisplaySettings.FsrSharpness;
-import com.limelight.settings.stream.StreamDisplaySettings.FsrTarget;
 import com.limelight.settings.stream.StreamVideoSettings.ScreenOnPolicy;
 import com.limelight.settings.stream.StreamVideoSettings.VirtualDisplayMode;
 
@@ -55,13 +52,6 @@ public final class StreamVideoSettingsLoaderTest {
         assertEquals(
                 ScreenOnPolicy.DISABLED,
                 settings.getScreenOnPolicy());
-        assertEquals(FsrTarget.OFF, settings.getFsrTarget());
-        assertEquals(
-                FsrSharpness.STANDARD,
-                settings.getFsrSharpness());
-        assertEquals(
-                FsrHdrOutput.NATIVE,
-                settings.getFsrHdrOutput());
         assertEquals(1, repository.commitCount);
     }
 
@@ -121,16 +111,6 @@ public final class StreamVideoSettingsLoaderTest {
         repository.put(
                 StreamVideoSettingKeys.SCREEN_ON_POLICY,
                 2);
-        repository.put(
-                StreamDisplaySettingKeys.FSR_TARGET,
-                "4k");
-        repository.put(
-                StreamDisplaySettingKeys.FSR_SHARPNESS,
-                "strong");
-        repository.put(
-                StreamDisplaySettingKeys.FSR_HDR_OUTPUT,
-                "sdr");
-
         StreamVideoSettings settings =
                 StreamVideoSettingsLoader.load(
                         repository,
@@ -161,15 +141,6 @@ public final class StreamVideoSettingsLoaderTest {
         assertEquals(
                 ScreenOnPolicy.ALWAYS,
                 settings.getScreenOnPolicy());
-        assertEquals(
-                FsrTarget.OUTPUT_4K,
-                settings.getFsrTarget());
-        assertEquals(
-                FsrSharpness.STRONG,
-                settings.getFsrSharpness());
-        assertEquals(
-                FsrHdrOutput.SDR,
-                settings.getFsrHdrOutput());
     }
 
     @Test
@@ -191,10 +162,6 @@ public final class StreamVideoSettingsLoaderTest {
         repository.values.put(
                 StreamVideoSettingKeys.BITRATE_KBPS.getName(),
                 Integer.MAX_VALUE);
-        repository.values.put(
-                StreamDisplaySettingKeys.FSR_TARGET.getName(),
-                "future-target");
-
         StreamVideoSettings settings =
                 StreamVideoSettingsLoader.load(
                         repository,
@@ -210,7 +177,6 @@ public final class StreamVideoSettingsLoaderTest {
         assertEquals(
                 StreamVideoSettingKeys.MAX_BITRATE_KBPS,
                 settings.getBitrateKbps());
-        assertEquals(FsrTarget.UNKNOWN, settings.getFsrTarget());
     }
 
     @Test

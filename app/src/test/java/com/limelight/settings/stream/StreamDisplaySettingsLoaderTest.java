@@ -27,15 +27,6 @@ public final class StreamDisplaySettingsLoaderTest {
                         .setDisplayCutoutEnabled(true)
                         .setExternalDisplay(false)
                         .setHdrEnabled(true)
-                        .setFsrTarget(
-                                StreamDisplaySettings.FsrTarget
-                                        .OUTPUT_4K)
-                        .setFsrSharpness(
-                                StreamDisplaySettings.FsrSharpness
-                                        .STRONG)
-                        .setFsrHdrOutput(
-                                StreamDisplaySettings.FsrHdrOutput
-                                        .NATIVE)
                         .build();
 
         StreamDisplaySettings settings =
@@ -52,13 +43,7 @@ public final class StreamDisplaySettingsLoaderTest {
         assertEquals(
                 StreamDisplaySettings.Gravity.BOTTOM_RIGHT,
                 settings.getGravity());
-        assertEquals(
-                StreamDisplaySettings.FsrTarget.OUTPUT_4K,
-                settings.getFsrTarget());
-        assertEquals(
-                StreamDisplaySettings.FsrSharpness.STRONG,
-                settings.getFsrSharpness());
-        assertTrue(settings.isNativeHdrOutputEnabled());
+        assertTrue(settings.isHdrEnabled());
     }
 
     @Test

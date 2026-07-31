@@ -33,7 +33,6 @@ public final class PerformanceOverlayFormatterTest {
 
         assertTrue(text.contains("带宽：100.00K/s"));
         assertTrue(text.contains("2560x1440 HEVC"));
-        assertTrue(text.contains("FSR 原始高度"));
         assertTrue(text.contains("延迟/解码：6 ms / 1.25 ms"));
         assertTrue(text.contains("丢包率：0.50%"));
         assertTrue(text.contains("FPS：119.88"));
@@ -65,11 +64,8 @@ public final class PerformanceOverlayFormatterTest {
                 "120 FPS",
                 value(rows, "目标帧率"));
         assertEquals(
-                "原始高度 / 75% / HDR",
-                value(rows, "超分状态"));
-        assertEquals(
-                "GLES FSR HDR",
-                value(rows, "实际渲染链"));
+                "系统渲染",
+                value(rows, "渲染方式"));
         assertEquals(
                 "1:02:03",
                 value(rows, "本地时长"));
@@ -127,10 +123,7 @@ public final class PerformanceOverlayFormatterTest {
                         false,
                         false,
                         true,
-                        StreamDisplaySettings.Gravity.DEFAULT,
-                        StreamDisplaySettings.FsrTarget.OFF,
-                        StreamDisplaySettings.FsrSharpness.STANDARD,
-                        StreamDisplaySettings.FsrHdrOutput.SDR);
+                        StreamDisplaySettings.Gravity.DEFAULT);
         StreamAudioSettings audioSettings =
                 StreamAudioSettings.builder()
                         .setAudioHaptics(
@@ -178,10 +171,6 @@ public final class PerformanceOverlayFormatterTest {
 
     private static PerformanceOverlayRuntimeState runtime() {
         return new PerformanceOverlayRuntimeState(
-                true,
-                "原始高度",
-                "75%",
-                true,
                 true,
                 "192.168.3.7",
                 1000,

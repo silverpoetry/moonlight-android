@@ -3,7 +3,7 @@ package com.limelight.settings.stream;
 import java.util.Objects;
 
 /**
- * Immutable settings snapshot for stream layout and FSR presentation.
+ * Immutable settings snapshot for stream layout and presentation.
  *
  * <p>This object is created once during stream composition. Render and input
  * paths never reread persistent storage.</p>
@@ -34,99 +34,6 @@ public final class StreamDisplaySettings {
         }
     }
 
-    public enum FsrTarget {
-        OFF("off", 0, 0),
-        OUTPUT_2K("2k", 1440, 2560),
-        OUTPUT_4K("4k", 2160, 3840),
-        NATIVE_HEIGHT("native_height", 0, 0),
-        /**
-         * Preserves the established fallback for a syntactically valid but
-         * unrecognized stored target: FSR remains enabled at 1440p without a
-         * minimum width. This is distinct from a missing or wrong-type value,
-         * which the schema resolves to {@link #OFF}.
-         */
-        UNKNOWN("", 1440, 0);
-
-        private final String storageValue;
-        private final int outputHeight;
-        private final int minimumOutputWidth;
-
-        FsrTarget(
-                String storageValue,
-                int outputHeight,
-                int minimumOutputWidth) {
-            this.storageValue = storageValue;
-            this.outputHeight = outputHeight;
-            this.minimumOutputWidth = minimumOutputWidth;
-        }
-
-        public static FsrTarget fromStorageValue(String value) {
-            for (FsrTarget target : values()) {
-                if (target != UNKNOWN &&
-                        target.storageValue.equalsIgnoreCase(value)) {
-                    return target;
-                }
-            }
-            return UNKNOWN;
-        }
-
-        public int getOutputHeight() {
-            return outputHeight;
-        }
-
-        public int getMinimumOutputWidth() {
-            return minimumOutputWidth;
-        }
-    }
-
-    public enum FsrSharpness {
-        SOFT("soft", 0.55f),
-        STANDARD("standard", 0.85f),
-        STRONG("strong", 1.45f),
-        MAXIMUM("max", 1.85f);
-
-        private final String storageValue;
-        private final float factor;
-
-        FsrSharpness(String storageValue, float factor) {
-            this.storageValue = storageValue;
-            this.factor = factor;
-        }
-
-        public static FsrSharpness fromStorageValue(String value) {
-            for (FsrSharpness sharpness : values()) {
-                if (sharpness.storageValue.equalsIgnoreCase(value)) {
-                    return sharpness;
-                }
-            }
-            return STANDARD;
-        }
-
-        public float getFactor() {
-            return factor;
-        }
-    }
-
-    public enum FsrHdrOutput {
-        SDR("sdr"),
-        NATIVE("native");
-
-        private final String storageValue;
-
-        FsrHdrOutput(String storageValue) {
-            this.storageValue = storageValue;
-        }
-
-        public static FsrHdrOutput fromStorageValue(String value) {
-            for (FsrHdrOutput output : values()) {
-                if (output.storageValue.equalsIgnoreCase(value)) {
-                    return output;
-                }
-            }
-            return SDR;
-        }
-    }
-
     private final int streamWidth;
     private final int streamHeight;
     private final boolean nativeResolution;
@@ -135,9 +42,6 @@ public final class StreamDisplaySettings {
     private final boolean externalDisplayEnabled;
     private final boolean hdrEnabled;
     private final Gravity gravity;
-    private final FsrTarget fsrTarget;
-    private final FsrSharpness fsrSharpness;
-    private final FsrHdrOutput fsrHdrOutput;
 
     public StreamDisplaySettings(
             int streamWidth,
@@ -147,10 +51,7 @@ public final class StreamDisplaySettings {
             boolean displayCutoutEnabled,
             boolean externalDisplayEnabled,
             boolean hdrEnabled,
-            Gravity gravity,
-            FsrTarget fsrTarget,
-            FsrSharpness fsrSharpness,
-            FsrHdrOutput fsrHdrOutput) {
+            Gravity gravity) {
         if (streamWidth <= 0 || streamHeight <= 0) {
             throw new IllegalArgumentException(
                     "Stream dimensions must be positive");
@@ -163,15 +64,6 @@ public final class StreamDisplaySettings {
         this.externalDisplayEnabled = externalDisplayEnabled;
         this.hdrEnabled = hdrEnabled;
         this.gravity = Objects.requireNonNull(gravity, "gravity");
-        this.fsrTarget = Objects.requireNonNull(
-                fsrTarget,
-                "fsrTarget");
-        this.fsrSharpness = Objects.requireNonNull(
-                fsrSharpness,
-                "fsrSharpness");
-        this.fsrHdrOutput = Objects.requireNonNull(
-                fsrHdrOutput,
-                "fsrHdrOutput");
     }
 
     public int getStreamWidth() {
@@ -206,25 +98,4 @@ public final class StreamDisplaySettings {
         return gravity;
     }
 
-    public FsrTarget getFsrTarget() {
-        return fsrTarget;
-    }
-
-    public FsrSharpness getFsrSharpness() {
-        return fsrSharpness;
-    }
-
-    public boolean isFsrEnabled() {
-        return !externalDisplayEnabled &&
-                fsrTarget != FsrTarget.OFF;
-    }
-
-    public boolean isNativeHeightFsrTarget() {
-        return fsrTarget == FsrTarget.NATIVE_HEIGHT;
-    }
-
-    public boolean isNativeHdrOutputEnabled() {
-        return hdrEnabled &&
-                fsrHdrOutput == FsrHdrOutput.NATIVE;
-    }
 }

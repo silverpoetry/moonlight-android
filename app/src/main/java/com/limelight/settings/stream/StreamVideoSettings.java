@@ -1,10 +1,6 @@
 package com.limelight.settings.stream;
 
-import com.limelight.settings.SettingKey;
 import com.limelight.settings.stream.StreamDecoderSettings.VideoFormat;
-import com.limelight.settings.stream.StreamDisplaySettings.FsrHdrOutput;
-import com.limelight.settings.stream.StreamDisplaySettings.FsrSharpness;
-import com.limelight.settings.stream.StreamDisplaySettings.FsrTarget;
 
 import java.util.Objects;
 
@@ -83,9 +79,6 @@ public final class StreamVideoSettings {
     private final VirtualDisplayMode virtualDisplayMode;
     private final boolean enforceDisplayMode;
     private final ScreenOnPolicy screenOnPolicy;
-    private final String fsrTargetStorageValue;
-    private final String fsrSharpnessStorageValue;
-    private final String fsrHdrOutputStorageValue;
 
     private StreamVideoSettings(Builder builder) {
         if (builder.width <= 0 || builder.height <= 0) {
@@ -129,18 +122,6 @@ public final class StreamVideoSettings {
         screenOnPolicy = Objects.requireNonNull(
                 builder.screenOnPolicy,
                 "screenOnPolicy");
-        fsrTargetStorageValue =
-                normalizeFsrValue(
-                        StreamDisplaySettingKeys.FSR_TARGET,
-                        builder.fsrTargetStorageValue);
-        fsrSharpnessStorageValue =
-                normalizeFsrValue(
-                        StreamDisplaySettingKeys.FSR_SHARPNESS,
-                        builder.fsrSharpnessStorageValue);
-        fsrHdrOutputStorageValue =
-                normalizeFsrValue(
-                        StreamDisplaySettingKeys.FSR_HDR_OUTPUT,
-                        builder.fsrHdrOutputStorageValue);
     }
 
     public static Builder builder() {
@@ -227,39 +208,6 @@ public final class StreamVideoSettings {
         return screenOnPolicy;
     }
 
-    public FsrTarget getFsrTarget() {
-        return FsrTarget.fromStorageValue(
-                fsrTargetStorageValue);
-    }
-
-    public FsrSharpness getFsrSharpness() {
-        return FsrSharpness.fromStorageValue(
-                fsrSharpnessStorageValue);
-    }
-
-    public FsrHdrOutput getFsrHdrOutput() {
-        return FsrHdrOutput.fromStorageValue(
-                fsrHdrOutputStorageValue);
-    }
-
-    String getFsrTargetStorageValue() {
-        return fsrTargetStorageValue;
-    }
-
-    String getFsrSharpnessStorageValue() {
-        return fsrSharpnessStorageValue;
-    }
-
-    String getFsrHdrOutputStorageValue() {
-        return fsrHdrOutputStorageValue;
-    }
-
-    private static String normalizeFsrValue(
-            SettingKey<String> key,
-            String value) {
-        return key.normalizeValue(value);
-    }
-
     public static final class Builder {
         private int width = 1280;
         private int height = 720;
@@ -282,9 +230,6 @@ public final class StreamVideoSettings {
         private boolean enforceDisplayMode;
         private ScreenOnPolicy screenOnPolicy =
                 ScreenOnPolicy.DISABLED;
-        private String fsrTargetStorageValue = "off";
-        private String fsrSharpnessStorageValue = "standard";
-        private String fsrHdrOutputStorageValue = "native";
 
         private Builder() {
         }
@@ -316,12 +261,6 @@ public final class StreamVideoSettings {
             enforceDisplayMode =
                     settings.enforceDisplayMode;
             screenOnPolicy = settings.screenOnPolicy;
-            fsrTargetStorageValue =
-                    settings.fsrTargetStorageValue;
-            fsrSharpnessStorageValue =
-                    settings.fsrSharpnessStorageValue;
-            fsrHdrOutputStorageValue =
-                    settings.fsrHdrOutputStorageValue;
         }
 
         public Builder setDimensions(int width, int height) {
@@ -420,39 +359,6 @@ public final class StreamVideoSettings {
         public Builder setScreenOnPolicy(
                 ScreenOnPolicy policy) {
             screenOnPolicy = policy;
-            return this;
-        }
-
-        public Builder setFsrTarget(FsrTarget target) {
-            fsrTargetStorageValue =
-                    StreamVideoSettingsCodec
-                            .encodeFsrTarget(target);
-            return this;
-        }
-
-        public Builder setFsrSharpness(
-                FsrSharpness sharpness) {
-            fsrSharpnessStorageValue =
-                    StreamVideoSettingsCodec
-                            .encodeFsrSharpness(sharpness);
-            return this;
-        }
-
-        public Builder setFsrHdrOutput(
-                FsrHdrOutput output) {
-            fsrHdrOutputStorageValue =
-                    StreamVideoSettingsCodec
-                            .encodeFsrHdrOutput(output);
-            return this;
-        }
-
-        Builder setPersistedFsrValues(
-                String target,
-                String sharpness,
-                String hdrOutput) {
-            fsrTargetStorageValue = target;
-            fsrSharpnessStorageValue = sharpness;
-            fsrHdrOutputStorageValue = hdrOutput;
             return this;
         }
 

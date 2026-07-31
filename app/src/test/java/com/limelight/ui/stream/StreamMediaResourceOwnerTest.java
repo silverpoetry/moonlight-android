@@ -13,7 +13,6 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -45,40 +44,15 @@ public final class StreamMediaResourceOwnerTest {
     }
 
     @Test
-    public void ownedFsrSurfaceIsReplacedAndReleasedExactlyOnce() {
-        FakeOwnedSurface first = new FakeOwnedSurface();
-        FakeOwnedSurface second = new FakeOwnedSurface();
+    public void destroyRejectsNewResources() {
         StreamMediaResourceOwner owner =
                 new StreamMediaResourceOwner(
                         new FakeVideoResource(),
                         FakeAudioResource::new);
 
-        owner.replaceFsrInputSurface(first);
-        owner.replaceFsrInputSurface(second);
-        owner.releaseFsrInputSurface();
-        owner.releaseFsrInputSurface();
-
-        assertEquals(1, first.releaseCount);
-        assertEquals(1, second.releaseCount);
-        assertNull(owner.getFsrInputSurface());
-    }
-
-    @Test
-    public void destroyReleasesSurfaceAndRejectsNewResources() {
-        FakeOwnedSurface active = new FakeOwnedSurface();
-        FakeOwnedSurface late = new FakeOwnedSurface();
-        StreamMediaResourceOwner owner =
-                new StreamMediaResourceOwner(
-                        new FakeVideoResource(),
-                        FakeAudioResource::new);
-        owner.replaceFsrInputSurface(active);
-
         owner.destroy();
         owner.destroy();
-        owner.replaceFsrInputSurface(late);
 
-        assertEquals(1, active.releaseCount);
-        assertEquals(1, late.releaseCount);
         assertThrows(
                 IllegalStateException.class,
                 () -> owner.prepareStart(() -> null));
@@ -228,21 +202,6 @@ public final class StreamMediaResourceOwnerTest {
                 StreamAudioSettings settings) {
             settingsUpdateCount++;
             lastStrength = settings.getHapticsStrengthPercent();
-        }
-    }
-
-    private static final class FakeOwnedSurface
-            implements StreamMediaResourceOwner.OwnedSurface {
-        private int releaseCount;
-
-        @Override
-        public Surface getSurface() {
-            return null;
-        }
-
-        @Override
-        public void release() {
-            releaseCount++;
         }
     }
 

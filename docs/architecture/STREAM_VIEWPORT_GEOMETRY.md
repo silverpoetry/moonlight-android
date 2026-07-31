@@ -53,12 +53,10 @@ transitions.
 ## Layout rules
 
 `StreamLayoutGeometry` is the single pure-Java source for aspect-fit
-measurement, legacy display-aspect compatibility, and fixed FSR output sizing.
-`StreamView` and `VideoProcessingGLSurfaceView` delegate to the same fit
-calculation, so the decoded surface and post-processed output cannot diverge by
-rounding or branch choice. View measurement truncates to Android's historical
-pixel result; FSR surface requests round first and then enforce even
-dimensions.
+measurement and legacy display-aspect compatibility. `StreamView` delegates
+to that calculation, so layout and coordinate mapping cannot diverge by
+rounding or branch choice. View measurement preserves Android's historical
+pixel result.
 
 ## Performance
 
@@ -67,8 +65,8 @@ objects. No collection or geometry object is allocated per cursor movement.
 
 ## View hierarchy invariant
 
-The primary stream View, background input View, FSR output, and cursor overlay
-are direct siblings under one untransformed content parent. The parent may be
+The primary stream View, background input View, and cursor overlay are direct
+siblings under one untransformed content parent. The parent may be
 translated by the single inset policy, but it is not scaled or rotated.
 `ViewCoordinateMapper` verifies the sibling relationship and rejects mapping
 rather than guessing when that invariant is not satisfied.
@@ -94,7 +92,7 @@ consumer must be added here or be covered by an equivalent domain document.
 | Native touchscreen touchpad frames | physical input-surface position, pressure, size, and pointer IDs | `TouchscreenTouchpadHandler`; the surface is the emulated physical touchpad |
 | Physical controller touchpad | controller device motion ranges | `ControllerHandler`; controller-local hardware space |
 | evdev mouse motion | relative device deltas | `Game` platform callback pending runtime-controller extraction |
-| Stream/FSR aspect fit and fixed output size | layout and surface pixel dimensions | `StreamLayoutGeometry` |
+| Stream aspect fit | layout and surface pixel dimensions | `StreamLayoutGeometry` |
 | Safe-area/cutout content rectangle | window insets -> shared content-root padding | `WindowInsetsPolicy`, `UiHelper` |
 | Full-physical-display eligibility | settings/native-resolution state plus display modes | `StreamWindowPolicy` |
 | Picture-in-picture animation hint | transformed visible stream bounds in Activity window coordinates | `ViewWindowGeometry` |

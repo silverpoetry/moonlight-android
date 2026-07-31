@@ -64,13 +64,6 @@ public final class PerformanceOverlayFormatter {
             builder.append(nonEmpty(stats.codecName, "--"));
             builder.append("  ");
         }
-        if (runtime.fsrEnabled) {
-            builder.append("FSR ")
-                    .append(nonEmpty(
-                            runtime.fsrTargetDisplayName,
-                            "--"))
-                    .append("  ");
-        }
         builder.append("延迟/解码：");
         builder.append(stats.networkLatencyMs)
                 .append(" ms / ");
@@ -143,15 +136,7 @@ public final class PerformanceOverlayFormatter {
                 formatBytes(stats.audioBytes)));
         rows.add(new Row(
                 "渲染方式",
-                runtime.fsrEnabled ?
-                        "GLES渲染" :
-                        "系统渲染"));
-        rows.add(new Row(
-                "超分状态",
-                formatUpscaleStatus(runtime)));
-        rows.add(new Row(
-                "实际渲染链",
-                formatRenderPipeline(runtime)));
+                "系统渲染"));
         rows.add(new Row(
                 "连接地址",
                 nonEmpty(runtime.streamHost, "--")));
@@ -223,28 +208,6 @@ public final class PerformanceOverlayFormatter {
                 display.isHdrEnabled();
         return width + "x" + height +
                 (includeHdr && hdr ? " HDR" : "");
-    }
-
-    private String formatUpscaleStatus(
-            PerformanceOverlayRuntimeState runtime) {
-        if (!runtime.fsrEnabled) {
-            return "关闭";
-        }
-        return nonEmpty(runtime.fsrTargetDisplayName, "--") +
-                " / " +
-                nonEmpty(runtime.fsrSharpnessDisplayName, "--") +
-                " / " +
-                (runtime.fsrHdrOutput ? "HDR" : "SDR");
-    }
-
-    private String formatRenderPipeline(
-            PerformanceOverlayRuntimeState runtime) {
-        if (!runtime.fsrEnabled) {
-            return "系统直出";
-        }
-        return runtime.fsrHdrOutput ?
-                "GLES FSR HDR" :
-                "GLES FSR SDR";
     }
 
     private String formatUsbController(

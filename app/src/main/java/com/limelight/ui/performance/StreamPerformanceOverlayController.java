@@ -349,14 +349,6 @@ public final class StreamPerformanceOverlayController
         }
 
         SpannableString spannable = new SpannableString(text);
-        if (runtime.fsrEnabled) {
-            applySpan(
-                    spannable,
-                    text,
-                    "FSR ",
-                    Color.rgb(250, 191, 2),
-                    true);
-        }
         int micStart = text.indexOf("Mic");
         if (micStart < 0) {
             micStart = text.indexOf("麦克风");

@@ -150,13 +150,6 @@ public final class StreamVideoSettingsUpdate {
                         .setPortrait(normalized.isPortrait())
                         .setExternalDisplay(
                                 normalized.isExternalDisplay())
-                        .setPersistedFsrValues(
-                                normalized
-                                        .getFsrTargetStorageValue(),
-                                normalized
-                                        .getFsrSharpnessStorageValue(),
-                                normalized
-                                        .getFsrHdrOutputStorageValue())
                         .build(),
                 editor -> editor
                         .put(
@@ -184,21 +177,7 @@ public final class StreamVideoSettingsUpdate {
                                 normalized.isExternalDisplay())
                         .put(
                                 StreamVideoSettingKeys.PORTRAIT,
-                                normalized.isPortrait())
-                        .put(
-                                StreamDisplaySettingKeys.FSR_TARGET,
-                                normalized
-                                        .getFsrTargetStorageValue())
-                        .put(
-                                StreamDisplaySettingKeys
-                                        .FSR_SHARPNESS,
-                                normalized
-                                        .getFsrSharpnessStorageValue())
-                        .put(
-                                StreamDisplaySettingKeys
-                                        .FSR_HDR_OUTPUT,
-                                normalized
-                                        .getFsrHdrOutputStorageValue()));
+                                normalized.isPortrait()));
     }
 
     public StreamVideoSettings applyTo(
