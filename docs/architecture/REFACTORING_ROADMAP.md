@@ -414,6 +414,14 @@ targets.
   callbacks of a newer stream session. The Binder exposes one session-level
   attach/detach contract rather than independently mutable settings, listener,
   state-listener, start, and stop calls.
+- `AndroidDecoderDiscovery` owns platform codec enumeration, AVC fallback,
+  HEVC/AV1 allow-list adaptation, cross-codec performance comparison, and the
+  immutable capability profile produced before renderer startup.
+  `DecoderPerformanceEvaluator` preserves and tests Android's authoritative
+  evidence order: Q performance points, then M achievable frame rates only
+  when those points are unavailable, then the non-performance size/rate API.
+  `MediaCodecDecoderRenderer` consumes the frozen selection and no longer mixes
+  device discovery with codec execution lifecycle.
 - `DecoderSelectionPolicy` owns HEVC/AV1 acceptance decisions and stream color
   defaults. The MediaCodec adapter performs discovery and capability queries,
   and no longer carries the unused metered-network parameter or unreachable

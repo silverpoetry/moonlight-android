@@ -1015,3 +1015,18 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Extracted `AndroidDecoderDiscovery` from `MediaCodecDecoderRenderer`. Decoder
+  enumeration, AVC fallback, non-allow-listed HEVC/AV1 handling, AVC-versus-HEVC
+  performance comparison, direct-submit/RFI facts, and slice preferences now
+  produce one immutable selection before any codec lifecycle work begins. The
+  renderer retains only the selected codecs and frozen capability profile.
+- Added pure `DecoderPerformanceEvaluator` fixtures for Android's ordered
+  capability evidence. A covering Q performance point accepts, a present but
+  non-covering set rejects without optimistic fallback, absent point data falls
+  through to M achievable FPS, unsupported dimensions reject, and only missing
+  achievable-rate data reaches the size/rate capability API.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 437 JVM
+  tests per variant (1,748 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.
