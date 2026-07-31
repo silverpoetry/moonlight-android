@@ -927,3 +927,18 @@ Verification on 2026-07-31:
   tests per variant (1,544 executions total), all Lint variants, and both
   Release APKs. `verifyConnected --rerun-tasks --no-daemon` then passed all
   296 tasks and both 107-test root/non-root API 34 suites.
+- Added `ControllerMotionSession` as the sole owner of requested motion report
+  rates and sensor registration lifecycle. It bounds invalid sampling rates,
+  retains requests while sensors temporarily disappear, restores them after the
+  established one-second device-settle interval, rejects stale delayed work by
+  generation, emits a neutral gyroscope report on suspension, and migrates
+  state without creating a second registration path.
+- Physical input-device sensors and the optional on-device virtual-controller
+  sensors now use the same session. The default context participates in focus
+  suspension and handler shutdown, registration handles remember the exact
+  `SensorManager` that owns them, and failed Android registrations are no longer
+  retained as if they were active.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 392 JVM
+  tests per variant (1,568 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites.
