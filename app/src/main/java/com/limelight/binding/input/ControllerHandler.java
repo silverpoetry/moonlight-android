@@ -1119,12 +1119,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         context.vendorId = dev.getVendorId();
         context.productId = dev.getProductId();
 
-        boolean nonStandardXboxBluetooth = false;
-        boolean serval = false;
-        boolean backIsStart = false;
-        boolean modeIsSelect = false;
-        boolean searchIsMode = false;
-
         // These aren't always present in the Android key layout files, so they won't show up
         // in our normal InputDevice.hasKeys() probing.
         context.hasPaddles = MoonBridge.guessControllerHasPaddles(context.vendorId, context.productId);
@@ -1317,75 +1311,35 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             }
         }
 
-        // The ADT-1 controller needs a similar fixup to the ASUS Gamepad
-        if (dev.getVendorId() == 0x18d1 && dev.getProductId() == 0x2c40) {
-            backIsStart = true;
-            modeIsSelect = true;
-            context.triggerDeadzone = 0.30f;
-            context.hasSelect = true;
-            context.hasMode = false;
-        }
-
         boolean ignoreBack = shouldIgnoreBack(dev);
-
-        if (devName != null) {
-            // For the Nexus Player (and probably other ATV devices), we should
-            // use the back button as start since it doesn't have a start/menu button
-            // on the controller
-            if (devName.contains("ASUS Gamepad")) {
-                boolean[] hasStartKey = dev.hasKeys(KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_MENU, 0);
-                if (!hasStartKey[0] && !hasStartKey[1]) {
-                    backIsStart = true;
-                    modeIsSelect = true;
-                    context.hasSelect = true;
-                    context.hasMode = false;
-                }
-
-                // The ASUS Gamepad has triggers that sit far forward and are prone to false presses
-                // so we increase the deadzone on them to minimize this
-                context.triggerDeadzone = 0.30f;
-            }
-            // SHIELD controllers will use small stick deadzones
-            else if (devName.contains("SHIELD") || devName.contains("NVIDIA Controller")) {
-                // The big Nvidia button on the Shield controllers acts like a Search button. It
-                // summons the Google Assistant on the Shield TV. On my Pixel 4, it seems to do
-                // nothing, so we can hijack it to act like a mode button.
-                if (devName.contains("NVIDIA Controller v01.03") || devName.contains("NVIDIA Controller v01.04")) {
-                    searchIsMode = true;
-                    context.hasMode = true;
-                }
-            }
-            // The Serval has a couple of unknown buttons that are start and select. It also has
-            // a back button which we want to ignore since there's already a select button.
-            else if (devName.contains("Razer Serval")) {
-                serval = true;
-
-                // Serval has Select and Mode buttons (possibly mapped non-standard)
-                context.hasMode = true;
-                context.hasSelect = true;
-            }
-            // The Xbox One S Bluetooth controller has some mappings that need fixing up.
-            // However, Microsoft released a firmware update with no change to VID/PID
-            // or device name that fixed the mappings for Android. Since there's
-            // no good way to detect this, we'll use the presence of GAS/BRAKE axes
-            // that were added in the latest firmware. If those are present, the only
-            // required fixup is ignoring the select button.
-            else if (devName.equals("Xbox Wireless Controller")) {
-                if (gasRange == null) {
-                    nonStandardXboxBluetooth = true;
-
-                    // Xbox One S has Select and Mode buttons (possibly mapped non-standard)
-                    context.hasMode = true;
-                    context.hasSelect = true;
-                }
-            }
+        boolean hasStartOrMenu = false;
+        if (devName != null &&
+                devName.contains("ASUS Gamepad")) {
+            boolean[] startAndMenu =
+                    dev.hasKeys(
+                            KeyEvent.KEYCODE_BUTTON_START,
+                            KeyEvent.KEYCODE_MENU,
+                            0);
+            hasStartOrMenu =
+                    startAndMenu[0] || startAndMenu[1];
         }
-
-        // Thrustmaster Score A gamepad home button reports directly to android as
-        // KEY_HOMEPAGE event on another event channel
-        if (dev.getVendorId() == 0x044f && dev.getProductId() == 0xb328) {
-            context.hasMode = false;
-        }
+        ControllerDeviceQuirks deviceQuirks =
+                ControllerDeviceQuirks.resolve(
+                        ControllerDeviceQuirks.Facts.builder(
+                                        context.vendorId,
+                                        context.productId)
+                                .deviceName(devName)
+                                .hasMode(context.hasMode)
+                                .hasSelect(context.hasSelect)
+                                .hasStartOrMenu(hasStartOrMenu)
+                                .hasGasAxis(gasRange != null)
+                                .triggerDeadzone(
+                                        context.triggerDeadzone)
+                                .build());
+        context.hasMode = deviceQuirks.hasMode();
+        context.hasSelect = deviceQuirks.hasSelect();
+        context.triggerDeadzone =
+                deviceQuirks.getTriggerDeadzone();
 
         LimeLog.info("Analog stick deadzone: "+context.leftStickDeadzoneRadius+" "+context.rightStickDeadzoneRadius);
         LimeLog.info("Trigger deadzone: "+context.triggerDeadzone);
@@ -1403,12 +1357,13 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                                 linuxStandardFaceButtons)
                         .nonStandardDualShock4(
                                 nonStandardDualShock4)
-                        .serval(serval)
+                        .serval(deviceQuirks.isServal())
                         .nonStandardXboxBluetooth(
-                                nonStandardXboxBluetooth)
-                        .backIsStart(backIsStart)
-                        .modeIsSelect(modeIsSelect)
-                        .searchIsMode(searchIsMode)
+                                deviceQuirks
+                                        .isNonStandardXboxBluetooth())
+                        .backIsStart(deviceQuirks.isBackStart())
+                        .modeIsSelect(deviceQuirks.isModeSelect())
+                        .searchIsMode(deviceQuirks.isSearchMode())
                         .hasHatAxes(
                                 context.hatXAxis != -1 ||
                                         context.hatYAxis != -1)

@@ -974,3 +974,15 @@ Verification on 2026-07-31:
   tests per variant (1,636 executions total), all Lint variants, and both
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites.
+- Extracted `ControllerDeviceQuirks` from input-device attachment. ADT-1 and
+  ASUS back/mode mappings, legacy trigger deadzones, early NVIDIA search keys,
+  Razer Serval buttons, old Xbox Bluetooth firmware detection, and
+  Thrustmaster home-key handling now resolve from immutable sampled facts.
+- `ControllerHandler` probes only the ASUS Start/Menu keys and Xbox gas-axis
+  fact required by that policy, then applies one finished profile to the
+  runtime context and `ControllerButtonMapper`. Tests lock both corrected and
+  ordinary-device behavior so branch ordering cannot silently change it.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 417 JVM
+  tests per variant (1,668 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites.

@@ -397,6 +397,10 @@ targets.
   brake/throttle, RX/RY, Z/RZ, old DualShock, Linux DualShock, unnamed-device,
   and incomplete-hat cases are explicit policy fixtures; Android integer-axis
   constants remain in the device adapter.
+- `ControllerDeviceQuirks` applies known ADT-1, ASUS, NVIDIA, Razer Serval,
+  Xbox Bluetooth, and Thrustmaster key-layout corrections to immutable sampled
+  facts. Button remapping consumes the resulting profile instead of depending
+  on mutation order inside device-context construction.
 - `DecoderSelectionPolicy` owns HEVC/AV1 acceptance decisions and stream color
   defaults. The MediaCodec adapter performs discovery and capability queries,
   and no longer carries the unused metered-network parameter or unreachable
