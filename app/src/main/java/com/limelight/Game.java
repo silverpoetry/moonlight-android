@@ -101,6 +101,7 @@ import com.limelight.ui.clipboard.RemoteClipboardFileTransferController;
 import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
 import com.limelight.ui.performance.PerformanceOverlayConfiguration;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
+import com.limelight.ui.stream.AndroidStreamConnectionMessages;
 import com.limelight.ui.stream.StreamFailureDiagnostics;
 import com.limelight.ui.stream.StreamDisplayModeSelector;
 import com.limelight.ui.stream.StreamLaunchReporter;
@@ -108,6 +109,7 @@ import com.limelight.ui.stream.StreamMediaResourceOwner;
 import com.limelight.ui.stream.StreamMicrophoneController;
 import com.limelight.ui.stream.StreamRenderSurfaceController;
 import com.limelight.ui.stream.StreamSessionCallbackRouter;
+import com.limelight.ui.stream.StreamSessionPresentationController;
 import com.limelight.ui.stream.StreamSessionUiEffects;
 import com.limelight.ui.stream.StreamWifiLockController;
 import com.limelight.ui.GameGestures;
@@ -232,12 +234,12 @@ public class Game extends Activity implements OnGenericMotionListener,
     private NvConnection conn;
     private StreamSessionController sessionController;
     private StreamSessionCallbackRouter sessionCallbackRouter;
-    private StreamFailureDiagnostics failureDiagnostics;
+    private StreamSessionPresentationController
+            sessionPresentationController;
     private StreamLaunchReporter launchReporter;
     private StreamSessionUiEffects sessionUiEffects;
     private StreamMicrophoneController microphoneController;
     private SpinnerDialog spinner;
-    private boolean displayedFailureDialog = false;
     private RemoteClipboardFileTransferController
             clipboardFileTransferController;
     private boolean autoEnterPip = false;
@@ -855,12 +857,13 @@ public class Game extends Activity implements OnGenericMotionListener,
                     }
                 },
                 mainHandler::post);
-        failureDiagnostics = StreamFailureDiagnostics.create(
-                portFlags -> MoonBridge.testClientConnectivity(
-                        ServerHelper.CONNECTION_TEST_SERVER,
-                        443,
-                        portFlags),
-                command -> mainHandler.post(command));
+        StreamFailureDiagnostics failureDiagnostics =
+                StreamFailureDiagnostics.create(
+                        portFlags -> MoonBridge.testClientConnectivity(
+                                ServerHelper.CONNECTION_TEST_SERVER,
+                                443,
+                                portFlags),
+                        command -> mainHandler.post(command));
         ComputerDetails launchComputer = new ComputerDetails();
         launchComputer.name = pcName;
         launchComputer.uuid = getIntent().getStringExtra(EXTRA_PC_UUID);
@@ -921,90 +924,158 @@ public class Game extends Activity implements OnGenericMotionListener,
                     }
                 },
                 mainHandler);
+        sessionPresentationController =
+                new StreamSessionPresentationController(
+                        new StreamSessionPresentationController.Host() {
+                            @Override
+                            public boolean canPresentSessionUi() {
+                                return Game.this.canPresentSessionUi();
+                            }
+
+                            @Override
+                            public void updateConnectingMessage(
+                                    String message) {
+                                if (spinner != null) {
+                                    spinner.setMessage(message);
+                                }
+                            }
+
+                            @Override
+                            public void dismissConnectingIndicator() {
+                                Game.this.dismissConnectingIndicator();
+                            }
+
+                            @Override
+                            public boolean isRenderSurfaceValid() {
+                                return streamView.getHolder()
+                                        .getSurface()
+                                        .isValid();
+                            }
+
+                            @Override
+                            public void showLongMessage(String message) {
+                                UiToast.makeText(
+                                        Game.this,
+                                        message,
+                                        UiToast.LENGTH_LONG).show();
+                            }
+
+                            @Override
+                            public void showFailureDialog(
+                                    String title,
+                                    String message) {
+                                Dialog.displayDialog(
+                                        Game.this,
+                                        title,
+                                        message,
+                                        true);
+                            }
+
+                            @Override
+                            public void stopControllerInput() {
+                                controllerHandler.stop();
+                            }
+
+                            @Override
+                            public void stopConnection() {
+                                Game.this.stopConnection();
+                            }
+
+                            @Override
+                            public void finishGracefully() {
+                                finish();
+                            }
+
+                            @Override
+                            public boolean
+                                    areConnectionWarningsDisabled() {
+                                return streamUiSettingsState
+                                        .get()
+                                        .areConnectionWarningsDisabled();
+                            }
+
+                            @Override
+                            public int getBitrateKbps() {
+                                return streamDecoderSettings
+                                        .getBitrateKbps();
+                            }
+
+                            @Override
+                            public void setConnectionWarning(
+                                    StreamSessionPresentationController
+                                            .ConnectionWarning warning) {
+                                Game.this.setConnectionWarning(warning);
+                            }
+
+                            @Override
+                            public void onSessionConnected() {
+                                Game.this.onSessionConnected();
+                            }
+
+                            @Override
+                            public void onHdrModeChanged(
+                                    boolean enabled,
+                                    byte[] hdrMetadata) {
+                                Game.this.handleHdrModeChanged(
+                                        enabled,
+                                        hdrMetadata);
+                            }
+
+                            @Override
+                            public void onNativeCursor(
+                                    boolean visible,
+                                    boolean shapeChanged,
+                                    int format,
+                                    int x,
+                                    int y,
+                                    int width,
+                                    int height,
+                                    int hotspotX,
+                                    int hotspotY,
+                                    int shapeId,
+                                    int scaleX,
+                                    int scaleY,
+                                    byte[] imageData) {
+                                Game.this.handleNativeCursor(
+                                        visible,
+                                        shapeChanged,
+                                        format,
+                                        x,
+                                        y,
+                                        width,
+                                        height,
+                                        hotspotX,
+                                        hotspotY,
+                                        shapeId,
+                                        scaleX,
+                                        scaleY,
+                                        imageData);
+                            }
+                        },
+                        new StreamSessionPresentationController.Diagnostics() {
+                            @Override
+                            public boolean request(
+                                    int portFlags,
+                                    Callback callback) {
+                                return failureDiagnostics.request(
+                                        portFlags,
+                                        result -> callback.onResult(
+                                                result.getPortFlags(),
+                                                result.getProbeResultOr(
+                                                        MoonBridge
+                                                                .ML_TEST_RESULT_INCONCLUSIVE)));
+                            }
+
+                            @Override
+                            public void destroy() {
+                                failureDiagnostics.destroy();
+                            }
+                        },
+                        AndroidStreamConnectionMessages.create(this),
+                        MoonBridge::getPortFlagsFromTerminationErrorCode,
+                        MoonBridge.ML_TEST_RESULT_INCONCLUSIVE);
         sessionCallbackRouter = new StreamSessionCallbackRouter(
-                new StreamSessionCallbackRouter.UiHost() {
-                    @Override
-                    public void onStageStarting(String stage) {
-                        handleStageStarting(stage);
-                    }
-
-                    @Override
-                    public void onStageFailed(
-                            String stage,
-                            int portFlags,
-                            int errorCode) {
-                        handleStageFailed(
-                                stage,
-                                portFlags,
-                                errorCode);
-                    }
-
-                    @Override
-                    public void onConnectionStarted() {
-                        handleConnectionStarted();
-                    }
-
-                    @Override
-                    public void onConnectionTerminated(int errorCode) {
-                        handleConnectionTerminated(errorCode);
-                    }
-
-                    @Override
-                    public void onConnectionStatusUpdate(
-                            int connectionStatus) {
-                        handleConnectionStatusUpdate(connectionStatus);
-                    }
-
-                    @Override
-                    public void onMessage(
-                            String message,
-                            boolean transientMessage) {
-                        if (transientMessage) {
-                            displayTransientMessage(message);
-                        }
-                        else {
-                            handleStreamMessage(message);
-                        }
-                    }
-
-                    @Override
-                    public void onHdrModeChanged(
-                            boolean enabled,
-                            byte[] hdrMetadata) {
-                        handleHdrModeChanged(enabled, hdrMetadata);
-                    }
-
-                    @Override
-                    public void onNativeCursor(
-                            boolean visible,
-                            boolean shapeChanged,
-                            int format,
-                            int x,
-                            int y,
-                            int width,
-                            int height,
-                            int hotspotX,
-                            int hotspotY,
-                            int shapeId,
-                            int scaleX,
-                            int scaleY,
-                            byte[] imageData) {
-                        handleNativeCursor(
-                                visible,
-                                shapeChanged,
-                                format,
-                                x,
-                                y,
-                                width,
-                                height,
-                                hotspotX,
-                                hotspotY,
-                                shapeId,
-                                scaleX,
-                                scaleY,
-                                imageData);
-                    }
-                },
+                sessionPresentationController,
                 new StreamSessionCallbackRouter.FeedbackHost() {
                     @Override
                     public void onRumble(
@@ -1862,10 +1933,6 @@ public class Game extends Activity implements OnGenericMotionListener,
             renderSurfaceController.destroy();
             renderSurfaceController = null;
         }
-        if (failureDiagnostics != null) {
-            failureDiagnostics.destroy();
-            failureDiagnostics = null;
-        }
         if (launchReporter != null) {
             launchReporter.destroy();
             launchReporter = null;
@@ -1885,6 +1952,10 @@ public class Game extends Activity implements OnGenericMotionListener,
         if (sessionCallbackRouter != null) {
             sessionCallbackRouter.destroy();
             sessionCallbackRouter = null;
+        }
+        if (sessionPresentationController != null) {
+            sessionPresentationController.destroy();
+            sessionPresentationController = null;
         }
         if (sessionUiEffects != null) {
             sessionUiEffects.destroy();
@@ -1995,7 +2066,10 @@ public class Game extends Activity implements OnGenericMotionListener,
             int videoFormat =
                     mediaResourceOwner.getActiveVideoFormat();
 
-            displayedFailureDialog = true;
+            if (sessionPresentationController != null) {
+                sessionPresentationController
+                        .suppressFailurePresentation();
+            }
             stopConnection();
             if(isQuitSteamingFlag){
                 new Handler().postDelayed(new Runnable() {
@@ -2327,14 +2401,6 @@ public class Game extends Activity implements OnGenericMotionListener,
         return handleMotionEvent(view, event);
     }
 
-    private void handleStageStarting(String stage) {
-        if (spinner != null) {
-            spinner.setMessage(
-                    getResources().getString(R.string.conn_starting) +
-                            " " + stage);
-        }
-    }
-
     private void stopConnection() {
         if (streamInputController != null) {
             streamInputController.cancelActiveInput();
@@ -2352,217 +2418,30 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
     }
 
-    private void handleStageFailed(
-            String stage,
-            int portFlags,
-            int errorCode) {
-        if (!canPresentSessionUi()) {
-            return;
-        }
-        if (spinner != null) {
-            spinner.dismiss();
-            spinner = null;
-        }
-
-        if (displayedFailureDialog) {
-            return;
-        }
-        displayedFailureDialog = true;
-        LimeLog.severe(stage + " failed: " + errorCode);
-
-        if (stage.contains("video") &&
-                streamView.getHolder().getSurface().isValid()) {
-            UiToast.makeText(
-                    Game.this,
-                    getResources().getText(
-                            R.string.video_decoder_init_failed),
-                    UiToast.LENGTH_LONG).show();
-        }
-
-        StreamFailureDiagnostics diagnostics =
-                failureDiagnostics;
-        if (diagnostics == null ||
-                !diagnostics.request(
-                        portFlags,
-                        result -> displayStageFailureDialog(
-                                stage,
-                                errorCode,
-                                result.getPortFlags(),
-                                result.getProbeResultOr(
-                                        MoonBridge
-                                                .ML_TEST_RESULT_INCONCLUSIVE)))) {
-            displayStageFailureDialog(
-                    stage,
-                    errorCode,
-                    portFlags,
-                    MoonBridge.ML_TEST_RESULT_INCONCLUSIVE);
-        }
-    }
-
-    private void displayStageFailureDialog(
-            String stage,
-            int errorCode,
-            int portFlags,
-            int portTestResult) {
-        String dialogText =
-                getResources().getString(R.string.conn_error_msg) +
-                        " " + stage + " (error " + errorCode + ")";
-
-        if (portFlags != 0) {
-            dialogText += "\n\n" +
-                    getResources().getString(R.string.check_ports_msg) +
-                    "\n" +
-                    MoonBridge.stringifyPortFlags(portFlags, "\n");
-        }
-
-        if (isBlockedPortTestResult(portTestResult)) {
-            dialogText += "\n\n" +
-                    getResources().getString(
-                            R.string.nettest_text_blocked);
-        }
-
-        Dialog.displayDialog(
-                this,
-                getResources().getString(R.string.conn_error_title),
-                dialogText,
-                true);
-    }
-
-    private void handleConnectionTerminated(int errorCode) {
-        int portFlags =
-                MoonBridge.getPortFlagsFromTerminationErrorCode(errorCode);
-        if (!canPresentSessionUi()) {
-            return;
-        }
-        controllerHandler.stop();
-
-        if (displayedFailureDialog) {
-            return;
-        }
-        displayedFailureDialog = true;
-        LimeLog.severe("Connection terminated: " + errorCode);
-        stopConnection();
-
-        if (errorCode ==
-                MoonBridge.ML_ERROR_GRACEFUL_TERMINATION) {
-            finish();
-            return;
-        }
-
-        StreamFailureDiagnostics diagnostics =
-                failureDiagnostics;
-        if (diagnostics == null ||
-                !diagnostics.request(
-                        portFlags,
-                        result ->
-                                displayTerminationFailureDialog(
-                                        errorCode,
-                                        result.getPortFlags(),
-                                        result.getProbeResultOr(
-                                                MoonBridge
-                                                        .ML_TEST_RESULT_INCONCLUSIVE)))) {
-            displayTerminationFailureDialog(
-                    errorCode,
-                    portFlags,
-                    MoonBridge.ML_TEST_RESULT_INCONCLUSIVE);
-        }
-    }
-
-    private void displayTerminationFailureDialog(
-            int errorCode,
-            int portFlags,
-            int portTestResult) {
-        String message;
-        if (isBlockedPortTestResult(portTestResult)) {
-            message = getResources().getString(
-                    R.string.nettest_text_blocked);
-        }
-        else {
-            message = getTerminationErrorMessage(errorCode);
-        }
-
-        if (portFlags != 0) {
-            message += "\n\n" +
-                    getResources().getString(R.string.check_ports_msg) +
-                    "\n" +
-                    MoonBridge.stringifyPortFlags(portFlags, "\n");
-        }
-
-        Dialog.displayDialog(
-                this,
-                getResources().getString(
-                        R.string.conn_terminated_title),
-                message,
-                true);
-    }
-
-    private String getTerminationErrorMessage(int errorCode) {
-        switch (errorCode) {
-            case MoonBridge.ML_ERROR_NO_VIDEO_TRAFFIC:
-                return getResources().getString(
-                        R.string.no_video_received_error);
-
-            case MoonBridge.ML_ERROR_NO_VIDEO_FRAME:
-                return getResources().getString(
-                        R.string.no_frame_received_error);
-
-            case MoonBridge.ML_ERROR_UNEXPECTED_EARLY_TERMINATION:
-            case MoonBridge.ML_ERROR_PROTECTED_CONTENT:
-                return getResources().getString(
-                        R.string.early_termination_error);
-
-            case MoonBridge.ML_ERROR_FRAME_CONVERSION:
-                return getResources().getString(
-                        R.string.frame_conversion_error);
-
-            default:
-                String errorCodeString = Math.abs(errorCode) > 1000
-                        ? Integer.toHexString(errorCode)
-                        : Integer.toString(errorCode);
-                return getResources().getString(
-                        R.string.conn_terminated_msg) +
-                        "\n\n" +
-                        getResources().getString(
-                                R.string.error_code_prefix) +
-                        " " + errorCodeString;
-        }
-    }
-
-    private static boolean isBlockedPortTestResult(
-            int portTestResult) {
-        return portTestResult !=
-                MoonBridge.ML_TEST_RESULT_INCONCLUSIVE &&
-                portTestResult != 0;
-    }
-
     private boolean canPresentSessionUi() {
         return !isFinishing() && !isDestroyed();
     }
 
-    private void handleConnectionStatusUpdate(int connectionStatus) {
-        if (streamUiSettingsState
-                .get()
-                .areConnectionWarningsDisabled()) {
-            return;
+    private void dismissConnectingIndicator() {
+        if (spinner != null) {
+            spinner.dismiss();
+            spinner = null;
         }
+    }
 
-        if (connectionStatus == MoonBridge.CONN_STATUS_POOR) {
-            if (streamDecoderSettings.getBitrateKbps() >
-                    5000) {
-                notificationOverlayView.setText(
-                        getResources().getString(
-                                R.string.slow_connection_msg));
-            }
-            else {
-                notificationOverlayView.setText(
-                        getResources().getString(
-                                R.string.poor_connection_msg));
-            }
-
-            requestedNotificationOverlayVisibility = View.VISIBLE;
-        }
-        else if (connectionStatus == MoonBridge.CONN_STATUS_OKAY) {
+    private void setConnectionWarning(
+            StreamSessionPresentationController.ConnectionWarning warning) {
+        if (warning ==
+                StreamSessionPresentationController.ConnectionWarning.NONE) {
             requestedNotificationOverlayVisibility = View.GONE;
+        }
+        else {
+            notificationOverlayView.setText(getString(
+                    warning == StreamSessionPresentationController
+                            .ConnectionWarning.SLOW
+                            ? R.string.slow_connection_msg
+                            : R.string.poor_connection_msg));
+            requestedNotificationOverlayVisibility = View.VISIBLE;
         }
 
         if (!isHidingOverlays) {
@@ -2571,12 +2450,7 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
     }
 
-    private void handleConnectionStarted() {
-        if (spinner != null) {
-            spinner.dismiss();
-            spinner = null;
-        }
-
+    private void onSessionConnected() {
         streamStartElapsedMs = SystemClock.elapsedRealtime();
         updatePipAutoEnter();
 
@@ -2586,13 +2460,6 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
 
         hideSystemUi(1000);
-    }
-
-    private void handleStreamMessage(String message) {
-        UiToast.makeText(
-                Game.this,
-                message,
-                UiToast.LENGTH_LONG).show();
     }
 
     private void displayTransientMessage(String message) {

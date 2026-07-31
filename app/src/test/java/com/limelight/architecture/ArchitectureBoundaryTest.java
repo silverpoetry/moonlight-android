@@ -233,6 +233,35 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void streamSessionPresentationPolicyIsAndroidIndependent() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamConnectionMessages")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamSessionPresentationController")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..")
+                .because(
+                        "connection presentation policy is tested through narrow platform ports")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamSessionPresentationController")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.StreamFailureDiagnostics")
+                .because(
+                        "the controller owns diagnostics through its lifecycle port")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamMicrophoneControllerUsesOnlyItsEndpointPort() {
         noClasses()
                 .that()

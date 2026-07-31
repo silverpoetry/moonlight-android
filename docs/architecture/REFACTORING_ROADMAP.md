@@ -419,6 +419,14 @@ targets.
   readiness, frame-rate hints, decoder stop preparation, and callback
   detachment. Its transition state is platform-independent and tested without
   adding a queue or thread to the render path.
+- `StreamSessionPresentationController` owns main-thread connection-stage,
+  failure, termination, warning, message, HDR, and native-cursor presentation
+  policy for one session. It suppresses duplicate failures, bounds diagnostic
+  publication to its lifecycle, and distinguishes owner-initiated shutdown
+  from transport failure. `StreamConnectionMessages` freezes localized labels
+  behind an Android adapter and preserves protocol error/port formatting under
+  JVM fixtures; `Game` now supplies only narrow View, window, and resource
+  operations while realtime controller feedback remains on the callback path.
 - `StreamMicrophoneController` owns permission deferral, duplicate-toggle
   suppression, serialized background start/stop work, lifecycle cancellation,
   error presentation events, and explicit menu-state invalidation. `Game`
