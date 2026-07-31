@@ -46,7 +46,6 @@ import org.cgutman.shieldcontrollerextensions.SceManager;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
@@ -86,6 +85,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             razerKishiHapticsController;
     private final SensorManager deviceSensorManager;
     private final SceManager sceManager;
+    private final AndroidControllerArrivalProbe
+            controllerArrivalProbe;
     private final Handler mainThreadHandler;
     private final ControllerMouseEmulationSession.Scheduler
             mouseEmulationScheduler;
@@ -359,6 +360,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         this.sceManager = new SceManager(activityContext);
         this.sceManager.start();
+        this.controllerArrivalProbe =
+                new AndroidControllerArrivalProbe(
+                        MoonBridge::guessControllerType,
+                        sceManager::isRecognizedDevice);
         this.vibrationRenderer = new ControllerVibrationRenderer(
                 settingsState,
                 sceManager,
@@ -888,32 +893,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             context.triggerDeadzone = 0.0f;
         }
         return context;
-    }
-
-    private static boolean hasButtonUnderTouchpad(InputDevice dev, byte type) {
-        // It has to have a touchpad to have a button under it
-        if ((dev.getSources() & InputDevice.SOURCE_TOUCHPAD) != InputDevice.SOURCE_TOUCHPAD) {
-            return false;
-        }
-
-        // Landroid/view/InputDevice;->hasButtonUnderPad()Z is blocked after O
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.O) {
-            try {
-                return (Boolean) dev.getClass().getMethod("hasButtonUnderPad").invoke(dev);
-            } catch (NoSuchMethodException e) {
-                e.printStackTrace();
-            } catch (IllegalAccessException e) {
-                e.printStackTrace();
-            } catch (InvocationTargetException e) {
-                e.printStackTrace();
-            } catch (ClassCastException e) {
-                e.printStackTrace();
-            }
-        }
-
-        // We can't use the platform API, so we'll have to just guess based on the gamepad type.
-        // If this is a PlayStation controller with a touchpad, we know it has a clickpad.
-        return type == MoonBridge.LI_CTYPE_PS;
     }
 
     private static boolean isExternal(InputDevice dev) {
@@ -2837,33 +2816,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         @Override
         public void sendControllerArrival() {
-            byte type;
-            switch (inputDevice.getVendorId()) {
-                case 0x045e: // Microsoft
-                    type = MoonBridge.LI_CTYPE_XBOX;
-                    break;
-                case 0x054c: // Sony
-                    type = MoonBridge.LI_CTYPE_PS;
-                    break;
-                case 0x057e: // Nintendo
-                    type = MoonBridge.LI_CTYPE_NINTENDO;
-                    break;
-                default:
-                    // Consult SDL's controller type list to see if it knows
-                    type = MoonBridge.guessControllerType(inputDevice.getVendorId(), inputDevice.getProductId());
-                    break;
-            }
-
-            int supportedButtonFlags = 0;
-            for (Map.Entry<Integer, Integer> entry :
-                    ControllerButtonMapper
-                            .getProtocolButtonMappings()
-                            .entrySet()) {
-                if (inputDevice.hasKeys(entry.getKey())[0]) {
-                    supportedButtonFlags |= entry.getValue();
-                }
-            }
-
             boolean hasAccelerometer =
                     motionRegistrations.hasSensor(
                             ControllerMotionRegistrations.SensorKind
@@ -2872,61 +2824,33 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     motionRegistrations.hasSensor(
                             ControllerMotionRegistrations.SensorKind
                                     .GYROSCOPE);
-            boolean hasTouchpad =
-                    (inputDevice.getSources() &
-                            InputDevice.SOURCE_TOUCHPAD) ==
-                            InputDevice.SOURCE_TOUCHPAD;
             ControllerArrivalReport report =
-                    ControllerArrivalReport.builder(
-                                    type,
-                                    supportedButtonFlags)
-                            .hasPaddles(hasPaddles)
-                            .hasShareButton(hasShare)
-                            .hasHorizontalHatAxis(
-                                    getMotionRangeForJoystickAxis(
-                                            inputDevice,
-                                            MotionEvent.AXIS_HAT_X) != null)
-                            .hasVerticalHatAxis(
-                                    getMotionRangeForJoystickAxis(
-                                            inputDevice,
-                                            MotionEvent.AXIS_HAT_Y) != null)
-                            .hasAdvancedInputDeviceApis(
-                                    Build.VERSION.SDK_INT >=
-                                            Build.VERSION_CODES.S)
-                            .hasQuadVibrators(
-                                    vibrationTarget
-                                            .hasQuadVibrators())
-                            .hasVibratorManager(
-                                    vibrationTarget
-                                            .hasVibratorManager())
-                            .hasLegacyVibrator(
-                                    vibrationTarget
-                                            .hasLegacyVibrator())
-                            .external(external)
-                            .hasRgbLed(ledSession.isAvailable())
-                            .hasReliableRgbLedDetection(
-                                    Build.VERSION.SDK_INT >=
-                                            Build.VERSION_CODES
-                                                    .UPSIDE_DOWN_CAKE)
-                            .hasAnalogTriggers(
-                                    leftTriggerAxis != -1 ||
-                                            rightTriggerAxis != -1)
-                            .hasAccelerometer(hasAccelerometer)
-                            .hasGyroscope(hasGyroscope)
-                            .requiresGenericMotionControllerType(
-                                    type !=
-                                            MoonBridge.LI_CTYPE_PS &&
+                    controllerArrivalProbe.probe(
+                            inputDevice,
+                            AndroidControllerArrivalProbe
+                                    .RuntimeCapabilities.builder()
+                                    .hasPaddles(hasPaddles)
+                                    .hasShareButton(hasShare)
+                                    .hasQuadVibrators(
+                                            vibrationTarget
+                                                    .hasQuadVibrators())
+                                    .hasVibratorManager(
+                                            vibrationTarget
+                                                    .hasVibratorManager())
+                                    .hasLegacyVibrator(
+                                            vibrationTarget
+                                                    .hasLegacyVibrator())
+                                    .external(external)
+                                    .hasRgbLed(
+                                            ledSession.isAvailable())
+                                    .hasAnalogTriggers(
+                                            leftTriggerAxis != -1 ||
+                                                    rightTriggerAxis != -1)
+                                    .hasAccelerometer(hasAccelerometer)
+                                    .hasGyroscope(hasGyroscope)
+                                    .hasMotionManager(
                                             motionRegistrations.hasManager())
-                            .recognizedByShieldExtensions(
-                                    sceManager.isRecognizedDevice(
-                                            inputDevice))
-                            .hasTouchpad(hasTouchpad)
-                            .hasClickpad(
-                                    hasTouchpad &&
-                                            hasButtonUnderTouchpad(
-                                                    inputDevice,
-                                                    type))
-                            .build();
+                                    .build());
 
             needsClickpadEmulation =
                     report.isClickpadEmulationRequired();

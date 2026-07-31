@@ -1168,3 +1168,20 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Moved Android controller-arrival capability sampling out of the mutable
+  device context into `AndroidControllerArrivalProbe`. Platform key support,
+  joystick/gamepad hat ranges, touchpad and clickpad inference, SDK-gated
+  vibration and RGB support, runtime sensor state, and SHIELD recognition now
+  produce one immutable facts snapshot for the existing pure
+  `ControllerArrivalReport` policy.
+- Added `ControllerTypeResolver` with fixtures proving that Microsoft, Sony,
+  and Nintendo identities bypass native guessing, while unknown identities
+  delegate the original vendor and product IDs unchanged. Arrival transport
+  emission and subsequent battery-session startup remain in their original
+  order. Expected hidden-API unavailability now falls back silently instead of
+  printing a release stack trace.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 502 JVM
+  tests per variant (2,008 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

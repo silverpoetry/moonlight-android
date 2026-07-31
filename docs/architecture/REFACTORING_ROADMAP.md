@@ -390,6 +390,11 @@ targets.
   buttons, capability mask, and clickpad-emulation requirement from sampled
   hardware facts. Android probing and transport emission remain adapters;
   protocol policy no longer lives in the mutable device context.
+- `AndroidControllerArrivalProbe` is the one-shot platform adapter for key,
+  hat-axis, touchpad/clickpad, vibrator, light, sensor, and SHIELD-extension
+  capability sampling. `ControllerTypeResolver` owns known vendor families and
+  the native fallback contract. The device context now only supplies immutable
+  runtime facts, emits the resulting report, and starts battery monitoring.
 - `ControllerHapticsPolicy` resolves audio-haptics ownership versus ordinary
   rumble, including selective Kishi suppression. `ControllerRumbleAmplitudes`
   owns unsigned protocol conversion, motor ordering, single-motor mixing, and
