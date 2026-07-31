@@ -513,6 +513,10 @@ targets.
   warning presenter, HDR controller, native cursor controller, surface state,
   user feedback, and live settings behind the policy host contract. Only the
   Activity-owned stop and connected transitions remain narrow method actions.
+- `AndroidKeyboardInputHost` owns keyboard-requested Activity actions and the
+  tested 250 ms capture-toggle schedule. `AndroidInputDeviceRegistration`
+  owns idempotent InputManager registration cleanup, while
+  `StreamInputSuppressionHost` adapts the live UI suppression predicate.
 - `StreamHdrRequestPolicy` owns HDR request eligibility and user-warning
   selection from immutable settings and device facts. The Android capability
   provider samples OS, firmware, and display HDR10 support once; `Game` no

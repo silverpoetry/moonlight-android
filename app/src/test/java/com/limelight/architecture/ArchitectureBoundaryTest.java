@@ -156,6 +156,20 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void gameDelegatesKeyboardInputHostAdaptation() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.KeyboardInputController$Host")
+                .because(
+                        "keyboard Activity actions and delayed scheduling belong to their adapter")
+                .check(productionClasses);
+    }
+
+    @Test
     public void keyboardChordSenderDoesNotDependOnConcreteConnection() {
         noClasses()
                 .that()

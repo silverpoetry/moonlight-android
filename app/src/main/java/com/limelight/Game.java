@@ -5,6 +5,8 @@ import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.audio.mic.AndroidMicrophoneUplinkSessionFactory;
 import com.limelight.binding.input.AndroidControllerInventory;
+import com.limelight.binding.input.AndroidInputDeviceRegistration;
+import com.limelight.binding.input.AndroidKeyboardInputHost;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.GameInputDevice;
 import com.limelight.binding.input.KeyboardInputController;
@@ -15,6 +17,7 @@ import com.limelight.binding.input.StreamInputGateway;
 import com.limelight.binding.input.StreamInputGatewayRegistry;
 import com.limelight.binding.input.StreamInputController;
 import com.limelight.binding.input.StreamInputLifecycleController;
+import com.limelight.binding.input.StreamInputSuppressionHost;
 import com.limelight.binding.input.protocol.NvConnectionPointerInputSink;
 import com.limelight.binding.input.protocol.NvConnectionKeyboardInputSink;
 import com.limelight.binding.input.capture.AndroidStreamInputCaptureController;
@@ -516,14 +519,8 @@ public class Game extends Activity implements OnGenericMotionListener,
                         this);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            streamView.setOnCapturedPointerListener(new View.OnCapturedPointerListener() {
-                @Override
-                public boolean onCapturedPointer(View view, MotionEvent motionEvent) {
-//                    LimeLog.info("onCapturedPointer="+motionEvent.toString());
-//                    LimeLog.info("onCapturedPointer-Device="+motionEvent.getDevice().toString());
-                    return handleMotionEvent(view, motionEvent);
-                }
-            });
+            streamView.setOnCapturedPointerListener(
+                    this::handleMotionEvent);
         }
 
         // Warn the user if they're on a metered connection
@@ -734,19 +731,11 @@ public class Game extends Activity implements OnGenericMotionListener,
                         pointerInputSink,
                         directContactInputController,
                         inputSettingsState,
-                        new TouchInputController.Host() {
-                            @Override
-                            public void showSoftKeyboard() {
-                                Game.this.showKeyboard();
-                            }
-                        });
+                        this::showKeyboard);
         if (inputSettingsState.get().isAbsoluteMouseMode()) {
-            conn.setMousePositionListener(new NvConnection.MousePositionListener() {
-                @Override
-                public void onMousePosition(short x, short y, short referenceWidth, short referenceHeight) {
-                    setNativeCursorOverlayFromReference(x, y, referenceWidth, referenceHeight);
-                }
-            });
+            conn.setMousePositionListener(
+                    nativeCursorController
+                            ::updatePositionFromReference);
         }
         controllerHandler = new ControllerHandler(
                 this,
@@ -760,65 +749,29 @@ public class Game extends Activity implements OnGenericMotionListener,
                 keyboardInputSink,
                 pointerInputSink,
                 inputSettingsState,
-                new KeyboardInputController.Host() {
-                    @Override
-                    public boolean isInputGrabbed() {
-                        return inputCaptureController
-                                .isInputGrabbed();
-                    }
-
-                    @Override
-                    public void onNonBackKeyDown() {
-                        cancelPendingStreamBackExit();
-                    }
-
-                    @Override
-                    public void requestToggleInputGrab() {
-                        Handler handler =
-                                getWindow().getDecorView().getHandler();
-                        if (handler != null) {
-                            handler.postDelayed(toggleGrab, 250);
-                        }
-                    }
-
-                    @Override
-                    public void requestQuit() {
-                        finish();
-                    }
-
-                    @Override
-                    public void requestToggleCursorVisibility() {
-                        switchMouseLocalCursor();
-                    }
-                });
+                new AndroidKeyboardInputHost(
+                        this,
+                        inputCaptureController,
+                        this::cancelPendingStreamBackExit,
+                        toggleGrab,
+                        this::switchMouseLocalCursor));
         streamInputController = new StreamInputController(
                 controllerHandler,
                 externalPointerInputController,
                 touchInputController,
                 inputSettingsState,
-                new StreamInputController.Host() {
-                    @Override
-                    public boolean shouldSuppressTouchscreenInput() {
-                        return isTouchscreenInputSuppressed();
-                    }
-                });
+                new StreamInputSuppressionHost(
+                        this::isTouchscreenInputSuppressed));
         InputManager inputManager = (InputManager) getSystemService(Context.INPUT_SERVICE);
-        inputManager.registerInputDeviceListener(
-                keyboardInputController,
-                null);
+        AndroidInputDeviceRegistration keyboardRegistration =
+                AndroidInputDeviceRegistration.register(
+                        inputManager,
+                        keyboardInputController);
         inputLifecycleController =
                 new StreamInputLifecycleController(
                         streamInputController,
                         controllerHandler,
-                        new StreamInputLifecycleController
-                                .KeyboardRegistration() {
-                            @Override
-                            public void unregister() {
-                                inputManager
-                                        .unregisterInputDeviceListener(
-                                                keyboardInputController);
-                            }
-                        });
+                        keyboardRegistration);
 
         virtualControlsController =
                 new StreamVirtualControlsController(
@@ -1636,14 +1589,6 @@ public class Game extends Activity implements OnGenericMotionListener,
     public boolean onGenericMotionEvent(MotionEvent event) {
         return handleMotionEvent(null, event) || super.onGenericMotionEvent(event);
 
-    }
-
-    private void setNativeCursorOverlayFromReference(short x, short y, short referenceWidth, short referenceHeight) {
-        nativeCursorController.updatePositionFromReference(
-                x,
-                y,
-                referenceWidth,
-                referenceHeight);
     }
 
     @Override
