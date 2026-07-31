@@ -237,8 +237,7 @@ public final class StreamSessionConfigurationPlannerTest {
             ControllerSettings controller,
             InputSettings input,
             StreamAudioSettings audio,
-            StreamSessionConfigurationPlanner.DecoderCapabilities
-                    capabilities,
+            StreamDecoderCapabilities capabilities,
             int gamepadMask,
             boolean hdrRequested) {
         return StreamSessionConfigurationPlanner.plan(
@@ -274,13 +273,13 @@ public final class StreamSessionConfigurationPlannerTest {
                 2);
     }
 
-    private static StreamSessionConfigurationPlanner.DecoderCapabilities
+    private static StreamDecoderCapabilities
             capabilities(
                     boolean hevc,
                     boolean hevcMain10,
                     boolean av1,
                     boolean av1Main10) {
-        return new StreamSessionConfigurationPlanner.DecoderCapabilities(
+        return new StreamDecoderCapabilities(
                 hevc,
                 hevcMain10,
                 av1,

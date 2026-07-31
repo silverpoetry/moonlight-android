@@ -60,41 +60,9 @@ public final class StreamSessionConfigurationPlanner {
         }
     }
 
-    public static final class DecoderCapabilities {
-        private final boolean hevc;
-        private final boolean hevcMain10Hdr10;
-        private final boolean av1;
-        private final boolean av1Main10;
-        private final int preferredColorSpace;
-        private final int preferredColorRange;
-
-        public DecoderCapabilities(
-                boolean hevc,
-                boolean hevcMain10Hdr10,
-                boolean av1,
-                boolean av1Main10,
-                int preferredColorSpace,
-                int preferredColorRange) {
-            if (hevcMain10Hdr10 && !hevc) {
-                throw new IllegalArgumentException(
-                        "HEVC Main10 requires an HEVC decoder");
-            }
-            if (av1Main10 && !av1) {
-                throw new IllegalArgumentException(
-                        "AV1 Main10 requires an AV1 decoder");
-            }
-            this.hevc = hevc;
-            this.hevcMain10Hdr10 = hevcMain10Hdr10;
-            this.av1 = av1;
-            this.av1Main10 = av1Main10;
-            this.preferredColorSpace = preferredColorSpace;
-            this.preferredColorRange = preferredColorRange;
-        }
-    }
-
     public static final class Environment {
         private final NvApp app;
-        private final DecoderCapabilities decoderCapabilities;
+        private final StreamDecoderCapabilities decoderCapabilities;
         private final int discoveredGamepadMask;
         private final float displayRefreshRate;
         private final int pixelsPerInch;
@@ -102,7 +70,7 @@ public final class StreamSessionConfigurationPlanner {
 
         public Environment(
                 NvApp app,
-                DecoderCapabilities decoderCapabilities,
+                StreamDecoderCapabilities decoderCapabilities,
                 int discoveredGamepadMask,
                 float displayRefreshRate,
                 int pixelsPerInch,
@@ -332,11 +300,11 @@ public final class StreamSessionConfigurationPlanner {
         Objects.requireNonNull(settings, "settings");
         Objects.requireNonNull(environment, "environment");
 
-        DecoderCapabilities capabilities =
+        StreamDecoderCapabilities capabilities =
                 environment.decoderCapabilities;
         boolean hdrEnabled = environment.hdrRequested &&
-                (capabilities.hevcMain10Hdr10 ||
-                        capabilities.av1Main10);
+                (capabilities.isHevcMain10Hdr10Supported() ||
+                        capabilities.isAv1Main10Supported());
 
         List<Warning> warnings = new ArrayList<>(3);
         if (environment.hdrRequested && !hdrEnabled) {
@@ -344,13 +312,13 @@ public final class StreamSessionConfigurationPlanner {
         }
         if (settings.decoder.getVideoFormat() ==
                 StreamDecoderSettings.VideoFormat.FORCE_HEVC &&
-                !capabilities.hevc) {
+                !capabilities.isHevcSupported()) {
             warnings.add(
                     Warning.FORCED_HEVC_DECODER_UNAVAILABLE);
         }
         if (settings.decoder.getVideoFormat() ==
                 StreamDecoderSettings.VideoFormat.FORCE_AV1 &&
-                !capabilities.av1) {
+                !capabilities.isAv1Supported()) {
             warnings.add(
                     Warning.FORCED_AV1_DECODER_UNAVAILABLE);
         }
@@ -381,8 +349,8 @@ public final class StreamSessionConfigurationPlanner {
                         gamepadMask,
                         (int) (environment.displayRefreshRate * 100),
                         settings.audio.getChannelConfiguration(),
-                        capabilities.preferredColorSpace,
-                        capabilities.preferredColorRange,
+                        capabilities.getPreferredColorSpace(),
+                        capabilities.getPreferredColorRange(),
                         environment.pixelsPerInch,
                         settings.video
                                 .getVirtualDisplayMode()
@@ -413,18 +381,19 @@ public final class StreamSessionConfigurationPlanner {
     }
 
     private static int resolveSupportedVideoFormats(
-            DecoderCapabilities capabilities,
+            StreamDecoderCapabilities capabilities,
             boolean hdrEnabled) {
         int formats = MoonBridge.VIDEO_FORMAT_H264;
-        if (capabilities.hevc) {
+        if (capabilities.isHevcSupported()) {
             formats |= MoonBridge.VIDEO_FORMAT_H265;
-            if (hdrEnabled && capabilities.hevcMain10Hdr10) {
+            if (hdrEnabled &&
+                    capabilities.isHevcMain10Hdr10Supported()) {
                 formats |= MoonBridge.VIDEO_FORMAT_H265_MAIN10;
             }
         }
-        if (capabilities.av1) {
+        if (capabilities.isAv1Supported()) {
             formats |= MoonBridge.VIDEO_FORMAT_AV1_MAIN8;
-            if (hdrEnabled && capabilities.av1Main10) {
+            if (hdrEnabled && capabilities.isAv1Main10Supported()) {
                 formats |= MoonBridge.VIDEO_FORMAT_AV1_MAIN10;
             }
         }

@@ -435,6 +435,14 @@ targets.
   only step that constructs `StreamConfiguration` and maps transport audio and
   network constants, with on-device equivalence coverage. `Game` now samples
   Android decoder/display/controller facts and consumes the completed plan.
+- `AndroidStreamMediaRuntimeFactory` is the concrete MediaCodec composition
+  boundary. It initializes codec workarounds, constructs the decoder/resource
+  owner, and publishes one immutable `StreamDecoderCapabilities` sample, so
+  `Game` no longer creates or repeatedly interrogates the concrete renderer.
+  `DecoderCrashTracker` separately owns one-attempt crash accounting and clean
+  completion through a persistence port; the Android store preserves the
+  synchronous pre-crash commit and legacy tombstone keys while Activity code
+  no longer reads or writes decoder preferences.
 - `StreamMicrophoneController` owns permission deferral, duplicate-toggle
   suppression, serialized background start/stop work, lifecycle cancellation,
   error presentation events, and explicit menu-state invalidation. `Game`

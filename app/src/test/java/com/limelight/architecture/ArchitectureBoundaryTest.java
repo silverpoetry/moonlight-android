@@ -288,6 +288,47 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void decoderCrashPolicyIsPlatformIndependent() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.video.DecoderCrashTracker")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..")
+                .because(
+                        "crash accounting runs through its persistence port")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void gameDoesNotConstructConcreteDecoderRuntime() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.video.MediaCodecDecoderRenderer")
+                .because(
+                        "the Android media factory owns decoder construction and capability sampling")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.video.MediaCodecHelper")
+                .because(
+                        "codec initialization is part of media runtime construction")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamMicrophoneControllerUsesOnlyItsEndpointPort() {
         noClasses()
                 .that()

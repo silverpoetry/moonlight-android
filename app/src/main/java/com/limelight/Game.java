@@ -32,9 +32,8 @@ import com.limelight.binding.input.virtual_controller.VirtualController;
 import com.limelight.binding.input.virtual_controller.keyboard.AndroidVirtualControlsFactory;
 import com.limelight.binding.input.virtual_controller.keyboard.StreamVirtualControlsController;
 import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode;
-import com.limelight.binding.video.CrashListener;
-import com.limelight.binding.video.MediaCodecDecoderRenderer;
-import com.limelight.binding.video.MediaCodecHelper;
+import com.limelight.binding.video.AndroidDecoderCrashStore;
+import com.limelight.binding.video.DecoderCrashTracker;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.StreamConfiguration;
 import com.limelight.nvstream.StreamSessionController;
@@ -44,7 +43,6 @@ import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.nvstream.mic.MicrophoneUplinkConfig;
-import com.limelight.preferences.GlPreferences;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.AndroidDisplayAspectProvider;
 import com.limelight.settings.android.AndroidAppLocale;
@@ -101,8 +99,10 @@ import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
 import com.limelight.ui.performance.PerformanceOverlayConfiguration;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.stream.AndroidStreamConnectionMessages;
-import com.limelight.ui.stream.StreamFailureDiagnostics;
+import com.limelight.ui.stream.AndroidStreamMediaRuntimeFactory;
 import com.limelight.ui.stream.StreamDisplayModeSelector;
+import com.limelight.ui.stream.StreamDecoderCapabilities;
+import com.limelight.ui.stream.StreamFailureDiagnostics;
 import com.limelight.ui.stream.StreamLaunchReporter;
 import com.limelight.ui.stream.StreamMediaResourceOwner;
 import com.limelight.ui.stream.StreamMicrophoneController;
@@ -143,7 +143,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Outline;
@@ -230,7 +229,7 @@ public class Game extends Activity implements OnGenericMotionListener,
             gameMenuCardLayoutRepository;
     private GameMenuShortcutRepository
             gameMenuShortcutRepository;
-    private SharedPreferences tombstonePrefs;
+    private DecoderCrashTracker decoderCrashTracker;
 
     private NvConnection conn;
     private StreamSessionController sessionController;
@@ -286,7 +285,6 @@ public class Game extends Activity implements OnGenericMotionListener,
     private StreamMediaResourceOwner mediaResourceOwner;
     private StreamRenderSurfaceController
             renderSurfaceController;
-    private boolean reportedCrash;
 
     private StreamWifiLockController wifiLockController;
 
@@ -445,7 +443,8 @@ public class Game extends Activity implements OnGenericMotionListener,
                                 settingsRepository));
         virtualControlLayoutRepository =
                 new AndroidVirtualControlLayoutRepository(this);
-        tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
+        decoderCrashTracker = new DecoderCrashTracker(
+                new AndroidDecoderCrashStore(this));
         backNavigationRegistration =
                 BackNavigationRegistration.register(this, this::handleStreamBackPressed);
 
@@ -576,10 +575,6 @@ public class Game extends Activity implements OnGenericMotionListener,
             return;
         }
 
-        // Initialize the MediaCodec helper before creating the decoder
-        GlPreferences glPrefs = GlPreferences.readPreferences(this);
-        MediaCodecHelper.initialize(this, glPrefs.glRenderer);
-
         // Check if the user has enabled HDR
         boolean hdrRequested = false;
         if (streamVideoSettings.shouldIgnoreHdrCapability()) {
@@ -615,32 +610,20 @@ public class Game extends Activity implements OnGenericMotionListener,
             }
         }
 
-        MediaCodecDecoderRenderer decoderRenderer =
-                new MediaCodecDecoderRenderer(
-                this,
-                streamDecoderSettings,
-                new CrashListener() {
-                    @SuppressLint("ApplySharedPref")
-                    @Override
-                    public void notifyCrash(Exception e) {
-                        // The MediaCodec instance is going down due to a crash
-                        // let's tell the user something when they open the app again
-
-                        // We must use commit because the app will crash when we return from this function
-                        tombstonePrefs.edit().putInt("CrashCount", tombstonePrefs.getInt("CrashCount", 0) + 1).commit();
-                        reportedCrash = true;
-                    }
-                },
-                tombstonePrefs.getInt("CrashCount", 0),
-                hdrRequested,
-                glPrefs.glRenderer,
-                performanceOverlayController);
-        mediaResourceOwner = StreamMediaResourceOwner.create(
-                decoderRenderer,
-                () -> new AndroidAudioRenderer(
-                        Game.this,
-                        controllerHandler,
-                        streamAudioSettingsState));
+        AndroidStreamMediaRuntimeFactory.Result mediaRuntime =
+                AndroidStreamMediaRuntimeFactory.create(
+                        this,
+                        streamDecoderSettings,
+                        decoderCrashTracker,
+                        hdrRequested,
+                        performanceOverlayController,
+                        () -> new AndroidAudioRenderer(
+                                Game.this,
+                                controllerHandler,
+                                streamAudioSettingsState));
+        mediaResourceOwner = mediaRuntime.getResourceOwner();
+        StreamDecoderCapabilities decoderCapabilities =
+                mediaRuntime.getDecoderCapabilities();
 
         ControllerSettings controllerSettings =
                 controllerSettingsState.get();
@@ -665,18 +648,7 @@ public class Game extends Activity implements OnGenericMotionListener,
                                 transferSettings),
                         new StreamSessionConfigurationPlanner.Environment(
                                 app,
-                                new StreamSessionConfigurationPlanner
-                                        .DecoderCapabilities(
-                                        decoderRenderer.isHevcSupported(),
-                                        hdrRequested && decoderRenderer
-                                                .isHevcMain10Hdr10Supported(),
-                                        decoderRenderer.isAv1Supported(),
-                                        hdrRequested && decoderRenderer
-                                                .isAv1Main10Supported(),
-                                        decoderRenderer
-                                                .getPreferredColorSpace(),
-                                        decoderRenderer
-                                                .getPreferredColorRange()),
+                                decoderCapabilities,
                                 discoveredGamepadMask,
                                 displayRefreshRate,
                                 RazerUtils.getPPI(this),
@@ -2062,13 +2034,7 @@ public class Game extends Activity implements OnGenericMotionListener,
                 }
             }
 
-            // Clear the tombstone count if we terminated normally
-            if (!reportedCrash && tombstonePrefs.getInt("CrashCount", 0) != 0) {
-                tombstonePrefs.edit()
-                        .putInt("CrashCount", 0)
-                        .putInt("LastNotifiedCrashCount", 0)
-                        .apply();
-            }
+            decoderCrashTracker.completeCleanly();
         }
         if (streamVideoSettingsState
                 .get()

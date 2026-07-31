@@ -66,8 +66,7 @@ public final class StreamSessionConfigurationAdapterTest {
                                 new TransferSettings(true, "")),
                         new StreamSessionConfigurationPlanner.Environment(
                                 app,
-                                new StreamSessionConfigurationPlanner
-                                        .DecoderCapabilities(
+                                new StreamDecoderCapabilities(
                                         true,
                                         true,
                                         true,
