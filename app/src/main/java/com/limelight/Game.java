@@ -59,6 +59,8 @@ import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.settings.input.InputSettingsState;
 import com.limelight.settings.stream.StreamDecoderSettings;
 import com.limelight.settings.stream.StreamDisplaySettings;
+import com.limelight.settings.transfer.TransferSettings;
+import com.limelight.settings.transfer.TransferSettingsLoader;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsState;
@@ -189,6 +191,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public PreferenceConfiguration prefConfig;
     private StreamDisplaySettings streamDisplaySettings;
     private StreamDecoderSettings streamDecoderSettings;
+    private TransferSettings transferSettings;
     private SettingsRepository settingsRepository;
     private SharedPreferences tombstonePrefs;
 
@@ -349,6 +352,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         streamDecoderSettings =
                 LegacyPreferenceSettingsAdapter
                         .loadStreamDecoderSettings(prefConfig);
+        transferSettings =
+                TransferSettingsLoader.load(settingsRepository);
         inputSettingsState =
                 new InputSettingsState(
                         InputSettingsLoader.load(
@@ -732,7 +737,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .setRazerVD(prefConfig.razerVD)
                 .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
                 .enableNativeCursor(prefConfig.enableNativeCursor)
-                .enableClipboardSync(prefConfig.enableClipboardSync)
+                .enableClipboardSync(
+                        transferSettings.isClipboardSyncEnabled())
                 .disableAdaptiveInputThrottling(prefConfig.disableAdaptiveInputThrottling)
                 .build();
 
@@ -768,7 +774,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         directContactInputController,
                         inputSettingsState);
         clipboardFileTransferController =
-                new RemoteClipboardFileTransferController(this, conn);
+                new RemoteClipboardFileTransferController(
+                        this,
+                        conn,
+                        settingsRepository);
         Handler mainHandler = new Handler(Looper.getMainLooper());
         failureDiagnostics = StreamFailureDiagnostics.create(
                 portFlags -> MoonBridge.testClientConnectivity(

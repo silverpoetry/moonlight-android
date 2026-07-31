@@ -70,7 +70,7 @@ persistent settings.
 | On-screen controls | `VirtualControlSettings` with one atomic `VirtualControlSettingsState` per stream | Active virtual gamepad, virtual-key, touchpad-button, and full-keyboard rendering/input paths consume typed snapshots; stream-menu writers emit immutable domain updates; named layouts use `VirtualControlLayoutRepository` rather than direct file access | Layout element DTO/codec separation from the game-menu model remains; unused named-`SharedPreferences` loader path has been removed |
 | Stream audio | `StreamAudioSettings` with one atomic `StreamAudioSettingsState` per stream | Playback, mute, audio effects, and phone/controller audio-haptics consume the same typed snapshot; PCM callbacks perform no preference I/O; controller rumble suppression and USB/Kishi routing no longer duplicate audio policy inside `ControllerSettings` | Restart-only settings still use the legacy settings screen; microphone uplink policy is the next slice |
 | Microphone | No persisted policy; protocol-v1 invariants live in immutable `MicrophoneUplinkConfig` | Capture is an injected Android adapter; the platform-independent lifecycle controller owns all start/stop/error transitions and is unit tested without `AudioRecord` or JNI | No legacy preference exists; future formats require explicit protocol negotiation rather than a hidden setting |
-| Clipboard and transfer | Pending | Pending | Pending |
+| Clipboard and transfer | `TransferSettings` captures clipboard enablement and the bounded persisted document-tree URI | Stream composition no longer reads the legacy preference bag for capability enablement; pull-to-device UI reads, repairs, and writes the directory through `SettingsRepository` and typed keys | Generic settings-row writers still need the typed-intent migration; clipboard loop-suppression checkpoints are operational state, not user settings, and move behind a storage port in phase 8 |
 | General UI and host list | Pending | Pending | Pending |
 
 The ledger is complete only when direct default-preference reads are confined to
@@ -91,6 +91,15 @@ depends only on a `MicrophoneUplinkSessionFactory`; the composition root injects
 the Android/common-c adapter. This keeps capture construction out of the
 connection state machine and makes every lifecycle transition deterministic in
 plain JVM tests.
+
+Clipboard enablement is a restart-only stream capability. The selected Android
+document tree remains an opaque, bounded string in the platform-independent
+snapshot and is parsed only by the Storage Access Framework UI adapter. Missing
+providers, revoked grants, and malformed URIs clear the typed key before asking
+the user to select a replacement. The named `clipboard_sync_state` store is not
+configuration: it is an operational loop-suppression checkpoint and is
+therefore tracked for the transfer architecture phase rather than folded into
+the global settings schema.
 
 ## Editable layout documents
 

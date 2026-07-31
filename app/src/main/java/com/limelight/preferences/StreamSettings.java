@@ -60,7 +60,11 @@ import com.limelight.R;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.computers.ComputerDatabaseManager;
 import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.transfer.TransferSettingKeys;
+import com.limelight.settings.transfer.TransferSettings;
+import com.limelight.settings.transfer.TransferSettingsLoader;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.utils.BackNavigationRegistration;
@@ -108,7 +112,7 @@ public class StreamSettings extends Activity {
             "list_fsr_target",
             "list_fsr_sharpness",
             "mouse_model_list_axi",
-            PreferenceConfiguration.CLIPBOARD_SYNC_PREF_STRING,
+            TransferSettingKeys.CLIPBOARD_SYNC.getName(),
     };
 
     private PreferenceConfiguration previousPrefs;
@@ -1182,7 +1186,10 @@ public class StreamSettings extends Activity {
         else if ("import_image_file_key".equals(key)) {
             openDocument("image/*", READ_REQUEST_SCREEN_IMAGE_CODE);
         }
-        else if (PreferenceConfiguration.CLIPBOARD_FILE_DIRECTORY_PREF_STRING.equals(key)) {
+        else if (TransferSettingKeys
+                .CLIPBOARD_FILE_DIRECTORY_URI
+                .getName()
+                .equals(key)) {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
                     Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
@@ -1285,13 +1292,16 @@ public class StreamSettings extends Activity {
 
     private void initializeClipboardDirectory() {
         SettingsItem item = findItem(
-                PreferenceConfiguration.CLIPBOARD_FILE_DIRECTORY_PREF_STRING);
+                TransferSettingKeys
+                        .CLIPBOARD_FILE_DIRECTORY_URI
+                        .getName());
         if (item == null) {
             return;
         }
-        String value = store.prefs.getString(
-                PreferenceConfiguration.CLIPBOARD_FILE_DIRECTORY_PREF_STRING, "");
-        if (TextUtils.isEmpty(value)) {
+        TransferSettings settings =
+                TransferSettingsLoader.load(store.repository);
+        String value = settings.getClipboardFileDirectoryUri();
+        if (!settings.hasClipboardFileDirectory()) {
             return;
         }
         try {
@@ -1726,9 +1736,10 @@ public class StreamSettings extends Activity {
                     throw new SecurityException(
                             "Document provider returned no persistable URI permission");
                 }
-                store.prefs.edit()
-                        .putString(
-                                PreferenceConfiguration.CLIPBOARD_FILE_DIRECTORY_PREF_STRING,
+                store.repository.edit()
+                        .put(
+                                TransferSettingKeys
+                                        .CLIPBOARD_FILE_DIRECTORY_URI,
                                 directory.toString())
                         .apply();
                 reloadSettings();
@@ -1830,9 +1841,12 @@ public class StreamSettings extends Activity {
 
     private static final class SettingsStore {
         final SharedPreferences prefs;
+        final SettingsRepository repository;
 
         SettingsStore(Context context) {
             prefs = PreferenceManager.getDefaultSharedPreferences(context);
+            repository =
+                    new SharedPreferencesSettingsRepository(prefs);
         }
 
         boolean getBoolean(SettingsItem item) {

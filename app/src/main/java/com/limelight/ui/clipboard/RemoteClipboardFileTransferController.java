@@ -3,9 +3,7 @@ package com.limelight.ui.clipboard;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.net.Uri;
-import android.preference.PreferenceManager;
 import android.text.format.Formatter;
 import android.view.View;
 import android.view.Window;
@@ -18,7 +16,10 @@ import androidx.documentfile.provider.DocumentFile;
 
 import com.limelight.R;
 import com.limelight.nvstream.NvConnection;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.SettingsRepository;
+import com.limelight.settings.transfer.TransferSettingKeys;
+import com.limelight.settings.transfer.TransferSettings;
+import com.limelight.settings.transfer.TransferSettingsLoader;
 import com.limelight.utils.FileUriUtils;
 import com.limelight.utils.UiHelper;
 import com.limelight.utils.UiToast;
@@ -34,14 +35,20 @@ public final class RemoteClipboardFileTransferController {
 
     private final Activity activity;
     private final NvConnection connection;
+    private final SettingsRepository settingsRepository;
     private final ClipboardFileTransferSession session =
             new ClipboardFileTransferSession();
     private AlertDialog transferDialog;
 
-    public RemoteClipboardFileTransferController(Activity activity,
-                                                 NvConnection connection) {
+    public RemoteClipboardFileTransferController(
+            Activity activity,
+            NvConnection connection,
+            SettingsRepository settingsRepository) {
         this.activity = Objects.requireNonNull(activity, "activity");
         this.connection = Objects.requireNonNull(connection, "connection");
+        this.settingsRepository = Objects.requireNonNull(
+                settingsRepository,
+                "settingsRepository");
     }
 
     public void pullRemoteFiles() {
@@ -53,12 +60,11 @@ public final class RemoteClipboardFileTransferController {
             return;
         }
 
-        SharedPreferences preferences =
-                PreferenceManager.getDefaultSharedPreferences(activity);
-        String configured = preferences.getString(
-                PreferenceConfiguration.CLIPBOARD_FILE_DIRECTORY_PREF_STRING,
-                "");
-        if (configured != null && !configured.isEmpty()) {
+        TransferSettings settings =
+                TransferSettingsLoader.load(settingsRepository);
+        String configured =
+                settings.getClipboardFileDirectoryUri();
+        if (settings.hasClipboardFileDirectory()) {
             try {
                 Uri directory = Uri.parse(configured);
                 DocumentFile document =
@@ -73,9 +79,9 @@ public final class RemoteClipboardFileTransferController {
             catch (RuntimeException ignored) {
                 // The persisted provider or URI can disappear between runs.
             }
-            preferences.edit()
-                    .remove(PreferenceConfiguration
-                            .CLIPBOARD_FILE_DIRECTORY_PREF_STRING)
+            settingsRepository.edit()
+                    .remove(TransferSettingKeys
+                            .CLIPBOARD_FILE_DIRECTORY_URI)
                     .apply();
         }
 
@@ -121,11 +127,10 @@ public final class RemoteClipboardFileTransferController {
                 throw new SecurityException(
                         "Document provider returned no persistable URI permission");
             }
-            PreferenceManager.getDefaultSharedPreferences(activity)
-                    .edit()
-                    .putString(
-                            PreferenceConfiguration
-                                    .CLIPBOARD_FILE_DIRECTORY_PREF_STRING,
+            settingsRepository.edit()
+                    .put(
+                            TransferSettingKeys
+                                    .CLIPBOARD_FILE_DIRECTORY_URI,
                             directory.toString())
                     .apply();
             download(directory);

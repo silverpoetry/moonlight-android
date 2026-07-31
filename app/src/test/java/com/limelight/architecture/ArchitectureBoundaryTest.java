@@ -266,6 +266,22 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void typedTransferSettingsDoNotDependOnAndroidOrLegacyPreferences() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.settings.transfer..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "com.limelight.preferences..")
+                .because(
+                        "typed transfer settings are immutable domain models")
+                .check(productionClasses);
+    }
+
+    @Test
     public void typedVirtualControlSettingsDoNotDependOnAndroidOrLegacyPreferences() {
         noClasses()
                 .that()
@@ -437,6 +453,37 @@ public final class ArchitectureBoundaryTest {
                         "com.limelight.binding.audio.mic..")
                 .because(
                         "the composition root injects the microphone capture adapter")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void clipboardTransferUiUsesTypedSettingsRepository() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.clipboard.RemoteClipboardFileTransferController")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android.preference..",
+                        "com.limelight.preferences..")
+                .because(
+                        "clipboard destination policy crosses the typed repository boundary")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void clipboardTransferUiDoesNotDependOnSharedPreferences() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.clipboard.RemoteClipboardFileTransferController")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.content.SharedPreferences")
+                .because(
+                        "clipboard destination policy is accessed through typed keys")
                 .check(productionClasses);
     }
 

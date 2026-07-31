@@ -71,4 +71,16 @@ public class SettingKeyTest {
         assertEquals("auto", key.normalizeStoredValue("future"));
         assertEquals("on", key.normalizeStoredValue("on"));
     }
+
+    @Test
+    public void boundedStringRejectsOversizedValue() {
+        SettingKey<String> key =
+                SettingKey.boundedStringKey(
+                        "uri",
+                        "",
+                        4);
+
+        assertEquals("abcd", key.normalizeStoredValue("abcd"));
+        assertEquals("", key.normalizeStoredValue("abcde"));
+    }
 }

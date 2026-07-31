@@ -227,6 +227,10 @@ A slice is incomplete if callers can still bypass the new boundary.
   `MicrophoneUplinkConfig`. A platform-independent lifecycle controller owns
   start/stop/error transitions, `NvConnection` depends on its session-factory
   port, and the composition root injects the Android/common-c capture adapter.
+- Clipboard capability enablement and the persisted document-tree destination
+  are decoded together as `TransferSettings`; stream composition and the
+  pull-to-device UI no longer use the legacy preference bag or direct default
+  preferences for those decisions.
 - Versioned legacy preference migration through schema version 2.
 - A platform-independent virtual-control layout identity/repository contract,
   Android atomic-file adapter, bounded and validated import, and one shared

@@ -24,7 +24,8 @@ import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.stream.StreamResolutionCodec;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.settings.stream.StreamResolutionSettingsLoader;
-import com.limelight.settings.transfer.TransferSettingKeys;
+import com.limelight.settings.transfer.TransferSettings;
+import com.limelight.settings.transfer.TransferSettingsLoader;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
@@ -87,9 +88,6 @@ public class PreferenceConfiguration {
     public static final int DEFAULT_BAROMETER_FORCE_PRESS_MIN_DURATION_MS =
             InputSettingKeys
                     .DEFAULT_FORCE_PRESS_MINIMUM_DURATION_MS;
-    public static final String CLIPBOARD_SYNC_PREF_STRING =
-            TransferSettingKeys.CLIPBOARD_SYNC.getName();
-    public static final String CLIPBOARD_FILE_DIRECTORY_PREF_STRING = "clipboard_file_save_directory";
     private static final String DISABLE_ADAPTIVE_INPUT_THROTTLING_PREF_STRING = "checkbox_disable_adaptive_input_throttling";
     private static final String REDUCE_REFRESH_RATE_PREF_STRING = "checkbox_reduce_refresh_rate";
     private static final String FULL_RANGE_PREF_STRING = "checkbox_full_range";
@@ -803,6 +801,8 @@ public class PreferenceConfiguration {
                 ControllerSettingsLoader.load(repository);
         StreamAudioSettings audioSettings =
                 StreamAudioSettingsLoader.load(repository);
+        TransferSettings transferSettings =
+                TransferSettingsLoader.load(repository);
         VirtualControlSettings virtualControlSettings =
                 VirtualControlSettingsLoader.load(repository);
 
@@ -1024,8 +1024,8 @@ public class PreferenceConfiguration {
         config.absoluteMouseMode =
                 inputSettings.isAbsoluteMouseMode();
         config.enableNativeCursor = config.absoluteMouseMode;
-        config.enableClipboardSync = repository.get(
-                TransferSettingKeys.CLIPBOARD_SYNC);
+        config.enableClipboardSync =
+                transferSettings.isClipboardSyncEnabled();
         config.disableAdaptiveInputThrottling = prefs.getBoolean(DISABLE_ADAPTIVE_INPUT_THROTTLING_PREF_STRING,
                 DEFAULT_DISABLE_ADAPTIVE_INPUT_THROTTLING);
         config.reduceRefreshRate = prefs.getBoolean(REDUCE_REFRESH_RATE_PREF_STRING, DEFAULT_REDUCE_REFRESH_RATE);

@@ -136,6 +136,24 @@ public final class SettingKey<T> {
                 value -> value);
     }
 
+    public static SettingKey<String> boundedStringKey(
+            String name,
+            String defaultValue,
+            int maximumLength) {
+        if (maximumLength < 0) {
+            throw new IllegalArgumentException(
+                    "Maximum length cannot be negative");
+        }
+        return new SettingKey<>(
+                name,
+                StorageType.STRING,
+                String.class,
+                defaultValue,
+                value -> value.length() <= maximumLength
+                        ? value
+                        : defaultValue);
+    }
+
     public static SettingKey<String> stringSetKey(
             String name,
             String defaultValue,
