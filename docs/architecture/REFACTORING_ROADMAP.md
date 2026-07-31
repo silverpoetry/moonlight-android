@@ -373,6 +373,10 @@ targets.
   Android's main-thread `Handler` is an adapter; input-device recreation now
   restores an active session together with its scheduler instead of copying a
   stale boolean.
+- `ControllerArrivalReport` derives the immutable protocol type, supported
+  buttons, capability mask, and clickpad-emulation requirement from sampled
+  hardware facts. Android probing and transport emission remain adapters;
+  protocol policy no longer lives in the mutable device context.
 - `DecoderSelectionPolicy` owns HEVC/AV1 acceptance decisions and stream color
   defaults. The MediaCodec adapter performs discovery and capability queries,
   and no longer carries the unused metered-network parameter or unreachable

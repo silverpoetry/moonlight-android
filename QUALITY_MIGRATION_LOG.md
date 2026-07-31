@@ -898,3 +898,19 @@ Verification on 2026-07-31:
 - The corresponding full `verifyConnected --rerun-tasks --no-daemon` run
   passed all 296 tasks; the generated API 34 suites record 107 non-root and
   107 root tests with zero failures, errors, or skips.
+- Extracted `ControllerArrivalReport` as the immutable owner of controller
+  protocol type, supported-button flags, capability flags, and the
+  clickpad-emulation requirement. `InputDeviceContext` now samples Android
+  hardware facts and emits the finished report instead of interleaving
+  platform calls with protocol mutation.
+- Fixtures cover complete PlayStation capabilities, non-PlayStation motion
+  type fallback, pre-Android-12 legacy rumble behavior, and touchpads without
+  a physical clickpad. Existing Android 12 battery assumptions, pre-Android
+  14 PlayStation RGB handling, Shield extension capabilities, and all
+  controller button additions are preserved.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 377 JVM
+  tests per root/non-root debug/release variant (1,508 executions total), all
+  Lint variants, and both Release APKs.
+- `verifyConnected --rerun-tasks --no-daemon` passed all 296 tasks on the API
+  34 emulator; the non-root and root suites each ran 107 instrumentation tests
+  with zero failures, errors, or skips.

@@ -3389,103 +3389,77 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 }
             }
 
-            // Add non-standard button flags that may not be mapped in the Android kl file
-            if (hasPaddles) {
-                supportedButtonFlags |=
-                        ControllerPacket.PADDLE1_FLAG |
-                        ControllerPacket.PADDLE2_FLAG |
-                        ControllerPacket.PADDLE3_FLAG |
-                        ControllerPacket.PADDLE4_FLAG;
-            }
-            if (hasShare) {
-                supportedButtonFlags |= ControllerPacket.MISC_FLAG;
-            }
+            boolean hasAccelerometer =
+                    sensorManager != null &&
+                            sensorManager.getDefaultSensor(
+                                    Sensor.TYPE_ACCELEROMETER) != null;
+            boolean hasGyroscope =
+                    sensorManager != null &&
+                            sensorManager.getDefaultSensor(
+                                    Sensor.TYPE_GYROSCOPE) != null;
+            boolean hasTouchpad =
+                    (inputDevice.getSources() &
+                            InputDevice.SOURCE_TOUCHPAD) ==
+                            InputDevice.SOURCE_TOUCHPAD;
+            ControllerArrivalReport report =
+                    ControllerArrivalReport.builder(
+                                    type,
+                                    supportedButtonFlags)
+                            .hasPaddles(hasPaddles)
+                            .hasShareButton(hasShare)
+                            .hasHorizontalHatAxis(
+                                    getMotionRangeForJoystickAxis(
+                                            inputDevice,
+                                            MotionEvent.AXIS_HAT_X) != null)
+                            .hasVerticalHatAxis(
+                                    getMotionRangeForJoystickAxis(
+                                            inputDevice,
+                                            MotionEvent.AXIS_HAT_Y) != null)
+                            .hasAdvancedInputDeviceApis(
+                                    Build.VERSION.SDK_INT >=
+                                            Build.VERSION_CODES.S)
+                            .hasQuadVibrators(quadVibrators)
+                            .hasVibratorManager(
+                                    vibratorManager != null)
+                            .hasLegacyVibrator(vibrator != null)
+                            .external(external)
+                            .hasRgbLed(hasRgbLed)
+                            .hasReliableRgbLedDetection(
+                                    Build.VERSION.SDK_INT >=
+                                            Build.VERSION_CODES
+                                                    .UPSIDE_DOWN_CAKE)
+                            .hasAnalogTriggers(
+                                    leftTriggerAxis != -1 ||
+                                            rightTriggerAxis != -1)
+                            .hasAccelerometer(hasAccelerometer)
+                            .hasGyroscope(hasGyroscope)
+                            .requiresGenericMotionControllerType(
+                                    type !=
+                                            MoonBridge.LI_CTYPE_PS &&
+                                            sensorManager != null)
+                            .recognizedByShieldExtensions(
+                                    sceManager.isRecognizedDevice(
+                                            inputDevice))
+                            .hasTouchpad(hasTouchpad)
+                            .hasClickpad(
+                                    hasTouchpad &&
+                                            hasButtonUnderTouchpad(
+                                                    inputDevice,
+                                                    type))
+                            .build();
 
-            if (getMotionRangeForJoystickAxis(inputDevice, MotionEvent.AXIS_HAT_X) != null) {
-                supportedButtonFlags |= ControllerPacket.LEFT_FLAG | ControllerPacket.RIGHT_FLAG;
-            }
-            if (getMotionRangeForJoystickAxis(inputDevice, MotionEvent.AXIS_HAT_Y) != null) {
-                supportedButtonFlags |= ControllerPacket.UP_FLAG | ControllerPacket.DOWN_FLAG;
-            }
-
-            short capabilities = 0;
-
-            // Most of the advanced InputDevice capabilities came in Android S
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (quadVibrators) {
-                    capabilities |= MoonBridge.LI_CCAP_RUMBLE | MoonBridge.LI_CCAP_TRIGGER_RUMBLE;
-                }
-                else if (vibratorManager != null || vibrator != null) {
-                    capabilities |= MoonBridge.LI_CCAP_RUMBLE;
-                }
-
-                // Calling InputDevice.getBatteryState() to see if a battery is present
-                // performs a Binder transaction that can cause ANRs on some devices.
-                // To avoid this, we will just claim we can report battery state for all
-                // external gamepad devices on Android S. If it turns out that no battery
-                // is actually present, we'll just report unknown battery state to the host.
-                if (external) {
-                    capabilities |= MoonBridge.LI_CCAP_BATTERY_STATE;
-                }
-
-                // Light.hasRgbControl() was totally broken prior to Android 14.
-                // It always returned true because LIGHT_CAPABILITY_RGB was defined as 0,
-                // so we will just guess RGB is supported if it's a PlayStation controller.
-                if (hasRgbLed && (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE || type == MoonBridge.LI_CTYPE_PS)) {
-                    capabilities |= MoonBridge.LI_CCAP_RGB_LED;
-                }
-            }
-
-            // Report analog triggers if we have at least one trigger axis
-            if (leftTriggerAxis != -1 || rightTriggerAxis != -1) {
-                capabilities |= MoonBridge.LI_CCAP_ANALOG_TRIGGERS;
-            }
-
-            // Report sensors if the input device has them or we're using built-in sensors for a built-in controller
-            if (sensorManager != null && sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null) {
-                capabilities |= MoonBridge.LI_CCAP_ACCEL;
-            }
-            if (sensorManager != null && sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) != null) {
-                capabilities |= MoonBridge.LI_CCAP_GYRO;
-            }
-
-            byte reportedType;
-            if (type != MoonBridge.LI_CTYPE_PS && sensorManager != null) {
-                // Override the detected controller type if we're emulating motion sensors on an Xbox controller
+            needsClickpadEmulation =
+                    report.isClickpadEmulationRequired();
+            if (needsClickpadEmulation) {
                 LimeLog.info(
                         "Reporting an unknown controller type while " +
                                 "emulating motion sensors");
-                reportedType = MoonBridge.LI_CTYPE_UNKNOWN;
-
-                // Remember that we should enable the clickpad emulation combo (Select+LB) for this device
-                needsClickpadEmulation = true;
-            }
-            else {
-                // Report the true type to the host PC if we're not emulating motion sensors
-                reportedType = type;
-            }
-
-            // We can perform basic rumble with any vibrator
-            if (vibrator != null) {
-                capabilities |= MoonBridge.LI_CCAP_RUMBLE;
-            }
-
-            // Shield controllers use special APIs for rumble and battery state
-            if (sceManager.isRecognizedDevice(inputDevice)) {
-                capabilities |= MoonBridge.LI_CCAP_RUMBLE | MoonBridge.LI_CCAP_BATTERY_STATE;
-            }
-
-            if ((inputDevice.getSources() & InputDevice.SOURCE_TOUCHPAD) == InputDevice.SOURCE_TOUCHPAD) {
-                capabilities |= MoonBridge.LI_CCAP_TOUCHPAD;
-
-                // Use the platform API or internal heuristics to determine if this has a clickpad
-                if (hasButtonUnderTouchpad(inputDevice, type)) {
-                    supportedButtonFlags |= ControllerPacket.TOUCHPAD_FLAG;
-                }
             }
 
             conn.sendControllerArrivalEvent((byte)controllerNumber, getActiveControllerMask(),
-                    reportedType, supportedButtonFlags, capabilities);
+                    report.getReportedType(),
+                    report.getSupportedButtonFlags(),
+                    report.getCapabilities());
 
             // After reporting arrival to the host, send initial battery state and begin monitoring
             //是否上报电池状态
