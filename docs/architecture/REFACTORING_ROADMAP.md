@@ -386,6 +386,12 @@ targets.
   neutral-gyro output, migration, and destruction. Physical and on-device
   fallback sensors now use the same lifecycle; `SensorManager` registration is
   a narrow platform adapter and no duplicate virtual-controller path remains.
+- `ControllerMotionSampleTransformer` owns duplicate suppression, four-way
+  device-orientation correction, raw samples, and protocol unit conversion in
+  one allocation-free callback object. `ControllerGyroStickTranslator` owns the
+  customized deadzone, response curve, smoothing, inversion, and clamp state;
+  force-gyro trigger state is isolated by protocol slot instead of shared
+  across all attached controllers.
 - `DecoderSelectionPolicy` owns HEVC/AV1 acceptance decisions and stream color
   defaults. The MediaCodec adapter performs discovery and capability queries,
   and no longer carries the unused metered-network parameter or unreachable

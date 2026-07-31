@@ -32,7 +32,6 @@ import android.view.InputDevice;
 import android.view.InputEvent;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
-import android.view.Surface;
 import com.limelight.utils.UiToast;
 
 import com.google.gson.Gson;
@@ -64,6 +63,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicIntegerArray;
 
 public class ControllerHandler implements InputManager.InputDeviceListener,
         UsbDriverListener, GamepadInputHandler {
@@ -86,6 +86,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private final SparseArray<InputDeviceContext> inputDeviceContexts = new SparseArray<>();
     private final SparseArray<UsbDeviceContext> usbDeviceContexts = new SparseArray<>();
     private final SparseArray<RazerKishiHapticsDevice> razerKishiHapticsDevices = new SparseArray<>();
+    private final AtomicIntegerArray controllerLeftTriggerStates =
+            new AtomicIntegerArray(ControllerSlotAllocator.MAX_SLOTS);
 
     private final NvConnection conn;
     private final KeyboardInputSink keyboardInputSink;
@@ -1642,7 +1644,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         else {
             //强制体感模拟右摇杆
             if (settingsState.get().isForceGyroEnabled()) {
-                sensorLeftTrigger=leftTrigger;
+                setControllerLeftTriggerState(
+                        controllerNumber,
+                        leftTrigger);
             }
             conn.sendControllerInput(controllerNumber, getActiveControllerMask(),
                     inputMap,
@@ -1652,7 +1656,25 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
     }
 
-    private short sensorLeftTrigger=0x00;
+    private void setControllerLeftTriggerState(
+            short controllerNumber,
+            byte leftTrigger) {
+        if (controllerNumber >= 0 &&
+                controllerNumber < ControllerSlotAllocator.MAX_SLOTS) {
+            controllerLeftTriggerStates.set(
+                    controllerNumber,
+                    Byte.toUnsignedInt(leftTrigger));
+        }
+    }
+
+    private int getControllerLeftTriggerState(
+            short controllerNumber) {
+        if (controllerNumber < 0 ||
+                controllerNumber >= ControllerSlotAllocator.MAX_SLOTS) {
+            return 0;
+        }
+        return controllerLeftTriggerStates.get(controllerNumber);
+    }
 
     private int handleRemapping(InputDeviceContext context, KeyEvent event) {
         return context.buttonMapper.remap(
@@ -2229,184 +2251,93 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
     }
 
-    private SensorEventListener createSensorListener(final GenericControllerContext context,final short controllerNumber, final byte motionType, final boolean needsDeviceOrientationCorrection) {
+    private SensorEventListener createSensorListener(
+            final GenericControllerContext context,
+            final short controllerNumber,
+            final byte motionType,
+            final boolean needsDeviceOrientationCorrection) {
         return new SensorEventListener() {
-            private float[] lastValues = new float[3];
+            private final ControllerMotionSampleTransformer sampleTransformer =
+                    new ControllerMotionSampleTransformer();
 
             @Override
             public void onSensorChanged(SensorEvent sensorEvent) {
-                // Android will invoke our callback any time we get a new reading,
-                // even if the values are the same as last time. Don't report a
-                // duplicate set of values to save bandwidth.
-                if (sensorEvent.values[0] == lastValues[0] &&
-                        sensorEvent.values[1] == lastValues[1] &&
-                        sensorEvent.values[2] == lastValues[2]) {
+                int deviceRotation =
+                        needsDeviceOrientationCorrection
+                                ? activityContext
+                                        .getWindowManager()
+                                        .getDefaultDisplay()
+                                        .getRotation()
+                                : ControllerMotionSampleTransformer.ROTATION_0;
+                boolean gyroscope =
+                        motionType == MoonBridge.LI_MOTION_TYPE_GYRO;
+                if (!sampleTransformer.update(
+                        sensorEvent.values[0],
+                        sensorEvent.values[1],
+                        sensorEvent.values[2],
+                        deviceRotation,
+                        needsDeviceOrientationCorrection,
+                        gyroscope)) {
                     return;
                 }
-                else {
-                    lastValues[0] = sensorEvent.values[0];
-                    lastValues[1] = sensorEvent.values[1];
-                    lastValues[2] = sensorEvent.values[2];
-                }
 
-                int x = 0;
-                int y = 1;
-                int z = 2;
-                int xFactor = 1;
-                int yFactor = 1;
-                int zFactor = 1;
-
-                if (needsDeviceOrientationCorrection) {
-                    int deviceRotation = activityContext.getWindowManager().getDefaultDisplay().getRotation();
-                    switch (deviceRotation) {
-                        case Surface.ROTATION_0:
-                        case Surface.ROTATION_180:
-                            x = 0;
-                            y = 2;
-                            z = 1;
-                            break;
-
-                        case Surface.ROTATION_90:
-                        case Surface.ROTATION_270:
-                            x = 1;
-                            y = 2;
-                            z = 0;
-                            break;
-                    }
-
-                    switch (deviceRotation) {
-                        case Surface.ROTATION_0:
-                            zFactor = -1;
-                            break;
-                        case Surface.ROTATION_90:
-                            xFactor = -1;
-                            zFactor = -1;
-                            break;
-                        case Surface.ROTATION_180:
-                            xFactor = -1;
-                            break;
-                        case Surface.ROTATION_270:
-                            break;
-                    }
-                }
-                //强制体感
                 ControllerSettings settings = settingsState.get();
                 if (settings.isForceGyroEnabled()) {
-                    //按下左扳机生效
                     if (settings.isForceGyroLeftTriggerRequired() &&
-                            (sensorLeftTrigger & 0xFF) < 200) {
-                        context.rightStickX = 0x0000;
-                        context.rightStickY = 0x0000;
+                            getControllerLeftTriggerState(
+                                    controllerNumber) < 200) {
+                        context.gyroStickTranslator.reset();
+                        context.rightStickX =
+                                context.gyroStickTranslator
+                                        .getRightStickX();
+                        context.rightStickY =
+                                context.gyroStickTranslator
+                                        .getRightStickY();
                         sendControllerInputPacket(context);
                         return;
                     }
-                    if (motionType == MoonBridge.LI_MOTION_TYPE_GYRO) {
-                        // --- 1. 修正坐标轴映射 ---
-                        // 游戏习惯：
-                        // 左右看 (RightStick X) -> 对应手机的 Y轴 (values[1]) 或 Z轴 (values[2])
-                        // 上下看 (RightStick Y) -> 对应手机的 X轴 (values[0])
-                        float gyroX, gyroY;
-                        int deviceRotation = activityContext.getWindowManager().getDefaultDisplay().getRotation();
-
-                        if (deviceRotation == Surface.ROTATION_90 || deviceRotation == Surface.ROTATION_270) {
-                            // 横屏模式
-                            gyroX = sensorEvent.values[0]; // 左右转动 (Yaw/Roll)
-                            gyroY = sensorEvent.values[1]; // 前后俯仰 (Pitch)
-                        } else {
-                            // 竖屏模式
-                            gyroX = sensorEvent.values[1];
-                            gyroY = sensorEvent.values[0];
+                    if (gyroscope) {
+                        if (!needsDeviceOrientationCorrection) {
+                            deviceRotation =
+                                    activityContext
+                                            .getWindowManager()
+                                            .getDefaultDisplay()
+                                            .getRotation();
                         }
-                        // 处理用户设置的反转
-                        if (settings.areForceGyroAxesSwapped()) {
-                            float temp = gyroX;
-                            gyroX = gyroY;
-                            gyroY = temp;
-                        }
-                        // --- 2. 独立轴向处理逻辑 ---
-                        // 核心改动：先处理死区，确保微小信号能活下来，再进行指数放大
-                        float globalSensitivity =
-                                settings
-                                        .getForceGyroSensitivityPercent() *
-                                        0.01f;
-                        float finalX = optimizeAxis(
-                                gyroX,
-                                1.2f,
-                                globalSensitivity); // 适当增加横向灵敏度
-                        float finalY = optimizeAxis(
-                                gyroY,
-                                1.0f,
-                                globalSensitivity);
-                        // --- 3. 平滑滤波 (低通) ---
-                        // SMOOTH_ALPHA 建议 0.25f 左右
-                        filterGyroX = filterGyroX + SMOOTH_ALPHA * (finalX - filterGyroX);
-                        filterGyroY = filterGyroY + SMOOTH_ALPHA * (finalY - filterGyroY);
-                        // --- 4. 限制范围并发送 ---
-                        short rightX=(short) (clamp(filterGyroX) * 0x7FFF);
-                        short rightY=(short) (clamp(filterGyroY) * 0x7FFF);
-                        context.rightStickX = (short) -rightX;
-                        context.rightStickY = (short) -rightY;
+                        context.gyroStickTranslator.update(
+                                sampleTransformer.getRawX(),
+                                sampleTransformer.getRawY(),
+                                deviceRotation,
+                                settings.areForceGyroAxesSwapped(),
+                                settings.getForceGyroSensitivityPercent());
+                        context.rightStickX =
+                                context.gyroStickTranslator
+                                        .getRightStickX();
+                        context.rightStickY =
+                                context.gyroStickTranslator
+                                        .getRightStickY();
                         sendControllerInputPacket(context);
                     }
                     return;
                 }
 
-                if (motionType == MoonBridge.LI_MOTION_TYPE_GYRO) {
-                    // Convert from rad/s to deg/s
-                    conn.sendControllerMotionEvent((byte) controllerNumber,
-                            motionType,
-                            sensorEvent.values[x] * xFactor * 57.2957795f,
-                            sensorEvent.values[y] * yFactor * 57.2957795f,
-                            sensorEvent.values[z] * zFactor * 57.2957795f);
-                } else {
-                    // Pass m/s^2 directly without conversion
-                    conn.sendControllerMotionEvent((byte) controllerNumber,
-                            motionType,
-                            sensorEvent.values[x] * xFactor,
-                            sensorEvent.values[y] * yFactor,
-                            sensorEvent.values[z] * zFactor);
-                }
+                conn.sendControllerMotionEvent(
+                        (byte) controllerNumber,
+                        motionType,
+                        sampleTransformer.getTransformedX(),
+                        sampleTransformer.getTransformedY(),
+                        sampleTransformer.getTransformedZ());
             }
 
             @Override
             public void onAccuracyChanged(Sensor sensor, int accuracy) {}
         };
     }
-    private final float SMOOTH_ALPHA = 0.3f; // 稍微提高响应速度
-    private float filterGyroX = 0, filterGyroY = 0;
-//    private final float GYRO_SENSITIVITY = 1.2f; // 总灵敏度缩放
-    /**
-     * 优化单轴算法：死区 -> 线性放大 -> 指数曲线
-     */
-    private float optimizeAxis(
-            float raw,
-            float sensitivity,
-            float globalSensitivity) {
-        float absVal = Math.abs(raw);
-        float deadzone = 0.015f; // 极小的死区
 
-        if (absVal < deadzone) return 0;
-
-        // 1. 软死区映射：让数值从 0 开始平滑增长
-        float normalized = (absVal - deadzone) / (1.0f - deadzone);
-
-        // 2. 响应曲线：1.5 次方比 2.0 次方在小范围更灵敏，不会“肉”
-        float curved = (float) Math.pow(normalized, 1.5);
-
-        // 3. 基础输出补偿：只要超过死区，就给一个 0.05 的起步分，防止游戏识别不到
-        float out = (curved + 0.05f) *
-                sensitivity *
-                globalSensitivity;
-
-        return raw > 0 ? out : -out;
-    }
-
-    private float clamp(float val) {
-        return Math.max(-1f, Math.min(1f, val));
-    }
-
-
-    public void handleSetMotionEventState(final short controllerNumber, final byte motionType, short reportRateHz) {
+    public void handleSetMotionEventState(
+            final short controllerNumber,
+            final byte motionType,
+            short reportRateHz) {
         if (stopped) {
             return;
         }
@@ -3148,7 +3079,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         public short leftStickX = 0x0000;
         public short leftStickY = 0x0000;
 
-        public byte sensorLeftTrigger =  0x00;
+        public final ControllerGyroStickTranslator
+                gyroStickTranslator =
+                new ControllerGyroStickTranslator();
 
         public final ControllerMouseEmulationTranslator
                 mouseEmulationTranslator =

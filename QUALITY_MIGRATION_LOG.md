@@ -942,3 +942,22 @@ Verification on 2026-07-31:
   tests per variant (1,568 executions total), all Lint variants, and both
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites.
+- Extracted `ControllerMotionSampleTransformer` from the Android sensor
+  callback. Raw-sample duplicate suppression, every display rotation, device
+  coordinate correction, and gyro radians-to-degrees conversion are now pure,
+  deterministic, and allocation-free after listener construction. The first
+  legitimate all-zero sample is no longer dropped merely because Java arrays
+  initialize to zero.
+- Extracted the customized gyro-to-right-stick curve into one stateful
+  `ControllerGyroStickTranslator` per controller context. Its established
+  deadzone, 1.5-power response, horizontal gain, low-pass coefficient,
+  inversion, and protocol clamp have numeric fixtures. Releasing the required
+  trigger resets both output and filter state.
+- Replaced the handler-wide force-gyro left-trigger sample and smoothing state
+  with one atomic trigger value per protocol slot and one translator per
+  controller context. Concurrent or split multi-controller reports can no
+  longer gate or bias another controller's gyro output.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 402 JVM
+  tests per variant (1,608 executions total), every Lint variant, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites.
