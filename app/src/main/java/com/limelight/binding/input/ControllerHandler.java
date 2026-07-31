@@ -1829,77 +1829,50 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             final short controllerNumber,
             final byte motionType,
             final boolean needsDeviceOrientationCorrection) {
-        return new SensorEventListener() {
-            private final ControllerMotionSampleTransformer sampleTransformer =
-                    new ControllerMotionSampleTransformer();
+        ControllerMotionEventProcessor processor =
+                new ControllerMotionEventProcessor(
+                        controllerNumber,
+                        motionType,
+                        needsDeviceOrientationCorrection,
+                        settingsState::get,
+                        () -> activityContext
+                                .getWindowManager()
+                                .getDefaultDisplay()
+                                .getRotation(),
+                        this::getControllerLeftTriggerState,
+                        new ControllerMotionEventProcessor.Output() {
+                            @Override
+                            public void sendControllerInput(
+                                    short rightStickX,
+                                    short rightStickY) {
+                                context.rightStickX = rightStickX;
+                                context.rightStickY = rightStickY;
+                                sendControllerInputPacket(context);
+                            }
 
+                            @Override
+                            public void sendMotion(
+                                    short outputControllerNumber,
+                                    byte outputMotionType,
+                                    float x,
+                                    float y,
+                                    float z) {
+                                conn.sendControllerMotionEvent(
+                                        (byte) outputControllerNumber,
+                                        outputMotionType,
+                                        x,
+                                        y,
+                                        z);
+                            }
+                        },
+                        context.gyroStickTranslator);
+        return new SensorEventListener() {
             @Override
             public void onSensorChanged(SensorEvent sensorEvent) {
-                int deviceRotation =
-                        needsDeviceOrientationCorrection
-                                ? activityContext
-                                        .getWindowManager()
-                                        .getDefaultDisplay()
-                                        .getRotation()
-                                : ControllerMotionSampleTransformer.ROTATION_0;
-                boolean gyroscope =
-                        motionType == MoonBridge.LI_MOTION_TYPE_GYRO;
-                if (!sampleTransformer.update(
+                processor.process(
                         sensorEvent.values[0],
                         sensorEvent.values[1],
-                        sensorEvent.values[2],
-                        deviceRotation,
-                        needsDeviceOrientationCorrection,
-                        gyroscope)) {
-                    return;
-                }
-
-                ControllerSettings settings = settingsState.get();
-                if (settings.isForceGyroEnabled()) {
-                    if (settings.isForceGyroLeftTriggerRequired() &&
-                            getControllerLeftTriggerState(
-                                    controllerNumber) < 200) {
-                        context.gyroStickTranslator.reset();
-                        context.rightStickX =
-                                context.gyroStickTranslator
-                                        .getRightStickX();
-                        context.rightStickY =
-                                context.gyroStickTranslator
-                                        .getRightStickY();
-                        sendControllerInputPacket(context);
-                        return;
-                    }
-                    if (gyroscope) {
-                        if (!needsDeviceOrientationCorrection) {
-                            deviceRotation =
-                                    activityContext
-                                            .getWindowManager()
-                                            .getDefaultDisplay()
-                                            .getRotation();
-                        }
-                        context.gyroStickTranslator.update(
-                                sampleTransformer.getRawX(),
-                                sampleTransformer.getRawY(),
-                                deviceRotation,
-                                settings.areForceGyroAxesSwapped(),
-                                settings.getForceGyroSensitivityPercent());
-                        context.rightStickX =
-                                context.gyroStickTranslator
-                                        .getRightStickX();
-                        context.rightStickY =
-                                context.gyroStickTranslator
-                                        .getRightStickY();
-                        sendControllerInputPacket(context);
-                    }
-                    return;
-                }
-
-                conn.sendControllerMotionEvent(
-                        (byte) controllerNumber,
-                        motionType,
-                        sampleTransformer.getTransformedX(),
-                        sampleTransformer.getTransformedY(),
-                        sampleTransformer.getTransformedZ());
+                        sensorEvent.values[2]);
             }
 
             @Override

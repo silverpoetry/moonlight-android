@@ -1117,3 +1117,18 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Extracted `ControllerMotionEventProcessor` as the allocation-free owner of
+  the realtime motion branch. Duplicate suppression still precedes settings
+  access; device sensors retain four-way coordinate correction; controller
+  sensors read display rotation only for force-gyro stick mapping; native
+  motion and force-gyro outputs remain mutually exclusive.
+- Fixtures lock the left-trigger threshold at 200, translator reset and zero
+  stick emission below that threshold, accelerometer suppression while force
+  gyro is active, raw gyro axis use, output values, and conditional rotation
+  access. Android's `SensorEventListener` now forwards only its three values to
+  the processor and introduces no allocation, lock, queue, or thread.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 484 JVM
+  tests per variant (1,936 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.

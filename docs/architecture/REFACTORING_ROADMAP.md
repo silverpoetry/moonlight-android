@@ -397,6 +397,12 @@ targets.
   customized deadzone, response curve, smoothing, inversion, and clamp state;
   force-gyro trigger state is isolated by protocol slot instead of shared
   across all attached controllers.
+- `ControllerMotionEventProcessor` owns the allocation-free realtime branch
+  from raw samples through duplicate suppression and typed-settings lookup to
+  either native motion output or force-gyro right-stick output. Conditional
+  display-rotation reads, the left-trigger threshold, accelerometer suppression,
+  translator reset, and output ordering are explicit JVM fixtures; Android's
+  listener now only forwards the three sensor values.
 - `ControllerAxisProfile` resolves immutable stick, trigger, and hat-axis
   assignments from platform-probed axis pairs. Dedicated, brake/gas,
   brake/throttle, RX/RY, Z/RZ, old DualShock, Linux DualShock, unnamed-device,
