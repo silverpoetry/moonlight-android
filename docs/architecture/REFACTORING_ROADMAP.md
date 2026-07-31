@@ -353,6 +353,12 @@ targets.
 - `ControllerSlotAllocator` is the sole owner of the protocol's sixteen player
   slots and the initial-to-active mask transition. Android/USB device code asks
   for or releases a slot instead of mutating duplicate bitmasks.
+- `ControllerSlotLease` owns each context's selected number, allocator
+  reservation, and host-announcement state. Selection must precede assignment,
+  cannot be silently changed, and releases are idempotent. Device recreation
+  transfers reservation ownership without changing the host-visible slot,
+  while the destroyed context retains a read-only routing snapshot for a
+  callback already in flight.
 - `ControllerBatteryReport` owns Android-to-protocol battery conversion and
   duplicate-sample suppression. The Android adapter only samples platform or
   SHIELD APIs and sends the immutable report.

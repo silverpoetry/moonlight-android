@@ -409,8 +409,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         defaultContext.rightTriggerAxis = MotionEvent.AXIS_GAS;
         defaultContext.hatXAxis = MotionEvent.AXIS_HAT_X;
         defaultContext.hatYAxis = MotionEvent.AXIS_HAT_Y;
-        defaultContext.controllerNumber = (short) 0;
-        defaultContext.assignedControllerNumber = true;
+        defaultContext.slotLease.selectFixed((short) 0);
+        defaultContext.slotLease.completeAssignment();
         defaultContext.external = false;
 
         // Some devices (GPD XD) have a back button which sends input events
@@ -684,16 +684,19 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
     private void releaseControllerNumber(GenericControllerContext context) {
         // If we reserved a controller number, remove that reservation
-        if (context.reservedControllerNumber) {
-            LimeLog.info("Controller number "+context.controllerNumber+" is now available");
-            slotAllocator.release(context.controllerNumber);
+        short controllerNumber =
+                context.slotLease.getControllerNumber();
+        if (context.slotLease.releaseReservation(slotAllocator)) {
+            LimeLog.info(
+                    "Controller number " + controllerNumber +
+                            " is now available");
         }
 
         // If this device sent data as a gamepad, zero the values before removing.
         // We must do this after releasing the slot so this
         // causes the device to be removed on the server PC.
-        if (context.assignedControllerNumber) {
-            conn.sendControllerInput(context.controllerNumber, getActiveControllerMask(),
+        if (context.slotLease.isAssigned()) {
+            conn.sendControllerInput(controllerNumber, getActiveControllerMask(),
                     (short) 0,
                     (byte) 0, (byte) 0,
                     (short) 0, (short) 0,
@@ -728,23 +731,17 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
     private void reserveControllerNumber(
             GenericControllerContext context) {
-        short reservedSlot = slotAllocator.reserveNext();
-        if (reservedSlot == ControllerSlotAllocator.NO_SLOT) {
-            context.controllerNumber = 0;
-            context.reservedControllerNumber = false;
+        if (!context.slotLease.reserveNext(slotAllocator)) {
             LimeLog.warning(
                     "No controller number is available; " +
                             "falling back to controller 0");
-            return;
         }
-        context.controllerNumber = reservedSlot;
-        context.reservedControllerNumber = true;
     }
 
     // Called before sending input but after we've determined that this
     // is definitely a controller (not a keyboard, mouse, or something else)
     private void assignControllerNumberIfNeeded(GenericControllerContext context) {
-        if (context.assignedControllerNumber) {
+        if (context.slotLease.isAssigned()) {
             return;
         }
 
@@ -755,7 +752,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             LimeLog.info(devContext.name+" ("+context.id+") needs a controller number assigned");
             if (!devContext.external) {
                 LimeLog.info("Built-in buttons hardcoded as controller 0");
-                context.controllerNumber = 0;
+                context.slotLease.selectFixed((short) 0);
             }
             else if (settings.isMultiControllerEnabled() &&
                     devContext.hasJoystickAxes) {
@@ -766,8 +763,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 // If this device doesn't have joystick axes, it may be an input device associated
                 // with another joystick (like a PS4 touchpad). We'll propagate that joystick's
                 // controller number to this associated device.
-
-                context.controllerNumber = 0;
 
                 // For the DS4 case, the associated joystick is the next device after the touchpad.
                 // We'll try the opposite case too, just to be a little future-proof.
@@ -790,25 +785,30 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     }
 
                     // Assign a controller number for the associated device if one isn't assigned
-                    if (!associatedDeviceContext.assignedControllerNumber) {
+                    if (!associatedDeviceContext.slotLease.isAssigned()) {
                         assignControllerNumberIfNeeded(associatedDeviceContext);
                     }
 
                     // Propagate the associated controller number
-                    context.controllerNumber = associatedDeviceContext.controllerNumber;
+                    context.slotLease.selectFixed(
+                            associatedDeviceContext.slotLease
+                                    .getControllerNumber());
 
                     LimeLog.info("Propagated controller number from "+associatedDeviceContext.name);
+                }
+                else {
+                    context.slotLease.selectFixed((short) 0);
                 }
             }
             else {
                 LimeLog.info("Not reserving a controller number");
-                context.controllerNumber = 0;
+                context.slotLease.selectFixed((short) 0);
             }
 
             // If the gamepad doesn't have motion sensors, use the on-device sensors as a fallback for player 1
             if (settings
                     .isMotionSensorsFallbackToDeviceEnabled() &&
-                    context.controllerNumber == 0 &&
+                    context.slotLease.getControllerNumber() == 0 &&
                     !devContext.motionRegistrations.hasManager()) {
                 devContext.motionRegistrations.setManager(
                         deviceSensorManager);
@@ -821,12 +821,14 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             }
             else {
                 LimeLog.info("Not reserving a controller number");
-                context.controllerNumber = 0;
+                context.slotLease.selectFixed((short) 0);
             }
         }
 
-        LimeLog.info("Assigned as controller "+context.controllerNumber);
-        context.assignedControllerNumber = true;
+        LimeLog.info(
+                "Assigned as controller " +
+                        context.slotLease.getControllerNumber());
+        context.slotLease.completeAssignment();
 
         // Report attributes of this new controller to the host
         context.sendControllerArrival();
@@ -1285,7 +1287,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         assignControllerNumberIfNeeded(originalContext);
 
         // Take the context's controller number and fuse all inputs with the same number
-        short controllerNumber = originalContext.controllerNumber;
+        short controllerNumber =
+                originalContext.slotLease.getControllerNumber();
         int inputMap = 0;
         byte leftTrigger = 0;
         byte rightTrigger = 0;
@@ -1299,8 +1302,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         // device before we send it.
         for (int i = 0; i < inputDeviceContexts.size(); i++) {
             GenericControllerContext context = inputDeviceContexts.valueAt(i);
-            if (context.assignedControllerNumber &&
-                    context.controllerNumber == controllerNumber &&
+            if (context.slotLease.isAssigned() &&
+                    context.slotLease.getControllerNumber() ==
+                            controllerNumber &&
                     context.isMouseEmulationActive() ==
                             originalContext.isMouseEmulationActive()) {
                 inputMap |= context.inputMap;
@@ -1332,8 +1336,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
         for (int i = 0; i < usbDeviceContexts.size(); i++) {
             GenericControllerContext context = usbDeviceContexts.valueAt(i);
-            if (context.assignedControllerNumber &&
-                    context.controllerNumber == controllerNumber &&
+            if (context.slotLease.isAssigned() &&
+                    context.slotLease.getControllerNumber() ==
+                            controllerNumber &&
                     context.isMouseEmulationActive() ==
                             originalContext.isMouseEmulationActive()) {
                 inputMap |= context.inputMap;
@@ -1363,7 +1368,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                                 context.rightStickY);
             }
         }
-        if (defaultContext.controllerNumber == controllerNumber) {
+        if (defaultContext.slotLease.getControllerNumber() ==
+                controllerNumber) {
             inputMap |= defaultContext.inputMap;
             leftTrigger =
                     ControllerAnalogInputCombiner.combineTrigger(
@@ -1554,7 +1560,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 normalizeRawValueWithRange(event.getPressure(pointerIndex), context.touchpadPressureRange)
                 : 0;
 
-        return conn.sendControllerTouchEvent((byte)context.controllerNumber, touchType,
+        return conn.sendControllerTouchEvent(
+                (byte) context.slotLease.getControllerNumber(),
+                touchType,
                 event.getPointerId(pointerIndex),
                 normalizedX, normalizedY, normalizedPressure) != MoonBridge.LI_ERR_UNSUPPORTED;
     }
@@ -1674,7 +1682,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         }
         else if (event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
             // Cancel impacts all active pointers
-            return conn.sendControllerTouchEvent((byte)context.controllerNumber, MoonBridge.LI_TOUCH_EVENT_CANCEL_ALL,
+            return conn.sendControllerTouchEvent(
+                    (byte) context.slotLease.getControllerNumber(),
+                    MoonBridge.LI_TOUCH_EVENT_CANCEL_ALL,
                     0, 0, 0, 0) != MoonBridge.LI_ERR_UNSUPPORTED;
         }
         else {
@@ -1731,7 +1741,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         for (int i = 0; i < inputDeviceContexts.size(); i++) {
             InputDeviceContext deviceContext = inputDeviceContexts.valueAt(i);
 
-            if (deviceContext.controllerNumber == controllerNumber) {
+            if (deviceContext.slotLease.getControllerNumber() ==
+                    controllerNumber) {
                 foundMatchingDevice = true;
 
                 if (shouldSuppressInputDeviceRumble(deviceContext)) {
@@ -1745,7 +1756,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         for (int i = 0; i < usbDeviceContexts.size(); i++) {
             UsbDeviceContext deviceContext = usbDeviceContexts.valueAt(i);
 
-            if (deviceContext.controllerNumber == controllerNumber) {
+            if (deviceContext.slotLease.getControllerNumber() ==
+                    controllerNumber) {
                 foundMatchingDevice = vibrated = true;
                 if (!shouldSuppressControllerRumble()) {
                     deviceContext.device.rumble(lowFreqMotor, highFreqMotor);
@@ -1801,7 +1813,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         for (int i = 0; i < inputDeviceContexts.size(); i++) {
             InputDeviceContext deviceContext = inputDeviceContexts.valueAt(i);
 
-            if (deviceContext.controllerNumber == controllerNumber) {
+            if (deviceContext.slotLease.getControllerNumber() ==
+                    controllerNumber) {
                 if (shouldSuppressInputDeviceRumble(deviceContext)) {
                     continue;
                 }
@@ -1816,7 +1829,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         for (int i = 0; i < usbDeviceContexts.size(); i++) {
             UsbDeviceContext deviceContext = usbDeviceContexts.valueAt(i);
 
-            if (deviceContext.controllerNumber == controllerNumber) {
+            if (deviceContext.slotLease.getControllerNumber() ==
+                    controllerNumber) {
                 if (!shouldSuppressControllerRumble()) {
                     deviceContext.device.rumbleTriggers(leftTrigger, rightTrigger);
                 }
@@ -1902,7 +1916,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         for (int i = 0; i < inputDeviceContexts.size(); i++) {
             InputDeviceContext deviceContext = inputDeviceContexts.valueAt(i);
 
-            if (deviceContext.controllerNumber == controllerNumber) {
+            if (deviceContext.slotLease.getControllerNumber() ==
+                    controllerNumber) {
                 deviceContext.motionSession.setReportRate(
                         controllerNumber,
                         motionType,
@@ -1920,7 +1935,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         for (int i = 0; i < inputDeviceContexts.size(); i++) {
             InputDeviceContext deviceContext =
                     inputDeviceContexts.valueAt(i);
-            if (deviceContext.controllerNumber == controllerNumber) {
+            if (deviceContext.slotLease.getControllerNumber() ==
+                    controllerNumber) {
                 deviceContext.ledSession.setColor(r, g, b);
             }
         }
@@ -2505,7 +2521,12 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 .isUsbGyroscopeReportingEnabled()) {
             return;
         }
-        conn.sendControllerMotionEvent((byte)context.controllerNumber, motionType, motionX, motionY, motionZ);
+        conn.sendControllerMotionEvent(
+                (byte) context.slotLease.getControllerNumber(),
+                motionType,
+                motionX,
+                motionY,
+                motionZ);
     }
 
     @Override
@@ -2518,7 +2539,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         assignControllerNumberIfNeeded(context);
 
-        conn.sendControllerTouchEvent((byte) context.controllerNumber, eventType, pointerId,
+        conn.sendControllerTouchEvent(
+                (byte) context.slotLease.getControllerNumber(),
+                eventType,
+                pointerId,
                 clampUnitRange(x), clampUnitRange(y), clampUnitRange(pressure));
     }
 
@@ -2593,9 +2617,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         public float rightStickDeadzoneRadius;
         public float triggerDeadzone;
 
-        public boolean assignedControllerNumber;
-        public boolean reservedControllerNumber;
-        public short controllerNumber;
+        final ControllerSlotLease slotLease =
+                new ControllerSlotLease();
 
         public int inputMap = 0;
         public byte leftTrigger = 0x00;
@@ -2732,7 +2755,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                             batterySource,
                             (protocolState, percentage) ->
                                     conn.sendControllerBatteryEvent(
-                                            (byte) controllerNumber,
+                                            (byte) slotLease
+                                                    .getControllerNumber(),
                                             protocolState,
                                             percentage));
             this.batterySession = new ControllerBatterySession(
@@ -2875,7 +2899,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                                 "emulating motion sensors");
             }
 
-            conn.sendControllerArrivalEvent((byte)controllerNumber, getActiveControllerMask(),
+            conn.sendControllerArrivalEvent(
+                    (byte) slotLease.getControllerNumber(),
+                    getActiveControllerMask(),
                     report.getReportedType(),
                     report.getSupportedButtonFlags(),
                     report.getCapabilities());
@@ -2900,10 +2926,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             // We also want to make sure the change is invisible to the host PC to avoid an add/remove
             // cycle for the gamepad which may break some games.
             oldContext.destroy();
-            // Copy over existing controller number state
-            this.assignedControllerNumber = oldContext.assignedControllerNumber;
-            this.reservedControllerNumber = oldContext.reservedControllerNumber;
-            this.controllerNumber = oldContext.controllerNumber;
+            // Transfer the slot without releasing it. Releasing and
+            // reacquiring here would briefly remove the controller on the host.
+            oldContext.slotLease.transferTo(this.slotLease);
 
             // We may have set this device to use the built-in sensor manager. If so, do that again.
             if (usedDeviceSensorManager) {
@@ -2950,7 +2975,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         @Override
         public void sendControllerArrival() {
-            conn.sendControllerArrivalEvent((byte)controllerNumber, getActiveControllerMask(),
+            conn.sendControllerArrivalEvent(
+                    (byte) slotLease.getControllerNumber(),
+                    getActiveControllerMask(),
                     device.getType(), device.getSupportedButtonFlags(), device.getCapabilities());
         }
     }

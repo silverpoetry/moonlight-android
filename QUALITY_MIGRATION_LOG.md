@@ -1132,3 +1132,22 @@ Verification on 2026-07-31:
   unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
   passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
   failures, errors, or skips.
+- Replaced the three independently mutable controller-number fields in every
+  context with `ControllerSlotLease`. Fixed/shared selection, allocator-backed
+  reservation, assignment completion, release, fallback to player one, and
+  device-context migration now pass through one state owner with explicit
+  ordering and range invariants.
+- Migration transfers reservation ownership to the replacement without
+  releasing the slot or changing the host mask. The destroyed context retains
+  its number and assigned routing snapshot for a callback already in flight,
+  but no longer owns the allocator reservation, preventing both accidental
+  reassignment and double release.
+- Split-device assignment now selects exactly once: a matching joystick shares
+  its established number, while player one is selected only after both adjacent
+  association candidates fail. This preserves the DS4 touchpad fallback without
+  relying on an overwrite of partially initialized slot state.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 491 JVM
+  tests per variant (1,964 executions total), all Lint variants, and both
+  unminified Release APKs. `verifyConnected --rerun-tasks --no-daemon` then
+  passed all 296 tasks and both 107-test root/non-root API 34 suites with zero
+  failures, errors, or skips.
