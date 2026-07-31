@@ -395,3 +395,50 @@ Verification on 2026-07-31:
 - Opening both dialog entry points and reconnecting a live Sunshine stream after
   Apply remain manual behavior checks; the automated evidence does not claim
   those host-dependent interactions passed.
+
+## Typed stream-menu presentation boundary
+
+- Removed `GameMenuHost.getStreamPreferences()`. The in-stream action catalog
+  now consumes `StreamUiSettings`, and the virtual-gamepad and virtual-key
+  buttons query the actual overlay owners for current visibility.
+- Separated persisted launch policy from mutable session presentation.
+  `ControllerSettings` and `VirtualControlSettings` determine initial overlay
+  creation; menu toggles and picture-in-picture hiding no longer mutate
+  `PreferenceConfiguration` as a surrogate runtime state store.
+- Added the virtual-key startup default and built-in-shortcut catalog policy to
+  their canonical typed schemas, loaders, immutable snapshots, and update
+  intents.
+- Replaced the orientation adapter's legacy aggregate dependency with
+  `StreamOrientationRequest`. The composition root projects current gamepad
+  visibility, the immutable active-stream geometry, portrait policy, and
+  automatic-orientation policy into that request.
+- Deleted the displaced `PreferenceConfiguration` fields and keys for
+  on-screen-gamepad visibility, virtual-key startup visibility, built-in
+  shortcut hiding, portrait policy, and automatic orientation.
+- Added an architecture rule preventing the stream menu and orientation
+  boundary from depending on preference packages, Android settings adapters,
+  or raw `SharedPreferences`.
+
+Verification on 2026-07-31:
+
+- Focused typed UI/virtual-control, orientation-policy, and architecture tests:
+  passed; both root and non-root production and instrumentation sources
+  compiled.
+- `verifyLocal --rerun-tasks`: passed with all 193 tasks executed. Each of the
+  four root/non-root debug/release variants ran 263 JVM tests, for 1,052
+  executions total with zero failures, errors, or skips. All Lint variants
+  passed, and both unminified Release APKs built.
+- `verifyConnected --rerun-tasks` on the API 34 emulator: all 296 tasks
+  executed; 103 non-root and 103 root instrumentation tests passed with zero
+  failures, errors, or skips.
+- Release artifacts:
+
+| Flavor | Size | SHA-256 |
+| --- | ---: | --- |
+| `nonRootRelease` | 16,003,006 bytes | `95C93DC319832B3EBA638688A7BB33897042DB5927E9CD5EE6377946132AE404` |
+| `rootRelease` | 16,022,999 bytes | `41211E1EEBD32FB1759CB51EAD94FBB26D9D98A57ED88C930901032E1416ED30` |
+
+- Opening a live stream, toggling both overlays, entering/leaving
+  picture-in-picture, and exercising compact-window orientation remain the
+  host-dependent manual regression gate. Automated evidence does not claim
+  those interactions passed.

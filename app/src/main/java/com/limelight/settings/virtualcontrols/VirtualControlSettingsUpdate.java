@@ -66,6 +66,16 @@ public final class VirtualControlSettingsUpdate<T> {
                         ::setKeyboardHapticsEnabled);
     }
 
+    public static VirtualControlSettingsUpdate<Boolean>
+            showVirtualKeysOnStart(boolean show) {
+        return new VirtualControlSettingsUpdate<>(
+                VirtualControlSettingKeys
+                        .SHOW_VIRTUAL_KEYS_ON_START,
+                show,
+                VirtualControlSettings.Builder
+                        ::setShowVirtualKeysOnStart);
+    }
+
     public static VirtualControlSettingsUpdate<Integer>
             normalColor(int value) {
         return new VirtualControlSettingsUpdate<>(

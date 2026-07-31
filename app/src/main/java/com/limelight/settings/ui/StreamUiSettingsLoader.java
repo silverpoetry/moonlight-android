@@ -57,6 +57,9 @@ public final class StreamUiSettingsLoader {
                 .setCompactPerformanceMarginTopDp(repository.get(
                         StreamUiSettingKeys
                                 .COMPACT_PERFORMANCE_MARGIN_TOP_DP))
+                .setHideBuiltInShortcuts(repository.get(
+                        StreamUiSettingKeys
+                                .HIDE_BUILT_IN_SHORTCUTS))
                 .build();
     }
 }

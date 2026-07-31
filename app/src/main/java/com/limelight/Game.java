@@ -111,6 +111,7 @@ import com.limelight.utils.ServerHelper;
 import com.limelight.utils.ShortcutHelper;
 import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.StreamOrientationController;
+import com.limelight.utils.StreamOrientationRequest;
 import com.limelight.utils.UiHelper;
 import com.limelight.utils.ViewWindowGeometry;
 import android.annotation.SuppressLint;
@@ -1094,13 +1095,17 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 inputSettingsState.get()
                         .getTouchModePreferenceValue());
 
-        if (prefConfig.onscreenController) {
+        if (controllerSettingsState
+                .get()
+                .isOnscreenControllerEnabled()) {
             // create virtual onscreen controller
             initVirtualController();
         }
 
         //特殊按键屏幕布局
-        if(prefConfig.enableKeyboard){
+        if (virtualControlSettingsState
+                .get()
+                .shouldShowVirtualKeysOnStart()) {
             initKeyboardController();
         }
 
@@ -1197,10 +1202,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public void showHideKeyboardController(){
         if(keyBoardController==null){
             initKeyboardController();
-            prefConfig.enableKeyboard=true;
             return;
         }
-        prefConfig.enableKeyboard=keyBoardController.switchShowHide() != 0;
+        keyBoardController.toggleVisibility();
     }
 
     public void showHidekeyBoardLayoutController(){
@@ -1215,10 +1219,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public void showHideVirtualController(){
         if(virtualController==null){
             initVirtualController();
-            prefConfig.onscreenController=true;
             return;
         }
-        prefConfig.onscreenController= virtualController.switchShowHide() != 0;
+        virtualController.toggleVisibility();
     }
 
     @Override
@@ -1256,8 +1259,29 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void setPreferredOrientationForCurrentDisplay() {
+        StreamVideoSettings videoSettings =
+                streamVideoSettingsState.get();
+        VirtualControlSettings virtualControlSettings =
+                virtualControlSettingsState.get();
         StreamOrientationController.applyGameOrientation(
-                this, prefConfig, isPortrait);
+                this,
+                new StreamOrientationRequest(
+                        isVirtualControllerVisibleForOrientation(),
+                        streamDisplaySettings.isNativeResolution(),
+                        streamDisplaySettings.getStreamWidth(),
+                        streamDisplaySettings.getStreamHeight(),
+                        videoSettings.isPortrait() || isPortrait,
+                        virtualControlSettings
+                                .isAutomaticScreenOrientationEnabled()));
+    }
+
+    private boolean isVirtualControllerVisibleForOrientation() {
+        if (virtualController != null) {
+            return virtualController.isVisible();
+        }
+        return controllerSettingsState
+                .get()
+                .isOnscreenControllerEnabled();
     }
 
     @Override
@@ -1288,12 +1312,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
                 if (virtualController != null) {
                     virtualController.hide();
-                    prefConfig.onscreenController=false;
                 }
 
                 if (keyBoardController != null) {
                     keyBoardController.hide();
-                    prefConfig.enableKeyboard=false;
                 }
 
                 if(keyBoardLayoutController!=null){
@@ -1313,18 +1335,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             else {
                 isHidingOverlays = false;
 
-                // Restore overlays to previous state when leaving PiP
-//                if (virtualController != null) {
-//                    if(!prefConfig.onscreenController){
-//                        virtualController.hide();
-//                    }
-//                }
-//
-//                if (keyBoardController != null) {
-//                    if(!prefConfig.enableKeyboard){
-//                        keyBoardController.hide();
-//                    }
-//                }
                 performanceOverlayController
                         .restoreAfterPictureInPicture();
 
@@ -3193,10 +3203,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         virtualControlSettingsState.replace(
                 VirtualControlSettingsLoader.load(
                         settingsRepository));
-        if (virtualController != null && prefConfig.onscreenController) {
+        if (isVirtualControllerVisible()) {
             virtualController.refreshLayout();
         }
-        if(keyBoardController !=null && prefConfig.enableKeyboard){
+        if (isVirtualKeysVisible()) {
             keyBoardController.refreshLayout();
         }
         if(keyBoardLayoutController!=null){
@@ -3206,7 +3216,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     //切换虚拟手柄模式
     public void switchVirtualController(KeyBoardController.ControllerMode mode){
-        if(virtualController==null||!prefConfig.onscreenController){
+        if (!isVirtualControllerVisible()) {
             UiToast.makeText(this,"请先打开虚拟手柄开关！",UiToast.LENGTH_SHORT).show();
             return;
         }
@@ -3223,7 +3233,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     //切换虚拟手柄模式
     public void switchVirtualKeyController(KeyBoardController.ControllerMode mode){
-        if(keyBoardController==null||!prefConfig.enableKeyboard){
+        if (!isVirtualKeysVisible()) {
             UiToast.makeText(this,"请先打开虚拟按键开关！",UiToast.LENGTH_SHORT).show();
             return;
         }
@@ -3295,13 +3305,20 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     @Override
-    public PreferenceConfiguration getStreamPreferences() {
-        return prefConfig;
+    public boolean isGamepadMouseEmulationAvailable() {
+        return gameMenuSession.isMouseEmulationAvailable();
     }
 
     @Override
-    public boolean isGamepadMouseEmulationAvailable() {
-        return gameMenuSession.isMouseEmulationAvailable();
+    public boolean isVirtualControllerVisible() {
+        return virtualController != null &&
+                virtualController.isVisible();
+    }
+
+    @Override
+    public boolean isVirtualKeysVisible() {
+        return keyBoardController != null &&
+                keyBoardController.isVisible();
     }
 
     @Override

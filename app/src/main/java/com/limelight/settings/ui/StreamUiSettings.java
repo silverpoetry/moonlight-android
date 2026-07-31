@@ -44,6 +44,7 @@ public final class StreamUiSettings {
     private final boolean rumbleOverlayEnabled;
     private final int compactPerformanceScalePercent;
     private final int compactPerformanceMarginTopDp;
+    private final boolean hideBuiltInShortcuts;
 
     private StreamUiSettings(Builder builder) {
         floatingControlEnabled = builder.floatingControlEnabled;
@@ -81,6 +82,7 @@ public final class StreamUiSettings {
                         .normalizeValue(
                                 builder
                                         .compactPerformanceMarginTopDp);
+        hideBuiltInShortcuts = builder.hideBuiltInShortcuts;
     }
 
     public static Builder builder() {
@@ -149,6 +151,10 @@ public final class StreamUiSettings {
         return compactPerformanceMarginTopDp;
     }
 
+    public boolean shouldHideBuiltInShortcuts() {
+        return hideBuiltInShortcuts;
+    }
+
     public static final class Builder {
         private boolean floatingControlEnabled = true;
         private FloatingAction floatingAction =
@@ -164,6 +170,7 @@ public final class StreamUiSettings {
         private boolean rumbleOverlayEnabled;
         private int compactPerformanceScalePercent = 100;
         private int compactPerformanceMarginTopDp = 4;
+        private boolean hideBuiltInShortcuts;
 
         private Builder() {
         }
@@ -192,6 +199,8 @@ public final class StreamUiSettings {
                     settings.compactPerformanceScalePercent;
             compactPerformanceMarginTopDp =
                     settings.compactPerformanceMarginTopDp;
+            hideBuiltInShortcuts =
+                    settings.hideBuiltInShortcuts;
         }
 
         public Builder setFloatingControlEnabled(boolean enabled) {
@@ -259,6 +268,11 @@ public final class StreamUiSettings {
         public Builder setCompactPerformanceMarginTopDp(
                 int marginTopDp) {
             compactPerformanceMarginTopDp = marginTopDp;
+            return this;
+        }
+
+        public Builder setHideBuiltInShortcuts(boolean hide) {
+            hideBuiltInShortcuts = hide;
             return this;
         }
 

@@ -252,6 +252,11 @@ A slice is incomplete if callers can still bypass the new boundary.
   transaction. Custom resolutions cross a repository port, and unknown future
   FSR values round-trip unchanged until the user explicitly replaces them.
 - Versioned legacy preference migration through schema version 3.
+- The in-stream action catalog and virtual-overlay buttons consume typed UI
+  policy plus read-only controller visibility. Persisted startup defaults are
+  no longer mutated to represent picture-in-picture or menu presentation, and
+  compact-window orientation receives an immutable typed projection instead
+  of the legacy application-wide settings bag.
 - A platform-independent virtual-control layout identity/repository contract,
   Android atomic-file adapter, bounded and validated import, and one shared
   runtime/settings I/O path. Historical file names remain an adapter-only

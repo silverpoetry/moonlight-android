@@ -21,7 +21,6 @@ import android.widget.TextView;
 import com.limelight.R;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
-import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.settings.audio.StreamAudioSettingsUpdate;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettingsUpdate;
@@ -283,7 +282,8 @@ public class GameMenuFragment extends BaseGameMenuDialog
 
     private List<GameMenuCardCatalog.Card> loadCardCatalog() {
         boolean includeBuiltInShortcuts =
-                !host.getStreamPreferences().enableClearDefaultSpecial;
+                !host.getStreamUiSettings()
+                        .shouldHideBuiltInShortcuts();
         return GameMenuCardCatalog.load(
                 getActivity(), includeBuiltInShortcuts);
     }
@@ -352,16 +352,16 @@ public class GameMenuFragment extends BaseGameMenuDialog
         if (host == null) {
             return;
         }
-        PreferenceConfiguration preferences =
-                host.getStreamPreferences();
         setActionButtonActive(
                 btn_performance,
                 host.getStreamUiSettings()
                         .isPerformanceOverlayEnabled());
         setActionButtonActive(
-                btn_game_pad, preferences.onscreenController);
+                btn_game_pad,
+                host.isVirtualControllerVisible());
         setActionButtonActive(
-                btn_v_keyboard, preferences.enableKeyboard);
+                btn_v_keyboard,
+                host.isVirtualKeysVisible());
         setActionButtonActive(
                 btn_screen_move, host.getScreenMoveZoom());
         refreshMicButton();
@@ -504,7 +504,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
             host.showHideVirtualController();
             setActionButtonActive(
                     btn_game_pad,
-                    host.getStreamPreferences().onscreenController);
+                    host.isVirtualControllerVisible());
             return;
         }
 
@@ -521,7 +521,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
             host.showHideKeyboardController();
             setActionButtonActive(
                     btn_v_keyboard,
-                    host.getStreamPreferences().enableKeyboard);
+                    host.isVirtualKeysVisible());
             return;
         }
 
@@ -575,9 +575,9 @@ public class GameMenuFragment extends BaseGameMenuDialog
             GameListQuickFragment fragment=new GameListQuickFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle("快捷键(字体倾斜项可长按删除)");
-            fragment.setEnableClearDefaultSpecial(
-                    host.getStreamPreferences()
-                            .enableClearDefaultSpecial);
+            fragment.setHideBuiltInShortcuts(
+                    host.getStreamUiSettings()
+                            .shouldHideBuiltInShortcuts());
             fragment.setOnClick(new GameListQuickFragment.onClick() {
                 @Override
                 public void click(GameMenuQuickBean bean) {

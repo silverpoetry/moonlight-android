@@ -40,6 +40,7 @@ public final class StreamUiSettingsLoaderTest {
         assertEquals(
                 4,
                 settings.getCompactPerformanceMarginTopDp());
+        assertFalse(settings.shouldHideBuiltInShortcuts());
     }
 
     @Test
@@ -88,6 +89,9 @@ public final class StreamUiSettingsLoaderTest {
                 StreamUiSettingKeys
                         .COMPACT_PERFORMANCE_MARGIN_TOP_DP,
                 42);
+        repository.put(
+                StreamUiSettingKeys.HIDE_BUILT_IN_SHORTCUTS,
+                true);
 
         StreamUiSettings settings =
                 StreamUiSettingsLoader.load(repository);
@@ -112,6 +116,7 @@ public final class StreamUiSettingsLoaderTest {
         assertEquals(
                 42,
                 settings.getCompactPerformanceMarginTopDp());
+        assertTrue(settings.shouldHideBuiltInShortcuts());
     }
 
     @Test

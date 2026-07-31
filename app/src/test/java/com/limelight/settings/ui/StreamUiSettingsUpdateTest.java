@@ -146,6 +146,30 @@ public final class StreamUiSettingsUpdateTest {
         assertEquals(1, repository.applyCount);
     }
 
+    @Test
+    public void shortcutCatalogPolicyChangesOnlyItsOwnedField() {
+        FakeRepository repository = new FakeRepository();
+        StreamUiSettings original = representativeSettings();
+        StreamUiSettingsUpdate update =
+                StreamUiSettingsUpdate.hideBuiltInShortcuts(false);
+
+        StreamUiSettings updated = update.applyTo(original);
+        update.persist(repository);
+
+        assertFalse(updated.shouldHideBuiltInShortcuts());
+        assertEquals(
+                original.getFloatingAction(),
+                updated.getFloatingAction());
+        assertEquals(
+                false,
+                repository.values.get(
+                        StreamUiSettingKeys
+                                .HIDE_BUILT_IN_SHORTCUTS
+                                .getName()));
+        assertEquals(1, repository.values.size());
+        assertEquals(1, repository.applyCount);
+    }
+
     private static StreamUiSettings representativeSettings() {
         return StreamUiSettings.builder()
                 .setFloatingControlEnabled(false)
@@ -159,6 +183,7 @@ public final class StreamUiSettingsUpdateTest {
                 .setRumbleOverlayEnabled(true)
                 .setCompactPerformanceScalePercent(175)
                 .setCompactPerformanceMarginTopDp(42)
+                .setHideBuiltInShortcuts(true)
                 .build();
     }
 

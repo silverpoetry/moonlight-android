@@ -6,8 +6,6 @@ import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.os.Build;
 
-import com.limelight.preferences.PreferenceConfiguration;
-
 /**
  * Applies compact-screen orientation preferences while keeping adaptive windows free.
  */
@@ -19,8 +17,7 @@ public final class StreamOrientationController {
 
     public static void applyGameOrientation(
             Activity activity,
-            PreferenceConfiguration preferences,
-            boolean temporaryPortraitRequest) {
+            StreamOrientationRequest request) {
         Configuration configuration =
                 activity.getResources().getConfiguration();
         StreamOrientationPolicy.Mode mode =
@@ -28,13 +25,12 @@ public final class StreamOrientationController {
                         isAdaptiveWindow(activity, configuration),
                         configuration.screenWidthDp,
                         configuration.screenHeightDp,
-                        preferences.onscreenController,
-                        preferences.isNativeResolution(),
-                        preferences.width,
-                        preferences.height,
-                        preferences.enablePortrait ||
-                                temporaryPortraitRequest,
-                        preferences.autoScreenOrientation);
+                        request.isOnScreenControllerVisible(),
+                        request.isNativeResolution(),
+                        request.getStreamWidth(),
+                        request.getStreamHeight(),
+                        request.isPortraitRequested(),
+                        request.isAutomaticOrientationEnabled());
         apply(activity, mode);
     }
 

@@ -14,6 +14,7 @@ public final class VirtualControlSettings {
     private final int keyboardOpacityPercent;
     private final int keyboardHeightDp;
     private final boolean keyboardHapticsEnabled;
+    private final boolean showVirtualKeysOnStart;
     private final int gamepadSkin;
     private final boolean squareButtonsEnabled;
     private final boolean guideButtonVisible;
@@ -38,6 +39,8 @@ public final class VirtualControlSettings {
                 100,
                 400);
         keyboardHapticsEnabled = builder.keyboardHapticsEnabled;
+        showVirtualKeysOnStart =
+                builder.showVirtualKeysOnStart;
         gamepadSkin = normalizeGamepadSkin(builder.gamepadSkin);
         squareButtonsEnabled = builder.squareButtonsEnabled;
         guideButtonVisible = builder.guideButtonVisible;
@@ -89,6 +92,10 @@ public final class VirtualControlSettings {
 
     public boolean isKeyboardHapticsEnabled() {
         return keyboardHapticsEnabled;
+    }
+
+    public boolean shouldShowVirtualKeysOnStart() {
+        return showVirtualKeysOnStart;
     }
 
     public int getGamepadSkin() {
@@ -173,6 +180,7 @@ public final class VirtualControlSettings {
         private int keyboardHeightDp =
                 VirtualControlSettingKeys.DEFAULT_KEYBOARD_HEIGHT_DP;
         private boolean keyboardHapticsEnabled;
+        private boolean showVirtualKeysOnStart;
         private int gamepadSkin;
         private boolean squareButtonsEnabled;
         private boolean guideButtonVisible = true;
@@ -204,6 +212,8 @@ public final class VirtualControlSettings {
             keyboardHeightDp = settings.keyboardHeightDp;
             keyboardHapticsEnabled =
                     settings.keyboardHapticsEnabled;
+            showVirtualKeysOnStart =
+                    settings.showVirtualKeysOnStart;
             gamepadSkin = settings.gamepadSkin;
             squareButtonsEnabled = settings.squareButtonsEnabled;
             guideButtonVisible = settings.guideButtonVisible;
@@ -240,6 +250,11 @@ public final class VirtualControlSettings {
 
         public Builder setKeyboardHapticsEnabled(boolean enabled) {
             keyboardHapticsEnabled = enabled;
+            return this;
+        }
+
+        public Builder setShowVirtualKeysOnStart(boolean show) {
+            showVirtualKeysOnStart = show;
             return this;
         }
 

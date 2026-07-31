@@ -747,4 +747,51 @@ public final class ArchitectureBoundaryTest {
                         "overlay rendering and input callbacks consume typed snapshots")
                 .check(productionClasses);
     }
+
+    @Test
+    public void streamMenuAndOrientationUseTypedSettingsContracts() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuFragment")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuHost")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.utils.StreamOrientationController")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.utils.StreamOrientationRequest")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android.preference..",
+                        "com.limelight.preferences..",
+                        "com.limelight.settings.android..")
+                .because(
+                        "menu presentation and orientation policy consume immutable typed projections")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuFragment")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuHost")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.utils.StreamOrientationController")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.utils.StreamOrientationRequest")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.content.SharedPreferences")
+                .because(
+                        "runtime menu and orientation code cannot address persistence")
+                .check(productionClasses);
+    }
 }

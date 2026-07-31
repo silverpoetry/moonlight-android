@@ -30,7 +30,10 @@ public final class VirtualControlSettingsLoaderTest {
         assertEquals("gamePad", settings.getGamepadLayoutId());
         assertTrue(settings.isGuideButtonVisible());
         assertFalse(settings.isKeyboardHapticsEnabled());
+        assertFalse(settings.shouldShowVirtualKeysOnStart());
         assertFalse(settings.isStickClickDisabled());
+        assertFalse(
+                settings.isAutomaticScreenOrientationEnabled());
     }
 
     @Test
@@ -53,6 +56,14 @@ public final class VirtualControlSettingsLoaderTest {
         repository.values.put(
                 VirtualControlSettingKeys.GAMEPAD_LAYOUT_ID.getName(),
                 "../outside");
+        repository.values.put(
+                VirtualControlSettingKeys
+                        .SHOW_VIRTUAL_KEYS_ON_START.getName(),
+                true);
+        repository.values.put(
+                VirtualControlSettingKeys
+                        .AUTOMATIC_SCREEN_ORIENTATION.getName(),
+                true);
 
         VirtualControlSettings settings =
                 VirtualControlSettingsLoader.load(repository);
@@ -62,6 +73,9 @@ public final class VirtualControlSettingsLoaderTest {
         assertEquals(0, settings.getGamepadSkin());
         assertEquals(20, settings.getGamepadScalePercent());
         assertEquals("gamePad", settings.getGamepadLayoutId());
+        assertTrue(settings.shouldShowVirtualKeysOnStart());
+        assertTrue(
+                settings.isAutomaticScreenOrientationEnabled());
     }
 
     @Test
@@ -71,6 +85,7 @@ public final class VirtualControlSettingsLoaderTest {
                 VirtualControlSettings.builder()
                         .setControlOpacityPercent(75)
                         .setKeyboardHapticsEnabled(true)
+                        .setShowVirtualKeysOnStart(true)
                         .setKeyboardLayoutId("OSC_Keyboard_2")
                         .setGamepadLayoutId("gamePad_2")
                         .build();
@@ -86,6 +101,9 @@ public final class VirtualControlSettingsLoaderTest {
                         .intValue());
         assertTrue(repository.get(
                 VirtualControlSettingKeys.KEYBOARD_HAPTICS));
+        assertTrue(repository.get(
+                VirtualControlSettingKeys
+                        .SHOW_VIRTUAL_KEYS_ON_START));
         assertEquals(
                 "OSC_Keyboard_2",
                 repository.get(
@@ -140,6 +158,31 @@ public final class VirtualControlSettingsLoaderTest {
                         VirtualControlSettingKeys
                                 .CONTROL_OPACITY_PERCENT)
                         .intValue());
+    }
+
+    @Test
+    public void startupVisibilityUpdateDoesNotMutateRuntimePresentation() {
+        VirtualControlSettings original =
+                VirtualControlSettings.builder()
+                        .setShowVirtualKeysOnStart(false)
+                        .setKeyboardOpacityPercent(60)
+                        .build();
+        VirtualControlSettingsUpdate<Boolean> update =
+                VirtualControlSettingsUpdate
+                        .showVirtualKeysOnStart(true);
+        FakeRepository repository = new FakeRepository();
+
+        VirtualControlSettings updated =
+                update.applyTo(original);
+        update.persist(repository);
+
+        assertTrue(updated.shouldShowVirtualKeysOnStart());
+        assertEquals(60, updated.getKeyboardOpacityPercent());
+        assertEquals(1, repository.values.size());
+        assertEquals(1, repository.appliedEdits);
+        assertTrue(repository.get(
+                VirtualControlSettingKeys
+                        .SHOW_VIRTUAL_KEYS_ON_START));
     }
 
     private static final class FakeRepository

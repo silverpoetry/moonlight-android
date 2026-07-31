@@ -26,6 +26,9 @@ public final class VirtualControlSettingsLoader {
                         VirtualControlSettingKeys.KEYBOARD_HEIGHT_DP))
                 .setKeyboardHapticsEnabled(repository.get(
                         VirtualControlSettingKeys.KEYBOARD_HAPTICS))
+                .setShowVirtualKeysOnStart(repository.get(
+                        VirtualControlSettingKeys
+                                .SHOW_VIRTUAL_KEYS_ON_START))
                 .setGamepadSkin(repository.get(
                         VirtualControlSettingKeys.GAMEPAD_SKIN))
                 .setSquareButtonsEnabled(repository.get(
@@ -81,6 +84,10 @@ public final class VirtualControlSettingsLoader {
                 .put(
                         VirtualControlSettingKeys.KEYBOARD_HAPTICS,
                         settings.isKeyboardHapticsEnabled())
+                .put(
+                        VirtualControlSettingKeys
+                                .SHOW_VIRTUAL_KEYS_ON_START,
+                        settings.shouldShowVirtualKeysOnStart())
                 .put(
                         VirtualControlSettingKeys.GAMEPAD_SKIN,
                         settings.getGamepadSkin())

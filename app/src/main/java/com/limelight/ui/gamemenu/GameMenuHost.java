@@ -1,7 +1,6 @@
 package com.limelight.ui.gamemenu;
 
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
-import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettings;
@@ -18,8 +17,6 @@ import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
  * retain the Activity after {@code onDetach()}.</p>
  */
 public interface GameMenuHost extends GameDisplayHost {
-    PreferenceConfiguration getStreamPreferences();
-
     boolean isInputReady();
 
     boolean isMicUplinkActive();
@@ -27,6 +24,10 @@ public interface GameMenuHost extends GameDisplayHost {
     boolean getScreenMoveZoom();
 
     boolean isGamepadMouseEmulationAvailable();
+
+    boolean isVirtualControllerVisible();
+
+    boolean isVirtualKeysVisible();
 
     KeyBoardController.ControllerMode getVirtualControllerMode();
 

@@ -64,9 +64,6 @@ public final class
                 .putInt("virtualGamePadScaleFactor", 150)
                 .putBoolean("checkbox_rocker_click_L3R3", true)
                 .putBoolean(
-                        "checkbox_auto_screen_orientation",
-                        true)
-                .putBoolean(
                         "checkbox_enable_keyboard_axi_combination",
                         true)
                 .commit();
@@ -93,7 +90,6 @@ public final class
                 150,
                 configuration.virtualGamePadScaleFactor);
         assertTrue(configuration.disableRockerClickL3R3);
-        assertTrue(configuration.autoScreenOrientation);
         assertTrue(configuration.keyboard_axi_combination);
     }
 

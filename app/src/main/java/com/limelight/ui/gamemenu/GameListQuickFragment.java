@@ -45,7 +45,7 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
 
     private String title;
     private Button btn_right;
-    private boolean enableClearDefaultSpecial;
+    private boolean hideBuiltInShortcuts;
 
     private GameMenuQuickKeyboardAdapter adapter;
 
@@ -144,8 +144,8 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
         });
     }
 
-    public void setEnableClearDefaultSpecial(boolean enableClearDefaultSpecial) {
-        this.enableClearDefaultSpecial = enableClearDefaultSpecial;
+    public void setHideBuiltInShortcuts(boolean hide) {
+        hideBuiltInShortcuts = hide;
     }
 
     public void updateData(){
@@ -157,7 +157,7 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
 
     private List<GameMenuQuickBean> loadShortcutBeans() {
         return GameMenuShortcutCatalog.loadBeans(
-                getActivity(), !enableClearDefaultSpecial);
+                getActivity(), !hideBuiltInShortcuts);
     }
 
     @Override

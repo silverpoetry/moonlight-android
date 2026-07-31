@@ -80,6 +80,11 @@ public final class StreamUiSettingKeys {
                     4,
                     0,
                     100);
+    public static final SettingKey<Boolean>
+            HIDE_BUILT_IN_SHORTCUTS =
+            SettingKey.booleanKey(
+                    "checkbox_enable_clear_default_special_button",
+                    false);
 
     private StreamUiSettingKeys() {
     }

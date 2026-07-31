@@ -35,6 +35,11 @@ public final class VirtualControlSettingKeys {
             SettingKey.booleanKey(
                     "checkbox_vibrate_keyboard",
                     false);
+    public static final SettingKey<Boolean>
+            SHOW_VIRTUAL_KEYS_ON_START =
+            SettingKey.booleanKey(
+                    "checkbox_enable_keyboard",
+                    false);
     public static final SettingKey<Boolean> SQUARE_BUTTONS =
             SettingKey.booleanKey(
                     "checkbox_enable_keyboard_square",

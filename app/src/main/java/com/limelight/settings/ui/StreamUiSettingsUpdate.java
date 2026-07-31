@@ -169,6 +169,15 @@ public final class StreamUiSettingsUpdate {
                         ::setCompactPerformanceMarginTopDp);
     }
 
+    public static StreamUiSettingsUpdate hideBuiltInShortcuts(
+            boolean hide) {
+        return single(
+                StreamUiSettingKeys.HIDE_BUILT_IN_SHORTCUTS,
+                hide,
+                StreamUiSettings.Builder
+                        ::setHideBuiltInShortcuts);
+    }
+
     public StreamUiSettings applyTo(StreamUiSettings settings) {
         return applier.apply(
                 Objects.requireNonNull(settings, "settings"));

@@ -718,14 +718,16 @@ public class KeyBoardController {
         refreshLayout();
     }
 
-    public int switchShowHide() {
+    public void toggleVisibility() {
         if (isShow) {
             hide();
-            return 0;
         } else {
             show();
-            return 1;
         }
+    }
+
+    public boolean isVisible() {
+        return isShow;
     }
 
     public void removeElements() {

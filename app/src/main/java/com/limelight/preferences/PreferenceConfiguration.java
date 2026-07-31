@@ -99,11 +99,6 @@ public class PreferenceConfiguration {
     private static final String GAMEPAD_MOTION_SENSORS_PREF_STRING =
             ControllerSettingKeys.MOTION_SENSORS.getName();
 
-    //竖屏模式
-    public static final String CHECKBOX_ENABLE_PORTRAIT = "checkbox_enable_portrait";
-    //屏幕特殊按键
-    private static final String CHECKBOX_ENABLE_KEYBOARD = "checkbox_enable_keyboard";
-
     //屏幕特殊按键 震动
     public static final String CHECKBOX_ENABLE_KEYBOARD_VIBRATE =
             VirtualControlSettingKeys.KEYBOARD_HAPTICS.getName();
@@ -179,7 +174,6 @@ public class PreferenceConfiguration {
     public boolean stretchVideo, enableSops, playHostAudio, disableWarnings;
     public String language;
     public boolean smallIconMode, multiController, usbDriver, flipFaceButtons;
-    public boolean onscreenController;
     public boolean onlyL3R3;
     public boolean showGuideButton;
     public boolean enableHdr;
@@ -190,10 +184,6 @@ public class PreferenceConfiguration {
     public boolean enableLatencyToast;
     //软键盘
     public boolean enableQtDialog;
-    //竖屏模式
-    public boolean enablePortrait;
-    //虚拟屏幕键盘按键
-    public boolean enableKeyboard;
     //修复JoyCon十字键
     public boolean enableJoyConFix;
 
@@ -233,9 +223,6 @@ public class PreferenceConfiguration {
 
     //物理光标捕获
     public boolean enableMouseLocalCursor;
-
-    //禁用内置的特殊指令
-    public boolean enableClearDefaultSpecial;
 
     //强制使用设备自身的震动马达
     public boolean enableDeviceRumble;
@@ -341,9 +328,6 @@ public class PreferenceConfiguration {
 
     //忽略校验HDR
     public boolean ignoreCheckHDR;
-
-    //解锁屏幕方向锁定
-    public boolean autoScreenOrientation;
 
     public boolean isNativeResolution() {
         return resolutionSelection != ResolutionSelection.PRESET && isNativeResolution(width, height);
@@ -668,8 +652,6 @@ public class PreferenceConfiguration {
                 controllerSettings.isMultiControllerEnabled();
         config.usbDriver =
                 controllerSettings.isUsbDriverEnabled();
-        config.onscreenController =
-                controllerSettings.isOnscreenControllerEnabled();
         config.onlyL3R3 =
                 controllerSettings.isOnlyL3R3Enabled();
         config.showGuideButton =
@@ -699,10 +681,6 @@ public class PreferenceConfiguration {
         config.enableQtDialog =
                 controllerSettings
                         .doesMouseEmulationOpenGameMenu();
-        config.enablePortrait = prefs.getBoolean(CHECKBOX_ENABLE_PORTRAIT,false);
-
-        config.enableKeyboard = prefs.getBoolean(CHECKBOX_ENABLE_KEYBOARD,false);
-
         config.enableKeyboardVibrate =
                 virtualControlSettings.isKeyboardHapticsEnabled();
         //兼容joycon手柄
@@ -746,8 +724,6 @@ public class PreferenceConfiguration {
                 inputSettings.isDirectTouchSensitivityEnabled();
 
         config.enableMouseLocalCursor=prefs.getBoolean("checkbox_mouse_local_cursor",false);
-
-        config.enableClearDefaultSpecial=prefs.getBoolean("checkbox_enable_clear_default_special_button", false);
 
         config.enableDeviceRumble =
                 controllerSettings.isDeviceRumbleEnabled();
@@ -848,10 +824,6 @@ public class PreferenceConfiguration {
                         .isMotionSensorsFallbackToDeviceEnabled();
 
         config.ignoreCheckHDR=prefs.getBoolean("ignoreCheckHDR",false);
-
-        config.autoScreenOrientation =
-                virtualControlSettings
-                        .isAutomaticScreenOrientationEnabled();
 
         config.keyboard_axi_combination =
                 virtualControlSettings
