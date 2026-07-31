@@ -14,7 +14,6 @@ android {
 
         versionName "12.1-260725"
         versionCode = 314
-        buildConfigField "int", "AXI_CODE", "10"
         // Generate native debug symbols to allow Google Play to symbolicate our native crashes
         ndk.debugSymbolLevel = 'FULL'
     }
@@ -103,8 +102,8 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
         release {
-            // Preserve upgrade compatibility with existing axixi releases, which were signed
-            // with this workspace's long-lived debug keystore.
+            // Preserve upgrade compatibility with installed predecessor
+            // builds signed by this workspace's long-lived keystore.
             signingConfig signingConfigs.debug
 
             // To whomever is releasing/using an APK in release mode with
@@ -138,7 +137,7 @@ android {
             //
             // TL;DR: Leave the following line alone!
             applicationIdSuffix ".unofficialA"
-            resValue "string", "app_label", "月光·阿西西"
+            resValue "string", "app_label", "Moonlight"
             resValue "string", "app_label_root", "Moonlight (Root)"
 
             minifyEnabled false

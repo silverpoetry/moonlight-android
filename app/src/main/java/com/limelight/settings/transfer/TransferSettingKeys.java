@@ -9,14 +9,16 @@ public final class TransferSettingKeys {
     public static final int MAX_DIRECTORY_URI_LENGTH = 8_192;
     public static final SettingKey<Boolean> CLIPBOARD_SYNC =
             SettingKey.booleanKey(
-                    "checkbox_clipboard_sync",
-                    false);
+                    "transfer.clipboard.enabled",
+                    false)
+                    .renamedFrom("checkbox_clipboard_sync");
     public static final SettingKey<String>
             CLIPBOARD_FILE_DIRECTORY_URI =
             SettingKey.boundedStringKey(
-                    "clipboard_file_save_directory",
+                    "transfer.clipboard.download_directory_uri",
                     "",
-                    MAX_DIRECTORY_URI_LENGTH);
+                    MAX_DIRECTORY_URI_LENGTH)
+                    .renamedFrom("clipboard_file_save_directory");
 
     public static final SettingKey<Boolean>
             LEGACY_CLIPBOARD_IMAGE_SYNC =

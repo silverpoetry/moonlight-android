@@ -843,7 +843,7 @@ public class KeyBoardController {
             vibrator.vibrate(10);
         }
         String[] keys=codes.split(",");
-        //阿西西快捷键
+        // Custom shortcut actions.
         if(codes.startsWith("29,52,37,52")&&keys.length==5){
             if(action==KeyEvent.ACTION_DOWN){
                 return;

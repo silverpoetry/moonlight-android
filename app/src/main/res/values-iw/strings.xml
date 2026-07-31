@@ -61,7 +61,6 @@
     <string name="applist_quit_success">יציאה הושלמה בהצלחה</string>
     <string name="title_add_pc">הוספת מחשב ידנית</string>
     <string name="addpc_enter_ip">חייב להכניס כתובת IP</string>
-    <string name="category_basic_settings">הגדרות בסיסיות</string>
     <string name="title_resolution_list">רזולוציית וידיאו</string>
     <string name="title_fps_list">פריימים לשניה</string>
     <string name="wol_waking_msg">ייקחו כמה שניות להפעיל את המחשב. אם הוא לא, אנא וודא שהוא מוגדר נכון לפונקציית Wake-On-LAN.</string>
@@ -135,5 +134,4 @@
     <string name="category_audio_settings">הגדרות אודיו</string>
     <string name="title_audio_config_list">הגדרת קול היקפי (Surround sound)</string>
     <string name="title_checkbox_enable_audiofx">הפעל תמיכה באקולייזר</string>
-    <string name="category_input_settings">הגדרות קלט</string>
 </resources>

@@ -85,7 +85,6 @@
     <string name="addpc_enter_ip">Devi inserire un indirizzo IP</string>
     <string name="addpc_wrong_sitelocal">Quell\'indirizzo non sembra corretto. È necessario utilizzare l\'indirizzo IP pubblico del router per lo streaming su Internet.</string>
     <!-- Preferences -->
-    <string name="category_basic_settings">Impostazioni generali</string>
     <string name="title_resolution_list">Risoluzione video</string>
     <string name="summary_resolution_list">Aumentare per migliorare la nitidezza dell\'immagine. Diminuire per aumentare le prestazioni su dispositivi di fascia più bassa e reti più lente.</string>
     <string name="title_seekbar_bitrate">Velocità di trasmissione video</string>
@@ -106,20 +105,16 @@
     <string name="summary_checkbox_usb_bind_all">Forza i driver USB di Moonlight di assumere il controllo su tutti i controller Xbox supportati</string>
     <string name="title_checkbox_mouse_emulation">Emulazione del mouse tramite controller</string>
     <string name="summary_checkbox_mouse_emulation">Tenendo premuto il pulsante Start, il controller passerà alla modalità mouse</string>
-    <string name="category_on_screen_controls_settings">Impostazioni dei controlli a schermo</string>
     <string name="title_checkbox_show_onscreen_controls">Mostra controlli a schermo</string>
     <string name="summary_checkbox_show_onscreen_controls">Mostra l\'overlay virtuale del controller su schermo</string>
-    <string name="category_ui_settings">Impostazioni dell\'interfaccia</string>
     <string name="title_language_list">Lingua</string>
     <string name="summary_language_list">Lingua da usare in Moonlight</string>
     <string name="title_checkbox_small_icon_mode">Usa icone piccole</string>
     <string name="summary_checkbox_small_icon_mode">Usa icone piccole nella griglia per avere più oggetti a schermo</string>
-    <string name="category_host_settings">Impostazioni del PC host</string>
     <string name="title_checkbox_enable_sops">Ottimizza le impostazioni dei giochi</string>
     <string name="summary_checkbox_enable_sops">Permetti a GFE di modificare le impostazioni dei giochi per uno streaming ottimale</string>
     <string name="title_checkbox_host_audio">Riproduci audio sul PC</string>
     <string name="summary_checkbox_host_audio">Riproduce l\'audio sul PC e su questo dispositivo</string>
-    <string name="category_advanced_settings">Impostazioni avanzate</string>
     <string name="title_video_format">Modifica impostazioni del codec</string>
     <string name="summary_video_format">I nuovi codec possono ridurre i requisiti di larghezza di banda video se il tuo dispositivo li supporta. La scelta del codec può essere ignorata se non è supportato dal software dell\'host o dalla GPU.</string>
     <string name="title_enable_hdr">Abilita HDR (sperimentale)</string>
@@ -164,7 +159,6 @@
     <string name="resolution_prefix_native">Nativo</string>
     <string name="no_video_received_error">Nessun video ricevuto dal PC sorgente.</string>
     <string name="resolution_prefix_native_fullscreen">Schermo intero nativo</string>
-    <string name="category_input_settings">Impostazioni di input</string>
     <string name="dialog_title_osc_opacity">Cambia opacità</string>
     <string name="pacing_smoothness">Preferisci video più fluido (potrebbe aumentare significativamente il ritardo)</string>
     <string name="summary_osc_opacity">Rende i controlli a schermo più/meno trasparenti</string>

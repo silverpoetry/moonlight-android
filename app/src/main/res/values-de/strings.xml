@@ -113,7 +113,6 @@
     <string name="addpc_enter_ip">Du musst eine IP-Adresse eingeben</string>
     <string name="addpc_wrong_sitelocal">Diese Adresse sieht falsch aus. Du musst die öffentliche IP-Adresse deines Routers benutzen, um übers Internet zu Streamen.</string>
     <!-- Preferences -->
-    <string name="category_basic_settings">Allgemeine Einstellungen</string>
     <string name="title_resolution_list">Videoauflösung</string>
     <string name="summary_resolution_list">Erhöhen für klarere Bilder. Reduzieren für flüssigere Darstellung auf langsameren Geräten und Netzwerken.</string>
     <string name="title_fps_list">Video Framerate</string>
@@ -125,7 +124,6 @@
     <string name="category_audio_settings">Audio Einstellungen</string>
     <string name="title_audio_config_list">Surround Sound Konfiguration </string>
     <string name="summary_audio_config_list">Aktivieren von 5.1- oder 7.1-Surround-Sound für Heimkinosysteme</string>
-    <string name="category_input_settings">Controller Einstellungen</string>
     <string name="title_checkbox_multi_controller">Automatische Controller Erkennung</string>
     <string name="summary_checkbox_multi_controller">Abwählen dieser Option erzwingt dass immer ein Controller präsent ist</string>
     <string name="title_checkbox_vibrate_fallback">Vibrationsemulation aktivieren</string>
@@ -142,7 +140,6 @@
     <string name="summary_checkbox_mouse_nav_buttons">Aktivierung dieser Option kann auf fehleranfälligen Geräten Rechts-Clicks verunmöglichen</string>
     <string name="title_checkbox_flip_face_buttons">Tasten umkehren</string>
     <string name="summary_checkbox_flip_face_buttons">Kehrt die Tasten A/B und X/Y für Controller und Bildschirmsteuerung um</string>
-    <string name="category_on_screen_controls_settings">On-Screen-Controller Einstellungen</string>
     <string name="title_checkbox_show_onscreen_controls">On-Screen-Controller einblenden</string>
     <string name="summary_checkbox_show_onscreen_controls">Blendet einen virtuellen Controller als Overlay auf dem Touchscreen ein</string>
     <string name="title_checkbox_vibrate_osc">Vibrationen aktivieren</string>
@@ -150,19 +147,16 @@
     <string name="summary_osc_opacity">On-Screen-Controllertasten auf dem Bildschirm mehr/weniger transparent machen</string>
     <string name="suffix_osc_opacity">%</string>
     <string name="dialog_title_osc_opacity">Transparenz ändern</string>
-    <string name="category_ui_settings">UI Einstellungen</string>
     <string name="title_checkbox_enable_pip">Aktivieren des Bild-in-Bild Modus</string>
     <string name="summary_checkbox_enable_pip">Ermöglicht die Anzeige (aber nicht die Steuerung) des Streams während des Multitasking</string>
     <string name="title_language_list">Sprache</string>
     <string name="summary_language_list">Sprache die Moonlight verwenden soll</string>
     <string name="title_checkbox_small_icon_mode">Verwende kleine Cover</string>
     <string name="summary_checkbox_small_icon_mode">Verwende kleine Cover in der Rasteransicht, um mehr gleichzeitig anzeigen zu können</string>
-    <string name="category_host_settings">Host Einstellungen</string>
     <string name="title_checkbox_enable_sops">Spieleinstellungen optimieren</string>
     <string name="summary_checkbox_enable_sops">GFE erlauben, die Spieleinstellungen für ein optimales Streaming zu ändern</string>
     <string name="title_checkbox_host_audio">Audio auf dem Host wiedergeben</string>
     <string name="summary_checkbox_host_audio">Audio auf dem Host und auf diesem Gerät wiedergeben</string>
-    <string name="category_advanced_settings">Erweiterte Einstellungen</string>
     <string name="title_unlock_fps">Alle möglichen Framerates freischalten</string>
     <string name="summary_unlock_fps">Streaming mit 90 oder 120 FPS kann die Latenz auf High-End-Geräten verringern, kann aber bei Geräten, die dies nicht unterstützen, zu stottern oder Instabilität führen</string>
     <string name="title_checkbox_disable_warnings">Warnhinweise deaktivieren</string>

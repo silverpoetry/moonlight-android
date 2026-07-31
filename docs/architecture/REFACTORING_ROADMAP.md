@@ -255,6 +255,14 @@ A slice is incomplete if callers can still bypass the new boundary.
   external-display mode are committed as one explicit Apply transaction.
   Custom resolutions cross a repository port.
 - Versioned legacy preference migration through schema version 4.
+- Schema version 5 gives every application preference a domain-shaped dotted
+  key. Historical widget IDs are declared as typed, migration-only aliases;
+  one idempotent transaction preserves the canonical value when both exist,
+  normalizes migrated data, and deletes every old alias. The settings screen
+  now has twelve task-oriented sections and separate stable IDs for sections,
+  actions, and non-persisted editors. Fork/author categories, title-based icon
+  inference, legacy automatic-update endpoints, and the obsolete sponsored
+  credits surface are removed.
 - The in-stream action catalog and virtual-overlay buttons consume typed UI
   policy plus read-only controller visibility. Persisted startup defaults are
   no longer mutated to represent picture-in-picture or menu presentation, and

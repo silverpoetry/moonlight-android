@@ -93,7 +93,6 @@
     <string name="addpc_enter_ip">请输入一个IP地址</string>
     <string name="addpc_wrong_sitelocal"> 该地址似乎不正确。 您必须使用路由器的公共IP地址通过Internet进行串流。 </string>
     <!-- Preferences -->
-    <string name="category_basic_settings"> 基本设置 </string>
     <string name="title_resolution_list"> 视频分辨率 </string>
     <string name="summary_resolution_list">高分辨率提升图像清晰度。低分辨率提升在低端设备和较慢网络中的串流体验。</string>
     <string name="title_resolution_aspect_ratio">预设纵横比</string>
@@ -112,7 +111,6 @@
     <string name="category_audio_settings"> 音频设置 </string>
     <string name="title_audio_config_list"> 环绕声设置 </string>
     <string name="summary_audio_config_list"> 为家庭影院系统启用5.1或7.1环绕声 </string>
-    <string name="category_input_settings">输入设置</string>
     <string name="title_checkbox_multi_controller"> 自动检测手柄 </string>
     <string name="summary_checkbox_multi_controller"> 禁用此项所有手柄将视为一个手柄 </string>
     <string name="title_checkbox_vibrate_fallback"> 用设备震动模拟游戏震动效果 </string>
@@ -129,22 +127,18 @@
     <string name="summary_checkbox_mouse_nav_buttons"> 在一些支持不佳的设备上启用此项可能会使其右键失效 </string>
     <string name="title_checkbox_flip_face_buttons"> 反转技能键 </string>
     <string name="summary_checkbox_flip_face_buttons"> 为手柄和虚拟手柄调转A/B和X/Y技能键 </string>
-    <string name="category_on_screen_controls_settings"> 虚拟手柄 </string>
     <string name="title_checkbox_show_onscreen_controls"> 启用虚拟手柄 </string>
     <string name="summary_checkbox_show_onscreen_controls"> 在触摸屏上显示虚拟手柄 </string>
     <string name="title_checkbox_vibrate_osc"> 启用震动 </string>
     <string name="summary_checkbox_vibrate_osc"> 使用屏幕控制按钮时震动设备以模拟游戏震动效果 </string>
-    <string name="category_ui_settings"> 界面设置 </string>
     <string name="title_language_list"> 语言 </string>
     <string name="summary_language_list"> 选择Moonlight显示的语言 </string>
     <string name="title_checkbox_small_icon_mode"> 使用小图标 </string>
     <string name="summary_checkbox_small_icon_mode"> 使用小图标以在屏幕上显示更多项目 </string>
-    <string name="category_host_settings"> 主机设置 </string>
     <string name="title_checkbox_enable_sops"> 优化游戏设置 </string>
     <string name="summary_checkbox_enable_sops"> 允许GFE为最佳串流效果自动更改游戏设置 </string>
     <string name="title_checkbox_host_audio"> 在电脑上播放声音 </string>
     <string name="summary_checkbox_host_audio"> 在电脑和本设备同时输出声音 </string>
-    <string name="category_advanced_settings"> 高级设置 </string>
     <string name="settings_title">设置</string>
     <string name="settings_action_open">打开</string>
     <string name="settings_cancel">取消</string>
@@ -288,4 +282,14 @@
     <string name="addpc_get_from_svr">根据 SVR 记录获取地址</string>
     <string name="addpc_append_razer_port">追加 Razer 雷游端口号</string>
     <string name="accessibility_virtual_controller">虚拟手柄</string>
+    <string name="category_video_display_settings">视频与显示</string>
+    <string name="category_touch_mouse_settings">触控与鼠标</string>
+    <string name="category_haptics_settings">震动反馈</string>
+    <string name="category_virtual_controls_settings">屏幕控件</string>
+    <string name="category_clipboard_file_settings">剪贴板与文件</string>
+    <string name="category_stream_interface_settings">串流界面</string>
+    <string name="category_app_appearance_settings">应用与外观</string>
+    <string name="category_system_accessibility_settings">系统与辅助功能</string>
+    <string name="category_backup_restore_settings">备份与恢复</string>
+    <string name="category_about_settings">关于</string>
 </resources>

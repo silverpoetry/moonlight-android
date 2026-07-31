@@ -94,7 +94,6 @@
     <string name="addpc_enter_ip">Trebuie să introduci o adresa IP</string>
     <string name="addpc_wrong_sitelocal">Adresa introdusă nu pare corectă. Pentru conectare prin Internet, este nevoie de adresa publică a routerului.</string>
     <!-- Preferences -->
-    <string name="category_basic_settings">Setări de bază</string>
     <string name="title_resolution_list">Rezolutia video</string>
     <string name="summary_resolution_list">Crește-o pentru a îmbunătăți claritatea imaginii. Descrește-o pentru dispozitive neperformante sau conexiune slabă.</string>
     <string name="title_fps_list">Rata cadrelor</string>
@@ -111,7 +110,6 @@
     <string name="category_audio_settings">Setări Audio</string>
     <string name="title_audio_config_list">Configurarea sunetului surround</string>
     <string name="summary_audio_config_list">Activeaza sunetul 5.1 sau 7.1 pentru sisteme home-theater</string>
-    <string name="category_input_settings">Setări de control</string>
     <string name="title_checkbox_multi_controller">Detectează automat prezența controllerelor.</string>
     <string name="summary_checkbox_multi_controller">Dezactivarea acestei opțiuni implică prezența constantă a unui controller</string>
     <string name="title_checkbox_vibrate_fallback">Simuleaza efectul de vibratie</string>
@@ -126,7 +124,6 @@
     <string name="summary_checkbox_mouse_emulation">Apăsarea lungă pe butonul Start schimba modul de operare a controllerului în modul mouse.</string>
     <string name="title_checkbox_mouse_nav_buttons">Activează butoanele de înainte și înapoi ale mousului</string>
     <string name="summary_checkbox_mouse_nav_buttons">Această opțiune poate afecta click dreapta pentru unele dispozitive problematice.</string>
-    <string name="category_on_screen_controls_settings">Setări ale controalelor pe ecran</string>
     <string name="title_checkbox_show_onscreen_controls">Afișează controale pe ecran</string>
     <string name="summary_checkbox_show_onscreen_controls">Afișează un controller virtual pe ecran</string>
     <string name="title_checkbox_vibrate_osc">Activează vibrațiile</string>
@@ -134,17 +131,14 @@
     <string name="summary_osc_opacity">Ajustează gradul de transparență al controalelor de pe ecran</string>
     <string name="dialog_title_osc_opacity">Modifică opacitatea</string>
     <string name="suffix_osc_opacity">%</string>
-    <string name="category_ui_settings">Setari UI</string>
     <string name="title_language_list">Limba (Language)</string>
     <string name="summary_language_list">Limba folosită de către Moonlight</string>
     <string name="title_checkbox_small_icon_mode">Folosește iconițe mici</string>
     <string name="summary_checkbox_small_icon_mode">Iconițele folosite în grile vor fi mici pentru a încăpea mai multe odata</string>
-    <string name="category_host_settings">Setările PC-ului gazdă</string>
     <string name="title_checkbox_enable_sops">Optimizarea setărilor de joc</string>
     <string name="summary_checkbox_enable_sops">Permite GFE să modifice setările jocurilor pentru experiența optimă</string>
     <string name="title_checkbox_host_audio">Redă audio si pe PC</string>
     <string name="summary_checkbox_host_audio">Sunetul se va auzi atat pe acest dispozitiv cât și pe PC</string>
-    <string name="category_advanced_settings">Setări avansate</string>
     <string name="title_video_format">Modifica setările HEVC</string>
     <string name="summary_video_format">HEVC funcționează cu o conexiune mai slaba, dar necesită un dispozitiv recent, performant</string>
     <string name="title_enable_hdr">Activează HDR (Experimental)</string>

@@ -66,7 +66,6 @@
     <string name="addpc_unknown_host">Неможливо знайти пристрій за вказаною адресою. Переконайтеся, що ви не зробили помилок під час його написання.</string>
     <string name="addpc_enter_ip">Ви повинні ввести IP адресу</string>
     <!-- Preferences -->
-    <string name="category_basic_settings">Загальні налаштування</string>
     <string name="title_resolution_list">Роздільна здатність</string>
     <string name="summary_resolution_list">Вибір надто високого значення для свого пристрою може викликати сповільнення на нешвидких мережах, або вильоти на менш потужних пристроях.</string>
     <string name="title_seekbar_bitrate">Швидкість потоку відео</string>
@@ -83,20 +82,16 @@
     <string name="suffix_seekbar_deadzone">%</string>
     <string name="title_checkbox_xb1_driver">Драйвер для контролерів Xbox 360/One</string>
     <string name="summary_checkbox_xb1_driver">Вмикає вбудований USB драйвер для пристроїв без власної підтримки контролерів Xbox</string>
-    <string name="category_ui_settings">Налаштування інтерфейсу</string>
     <string name="title_language_list">Мова</string>
     <string name="summary_language_list">Мова, яка буде використовуватися в Moonlight</string>
     <string name="title_checkbox_small_icon_mode">Використовувати маленькі іконки</string>
     <string name="summary_checkbox_small_icon_mode">Використовувати маленькі іконки в сітці застосунків, для відображення більшої кількості елементів на екрані</string>
-    <string name="category_host_settings">Налаштування хоста</string>
     <string name="title_checkbox_enable_sops">Оптимізувати ігрові налаштування</string>
     <string name="summary_checkbox_enable_sops">Дозволити GFE змінювати налаштування ігор для оптимальної трансляції</string>
     <string name="title_checkbox_host_audio">Програвати звук на пристрої хоста</string>
     <string name="summary_checkbox_host_audio">Програвати звук на пристроях хоста та клієнта</string>
-    <string name="category_advanced_settings">Розширені налаштування</string>
     <string name="title_video_format">Змінити налаштування кодека</string>
     <string name="summary_video_format">Нові кодеки можуть знизити вимоги до пропускної здатності відео, якщо ваш пристрій їх підтримує. Вибрані кодеки можуть ігноруватися, якщо вони не підтримуються програмним забезпеченням хоста або графічним процесором.</string>
-    <string name="category_on_screen_controls_settings">Налаштування екранних ґудзиків</string>
     <string name="title_checkbox_show_onscreen_controls">Показувати екранні ґудзики</string>
     <string name="summary_checkbox_show_onscreen_controls">Відображати віртуальні ґудзики контролера на екрані</string>
     <string name="scut_deleted_pc">Пристрій видалено</string>
@@ -124,7 +119,6 @@
     <string name="title_fps_list">Частота кадрів</string>
     <string name="applist_menu_details">Переглянути деталі</string>
     <string name="applist_menu_scut">Створити ярлик</string>
-    <string name="category_input_settings">Налаштування введення</string>
     <string name="delete_pc_msg">Ви впевнені що хочете видалити цей пристрій\?</string>
     <string name="pcview_menu_details">Переглянути деталі</string>
     <string name="poor_connection_msg">Слабке з\'єднання з пристроєм</string>

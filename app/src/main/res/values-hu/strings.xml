@@ -12,19 +12,16 @@
     <string name="title_checkbox_disable_warnings">Tiltsa le a figyelmeztető üzeneteket</string>
     <string name="summary_unlock_fps">A 90 vagy 120 FPS sebességgel történő streaming csökkentheti a csúcskategóriás eszközök késését, de késést vagy instabilitást okozhat azokon az eszközökön, amelyek ezt nem támogatják</string>
     <string name="title_unlock_fps">Oldja fel az összes lehetséges képsebességet</string>
-    <string name="category_advanced_settings">További beállítások</string>
     <string name="summary_checkbox_host_audio">Hang lejátszása a számítógépről és az eszközről</string>
     <string name="title_checkbox_host_audio">Hang lejátszása PC-n</string>
     <string name="summary_checkbox_enable_sops">Engedje meg, hogy a GFE módosítsa a játék beállításait az optimális streaming érdekében</string>
     <string name="title_checkbox_enable_sops">Optimalizálja a játék beállításait</string>
-    <string name="category_host_settings">Gazdabeállítások</string>
     <string name="summary_checkbox_small_icon_mode">Az alkalmazásrács kisebbik rajza lehetővé teszi, hogy több alkalmazás is látható legyen a képernyőn</string>
     <string name="title_checkbox_small_icon_mode">Használjon kis dobozos rajzokat</string>
     <string name="summary_language_list">A Moonlight-hoz használt nyelv</string>
     <string name="title_language_list">Nyelv</string>
     <string name="summary_checkbox_enable_pip">Lehetővé teszi az adatfolyam megtekintését (de nem vezérlését) multitasking közben</string>
     <string name="title_checkbox_enable_pip">Engedélyezze a Kép a képben megfigyelő módot</string>
-    <string name="category_ui_settings">Felhasználói felület beállításai</string>
     <string name="suffix_osc_opacity">%</string>
     <string name="dialog_title_osc_opacity">Opacitás módosítása</string>
     <string name="summary_osc_opacity">Tegye többé-kevésbé átláthatóvá a képernyőn megjelenő vezérlőket</string>
@@ -32,7 +29,6 @@
     <string name="title_checkbox_vibrate_osc">Rezgés engedélyezése</string>
     <string name="summary_checkbox_show_onscreen_controls">A virtuális vezérlő fedvényének megjelenítése az érintőképernyőn</string>
     <string name="title_checkbox_show_onscreen_controls">A képernyőn megjelenő vezérlők megjelenítése</string>
-    <string name="category_on_screen_controls_settings">A képernyőn megjelenő vezérlők beállításai</string>
     <string name="summary_checkbox_flip_face_buttons">Átkapcsolja az A / B és X / Y arcgombokat a játékvezérlőkhöz és a képernyőn megjelenő vezérlőkhöz</string>
     <string name="title_checkbox_flip_face_buttons">Flip face gombok</string>
     <string name="summary_checkbox_mouse_nav_buttons">Ennek az opciónak az engedélyezése megszakíthatja a jobb egérgombbal való kattintást néhány hibás eszközön</string>
@@ -49,7 +45,6 @@
     <string name="title_checkbox_vibrate_fallback">A dübörgés támogatását rezgéssel utánozzuk</string>
     <string name="summary_checkbox_multi_controller">Ennek az opciónak a bejelölése arra kényszeríti a játéktáblát, hogy mindig jelen legyen</string>
     <string name="title_checkbox_multi_controller">Automatikus gamepad jelenlét-észlelés</string>
-    <string name="category_input_settings">Bemeneti beállítások</string>
     <string name="summary_audio_config_list">Engedélyezze az 5.1 vagy 7.1 térhatású hangot házimozi rendszerekhez</string>
     <string name="title_audio_config_list">Térhatású hang konfigurációja</string>
     <string name="resolution_prefix_native">Natív</string>
@@ -69,7 +64,6 @@
 \nElőfordulhat, hogy az Ön monitora nem támogatja a szükséges kijelzőkonfigurációt. Ebben az esetben megpróbálhat egy virtuális monitort beállítani. Végül, ha a készülék vagy a gazdaszámítógép nem támogatja a streaminget egy adott felbontáson vagy frissítési frekvencián, akkor sajnos nincs szerencséje.</string>
     <string name="summary_resolution_list">Növelje a kép tisztaságának növelése érdekében. Csökkenjen a jobb teljesítmény érdekében az alsó kategóriás eszközökön és a lassabb hálózatokon.</string>
     <string name="title_resolution_list">Videó felbontás</string>
-    <string name="category_basic_settings">Alapbeállítások</string>
     <string name="addpc_wrong_sitelocal">Ez a cím nem tűnik megfelelőnek. Az interneten történő streaminghez az PCnyilvános IP-címét kell használnia.</string>
     <string name="addpc_enter_ip">Meg kell adnia egy IP-címet</string>
     <string name="addpc_unknown_host">Nem sikerült feloldani a PC-címet. Győződjön meg arról, hogy nem hibázott a címben.</string>

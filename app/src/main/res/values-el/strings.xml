@@ -87,7 +87,6 @@
     <string name="title_checkbox_vibrate_osc">Ενεργοποίηση δόνησης</string>
     <string name="summary_osc_opacity">Κάντε τα στοιχεία ελέγχου στην οθόνη περισσότερο/λιγότερο διαφανή</string>
     <string name="suffix_osc_opacity">%</string>
-    <string name="category_ui_settings">Ρυθμίσεις διεπαφής χρήστη</string>
     <string name="title_checkbox_enable_pip">Ενεργοποίηση της λειτουργίας παρατηρητή εικόνας μέσα σε εικόνα</string>
     <string name="summary_checkbox_enable_pip">Επιτρέπει την προβολή της ροής (αλλά όχι τον έλεγχο) κατά την εκτέλεση πολλαπλών εργασιών</string>
     <string name="title_language_list">Γλώσσα</string>
@@ -107,7 +106,6 @@
     <string name="unpair_success">Καταργήθηκε η σύζευξη με επιτυχία</string>
     <string name="unpair_fail">Αποτυχία κατάργησης σύζευξης</string>
     <string name="summary_checkbox_small_icon_mode">Το μικρότερο box art στο πλέγμα εφαρμογών επιτρέπει σε περισσότερες εφαρμογές να είναι ορατές στην οθόνη</string>
-    <string name="category_host_settings">Ρυθμίσεις κεντρικού υπολογιστή</string>
     <string name="title_checkbox_host_audio">Αναπαραγωγή ήχου στον υπολογιστή</string>
     <string name="summary_checkbox_host_audio">Αναπαραγωγή ήχου από τον υπολογιστή και αυτή τη συσκευή</string>
     <string name="title_checkbox_disable_warnings">Απενεργοποίηση προειδοποιητικών μηνυμάτων</string>
@@ -155,9 +153,7 @@
     <string name="addpc_enter_ip">Πρέπει να εισαγάγετε μια διεύθυνση IP</string>
     <string name="title_resolution_list">Ανάλυση βίντεο</string>
     <string name="summary_audio_config_list">Ενεργοποίηση ήχου surround 5.1 ή 7.1 για συστήματα οικιακού κινηματογράφου</string>
-    <string name="category_input_settings">Ρυθμίσεις εισόδου</string>
     <string name="summary_checkbox_multi_controller">Η απενεργοποίηση αυτής της επιλογής αναγκάζει ένα gamepad να είναι πάντα παρόν</string>
-    <string name="category_basic_settings">Βασικές ρυθμίσεις</string>
     <string name="summary_resolution_list">Αυξήστε για να βελτιώσετε την ευκρίνεια της εικόνας. Μειώστε για καλύτερη απόδοση σε συσκευές χαμηλότερων επιδόσεων και σε πιο αργά δίκτυα.</string>
     <string name="text_native_res_dialog">Οι λειτουργίες εγγενούς ανάλυσης δεν υποστηρίζονται επίσημα από το GeForce Experience, επομένως δεν θα ορίσει το ίδιο την ανάλυση της οθόνης υποδοχής σας. Θα πρέπει να τη ρυθμίσετε χειροκίνητα κατά τη διάρκεια του παιχνιδιού.
 \n
@@ -169,14 +165,12 @@
     <string name="title_checkbox_vibrate_fallback">Μιμηθείτε την υποστήριξη rumble με δόνηση</string>
     <string name="title_seekbar_deadzone">Ρύθμιση της νεκρής ζώνης του αναλογικού μοχλού</string>
     <string name="summary_checkbox_mouse_emulation">Με παρατεταμένο πάτημα του κουμπιού Έναρξη θα αλλάξει το gamepad σε λειτουργία ποντικιού</string>
-    <string name="category_on_screen_controls_settings">Ρυθμίσεις στοιχείων ελέγχου στην οθόνη</string>
     <string name="title_unlock_fps">Ξεκλειδώστε όλους τους πιθανούς ρυθμούς καρέ</string>
     <string name="title_checkbox_show_onscreen_controls">Εμφάνιση στοιχείων ελέγχου στην οθόνη</string>
     <string name="summary_checkbox_vibrate_osc">Δονεί τη συσκευή σας για να μιμηθεί το rumble για τα χειριστήρια στην οθόνη</string>
     <string name="dialog_title_osc_opacity">Αλλαγή αδιαφάνειας</string>
     <string name="title_checkbox_enable_sops">Βελτιστοποίηση ρυθμίσεων παιχνιδιού</string>
     <string name="summary_checkbox_enable_sops">Επιτρέψτε στη GFE να τροποποιήσει τις ρυθμίσεις του παιχνιδιού για βέλτιστη ροή</string>
-    <string name="category_advanced_settings">Προηγμένες ρυθμίσεις</string>
     <string name="summary_unlock_fps">Η ροή στα 90 ή 120 FPS μπορεί να μειώσει τον λανθάνοντα χρόνο σε συσκευές υψηλών προδιαγραφών, αλλά μπορεί να προκαλέσει καθυστέρηση ή αστάθεια σε συσκευές που δεν μπορούν να την υποστηρίξουν</string>
     <string name="title_video_format">Αλλαγή ρυθμίσεων HEVC</string>
     <string name="title_enable_post_stream_toast">Εμφάνιση μηνύματος λανθάνοντος χρόνου μετά τη ροή</string>

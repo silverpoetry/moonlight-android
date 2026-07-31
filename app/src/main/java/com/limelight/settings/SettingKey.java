@@ -1,6 +1,8 @@
 package com.limelight.settings;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -30,6 +32,7 @@ public final class SettingKey<T> {
     private final Class<T> valueClass;
     private final T defaultValue;
     private final Normalizer<T> normalizer;
+    private final List<String> legacyNames;
 
     private SettingKey(
             String name,
@@ -37,6 +40,22 @@ public final class SettingKey<T> {
             Class<T> valueClass,
             T defaultValue,
             Normalizer<T> normalizer) {
+        this(
+                name,
+                storageType,
+                valueClass,
+                defaultValue,
+                normalizer,
+                Collections.emptyList());
+    }
+
+    private SettingKey(
+            String name,
+            StorageType storageType,
+            Class<T> valueClass,
+            T defaultValue,
+            Normalizer<T> normalizer,
+            List<String> legacyNames) {
         this.name = requireName(name);
         this.storageType = Objects.requireNonNull(
                 storageType,
@@ -45,6 +64,10 @@ public final class SettingKey<T> {
         this.normalizer = Objects.requireNonNull(normalizer, "normalizer");
         this.defaultValue = normalizeTyped(
                 Objects.requireNonNull(defaultValue, "defaultValue"));
+        this.legacyNames = Collections.unmodifiableList(
+                new ArrayList<>(Objects.requireNonNull(
+                        legacyNames,
+                        "legacyNames")));
     }
 
     public static SettingKey<Boolean> booleanKey(
@@ -218,6 +241,57 @@ public final class SettingKey<T> {
     }
 
     /**
+     * Declares previous persistence names for this setting. The migration
+     * runner copies the first present legacy value into the canonical key and
+     * then removes every legacy alias.
+     */
+    public SettingKey<T> renamedFrom(String... names) {
+        Objects.requireNonNull(names, "names");
+        if (names.length == 0) {
+            throw new IllegalArgumentException(
+                    "At least one legacy name is required");
+        }
+        if (!legacyNames.isEmpty()) {
+            throw new IllegalStateException(
+                    "Legacy names are already declared for " + name);
+        }
+
+        ArrayList<String> validated = new ArrayList<>(names.length);
+        for (String legacyName : names) {
+            String value = requireName(legacyName);
+            if (name.equals(value) || validated.contains(value)) {
+                throw new IllegalArgumentException(
+                        "Duplicate legacy setting name: " + value);
+            }
+            validated.add(value);
+        }
+        return new SettingKey<>(
+                name,
+                storageType,
+                valueClass,
+                defaultValue,
+                normalizer,
+                validated);
+    }
+
+    public List<String> getLegacyNames() {
+        return legacyNames;
+    }
+
+    SettingKey<T> legacyAlias(String legacyName) {
+        if (!legacyNames.contains(legacyName)) {
+            throw new IllegalArgumentException(
+                    legacyName + " is not a legacy name for " + name);
+        }
+        return new SettingKey<>(
+                legacyName,
+                storageType,
+                valueClass,
+                defaultValue,
+                normalizer);
+    }
+
+    /**
      * Returns a safe value for data loaded from an untyped persistence layer.
      */
     public T normalizeStoredValue(Object value) {
@@ -240,9 +314,9 @@ public final class SettingKey<T> {
 
     private static String requireName(String name) {
         Objects.requireNonNull(name, "name");
-        if (name.trim().isEmpty()) {
+        if (name.trim().isEmpty() || !name.equals(name.trim())) {
             throw new IllegalArgumentException(
-                    "Setting name cannot be empty");
+                    "Setting name cannot be empty or padded");
         }
         return name;
     }

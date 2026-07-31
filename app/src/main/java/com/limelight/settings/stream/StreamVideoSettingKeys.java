@@ -10,10 +10,11 @@ public final class StreamVideoSettingKeys {
 
     public static final SettingKey<Integer> BITRATE_KBPS =
             SettingKey.integerKey(
-                    "seekbar_bitrate_kbps",
+                    "stream.video.bitrate_kbps",
                     0,
                     0,
-                    MAX_BITRATE_KBPS);
+                    MAX_BITRATE_KBPS)
+                    .renamedFrom("seekbar_bitrate_kbps");
     public static final SettingKey<Integer>
             LEGACY_BITRATE_MBPS =
             SettingKey.integerKey(
@@ -23,72 +24,88 @@ public final class StreamVideoSettingKeys {
                     99_999);
     public static final SettingKey<String> VIDEO_FORMAT =
             SettingKey.stringSetKey(
-                    "video_format",
+                    "stream.video.codec",
                     "auto",
                     "auto",
                     "forceav1",
                     "forceh265",
-                    "neverh265");
+                    "neverh265")
+                    .renamedFrom("video_format");
     public static final SettingKey<Boolean> HDR_ENABLED =
             SettingKey.booleanKey(
-                    "checkbox_enable_hdr",
-                    false);
+                    "stream.video.hdr.enabled",
+                    false)
+                    .renamedFrom("checkbox_enable_hdr");
     public static final SettingKey<Boolean>
             HDR_HIGH_BRIGHTNESS =
             SettingKey.booleanKey(
-                    "checkbox_enable_hdr_high_brightness",
-                    false);
+                    "stream.video.hdr.high_brightness",
+                    false)
+                    .renamedFrom(
+                            "checkbox_enable_hdr_high_brightness");
     public static final SettingKey<Boolean>
             IGNORE_HDR_CAPABILITY =
-            SettingKey.booleanKey("ignoreCheckHDR", false);
+            SettingKey.booleanKey(
+                    "stream.video.hdr.ignore_device_capability",
+                    false)
+                    .renamedFrom("ignoreCheckHDR");
     public static final SettingKey<Boolean>
             LOW_LATENCY_EXPERIMENT =
             SettingKey.booleanKey(
-                    "enable_lowLatency_experiment",
-                    true);
+                    "stream.video.low_latency_decode",
+                    true)
+                    .renamedFrom("enable_lowLatency_experiment");
     public static final SettingKey<Boolean> UNLOCK_FPS =
             SettingKey.booleanKey(
-                    "checkbox_unlock_fps",
-                    false);
+                    "stream.video.unlock_frame_rates",
+                    false)
+                    .renamedFrom("checkbox_unlock_fps");
     public static final SettingKey<Boolean> PORTRAIT =
             SettingKey.booleanKey(
-                    "checkbox_enable_portrait",
-                    false);
+                    "stream.display.portrait",
+                    false)
+                    .renamedFrom("checkbox_enable_portrait");
     public static final SettingKey<Boolean> EXTERNAL_DISPLAY =
             SettingKey.booleanKey(
-                    "checkbox_enable_exdisplay",
-                    false);
+                    "stream.display.external_display",
+                    false)
+                    .renamedFrom("checkbox_enable_exdisplay");
     public static final SettingKey<Boolean>
             OPTIMIZE_GAME_SETTINGS =
             SettingKey.booleanKey(
-                    "checkbox_enable_sops",
-                    true);
+                    "stream.host.optimize_game_settings",
+                    true)
+                    .renamedFrom("checkbox_enable_sops");
     public static final SettingKey<Integer>
             VIRTUAL_DISPLAY_MODE =
             SettingKey.integerSetKey(
-                    "vdValue",
+                    "stream.display.virtual_display_mode",
                     0,
                     0,
                     1,
-                    2);
+                    2)
+                    .renamedFrom("vdValue");
     public static final SettingKey<Boolean>
             ENFORCE_DISPLAY_MODE =
             SettingKey.booleanKey(
-                    "checkbox_enforce_display_mode",
-                    false);
+                    "stream.display.enforce_mode",
+                    false)
+                    .renamedFrom("checkbox_enforce_display_mode");
     public static final SettingKey<Integer> SCREEN_ON_POLICY =
             SettingKey.integerSetKey(
-                    "enable_screen_on_auto",
+                    "stream.display.device_screen_policy",
                     0,
                     0,
                     1,
-                    2);
+                    2)
+                    .renamedFrom("enable_screen_on_auto");
     public static final SettingKey<String>
             CUSTOM_RESOLUTION_TEXT =
             SettingKey.boundedStringKey(
-                    "edit_diy_w_h",
+                    "stream.video.custom_resolution",
                     StreamResolutionCodec.RESOLUTION_1080P,
-                    32);
+                    32)
+                    .renamedFrom("edit_diy_w_h");
 
     private StreamVideoSettingKeys() {
     }

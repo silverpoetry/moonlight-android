@@ -137,8 +137,6 @@
     <string name="msg_add_pc">Conectando ao PC…</string>
     <string name="addpc_unknown_host">Não foi possível encontrar o PC. Certifique-se de que não cometeu um erro de digitação no endereço.</string>
     <string name="addpc_enter_ip">Você deve inserir um endereço de IP</string>
-    <string name="category_input_settings">Configurações de Controles</string>
-    <string name="category_basic_settings">Configurações Básicas</string>
     <string name="title_resolution_list">Resolução</string>
     <string name="summary_resolution_list">Aumente para melhorar a clareza da imagem. Diminua para melhor desempenho em dispositivos de baixo custo e redes mais lentas.</string>
     <string name="text_native_res_dialog">Os modos de resolução nativa não são oficialmente suportados pelo GeForce Experience, portanto, ele não definirá a resolução da tela do host. Você precisará configurá-lo manualmente durante o jogo.
@@ -176,10 +174,8 @@
     <string name="summary_checkbox_mouse_emulation">Segure o botão Start para mudar o gamepad para o modo de mouse</string>
     <string name="summary_checkbox_mouse_nav_buttons">Ativar esta opção pode bugar o clique com o botão direito em alguns dispositivos com bugs</string>
     <string name="summary_checkbox_flip_face_buttons">Inverte os botões A/B e X/Y dos gamepads e controles de tela</string>
-    <string name="category_on_screen_controls_settings">Configurações de Controles de Tela</string>
     <string name="title_checkbox_flip_face_buttons">Inverter botões</string>
     <string name="title_unlock_fps">Liberar todas as taxas de quadros possíveis</string>
-    <string name="category_advanced_settings">Configurações Avançadas</string>
     <string name="title_checkbox_host_audio">Reproduzir áudio no PC</string>
     <string name="summary_checkbox_host_audio">Reproduz o áudio do computador e deste dispositivo</string>
     <string name="title_checkbox_enable_sops">Otimizar configurações de jogo</string>
@@ -187,9 +183,7 @@
     <string name="title_language_list">Idioma</string>
     <string name="summary_language_list">Idioma para ser usado no Moonlight</string>
     <string name="summary_checkbox_enable_pip">Permite que a transmissão seja visualizada (mas não controlada) enquanto usa outros apps</string>
-    <string name="category_ui_settings">Configurações de Interface</string>
     <string name="suffix_osc_opacity">%</string>
-    <string name="category_host_settings">Configurações de Host</string>
     <string name="dialog_title_osc_opacity">Mudar opacidade</string>
     <string name="title_checkbox_small_icon_mode">Mostrar ícones menores</string>
     <string name="summary_osc_opacity">Deixe os controles de tela mais/menos transparentes</string>

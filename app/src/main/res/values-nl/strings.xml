@@ -70,7 +70,6 @@
     <string name="addpc_unknown_host">Adres achterhalen is mislukt. Controleer het ingevoerde adres op typfouten.</string>
     <string name="addpc_enter_ip">IP-adres invoeren is verplicht</string>
     <!-- Preferences -->
-    <string name="category_basic_settings">Algemene Instellingen</string>
     <string name="title_resolution_list">Selecteer resolutie en FPS doel</string>
     <string name="summary_resolution_list">Te hoge instellingen kunnen crashes en haperingen veroorzaken.</string>
     <string name="title_seekbar_bitrate">Selecteer doel video bitsnelheid</string>
@@ -85,20 +84,16 @@
     <string name="suffix_seekbar_deadzone">%</string>
     <string name="title_checkbox_xb1_driver">Xbox 360/One controller stuurprogramma</string>
     <string name="summary_checkbox_xb1_driver">Gebruikt de ingebouwde USB stuurprogramma voor apparaten zonder Xbox controller ondersteuning</string>
-    <string name="category_on_screen_controls_settings">On-screen Controller Instellingen</string>
     <string name="title_checkbox_show_onscreen_controls">Laat on-screen controls zien</string>
     <string name="summary_checkbox_show_onscreen_controls">Geeft een virtuele controller weer op het touchscreen</string>
-    <string name="category_ui_settings">UI Installingen</string>
     <string name="title_language_list">Taal</string>
     <string name="summary_language_list">Taal te gebruiken in Moonlight</string>
     <string name="title_checkbox_small_icon_mode">Gebruik kleine iconen</string>
     <string name="summary_checkbox_small_icon_mode">Gebruik kleine iconen in kolom onderdelen zodat meer items tegelijk zichtbaar worden</string>
-    <string name="category_host_settings">Host Instellingen</string>
     <string name="title_checkbox_enable_sops">Optimaliseer spel instellingen</string>
     <string name="summary_checkbox_enable_sops">Sta GFE toe om spel instellingen te veranderen voor een optimale stream</string>
     <string name="title_checkbox_host_audio">Speel audio af op PC</string>
     <string name="summary_checkbox_host_audio">Speel audio af op de computer en op dit apparaat</string>
-    <string name="category_advanced_settings">Geavanceerde Instellingen</string>
     <string name="title_video_format">Verander HEVC instellingen</string>
     <string name="summary_video_format">HEVC verlaagt video bandbreedte vereisten maar benodigd een recent apparaat</string>
     <string name="suffix_osc_opacity">%</string>
@@ -149,7 +144,6 @@
     <string name="suffix_seekbar_bitrate_mbps">Mbps</string>
     <string name="resolution_prefix_native">Oorspronkelijk</string>
     <string name="title_audio_config_list">Surround sound configuratie</string>
-    <string name="category_input_settings">Invoerinstellingen</string>
     <string name="summary_osc_opacity">Maak de on-screen besturingselementen minder of meer transparant</string>
     <string name="title_checkbox_mouse_emulation">Muis simulatie via gamepad</string>
     <string name="summary_checkbox_mouse_emulation">De startknop lang indrukken zal de muis-modus activeren op uw gamepad</string>

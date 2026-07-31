@@ -138,7 +138,6 @@
     <string name="addpc_append_razer_port">Append the Razer PC Remote Play port</string>
 
     <!-- Preferences -->
-    <string name="category_basic_settings">Basic Settings</string>
     <string name="title_resolution_list">Video resolution</string>
     <string name="summary_resolution_list">Increase to improve image clarity. Decrease for better performance on lower end devices and slower networks.</string>
     <string name="title_resolution_aspect_ratio">Preset aspect ratio</string>
@@ -197,7 +196,6 @@
     <string name="title_checkbox_gamepad_motion_fallback">Emulate gamepad motion sensor support</string>
     <string name="summary_checkbox_gamepad_motion_fallback">Uses your device\'s built-in motion sensors if gamepad sensors are not supported by your connected gamepad or your Android version.\nNote: Enabling this option may cause your gamepad to appear as a PlayStation controller on the host.</string>
 
-    <string name="category_input_settings">Input Settings</string>
     <string name="title_checkbox_absolute_mouse_mode">Remote desktop mouse mode</string>
     <string name="summary_checkbox_absolute_mouse_mode">This can make mouse acceleration behave more naturally for remote desktop usage. When supported by the host, Moonlight will draw the host cursor locally for lower cursor latency. Incompatible with many games.</string>
     <string name="title_checkbox_clipboard_sync">Clipboard sync</string>
@@ -283,7 +281,7 @@
     <string name="game_menu_tab_keyboard">键盘</string>
     <string name="game_menu_tab_desktop">桌面</string>
     <string name="game_menu_tab_windows">全部窗口</string>
-    <string name="game_menu_feature_title">特色功能 月光·阿西西</string>
+    <string name="game_menu_feature_title">特色功能</string>
     <string name="game_menu_section_mouse_touch">鼠标与触控</string>
     <string name="game_menu_section_shortcuts">快捷键</string>
     <string name="game_menu_section_virtual_controls">虚拟手柄与按键</string>
@@ -409,7 +407,7 @@
     <string name="game_menu_decoder_low_latency_help">仅在支持的高通和联发科设备上生效。</string>
     <string name="game_menu_ignore_hdr_check">忽略 HDR 校验</string>
     <string name="game_menu_virtual_display">虚拟显示器</string>
-    <string name="game_menu_virtual_display_help">适用于 Sunshine·阿西西、雷蛇雷游，并兼容 Apollo 扩展模式。</string>
+    <string name="game_menu_virtual_display_help">适用于支持虚拟显示扩展的 Sunshine、Apollo 和雷蛇雷游。</string>
     <string name="game_menu_virtual_display_extended">扩展模式</string>
     <string name="game_menu_virtual_display_only">仅虚拟显示屏</string>
     <string name="game_menu_enforce_display_mode">强制显示模式</string>
@@ -589,7 +587,6 @@
     <string name="title_checkbox_mouse_nav_buttons">Enable back and forward mouse buttons</string>
     <string name="summary_checkbox_mouse_nav_buttons">Enabling this option may break right clicking on some buggy devices</string>
 
-    <string name="category_on_screen_controls_settings">On-screen Controls Settings</string>
     <string name="title_checkbox_show_onscreen_controls">Show on-screen controls</string>
     <string name="summary_checkbox_show_onscreen_controls">Show virtual controller overlay on touchscreen</string>
     <string name="title_checkbox_vibrate_osc">Enable vibration</string>
@@ -598,7 +595,6 @@
     <string name="dialog_title_osc_opacity">Change opacity</string>
     <string name="suffix_osc_opacity">%</string>
 
-    <string name="category_ui_settings">UI Settings</string>
     <string name="title_checkbox_enable_pip">Enable Picture-in-Picture observer mode</string>
     <string name="summary_checkbox_enable_pip">Allows the stream to be viewed (but not controlled) while multitasking</string>
     <string name="title_language_list">Language</string>
@@ -606,7 +602,6 @@
     <string name="title_checkbox_small_icon_mode">Use small box art</string>
     <string name="summary_checkbox_small_icon_mode">Smaller box art in the app grid allows more apps to be visible on screen</string>
 
-    <string name="category_host_settings">Host Settings</string>
     <string name="title_checkbox_enable_sops">Optimize game settings</string>
     <string name="summary_checkbox_enable_sops">Allow GFE to modify game settings for optimal streaming</string>
     <string name="title_checkbox_host_audio">Play audio on PC</string>
@@ -614,7 +609,6 @@
     <string name="mic_uplink_not_supported">The host has not enabled microphone uplink or has no compatible virtual microphone device. Streaming will continue without microphone input.</string>
     <string name="mic_uplink_permission_denied">Microphone permission was denied. Streaming will continue without microphone uplink.</string>
 
-    <string name="category_advanced_settings">Advanced Settings</string>
     <string name="settings_title">Settings</string>
     <string name="settings_action_open">Open</string>
     <string name="settings_cancel">Cancel</string>
@@ -678,10 +672,9 @@
     <string name="pacing_smoothness">Prefer smoothest video (may significantly increase latency)</string>
 
 
-    <string name="keyboard_service_label">月光·阿西西物理键盘</string>
+    <string name="keyboard_service_label">Moonlight 物理键盘</string>
     <string name="accessibility_description_text">此功能仅用于外接实体键盘时，某些系统存在特定的键盘快捷键，此情况会影响串流过程中，无法将相关按键指令传输给目标PC。
-        \n\n月光·阿西西不会观察您输入的文本，也不会收集您的密码、信用卡号或任何其他信息。
-        \n\n请关注：B站-阿西西的日常</string>
+        \n\nMoonlight 不会观察您输入的文本，也不会收集您的密码、信用卡号或任何其他信息。</string>
 
     <string name="title_analog_scrolling">Use an analog stick to scroll</string>
     <string name="summary_analog_scrolling">Select an analog stick to scroll when in mouse emulation mode</string>
@@ -697,58 +690,28 @@
         ipv6：[fd00:6868:6868:0:fd6:e0ea:84d9:70ea]:47989
     </string>
 
-    <string name="axi_question_1">1、手柄测试界面可用，串流游戏中不识别？</string>
-    <string name="axi_question_answer_1">大概率电脑端没有安装虚拟手柄驱动ViGEmBus，在sunshine首页查看是否有相关报错信息.ps:点击网盘资源，内有相关安装文件.
-        \n或者手柄识别为DS4手柄，部分游戏不适配,可在sunshine后台，输入选项卡修改手柄类型为xbox360解决。</string>
-
-    <string name="axi_question_2">2、串流如何全屏显示？如何息屏游玩？</string>
-    <string name="axi_question_answer_2">使用虚拟显示器或者HDMI欺骗器创建本机相对于分辨率的显示器屏幕.
-        \nHDMI欺骗器需要借助显卡驱动程序创建，设置完成需要设置为主屏幕，sunshine默认捕获主屏幕（可在sunshine后台修改默认捕获屏幕）
-        \n息屏可Win+P或者系统设置-显示器，选择仅显示器1或者2，或者部分sunshine版本后台内置相关无头显示器设置.
-        \n部分sunshine版本自带虚拟显示器，比如Apollo版 ps:点击网盘资源，内有相关安装文件</string>
-
-    <string name="about_get_res"><u>网盘资源</u></string>
-    <string name="about_update_tx"><u>检测更新</u></string>
     <string name="about_tagline">随时随地，畅连你的电脑！</string>
     <string name="about_version_format">版本号：%1$s</string>
-    <string name="about_credits_title">鸣谢</string>
-    <string name="about_credits_subtitle">感谢每一位支持与陪伴的朋友</string>
-    <string name="about_faq_title">常见问题</string>
-    <string name="about_more_coming">未完待续……</string>
-    <string name="about_find_developer">在这里找到开发者</string>
-
-    <string name="credits_title">鸣谢</string>
-    <string name="credits_sponsor">赞赏</string>
-    <string name="credits_intro_title">感谢一路同行的你们</string>
-    <string name="credits_intro_body">这份名单献给每一位支持阿西西的朋友，因为你们，项目才得以持续前进。</string>
-    <string name="credits_wall_title">鸣谢墙</string>
-
-    <string name="update_dialog_title">发现新版本</string>
-    <string name="update_dialog_subtitle">新版本已经准备好了，可以查看更新内容后选择下载。</string>
-    <string name="update_version_info">版本信息</string>
-    <string name="update_content">更新内容</string>
-    <string name="update_skip">跳过本次更新</string>
-    <string name="update_cancel">取消</string>
-    <string name="update_download">下载</string>
-    <string name="update_channel_title">选择下载渠道</string>
-    <string name="update_channel_subtitle">可根据你的习惯选择下载渠道。</string>
-    <string name="update_versions_format">当前版本：%1$s (%2$d)\n最新版本：%3$s (%4$d)</string>
-    <string name="update_unknown_version">未知版本</string>
-    <string name="update_no_description">暂无更新说明。</string>
-    <string name="update_channel_quark">夸克网盘</string>
-    <string name="update_channel_baidu">百度网盘</string>
-    <string name="update_no_channels">当前没有可用下载地址</string>
+    <string name="about_project">项目源码</string>
+    <string name="about_documentation">使用文档</string>
+    <string name="about_license">开源许可证</string>
 
     <string name="accessibility_back">返回</string>
     <string name="accessibility_stream_controls">打开串流控制菜单</string>
-    <string name="accessibility_bilibili">在哔哩哔哩查找开发者</string>
-    <string name="accessibility_xiaohongshu">在小红书查找开发者</string>
-    <string name="accessibility_douyin">在抖音查找开发者</string>
-    <string name="accessibility_developer_website">打开开发者网站</string>
     <string name="accessibility_virtual_controller">Virtual controller</string>
 
     <string name="virtual_control_layout_save_failed">无法保存虚拟控制布局</string>
     <string name="virtual_control_layout_export_missing">当前布局尚未保存</string>
     <string name="virtual_control_layout_import_succeeded">布局导入成功</string>
     <string name="virtual_control_layout_import_failed">布局导入失败</string>
+    <string name="category_video_display_settings">视频与显示</string>
+    <string name="category_touch_mouse_settings">触控与鼠标</string>
+    <string name="category_haptics_settings">震动反馈</string>
+    <string name="category_virtual_controls_settings">屏幕控件</string>
+    <string name="category_clipboard_file_settings">剪贴板与文件</string>
+    <string name="category_stream_interface_settings">串流界面</string>
+    <string name="category_app_appearance_settings">应用与外观</string>
+    <string name="category_system_accessibility_settings">系统与辅助功能</string>
+    <string name="category_backup_restore_settings">备份与恢复</string>
+    <string name="category_about_settings">关于</string>
 </resources>

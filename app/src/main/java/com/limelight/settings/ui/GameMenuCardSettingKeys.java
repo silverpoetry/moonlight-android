@@ -10,15 +10,17 @@ import java.util.Set;
 public final class GameMenuCardSettingKeys {
     public static final SettingKey<String> ORDER_DOCUMENT =
             SettingKey.boundedStringKey(
-                    "game_menu_card_order_v2",
+                    "stream.ui.game_menu.card_order",
                     "",
                     GameMenuCardLayoutCodec
-                            .MAXIMUM_DOCUMENT_LENGTH);
+                            .MAXIMUM_DOCUMENT_LENGTH)
+                    .renamedFrom("game_menu_card_order_v2");
     public static final SettingKey<Set<String>> HIDDEN_CARD_IDS =
             SettingKey.boundedStringCollectionKey(
-                    "game_menu_card_hidden_v2",
+                    "stream.ui.game_menu.hidden_cards",
                     GameMenuCardLayout.MAXIMUM_CARD_COUNT,
-                    GameMenuCardLayout.MAXIMUM_CARD_ID_LENGTH);
+                    GameMenuCardLayout.MAXIMUM_CARD_ID_LENGTH)
+                    .renamedFrom("game_menu_card_hidden_v2");
 
     public static final SettingKey<String>
             LEGACY_ACTION_ORDER =

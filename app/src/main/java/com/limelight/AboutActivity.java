@@ -1,88 +1,55 @@
 package com.limelight;
 
-import android.content.Context;
-import android.content.Intent;
 import android.graphics.Outline;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewOutlineProvider;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.limelight.utils.UpdateChecker;
+import com.limelight.utils.HelpLauncher;
 
-public class AboutActivity extends BaseActivity implements View.OnClickListener {
-
-    private TextView tvVersion;
-    private ImageView ivLogo;
+/** Displays product identity and durable project resources. */
+public final class AboutActivity extends BaseActivity {
+    private static final String PROJECT_URL =
+            "https://github.com/silverpoetry/moonlight-android";
+    private static final String DOCUMENTATION_URL =
+            "https://github.com/moonlight-stream/moonlight-docs/wiki/Setup-Guide";
+    private static final String LICENSE_URL = PROJECT_URL + "/blob/master/LICENSE";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_about);
 
-        tvVersion = findViewById(cn.axi.gamepad.an.R.id.tv_version);
-        ivLogo = findViewById(cn.axi.gamepad.an.R.id.iv_logo);
-        findViewById(cn.axi.gamepad.an.R.id.iv_back).setOnClickListener(v -> finish());
-        int[] actionViewIds = {
-                R.id.iv_res,
-                R.id.iv_get,
-                R.id.lv_credits,
-                R.id.iv_bili,
-                R.id.iv_xhs,
-                R.id.iv_douyin,
-                R.id.iv_github
-        };
-        for (int viewId : actionViewIds) {
-            findViewById(viewId).setOnClickListener(this);
-        }
-        tvVersion.setText(getString(
-                R.string.about_version_format, BuildConfig.VERSION_NAME));
+        findViewById(R.id.iv_back).setOnClickListener(
+                view -> finish());
+        findViewById(R.id.about_project).setOnClickListener(
+                view -> HelpLauncher.launchUrl(this, PROJECT_URL));
+        findViewById(R.id.about_documentation).setOnClickListener(
+                view -> HelpLauncher.launchUrl(
+                        this,
+                        DOCUMENTATION_URL));
+        findViewById(R.id.about_license).setOnClickListener(
+                view -> HelpLauncher.launchUrl(this, LICENSE_URL));
 
-        ivLogo.setClipToOutline(true);
-        ivLogo.setOutlineProvider(new ViewOutlineProvider() {
+        TextView version = findViewById(R.id.tv_version);
+        version.setText(getString(
+                R.string.about_version_format,
+                BuildConfig.VERSION_NAME));
+
+        ImageView logo = findViewById(R.id.iv_logo);
+        logo.setClipToOutline(true);
+        logo.setOutlineProvider(new ViewOutlineProvider() {
             @Override
             public void getOutline(View view, Outline outline) {
-                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), 30f);
+                outline.setRoundRect(
+                        0,
+                        0,
+                        view.getWidth(),
+                        view.getHeight(),
+                        30f);
             }
         });
-    }
-
-    @Override
-    public void onClick(View v) {
-        if (v.getId() == R.id.iv_get) {
-            UpdateChecker.checkForUpdates(this, true);
-            return;
-        }
-
-        if(v.getId() == R.id.iv_res){
-            UpdateChecker.openUrl(this,"https://pan.quark.cn/s/9a334d831290");
-            return;
-        }
-
-        if (v.getId() == R.id.iv_douyin) {
-            UpdateChecker.openUrl(this,"https://v.douyin.com/zm9GLKUfBW8/");
-            return;
-        }
-
-        if (v.getId() == R.id.iv_xhs) {
-            UpdateChecker.openUrl(this,"https://www.xiaohongshu.com/user/profile/5d21be61000000001600b878");
-            return;
-        }
-
-        if (v.getId() == R.id.iv_bili) {
-            UpdateChecker.openUrl(this,"https://space.bilibili.com/16893379");
-            return;
-        }
-
-        if (v.getId() == R.id.iv_github) {
-            UpdateChecker.openUrl(this,"https://axixi2233.github.io/");
-            return;
-        }
-
-        if (v.getId() == R.id.lv_credits) {
-            startActivity(new Intent(this, CreditsActivity.class));
-        }
     }
 }

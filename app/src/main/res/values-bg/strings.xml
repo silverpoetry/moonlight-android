@@ -107,7 +107,6 @@
     <string name="applist_quit_confirmation">Сигурни ли сте, че искате да затворите работещото приложение\? Всички незапазени данни ще бъдат загубени.</string>
     <string name="title_add_pc">Ръчно добавяне на компютър</string>
     <string name="addpc_fail">Неуспешна връзка с посочения компютър. Уверете се, че необходимите портове са разрешени през защитната стена.</string>
-    <string name="category_basic_settings">Основни настройки</string>
     <string name="addpc_enter_ip">Трябва да въведете IP адрес</string>
     <string name="addpc_wrong_sitelocal">Този адрес не изглежда правилен. Трябва да използвате публичния IP адрес на вашия рутер за стриймване през интернет.</string>
     <string name="title_resolution_list">Видео резолюция</string>
@@ -122,7 +121,6 @@
     <string name="title_checkbox_stretch_video">Разтегляне на видеото на цял екран</string>
     <string name="resolution_prefix_native_landscape">(Пейзаж)</string>
     <string name="category_audio_settings">Аудио настройки</string>
-    <string name="category_input_settings">Настройки за въвеждане</string>
     <string name="title_checkbox_multi_controller">Автоматично откриване на наличен контролер</string>
     <string name="summary_checkbox_multi_controller">Премахването на отметката от тази опция принуждава контролер винаги да присъства</string>
 </resources>

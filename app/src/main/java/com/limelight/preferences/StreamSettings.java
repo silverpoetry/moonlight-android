@@ -61,6 +61,7 @@ import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.computers.ComputerDatabaseManager;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.settings.SettingKey;
+import com.limelight.settings.SettingsScreenIds;
 import com.limelight.settings.SettingsScreenKeyCatalog;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.AndroidAppLocale;
@@ -71,6 +72,8 @@ import com.limelight.settings.android.AndroidStreamDefaults;
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
 import com.limelight.settings.app.AppPresentationSettings;
 import com.limelight.settings.app.AppPresentationSettingKeys;
+import com.limelight.settings.audio.StreamAudioSettingKeys;
+import com.limelight.settings.controller.ControllerSettingKeys;
 import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.stream.StreamDisplayGeometry;
 import com.limelight.settings.stream.StreamResolutionCodec;
@@ -80,6 +83,7 @@ import com.limelight.settings.transfer.TransferSettingKeys;
 import com.limelight.settings.transfer.TransferSettings;
 import com.limelight.settings.transfer.TransferSettingsLoader;
 import com.limelight.settings.ui.StreamUiSettingKeys;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.utils.BackNavigationRegistration;
@@ -120,14 +124,14 @@ public class StreamSettings extends Activity {
     private static final int MAX_BITRATE_KBPS = 50000;
     private static final int FEATURED_SECTION_INDEX = -1;
     private static final String CUSTOM_BITRATE_EDITOR_KEY =
-            "edit_diy_bitrate";
+            SettingsScreenIds.EDITOR_VIDEO_BITRATE_MBPS;
     private static final String EXTRA_SECTION_INDEX = "com.limelight.preferences.StreamSettings.SECTION_INDEX";
     private static final String[] ROOT_FEATURED_SETTING_KEYS = new String[] {
             StreamResolutionSettingKeys.RESOLUTION.getName(),
             StreamResolutionSettingKeys.ASPECT_RATIO.getName(),
             StreamResolutionSettingKeys.FPS.getName(),
             StreamVideoSettingKeys.BITRATE_KBPS.getName(),
-            "mouse_model_list_axi",
+            InputSettingKeys.TOUCH_MODE.getName(),
             TransferSettingKeys.CLIPBOARD_SYNC.getName(),
     };
 
@@ -1247,25 +1251,32 @@ public class StreamSettings extends Activity {
     }
 
     private void performAction(String key) {
-        if ("import_keyboard_file".equals(key)) {
+        if (SettingsScreenIds.ACTION_VIRTUAL_KEYBOARD_IMPORT
+                .equals(key)) {
             openDocument("text/plain", READ_REQUEST_CODE);
         }
-        else if ("import_gamepad_file".equals(key)) {
+        else if (SettingsScreenIds.ACTION_VIRTUAL_GAMEPAD_IMPORT
+                .equals(key)) {
             openDocument("text/plain", GAMEPAD_READ_REQUEST_CODE);
         }
-        else if ("import_computers_data_file".equals(key)) {
+        else if (SettingsScreenIds.ACTION_BACKUP_HOSTS_IMPORT
+                .equals(key)) {
             openDocument("*/*", READ_DATABASE_REQUEST_CODE);
         }
-        else if ("import_https_data_crt_file".equals(key)) {
+        else if (SettingsScreenIds.ACTION_BACKUP_CERTIFICATE_IMPORT
+                .equals(key)) {
             openDocument("*/*", READ_DATA_CRT_REQUEST_CODE);
         }
-        else if ("import_https_data_key_file".equals(key)) {
+        else if (SettingsScreenIds.ACTION_BACKUP_PRIVATE_KEY_IMPORT
+                .equals(key)) {
             openDocument("*/*", READ_DATA_KEY_REQUEST_CODE);
         }
-        else if ("import_switch_button_file".equals(key)) {
+        else if (SettingsScreenIds.ACTION_ACCESSIBILITY_CONFIG_IMPORT
+                .equals(key)) {
             openDocument("application/json", READ_REQUEST_SWITCH_BUTTON_CODE);
         }
-        else if ("import_image_file_key".equals(key)) {
+        else if (SettingsScreenIds.ACTION_APP_BACKGROUND_SELECT
+                .equals(key)) {
             openDocument("image/*", READ_REQUEST_SCREEN_IMAGE_CODE);
         }
         else if (TransferSettingKeys
@@ -1279,19 +1290,24 @@ public class StreamSettings extends Activity {
                     Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
             startActivityForResult(intent, CLIPBOARD_DIRECTORY_REQUEST_CODE);
         }
-        else if ("export_keyboard_file".equals(key)) {
+        else if (SettingsScreenIds.ACTION_VIRTUAL_KEYBOARD_EXPORT
+                .equals(key)) {
             exportKeyboard(false);
         }
-        else if ("export_gamepad_file".equals(key)) {
+        else if (SettingsScreenIds.ACTION_VIRTUAL_GAMEPAD_EXPORT
+                .equals(key)) {
             exportKeyboard(true);
         }
-        else if ("export_computers_data_file".equals(key)) {
+        else if (SettingsScreenIds.ACTION_BACKUP_HOSTS_EXPORT
+                .equals(key)) {
             exportFile(getDatabasePath(ComputerDatabaseManager.COMPUTER_DB_NAME), "*/*");
         }
-        else if ("export_https_data_crt_file".equals(key)) {
+        else if (SettingsScreenIds.ACTION_BACKUP_CERTIFICATE_EXPORT
+                .equals(key)) {
             exportFile(new File(getFilesDir(), "client.crt"), "*/*");
         }
-        else if ("export_https_data_key_file".equals(key)) {
+        else if (SettingsScreenIds.ACTION_BACKUP_PRIVATE_KEY_EXPORT
+                .equals(key)) {
             exportFile(new File(getFilesDir(), "client.key"), "*/*");
         }
     }
@@ -1422,12 +1438,12 @@ public class StreamSettings extends Activity {
         PackageManager pm = getPackageManager();
 
         if (!pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
-            hideSection("category_onscreen_controls");
+            hideSection(SettingsScreenIds.SECTION_VIRTUAL_CONTROLS);
         }
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
                 pm.hasSystemFeature("com.nvidia.feature.shield")) {
-            hideItem("checkbox_absolute_mouse_mode");
+            hideItem(InputSettingKeys.ABSOLUTE_MOUSE_MODE.getName());
         }
 
         SensorManager sensorManager =
@@ -1459,36 +1475,45 @@ public class StreamSettings extends Activity {
         }
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            hideItem("checkbox_gamepad_motion_sensors");
+            hideItem(ControllerSettingKeys.MOTION_SENSORS.getName());
         }
 
         if (!pm.hasSystemFeature(PackageManager.FEATURE_SENSOR_ACCELEROMETER) &&
                 !pm.hasSystemFeature(PackageManager.FEATURE_SENSOR_GYROSCOPE)) {
-            hideItem("checkbox_gamepad_motion_fallback");
+            hideItem(ControllerSettingKeys
+                    .MOTION_SENSORS_FALLBACK_TO_DEVICE.getName());
         }
 
         if (!pm.hasSystemFeature(PackageManager.FEATURE_USB_HOST)) {
-            hideItem("checkbox_usb_bind_all");
-            hideItem("checkbox_usb_driver");
+            hideItem(ControllerSettingKeys
+                    .CLAIM_ALL_USB_DEVICES.getName());
+            hideItem(ControllerSettingKeys.USB_DRIVER.getName());
         }
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
                 !pm.hasSystemFeature("android.software.picture_in_picture") ||
                 pm.hasSystemFeature("com.amazon.software.fireos")) {
-            hideItem("checkbox_enable_pip");
+            hideItem(StreamUiSettingKeys.PICTURE_IN_PICTURE.getName());
         }
 
         Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         if (vibrator == null || !vibrator.hasVibrator()) {
-            hideItem("checkbox_vibrate_fallback");
-            hideItem("seekbar_vibrate_fallback_strength");
-            hideItem("checkbox_enable_audio_haptics");
-            hideItem("seekbar_audio_haptics_strength");
-            hideItem("list_audio_haptics_voice_filter");
-            hideItem("checkbox_vibrate_osc");
+            hideItem(ControllerSettingKeys
+                    .FALLBACK_DEVICE_RUMBLE.getName());
+            hideItem(ControllerSettingKeys
+                    .FALLBACK_DEVICE_RUMBLE_STRENGTH_PERCENT
+                    .getName());
+            hideItem(StreamAudioSettingKeys.AUDIO_HAPTICS.getName());
+            hideItem(StreamAudioSettingKeys
+                    .AUDIO_HAPTICS_STRENGTH_PERCENT.getName());
+            hideItem(StreamAudioSettingKeys
+                    .AUDIO_HAPTICS_VOICE_FILTER.getName());
+            hideItem(ControllerSettingKeys.ONSCREEN_RUMBLE.getName());
         }
         else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || !vibrator.hasAmplitudeControl()) {
-            hideItem("seekbar_vibrate_fallback_strength");
+            hideItem(ControllerSettingKeys
+                    .FALLBACK_DEVICE_RUMBLE_STRENGTH_PERCENT
+                    .getName());
         }
     }
 
@@ -1639,13 +1664,14 @@ public class StreamSettings extends Activity {
     }
 
     private void initializeHdrVisibility(Display display) {
-        SettingsItem hdrItem = findItem("checkbox_enable_hdr");
+        SettingsItem hdrItem = findItem(
+                StreamVideoSettingKeys.HDR_ENABLED.getName());
         if (hdrItem == null) {
             return;
         }
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            hideItem("checkbox_enable_hdr");
+            hideItem(StreamVideoSettingKeys.HDR_ENABLED.getName());
             return;
         }
 
@@ -1661,7 +1687,7 @@ public class StreamSettings extends Activity {
         }
 
         if (!foundHdr10) {
-            hideItem("checkbox_enable_hdr");
+            hideItem(StreamVideoSettingKeys.HDR_ENABLED.getName());
         }
         else if (!AndroidHdrCompatibility
                 .isHdrStreamingAllowed()) {
@@ -2278,7 +2304,10 @@ public class StreamSettings extends Activity {
                         if (TextUtils.isEmpty(key)) {
                             key = "category_" + sections.size();
                         }
-                        currentSection = new SettingsSection(key, title, iconForSection(key, title, sections.size()));
+                        currentSection = new SettingsSection(
+                                key,
+                                title,
+                                iconForSection(key));
                         sections.add(currentSection);
                     }
                     else if (currentSection != null) {
@@ -2410,23 +2439,36 @@ public class StreamSettings extends Activity {
             return text == null ? null : text.toString();
         }
 
-        private static int iconForSection(String key, CharSequence title, int index) {
-            String titleText = title == null ? "" : title.toString();
-            if (key.contains("basic")) return R.drawable.ic_axi_screen;
-            if (key.contains("audio")) return R.drawable.ic_axi_mic;
-            if (key.contains("gamepad")) return R.drawable.ic_axi_game_pad;
-            if (key.contains("input")) return R.drawable.ic_axi_mouse_left;
-            if (key.contains("onscreen")) return R.drawable.ic_axi_game_control_dpad;
-            if (titleText.contains("虚拟按键")) return R.drawable.ic_axi_vkeyboard;
-            if (key.contains("keyboard")) return R.drawable.ic_axi_keyboard;
-            if (key.contains("host")) return R.drawable.ic_axi_computer;
-            if (key.contains("ui")) return R.drawable.ic_axi_app_setting;
-            if (key.contains("screen")) return R.drawable.ic_axi_desktop;
-            if (key.contains("advanced")) return R.drawable.ic_axi_other_setting;
-            if (key.contains("back")) return R.drawable.ic_axi_clipboard_send;
-            if (key.contains("about")) return R.drawable.ic_axi_app_about;
-            if (key.contains("axixi")) return R.drawable.ic_axi_quick;
-            return index % 2 == 0 ? R.drawable.ic_axi_opt : R.drawable.ic_axi_menu;
+        private static int iconForSection(String key) {
+            switch (key) {
+                case SettingsScreenIds.SECTION_VIDEO_DISPLAY:
+                    return R.drawable.ic_axi_screen;
+                case SettingsScreenIds.SECTION_AUDIO:
+                    return R.drawable.ic_axi_mic;
+                case SettingsScreenIds.SECTION_TOUCH_MOUSE:
+                    return R.drawable.ic_axi_touch_all;
+                case SettingsScreenIds.SECTION_GAMEPAD:
+                    return R.drawable.ic_axi_game_pad;
+                case SettingsScreenIds.SECTION_HAPTICS:
+                    return R.drawable.ic_axi_vibrate;
+                case SettingsScreenIds.SECTION_VIRTUAL_CONTROLS:
+                    return R.drawable.ic_axi_game_control_dpad;
+                case SettingsScreenIds.SECTION_CLIPBOARD_FILES:
+                    return R.drawable.ic_axi_clipboard_send;
+                case SettingsScreenIds.SECTION_STREAM_INTERFACE:
+                    return R.drawable.ic_axi_window;
+                case SettingsScreenIds.SECTION_APP_APPEARANCE:
+                    return R.drawable.ic_axi_app_setting;
+                case SettingsScreenIds.SECTION_SYSTEM_ACCESSIBILITY:
+                    return R.drawable.ic_axi_other_setting;
+                case SettingsScreenIds.SECTION_BACKUP_RESTORE:
+                    return R.drawable.ic_axi_down;
+                case SettingsScreenIds.SECTION_ABOUT:
+                    return R.drawable.ic_axi_app_about;
+                default:
+                    throw new IllegalArgumentException(
+                            "Unknown settings section: " + key);
+            }
         }
 
         private static int iconForItem(String key) {
@@ -2434,13 +2476,14 @@ public class StreamSettings extends Activity {
             int exactIcon = exactIconForItem(key);
             if (exactIcon != 0) return exactIcon;
             if (key.contains("resolution")) return R.drawable.ic_axi_game_pad_display;
-            if (key.contains("fps")) return R.drawable.ic_axi_game_pad_fps;
+            if (key.contains("frame_rate")) return R.drawable.ic_axi_game_pad_fps;
             if (key.contains("bitrate")) return R.drawable.ic_axi_game_pad_bitrate;
             if (key.contains("hdr")) return R.drawable.ic_axi_hdr;
-            if (key.contains("audio") || key.contains("haptics")) return R.drawable.ic_axi_mic;
+            if (key.contains("audio")) return R.drawable.ic_axi_mic;
+            if (key.contains("haptics")) return R.drawable.ic_axi_vibrate;
             if (key.contains("rumble") || key.contains("vibrate")) return R.drawable.ic_axi_vibrate;
             if (key.contains("gamepad") || key.contains("controller")) return R.drawable.ic_axi_game_pad;
-            if (key.contains("mouse")) return R.drawable.ic_axi_mouse_left;
+            if (key.contains("mouse") || key.contains("pointer")) return R.drawable.ic_axi_mouse_left;
             if (key.contains("touch")) return R.drawable.ic_axi_touch;
             if (key.contains("keyboard")) return R.drawable.ic_axi_keyboard;
             if (key.contains("import")) return R.drawable.ic_axi_down;
@@ -2455,139 +2498,143 @@ public class StreamSettings extends Activity {
         }
 
         private static int exactIconForItem(String key) {
-            if ("list_resolution".equals(key)) return R.drawable.ic_axi_game_pad_display;
-            if ("list_resolution_aspect_ratio".equals(key)) return R.drawable.ic_axi_game_pad_zoom;
-            if ("list_fps".equals(key)) return R.drawable.ic_axi_game_pad_fps;
-            if (StreamVideoSettingKeys.BITRATE_KBPS
-                    .getName()
-                    .equals(key) ||
-                    "edit_diy_bitrate".equals(key)) {
+            if (StreamResolutionSettingKeys.RESOLUTION.getName()
+                    .equals(key)) {
+                return R.drawable.ic_axi_game_pad_display;
+            }
+            if (StreamResolutionSettingKeys.ASPECT_RATIO.getName()
+                    .equals(key)) {
+                return R.drawable.ic_axi_game_pad_zoom;
+            }
+            if (StreamResolutionSettingKeys.FPS.getName().equals(key)) {
+                return R.drawable.ic_axi_game_pad_fps;
+            }
+            if (StreamVideoSettingKeys.BITRATE_KBPS.getName().equals(key) ||
+                    SettingsScreenIds.EDITOR_VIDEO_BITRATE_MBPS
+                            .equals(key)) {
                 return R.drawable.ic_axi_game_pad_bitrate;
             }
-            if ("frame_pacing".equals(key) || "enable_lowLatency_experiment".equals(key)) return R.drawable.ic_axi_performance;
-            if ("checkbox_enable_hdr".equals(key)) return R.drawable.ic_axi_hdr;
-            if ("checkbox_stretch_video".equals(key) || "screen_gravity_list".equals(key)) return R.drawable.ic_axi_win_center;
-            if ("checkbox_cutout_mode_video".equals(key)) return R.drawable.ic_axi_win_p;
-            if ("checkbox_auto_screen_orientation".equals(key)) return R.drawable.ic_axi_switch_screen;
-            if (AppPresentationSettingKeys.LIGHT_THEME
-                    .getName()
-                    .equals(key) ||
-                    AppPresentationSettingKeys.LANGUAGE
-                            .getName()
-                            .equals(key)) {
-                return R.drawable.ic_axi_app_setting;
+            if (key.endsWith("frame_pacing") ||
+                    key.endsWith("low_latency_decode") ||
+                    key.endsWith("optimize_game_settings") ||
+                    key.contains("performance_overlay")) {
+                return R.drawable.ic_axi_performance;
             }
-
-            if ("list_audio_config".equals(key) || "checkbox_enable_audiofx".equals(key)) return R.drawable.ic_axi_mic;
-            if ("seekbar_deadzone".equals(key) || "checkbox_disable_trigger_deadzone".equals(key)) return R.drawable.ic_axi_joystick;
-            if ("checkbox_multi_controller".equals(key)) return R.drawable.ic_axi_app_game_pad;
-            if ("checkbox_usb_driver".equals(key) || "checkbox_usb_bind_all".equals(key)) return R.drawable.ic_axi_game_pad_xbox;
-            if ("checkbox_mouse_emulation".equals(key)) return R.drawable.ic_axi_mouse_left;
-            if ("analog_scrolling".equals(key)) return R.drawable.ic_axi_mouse_down;
-            if ("checkbox_vibrate_fallback".equals(key) || "seekbar_vibrate_fallback_strength".equals(key)) return R.drawable.ic_axi_vibrate;
-            if ("checkbox_flip_face_buttons".equals(key)) return R.drawable.ic_axi_game_pad_move;
-            if ("checkbox_flip_rumble_ff".equals(key)) return R.drawable.ic_axi_virtual_gamepad_rumble;
-            if ("checkbox_gamepad_touchpad_as_mouse".equals(key)) return R.drawable.ic_axi_touch;
-            if ("checkbox_gamepad_motion_sensors".equals(key) || "checkbox_gamepad_motion_fallback".equals(key)) return R.drawable.ic_axi_game_pad_senser;
-
-            if ("mouse_model_list_axi".equals(key)) return R.drawable.ic_axi_touch_all;
-            if ("checkbox_mouse_local_cursor".equals(key)) return R.drawable.ic_axi_mouse_left_s;
-            if ("checkbox_mouse_nav_buttons".equals(key)) return R.drawable.ic_axi_mouse_right;
-            if ("checkbox_absolute_mouse_mode".equals(key)) return R.drawable.ic_axi_touch_center;
-            if (InputSettingKeys.BAROMETER_FORCE_PRESS
-                    .getName()
-                    .equals(key)) {
+            if (key.endsWith("stretch_video") ||
+                    key.endsWith("gravity")) {
+                return R.drawable.ic_axi_win_center;
+            }
+            if (key.endsWith("use_cutout_area")) {
+                return R.drawable.ic_axi_win_p;
+            }
+            if (key.endsWith("automatic_orientation") ||
+                    key.endsWith("portrait")) {
+                return R.drawable.ic_axi_switch_screen;
+            }
+            if (key.endsWith("stick_deadzone_percent") ||
+                    key.endsWith("trigger_deadzone_disabled")) {
+                return R.drawable.ic_axi_joystick;
+            }
+            if (key.contains("usb_driver")) {
+                return R.drawable.ic_axi_game_pad_xbox;
+            }
+            if (key.endsWith("scrolling_stick")) {
+                return R.drawable.ic_axi_mouse_down;
+            }
+            if (key.endsWith("flip_face_buttons")) {
+                return R.drawable.ic_axi_game_pad_move;
+            }
+            if (key.endsWith("touchpad_as_mouse")) {
                 return R.drawable.ic_axi_touch;
             }
-            if (InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD
-                    .getName()
-                    .equals(key) ||
-                    InputSettingKeys
-                            .BAROMETER_FORCE_PRESS_MINIMUM_DURATION
-                            .getName()
-                            .equals(key)) {
+            if (key.contains("motion")) {
+                return R.drawable.ic_axi_game_pad_senser;
+            }
+            if (InputSettingKeys.TOUCH_MODE.getName().equals(key)) {
+                return R.drawable.ic_axi_touch_all;
+            }
+            if (key.endsWith("local_system_cursor")) {
+                return R.drawable.ic_axi_mouse_left_s;
+            }
+            if (key.endsWith("navigation_buttons")) {
+                return R.drawable.ic_axi_mouse_right;
+            }
+            if (key.endsWith("absolute_mouse")) {
+                return R.drawable.ic_axi_touch_center;
+            }
+            if (key.contains("force_press") ||
+                    key.contains("opacity_percent")) {
                 return R.drawable.ic_axi_touch_sensitivity;
             }
-            if ("checkbox_clipboard_sync".equals(key)) return R.drawable.ic_axi_clipboard_send;
-
-            if ("checkbox_show_onscreen_controls".equals(key)) return R.drawable.ic_axi_game_control_dpad;
-            if ("gamepad_axi_list".equals(key)) return R.drawable.ic_axi_game_pad_active;
-            if ("checkbox_vibrate_osc".equals(key) || "checkbox_vibrate_keyboard".equals(key)) return R.drawable.ic_axi_vibrate;
-            if ("seekbar_osc_opacity".equals(key)) return R.drawable.ic_axi_touch_sensitivity;
-            if ("checkbox_rocker_click_L3R3".equals(key)) return R.drawable.ic_axi_free_rocker;
-            if ("import_gamepad_file".equals(key)) return R.drawable.ic_axi_down;
-            if ("export_gamepad_file".equals(key)) return R.drawable.ic_axi_clipboard_send;
-
-            if ("checkbox_enable_sops".equals(key)) return R.drawable.ic_axi_performance;
-            if ("checkbox_host_audio".equals(key)) return R.drawable.ic_axi_mic;
-            if ("checkbox_enable_pip".equals(key)) return R.drawable.ic_axi_window;
-            if (AppPresentationSettingKeys.SMALL_APP_ICONS
-                    .getName()
-                    .equals(key)) {
-                return R.drawable.ic_axi_app_setting;
+            if (TransferSettingKeys.CLIPBOARD_SYNC.getName().equals(key) ||
+                    key.contains("clipboard")) {
+                return R.drawable.ic_axi_clipboard_send;
             }
-            if ("checkbox_unlock_fps".equals(key) || "checkbox_reduce_refresh_rate".equals(key)) return R.drawable.ic_axi_game_pad_fps;
-            if ("checkbox_disable_warnings".equals(key)) return R.drawable.ic_axi_delete;
-            if ("video_format".equals(key) || "checkbox_full_range".equals(key)) return R.drawable.ic_axi_screen;
-            if ("checkbox_enable_perf_overlay".equals(key) || "checkbox_enable_perf_overlay_lite".equals(key) ||
-                    "checkbox_enable_perf_overlay_lite_dialog".equals(key) || "checkbox_enable_perf_overlay_lite_ext".equals(key) ||
-                    "performance_overlayLite_magin_top".equals(key)) return R.drawable.ic_axi_performance;
-            if ("checkbox_enable_post_stream_toast".equals(key)) return R.drawable.ic_axi_app_about;
-
-            if ("checkbox_enable_quit_dialog".equals(key)) return R.drawable.ic_axi_menu;
-            if ("edit_diy_w_h".equals(key)) return R.drawable.ic_axi_game_pad_display;
-            if ("checkbox_enable_portrait".equals(key)) return R.drawable.ic_axi_switch_screen;
-            if ("checkbox_enable_joyconfix".equals(key)) return R.drawable.ic_axi_ns;
-            if ("checkbox_gamepad_enable_battery_report".equals(key)) return R.drawable.ic_axi_game_pad_battery;
-            if ("checkbox_enable_ax_floating".equals(key)) return R.drawable.ic_axi_quick;
-            if ("seekbar_keyboard_axi_opacity".equals(key)) return R.drawable.ic_axi_touch_sensitivity;
-            if ("seekbar_keyboard_axi_height".equals(key)) return R.drawable.ic_axi_keyboard;
-            if ("checkbox_enable_keyboard_axi_combination".equals(key)) return R.drawable.ic_axi_keyboard_list;
-            if ("checkbox_enable_exdisplay".equals(key)) return R.drawable.ic_axi_desktop;
-            if ("checkbox_enable_device_rumble".equals(key)) return R.drawable.ic_axi_vibrate;
-            if ("checkbox_enable_virtual_motion".equals(key)) return R.drawable.ic_axi_game_pad_senser;
-            if ("checkbox_enable_clear_default_special_button".equals(key)) return R.drawable.ic_axi_delete;
-            if (StreamUiSettingKeys
-                    .GAME_MODE_INTEGRATION_DISABLED
-                    .getName()
+            if (ControllerSettingKeys.ONSCREEN_CONTROLLER.getName()
                     .equals(key)) {
-                return R.drawable.ic_axi_game_pad_disable;
+                return R.drawable.ic_axi_game_control_dpad;
             }
-            if ("import_switch_button_file".equals(key)) return R.drawable.ic_axi_down;
-            if (InputSettingKeys.ACCESSIBILITY_KEY_LOGGING
-                    .getName()
+            if (VirtualControlSettingKeys.GAMEPAD_LAYOUT_ID.getName()
                     .equals(key)) {
-                return R.drawable.ic_axi_keyboard_list;
+                return R.drawable.ic_axi_game_pad_active;
             }
-
-            if ("checkbox_enable_keyboard".equals(key)) return R.drawable.ic_axi_vkeyboard;
-            if ("keyboard_axi_list".equals(key)) return R.drawable.ic_axi_keyboard_list;
-            if ("import_keyboard_file".equals(key)) return R.drawable.ic_axi_down;
-            if ("export_keyboard_file".equals(key)) return R.drawable.ic_axi_clipboard_send;
-
-            if ("checkbox_enable_audio_haptics".equals(key) || "seekbar_audio_haptics_strength".equals(key)) return R.drawable.ic_axi_vibrate;
-            if ("list_audio_haptics_output_target".equals(key)) return R.drawable.ic_axi_game_pad_device;
-            if ("list_audio_haptics_voice_filter".equals(key)) return R.drawable.ic_axi_mic;
-            if ("checkbox_audio_haptics_keep_controller_rumble".equals(key)) return R.drawable.ic_axi_virtual_gamepad_rumble;
-
-            if ("export_computers_data_file".equals(key) || "import_computers_data_file".equals(key)) return R.drawable.ic_axi_computer;
-            if ("export_https_data_crt_file".equals(key) || "import_https_data_crt_file".equals(key) ||
-                    "export_https_data_key_file".equals(key) || "import_https_data_key_file".equals(key)) return R.drawable.ic_axi_lock_screen;
-            if (AppPresentationSettingKeys.BACKGROUND_ENABLED
-                    .getName()
-                    .equals(key) ||
-                    "import_image_file_key".equals(key)) {
+            if (key.endsWith("joycon_compatibility")) {
+                return R.drawable.ic_axi_ns;
+            }
+            if (key.endsWith("battery_reporting")) {
+                return R.drawable.ic_axi_game_pad_battery;
+            }
+            if (StreamUiSettingKeys.FLOATING_CONTROL_ENABLED.getName()
+                    .equals(key)) {
+                return R.drawable.ic_axi_quick;
+            }
+            if (key.endsWith("external_display")) {
                 return R.drawable.ic_axi_desktop;
             }
-            if (AppPresentationSettingKeys
-                    .BACKGROUND_BLUR_ENABLED
-                    .getName()
-                    .equals(key)) {
+            if (key.endsWith("game_mode_integration_disabled")) {
+                return R.drawable.ic_axi_game_pad_disable;
+            }
+            if (key.endsWith("key_logging") ||
+                    key.endsWith("combination_mode")) {
+                return R.drawable.ic_axi_keyboard_list;
+            }
+            if (key.endsWith("picture_in_picture")) {
+                return R.drawable.ic_axi_window;
+            }
+            if (key.endsWith("connection_warnings_disabled")) {
+                return R.drawable.ic_axi_delete;
+            }
+            if (key.endsWith("latency_toast")) {
+                return R.drawable.ic_axi_app_about;
+            }
+            if (key.endsWith("audio.output_target")) {
+                return R.drawable.ic_axi_game_pad_device;
+            }
+            if (key.endsWith("keep_controller_rumble")) {
+                return R.drawable.ic_axi_virtual_gamepad_rumble;
+            }
+            if (key.startsWith("action_backup_hosts_")) {
+                return R.drawable.ic_axi_computer;
+            }
+            if (key.startsWith("action_backup_certificate_") ||
+                    key.startsWith("action_backup_private_key_")) {
+                return R.drawable.ic_axi_lock_screen;
+            }
+            if (key.startsWith("action_") && key.endsWith("_import")) {
+                return R.drawable.ic_axi_down;
+            }
+            if (key.startsWith("action_") && key.endsWith("_export")) {
+                return R.drawable.ic_axi_clipboard_send;
+            }
+            if (key.endsWith("background.enabled") ||
+                    SettingsScreenIds.ACTION_APP_BACKGROUND_SELECT
+                            .equals(key)) {
+                return R.drawable.ic_axi_desktop;
+            }
+            if (key.endsWith("background.blur")) {
                 return R.drawable.ic_axi_zoom;
             }
-            if (AppPresentationSettingKeys.HOST_LIST_LABEL
-                    .getName()
-                    .equals(key)) {
+            if (key.endsWith("host_list_label")) {
                 return R.drawable.ic_axi_keyboard;
             }
             return 0;

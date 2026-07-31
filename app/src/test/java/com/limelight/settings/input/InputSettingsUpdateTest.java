@@ -53,7 +53,9 @@ public final class InputSettingsUpdateTest {
                 updated.getMouseWheelScrollAmount());
         assertEquals(
                 InputSettingKeys.MAX_SCROLL_AMOUNT,
-                repository.values.get("mouse_sc_amount"));
+                repository.values.get(
+                        InputSettingKeys.MOUSE_WHEEL_SCROLL_AMOUNT
+                                .getName()));
         assertEquals(1, repository.applyCount);
     }
 

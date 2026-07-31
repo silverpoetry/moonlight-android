@@ -77,22 +77,29 @@ public final class StreamVideoSettingsUpdateTest {
 
         assertEquals(
                 "3440x1440",
-                repository.values.get("list_resolution"));
+                repository.values.get(
+                        StreamResolutionSettingKeys.RESOLUTION
+                                .getName()));
         assertEquals(
                 StreamResolutionCodec
                         .SELECTION_CUSTOM_OR_NATIVE,
                 repository.values.get(
-                        "list_resolution_selection"));
+                        StreamResolutionSettingKeys.SELECTION
+                                .getName()));
         assertEquals(
                 "165",
-                repository.values.get("list_fps"));
+                repository.values.get(
+                        StreamResolutionSettingKeys.FPS.getName()));
         assertEquals(
                 120_000,
                 repository.values.get(
-                        "seekbar_bitrate_kbps"));
+                        StreamVideoSettingKeys.BITRATE_KBPS
+                                .getName()));
         assertEquals(
                 "3440x1440",
-                repository.values.get("edit_diy_w_h"));
+                repository.values.get(
+                        StreamVideoSettingKeys.CUSTOM_RESOLUTION_TEXT
+                                .getName()));
         assertEquals(7, repository.values.size());
         assertEquals(1, repository.applyCount);
     }
@@ -130,13 +137,19 @@ public final class StreamVideoSettingsUpdateTest {
                 updated.getVirtualDisplayMode());
         assertEquals(
                 "forceav1",
-                repository.values.get("video_format"));
+                repository.values.get(
+                        StreamVideoSettingKeys.VIDEO_FORMAT
+                                .getName()));
         assertEquals(
                 1,
-                repository.values.get("enable_screen_on_auto"));
+                repository.values.get(
+                        StreamVideoSettingKeys.SCREEN_ON_POLICY
+                                .getName()));
         assertEquals(
                 2,
-                repository.values.get("vdValue"));
+                repository.values.get(
+                        StreamVideoSettingKeys.VIRTUAL_DISPLAY_MODE
+                                .getName()));
         assertEquals(3, repository.applyCount);
     }
 

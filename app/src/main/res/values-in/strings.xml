@@ -94,7 +94,6 @@
     <string name="applist_menu_quit">Keluar dari Sesi</string>
     <string name="applist_quit_confirmation">Anda yakin ingin keluar dari aplikasi yang sedang berjalan\? Semua data yang belum disimpan akan hilang.</string>
     <string name="addpc_wrong_sitelocal">Alamat itu sepertinya salah. Anda harus menggunakan alamat IP publik perute untuk streaming melalui Internet.</string>
-    <string name="category_basic_settings">Pengaturan dasar</string>
     <string name="title_fps_list">Kecepatan bingkai video</string>
     <string name="summary_fps_list">Tingkatkan untuk streaming video yang lebih lancar. Turunkan untuk kinerja yang lebih baik pada perangkat kelas bawah.</string>
     <string name="title_seekbar_bitrate">Kecepatan bit video</string>
@@ -104,11 +103,9 @@
     <string name="resolution_prefix_native_landscape">(Lanskap)</string>
     <string name="resolution_prefix_native_portrait">(Potret)</string>
     <string name="summary_checkbox_enable_audiofx">Mengizinkan efek audio berfungsi saat streaming, tetapi dapat meningkatkan latensi audio</string>
-    <string name="category_input_settings">Pengaturan Masukan</string>
     <string name="title_checkbox_vibrate_fallback">Meniru dukungan gemuruh dengan getaran</string>
     <string name="suffix_seekbar_deadzone">%</string>
     <string name="summary_checkbox_absolute_mouse_mode">Ini dapat membuat akselerasi mouse berperilaku lebih alami untuk penggunaan desktop jarak jauh, tetapi tidak kompatibel dengan banyak game.</string>
-    <string name="category_on_screen_controls_settings">Pengaturan Kontrol di Layar</string>
     <string name="title_checkbox_show_onscreen_controls">Tampilkan kontrol di layar</string>
     <string name="summary_checkbox_small_icon_mode">Seni kotak yang lebih kecil di kisi aplikasi memungkinkan lebih banyak aplikasi terlihat di layar</string>
     <string name="title_checkbox_host_audio">Putar audio di PC</string>
@@ -116,7 +113,6 @@
     <string name="title_checkbox_disable_warnings">Nonaktifkan pesan peringatan</string>
     <string name="summary_checkbox_disable_warnings">Nonaktifkan pesan peringatan koneksi di layar saat streaming</string>
     <string name="error_unknown_host">Gagal menyelesaikan host</string>
-    <string name="category_host_settings">Pengaturan tuan rumah</string>
     <string name="frame_conversion_error">PC host melaporkan kesalahan penyandian video yang fatal.
 \n
 \nCoba nonaktifkan mode HDR, ubah resolusi streaming, atau ubah resolusi tampilan PC host Anda.</string>
@@ -156,12 +152,10 @@
     <string name="summary_osc_opacity">Jadikan kontrol di layar lebih/kurang transparan</string>
     <string name="dialog_title_osc_opacity">Ubah opasitas</string>
     <string name="suffix_osc_opacity">%</string>
-    <string name="category_ui_settings">Pengaturan UI</string>
     <string name="summary_checkbox_enable_pip">Mengizinkan streaming untuk dilihat (tetapi tidak dikontrol) saat melakukan banyak tugas</string>
     <string name="title_language_list">Bahasa</string>
     <string name="title_checkbox_small_icon_mode">Gunakan seni kotak kecil</string>
     <string name="summary_checkbox_host_audio">Putar audio dari komputer dan perangkat ini</string>
-    <string name="category_advanced_settings">Pengaturan lanjutan</string>
     <string name="title_unlock_fps">Buka kunci semua frekuensi gambar yang memungkinkan</string>
     <string name="summary_unlock_fps">Streaming pada 90 atau 120 FPS dapat mengurangi latensi pada perangkat kelas atas, tetapi dapat menyebabkan kelambatan atau ketidakstabilan pada perangkat yang tidak dapat mendukungnya</string>
     <string name="title_checkbox_reduce_refresh_rate">Izinkan pengurangan kecepatan penyegaran</string>

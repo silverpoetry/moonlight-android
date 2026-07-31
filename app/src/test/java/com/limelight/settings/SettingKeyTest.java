@@ -127,4 +127,41 @@ public class SettingKeyTest {
                         Arrays.asList("one", "two", "x")))
                 .isEmpty());
     }
+
+    @Test
+    public void renameAliasesAreValidatedAndImmutable() {
+        SettingKey<Integer> key = SettingKey.integerKey(
+                "input.pointer.speed",
+                100,
+                10,
+                300)
+                .renamedFrom(
+                        "legacy_pointer_speed",
+                        "older_pointer_speed");
+
+        assertEquals(
+                Arrays.asList(
+                        "legacy_pointer_speed",
+                        "older_pointer_speed"),
+                key.getLegacyNames());
+        assertEquals(
+                Integer.valueOf(300),
+                key.legacyAlias("legacy_pointer_speed")
+                        .normalizeStoredValue(900));
+
+        boolean immutable = false;
+        try {
+            key.getLegacyNames().add("late_alias");
+        }
+        catch (UnsupportedOperationException expected) {
+            immutable = true;
+        }
+        assertTrue(immutable);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void canonicalNameCannotAlsoBeRenameAlias() {
+        SettingKey.booleanKey("setting.enabled", false)
+                .renamedFrom("setting.enabled");
+    }
 }

@@ -29,12 +29,21 @@ public final class SettingsMigrationRunner {
         int storedVersion = repository.get(SettingsSchema.VERSION);
         boolean hasLateLegacyValues =
                 containsLegacyValues(repository);
+        boolean hasRenamedValues =
+                containsRenamedValues(repository);
         if (storedVersion >= SettingsSchema.CURRENT_VERSION &&
-                !hasLateLegacyValues) {
+                !hasLateLegacyValues &&
+                !hasRenamedValues) {
             return;
         }
 
         SettingsRepository.Editor editor = repository.edit();
+        // Rename aliases first. Later semantic migrations intentionally write
+        // canonical values and therefore win when an old multi-key setting
+        // must be merged or converted in the same transaction.
+        if (storedVersion < 5 || hasRenamedValues) {
+            migrateToVersion5(repository, editor);
+        }
         if (storedVersion < 1 || hasLateLegacyValues) {
             migrateToVersion1(repository, editor);
         }
@@ -57,6 +66,54 @@ public final class SettingsMigrationRunner {
                     SettingsSchema.CURRENT_VERSION);
         }
         editor.commit();
+    }
+
+    private static boolean containsRenamedValues(
+            SettingsRepository repository) {
+        for (SettingKey<?> key : SettingsKeyCatalog.all()) {
+            for (String legacyName : key.getLegacyNames()) {
+                if (containsLegacyAlias(
+                        repository,
+                        key,
+                        legacyName)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static <T> boolean containsLegacyAlias(
+            SettingsRepository repository,
+            SettingKey<T> key,
+            String legacyName) {
+        return repository.contains(key.legacyAlias(legacyName));
+    }
+
+    private static void migrateToVersion5(
+            SettingsRepository repository,
+            SettingsRepository.Editor editor) {
+        for (SettingKey<?> key : SettingsKeyCatalog.all()) {
+            migrateRenamedKey(repository, editor, key);
+        }
+    }
+
+    private static <T> void migrateRenamedKey(
+            SettingsRepository repository,
+            SettingsRepository.Editor editor,
+            SettingKey<T> key) {
+        boolean canonicalValueExists = repository.contains(key);
+        for (String legacyName : key.getLegacyNames()) {
+            SettingKey<T> legacyKey = key.legacyAlias(legacyName);
+            if (!repository.contains(legacyKey)) {
+                continue;
+            }
+            if (!canonicalValueExists) {
+                editor.put(key, repository.get(legacyKey));
+                canonicalValueExists = true;
+            }
+            editor.remove(legacyKey);
+        }
     }
 
     private static boolean containsLegacyValues(
@@ -82,9 +139,13 @@ public final class SettingsMigrationRunner {
         if (repository.contains(
                 StreamAudioSettingKeys
                         .LEGACY_ENABLE_51_SURROUND)) {
-            if (repository.get(
+            if (!containsCanonicalOrAlias(
+                    repository,
                     StreamAudioSettingKeys
-                            .LEGACY_ENABLE_51_SURROUND)) {
+                            .CHANNEL_CONFIGURATION) &&
+                    repository.get(
+                            StreamAudioSettingKeys
+                                    .LEGACY_ENABLE_51_SURROUND)) {
                 editor.put(
                         StreamAudioSettingKeys
                                 .CHANNEL_CONFIGURATION,
@@ -98,16 +159,20 @@ public final class SettingsMigrationRunner {
         if (repository.contains(
                 StreamDecoderSettingKeys
                         .LEGACY_DISABLE_FRAME_DROP)) {
-            boolean neverDropFrames = repository.get(
-                    StreamDecoderSettingKeys
-                            .LEGACY_DISABLE_FRAME_DROP);
-            editor.put(
-                    StreamDecoderSettingKeys.FRAME_PACING,
-                    neverDropFrames
-                            ? StreamDecoderSettingKeys
-                                    .FRAME_PACING_BALANCED
-                            : StreamDecoderSettingKeys
-                                    .FRAME_PACING_MINIMUM_LATENCY);
+            if (!containsCanonicalOrAlias(
+                    repository,
+                    StreamDecoderSettingKeys.FRAME_PACING)) {
+                boolean neverDropFrames = repository.get(
+                        StreamDecoderSettingKeys
+                                .LEGACY_DISABLE_FRAME_DROP);
+                editor.put(
+                        StreamDecoderSettingKeys.FRAME_PACING,
+                        neverDropFrames
+                                ? StreamDecoderSettingKeys
+                                        .FRAME_PACING_BALANCED
+                                : StreamDecoderSettingKeys
+                                        .FRAME_PACING_MINIMUM_LATENCY);
+            }
             editor.remove(
                     StreamDecoderSettingKeys
                             .LEGACY_DISABLE_FRAME_DROP);
@@ -116,12 +181,20 @@ public final class SettingsMigrationRunner {
         if (repository.contains(
                 TransferSettingKeys
                         .LEGACY_CLIPBOARD_IMAGE_SYNC)) {
-            boolean clipboardSyncEnabled =
-                    repository.get(
-                            TransferSettingKeys.CLIPBOARD_SYNC) ||
-                            repository.get(
-                                    TransferSettingKeys
-                                            .LEGACY_CLIPBOARD_IMAGE_SYNC);
+            boolean clipboardSyncEnabled;
+            if (repository.contains(
+                    TransferSettingKeys.CLIPBOARD_SYNC)) {
+                clipboardSyncEnabled = repository.get(
+                        TransferSettingKeys.CLIPBOARD_SYNC);
+            }
+            else {
+                clipboardSyncEnabled = getBooleanLegacyAlias(
+                        repository,
+                        TransferSettingKeys.CLIPBOARD_SYNC) ||
+                        repository.get(
+                                TransferSettingKeys
+                                        .LEGACY_CLIPBOARD_IMAGE_SYNC);
+            }
             editor.put(
                     TransferSettingKeys.CLIPBOARD_SYNC,
                     clipboardSyncEnabled);
@@ -151,8 +224,16 @@ public final class SettingsMigrationRunner {
                 StreamVideoSettingKeys.LEGACY_BITRATE_MBPS)) {
             return;
         }
-        if (!repository.contains(
-                StreamVideoSettingKeys.BITRATE_KBPS)) {
+        boolean hasCurrentBitrate = repository.contains(
+                StreamVideoSettingKeys.BITRATE_KBPS);
+        for (String legacyName : StreamVideoSettingKeys
+                .BITRATE_KBPS.getLegacyNames()) {
+            hasCurrentBitrate |= containsLegacyAlias(
+                    repository,
+                    StreamVideoSettingKeys.BITRATE_KBPS,
+                    legacyName);
+        }
+        if (!hasCurrentBitrate) {
             long legacyKbps =
                     (long) repository.get(
                             StreamVideoSettingKeys
@@ -186,7 +267,8 @@ public final class SettingsMigrationRunner {
         boolean hasLegacyHidden = repository.contains(
                 GameMenuCardSettingKeys
                         .LEGACY_HIDDEN_ACTION_IDS);
-        if (!repository.contains(
+        if (!containsCanonicalOrAlias(
+                repository,
                 GameMenuCardSettingKeys.ORDER_DOCUMENT) &&
                 (hasLegacyOrder || hasLegacyHidden)) {
             List<String> migratedOrder = new ArrayList<>();
@@ -253,5 +335,32 @@ public final class SettingsMigrationRunner {
                     GameMenuCardSettingKeys
                             .LEGACY_HIDDEN_ACTION_IDS);
         }
+    }
+
+    private static <T> boolean containsCanonicalOrAlias(
+            SettingsRepository repository,
+            SettingKey<T> key) {
+        if (repository.contains(key)) {
+            return true;
+        }
+        for (String legacyName : key.getLegacyNames()) {
+            if (containsLegacyAlias(repository, key, legacyName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean getBooleanLegacyAlias(
+            SettingsRepository repository,
+            SettingKey<Boolean> key) {
+        for (String legacyName : key.getLegacyNames()) {
+            SettingKey<Boolean> legacyKey =
+                    key.legacyAlias(legacyName);
+            if (repository.contains(legacyKey)) {
+                return repository.get(legacyKey);
+            }
+        }
+        return false;
     }
 }

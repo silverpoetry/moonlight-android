@@ -86,7 +86,6 @@
     <string name="addpc_unknown_host">Det går inte att lösa PC-adressen. Kontrollera att du inte har skrivit fel i adressen.</string>
     <string name="addpc_enter_ip">Du måste ange en IP-adress</string>
     <string name="addpc_wrong_sitelocal">Den adressen ser inte rätt ut. Du måste använda routerns offentliga IP-adress för att streama via Internet.</string>
-    <string name="category_basic_settings">Grundinställningar</string>
     <string name="title_resolution_list">Videoupplösning</string>
     <string name="summary_resolution_list">Öka för att förbättra bildens tydlighet. Sänk för bättre prestanda på mindre avancerade enheter och långsammare nätverk.</string>
     <string name="title_fps_list">Videobildfrekvens</string>
@@ -100,7 +99,6 @@
     <string name="category_audio_settings">Ljudinställningar</string>
     <string name="title_audio_config_list">Konfiguration av surroundljud</string>
     <string name="title_checkbox_enable_audiofx">Aktivera stöd för systemets equalizer</string>
-    <string name="category_input_settings">Inmatningsinställningar</string>
     <string name="title_checkbox_multi_controller">Automatiskt upptäckande av närvarande spelkontroll</string>
     <string name="title_checkbox_vibrate_fallback">Efterlikna stöd för rumble med vibrationer</string>
     <string name="summary_checkbox_vibrate_fallback">Vibrerar enheten för att efterlikna rumble om din spelplatta inte har stöd för det</string>
@@ -117,7 +115,6 @@
     <string name="title_checkbox_flip_face_buttons">Skifta ansiktsknappar</string>
     <string name="title_checkbox_absolute_mouse_mode">Musläget för fjärrskrivbord</string>
     <string name="summary_checkbox_absolute_mouse_mode">Detta kan göra musacceleration mer naturligt för fjärrskrivbordsanvändning, men det är oförenligt med många spel.</string>
-    <string name="category_on_screen_controls_settings">Inställningar för kontroller på skärmen</string>
     <string name="title_checkbox_vibrate_osc">Sätt på darrning</string>
     <string name="summary_checkbox_vibrate_osc">Darrar din enhet för att ge svar på skärmkontrollerna</string>
     <string name="suffix_osc_opacity">%</string>
@@ -126,12 +123,10 @@
     <string name="summary_language_list">Språk att använda för Moonlight</string>
     <string name="title_checkbox_small_icon_mode">Använd liten omslagskonst</string>
     <string name="summary_checkbox_small_icon_mode">Mindre lådor i appgallret gör att fler appar syns på skärmen</string>
-    <string name="category_host_settings">Värdinställningar</string>
     <string name="title_checkbox_enable_sops">Optimera spelinställningarna</string>
     <string name="summary_checkbox_enable_sops">Tillåt GFE att ändra spelinställningar för optimal strömning</string>
     <string name="title_checkbox_host_audio">Spela upp ljud på datorn</string>
     <string name="summary_checkbox_host_audio">Spela upp ljud från datorn och den här enheten</string>
-    <string name="category_advanced_settings">Utvecklade inställningar</string>
     <string name="title_unlock_fps">Lås upp alla möjliga bildfrekvenser</string>
     <string name="title_checkbox_reduce_refresh_rate">Tillåt minskning av uppdateringsfrekvensen</string>
     <string name="title_checkbox_disable_warnings">Ta bort varningsmedelanden</string>
@@ -204,7 +199,6 @@
     <string name="dialog_title_osc_opacity">Jämka genomskinligheten</string>
     <string name="summary_osc_opacity">Gör kontrollerna på skärmen mer/mindre genomskinliga</string>
     <string name="summary_checkbox_enable_pip">Gör det möjligt att se strömmen (men inte att styra den) medan du gör andra saker samtidigt</string>
-    <string name="category_ui_settings">Inställningar för användargränssnittet</string>
     <string name="summary_unlock_fps">Streaming med 90 eller 120 FPS kan minska latenstiden på avancerade enheter, men kan orsaka fördröjning eller instabilitet på enheter som inte har stöd för det</string>
     <string name="summary_checkbox_reduce_refresh_rate">Lägre uppdateringsfrekvenser på skärmen kan spara ström på bekostnad av ytterligare videolatens</string>
     <string name="summary_full_range">Detta kan leda till förlust av detalj i ljusa och mörka områden om enheten inte visar videoinnehåll med fullt omfång på rätt sätt.</string>

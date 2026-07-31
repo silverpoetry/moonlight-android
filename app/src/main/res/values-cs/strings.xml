@@ -74,7 +74,6 @@
     <string name="title_checkbox_absolute_mouse_mode">Režim myši pro vzdálenou plochu</string>
     <string name="summary_checkbox_absolute_mouse_mode">Tímto zapnete přirozenější zrychlování myši pro použití ve vzdálené ploše, ale možnost je nekompatibilní se spoustou her.</string>
     <string name="summary_osc_opacity">Zmenšete či zvětšete průhlednost ovladače na obrazovce</string>
-    <string name="category_ui_settings">Nastavení zobrazení</string>
     <string name="suffix_osc_opacity">%</string>
     <string name="title_checkbox_disable_warnings">Zakázat varovací zprávy</string>
     <string name="summary_checkbox_disable_warnings">Zakáže varování o pomalém připojení během streamování</string>
@@ -93,7 +92,6 @@
     <string name="resolution_prefix_native_portrait">(na výšku)</string>
     <string name="category_audio_settings">Nastavení zvuku</string>
     <string name="title_checkbox_enable_audiofx">Povolit podporu systémového ekvalizéru</string>
-    <string name="category_input_settings">Nastavení vstupu</string>
     <string name="dialog_title_osc_opacity">Změnit průhlednost</string>
     <string name="fps_60">60 FPS</string>
     <string name="fps_90">90 FPS</string>
@@ -145,11 +143,9 @@
     <string name="msg_add_pc">Připojování k PC…</string>
     <string name="addpc_unknown_host">Nezdařilo se připojit k adrese PC. Ujistěte se, že v adrese není překlep.</string>
     <string name="addpc_wrong_sitelocal">Tahle adresa nevypadá správně. Musíte zadat veřejnou IP vašeho routeru, pokud chcete streamovat přes Internet.</string>
-    <string name="category_basic_settings">Základní nastavení</string>
     <string name="title_resolution_list">Rozlišení videa</string>
     <string name="summary_resolution_list">Zvyšte přo zlepšení ostrosti obrazu. Snižte pro lepší výkon na levnějších zařízeních nebo pomalejších sítích.</string>
     <string name="summary_audio_config_list">Povolit 5.1 nebo 7.1 prostorový zvuk pro systémy domácího kina</string>
-    <string name="category_advanced_settings">Pokročilá nastavení</string>
     <string name="title_unlock_fps">Odemknout všechny možné snímkové frekvence</string>
     <string name="title_checkbox_reduce_refresh_rate">Povolit snížení obnovovací frekvence</string>
     <string name="summary_checkbox_reduce_refresh_rate">Menší obnovovací frekvence displeje může šetřit energii výměnou za zvýšení zpoždění videa</string>
@@ -193,7 +189,6 @@
     <string name="suffix_seekbar_bitrate_mbps">Mbps</string>
     <string name="title_checkbox_stretch_video">Natáhnout video na celou obrazovku</string>
     <string name="resolution_prefix_native">Nativní</string>
-    <string name="category_on_screen_controls_settings">Nastavení ovládání na obrazovce</string>
     <string name="title_checkbox_show_onscreen_controls">Zobrazovat ovládání na obrazovce</string>
     <string name="summary_checkbox_show_onscreen_controls">Zobrazit překrytí virtuálního ovladače na dotykovém displeji</string>
     <string name="title_checkbox_vibrate_osc">Povolit vibrace</string>
@@ -203,7 +198,6 @@
     <string name="summary_language_list">Jazyk, který bude Moonlight používat</string>
     <string name="title_checkbox_small_icon_mode">Použít malý box art</string>
     <string name="summary_checkbox_small_icon_mode">Díky menšímu box artu v seznamu aplikací uvidíte na obrazovce více aplikací naráz</string>
-    <string name="category_host_settings">Nastavení hostitele</string>
     <string name="title_checkbox_enable_sops">Optimalizovat herní nastavení</string>
     <string name="title_video_format">Změnit nastavení HEVC</string>
     <string name="summary_video_format">HEVC sníží datový přenos, ale vyžaduje novější zařízení</string>

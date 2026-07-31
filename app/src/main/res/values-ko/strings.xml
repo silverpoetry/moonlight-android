@@ -77,7 +77,6 @@
     <string name="addpc_unknown_host">PC의 IP주소를 확인할 수 없습니다. 주소에 오타가 없는지 확인하십시오.</string>
     <string name="addpc_enter_ip">반드시 IP주소를 입력해야 합니다</string>
     <!-- Preferences -->
-    <string name="category_basic_settings">기본 설정</string>
     <string name="title_resolution_list">해상도 설정</string>
     <string name="summary_resolution_list">해상도가 높을수록 선명하지만 저사양기기를 사용하거나 네트워크 연결이 느리다면 해상도를 낮추십시오.</string>
     <string name="title_seekbar_bitrate">비트레이트 타겟 지정</string>
@@ -92,27 +91,22 @@
     <string name="suffix_seekbar_deadzone">%</string>
     <string name="title_checkbox_xb1_driver">Xbox 360/One 컨트롤러 드라이버</string>
     <string name="summary_checkbox_xb1_driver">네이티브 Xbox 컨트롤러 지원 없이 빌드인 USB드라이버를 활성화합니다</string>
-    <string name="category_on_screen_controls_settings">화면 상의 컨트롤 설정</string>
     <string name="title_checkbox_show_onscreen_controls">화면 위에 컨트롤러 표시</string>
     <string name="summary_checkbox_show_onscreen_controls">터치스크린에 가상 컨트롤러 오버레이를 표시합니다</string>
-    <string name="category_ui_settings">UI 설정</string>
     <string name="title_language_list">언어</string>
     <string name="summary_language_list">Moonlight에서 사용할 언어를 선택합니다</string>
     <string name="title_checkbox_small_icon_mode">작은 아이콘 사용</string>
     <string name="summary_checkbox_small_icon_mode">한 화면에서 더 많은 게임을 볼 수 있게 게임을 더 작게 표시합니다</string>
-    <string name="category_host_settings">호스트 설정</string>
     <string name="title_checkbox_enable_sops">게임 설정 최적화</string>
     <string name="summary_checkbox_enable_sops">최적의 스트리밍을 위해 Geforce Experience가 게임 설정을 수정하도록 허용합니다.</string>
     <string name="title_checkbox_host_audio">PC에서 소리 재생</string>
     <string name="summary_checkbox_host_audio">이 장치와 컴퓨터에서 소리를 재생합니다.</string>
-    <string name="category_advanced_settings">고급 설정</string>
     <string name="title_video_format">코덱 설정 변경</string>
     <string name="summary_video_format">최신 코덱은 장치에서 지원하는 경우 비디오 대역폭 요구 사항을 낮출 수 있습니다. 호스트 소프트웨어 또는 GPU에서 지원하지 않는 경우 코덱 선택을 무시할 수 있습니다.</string>
     <string name="suffix_osc_opacity">%</string>
     <string name="title_checkbox_enable_pip">PIP모드 활성화</string>
     <string name="summary_checkbox_vibrate_fallback">컨트롤러가 진동을 지원하지 않는 경우 장치를 진동 시켜 진동을 활성화합니다</string>
     <string name="title_checkbox_vibrate_fallback">게임패드 진동을 장치에서 사용하기</string>
-    <string name="category_input_settings">입력 설정</string>
     <string name="summary_audio_config_list">홈 시어터 시스템을 위한 5.1 또는 7.1 서라운드 사운드 활성화</string>
     <string name="title_audio_config_list">서라운드 사운드 설정</string>
     <string name="resolution_prefix_native">네이티브</string>

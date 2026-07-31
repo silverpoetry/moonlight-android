@@ -4,6 +4,7 @@ import com.limelight.settings.audio.StreamAudioSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
+import com.limelight.settings.ui.GameMenuCardSettingKeys;
 import com.limelight.settings.ui.GameMenuCardLayoutCodec;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
 
@@ -38,11 +39,12 @@ public class SettingsMigrationRunnerTest {
         SettingsMigrationRunner.migrate(repository);
 
         assertEquals("51", repository.values.get(
-                "list_audio_config"));
+                StreamAudioSettingKeys.CHANNEL_CONFIGURATION
+                        .getName()));
         assertEquals("balanced", repository.values.get(
-                "frame_pacing"));
+                StreamDecoderSettingKeys.FRAME_PACING.getName()));
         assertEquals(true, repository.values.get(
-                "checkbox_clipboard_sync"));
+                TransferSettingKeys.CLIPBOARD_SYNC.getName()));
         assertFalse(repository.values.containsKey(
                 "checkbox_51_surround"));
         assertFalse(repository.values.containsKey(
@@ -66,9 +68,59 @@ public class SettingsMigrationRunnerTest {
         SettingsMigrationRunner.migrate(repository);
 
         assertEquals("71", repository.values.get(
+                StreamAudioSettingKeys.CHANNEL_CONFIGURATION
+                        .getName()));
+        assertFalse(repository.values.containsKey(
                 "list_audio_config"));
         assertFalse(repository.values.containsKey(
                 "checkbox_51_surround"));
+    }
+
+    @Test
+    public void semanticLegacyKeysCannotOverrideCanonicalChoices() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put(
+                SettingsSchema.VERSION.getName(),
+                SettingsSchema.CURRENT_VERSION);
+        repository.values.put(
+                StreamAudioSettingKeys.CHANNEL_CONFIGURATION
+                        .getName(),
+                "71");
+        repository.values.put(
+                StreamDecoderSettingKeys.FRAME_PACING.getName(),
+                StreamDecoderSettingKeys
+                        .FRAME_PACING_MINIMUM_LATENCY);
+        repository.values.put(
+                TransferSettingKeys.CLIPBOARD_SYNC.getName(),
+                false);
+        repository.values.put("checkbox_51_surround", true);
+        repository.values.put("checkbox_disable_frame_drop", true);
+        repository.values.put("checkbox_clipboard_image_sync", true);
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertEquals(
+                "71",
+                repository.values.get(
+                        StreamAudioSettingKeys
+                                .CHANNEL_CONFIGURATION.getName()));
+        assertEquals(
+                StreamDecoderSettingKeys
+                        .FRAME_PACING_MINIMUM_LATENCY,
+                repository.values.get(
+                        StreamDecoderSettingKeys.FRAME_PACING
+                                .getName()));
+        assertEquals(
+                false,
+                repository.values.get(
+                        TransferSettingKeys.CLIPBOARD_SYNC
+                                .getName()));
+        assertFalse(repository.values.containsKey(
+                "checkbox_51_surround"));
+        assertFalse(repository.values.containsKey(
+                "checkbox_disable_frame_drop"));
+        assertFalse(repository.values.containsKey(
+                "checkbox_clipboard_image_sync"));
     }
 
     @Test
@@ -86,7 +138,11 @@ public class SettingsMigrationRunnerTest {
         assertEquals(
                 VirtualControlSettingKeys.GAMEPAD_LAYOUT_ID
                         .getDefaultValue(),
-                repository.values.get("gamepad_axi_list"));
+                repository.values.get(
+                        VirtualControlSettingKeys
+                                .GAMEPAD_LAYOUT_ID.getName()));
+        assertFalse(repository.values.containsKey(
+                "gamepad_axi_list"));
         assertEquals(
                 SettingsSchema.CURRENT_VERSION,
                 repository.values.get("settings_schema_version"));
@@ -116,7 +172,7 @@ public class SettingsMigrationRunnerTest {
         SettingsMigrationRunner.migrate(repository);
 
         assertTrue((Boolean) repository.values.get(
-                "checkbox_clipboard_sync"));
+                TransferSettingKeys.CLIPBOARD_SYNC.getName()));
         assertFalse(repository.values.containsKey(
                 "checkbox_clipboard_image_sync"));
         assertEquals(1, repository.commitCount);
@@ -138,7 +194,7 @@ public class SettingsMigrationRunnerTest {
                 SettingsSchema.CURRENT_VERSION + 1,
                 repository.values.get("settings_schema_version"));
         assertTrue((Boolean) repository.values.get(
-                "checkbox_clipboard_sync"));
+                TransferSettingKeys.CLIPBOARD_SYNC.getName()));
     }
 
     @Test
@@ -152,7 +208,9 @@ public class SettingsMigrationRunnerTest {
 
         assertEquals(
                 50_000,
-                repository.values.get("seekbar_bitrate_kbps"));
+                repository.values.get(
+                        StreamVideoSettingKeys.BITRATE_KBPS
+                                .getName()));
         assertFalse(repository.values.containsKey(
                 "seekbar_bitrate"));
 
@@ -165,8 +223,12 @@ public class SettingsMigrationRunnerTest {
         SettingsMigrationRunner.migrate(repository);
 
         assertEquals(
-                60_000,
-                repository.values.get("seekbar_bitrate_kbps"));
+                50_000,
+                repository.values.get(
+                        StreamVideoSettingKeys.BITRATE_KBPS
+                                .getName()));
+        assertFalse(repository.values.containsKey(
+                "seekbar_bitrate_kbps"));
         assertFalse(repository.values.containsKey(
                 StreamVideoSettingKeys
                         .LEGACY_BITRATE_MBPS
@@ -193,12 +255,14 @@ public class SettingsMigrationRunnerTest {
                         "action:performance"),
                 GameMenuCardLayoutCodec.decodeOrder(
                         (String) repository.values.get(
-                                "game_menu_card_order_v2")));
+                                GameMenuCardSettingKeys
+                                        .ORDER_DOCUMENT.getName())));
         assertEquals(
                 new LinkedHashSet<>(
                         Arrays.asList("action:performance")),
                 repository.values.get(
-                        "game_menu_card_hidden_v2"));
+                        GameMenuCardSettingKeys
+                                .HIDDEN_CARD_IDS.getName()));
         assertFalse(repository.values.containsKey(
                 "game_menu_action_order_v1"));
         assertFalse(repository.values.containsKey(
@@ -231,9 +295,46 @@ public class SettingsMigrationRunnerTest {
         assertEquals(
                 "[\"shortcut:custom:current\"]",
                 repository.values.get(
-                        "game_menu_card_order_v2"));
+                        GameMenuCardSettingKeys
+                                .ORDER_DOCUMENT.getName()));
         assertFalse(repository.values.containsKey(
                 "game_menu_action_order_v1"));
+        assertEquals(1, repository.commitCount);
+    }
+
+    @Test
+    public void everyDeclaredRenameMigratesInOneIdempotentTransaction() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put(
+                SettingsSchema.VERSION.getName(),
+                SettingsSchema.CURRENT_VERSION - 1);
+
+        for (SettingKey<?> key : SettingsKeyCatalog.all()) {
+            if (!key.getLegacyNames().isEmpty()) {
+                repository.values.put(
+                        key.getLegacyNames().get(0),
+                        key.getDefaultValue());
+            }
+        }
+
+        SettingsMigrationRunner.migrate(repository);
+
+        for (SettingKey<?> key : SettingsKeyCatalog.all()) {
+            if (key.getLegacyNames().isEmpty()) {
+                continue;
+            }
+            assertTrue(
+                    "Missing canonical value: " + key.getName(),
+                    repository.values.containsKey(key.getName()));
+            for (String legacyName : key.getLegacyNames()) {
+                assertFalse(
+                        "Legacy value survived: " + legacyName,
+                        repository.values.containsKey(legacyName));
+            }
+        }
+        assertEquals(1, repository.commitCount);
+
+        SettingsMigrationRunner.migrate(repository);
         assertEquals(1, repository.commitCount);
     }
 

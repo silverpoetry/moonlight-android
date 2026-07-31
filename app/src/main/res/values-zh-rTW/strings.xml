@@ -93,7 +93,6 @@
     <string name="addpc_enter_ip">請輸入一個 IP 位址</string>
     <string name="addpc_wrong_sitelocal">該位址似乎不正確。 您必須使用路由器的公共 IP 位址透過乙太網路進行串流。</string>
     <!-- Preferences -->
-    <string name="category_basic_settings">基本設定</string>
     <string name="title_resolution_list">視訊解析度</string>
     <string name="summary_resolution_list">高解析度提升圖像清晰度。低解析度提升在低效能裝置和較慢網路中的串流體驗。</string>
     <string name="title_fps_list">視訊影格速率</string>
@@ -110,7 +109,6 @@
     <string name="category_audio_settings">音訊設定</string>
     <string name="title_audio_config_list">環場音效組態</string>
     <string name="summary_audio_config_list">為家庭電影院系統啟用 5.1 或 7.1 環場音效</string>
-    <string name="category_input_settings">輸入設定</string>
     <string name="title_checkbox_multi_controller">自動偵測手把</string>
     <string name="summary_checkbox_multi_controller">取消此項所有手把將視為一個手把</string>
     <string name="title_checkbox_vibrate_fallback">用震動仿真遊戲低頻音</string>
@@ -127,22 +125,18 @@
     <string name="summary_checkbox_mouse_nav_buttons">在一些支援不佳的裝置上啟用此項可能會使其右鍵失效</string>
     <string name="title_checkbox_flip_face_buttons">反轉技能鍵</string>
     <string name="summary_checkbox_flip_face_buttons">為手把和螢幕控制按鈕交換 A/B 和 X/Y 技能按鍵</string>
-    <string name="category_on_screen_controls_settings">螢幕控制按鈕設定</string>
     <string name="title_checkbox_show_onscreen_controls">顯示螢幕控制按鈕</string>
     <string name="summary_checkbox_show_onscreen_controls">在觸控式螢幕上顯示一層虛擬控制器</string>
     <string name="title_checkbox_vibrate_osc"> 啟用震動 </string>
     <string name="summary_checkbox_vibrate_osc">使用螢幕控制按鈕時震動裝置以仿真遊戲低頻音</string>
-    <string name="category_ui_settings">使用者介面設定</string>
     <string name="title_language_list"> 語言 </string>
     <string name="summary_language_list">選擇 Moonlight 顯示的語言</string>
     <string name="title_checkbox_small_icon_mode"> 使用小圖示 </string>
     <string name="summary_checkbox_small_icon_mode">使用小圖示以在螢幕上顯示更多應用程式</string>
-    <string name="category_host_settings">主機設定</string>
     <string name="title_checkbox_enable_sops">最佳化遊戲設定</string>
     <string name="summary_checkbox_enable_sops">允許 GFE 為最佳串流效果自動更改遊戲設定</string>
     <string name="title_checkbox_host_audio">在電腦上播放音訊</string>
     <string name="summary_checkbox_host_audio">在電腦和本裝置同時輸出音訊</string>
-    <string name="category_advanced_settings">進階設定</string>
     <string name="title_video_format">變更轉碼器設定</string>
     <string name="summary_video_format">較新的轉碼器可以降低視訊頻寬需求 (若您的裝置支援)。如果主機軟體或 GPU 不支援，轉碼器選取項目可能會被忽略。</string>
     <string name="title_enable_hdr">啟用 HDR (實驗性)</string>
@@ -245,4 +239,14 @@
     <string name="addpc_get_from_svr">根據 SVR 記錄取得位址</string>
     <string name="addpc_append_razer_port">附加 Razer 雷遊連接埠號碼</string>
     <string name="accessibility_virtual_controller">虛擬手把</string>
+    <string name="category_video_display_settings">視訊與顯示</string>
+    <string name="category_touch_mouse_settings">觸控與滑鼠</string>
+    <string name="category_haptics_settings">震動回饋</string>
+    <string name="category_virtual_controls_settings">螢幕控制項</string>
+    <string name="category_clipboard_file_settings">剪貼簿與檔案</string>
+    <string name="category_stream_interface_settings">串流介面</string>
+    <string name="category_app_appearance_settings">應用程式與外觀</string>
+    <string name="category_system_accessibility_settings">系統與輔助功能</string>
+    <string name="category_backup_restore_settings">備份與還原</string>
+    <string name="category_about_settings">關於</string>
 </resources>

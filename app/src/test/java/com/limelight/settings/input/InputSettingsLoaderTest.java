@@ -47,21 +47,28 @@ public class InputSettingsLoaderTest {
     @Test
     public void invalidValuesAreNormalizedAtSchemaBoundary() {
         FakeRepository repository = new FakeRepository();
-        repository.values.put("mouse_model_list_axi", "broken");
         repository.values.put(
-                "touch_number_quick_soft_keyboard",
+                InputSettingKeys.TOUCH_MODE.getName(),
+                "broken");
+        repository.values.put(
+                InputSettingKeys.SOFT_KEYBOARD_GESTURE_FINGERS
+                        .getName(),
                 2);
         repository.values.put(
-                "seekbar_mouse_touchpad_sensitivity_x_opacity",
+                InputSettingKeys.TOUCHPAD_POINTER_SENSITIVITY_X
+                        .getName(),
                 -20);
         repository.values.put(
-                "seekbar_touchpad_sensitivity_opacity",
+                InputSettingKeys.VIRTUAL_TOUCHPAD_SENSITIVITY_X
+                        .getName(),
                 5_000);
         repository.values.put(
-                "touchpad_equipment_amount",
+                InputSettingKeys.EXTERNAL_TOUCHPAD_SCROLL_AMOUNT
+                        .getName(),
                 500);
         repository.values.put(
-                "mouse_sc_amount",
+                InputSettingKeys.MOUSE_WHEEL_SCROLL_AMOUNT
+                        .getName(),
                 -500);
 
         InputSettings settings =

@@ -1,11 +1,14 @@
-# 月光·阿西西
+# Moonlight Android
 
 完整测试与发布前验证命令见 [TESTING.md](TESTING.md)。
 
-## 此项目实现对官方Moonlight安卓端功能修改<br>
-### 如果你有更好的想法或者功能实现也欢迎提交PR<br>
-### 如果喜欢数码和游戏，可以关注我的社交媒体账号
-### B站(https://space.bilibili.com/16893379) 、Youtube(https://www.youtube.com/@AxixiTV)
+## 项目说明
+
+This repository is an independent Moonlight Android fork focused on native
+touchpad input, clipboard/file transfer, microphone uplink, and a maintainable
+typed settings architecture.
+
+欢迎提交问题报告和改进建议。
 
 此项目版本主要实现如下功能：<br>
 1、全新游戏菜单UI<br>
@@ -24,7 +27,7 @@
 14、画面置顶显示 折叠屏有点用<br>
 15、虚拟触控板空间及灵敏度调节，游玩右键转视角游戏。例如魔兽<br>
 16、强制使用设备本身的震动马达（可能你的手柄震动效果不佳）<br>
-17、阿西西手柄调试页面 查看手柄震动及陀螺仪信息、安卓内核版本信息<br>
+17、手柄调试页面：查看手柄震动、陀螺仪信息和 Android 内核版本信息<br>
 
 <img width="2560" height="1600" alt="Screenshot_20250409-180147" src="https://github.com/user-attachments/assets/25fc1ad2-c804-4597-a832-48ec1717cf9a" />
 

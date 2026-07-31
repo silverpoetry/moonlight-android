@@ -7,7 +7,13 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.limelight.settings.android.SharedPreferencesSettingsRepository;
+import com.limelight.settings.audio.StreamAudioSettingKeys;
+import com.limelight.settings.stream.StreamDecoderSettingKeys;
+import com.limelight.settings.stream.StreamVideoSettingKeys;
+import com.limelight.settings.transfer.TransferSettingKeys;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
 import com.limelight.settings.ui.GameMenuCardLayoutCodec;
+import com.limelight.settings.ui.GameMenuCardSettingKeys;
 
 import org.junit.After;
 import org.junit.Before;
@@ -140,15 +146,17 @@ public class SharedPreferencesSettingsRepositoryTest {
         assertEquals(
                 "51",
                 preferences.getString(
-                        "list_audio_config",
+                        StreamAudioSettingKeys
+                                .CHANNEL_CONFIGURATION.getName(),
                         null));
         assertEquals(
                 "balanced",
                 preferences.getString(
-                        "frame_pacing",
+                        StreamDecoderSettingKeys.FRAME_PACING
+                                .getName(),
                         null));
         assertTrue(preferences.getBoolean(
-                "checkbox_clipboard_sync",
+                TransferSettingKeys.CLIPBOARD_SYNC.getName(),
                 false));
         assertFalse(preferences.contains(
                 "checkbox_51_surround"));
@@ -177,8 +185,10 @@ public class SharedPreferencesSettingsRepositoryTest {
         assertEquals(
                 "gamePad",
                 preferences.getString(
-                        "gamepad_axi_list",
+                        VirtualControlSettingKeys.GAMEPAD_LAYOUT_ID
+                                .getName(),
                         null));
+        assertFalse(preferences.contains("gamepad_axi_list"));
     }
 
     @Test
@@ -199,9 +209,12 @@ public class SharedPreferencesSettingsRepositoryTest {
         assertEquals(
                 60_000,
                 preferences.getInt(
-                        "seekbar_bitrate_kbps",
+                        StreamVideoSettingKeys.BITRATE_KBPS
+                                .getName(),
                         -1));
         assertFalse(preferences.contains("seekbar_bitrate"));
+        assertFalse(preferences.contains(
+                "seekbar_bitrate_kbps"));
     }
 
     @Test
@@ -230,13 +243,15 @@ public class SharedPreferencesSettingsRepositoryTest {
                         "action:performance"),
                 GameMenuCardLayoutCodec.decodeOrder(
                                 preferences.getString(
-                                        "game_menu_card_order_v2",
+                                        GameMenuCardSettingKeys
+                                                .ORDER_DOCUMENT.getName(),
                                         "")));
         assertEquals(
                 new LinkedHashSet<>(
                         Arrays.asList("action:performance")),
                 preferences.getStringSet(
-                        "game_menu_card_hidden_v2",
+                        GameMenuCardSettingKeys
+                                .HIDDEN_CARD_IDS.getName(),
                         null));
         assertFalse(preferences.contains(
                 "game_menu_action_order_v1"));

@@ -76,7 +76,6 @@
     <string name="addpc_unknown_host">Не удалось найти PC по указанному адресу. Убедитесь, что Вы не совершили ошибок во время его написания.</string>
     <string name="addpc_enter_ip">Вы должны ввести IP адрес</string>
     <!-- Preferences -->
-    <string name="category_basic_settings">Общие Настройки</string>
     <string name="title_resolution_list">Выберите разрешение и частоту кадров</string>
     <string name="summary_resolution_list">Увеличьте для повышения чёткости изображения. Уменьшите для лучшей производительности на медленных устройствах или сетях.</string>
     <string name="title_seekbar_bitrate">Выберите битрейт видео</string>
@@ -95,20 +94,16 @@
     <string name="summary_checkbox_xb1_driver">Включить встроенный USB драйвер для устройств без собственной поддержки контроллеров Xbox</string>
     <string name="title_checkbox_flip_face_buttons">Перевернуть кнопки A/B и X/Y</string>
     <string name="summary_checkbox_flip_face_buttons">Меняет местами кнопки A/B и X/Y на геймпадах и экранных кнопках</string>
-    <string name="category_ui_settings">Настройки Интерфейса</string>
     <string name="title_language_list">Язык</string>
     <string name="summary_language_list">Язык, который будет использоваться в Moonlight</string>
     <string name="title_checkbox_small_icon_mode">Использовать маленькие иконки</string>
     <string name="summary_checkbox_small_icon_mode">Использовать маленькие иконки в сетке для отображения большего числа элементов на экране</string>
-    <string name="category_host_settings">Настройки Хоста</string>
     <string name="title_checkbox_enable_sops">Оптимизировать игровые настройки</string>
     <string name="summary_checkbox_enable_sops">Разрешить GFE изменять настройки игр для оптимальной трансляции</string>
     <string name="title_checkbox_host_audio">Проигрывать звук на PC</string>
     <string name="summary_checkbox_host_audio">Проигрывать звук на компьютере и текущем устройстве</string>
-    <string name="category_advanced_settings">Расширенные Настройки</string>
     <string name="title_video_format">Изменить настройки HEVC</string>
     <string name="summary_video_format">HEVC снижает требования к пропускной способности, но требует очень нового устройства</string>
-    <string name="category_on_screen_controls_settings">Настройки Экранных Кнопок</string>
     <string name="title_checkbox_show_onscreen_controls">Показывать экранные кнопки</string>
     <string name="summary_checkbox_show_onscreen_controls">Отображать оверлей виртуального контроллера на сенсорном экране</string>
     <string name="summary_osc_opacity">Сделать экранные кнопки более/менее прозрачными</string>
@@ -140,7 +135,6 @@
     <string name="title_fps_list">Частота кадров</string>
     <string name="applist_menu_details">Детали</string>
     <string name="applist_menu_scut">Создать ярлык</string>
-    <string name="category_input_settings">Настройки ввода</string>
     <string name="delete_pc_msg">Вы уверены что хотите удалить этот PC?</string>
     <string name="pcview_menu_details">Детали</string>
     <string name="poor_connection_msg">Слабое соединение с PC</string>

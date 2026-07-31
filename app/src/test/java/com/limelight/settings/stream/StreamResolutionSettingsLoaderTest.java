@@ -32,7 +32,7 @@ public class StreamResolutionSettingsLoaderTest {
         assertFalse(repository.values.containsKey(
                 "list_resolution_fps"));
         assertEquals("1920x1080", repository.values.get(
-                "list_resolution"));
+                StreamResolutionSettingKeys.RESOLUTION.getName()));
         assertEquals(1, repository.commitCount);
         assertEquals(0, repository.applyCount);
     }
@@ -40,10 +40,14 @@ public class StreamResolutionSettingsLoaderTest {
     @Test
     public void missingSelectionPreservesCustomResolutionSemantics() {
         FakeRepository repository = new FakeRepository();
-        repository.values.put("list_resolution", "2000x1000");
-        repository.values.put("list_fps", "90");
         repository.values.put(
-                "list_resolution_aspect_ratio",
+                StreamResolutionSettingKeys.RESOLUTION.getName(),
+                "2000x1000");
+        repository.values.put(
+                StreamResolutionSettingKeys.FPS.getName(),
+                "90");
+        repository.values.put(
+                StreamResolutionSettingKeys.ASPECT_RATIO.getName(),
                 "native");
 
         StreamResolutionCodec.Result result =
@@ -76,14 +80,19 @@ public class StreamResolutionSettingsLoaderTest {
     @Test
     public void corruptAggregateRepairsIdempotently() {
         FakeRepository repository = canonicalRepository();
-        repository.values.put("list_resolution", "broken");
-        repository.values.put("list_fps", "-5");
+        repository.values.put(
+                StreamResolutionSettingKeys.RESOLUTION.getName(),
+                "broken");
+        repository.values.put(
+                StreamResolutionSettingKeys.FPS.getName(),
+                "-5");
 
         StreamResolutionSettingsLoader.load(repository, DISPLAY);
         assertEquals(1, repository.commitCount);
         assertEquals("1280x720", repository.values.get(
-                "list_resolution"));
-        assertEquals("60", repository.values.get("list_fps"));
+                StreamResolutionSettingKeys.RESOLUTION.getName()));
+        assertEquals("60", repository.values.get(
+                StreamResolutionSettingKeys.FPS.getName()));
 
         StreamResolutionCodec.Result reread =
                 StreamResolutionSettingsLoader.load(
@@ -95,12 +104,18 @@ public class StreamResolutionSettingsLoaderTest {
 
     private static FakeRepository canonicalRepository() {
         FakeRepository repository = new FakeRepository();
-        repository.values.put("list_resolution", "1280x720");
-        repository.values.put("list_resolution_selection", "preset");
         repository.values.put(
-                "list_resolution_aspect_ratio",
+                StreamResolutionSettingKeys.RESOLUTION.getName(),
+                "1280x720");
+        repository.values.put(
+                StreamResolutionSettingKeys.SELECTION.getName(),
+                "preset");
+        repository.values.put(
+                StreamResolutionSettingKeys.ASPECT_RATIO.getName(),
                 "16_9");
-        repository.values.put("list_fps", "60");
+        repository.values.put(
+                StreamResolutionSettingKeys.FPS.getName(),
+                "60");
         return repository;
     }
 

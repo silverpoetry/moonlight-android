@@ -15,96 +15,117 @@ public final class VirtualControlSettingKeys {
 
     public static final SettingKey<Integer> CONTROL_OPACITY_PERCENT =
             SettingKey.integerKey(
-                    "seekbar_osc_opacity",
+                    "input.virtual_gamepad.opacity_percent",
                     DEFAULT_OPACITY_PERCENT,
                     0,
-                    100);
+                    100)
+                    .renamedFrom("seekbar_osc_opacity");
     public static final SettingKey<Integer> KEYBOARD_OPACITY_PERCENT =
             SettingKey.integerKey(
-                    "seekbar_keyboard_axi_opacity",
+                    "input.virtual_keyboard.opacity_percent",
                     DEFAULT_OPACITY_PERCENT,
                     0,
-                    100);
+                    100)
+                    .renamedFrom("seekbar_keyboard_axi_opacity");
     public static final SettingKey<Integer> KEYBOARD_HEIGHT_DP =
             SettingKey.integerKey(
-                    "seekbar_keyboard_axi_height",
+                    "input.virtual_keyboard.height_dp",
                     DEFAULT_KEYBOARD_HEIGHT_DP,
                     100,
-                    400);
+                    400)
+                    .renamedFrom("seekbar_keyboard_axi_height");
     public static final SettingKey<Boolean> KEYBOARD_HAPTICS =
             SettingKey.booleanKey(
-                    "checkbox_vibrate_keyboard",
-                    false);
+                    "input.virtual_keyboard.haptics",
+                    false)
+                    .renamedFrom("checkbox_vibrate_keyboard");
     public static final SettingKey<Boolean>
             SHOW_VIRTUAL_KEYS_ON_START =
             SettingKey.booleanKey(
-                    "checkbox_enable_keyboard",
-                    false);
+                    "input.virtual_keyboard.show_on_start",
+                    false)
+                    .renamedFrom("checkbox_enable_keyboard");
     public static final SettingKey<Boolean> SQUARE_BUTTONS =
             SettingKey.booleanKey(
-                    "checkbox_enable_keyboard_square",
-                    false);
+                    "input.virtual_keyboard.square_buttons",
+                    false)
+                    .renamedFrom("checkbox_enable_keyboard_square");
     public static final SettingKey<Boolean> SHOW_GUIDE_BUTTON =
             SettingKey.booleanKey(
-                    "checkbox_show_guide_button",
-                    true);
+                    "input.virtual_controls.show_guide_button",
+                    true)
+                    .renamedFrom("checkbox_show_guide_button");
     public static final SettingKey<Integer> GAMEPAD_SKIN =
             SettingKey.integerSetKey(
-                    "onscreen_game_pad_skin",
+                    "input.virtual_gamepad.skin",
                     0,
                     0,
                     1,
-                    2);
+                    2)
+                    .renamedFrom("onscreen_game_pad_skin");
     public static final SettingKey<Boolean> FREE_STICKS =
             SettingKey.booleanKey(
-                    "checkbox_enable_analog_stick_new",
-                    false);
+                    "input.virtual_gamepad.free_sticks",
+                    false)
+                    .renamedFrom("checkbox_enable_analog_stick_new");
     public static final SettingKey<Integer> FREE_STICK_OPACITY_PERCENT =
             SettingKey.integerKey(
-                    "seekbar_osc_free_analog_stick_opacity",
+                    "input.virtual_gamepad.free_stick_opacity_percent",
                     DEFAULT_FREE_STICK_OPACITY_PERCENT,
                     0,
-                    100);
+                    100)
+                    .renamedFrom(
+                            "seekbar_osc_free_analog_stick_opacity");
     public static final SettingKey<Boolean> FIXED_FREE_STICKS =
             SettingKey.booleanKey(
-                    "checkbox_enable_analog_stick_new_fixed",
-                    false);
+                    "input.virtual_gamepad.fixed_free_sticks",
+                    false)
+                    .renamedFrom(
+                            "checkbox_enable_analog_stick_new_fixed");
     public static final SettingKey<Integer> NORMAL_COLOR =
             SettingKey.integerKey(
-                    "virtual_key_view_normal_color",
+                    "input.virtual_controls.normal_color",
                     DEFAULT_NORMAL_COLOR,
                     Integer.MIN_VALUE,
-                    Integer.MAX_VALUE);
+                    Integer.MAX_VALUE)
+                    .renamedFrom("virtual_key_view_normal_color");
     public static final SettingKey<Integer> GAMEPAD_SCALE_PERCENT =
             SettingKey.integerKey(
-                    "virtualGamePadScaleFactor",
+                    "input.virtual_gamepad.scale_percent",
                     DEFAULT_GAMEPAD_SCALE_PERCENT,
                     20,
-                    180);
+                    180)
+                    .renamedFrom("virtualGamePadScaleFactor");
     public static final SettingKey<Boolean> DISABLE_STICK_CLICK =
             SettingKey.booleanKey(
-                    "checkbox_rocker_click_L3R3",
-                    false);
+                    "input.virtual_gamepad.disable_stick_click",
+                    false)
+                    .renamedFrom("checkbox_rocker_click_L3R3");
     public static final SettingKey<Boolean>
             AUTOMATIC_SCREEN_ORIENTATION =
             SettingKey.booleanKey(
-                    "checkbox_auto_screen_orientation",
-                    false);
+                    "stream.display.automatic_orientation",
+                    false)
+                    .renamedFrom("checkbox_auto_screen_orientation");
     public static final SettingKey<Boolean>
             KEYBOARD_COMBINATION_MODE =
             SettingKey.booleanKey(
-                    "checkbox_enable_keyboard_axi_combination",
-                    false);
+                    "input.virtual_keyboard.combination_mode",
+                    false)
+                    .renamedFrom(
+                            "checkbox_enable_keyboard_axi_combination");
     public static final SettingKey<String> KEYBOARD_LAYOUT_ID =
             SettingKey.stringSetKey(
-                    "keyboard_axi_list",
+                    "input.virtual_keyboard.layout_id",
                     VirtualControlLayoutProfiles.DEFAULT_KEYBOARD,
-                    VirtualControlLayoutProfiles.keyboardIds());
+                    VirtualControlLayoutProfiles.keyboardIds())
+                    .renamedFrom("keyboard_axi_list");
     public static final SettingKey<String> GAMEPAD_LAYOUT_ID =
             SettingKey.stringSetKey(
-                    "gamepad_axi_list",
+                    "input.virtual_gamepad.layout_id",
                     VirtualControlLayoutProfiles.DEFAULT_GAMEPAD,
-                    VirtualControlLayoutProfiles.gamepadIds());
+                    VirtualControlLayoutProfiles.gamepadIds())
+                    .renamedFrom("gamepad_axi_list");
 
     private VirtualControlSettingKeys() {
     }

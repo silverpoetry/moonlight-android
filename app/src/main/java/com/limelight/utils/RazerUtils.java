@@ -52,7 +52,7 @@ public class RazerUtils {
         sb.append("&");
         sb.append("UIScale=");
         sb.append("200");
-        LimeLog.info("axixi:"+sb.toString());
+        LimeLog.info("Razer input devices: " + sb);
         return sb.toString();
     }
 

@@ -52,6 +52,29 @@ already written by a newer build, then removes the obsolete key. Version 4
 converts the former comma-separated stream-menu action order and hidden-action
 set into the canonical card-reference document. It preserves an existing v2
 card layout and removes both v1 keys, leaving no runtime compatibility branch.
+Version 5 replaces every historical widget-shaped persistence name with a
+domain-shaped dotted name. Each `SettingKey` declares its former names as
+migration-only aliases; `SettingsKeyCatalog` validates that aliases are unique
+and cannot collide with canonical names. The canonical value always wins when
+both exist. Otherwise the first present alias is normalized through the same
+typed schema, copied, and all aliases are removed in the single versioned
+transaction. Late aliases written by a downgraded build are cleaned without
+downgrading a future schema version.
+
+## Settings-screen information architecture
+
+The screen is organized by user task rather than by feature origin or author:
+video and display, audio, touch and mouse, gamepad, haptics, virtual controls,
+clipboard and files, stream interface, app appearance, system and
+accessibility, backup and restore, and about. No category represents a fork,
+private build, or implementation layer.
+
+Persisted rows use only canonical `SettingKey` names. Sections, actions, and
+non-persisted editors use identifiers from `SettingsScreenIds`; they can never
+be mistaken for stored values. `preferences.xml` is presentation metadata,
+while `SettingsScreenKeyCatalog` remains the executable contract for storage
+type, validation, and default. Section icons are selected from stable section
+IDs rather than translated titles or legacy-key substrings.
 
 ## Snapshot lifecycle
 
