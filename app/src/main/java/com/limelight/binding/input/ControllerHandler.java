@@ -79,6 +79,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             controllerBackButtonProbe;
     private final AndroidControllerTouchpadAdapter
             controllerTouchpadAdapter;
+    private final UsbControllerInputAdapter
+            usbControllerInputAdapter;
     private final Handler mainThreadHandler;
     private final ControllerMouseEmulationSession.Scheduler
             mouseEmulationScheduler;
@@ -405,6 +407,41 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                                 return conn.sendControllerTouchEvent(
                                         controllerNumber,
                                         touchType,
+                                        pointerId,
+                                        x,
+                                        y,
+                                        pressure);
+                            }
+                        });
+        this.usbControllerInputAdapter =
+                new UsbControllerInputAdapter(
+                        new UsbControllerInputAdapter.Output() {
+                            @Override
+                            public void sendMotion(
+                                    byte controllerNumber,
+                                    byte motionType,
+                                    float x,
+                                    float y,
+                                    float z) {
+                                conn.sendControllerMotionEvent(
+                                        controllerNumber,
+                                        motionType,
+                                        x,
+                                        y,
+                                        z);
+                            }
+
+                            @Override
+                            public void sendTouch(
+                                    byte controllerNumber,
+                                    byte eventType,
+                                    int pointerId,
+                                    float x,
+                                    float y,
+                                    float pressure) {
+                                conn.sendControllerTouchEvent(
+                                        controllerNumber,
+                                        eventType,
                                         pointerId,
                                         x,
                                         y,
@@ -1584,55 +1621,40 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     }
 
     @Override
-    public void reportControllerState(int controllerId, int buttonFlags,
-                                      float leftStickX, float leftStickY,
-                                      float rightStickX, float rightStickY,
-                                      float leftTrigger, float rightTrigger) {
-        GenericControllerContext context = usbDeviceContexts.get(controllerId);
+    public void reportControllerState(
+            int controllerId,
+            int buttonFlags,
+            float leftStickX,
+            float leftStickY,
+            float rightStickX,
+            float rightStickY,
+            float leftTrigger,
+            float rightTrigger) {
+        UsbDeviceContext context =
+                usbDeviceContexts.get(controllerId);
         if (context == null) {
             return;
         }
-
-        context.inputState.updateLeftStick(
+        usbControllerInputAdapter.handleState(
+                context,
+                buttonFlags,
                 leftStickX,
                 leftStickY,
-                context.leftStickDeadzoneRadius);
-        context.inputState.updateRightStick(
                 rightStickX,
                 rightStickY,
-                context.rightStickDeadzoneRadius);
-
-        if (leftTrigger <= context.triggerDeadzone) {
-            leftTrigger = 0;
-        }
-        if (rightTrigger <= context.triggerDeadzone) {
-            rightTrigger = 0;
-        }
-
-        context.inputState.setInputMap(buttonFlags);
-        context.inputState.setTriggers(
-                (byte) (leftTrigger * 0xFF),
-                (byte) (rightTrigger * 0xFF));
-
-        sendControllerInputPacket(context);
-    }
-
-    private float clampUnitRange(float value) {
-        if (Float.isNaN(value) || Float.isInfinite(value)) {
-            return 0.0f;
-        }
-        if (value < 0.0f) {
-            return 0.0f;
-        }
-        if (value > 1.0f) {
-            return 1.0f;
-        }
-        return value;
+                leftTrigger,
+                rightTrigger);
     }
 
     @Override
-    public void reportControllerMotion(int controllerId, byte motionType, float motionX, float motionY, float motionZ) {
-        GenericControllerContext context = usbDeviceContexts.get(controllerId);
+    public void reportControllerMotion(
+            int controllerId,
+            byte motionType,
+            float motionX,
+            float motionY,
+            float motionZ) {
+        UsbDeviceContext context =
+                usbDeviceContexts.get(controllerId);
         if (context == null) {
             return;
         }
@@ -1640,8 +1662,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 .isUsbGyroscopeReportingEnabled()) {
             return;
         }
-        conn.sendControllerMotionEvent(
-                (byte) context.slotLease.getControllerNumber(),
+        usbControllerInputAdapter.handleMotion(
+                context,
                 motionType,
                 motionX,
                 motionY,
@@ -1649,20 +1671,26 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     }
 
     @Override
-    public void reportControllerTouchpadEvent(int controllerId, byte eventType, int pointerId,
-                                              float x, float y, float pressure) {
-        UsbDeviceContext context = usbDeviceContexts.get(controllerId);
+    public void reportControllerTouchpadEvent(
+            int controllerId,
+            byte eventType,
+            int pointerId,
+            float x,
+            float y,
+            float pressure) {
+        UsbDeviceContext context =
+                usbDeviceContexts.get(controllerId);
         if (context == null) {
             return;
         }
 
-        assignControllerNumberIfNeeded(context);
-
-        conn.sendControllerTouchEvent(
-                (byte) context.slotLease.getControllerNumber(),
+        usbControllerInputAdapter.handleTouch(
+                context,
                 eventType,
                 pointerId,
-                clampUnitRange(x), clampUnitRange(y), clampUnitRange(pressure));
+                x,
+                y,
+                pressure);
     }
 
     @Override
@@ -2208,8 +2236,35 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
     }
 
-    class UsbDeviceContext extends GenericControllerContext {
+    class UsbDeviceContext extends GenericControllerContext
+            implements UsbControllerInputAdapter.Target {
         public AbstractController device;
+
+        @Override
+        public float getLeftStickDeadzoneRadius() {
+            return leftStickDeadzoneRadius;
+        }
+
+        @Override
+        public float getRightStickDeadzoneRadius() {
+            return rightStickDeadzoneRadius;
+        }
+
+        @Override
+        public float getTriggerDeadzone() {
+            return triggerDeadzone;
+        }
+
+        @Override
+        public byte ensureAssignedControllerNumber() {
+            assignControllerNumberIfNeeded(this);
+            return (byte) slotLease.getControllerNumber();
+        }
+
+        @Override
+        public void sendControllerInput() {
+            sendControllerInputPacket(this);
+        }
 
         @Override
         public void destroy() {

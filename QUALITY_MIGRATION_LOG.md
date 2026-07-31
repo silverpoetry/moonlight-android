@@ -1425,3 +1425,16 @@ Verification on 2026-07-31:
 - `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 587 JVM
   tests per variant (2,348 executions total), all Lint variants, and both
   unminified Release APKs.
+- Extracted `UsbControllerInputAdapter` as the synchronous boundary between
+  USB driver floats and controller protocol state. Stick, trigger, and touch
+  inputs now reject non-finite values and clamp their documented ranges before
+  deadzone evaluation or quantization; motion vector units remain untouched.
+- Motion and touch both require an assigned controller number through the same
+  target contract before transport emission. This closes the implicit-order
+  hole where a driver's first gyroscope report could previously be sent with
+  the unassigned `-1` slot because no ordinary state report had arrived yet.
+  Fixtures verify state conversion and one-send behavior, bounded invalid
+  input, assignment-before-motion, and assignment-before-touch ordering.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 591 JVM
+  tests per variant (2,364 executions total), all Lint variants, and both
+  unminified Release APKs.

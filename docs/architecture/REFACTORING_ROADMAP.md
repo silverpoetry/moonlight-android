@@ -419,6 +419,13 @@ targets.
   participates in aggregated controller packets while contact forwarding can
   be delegated to Android's mouse path. No View, settings repository, or
   concrete connection is visible to the adapter.
+- `UsbControllerInputAdapter` owns the USB-driver report boundary for state,
+  motion, and touch. It validates finite normalized sticks, triggers, and touch
+  coordinates, applies the context's deadzones and protocol quantization, and
+  guarantees slot assignment and arrival reporting before a first motion or
+  touch packet. Driver callbacks stay synchronous and allocation-free; the
+  handler now performs only ID lookup, the live gyro setting gate, and adapter
+  dispatch.
 - `ControllerInputState` also owns radial deadzone evaluation and exact
   float-to-protocol stick quantization for physical, USB, and virtual input.
   The established non-renormalizing response and inverted Y mapping are shared
