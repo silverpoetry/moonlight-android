@@ -263,6 +263,12 @@ A slice is incomplete if callers can still bypass the new boundary.
   actions, and non-persisted editors. Fork/author categories, title-based icon
   inference, legacy automatic-update endpoints, and the obsolete sponsored
   credits surface are removed.
+- The settings Activity no longer embeds its persistence adapter, screen-item
+  model, section model, XML registry, or icon catalog. `SettingsStore` is the
+  only Android persistence edge; dependency, formatting, validation, and
+  section policy are independently testable, while `SettingsRegistry` is the
+  one adapter that validates `preferences.xml` against the typed schema before
+  the Activity renders it.
 - The in-stream action catalog and virtual-overlay buttons consume typed UI
   policy plus read-only controller visibility. Persisted startup defaults are
   no longer mutated to represent picture-in-picture or menu presentation, and

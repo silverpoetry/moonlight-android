@@ -69,6 +69,15 @@ clipboard and files, stream interface, app appearance, system and
 accessibility, backup and restore, and about. No category represents a fork,
 private build, or implementation layer.
 
+Settings-screen metadata has its own boundary. `SettingsRegistry` converts the
+Android XML document into `SettingsSection` and `SettingsItem` models and
+rejects any persisted row whose declared widget type disagrees with its typed
+schema. `SettingsStore` alone adapts those models to `SettingsRepository`.
+Dependency evaluation, selected-entry lookup, slider normalization and value
+formatting operate through the read-only `SettingsValueReader` contract, so
+they are tested without an Activity or Android preferences. The Activity owns
+only rendering, system capability discovery, dialogs, and user intents.
+
 Persisted rows use only canonical `SettingKey` names. Sections, actions, and
 non-persisted editors use identifiers from `SettingsScreenIds`; they can never
 be mistaken for stored values. `preferences.xml` is presentation metadata,

@@ -290,6 +290,41 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void settingsScreenModelsDoNotDependOnAndroid() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsItem")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsSection")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsValueReader")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..")
+                .because(
+                        "settings metadata and dependency policy are platform-independent")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.StreamSettings")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.SettingsRegistry")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.settings.android.SharedPreferencesSettingsRepository")
+                .because(
+                        "only SettingsStore adapts screen metadata to Android persistence")
+                .check(productionClasses);
+    }
+
+    @Test
     public void typedInputSettingsDoNotDependOnAndroidOrLegacyPreferences() {
         noClasses()
                 .that()
