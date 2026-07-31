@@ -19,10 +19,11 @@ import com.limelight.utils.UiToast;
 
 import com.limelight.LimeLog;
 import com.limelight.R;
-import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.settings.controller.ControllerSettings;
+import com.limelight.settings.controller.ControllerSettingsState;
 
-import java.io.File;
 import java.util.ArrayList;
+import java.util.Objects;
 
 public class UsbDriverService extends Service implements UsbDriverListener {
 
@@ -30,7 +31,7 @@ public class UsbDriverService extends Service implements UsbDriverListener {
             "com.limelight.USB_PERMISSION";
 
     private UsbManager usbManager;
-    private PreferenceConfiguration prefConfig;
+    private ControllerSettingsState settingsState;
     private boolean started;
 
     private final UsbEventReceiver receiver = new UsbEventReceiver();
@@ -92,7 +93,7 @@ public class UsbDriverService extends Service implements UsbDriverListener {
             String action = intent.getAction();
 
             // Initial attachment broadcast
-            if (action.equals(UsbManager.ACTION_USB_DEVICE_ATTACHED)) {
+            if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action)) {
                 final UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
 
                 // shouldClaimDevice() looks at the kernel's enumerated input
@@ -111,7 +112,7 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                 }, 1000);
             }
             // Subsequent permission dialog completion intent
-            else if (action.equals(ACTION_USB_PERMISSION)) {
+            else if (ACTION_USB_PERMISSION.equals(action)) {
                 UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
 
                 // Permission dialog is now closed
@@ -143,6 +144,18 @@ public class UsbDriverService extends Service implements UsbDriverListener {
             UsbDriverService.this.stateListener = stateListener;
         }
 
+        public void setSettingsState(
+                ControllerSettingsState settingsState) {
+            if (started) {
+                throw new IllegalStateException(
+                        "USB settings must be configured before start");
+            }
+            UsbDriverService.this.settingsState =
+                    Objects.requireNonNull(
+                            settingsState,
+                            "settingsState");
+        }
+
         public void start() {
             UsbDriverService.this.start();
         }
@@ -151,30 +164,35 @@ public class UsbDriverService extends Service implements UsbDriverListener {
             UsbDriverService.this.stop();
         }
 
-        public void changeUSBFlag(boolean flag){
-            prefConfig.bindAllUsb=flag;
-        }
-
     }
 
-    private boolean shouldUseRazerKishiController(UsbDevice device) {
-        return prefConfig != null &&
-                prefConfig.enableAudioHaptics &&
-                "controller".equals(prefConfig.audioHapticsOutputTarget) &&
+    private boolean shouldUseRazerKishiController(
+            UsbDevice device,
+            ControllerSettings settings) {
+        return settings.isControllerAudioHapticsEnabled() &&
+                settings.isAudioHapticsTargetController() &&
                 RazerKishiHapticsDevice.canUseDevice(device);
     }
 
-    private boolean shouldClaimDeviceForCurrentMode(UsbDevice device, boolean claimAllAvailable) {
-        if (shouldUseRazerKishiController(device)) {
+    private boolean shouldClaimDeviceForCurrentMode(
+            UsbDevice device,
+            ControllerSettings settings) {
+        if (shouldUseRazerKishiController(device, settings)) {
             return true;
         }
 
-        return shouldClaimDevice(device, claimAllAvailable);
+        return shouldClaimDevice(
+                device,
+                settings.shouldClaimAllUsbDevices());
     }
 
     private void handleUsbDeviceState(UsbDevice device) {
+        if (!started || device == null) {
+            return;
+        }
+        ControllerSettings settings = getSettings();
         // Are we able to operate it?
-        if (shouldClaimDeviceForCurrentMode(device, prefConfig.bindAllUsb)) {
+        if (shouldClaimDeviceForCurrentMode(device, settings)) {
             // Do we have permission yet?
             if (!usbManager.hasPermission(device)) {
                 // Let's ask for permission
@@ -211,7 +229,9 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                 return;
             }
 
-            if (shouldUseRazerKishiController(device)) {
+            if (shouldUseRazerKishiController(
+                    device,
+                    settings)) {
                 return;
             }
 
@@ -346,6 +366,10 @@ public class UsbDriverService extends Service implements UsbDriverListener {
         if (started || usbManager == null) {
             return;
         }
+        if (settingsState == null) {
+            throw new IllegalStateException(
+                    "USB driver started before settings were configured");
+        }
 
         started = true;
 
@@ -362,14 +386,7 @@ public class UsbDriverService extends Service implements UsbDriverListener {
 
         // Enumerate existing devices
         for (UsbDevice dev : usbManager.getDeviceList().values()) {
-            if (shouldClaimDeviceForCurrentMode(dev, prefConfig.bindAllUsb)) {
-                // Start the process of claiming this device
-                handleUsbDeviceState(dev);
-            }else{
-                if (stateListener != null) {
-                    stateListener.onUSBInfo(dev);
-                }
-            }
+            handleUsbDeviceState(dev);
         }
     }
 
@@ -393,7 +410,6 @@ public class UsbDriverService extends Service implements UsbDriverListener {
     @Override
     public void onCreate() {
         this.usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
-        this.prefConfig = PreferenceConfiguration.readPreferences(this);
     }
 
     @Override
@@ -403,11 +419,20 @@ public class UsbDriverService extends Service implements UsbDriverListener {
         // Remove listeners
         listener = null;
         stateListener = null;
+        settingsState = null;
     }
 
     @Override
     public IBinder onBind(Intent intent) {
         return binder;
+    }
+
+    private ControllerSettings getSettings() {
+        if (settingsState == null) {
+            throw new IllegalStateException(
+                    "USB driver settings are not configured");
+        }
+        return settingsState.get();
     }
 
     public interface UsbDriverStateListener {

@@ -13,6 +13,7 @@ public final class ControllerSettings {
     private final int stickDeadzonePercent;
     private final boolean multiControllerEnabled;
     private final boolean usbDriverEnabled;
+    private final boolean claimAllUsbDevices;
     private final boolean onscreenControllerEnabled;
     private final boolean onlyL3R3Enabled;
     private final boolean triggerDeadzoneDisabled;
@@ -51,6 +52,7 @@ public final class ControllerSettings {
                 50);
         multiControllerEnabled = builder.multiControllerEnabled;
         usbDriverEnabled = builder.usbDriverEnabled;
+        claimAllUsbDevices = builder.claimAllUsbDevices;
         onscreenControllerEnabled =
                 builder.onscreenControllerEnabled;
         onlyL3R3Enabled = builder.onlyL3R3Enabled;
@@ -122,6 +124,10 @@ public final class ControllerSettings {
 
     public boolean isUsbDriverEnabled() {
         return usbDriverEnabled;
+    }
+
+    public boolean shouldClaimAllUsbDevices() {
+        return claimAllUsbDevices;
     }
 
     public boolean isOnscreenControllerEnabled() {
@@ -256,6 +262,7 @@ public final class ControllerSettings {
         private int stickDeadzonePercent = 7;
         private boolean multiControllerEnabled = true;
         private boolean usbDriverEnabled = true;
+        private boolean claimAllUsbDevices;
         private boolean onscreenControllerEnabled;
         private boolean onlyL3R3Enabled;
         private boolean triggerDeadzoneDisabled;
@@ -303,6 +310,11 @@ public final class ControllerSettings {
 
         public Builder setUsbDriverEnabled(boolean enabled) {
             usbDriverEnabled = enabled;
+            return this;
+        }
+
+        public Builder setClaimAllUsbDevices(boolean enabled) {
+            claimAllUsbDevices = enabled;
             return this;
         }
 

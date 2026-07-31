@@ -250,6 +250,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
             UsbDriverService.UsbDriverBinder binder = (UsbDriverService.UsbDriverBinder) iBinder;
+            binder.setSettingsState(controllerSettingsState);
             binder.setListener(controllerHandler);
             binder.setStateListener(Game.this);
             binder.start();
@@ -1039,7 +1040,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             initKeyboardController();
         }
 
-        if (prefConfig.usbDriver) {
+        if (controllerSettingsState
+                .get()
+                .isUsbDriverEnabled()) {
             // Start the USB driver
             bindService(new Intent(this, UsbDriverService.class),
                     usbDriverServiceConnection, Service.BIND_AUTO_CREATE);

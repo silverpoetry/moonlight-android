@@ -43,6 +43,7 @@ public final class PreferenceConfigurationControllerSettingsTest {
         preferences.edit()
                 .putInt("seekbar_deadzone", 25)
                 .putBoolean("checkbox_multi_controller", false)
+                .putBoolean("checkbox_usb_bind_all", true)
                 .putBoolean("checkbox_mouse_emulation", false)
                 .putInt("mouse_gamepad_sensitity", 175)
                 .putBoolean("gameForceGyro", true)
@@ -59,6 +60,7 @@ public final class PreferenceConfigurationControllerSettingsTest {
 
         assertEquals(25, configuration.deadzonePercentage);
         assertFalse(configuration.multiController);
+        assertTrue(configuration.bindAllUsb);
         assertFalse(configuration.mouseEmulation);
         assertEquals(175, configuration.mouseGamePadSensitity);
         assertTrue(configuration.gameForceGyro);

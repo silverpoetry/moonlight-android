@@ -24,6 +24,7 @@ public final class ControllerSettingsLoaderTest {
         assertEquals(7, settings.getStickDeadzonePercent());
         assertTrue(settings.isMultiControllerEnabled());
         assertTrue(settings.isUsbDriverEnabled());
+        assertFalse(settings.shouldClaimAllUsbDevices());
         assertTrue(settings.areMotionSensorsEnabled());
         assertEquals(100, settings.getMouseSensitivityPercent());
         assertTrue(settings.isMouseEmulationEnabled());
@@ -44,6 +45,9 @@ public final class ControllerSettingsLoaderTest {
         repository.put(
                 ControllerSettingKeys.MULTI_CONTROLLER,
                 false);
+        repository.put(
+                ControllerSettingKeys.CLAIM_ALL_USB_DEVICES,
+                true);
         repository.put(
                 ControllerSettingKeys.MOUSE_SENSITIVITY_PERCENT,
                 175);
@@ -77,6 +81,7 @@ public final class ControllerSettingsLoaderTest {
 
         assertEquals(25, settings.getStickDeadzonePercent());
         assertFalse(settings.isMultiControllerEnabled());
+        assertTrue(settings.shouldClaimAllUsbDevices());
         assertEquals(175, settings.getMouseSensitivityPercent());
         assertTrue(settings.isForceGyroEnabled());
         assertTrue(settings.isForceGyroLeftTriggerRequired());
@@ -134,6 +139,7 @@ public final class ControllerSettingsLoaderTest {
                 ControllerSettings.builder().build();
         ControllerSettings replacement =
                 ControllerSettings.builder()
+                        .setClaimAllUsbDevices(true)
                         .setForceGyro(true, true, false, 175)
                         .setMouseSensitivityPercent(200)
                         .build();
@@ -143,6 +149,7 @@ public final class ControllerSettingsLoaderTest {
         state.replace(replacement);
 
         assertTrue(state.get().isForceGyroEnabled());
+        assertTrue(state.get().shouldClaimAllUsbDevices());
         assertTrue(
                 state.get().isForceGyroLeftTriggerRequired());
         assertEquals(

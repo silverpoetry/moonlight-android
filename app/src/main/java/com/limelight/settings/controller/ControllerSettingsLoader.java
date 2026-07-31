@@ -24,6 +24,9 @@ public final class ControllerSettingsLoader {
                         ControllerSettingKeys.MULTI_CONTROLLER))
                 .setUsbDriverEnabled(repository.get(
                         ControllerSettingKeys.USB_DRIVER))
+                .setClaimAllUsbDevices(repository.get(
+                        ControllerSettingKeys
+                                .CLAIM_ALL_USB_DEVICES))
                 .setOnscreenControllerEnabled(repository.get(
                         ControllerSettingKeys.ONSCREEN_CONTROLLER))
                 .setOnlyL3R3Enabled(repository.get(

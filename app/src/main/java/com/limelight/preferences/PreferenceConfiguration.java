@@ -64,7 +64,6 @@ public class PreferenceConfiguration {
     public static final String ENABLE_HDR_HIGH_BRIGHTNESS_PREF_STRING = "checkbox_enable_hdr_high_brightness";
     private static final String ENABLE_PIP_PREF_STRING = "checkbox_enable_pip";
     private static final String ENABLE_PERF_OVERLAY_STRING = "checkbox_enable_perf_overlay";
-    private static final String BIND_ALL_USB_STRING = "checkbox_usb_bind_all";
     static final String UNLOCK_FPS_STRING = "checkbox_unlock_fps";
     public static final String VIBRATE_OSC_PREF_STRING =
             ControllerSettingKeys.ONSCREEN_RUMBLE.getName();
@@ -128,7 +127,6 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_ENABLE_HDR_HIGH_BRIGHTNESS = false;
     private static final boolean DEFAULT_ENABLE_PIP = false;
     private static final boolean DEFAULT_ENABLE_PERF_OVERLAY = false;
-    private static final boolean DEFAULT_BIND_ALL_USB = false;
     private static final boolean DEFAULT_UNLOCK_FPS = false;
     private static final boolean DEFAULT_LATENCY_TOAST = false;
     private static final boolean DEFAULT_DISABLE_ADAPTIVE_INPUT_THROTTLING = true;
@@ -806,7 +804,8 @@ public class PreferenceConfiguration {
         config.enablePerfOverlay = prefs.getBoolean(ENABLE_PERF_OVERLAY_STRING, DEFAULT_ENABLE_PERF_OVERLAY);
         config.enablePerfOverlayLite=prefs.getBoolean("checkbox_enable_perf_overlay_lite",DEFAULT_ENABLE_PERF_OVERLAY);
         config.enablePerfOverlayLiteExt=prefs.getBoolean("checkbox_enable_perf_overlay_lite_ext",true);
-        config.bindAllUsb = prefs.getBoolean(BIND_ALL_USB_STRING, DEFAULT_BIND_ALL_USB);
+        config.bindAllUsb =
+                controllerSettings.shouldClaimAllUsbDevices();
         config.mouseEmulation =
                 controllerSettings.isMouseEmulationEnabled();
         config.unlockFps = prefs.getBoolean(UNLOCK_FPS_STRING, DEFAULT_UNLOCK_FPS);

@@ -12,6 +12,10 @@ public final class ControllerSettingKeys {
             SettingKey.booleanKey("checkbox_multi_controller", true);
     public static final SettingKey<Boolean> USB_DRIVER =
             SettingKey.booleanKey("checkbox_usb_driver", true);
+    public static final SettingKey<Boolean> CLAIM_ALL_USB_DEVICES =
+            SettingKey.booleanKey(
+                    "checkbox_usb_bind_all",
+                    false);
     public static final SettingKey<Boolean> ONSCREEN_CONTROLLER =
             SettingKey.booleanKey(
                     "checkbox_show_onscreen_controls",

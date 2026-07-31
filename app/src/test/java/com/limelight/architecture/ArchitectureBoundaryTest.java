@@ -361,6 +361,23 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void usbDriverServiceDoesNotReadPersistenceOrLegacySettings() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.input.driver.UsbDriverService")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android.preference..",
+                        "com.limelight.preferences..",
+                        "com.limelight.settings.android..")
+                .because(
+                        "the bound stream configures one typed controller-policy state before USB enumeration")
+                .check(productionClasses);
+    }
+
+    @Test
     public void virtualControlRuntimeDoesNotReadPersistenceOrLegacySettings() {
         noClasses()
                 .that()
