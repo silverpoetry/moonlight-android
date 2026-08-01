@@ -863,7 +863,7 @@ targets.
 
 ## Phase 7 — Hosts, discovery, pairing, and credentials
 
-**Status:** in progress.
+**Status:** completed.
 
 ### Deliverables
 
@@ -1020,6 +1020,13 @@ targets.
 - App restart, endpoint change, failed pairing, and concurrent refresh preserve
   valid host data.
 - Sensitive material is not logged and is written atomically.
+- `verifyLocal --rerun-tasks --max-workers=1 --no-daemon` passes all 193
+  tasks. All four JVM variants pass 907 tests with no failures, errors, or
+  skips; every Lint variant and both unminified Release APKs pass.
+- API 34 connected verification passes all 146 NonRoot and 146 Root
+  instrumentation tests with no failures, errors, or skips. A physical Xiaomi
+  install cold-launches the immutable host-list path with its service bound and
+  no application fatal exception or ANR.
 
 ## Phase 8 — Cross-client transfer and microphone contracts
 

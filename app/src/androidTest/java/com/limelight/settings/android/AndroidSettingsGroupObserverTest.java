@@ -47,6 +47,11 @@ public final class AndroidSettingsGroupObserverTest {
 
         try {
             observer.start();
+            InstrumentationRegistry.getInstrumentation()
+                    .waitForIdleSync();
+            assertEquals(1, callbackCount.get());
+            callbackCount.set(0);
+
             repository.edit()
                     .put(FIRST, 1)
                     .put(SECOND, 2)
