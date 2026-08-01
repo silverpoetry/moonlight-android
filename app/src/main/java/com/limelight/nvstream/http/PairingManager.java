@@ -13,7 +13,6 @@ import java.io.*;
 import java.security.*;
 import java.security.cert.*;
 import java.util.Arrays;
-import java.util.Locale;
 
 public class PairingManager {
 
@@ -171,13 +170,6 @@ public class PairingManager {
         return c;
     }
     
-    public static String generatePinString() {
-        SecureRandom r = new SecureRandom();
-        return String.format((Locale)null, "%d%d%d%d",
-                r.nextInt(10), r.nextInt(10),
-                r.nextInt(10), r.nextInt(10));
-    }
-
     public X509Certificate getPairedCert() {
         return serverCert;
     }

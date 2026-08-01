@@ -8,6 +8,9 @@ import java.net.UnknownHostException;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
+import com.limelight.computers.model.HostId;
+import com.limelight.computers.pairing.HostPairingUseCase;
+import com.limelight.computers.pairing.NvHttpPairingBackend;
 import com.limelight.grid.PcGridAdapter;
 import com.limelight.grid.assets.DiskAssetLoader;
 import com.limelight.nvstream.http.ComputerDetails;
@@ -25,6 +28,7 @@ import com.limelight.settings.app.AppPresentationSettings;
 import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.ui.hosts.ScreenBackgroundPresenter;
+import com.limelight.ui.hosts.HostPairingController;
 import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.DeviceUtils;
 import com.limelight.utils.Dialog;
@@ -73,9 +77,16 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     private View noPcFoundLayout;
     private PcGridAdapter pcGridAdapter;
     private ShortcutHelper shortcutHelper;
-    private ComputerManagerService.ComputerManagerBinder managerBinder;
+    private volatile ComputerManagerService.ComputerManagerBinder
+            managerBinder;
+    private final Object managerBindingLock = new Object();
     private boolean freezeUpdates, runningPolling, inForeground, completeOnCreateCalled;
     private boolean hostListReady, managerHasKnownHosts;
+    private boolean managerServiceBound;
+    private volatile boolean activityDestroyed;
+    private final HostPairingUseCase hostPairingUseCase =
+            new HostPairingUseCase();
+    private HostPairingController hostPairingController;
     private ComputerObject pendingHostMenuComputer;
     private android.app.AlertDialog pendingHostMenuDialog;
     private final ServiceConnection serviceConnection = new ServiceConnection() {
@@ -90,15 +101,19 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     // Wait for the binder to be ready
                     localBinder.waitForReady();
 
-                    // Now make the binder visible
-                    managerBinder = localBinder;
-
-                    // Start updates
-                    startComputerUpdates();
+                    synchronized (managerBindingLock) {
+                        if (activityDestroyed) {
+                            return;
+                        }
+                        managerBinder = localBinder;
+                        startComputerUpdates();
+                    }
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            tryAutoReconnect();
+                            if (!activityDestroyed) {
+                                tryAutoReconnect();
+                            }
                         }
                     });
 
@@ -109,7 +124,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         }
 
         public void onServiceDisconnected(ComponentName className) {
-            managerBinder = null;
+            synchronized (managerBindingLock) {
+                managerBinder = null;
+            }
         }
     };
 
@@ -204,6 +221,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        hostPairingController = HostPairingController.create(
+                this::runOnUiThread);
+
         // Assume we're in the foreground when created to avoid a race
         // between binding to CMS and onResume()
         inForeground = true;
@@ -255,7 +275,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         AndroidAppLocale.apply(this);
 
         // Bind to the computer manager service
-        bindService(new Intent(PcView.this, ComputerManagerService.class), serviceConnection,
+        managerServiceBound = bindService(
+                new Intent(PcView.this, ComputerManagerService.class),
+                serviceConnection,
                 Service.BIND_AUTO_CREATE);
 
         pcGridAdapter = new PcGridAdapter(this);
@@ -322,11 +344,19 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
     @Override
     public void onDestroy() {
-        super.onDestroy();
-
-        if (managerBinder != null) {
-            unbindService(serviceConnection);
+        activityDestroyed = true;
+        if (hostPairingController != null) {
+            hostPairingController.destroy();
+            hostPairingController = null;
         }
+        if (managerServiceBound) {
+            unbindService(serviceConnection);
+            managerServiceBound = false;
+        }
+        synchronized (managerBindingLock) {
+            managerBinder = null;
+        }
+        super.onDestroy();
     }
 
     @Override
@@ -374,105 +404,136 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             return;
         }
 
-        UiToast.makeText(PcView.this, getResources().getString(R.string.pairing), UiToast.LENGTH_SHORT).show();
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                NvHTTP httpConn;
-                String message;
-                boolean success = false;
-                try {
-                    // Stop updates and wait while pairing
-                    stopComputerUpdates(true);
+        final ComputerManagerService.ComputerManagerBinder binder =
+                managerBinder;
+        HostPairingController.RequestStatus requestStatus =
+                hostPairingController.request(
+                        cancellation -> performPairing(
+                                computer,
+                                binder,
+                                cancellation),
+                        result -> handlePairingResult(
+                                computer,
+                                result));
+        if (requestStatus ==
+                HostPairingController.RequestStatus.ACCEPTED) {
+            UiToast.makeText(
+                    this,
+                    R.string.pairing,
+                    UiToast.LENGTH_SHORT).show();
+        }
+        else if (requestStatus == HostPairingController.RequestStatus
+                .ALREADY_RUNNING) {
+            UiToast.makeText(
+                    this,
+                    R.string.pair_already_in_progress,
+                    UiToast.LENGTH_LONG).show();
+        }
+        else if (requestStatus ==
+                HostPairingController.RequestStatus.UNAVAILABLE) {
+            UiToast.makeText(
+                    this,
+                    R.string.pair_fail,
+                    UiToast.LENGTH_LONG).show();
+        }
+    }
 
-                    httpConn = new NvHTTP(ServerHelper.getCurrentAddressFromComputer(computer),
-                            computer.httpsPort, managerBinder.getUniqueId(), computer.serverCert,
-                            PlatformBinding.getCryptoProvider(PcView.this));
-                    httpConn.setClientName(DeviceUtils.getManufacturer()+"-"+DeviceUtils.getModel());
-                    if (httpConn.getPairState() == PairState.PAIRED) {
-                        // Don't display any toast, but open the app list
-                        message = null;
-                        success = true;
+    private HostPairingUseCase.Outcome performPairing(
+            ComputerDetails computer,
+            ComputerManagerService.ComputerManagerBinder binder,
+            HostPairingUseCase.CancellationSignal cancellation)
+            throws Exception {
+        // This executes only after the controller has admitted the request,
+        // so a duplicate click cannot stop polling for the active operation.
+        stopComputerUpdates(true);
+
+        NvHTTP http = new NvHTTP(
+                ServerHelper.getCurrentAddressFromComputer(computer),
+                computer.httpsPort,
+                binder.getUniqueId(),
+                computer.serverCert,
+                PlatformBinding.getCryptoProvider(this));
+        http.setClientName(
+                DeviceUtils.getManufacturer() + "-" +
+                        DeviceUtils.getModel());
+        return hostPairingUseCase.execute(
+                HostId.of(computer.uuid),
+                computer.runningGameId != 0,
+                new NvHttpPairingBackend(http),
+                pin -> Dialog.displayDialog(
+                        this,
+                        getString(R.string.pair_pairing_title),
+                        getString(R.string.pair_pairing_msg) + " " +
+                                pin + "\n\n" +
+                                getString(R.string.pair_pairing_help),
+                        false),
+                (hostId, certificate) -> {
+                    if (!binder.updatePinnedCertificate(
+                            hostId,
+                            certificate)) {
+                        throw new IOException(
+                                "Unable to persist paired host certificate");
                     }
-                    else {
-                        final String pinStr = PairingManager.generatePinString();
+                },
+                binder::invalidateStateForComputer,
+                cancellation);
+    }
 
-                        // Spin the dialog off in a thread because it blocks
-                        Dialog.displayDialog(PcView.this, getResources().getString(R.string.pair_pairing_title),
-                                getResources().getString(R.string.pair_pairing_msg)+" "+pinStr+"\n\n"+
-                                getResources().getString(R.string.pair_pairing_help), false);
+    private void handlePairingResult(
+            ComputerDetails computer,
+            HostPairingController.Result result) {
+        Dialog.closeDialogs();
+        if (result.isSuccessful()) {
+            // Preserve the legacy pairing-entry contract for both a newly
+            // completed pair and a host that reports it was already paired.
+            // AppView must perform its post-pair refresh because PcView's
+            // observed pair state may still be stale in either case.
+            doAppList(computer, true, false);
+            return;
+        }
 
-                        PairingManager pm = httpConn.getPairingManager();
+        CharSequence message = getPairingFailureMessage(result);
+        if (message != null) {
+            UiToast.makeText(
+                    this,
+                    message,
+                    UiToast.LENGTH_LONG).show();
+        }
+        startComputerUpdates();
+    }
 
-                        PairState pairState = pm.pair(httpConn.getServerInfo(true), pinStr);
-                        if (pairState == PairState.PIN_WRONG) {
-                            message = getResources().getString(R.string.pair_incorrect_pin);
-                        }
-                        else if (pairState == PairState.FAILED) {
-                            if (computer.runningGameId != 0) {
-                                message = getResources().getString(R.string.pair_pc_ingame);
-                            }
-                            else {
-                                message = getResources().getString(R.string.pair_fail);
-                            }
-                        }
-                        else if (pairState == PairState.ALREADY_IN_PROGRESS) {
-                            message = getResources().getString(R.string.pair_already_in_progress);
-                        }
-                        else if (pairState == PairState.PAIRED) {
-                            // Just navigate to the app view without displaying a toast
-                            message = null;
-                            success = true;
+    private CharSequence getPairingFailureMessage(
+            HostPairingController.Result result) {
+        Exception failure = result.getFailure();
+        if (failure instanceof UnknownHostException) {
+            return getString(R.string.error_unknown_host);
+        }
+        if (failure instanceof FileNotFoundException) {
+            return getString(R.string.error_404);
+        }
+        if (failure != null) {
+            LimeLog.warning(
+                    "Host pairing failed: " +
+                            failure.getClass().getSimpleName());
+            return getString(R.string.pair_fail);
+        }
 
-                            // Pin this certificate for later HTTPS use
-                            if (!managerBinder.updatePinnedCertificate(
-                                    computer.uuid,
-                                    pm.getPairedCert())) {
-                                throw new IOException(
-                                        "Unable to persist paired host certificate");
-                            }
-
-                            // Invalidate reachability information after pairing to force
-                            // a refresh before reading pair state again
-                            managerBinder.invalidateStateForComputer(computer.uuid);
-                        }
-                        else {
-                            // Should be no other values
-                            message = null;
-                        }
-                    }
-                } catch (UnknownHostException e) {
-                    message = getResources().getString(R.string.error_unknown_host);
-                } catch (FileNotFoundException e) {
-                    message = getResources().getString(R.string.error_404);
-                } catch (XmlPullParserException | IOException e) {
-                    e.printStackTrace();
-                    message = e.getMessage();
-                }
-
-                Dialog.closeDialogs();
-
-                final String toastMessage = message;
-                final boolean toastSuccess = success;
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (toastMessage != null) {
-                            UiToast.makeText(PcView.this, toastMessage, UiToast.LENGTH_LONG).show();
-                        }
-
-                        if (toastSuccess) {
-                            // Open the app list after a successful pairing attempt
-                            doAppList(computer, true, false);
-                        }
-                        else {
-                            // Start polling again if we're still in the foreground
-                            startComputerUpdates();
-                        }
-                    }
-                });
-            }
-        }).start();
+        switch (result.getOutcome()) {
+            case PIN_WRONG:
+                return getString(R.string.pair_incorrect_pin);
+            case HOST_IN_GAME:
+                return getString(R.string.pair_pc_ingame);
+            case ALREADY_IN_PROGRESS:
+                return getString(R.string.pair_already_in_progress);
+            case FAILED:
+                return getString(R.string.pair_fail);
+            case CANCELED:
+                return null;
+            default:
+                throw new AssertionError(
+                        "Unexpected pairing outcome: " +
+                                result.getOutcome());
+        }
     }
 
     private void doWakeOnLan(final ComputerDetails computer) {

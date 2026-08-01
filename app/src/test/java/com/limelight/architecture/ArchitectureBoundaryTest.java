@@ -331,6 +331,44 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void hostPairingUseCaseIsPlatformAndTransportIndependent() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.pairing.HostPairingUseCase")
+                .or()
+                .haveNameMatching(
+                        "com\\.limelight\\.computers\\.pairing\\.HostPairingUseCase\\$.*")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..",
+                        "com.limelight.nvstream..",
+                        "com.limelight.ui..")
+                .because(
+                        "pairing policy runs through transport, credential, and UI ports")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void hostPairingLifecycleDoesNotDependOnActivity() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.hosts.HostPairingController")
+                .or()
+                .haveNameMatching(
+                        "com\\.limelight\\.ui\\.hosts\\.HostPairingController\\$.*")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android.app..")
+                .because(
+                        "pairing execution and stale-callback rejection have a lifecycle port")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamFailureDiagnosticsDoesNotDependOnConnection() {
         noClasses()
                 .that()

@@ -22,6 +22,7 @@ import com.limelight.computers.discovery.AndroidMdnsDiscoverySource;
 import com.limelight.computers.discovery.HostDiscoveryCandidate;
 import com.limelight.computers.discovery.HostDiscoverySource;
 import com.limelight.computers.model.HostEndpoint;
+import com.limelight.computers.model.HostId;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
@@ -269,18 +270,27 @@ public class ComputerManagerService extends Service {
         public boolean updatePinnedCertificate(
                 String uuid,
                 java.security.cert.X509Certificate certificate) {
+            return updatePinnedCertificate(
+                    HostId.of(uuid),
+                    certificate);
+        }
+
+        public boolean updatePinnedCertificate(
+                HostId hostId,
+                java.security.cert.X509Certificate certificate) {
             if (!getLocalDatabaseReference()) {
                 return false;
             }
             try {
                 synchronized (pollingTuples) {
                     for (PollingTuple tuple : pollingTuples) {
-                        if (!uuid.equals(tuple.computer.uuid)) {
+                        if (!hostId.equals(
+                                HostId.of(tuple.computer.uuid))) {
                             continue;
                         }
                         synchronized (tuple.networkLock) {
                             dbManager.updatePinnedCertificate(
-                                    uuid,
+                                    tuple.computer.uuid,
                                     certificate);
                             tuple.computer.serverCert = certificate;
                             return true;
@@ -301,9 +311,14 @@ public class ComputerManagerService extends Service {
         }
 
         public void invalidateStateForComputer(String uuid) {
+            invalidateStateForComputer(HostId.of(uuid));
+        }
+
+        public void invalidateStateForComputer(HostId hostId) {
             synchronized (pollingTuples) {
                 for (PollingTuple tuple : pollingTuples) {
-                    if (uuid.equals(tuple.computer.uuid)) {
+                    if (hostId.equals(HostId.of(
+                            tuple.computer.uuid))) {
                         // We need the network lock to prevent a concurrent poll
                         // from wiping this change out
                         synchronized (tuple.networkLock) {

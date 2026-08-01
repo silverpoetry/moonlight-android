@@ -902,6 +902,20 @@ targets.
 - Extracted Android mDNS binding into a lifecycle-owned discovery source.
   Discovery now publishes immutable, provenance-tagged endpoint candidates;
   it cannot manufacture stable identity, connection state, or credentials.
+- Extracted host pairing from `PcView` into a transport-independent,
+  serialized use case plus an `NvHTTP` adapter. Pair-state mapping is covered
+  for every protocol result, certificate persistence precedes state
+  invalidation, and persistence failure attempts a remote unpair while
+  preserving rollback failure as suppressed evidence.
+- Pairing execution now has one lifecycle-owned worker and a generation-gated
+  main-thread callback. Duplicate requests are rejected before polling is
+  frozen; owner destruction cancels work before the remote pairing boundary,
+  suppresses stale callbacks, and deliberately lets an in-flight credential
+  transaction finish without interruption.
+- The legacy service adapter resolves canonical `HostId` values back to the
+  exact persisted host key before writing a certificate. This preserves
+  existing mixed-case host databases while keeping domain identity
+  case-insensitive.
 
 ### Exit evidence
 
