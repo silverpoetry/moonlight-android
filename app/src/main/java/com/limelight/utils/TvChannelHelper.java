@@ -59,7 +59,7 @@ public class TvChannelHelper {
                 return;
             }
             try {
-                ((Activity) context).startActivityForResult(intent, 0);
+                context.startActivity(intent);
             } catch (Exception ignored) {
                 // ActivityNotFoundException is the only officially documented
                 // exception that can result from this call. However some buggy

@@ -1,5 +1,7 @@
 package com.limelight.transfer;
 
+import java.util.Objects;
+
 /**
  * Lifecycle state for one remote clipboard file pull at a time.
  *
@@ -18,6 +20,22 @@ public final class ClipboardFileTransferSession {
         }
         selectingDirectory = true;
         return true;
+    }
+
+    /** Begins selection and rolls it back atomically if the picker cannot launch. */
+    public boolean launchDirectorySelection(Runnable launcher) {
+        Objects.requireNonNull(launcher, "launcher");
+        if (!beginDirectorySelection()) {
+            return false;
+        }
+        try {
+            launcher.run();
+            return true;
+        }
+        catch (RuntimeException error) {
+            endDirectorySelection();
+            throw error;
+        }
     }
 
     public void endDirectorySelection() {

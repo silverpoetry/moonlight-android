@@ -33,11 +33,14 @@ import java.util.Objects;
  * downloads during a streaming Activity.
  */
 public final class RemoteClipboardFileTransferController {
-    private static final int DIRECTORY_REQUEST_CODE = 1107;
+    public interface DirectoryPickerLauncher {
+        void launch(Intent intent);
+    }
 
     private final Activity activity;
     private final NvConnection connection;
     private final SettingsRepository settingsRepository;
+    private final DirectoryPickerLauncher directoryPickerLauncher;
     private final ClipboardFileTransferSession session =
             new ClipboardFileTransferSession();
     private AlertDialog transferDialog;
@@ -46,12 +49,16 @@ public final class RemoteClipboardFileTransferController {
     public RemoteClipboardFileTransferController(
             Activity activity,
             NvConnection connection,
-            SettingsRepository settingsRepository) {
+            SettingsRepository settingsRepository,
+            DirectoryPickerLauncher directoryPickerLauncher) {
         this.activity = Objects.requireNonNull(activity, "activity");
         this.connection = Objects.requireNonNull(connection, "connection");
         this.settingsRepository = Objects.requireNonNull(
                 settingsRepository,
                 "settingsRepository");
+        this.directoryPickerLauncher = Objects.requireNonNull(
+                directoryPickerLauncher,
+                "directoryPickerLauncher");
     }
 
     public void pullRemoteFiles() {
@@ -88,20 +95,16 @@ public final class RemoteClipboardFileTransferController {
                     .apply();
         }
 
-        if (!session.beginDirectorySelection()) {
-            return;
-        }
-
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
                 Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION |
                 Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
         try {
-            activity.startActivityForResult(intent, DIRECTORY_REQUEST_CODE);
+            session.launchDirectorySelection(
+                    () -> directoryPickerLauncher.launch(intent));
         }
         catch (RuntimeException error) {
-            session.endDirectorySelection();
             UiToast.makeText(
                     activity,
                     "无法打开目录选择器",
@@ -109,18 +112,12 @@ public final class RemoteClipboardFileTransferController {
         }
     }
 
-    public boolean onActivityResult(int requestCode,
-                                    int resultCode,
-                                    Intent data) {
-        if (requestCode != DIRECTORY_REQUEST_CODE) {
-            return false;
-        }
-
+    public void handleDirectoryResult(int resultCode, Intent data) {
         session.endDirectorySelection();
         if (resultCode != Activity.RESULT_OK ||
                 data == null ||
                 data.getData() == null) {
-            return true;
+            return;
         }
 
         Uri directory = data.getData();
@@ -144,7 +141,6 @@ public final class RemoteClipboardFileTransferController {
                     "无法保留该目录的访问权限",
                     UiToast.LENGTH_LONG).show();
         }
-        return true;
     }
 
     public boolean isSelectingDirectory() {

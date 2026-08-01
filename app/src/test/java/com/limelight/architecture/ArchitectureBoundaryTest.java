@@ -1,5 +1,8 @@
 package com.limelight.architecture;
 
+import android.app.Activity;
+import android.content.Intent;
+
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -1624,6 +1627,29 @@ public final class ArchitectureBoundaryTest {
                         "com.limelight.ui..")
                 .because(
                         "shared Android compatibility adapters expose platform facts, not product policy")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void productionCodeDoesNotUseLegacyActivityResults() {
+        noClasses()
+                .should()
+                .callMethod(
+                        Activity.class,
+                        "startActivityForResult",
+                        Intent.class,
+                        int.class)
+                .because(
+                        "Activity Result launchers own lifecycle-safe result delivery")
+                .check(productionClasses);
+        noMethods()
+                .that()
+                .areDeclaredInClassesThat()
+                .resideInAPackage("com.limelight..")
+                .should()
+                .haveName("onActivityResult")
+                .because(
+                        "Activity Result callbacks replace request-code routing")
                 .check(productionClasses);
     }
 

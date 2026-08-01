@@ -4,7 +4,9 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public final class ClipboardFileTransferSessionTest {
     @Test
@@ -71,5 +73,26 @@ public final class ClipboardFileTransferSessionTest {
         assertNotEquals(0, retry);
         assertNotEquals(first, retry);
         assertTrue(session.finishTransfer(retry));
+    }
+
+    @Test
+    public void pickerLaunchFailureRollsBackSelectionAndPropagates() {
+        ClipboardFileTransferSession session =
+                new ClipboardFileTransferSession();
+        RuntimeException launchFailure = new RuntimeException(
+                "No document provider");
+
+        try {
+            session.launchDirectorySelection(() -> {
+                throw launchFailure;
+            });
+            fail("Expected picker launch failure");
+        }
+        catch (RuntimeException error) {
+            assertSame(launchFailure, error);
+        }
+
+        assertFalse(session.isSelectingDirectory());
+        assertTrue(session.launchDirectorySelection(() -> { }));
     }
 }

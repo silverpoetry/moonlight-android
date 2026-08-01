@@ -286,6 +286,12 @@ result once, and clears the state if launch fails. Import/export parsing and
 I/O remain on its bounded executor; the Activity only binds lifecycle delivery
 to that controller.
 
+The active stream owns a separate launcher for its one clipboard destination
+picker. `RemoteClipboardFileTransferController` receives only that launch port;
+`ClipboardFileTransferSession` atomically opens or rolls back the selection
+state and keeps it mutually exclusive with a transfer. No stream component
+routes integer request codes or overrides the legacy Activity result callback.
+
 Audio effects, channel layout, and host-side playback are captured when a
 stream is composed. Mute and audio-haptics policy are intentionally
 live-updateable: the menu persists the value, the composition root loads one

@@ -1199,6 +1199,12 @@ agree across all participants.
   lifecycle-aware Activity Result launcher and a single persisted pending
   request. Cancellation, invalid restoration, overlapping requests, and
   launch failure are fixture-locked.
+- Replaced the final stream clipboard directory request-code path with an
+  Activity-owned launcher and an injected controller port. Directory picker
+  launch is an atomic transfer-session transition, and architecture rules now
+  reject production `startActivityForResult` calls and `onActivityResult`
+  overrides. The Android TV browsable-channel request now launches normally
+  because it never consumes a result.
 - Replaced live `Resources.updateConfiguration` mutation with localized base
   contexts before Activity creation, while retaining the Android 13 per-app
   locale migration. Host, app, stream, manual-add, and settings entry points

@@ -149,6 +149,8 @@ import com.limelight.utils.StreamOrientationController;
 import com.limelight.utils.StreamOrientationRequest;
 import com.limelight.utils.UiHelper;
 import android.annotation.SuppressLint;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.RequiresApi;
 import android.app.AlertDialog;
 import android.app.Service;
@@ -250,6 +252,12 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     private AndroidStreamConnectingIndicator connectingIndicator;
     private RemoteClipboardFileTransferController
             clipboardFileTransferController;
+    private final ActivityResultLauncher<Intent>
+            clipboardDirectoryLauncher = registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> handleClipboardDirectoryResult(
+                            result.getResultCode(),
+                            result.getData()));
     private AndroidStreamPictureInPictureController
             pictureInPictureController;
     private String pcName;
@@ -729,7 +737,8 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                 new RemoteClipboardFileTransferController(
                         this,
                         conn,
-                        settingsRepository);
+                        settingsRepository,
+                        clipboardDirectoryLauncher::launch);
         Handler mainHandler = new Handler(Looper.getMainLooper());
         microphoneController =
                 AndroidStreamMicrophoneControllerFactory.create(
@@ -2425,12 +2434,11 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         }
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
+    void handleClipboardDirectoryResult(int resultCode, Intent data) {
         if (clipboardFileTransferController != null) {
-            clipboardFileTransferController.onActivityResult(
-                    requestCode, resultCode, data);
+            clipboardFileTransferController.handleDirectoryResult(
+                    resultCode,
+                    data);
         }
     }
 
