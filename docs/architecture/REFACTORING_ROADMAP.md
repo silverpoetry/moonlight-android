@@ -1064,7 +1064,7 @@ agree across all participants.
 
 ## Phase 9 — Physical Gradle module boundaries
 
-**Status:** pending.
+**Status:** in progress.
 
 ### Preconditions
 
@@ -1085,6 +1085,22 @@ agree across all participants.
 - Dependency verification, version catalog/build-logic consolidation, and
   reproducible Java/JNI builds.
 - Explicit ownership for common-c revision and native artifacts.
+
+### Completed slices
+
+- Measured all production Java packages before extraction and recorded the
+  dependency evidence in `GRADLE_MODULE_BOUNDARIES.md`.
+- Added `core:virtual-controls` as a platform-independent Java library owning
+  eight immutable layout/document/repository-contract classes and their three
+  JVM test suites. Its compile classpath contains no Android SDK.
+- Added `core:settings` as a platform-independent Java library owning 68 typed
+  settings, migration, codec, state, and update classes plus 29 JVM test
+  suites. Its only project dependency is the virtual-control model module.
+- Kept all 13 Android settings adapters and the Android virtual-control layout
+  repository in `app`, making the application the explicit platform
+  composition root.
+- Updated `verifyLocal` so module-local tests are mandatory rather than being
+  accidentally omitted when app tests run.
 
 ### Exit evidence
 
