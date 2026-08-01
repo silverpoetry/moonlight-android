@@ -53,6 +53,38 @@ public final class InputSettingsUpdate {
     }
 
     public static InputSettingsUpdate
+            barometerForcePressEnabled(boolean enabled) {
+        return single(
+                InputSettingKeys.BAROMETER_FORCE_PRESS,
+                enabled,
+                (settings, value) -> settings.toBuilder()
+                        .setBarometerForcePressEnabled(value)
+                        .build());
+    }
+
+    public static InputSettingsUpdate
+            barometerForcePressThresholdMilliHpa(int threshold) {
+        return single(
+                InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD,
+                threshold,
+                (settings, value) -> settings.toBuilder()
+                        .setBarometerForcePressThresholdHpa(
+                                value / 1_000f)
+                        .build());
+    }
+
+    public static InputSettingsUpdate
+            barometerForcePressMinimumDurationMs(int durationMs) {
+        return single(
+                InputSettingKeys
+                        .BAROMETER_FORCE_PRESS_MINIMUM_DURATION,
+                durationMs,
+                (settings, value) -> settings.toBuilder()
+                        .setBarometerForcePressMinimumDurationMs(value)
+                        .build());
+    }
+
+    public static InputSettingsUpdate
             directTouchRecenterEnabled(boolean enabled) {
         return single(
                 InputSettingKeys.DIRECT_TOUCH_RECENTER,

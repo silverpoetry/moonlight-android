@@ -1,97 +1,109 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="fill_parent"
-    android:layout_height="fill_parent"
-    android:paddingBottom="@dimen/activity_vertical_margin"
-    android:paddingLeft="@dimen/activity_horizontal_margin"
-    android:paddingRight="@dimen/activity_horizontal_margin"
-    android:paddingTop="@dimen/activity_vertical_margin"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
     android:background="@drawable/bg_gradient_axi_main"
-    tools:context=".preferences.AddComputerManually" >
+    android:orientation="vertical"
+    tools:context=".preferences.AddComputerManually">
 
-    <RelativeLayout
+    <FrameLayout
         android:id="@+id/rv_top_view"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:minHeight="56dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
 
         <TextView
             android:id="@+id/manuallyAddPcText"
-            android:text="@string/title_add_pc"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:layout_centerHorizontal="true"
+            android:layout_gravity="center"
+            android:text="@string/title_add_pc"
             android:textAppearance="?android:attr/textAppearanceLarge"
-            />
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </FrameLayout>
 
-    </RelativeLayout>
-
-    <EditText
-        android:id="@+id/hostTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="35dp"
-        android:layout_below="@+id/rv_top_view"
-        android:layout_toStartOf="@+id/addPcButton"
-        android:layout_marginTop="25dp"
-        android:layout_alignParentStart="true"
-        android:textColorHint="@android:color/white"
-        android:ems="10"
-        android:textSize="12sp"
-        android:background="@drawable/ic_game_menu_btn_selector"
-        android:paddingStart="10dp"
-        android:paddingEnd="10dp"
-        android:singleLine="true"
-        android:importantForAutofill="no"
-        android:inputType="textNoSuggestions"
-        android:hint="@string/ip_hint" >
-        
-        <requestFocus />
-    </EditText>
-
-    <Button
-        android:id="@+id/addPcButton"
-        android:background="@drawable/ic_game_menu_btn_selector"
-        android:layout_width="wrap_content"
-        android:layout_height="35dp"
-        android:layout_marginTop="25dp"
-        android:layout_marginStart="10dp"
-        android:textSize="13sp"
-        android:layout_below="@+id/rv_top_view"
-        android:layout_alignParentEnd="true"
-        android:text="@android:string/ok"/>
-
-    <Button
-        android:id="@+id/getPcButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="15dp"
-        android:layout_below="@+id/addPcButton"
-        android:layout_alignParentStart="true"
-        android:visibility="gone"
-        android:text="@string/addpc_get_from_svr"/>
-
-    <Button
-        android:id="@+id/razerPort"
-        android:background="@drawable/ic_game_menu_btn_selector"
-        android:layout_width="wrap_content"
-        android:layout_height="35dp"
-        android:layout_marginTop="15dp"
-        android:paddingStart="10dp"
-        android:paddingEnd="10dp"
-        android:textSize="13sp"
-        android:layout_below="@+id/addPcButton"
-        android:layout_alignParentStart="true"
-        android:text="@string/addpc_append_razer_port"/>
-
-    <TextView
-        android:layout_marginTop="15dp"
-        android:textSize="12sp"
-        android:layout_below="@+id/razerPort"
-        android:text="@string/axi_add_computer_tips"
+    <ScrollView
+        android:id="@+id/addComputerContent"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="16dp"
+        android:scrollbars="none">
 
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
 
-	
-</RelativeLayout>
+            <EditText
+                android:id="@+id/hostTextView"
+                android:layout_width="match_parent"
+                android:layout_height="42dp"
+                android:layout_alignParentStart="true"
+                android:layout_marginEnd="12dp"
+                android:layout_toStartOf="@+id/addPcButton"
+                android:background="@drawable/ic_game_menu_btn_selector"
+                android:ems="10"
+                android:hint="@string/ip_hint"
+                android:importantForAutofill="no"
+                android:inputType="textNoSuggestions"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:singleLine="true"
+                android:textColorHint="@android:color/white"
+                android:textSize="12sp">
+
+                <requestFocus />
+            </EditText>
+
+            <Button
+                android:id="@+id/addPcButton"
+                android:layout_width="wrap_content"
+                android:layout_height="42dp"
+                android:layout_alignParentEnd="true"
+                android:background="@drawable/ic_game_menu_btn_selector"
+                android:minWidth="96dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:text="@android:string/ok"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/getPcButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentStart="true"
+                android:layout_below="@id/addPcButton"
+                android:layout_marginTop="12dp"
+                android:text="@string/addpc_get_from_svr"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/razerPort"
+                android:layout_width="wrap_content"
+                android:layout_height="42dp"
+                android:layout_alignParentStart="true"
+                android:layout_below="@id/addPcButton"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/ic_game_menu_btn_selector"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="@string/addpc_append_razer_port"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/razerPort"
+                android:layout_marginTop="16dp"
+                android:text="@string/axi_add_computer_tips"
+                android:textSize="12sp" />
+        </RelativeLayout>
+    </ScrollView>
+</LinearLayout>

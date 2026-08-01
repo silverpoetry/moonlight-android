@@ -241,4 +241,39 @@
         <item>gamePad_5</item>
     </string-array>
 
+    <string-array name="floating_control_action_names">
+        <item>@string/settings_action_open_stream_menu</item>
+        <item>@string/settings_action_open_soft_keyboard</item>
+        <item>@string/settings_action_open_full_keyboard</item>
+    </string-array>
+    <string-array name="floating_control_action_values" translatable="false">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+
+    <string-array name="controller_menu_shortcut_names">
+        <item>@string/settings_choice_start_long_press</item>
+        <item>@string/settings_choice_xbox_single_tap</item>
+        <item>@string/settings_choice_view_long_press</item>
+    </string-array>
+    <string-array name="controller_menu_shortcut_values" translatable="false">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+
+    <string-array name="soft_keyboard_gesture_names">
+        <item>@string/settings_choice_disabled</item>
+        <item>@string/settings_choice_three_fingers</item>
+        <item>@string/settings_choice_four_fingers</item>
+        <item>@string/settings_choice_five_fingers</item>
+    </string-array>
+    <string-array name="soft_keyboard_gesture_values" translatable="false">
+        <item>0</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+    </string-array>
+
 </resources>

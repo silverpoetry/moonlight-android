@@ -45,7 +45,7 @@ final class SettingsScreenRenderer {
         void onSwitchChanged(String itemId, boolean checked);
     }
 
-    private static final int FEATURED_SECTION_INDEX = -1;
+    static final int FEATURED_SECTION_INDEX = -1;
     private static final int WIDE_LAYOUT_MIN_WIDTH_DP = 720;
     private final Context context;
     private Listener listener;
@@ -56,14 +56,13 @@ final class SettingsScreenRenderer {
     private FrameLayout root;
     private LinearLayout outerContainer;
     private FrameLayout mainContainer;
-    private LinearLayout wideSectionList;
     private FrameLayout wideItemContainer;
     private TextView titleView;
     private TextView subtitleView;
     private ScrollView activeContentScrollView;
     private CharSequence profileSummary = "";
     private int selectedSectionIndex = FEATURED_SECTION_INDEX;
-    private boolean sectionActivity;
+    private boolean sectionDetailVisible;
     private boolean wideLayout;
     private boolean updatingControls;
     private boolean destroyed;
@@ -151,14 +150,14 @@ final class SettingsScreenRenderer {
     void setContent(
             SettingsScreenState state,
             int selectedSectionIndex,
-            boolean sectionActivity,
+            boolean sectionDetailVisible,
             CharSequence profileSummary) {
         if (destroyed) {
             return;
         }
         this.state = Objects.requireNonNull(state, "state");
         this.selectedSectionIndex = selectedSectionIndex;
-        this.sectionActivity = sectionActivity;
+        this.sectionDetailVisible = sectionDetailVisible;
         this.profileSummary = profileSummary == null
                 ? ""
                 : profileSummary;
@@ -176,7 +175,7 @@ final class SettingsScreenRenderer {
         if (wideLayout) {
             renderWide(page);
         }
-        else if (sectionActivity && selectedSectionIndex >= 0) {
+        else if (sectionDetailVisible && selectedSectionIndex >= 0) {
             renderSectionDetail(page, selectedSectionIndex);
         }
         else {
@@ -191,6 +190,10 @@ final class SettingsScreenRenderer {
 
     boolean hasContent() {
         return !destroyed && state != null;
+    }
+
+    boolean isWideLayout() {
+        return wideLayout;
     }
 
     int getSelectedSectionIndex() {
@@ -223,7 +226,7 @@ final class SettingsScreenRenderer {
                 : updatedProfileSummary;
         if (subtitleView != null &&
                 (selectedSectionIndex == FEATURED_SECTION_INDEX ||
-                        (!wideLayout && !sectionActivity))) {
+                        (!wideLayout && !sectionDetailVisible))) {
             subtitleView.setText(profileSummary);
         }
         updatingControls = true;
@@ -290,7 +293,6 @@ final class SettingsScreenRenderer {
         listener = null;
         renderedRows.clear();
         activeContentScrollView = null;
-        wideSectionList = null;
         wideItemContainer = null;
         state = null;
     }
@@ -318,7 +320,6 @@ final class SettingsScreenRenderer {
 
         ScrollView sectionScroll = createScrollView();
         LinearLayout sectionList = createVerticalList();
-        wideSectionList = sectionList;
         sectionScroll.addView(sectionList);
         columns.addView(
                 sectionScroll,
@@ -345,10 +346,10 @@ final class SettingsScreenRenderer {
                         1);
         itemParams.leftMargin = dp(14);
         columns.addView(wideItemContainer, itemParams);
-        renderWideItemContent(false);
+        renderWideItemContent();
     }
 
-    private void renderWideItemContent(boolean animate) {
+    private void renderWideItemContent() {
         if (wideItemContainer == null) {
             return;
         }
@@ -365,29 +366,6 @@ final class SettingsScreenRenderer {
         wideItemContainer.addView(page, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
-        if (animate) {
-            page.setAlpha(0f);
-            page.animate().alpha(1f).setDuration(100).start();
-        }
-    }
-
-    private void refreshWideSectionSelection() {
-        if (wideSectionList == null) {
-            return;
-        }
-        for (int index = 0;
-                index < wideSectionList.getChildCount();
-                index++) {
-            View child = wideSectionList.getChildAt(index);
-            Object tag = child.getTag();
-            if (tag instanceof Integer) {
-                int sectionIndex = (Integer) tag;
-                child.setBackgroundResource(
-                        sectionIndex == selectedSectionIndex
-                                ? R.drawable.bg_settings_selected_card
-                                : R.drawable.ic_game_menu_btn_selector);
-            }
-        }
     }
 
     private void renderSectionList(LinearLayout page) {
@@ -569,12 +547,7 @@ final class SettingsScreenRenderer {
     }
 
     private void selectSection(int sectionIndex) {
-        if (wideLayout) {
-            selectedSectionIndex = sectionIndex;
-            refreshWideSectionSelection();
-            renderWideItemContent(true);
-        }
-        else if (listener != null) {
+        if (listener != null) {
             listener.onSectionRequested(sectionIndex);
         }
     }

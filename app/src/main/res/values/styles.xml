@@ -108,6 +108,7 @@
         <item name="android:button">@null</item>
         <item name="android:gravity">center</item>
         <item name="android:padding">4dp</item>
+        <item name="android:textColor">@color/game_menu_text_selector</item>
         <item name="android:textSize">10sp</item>
     </style>
 
@@ -119,6 +120,38 @@
         <item name="android:drawablePadding">4dp</item>
         <item name="android:gravity">start|center_vertical</item>
         <item name="android:padding">10dp</item>
+        <item name="android:textColor">@color/game_menu_text_selector</item>
+        <item name="android:textSize">11sp</item>
+    </style>
+
+    <style name="GameMenuNavigationButton" parent="GameMenuOptionButton">
+        <item name="android:layout_height">48dp</item>
+        <item name="android:layout_marginTop">0dp</item>
+        <item name="android:layout_marginBottom">6dp</item>
+        <item name="android:drawableEnd">@drawable/ic_axi_arrow</item>
+        <item name="android:drawablePadding">8dp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <style name="GameMenuNavigationSectionTitle" parent="GameMenuSectionTitle">
+        <item name="android:layout_marginStart">5dp</item>
+        <item name="android:layout_marginTop">14dp</item>
+        <item name="android:layout_marginEnd">5dp</item>
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+
+    <style name="GameMenuSideTabButton" parent="@android:style/Widget.Button">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">0dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">@drawable/ic_game_menu_btn_side_selector</item>
+        <item name="android:drawablePadding">4dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:padding">4dp</item>
+        <item name="android:textColor">@color/game_menu_text_selector</item>
         <item name="android:textSize">11sp</item>
     </style>
 
@@ -129,6 +162,7 @@
         <item name="android:layout_weight">1</item>
         <item name="android:background">@drawable/ic_game_menu_btn_selector</item>
         <item name="android:gravity">center</item>
+        <item name="android:textColor">@color/game_menu_text_selector</item>
         <item name="android:textSize">10sp</item>
     </style>
 
@@ -161,6 +195,7 @@
         <item name="android:drawablePadding">4dp</item>
         <item name="android:gravity">center</item>
         <item name="android:padding">4dp</item>
+        <item name="android:textColor">@color/game_menu_text_selector</item>
         <item name="android:textSize">11sp</item>
     </style>
 
@@ -208,6 +243,7 @@
         <item name="android:drawablePadding">4dp</item>
         <item name="android:gravity">start|center_vertical</item>
         <item name="android:padding">4dp</item>
+        <item name="android:textColor">@color/game_menu_text_selector</item>
         <item name="android:textSize">10sp</item>
     </style>
 

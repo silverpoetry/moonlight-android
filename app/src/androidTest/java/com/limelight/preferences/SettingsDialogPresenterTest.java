@@ -58,6 +58,51 @@ public final class SettingsDialogPresenterTest {
         }
     }
 
+    @Test
+    public void integerListReadsTypedIntegerStorage() {
+        Instrumentation instrumentation =
+                InstrumentationRegistry.getInstrumentation();
+        StreamSettings activity = startSettingsActivity(instrumentation);
+        SettingsDialogPresenter[] presenter =
+                new SettingsDialogPresenter[1];
+
+        try {
+            instrumentation.runOnMainSync(() -> {
+                SettingsItem item = new SettingsItem();
+                item.key = "test.dialog.integer";
+                item.settingKey = SettingKey.integerSetKey(
+                        item.key,
+                        3,
+                        0,
+                        3,
+                        5);
+                item.type = SettingsItem.Type.INTEGER_LIST;
+                item.title = "Integer dialog";
+                item.entries = new CharSequence[] {
+                        "Off",
+                        "Three",
+                        "Five",
+                };
+                item.entryValues = new CharSequence[] {
+                        "0",
+                        "3",
+                        "5",
+                };
+
+                presenter[0] = new SettingsDialogPresenter(
+                        activity,
+                        new SettingsStore(activity),
+                        new NoOpListener());
+                presenter[0].showList(item);
+                assertTrue(presenter[0].isShowing());
+                presenter[0].destroy();
+            });
+        }
+        finally {
+            activity.finish();
+        }
+    }
+
     private static StreamSettings startSettingsActivity(
             Instrumentation instrumentation) {
         Intent intent = new Intent(

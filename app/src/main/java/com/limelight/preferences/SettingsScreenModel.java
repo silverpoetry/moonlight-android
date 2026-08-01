@@ -84,11 +84,23 @@ final class SettingsScreenModel {
         sections.addAll(visibleSections);
     }
 
-    int clampSelectedSection(int selected) {
-        if (sections.isEmpty() || selected < 0) {
+    int findSectionIndex(String key) {
+        if (key == null) {
             return -1;
         }
-        return Math.min(selected, sections.size() - 1);
+        for (int index = 0; index < sections.size(); index++) {
+            if (key.equals(sections.get(index).key)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    String getSectionKey(int index) {
+        if (index < 0 || index >= sections.size()) {
+            return null;
+        }
+        return sections.get(index).key;
     }
 
     private static boolean isEmpty(CharSequence value) {

@@ -33,6 +33,10 @@ import java.util.Objects;
  */
 public final class StreamSettingsSession {
     public interface Effects {
+        void onInputSettingsChanged(
+                InputSettings previous,
+                InputSettings current);
+
         void onBatteryReportingChanged();
 
         void onForceGyroEnabled();
@@ -106,9 +110,11 @@ public final class StreamSettingsSession {
 
     public void applyInput(InputSettingsUpdate update) {
         Objects.requireNonNull(update, "update");
-        InputSettings current = update.applyTo(inputState.get());
+        InputSettings previous = inputState.get();
+        InputSettings current = update.applyTo(previous);
         update.persist(repository);
         inputState.replace(current);
+        effects.onInputSettingsChanged(previous, current);
     }
 
     public void applyController(ControllerSettingsUpdate update) {

@@ -64,10 +64,20 @@ downgrading a future schema version.
 ## Settings-screen information architecture
 
 The screen is organized by user task rather than by feature origin or author:
-video and display, audio, touch and mouse, gamepad, haptics, virtual controls,
-clipboard and files, stream interface, app appearance, system and
-accessibility, backup and restore, and about. No category represents a fork,
-private build, or implementation layer.
+video and display, audio, touch and mouse, input sensitivity, gamepad, haptics,
+virtual controls, clipboard and files, stream interface, app appearance,
+system and accessibility, backup and restore, and about. No category represents
+a fork, private build, or implementation layer.
+
+Every persisted option exposed by an in-stream editor also has a canonical
+global-settings row. The return menu is reserved for current-session actions,
+specialized hardware editors, and deliberately live adjustments; it does not
+contain a second omnibus settings page. A live action may persist a typed
+replacement snapshot, but it cannot own a second key, default, validation rule,
+or migration path. The former miscellaneous stream-settings dialog and its
+parallel layout have been deleted. Audio mute remains a first-page live action
+and resolves through the same `StreamAudioSettingKeys.MUTED` value shown in the
+global audio section.
 
 Settings-screen metadata has its own boundary. `SettingsRegistry` converts the
 Android XML document into `SettingsSection` and `SettingsItem` models and
@@ -84,6 +94,11 @@ be mistaken for stored values. `preferences.xml` is presentation metadata,
 while `SettingsScreenKeyCatalog` remains the executable contract for storage
 type, validation, and default. Section icons are selected from stable section
 IDs rather than translated titles or legacy-key substrings.
+
+Finite choices retain their schema storage type. String enums use
+`ListPreference`; integer enums use the explicit `IntegerListPreference`
+marker and are read and written through `SettingKey<Integer>`. Presentation
+code never converts an integer domain value into a second string-backed key.
 
 Document-backed actions form a separate Android boundary. A pure
 `SettingsDocumentActionRouter` maps stable, non-persisted row IDs to explicit
@@ -144,11 +159,18 @@ the active window so it cannot retain or address a destroyed Activity.
 
 The settings View tree crosses `SettingsScreenRenderer`. It is the sole owner
 of root, narrow, and wide layouts, section and item rows, dependency-state
-refresh, scroll restoration, window-inset padding, and transient selection
-animation. It receives the one `SettingsScreenModel` graph and a read-only
+refresh, scroll restoration, and window-inset padding. It receives the one
+`SettingsScreenModel` graph and a read-only
 `SettingsValueReader`, then emits semantic back, section, item, and switch
 intents. It has no settings write API; `StreamSettings` owns navigation and
 routes intents to use-case controllers.
+
+Narrow and wide navigation remain inside one `StreamSettings` Activity. A
+section click emits an intent to the Activity, which stores the stable section
+ID and renders either a narrow detail page or a wide selected column. It never
+starts a second instance of itself, never treats a mutable array index as saved
+identity, and restores the stable ID across recreation. Narrow back returns to
+the root in place; root back exits the Activity.
 
 Registry metadata is mutable only during screen composition. After runtime
 capability, visibility, and dependency policy have been applied,
@@ -199,10 +221,10 @@ same `ControllerSettingsState`.
 | --- | --- | --- | --- |
 | Stream display/window | `StreamDisplaySettings`; `StreamVideoSettings` with one immutable active-session snapshot plus an atomic settings-UI state | `Game` receives dimensions, native/stretch/cutout/external-display/HDR/gravity, virtual-display mode, display-mode enforcement, and SOPS launch policy from typed composition; both display-dialog entry points consume one typed snapshot and emit typed intents | The temporary `LegacyPreferenceSettingsAdapter` is deleted; generic settings-screen rows still need typed intents |
 | Stream video/decoder | `StreamDecoderSettings`; typed resolution and video aggregates; pure `StreamFramePacingPolicy` | Decoder, launch, refresh-rate selection, warning thresholds, cursor scaling, and performance-statistics paths no longer receive `PreferenceConfiguration`; resolution/FPS/bitrate parsing, repair, frame-pacing fallback, and default policy have one safe codec/policy; display Apply persists its seven owned values atomically | Stream composition has no legacy adapter; remaining generic settings-screen rows still use the legacy screen implementation |
-| Input and gestures | `InputSettings` with one atomic `InputSettingsState` per stream | Pointer, touchscreen/touchpad, gesture, keyboard, virtual-touchpad, mouse-wheel, native/local cursor, and adaptive transport-throttling policy no longer read storage or receive `PreferenceConfiguration`; the live touch-sensitivity and miscellaneous menus emit typed update intents and publish one replacement snapshot | Remaining generic settings rows still require typed intents |
-| Physical controllers | `ControllerSettings` with one atomic `ControllerSettingsState` per stream | `ControllerHandler` and `UsbDriverService` no longer receive `PreferenceConfiguration` or reread storage from controller, sensor, rumble, battery, USB attach, or permission callbacks; touch, device, and miscellaneous menus emit typed controller intents; rumble-trigger linkage, force-gyro policy, and DualSense adaptive-trigger application consume the same live snapshot | Remaining generic settings rows still require typed intents |
+| Input and gestures | `InputSettings` with one atomic `InputSettingsState` per stream | Pointer, touchscreen/touchpad, gesture, keyboard, virtual-touchpad, mouse-wheel, native/local cursor, and adaptive transport-throttling policy no longer read storage or receive `PreferenceConfiguration`; the global screen owns every persisted input row, while the live touch-sensitivity editor emits typed update intents against the same snapshot | Remaining generic settings rows still require typed intents |
+| Physical controllers | `ControllerSettings` with one atomic `ControllerSettingsState` per stream | `ControllerHandler` and `UsbDriverService` no longer receive `PreferenceConfiguration` or reread storage from controller, sensor, rumble, battery, USB attach, or permission callbacks; global settings own persistent controller policy, while specialized live touch/device editors emit typed intents; rumble-trigger linkage, force-gyro policy, and DualSense adaptive-trigger application consume the same live snapshot | Remaining generic settings rows still require typed intents |
 | On-screen controls | `VirtualControlSettings` with one atomic `VirtualControlSettingsState` per stream | Active virtual gamepad, virtual-key, touchpad-button, and full-keyboard rendering/input paths consume typed snapshots; the virtual-key startup default and automatic-orientation policy are typed, while current overlay visibility is reported by the owning controller rather than written into persistent configuration; stream-menu writers emit immutable domain updates; named layouts use `VirtualControlLayoutRepository` rather than direct file access | Layout element DTO/codec separation from the game-menu model remains; unused named-`SharedPreferences` loader path has been removed |
-| Stream audio | `StreamAudioSettings` with one atomic `StreamAudioSettingsState` per stream | Playback, mute, audio effects, and phone/controller audio-haptics consume the same typed snapshot; the miscellaneous menu emits typed live-audio intents; PCM callbacks perform no preference I/O; controller rumble suppression and USB/Kishi routing no longer duplicate audio policy inside `ControllerSettings` | Restart-only settings still use the legacy settings screen |
+| Stream audio | `StreamAudioSettings` with one atomic `StreamAudioSettingsState` per stream | Playback, mute, audio effects, and phone/controller audio-haptics consume the same typed snapshot; mute is an explicit first-page live action backed by the same global typed key; PCM callbacks perform no preference I/O; controller rumble suppression and USB/Kishi routing no longer duplicate audio policy inside `ControllerSettings` | Restart-only settings use the canonical global settings screen |
 | Microphone | No persisted policy; protocol-v1 invariants live in immutable `MicrophoneUplinkConfig` | Capture is an injected Android adapter; the platform-independent lifecycle controller owns all start/stop/error transitions and is unit tested without `AudioRecord` or JNI | No legacy preference exists; future formats require explicit protocol negotiation rather than a hidden setting |
 | Clipboard and transfer | `TransferSettings` captures clipboard enablement and the bounded persisted document-tree URI | Stream composition no longer reads the legacy preference bag for capability enablement; pull-to-device UI reads, repairs, and writes the directory through `SettingsRepository` and typed keys | Generic settings-row writers still need the typed-intent migration; clipboard loop-suppression checkpoints are operational state, not user settings, and move behind a storage port in phase 8 |
 | In-stream UI | `StreamUiSettings` with one atomic `StreamUiSettingsState` per stream; immutable `GameMenuCardLayout` and `GameMenuShortcut` documents behind consumer-owned repository ports | Floating-control behavior and remembered position, compact/expanded performance presentation, interaction, scale, margin, rumble HUD, picture-in-picture, warning visibility, latency toast, Android GameManager integration, and built-in shortcut catalog policy consume one typed snapshot; card layout stores bounded stable IDs; shortcut payloads use a bounded immutable document with defensive key arrays; both repositories are Activity-owned while Fragments/catalogs perform no preference or adapter I/O; Views emit events and do not read settings storage or own persistence decisions | Generic settings-screen rows remain |

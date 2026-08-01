@@ -87,7 +87,7 @@
                     android:drawableTop="@drawable/ic_axi_switch_screen"
                     android:gravity="center"
                     android:padding="4dp"
-                    android:id="@+id/btn_display_1"
+                android:id="@id/btn_display_1"
                     android:text="@string/game_menu_display_1"
                     android:textSize="11sp" />
 

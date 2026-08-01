@@ -41,6 +41,10 @@ public class FloatingMagnetView extends FrameLayout {
     private int availableHorizontalTravel;
     private int parentHeight;
     private boolean nearestLeft = true;
+    private boolean collapsed;
+    private boolean initialPositionApplied;
+    private boolean hasRememberedPosition;
+    private float rememberedY;
     private float portraitY;
     private PositionListener positionListener;
 
@@ -71,8 +75,8 @@ public class FloatingMagnetView extends FrameLayout {
                 listener,
                 "listener");
         if (settings.hasRememberedFloatingPosition()) {
-            setX(settings.getFloatingPositionX());
-            setY(settings.getFloatingPositionY());
+            hasRememberedPosition = true;
+            rememberedY = settings.getFloatingPositionY();
             nearestLeft =
                     settings.isFloatingPositionNearestLeft();
         }
@@ -86,10 +90,10 @@ public class FloatingMagnetView extends FrameLayout {
 
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
-                captureTouchOrigin(event);
                 updateParentBounds();
                 moveAnimator.stop();
                 cancelCollapse();
+                captureTouchOrigin(event);
                 return true;
             case MotionEvent.ACTION_MOVE:
                 updateViewPosition(event);
@@ -125,7 +129,10 @@ public class FloatingMagnetView extends FrameLayout {
     }
 
     private void updateViewPosition(MotionEvent event) {
-        setX(originalX + event.getRawX() - originalRawX);
+        setX(clamp(
+                originalX + event.getRawX() - originalRawX,
+                0,
+                availableHorizontalTravel));
         float destinationY =
                 originalY + event.getRawY() - originalRawY;
         float maximumY = Math.max(0, parentHeight - getHeight());
@@ -161,10 +168,8 @@ public class FloatingMagnetView extends FrameLayout {
             boolean dockLeft,
             boolean isLandscape) {
         float destinationX = dockLeft
-                ? EDGE_MARGIN_PX
-                : Math.max(
-                        0,
-                        availableHorizontalTravel - EDGE_MARGIN_PX);
+                ? edgeX(true)
+                : edgeX(false);
         float destinationY = getY();
         if (!isLandscape && portraitY != 0) {
             destinationY = portraitY;
@@ -193,16 +198,27 @@ public class FloatingMagnetView extends FrameLayout {
     private void cancelCollapse() {
         mainHandler.removeCallbacks(delayedCollapse);
         animate().cancel();
+        if (collapsed) {
+            setX(edgeX(nearestLeft));
+            collapsed = false;
+        }
         animate().alpha(1f).setDuration(100).start();
     }
 
     private void collapseAtEdge() {
+        if (!isAttachedToWindow() || getVisibility() != VISIBLE) {
+            return;
+        }
+        updateParentBounds();
         moveAnimator.stop();
+        setX(edgeX(nearestLeft));
         animate().alpha(0.35f).setDuration(100).start();
         float collapsedX = nearestLeft
                 ? (float) -getWidth() / 2
-                : getX() + (float) getWidth() / 2;
-        animate().translationX(collapsedX)
+                : availableHorizontalTravel +
+                        (float) getWidth() / 2;
+        collapsed = true;
+        animate().x(collapsedX)
                 .setDuration(100)
                 .start();
         PositionListener listener = positionListener;
@@ -230,8 +246,22 @@ public class FloatingMagnetView extends FrameLayout {
         }
         parent.post(() -> {
             updateParentBounds();
+            collapsed = false;
             moveToEdge(nearestLeft, isLandscape);
         });
+    }
+
+    @Override
+    protected void onLayout(
+            boolean changed,
+            int left,
+            int top,
+            int right,
+            int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+        if (!initialPositionApplied) {
+            applyInitialPosition();
+        }
     }
 
     private void clearPortraitY() {
@@ -251,6 +281,43 @@ public class FloatingMagnetView extends FrameLayout {
         positionListener = null;
     }
 
+    private void applyInitialPosition() {
+        updateParentBounds();
+        if (getWidth() == 0 || parentHeight == 0) {
+            return;
+        }
+
+        if (hasRememberedPosition) {
+            setY(clamp(
+                    rememberedY,
+                    0,
+                    Math.max(0, parentHeight - getHeight())));
+        }
+        else {
+            setY(clamp(
+                    getY(),
+                    0,
+                    Math.max(0, parentHeight - getHeight())));
+        }
+        setX(edgeX(nearestLeft));
+        initialPositionApplied = true;
+    }
+
+    private float edgeX(boolean dockLeft) {
+        return dockLeft
+                ? Math.min(EDGE_MARGIN_PX, availableHorizontalTravel)
+                : Math.max(
+                        0,
+                        availableHorizontalTravel - EDGE_MARGIN_PX);
+    }
+
+    private static float clamp(
+            float value,
+            float minimum,
+            float maximum) {
+        return Math.min(Math.max(minimum, value), maximum);
+    }
+
     private final class MoveAnimator implements Runnable {
         private static final long DURATION_MS = 400;
 
@@ -262,6 +329,7 @@ public class FloatingMagnetView extends FrameLayout {
 
         private void start(float x, float y) {
             stop();
+            collapsed = false;
             startingX = getX();
             startingY = getY();
             destinationX = x;

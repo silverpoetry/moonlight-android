@@ -56,6 +56,7 @@ import com.limelight.settings.audio.StreamAudioSettingsState;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsLoader;
 import com.limelight.settings.controller.ControllerSettingsState;
+import com.limelight.settings.input.InputSettings;
 import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.settings.input.InputSettingsState;
 import com.limelight.settings.runtime.StreamSettingsSession;
@@ -954,6 +955,18 @@ public class Game extends Activity implements OnGenericMotionListener,
                 streamUiSettingsState,
                 virtualControlSettingsState,
                 new StreamSettingsSession.Effects() {
+                    @Override
+                    public void onInputSettingsChanged(
+                            InputSettings previous,
+                            InputSettings current) {
+                        if (streamInputController != null) {
+                            streamInputController
+                                    .onInputSettingsChanged(
+                                            previous,
+                                            current);
+                        }
+                    }
+
                     @Override
                     public void onBatteryReportingChanged() {
                         if (controllerHandler != null) {

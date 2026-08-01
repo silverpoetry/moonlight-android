@@ -45,10 +45,11 @@ public final class TouchInputController {
     private final SoftKeyboardGestureCoordinator keyboardGestureCoordinator;
     private final BarometerForcePressController forcePressController;
     private final TouchscreenTouchpadHandler nativeTouchpadHandler;
-    private final boolean barometerForcePressEnabled;
     private final float[] mappedLegacyPosition = new float[2];
     private final Matrix streamViewInverse = new Matrix();
 
+    private TouchInputMode currentMode = TouchInputMode.DISABLED;
+    private TouchpadMotionSender pressedPointerMotionSender;
     private boolean nativeTouchpadInputEnabled;
     private boolean directContactInputEnabled;
     private boolean legacyTouchpadInputEnabled;
@@ -128,14 +129,7 @@ public final class TouchInputController {
                                 !cancelled);
                     }
                 });
-        InputSettings settings = settingsState.get();
-        forcePressController.setThresholdHpa(
-                settings.getBarometerForcePressThresholdHpa());
-        forcePressController.setMinimumTouchDurationMs(
-                settings.getBarometerForcePressMinimumDurationMs());
-        barometerForcePressEnabled =
-                settings.isBarometerForcePressEnabled() &&
-                        forcePressController.isAvailable();
+        applyForcePressSettings(settingsState.get());
     }
 
     public void start() {
@@ -187,6 +181,8 @@ public final class TouchInputController {
 
         cancelActiveInput();
         forcePressController.setEnabled(false);
+        currentMode = mode;
+        pressedPointerMotionSender = null;
         disabled = false;
         nativeTouchpadInputEnabled = false;
         directContactInputEnabled = false;
@@ -209,6 +205,7 @@ public final class TouchInputController {
 
             case DISABLED:
                 disabled = true;
+                applyForcePressSettings(settingsState.get());
                 return;
 
             case TOUCHPAD_MOVE_ONLY:
@@ -220,7 +217,7 @@ public final class TouchInputController {
                 throw new AssertionError("Unhandled touch input mode: " + mode);
         }
 
-        TouchpadMotionSender pressedPointerMotionSender =
+        pressedPointerMotionSender =
                 mode == TouchInputMode.NATIVE_TOUCHPAD
                         ? new TouchpadMotionSender(
                                 inputSink,
@@ -236,11 +233,6 @@ public final class TouchInputController {
                                 .SinglePointerRemainderMode.SUPPRESS
                         : TouchscreenTouchpadHandler
                                 .SinglePointerRemainderMode.RELATIVE);
-        nativeTouchpadHandler.configureNativePressHandling(
-                mode == TouchInputMode.NATIVE_TOUCHPAD,
-                barometerForcePressEnabled,
-                pressedPointerMotionSender);
-
         TouchpadGestureState gestureState = new TouchpadGestureState();
         for (int i = 0; i < touchContexts.length; i++) {
             touchContexts[i] = createTouchContext(
@@ -250,9 +242,23 @@ public final class TouchInputController {
                     pressedPointerMotionSender);
         }
 
-        forcePressController.setEnabled(
-                mode == TouchInputMode.NATIVE_TOUCHPAD &&
-                        barometerForcePressEnabled);
+        applyForcePressSettings(settingsState.get());
+    }
+
+    /**
+     * Applies the force-press subset of a newly published input snapshot.
+     * Other touch settings are read directly from {@link InputSettingsState}
+     * by their consumers and require no duplicated controller state.
+     */
+    public void onInputSettingsChanged(
+            InputSettings previous,
+            InputSettings current) {
+        Objects.requireNonNull(previous, "previous");
+        Objects.requireNonNull(current, "current");
+        if (destroyed || !forcePressSettingsChanged(previous, current)) {
+            return;
+        }
+        applyForcePressSettings(current);
     }
 
     /**
@@ -564,5 +570,36 @@ public final class TouchInputController {
             throw new IllegalStateException(
                     "TouchInputController is destroyed");
         }
+    }
+
+    private void applyForcePressSettings(InputSettings settings) {
+        forcePressController.setThresholdHpa(
+                settings.getBarometerForcePressThresholdHpa());
+        forcePressController.setMinimumTouchDurationMs(
+                settings.getBarometerForcePressMinimumDurationMs());
+
+        boolean nativeTouchpadMode =
+                currentMode == TouchInputMode.NATIVE_TOUCHPAD;
+        boolean forcePressEnabled =
+                nativeTouchpadMode &&
+                        settings.isBarometerForcePressEnabled() &&
+                        forcePressController.isAvailable();
+        nativeTouchpadHandler.configureNativePressHandling(
+                nativeTouchpadMode,
+                forcePressEnabled,
+                pressedPointerMotionSender);
+        forcePressController.setEnabled(forcePressEnabled);
+    }
+
+    private static boolean forcePressSettingsChanged(
+            InputSettings previous,
+            InputSettings current) {
+        return previous.isBarometerForcePressEnabled() !=
+                        current.isBarometerForcePressEnabled() ||
+                Float.compare(
+                        previous.getBarometerForcePressThresholdHpa(),
+                        current.getBarometerForcePressThresholdHpa()) != 0 ||
+                previous.getBarometerForcePressMinimumDurationMs() !=
+                        current.getBarometerForcePressMinimumDurationMs();
     }
 }

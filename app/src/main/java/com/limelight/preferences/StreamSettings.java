@@ -39,8 +39,10 @@ import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
 import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
 
 public class StreamSettings extends Activity {
-    private static final String EXTRA_SECTION_INDEX =
-            "com.limelight.preferences.StreamSettings.SECTION_INDEX";
+    private static final String STATE_SECTION_KEY =
+            "settings.selected_section_key";
+    private static final String STATE_SECTION_DETAIL_VISIBLE =
+            "settings.section_detail_visible";
 
     private AppPresentationSettings previousPresentationSettings;
     private int previousDisplayPixelCount;
@@ -49,8 +51,9 @@ public class StreamSettings extends Activity {
     private SettingsScreenModel screenModel =
             new SettingsScreenModel(sections);
     private int selectedSectionIndex = -1;
+    private String selectedSectionKey;
     private String nativeFrameRateValue;
-    private boolean sectionActivity;
+    private boolean sectionDetailVisible;
     private BackNavigationRegistration backNavigationRegistration;
     private SettingsDocumentController documentController;
     private SettingsMutationController mutationController;
@@ -65,9 +68,9 @@ public class StreamSettings extends Activity {
         Integer previousScrollY = screenRenderer == null
                 ? null
                 : screenRenderer.captureScrollY();
-        if (screenRenderer != null) {
-            selectedSectionIndex =
-                    screenRenderer.getSelectedSectionIndex();
+        if (screenRenderer != null && screenRenderer.hasContent()) {
+            selectedSectionKey = screenModel.getSectionKey(
+                    screenRenderer.getSelectedSectionIndex());
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -85,13 +88,15 @@ public class StreamSettings extends Activity {
         initializeRuntimeSettings();
         screenModel.removeEmptySections();
         selectedSectionIndex =
-                screenModel.clampSelectedSection(
-                        selectedSectionIndex);
+                screenModel.findSectionIndex(selectedSectionKey);
+        if (sectionDetailVisible && selectedSectionIndex < 0) {
+            sectionDetailVisible = false;
+        }
         if (screenRenderer != null) {
             screenRenderer.setContent(
                     createScreenState(),
                     selectedSectionIndex,
-                    sectionActivity,
+                    sectionDetailVisible,
                     getCurrentProfileSummary());
             screenRenderer.render();
             screenRenderer.restoreScrollY(previousScrollY);
@@ -130,10 +135,13 @@ public class StreamSettings extends Activity {
                 store.repository,
                 layoutRepository,
                 this::reloadSettings);
-        sectionActivity = getIntent().hasExtra(EXTRA_SECTION_INDEX);
-        selectedSectionIndex = getIntent().getIntExtra(
-                EXTRA_SECTION_INDEX,
-                -1);
+        if (savedInstanceState != null) {
+            selectedSectionKey = savedInstanceState.getString(
+                    STATE_SECTION_KEY);
+            sectionDetailVisible = savedInstanceState.getBoolean(
+                    STATE_SECTION_DETAIL_VISIBLE,
+                    false);
+        }
         screenRenderer = createScreenRenderer();
 
         setContentView(screenRenderer.createRootView());
@@ -245,12 +253,30 @@ public class StreamSettings extends Activity {
         }
         if (screenRenderer != null) {
             screenRenderer.render();
+            if (screenRenderer.isWideLayout() &&
+                    sectionDetailVisible) {
+                sectionDetailVisible = false;
+                screenRenderer.setContent(
+                        createScreenState(),
+                        selectedSectionIndex,
+                        false,
+                        getCurrentProfileSummary());
+            }
         }
     }
 
     @Override
     public void onBackPressed() {
         handleBackNavigation();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(STATE_SECTION_KEY, selectedSectionKey);
+        outState.putBoolean(
+                STATE_SECTION_DETAIL_VISIBLE,
+                sectionDetailVisible);
     }
 
     @Override
@@ -286,13 +312,51 @@ public class StreamSettings extends Activity {
     }
 
     private void handleBackNavigation() {
+        if (sectionDetailVisible &&
+                screenRenderer != null &&
+                !screenRenderer.isWideLayout()) {
+            sectionDetailVisible = false;
+            selectedSectionKey = null;
+            selectedSectionIndex = -1;
+            screenRenderer.setContent(
+                    createScreenState(),
+                    selectedSectionIndex,
+                    false,
+                    getCurrentProfileSummary());
+            screenRenderer.render();
+            return;
+        }
         finishAndApplyLanguage();
     }
 
     private void openSection(int sectionIndex) {
-        Intent intent = new Intent(this, StreamSettings.class);
-        intent.putExtra(EXTRA_SECTION_INDEX, sectionIndex);
-        startActivity(intent);
+        if (sectionIndex ==
+                SettingsScreenRenderer.FEATURED_SECTION_INDEX) {
+            selectedSectionKey = null;
+            selectedSectionIndex =
+                    SettingsScreenRenderer.FEATURED_SECTION_INDEX;
+            sectionDetailVisible = false;
+            screenRenderer.setContent(
+                    createScreenState(),
+                    selectedSectionIndex,
+                    false,
+                    getCurrentProfileSummary());
+            screenRenderer.render();
+            return;
+        }
+        String sectionKey = screenModel.getSectionKey(sectionIndex);
+        if (sectionKey == null) {
+            return;
+        }
+        selectedSectionKey = sectionKey;
+        selectedSectionIndex = sectionIndex;
+        sectionDetailVisible = !screenRenderer.isWideLayout();
+        screenRenderer.setContent(
+                createScreenState(),
+                selectedSectionIndex,
+                sectionDetailVisible,
+                getCurrentProfileSummary());
+        screenRenderer.render();
     }
 
     private void finishAndApplyLanguage() {
@@ -353,6 +417,7 @@ public class StreamSettings extends Activity {
                                 true));
                 break;
             case LIST:
+            case INTEGER_LIST:
                 if (AppPresentationSettingKeys.LANGUAGE
                         .getName()
                         .equals(item.key) &&
@@ -387,11 +452,18 @@ public class StreamSettings extends Activity {
     private void handleListValueSelected(
             SettingsItem item,
             String value) {
-        SettingsMutationController.ChangeResult result =
-                mutationController.changeList(
-                        item,
-                        value,
-                        nativeFrameRateValue);
+        SettingsMutationController.ChangeResult result;
+        if (item.type == SettingsItem.Type.INTEGER_LIST) {
+            result = mutationController.changeInteger(
+                    item,
+                    Integer.parseInt(value));
+        }
+        else {
+            result = mutationController.changeList(
+                    item,
+                    value,
+                    nativeFrameRateValue);
+        }
         if (result.shouldShowNativeFrameRateWarning()) {
             Dialog.displayDialog(
                     this,

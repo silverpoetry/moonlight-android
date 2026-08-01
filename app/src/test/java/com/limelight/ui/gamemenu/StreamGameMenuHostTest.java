@@ -98,6 +98,12 @@ public final class StreamGameMenuHostTest {
                         VirtualControlSettings.builder().build()),
                 new StreamSettingsSession.Effects() {
                     @Override
+                    public void onInputSettingsChanged(
+                            InputSettings previous,
+                            InputSettings current) {
+                    }
+
+                    @Override
                     public void onBatteryReportingChanged() {
                     }
 

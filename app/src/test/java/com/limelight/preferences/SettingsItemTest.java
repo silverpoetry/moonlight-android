@@ -54,6 +54,28 @@ public final class SettingsItemTest {
     }
 
     @Test
+    public void integerListUsesTypedIntegerStorage() {
+        FakeValues values = new FakeValues();
+        SettingsItem item = item(
+                "integer_list",
+                SettingsItem.Type.INTEGER_LIST);
+        item.entryValues = new CharSequence[] {"0", "3", "5"};
+        item.entries = new CharSequence[] {"Off", "Three", "Five"};
+        values.integers.put(item.key, 3);
+
+        assertEquals("Three", item.getSelectedEntry(values));
+
+        SettingsItem dependent = item(
+                "dependent",
+                SettingsItem.Type.SWITCH);
+        dependent.dependency = item.key;
+        dependent.dependencyItemRef = item;
+        assertTrue(dependent.isEnabled(values));
+        values.integers.put(item.key, 0);
+        assertFalse(dependent.isEnabled(values));
+    }
+
+    @Test
     public void storageAccessIsTypeChecked() {
         SettingsItem item = item("count", SettingsItem.Type.SLIDER);
         SettingKey<Integer> integerKey =

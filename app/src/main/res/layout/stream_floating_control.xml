@@ -3,4 +3,4 @@
     android:layout_width="38dp"
     android:layout_height="38dp"
     android:contentDescription="@string/accessibility_stream_controls"
-    android:src="@drawable/ic_menu_grid" />
+    android:src="@mipmap/ic_app_axi" />

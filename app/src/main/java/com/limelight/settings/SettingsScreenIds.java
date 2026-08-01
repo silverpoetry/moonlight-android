@@ -13,6 +13,8 @@ public final class SettingsScreenIds {
     public static final String SECTION_AUDIO = "section_audio";
     public static final String SECTION_TOUCH_MOUSE =
             "section_touch_mouse";
+    public static final String SECTION_INPUT_SENSITIVITY =
+            "section_input_sensitivity";
     public static final String SECTION_GAMEPAD = "section_gamepad";
     public static final String SECTION_HAPTICS = "section_haptics";
     public static final String SECTION_VIRTUAL_CONTROLS =

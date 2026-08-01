@@ -1237,22 +1237,6 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
-    public void miscellaneousStreamSettingsUiUsesTypedIntents() {
-        noClasses()
-                .that()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplaySettingFragment")
-                .should()
-                .dependOnClassesThat()
-                .resideInAnyPackage(
-                        "android.preference..",
-                        "com.limelight.preferences..")
-                .because(
-                        "miscellaneous stream settings UI emits typed domain intents")
-                .check(productionClasses);
-    }
-
-    @Test
     public void streamOverlayUiDoesNotReadSettingsStorage() {
         noClasses()
                 .that()
@@ -1294,12 +1278,9 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
-    public void miscellaneousStreamUiDoesNotUseSharedPreferences() {
+    public void streamOverlayUiDoesNotUseSharedPreferences() {
         noClasses()
                 .that()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplaySettingFragment")
-                .or()
                 .haveFullyQualifiedName(
                         "com.limelight.ui.performance.StreamPerformanceOverlayController")
                 .or()

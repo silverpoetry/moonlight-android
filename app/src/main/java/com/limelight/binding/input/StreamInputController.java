@@ -75,7 +75,7 @@ public final class StreamInputController
     public void setTouchMode(TouchInputMode mode) {
         Objects.requireNonNull(mode, "mode");
         touchInputController.setMode(mode);
-        settingsState.replace(
+        replaceLiveSettings(
                 settingsState.get()
                         .toBuilder()
                         .setTouchModePreferenceValue(
@@ -88,11 +88,26 @@ public final class StreamInputController
     }
 
     public void replaceLiveSettings(InputSettings settings) {
-        settingsState.replace(settings);
+        InputSettings previous = settingsState.get();
+        InputSettings current = Objects.requireNonNull(
+                settings,
+                "settings");
+        settingsState.replace(current);
+        touchInputController.onInputSettingsChanged(
+                previous,
+                current);
+    }
+
+    public void onInputSettingsChanged(
+            InputSettings previous,
+            InputSettings current) {
+        touchInputController.onInputSettingsChanged(
+                Objects.requireNonNull(previous, "previous"),
+                Objects.requireNonNull(current, "current"));
     }
 
     public void setAbsoluteMouseMode(boolean enabled) {
-        settingsState.replace(
+        replaceLiveSettings(
                 settingsState.get()
                         .toBuilder()
                         .setAbsoluteMouseMode(enabled)
@@ -101,7 +116,7 @@ public final class StreamInputController
 
     public void setDirectTouchSensitivityEnabled(
             boolean enabled) {
-        settingsState.replace(
+        replaceLiveSettings(
                 settingsState.get()
                         .toBuilder()
                         .setDirectTouchSensitivityEnabled(enabled)

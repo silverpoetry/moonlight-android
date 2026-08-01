@@ -42,7 +42,10 @@ public final class SettingsMigrationRunner {
         // canonical values and therefore win when an old multi-key setting
         // must be merged or converted in the same transaction.
         if (storedVersion < 5 || hasRenamedValues) {
-            migrateToVersion5(repository, editor);
+            migrateToVersion5(
+                    repository,
+                    editor,
+                    storedVersion < 5);
         }
         if (storedVersion < 1 || hasLateLegacyValues) {
             migrateToVersion1(repository, editor);
@@ -92,23 +95,30 @@ public final class SettingsMigrationRunner {
 
     private static void migrateToVersion5(
             SettingsRepository repository,
-            SettingsRepository.Editor editor) {
+            SettingsRepository.Editor editor,
+            boolean legacyValuesAreAuthoritative) {
         for (SettingKey<?> key : SettingsKeyCatalog.all()) {
-            migrateRenamedKey(repository, editor, key);
+            migrateRenamedKey(
+                    repository,
+                    editor,
+                    key,
+                    legacyValuesAreAuthoritative);
         }
     }
 
     private static <T> void migrateRenamedKey(
             SettingsRepository repository,
             SettingsRepository.Editor editor,
-            SettingKey<T> key) {
+            SettingKey<T> key,
+            boolean legacyValuesAreAuthoritative) {
         boolean canonicalValueExists = repository.contains(key);
         for (String legacyName : key.getLegacyNames()) {
             SettingKey<T> legacyKey = key.legacyAlias(legacyName);
             if (!repository.contains(legacyKey)) {
                 continue;
             }
-            if (!canonicalValueExists) {
+            if (!canonicalValueExists ||
+                    legacyValuesAreAuthoritative) {
                 editor.put(key, repository.get(legacyKey));
                 canonicalValueExists = true;
             }

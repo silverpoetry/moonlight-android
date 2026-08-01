@@ -6,6 +6,7 @@ import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 import android.view.View;
+import android.view.View.MeasureSpec;
 import android.widget.FrameLayout;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -97,7 +98,19 @@ public final class StreamFloatingControlControllerTest {
 
                     controller.show();
                     View view = parent.getChildAt(0);
-                    assertEquals(42f, view.getX(), 0f);
+                    parent.measure(
+                            MeasureSpec.makeMeasureSpec(
+                                    320,
+                                    MeasureSpec.EXACTLY),
+                            MeasureSpec.makeMeasureSpec(
+                                    240,
+                                    MeasureSpec.EXACTLY));
+                    parent.layout(0, 0, 320, 240);
+                    assertEquals(
+                            320f - view.getWidth() -
+                                    FloatingMagnetView.EDGE_MARGIN_PX,
+                            view.getX(),
+                            0f);
                     assertEquals(84f, view.getY(), 0f);
 
                     settingsState.replace(
@@ -111,6 +124,54 @@ public final class StreamFloatingControlControllerTest {
                             StreamUiSettings.FloatingAction.FULL_KEYBOARD,
                             action.get());
 
+                    controller.destroy();
+                });
+    }
+
+    @Test
+    public void restoredPositionIsClampedToCurrentParent() {
+        InstrumentationRegistry.getInstrumentation()
+                .runOnMainSync(() -> {
+                    Context context = InstrumentationRegistry
+                            .getInstrumentation()
+                            .getTargetContext();
+                    FrameLayout parent = new FrameLayout(context);
+                    StreamUiSettingsState settingsState =
+                            new StreamUiSettingsState(
+                                    StreamUiSettings.builder()
+                                            .setRememberFloatingPosition(true)
+                                            .setFloatingPosition(
+                                                    21f,
+                                                    1_195f,
+                                                    true)
+                                            .build());
+                    StreamFloatingControlController controller =
+                            new StreamFloatingControlController(
+                                    context,
+                                    parent,
+                                    settingsState,
+                                    (x, y, left) -> { },
+                                    action -> { });
+
+                    controller.show();
+                    parent.measure(
+                            MeasureSpec.makeMeasureSpec(
+                                    640,
+                                    MeasureSpec.EXACTLY),
+                            MeasureSpec.makeMeasureSpec(
+                                    360,
+                                    MeasureSpec.EXACTLY));
+                    parent.layout(0, 0, 640, 360);
+                    View view = parent.getChildAt(0);
+
+                    assertEquals(
+                            FloatingMagnetView.EDGE_MARGIN_PX,
+                            view.getX(),
+                            0f);
+                    assertEquals(
+                            360f - view.getHeight(),
+                            view.getY(),
+                            0f);
                     controller.destroy();
                 });
     }

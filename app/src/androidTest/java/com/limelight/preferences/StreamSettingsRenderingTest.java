@@ -4,6 +4,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNull;
 
 import android.app.Activity;
 import android.app.Instrumentation;
@@ -12,9 +13,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ScrollView;
 import android.widget.Switch;
+import android.widget.TextView;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.limelight.R;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -93,6 +97,50 @@ public class StreamSettingsRenderingTest {
         }
     }
 
+    @Test
+    public void everyVisibleSectionReusesActivityAndBackReturnsToRoot() {
+        Instrumentation instrumentation =
+                InstrumentationRegistry.getInstrumentation();
+        StreamSettings activity =
+                startSettingsActivity(instrumentation);
+        try {
+            int visitedSections = 0;
+            for (SettingsSection section : SettingsRegistry.load(activity)) {
+                TextView sectionTitle = findText(
+                        activity.getWindow().getDecorView(),
+                        section.title);
+                if (sectionTitle == null) {
+                    continue;
+                }
+                visitedSections++;
+                View sectionRow =
+                        (View) sectionTitle.getParent().getParent();
+
+                instrumentation.runOnMainSync(
+                        sectionRow::performClick);
+                instrumentation.waitForIdleSync();
+
+                assertFalse(activity.isFinishing());
+                assertNull(findText(
+                        activity.getWindow().getDecorView(),
+                        activity.getString(
+                                R.string.settings_featured_settings)));
+
+                instrumentation.runOnMainSync(activity::onBackPressed);
+                instrumentation.waitForIdleSync();
+
+                assertNotNull(findText(
+                        activity.getWindow().getDecorView(),
+                        activity.getString(
+                                R.string.settings_featured_settings)));
+            }
+            assertTrue(visitedSections > 0);
+        }
+        finally {
+            activity.finish();
+        }
+    }
+
     private static void withSettingsActivity(
             ActivityAssertion assertion) {
         Instrumentation instrumentation =
@@ -136,6 +184,25 @@ public class StreamSettingsRenderingTest {
             T match = findFirst(
                     group.getChildAt(index),
                     type);
+            if (match != null) {
+                return match;
+            }
+        }
+        return null;
+    }
+
+    private static TextView findText(View view, CharSequence text) {
+        if (view instanceof TextView &&
+                text.toString().contentEquals(
+                        ((TextView) view).getText())) {
+            return (TextView) view;
+        }
+        if (!(view instanceof ViewGroup)) {
+            return null;
+        }
+        ViewGroup group = (ViewGroup) view;
+        for (int index = 0; index < group.getChildCount(); index++) {
+            TextView match = findText(group.getChildAt(index), text);
             if (match != null) {
                 return match;
             }

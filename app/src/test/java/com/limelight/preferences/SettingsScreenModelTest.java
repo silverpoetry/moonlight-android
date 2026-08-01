@@ -52,8 +52,6 @@ public final class SettingsScreenModelTest {
 
         assertEquals(1, sections.size());
         assertSame(visible, sections.get(0));
-        assertEquals(-1, model.clampSelectedSection(-1));
-        assertEquals(0, model.clampSelectedSection(8));
     }
 
     @Test
@@ -70,6 +68,24 @@ public final class SettingsScreenModelTest {
 
         assertFalse(item.visible);
         assertFalse(section.visible);
+    }
+
+    @Test
+    public void sectionSelectionSurvivesSectionReordering() {
+        SettingsSection video = section("video", item("video_item"));
+        SettingsSection audio = section("audio", item("audio_item"));
+        SettingsScreenModel original = new SettingsScreenModel(
+                sections(video, audio));
+        String selectedKey = original.getSectionKey(1);
+
+        SettingsScreenModel reordered = new SettingsScreenModel(
+                sections(audio, video));
+
+        assertEquals("audio", selectedKey);
+        assertEquals(0, reordered.findSectionIndex(selectedKey));
+        assertEquals(-1, reordered.findSectionIndex("missing"));
+        assertNull(reordered.getSectionKey(-1));
+        assertNull(reordered.getSectionKey(2));
     }
 
     private static ArrayList<SettingsSection> sections(

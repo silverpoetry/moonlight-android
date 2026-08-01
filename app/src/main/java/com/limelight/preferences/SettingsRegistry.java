@@ -96,25 +96,14 @@ final class SettingsRegistry {
                 tag.endsWith("CheckBoxPreference")) {
             item.type = SettingsItem.Type.SWITCH;
         }
+        else if (tag.endsWith("IntegerListPreference")) {
+            item.type = SettingsItem.Type.INTEGER_LIST;
+            bindListEntries(context, parser, item);
+        }
         else if (tag.endsWith("LanguagePreference") ||
                 tag.endsWith("ListPreference")) {
             item.type = SettingsItem.Type.LIST;
-            int entriesId = parser.getAttributeResourceValue(
-                    ANDROID_NS,
-                    "entries",
-                    0);
-            int valuesId = parser.getAttributeResourceValue(
-                    ANDROID_NS,
-                    "entryValues",
-                    0);
-            if (entriesId != 0) {
-                item.entries = context.getResources()
-                        .getTextArray(entriesId);
-            }
-            if (valuesId != 0) {
-                item.entryValues = context.getResources()
-                        .getTextArray(valuesId);
-            }
+            bindListEntries(context, parser, item);
         }
         else if (tag.endsWith("SeekBarPreference")) {
             item.type = SettingsItem.Type.SLIDER;
@@ -199,6 +188,7 @@ final class SettingsRegistry {
             case TEXT:
                 expected = SettingKey.StorageType.STRING;
                 break;
+            case INTEGER_LIST:
             case SLIDER:
                 expected = SettingKey.StorageType.INTEGER;
                 break;
@@ -214,6 +204,32 @@ final class SettingsRegistry {
                             item.settingKey.getStorageType() +
                             " storage but XML requires " +
                             expected);
+        }
+    }
+
+    private static void bindListEntries(
+            Context context,
+            XmlResourceParser parser,
+            SettingsItem item) {
+        int entriesId = parser.getAttributeResourceValue(
+                ANDROID_NS,
+                "entries",
+                0);
+        int valuesId = parser.getAttributeResourceValue(
+                ANDROID_NS,
+                "entryValues",
+                0);
+        if (entriesId != 0) {
+            item.entries = context.getResources()
+                    .getTextArray(entriesId);
+        }
+        if (valuesId != 0) {
+            item.entryValues = context.getResources()
+                    .getTextArray(valuesId);
+        }
+        if (item.entries.length != item.entryValues.length) {
+            throw new IllegalStateException(
+                    "Mismatched entries for settings item " + item.key);
         }
     }
 

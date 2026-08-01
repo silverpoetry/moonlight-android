@@ -100,6 +100,13 @@ final class GameMenuActionCatalog {
                             R.drawable.ic_axi_mic,
                             false),
                     new Action(
+                            "audio_mute",
+                            R.id.btn_audio_mute,
+                            R.string.game_menu_action_audio_mute,
+                            R.string.game_menu_action_audio_mute,
+                            R.drawable.ic_axi_audio_mute,
+                            false),
+                    new Action(
                             "hdr",
                             R.id.btn_hdr,
                             R.string.game_menu_action_hdr,

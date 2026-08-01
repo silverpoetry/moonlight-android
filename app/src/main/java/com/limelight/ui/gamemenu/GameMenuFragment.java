@@ -21,7 +21,6 @@ import com.limelight.settings.audio.StreamAudioSettingsUpdate;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.settings.ui.GameMenuCardLayout;
-import com.limelight.settings.ui.StreamUiSettingsUpdate;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 import com.limelight.shortcuts.GameMenuShortcut;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
@@ -172,6 +171,8 @@ public class GameMenuFragment extends BaseGameMenuDialog
 
     private Button btn_mic;
 
+    private Button btn_audio_mute;
+
     private LinearLayout actionGrid;
     private final Map<Integer, Button> actionButtons = new HashMap<>();
     private GameMenuCardEditor cardEditor;
@@ -186,7 +187,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
         }
         menuState = host.getState();
         actionGrid = v.findViewById(R.id.game_menu_action_grid);
-        collectActionButtons(v);
+        createActionButtons();
         rebuildActionGrid();
 
         v.findViewById(R.id.bt_touch_sensitivity).setOnClickListener(this);
@@ -199,7 +200,6 @@ public class GameMenuFragment extends BaseGameMenuDialog
         v.findViewById(R.id.bt_virtual_view).setOnClickListener(this);
         v.findViewById(R.id.bt_display).setOnClickListener(this);
         v.findViewById(R.id.bt_device).setOnClickListener(this);
-        v.findViewById(R.id.bt_other_setting).setOnClickListener(this);
         v.findViewById(R.id.btn_soft_function).setOnClickListener(this);
         v.findViewById(R.id.btn_customize_actions)
                 .setOnClickListener(view -> showCardEditor());
@@ -214,23 +214,18 @@ public class GameMenuFragment extends BaseGameMenuDialog
                                 batteryPercent));
     }
 
-    private void collectActionButtons(View root) {
+    private void createActionButtons() {
         actionButtons.clear();
         for (GameMenuActionCatalog.Action action :
                 GameMenuActionCatalog.all()) {
-            Button button = root.findViewById(action.viewId);
-            if (button == null) {
-                continue;
-            }
-            detachFromParent(button);
-            button.setText(action.labelRes);
-            button.setContentDescription(getString(
-                    action.contentDescriptionRes));
-            button.setTextSize(11);
+            Button button = inflateCardButton(
+                    getString(action.labelRes),
+                    getString(action.contentDescriptionRes),
+                    action.iconRes);
+            button.setId(action.viewId);
             button.setOnClickListener(this);
             actionButtons.put(action.viewId, button);
         }
-        actionGrid.removeAllViews();
     }
 
     private void rebuildActionGrid() {
@@ -310,15 +305,26 @@ public class GameMenuFragment extends BaseGameMenuDialog
 
     private Button createShortcutButton(
             GameMenuCardCatalog.Card card) {
+        Button button = inflateCardButton(
+                card.label,
+                card.contentDescription,
+                card.iconRes);
+        button.setTag(card.shortcut);
+        button.setOnClickListener(this);
+        return button;
+    }
+
+    private Button inflateCardButton(
+            CharSequence label,
+            CharSequence contentDescription,
+            int iconRes) {
         Button button = (Button) getActivity()
                 .getLayoutInflater()
                 .inflate(R.layout.item_game_menu_card, actionGrid, false);
-        button.setText(card.label);
-        button.setContentDescription(card.contentDescription);
+        button.setText(label);
+        button.setContentDescription(contentDescription);
         button.setCompoundDrawablesWithIntrinsicBounds(
-                0, card.iconRes, 0, 0);
-        button.setTag(card.shortcut);
-        button.setOnClickListener(this);
+                0, iconRes, 0, 0);
         return button;
     }
 
@@ -358,6 +364,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
         btn_gamepad_mouse = actionButtons.get(R.id.btn_gamepad_mouse);
         btn_screen_move = actionButtons.get(R.id.btn_screen_move);
         btn_mic = actionButtons.get(R.id.btn_mic);
+        btn_audio_mute = actionButtons.get(R.id.btn_audio_mute);
         if (btn_performance != null) {
             btn_performance.setOnLongClickListener(view -> {
                 if (host != null) {
@@ -387,6 +394,9 @@ public class GameMenuFragment extends BaseGameMenuDialog
                 btn_screen_move, menuState.isScreenMoveZoom());
         setActionButtonActive(
                 btn_mic, menuState.isMicrophoneActive());
+        setActionButtonActive(
+                btn_audio_mute,
+                menuState.getAudioSettings().isMuted());
     }
 
     private void setActionButtonActive(Button button, boolean active) {
@@ -601,6 +611,17 @@ public class GameMenuFragment extends BaseGameMenuDialog
             return;
         }
 
+        if (v.getId() == R.id.btn_audio_mute) {
+            boolean muted = !menuState.getAudioSettings().isMuted();
+            host.applyStreamAudioSettingsUpdate(
+                    StreamAudioSettingsUpdate.muted(muted));
+            menuState = host.getState();
+            setActionButtonActive(
+                    btn_audio_mute,
+                    menuState.getAudioSettings().isMuted());
+            return;
+        }
+
         if(v.getId()==R.id.btn_gamepad_mouse){
             host.toggleGamepadMouseEmulation();
             return;
@@ -709,53 +730,6 @@ public class GameMenuFragment extends BaseGameMenuDialog
                         }
                     });
             fragment.setSettings(menuState.getControllerSettings());
-            fragment.show(getFragmentManager());
-            return;
-        }
-
-        if(v.getId() == R.id.bt_other_setting){
-            GameDisplaySettingFragment fragment=new GameDisplaySettingFragment();
-            fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle(R.string.game_menu_misc_title);
-            fragment.setSettings(
-                    menuState.getUiSettings(),
-                    menuState.getInputSettings(),
-                    menuState.getControllerSettings(),
-                    menuState.getAudioSettings());
-            fragment.setListener(
-                    new GameDisplaySettingFragment.Listener() {
-                @Override
-                public void onStreamUiSettingsUpdate(
-                        StreamUiSettingsUpdate update) {
-                    if (host != null) {
-                        host.applyStreamUiSettingsUpdate(update);
-                    }
-                }
-
-                @Override
-                public void onInputSettingsUpdate(
-                        InputSettingsUpdate update) {
-                    if (host != null) {
-                        host.applyInputSettingsUpdate(update);
-                    }
-                }
-
-                @Override
-                public void onControllerSettingsUpdate(
-                        ControllerSettingsUpdate update) {
-                    if (host != null) {
-                        host.applyControllerSettingsUpdate(update);
-                    }
-                }
-
-                @Override
-                public void onStreamAudioSettingsUpdate(
-                        StreamAudioSettingsUpdate update) {
-                    if (host != null) {
-                        host.applyStreamAudioSettingsUpdate(update);
-                    }
-                }
-            });
             fragment.show(getFragmentManager());
             return;
         }

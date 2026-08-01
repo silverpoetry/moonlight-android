@@ -11,6 +11,7 @@ final class SettingsItem {
     enum Type {
         SWITCH,
         LIST,
+        INTEGER_LIST,
         SLIDER,
         TEXT,
         ACTION,
@@ -52,8 +53,12 @@ final class SettingsItem {
                     "Unresolved dependency for " + key +
                             ": " + dependency);
         }
-        if (dependencyItemRef.type == Type.LIST) {
-            String value = values.getString(dependencyItemRef);
+        if (dependencyItemRef.type == Type.LIST ||
+                dependencyItemRef.type == Type.INTEGER_LIST) {
+            String value = dependencyItemRef.type == Type.INTEGER_LIST
+                    ? Integer.toString(
+                            values.getInt(dependencyItemRef))
+                    : values.getString(dependencyItemRef);
             return !isEmpty(value) &&
                     !"off".equals(value) &&
                     !"false".equals(value) &&
@@ -63,7 +68,9 @@ final class SettingsItem {
     }
 
     CharSequence getSelectedEntry(SettingsValueReader values) {
-        String selected = values.getString(this);
+        String selected = type == Type.INTEGER_LIST
+                ? Integer.toString(values.getInt(this))
+                : values.getString(this);
         for (int index = 0; index < entryValues.length; index++) {
             if (selected.equals(entryValues[index].toString())) {
                 return entries[index];

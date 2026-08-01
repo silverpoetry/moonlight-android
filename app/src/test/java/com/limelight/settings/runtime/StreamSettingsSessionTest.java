@@ -15,6 +15,7 @@ import com.limelight.settings.controller.ControllerSettingsState;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettings;
 import com.limelight.settings.input.InputSettingsState;
+import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.settings.stream.StreamVideoSettings;
 import com.limelight.settings.stream.StreamVideoSettingsState;
 import com.limelight.settings.ui.StreamUiSettings;
@@ -55,6 +56,20 @@ public final class StreamSettingsSessionTest {
                 fixture.repository.values.get(
                         ControllerSettingKeys.BATTERY_REPORTING
                                 .getName()));
+    }
+
+    @Test
+    public void inputEffectsObservePublishedForcePressState() {
+        Fixture fixture = new Fixture();
+        fixture.effects.fixture = fixture;
+
+        fixture.session.applyInput(
+                InputSettingsUpdate
+                        .barometerForcePressEnabled(true));
+
+        assertTrue(fixture.effects.inputObservedPublishedState);
+        assertTrue(fixture.effects.lastInput
+                .isBarometerForcePressEnabled());
     }
 
     @Test
@@ -131,6 +146,19 @@ public final class StreamSettingsSessionTest {
         private StreamUiSettings lastUi;
         private boolean audioObservedPublishedState;
         private boolean uiObservedPublishedState;
+        private InputSettings lastInput;
+        private boolean inputObservedPublishedState;
+
+        @Override
+        public void onInputSettingsChanged(
+                InputSettings previous,
+                InputSettings current) {
+            lastInput = current;
+            inputObservedPublishedState =
+                    fixture.repository.applyCount == 1 &&
+                            fixture.session.getInputSettings() == current &&
+                            previous != current;
+        }
 
         @Override
         public void onBatteryReportingChanged() {

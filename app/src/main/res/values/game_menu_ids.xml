@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Stable IDs assigned to data-driven first-page action cards. -->
+    <item name="btn_unlink" type="id" />
+    <item name="btn_exit" type="id" />
+    <item name="btn_swicth_screen" type="id" />
+    <item name="btn_performance" type="id" />
+    <item name="btn_game_pad" type="id" />
+    <item name="btn_v_keyboard" type="id" />
+    <item name="btn_keyboard" type="id" />
+    <item name="btn_screen_move" type="id" />
+    <item name="btn_display_1" type="id" />
+    <item name="btn_mic" type="id" />
+    <item name="btn_audio_mute" type="id" />
+    <item name="btn_hdr" type="id" />
+    <item name="btn_pull_clipboard_files" type="id" />
+    <item name="btn_gamepad_mouse" type="id" />
+</resources>

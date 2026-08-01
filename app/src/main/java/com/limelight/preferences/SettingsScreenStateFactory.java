@@ -104,6 +104,7 @@ final class SettingsScreenStateFactory {
             case SWITCH:
                 return null;
             case LIST:
+            case INTEGER_LIST:
                 return item.getSelectedEntry(values);
             case SLIDER:
                 return item.formatSliderValue(

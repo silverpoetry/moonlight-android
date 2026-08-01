@@ -1,6 +1,7 @@
 package com.limelight.settings;
 
 import com.limelight.settings.audio.StreamAudioSettingKeys;
+import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
@@ -336,6 +337,28 @@ public class SettingsMigrationRunnerTest {
 
         SettingsMigrationRunner.migrate(repository);
         assertEquals(1, repository.commitCount);
+    }
+
+    @Test
+    public void versionFivePreservesEnabledLegacyForcePress() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put(SettingsSchema.VERSION.getName(), 4);
+        repository.values.put(
+                InputSettingKeys.BAROMETER_FORCE_PRESS.getName(),
+                false);
+        repository.values.put(
+                "checkbox_barometer_force_press",
+                true);
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertEquals(
+                true,
+                repository.values.get(
+                        InputSettingKeys.BAROMETER_FORCE_PRESS
+                                .getName()));
+        assertFalse(repository.values.containsKey(
+                "checkbox_barometer_force_press"));
     }
 
     private static final class FakeRepository

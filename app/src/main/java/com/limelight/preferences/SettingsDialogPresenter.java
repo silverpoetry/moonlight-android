@@ -56,7 +56,9 @@ final class SettingsDialogPresenter {
         }
         AlertDialog dialog = newDialog();
         LinearLayout panel = createDialogPanel(item.title);
-        String current = store.getString(item);
+        String current = item.type == SettingsItem.Type.INTEGER_LIST
+                ? Integer.toString(store.getInt(item))
+                : store.getString(item);
 
         for (int index = 0; index < item.entryValues.length; index++) {
             String value = item.entryValues[index].toString();

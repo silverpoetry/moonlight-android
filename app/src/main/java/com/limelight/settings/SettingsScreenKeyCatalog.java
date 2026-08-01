@@ -69,6 +69,7 @@ public final class SettingsScreenKeyCatalog {
                 StreamAudioSettingKeys.CHANNEL_CONFIGURATION,
                 StreamAudioSettingKeys.AUDIO_EFFECTS,
                 StreamAudioSettingKeys.PLAY_HOST_AUDIO,
+                StreamAudioSettingKeys.MUTED,
                 StreamAudioSettingKeys.AUDIO_HAPTICS,
                 StreamAudioSettingKeys.AUDIO_HAPTICS_OUTPUT_TARGET,
                 StreamAudioSettingKeys.AUDIO_HAPTICS_STRENGTH_PERCENT,
@@ -82,6 +83,7 @@ public final class SettingsScreenKeyCatalog {
                 ControllerSettingKeys.USB_DRIVER,
                 ControllerSettingKeys.CLAIM_ALL_USB_DEVICES,
                 ControllerSettingKeys.MOUSE_EMULATION,
+                ControllerSettingKeys.MOUSE_SENSITIVITY_PERCENT,
                 ControllerSettingKeys.ANALOG_STICK_FOR_SCROLLING,
                 ControllerSettingKeys.FALLBACK_DEVICE_RUMBLE,
                 ControllerSettingKeys
@@ -100,7 +102,17 @@ public final class SettingsScreenKeyCatalog {
                 ControllerSettingKeys.DEVICE_RUMBLE,
                 ControllerSettingKeys.VIRTUAL_CONTROLLER_MOTION,
                 ControllerSettingKeys
-                        .MOUSE_EMULATION_OPENS_GAME_MENU);
+                        .MOUSE_EMULATION_OPENS_GAME_MENU,
+                ControllerSettingKeys.MOUSE_EMULATION_BUTTON,
+                ControllerSettingKeys.FORCE_STRONG_VIBRATIONS,
+                ControllerSettingKeys
+                        .FORCE_STRONG_VIBRATIONS_STOP_PULSE,
+                ControllerSettingKeys.FORCE_GYRO,
+                ControllerSettingKeys
+                        .FORCE_GYRO_REQUIRES_LEFT_TRIGGER,
+                ControllerSettingKeys.FORCE_GYRO_SWAP_AXES,
+                ControllerSettingKeys
+                        .FORCE_GYRO_SENSITIVITY_PERCENT);
 
         builder.add(
                 InputSettingKeys.TOUCH_MODE,
@@ -111,6 +123,20 @@ public final class SettingsScreenKeyCatalog {
                 InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD,
                 InputSettingKeys
                         .BAROMETER_FORCE_PRESS_MINIMUM_DURATION,
+                InputSettingKeys.SOFT_KEYBOARD_GESTURE_FINGERS,
+                InputSettingKeys.TOUCHPAD_POINTER_SENSITIVITY_X,
+                InputSettingKeys.TOUCHPAD_POINTER_SENSITIVITY_Y,
+                InputSettingKeys.VIRTUAL_TOUCHPAD_SENSITIVITY_X,
+                InputSettingKeys.VIRTUAL_TOUCHPAD_SENSITIVITY_Y,
+                InputSettingKeys.EXTERNAL_TOUCHPAD_SENSITIVITY_X,
+                InputSettingKeys.EXTERNAL_TOUCHPAD_SENSITIVITY_Y,
+                InputSettingKeys.EXTERNAL_TOUCHPAD_SCROLL_AMOUNT,
+                InputSettingKeys.MOUSE_WHEEL_SCROLL_AMOUNT,
+                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_ENABLED,
+                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_X,
+                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_Y,
+                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_GLOBAL,
+                InputSettingKeys.DIRECT_TOUCH_RECENTER,
                 InputSettingKeys.DISABLE_ADAPTIVE_INPUT_THROTTLING,
                 InputSettingKeys.ACCESSIBILITY_KEY_LOGGING);
 
@@ -157,6 +183,11 @@ public final class SettingsScreenKeyCatalog {
                 StreamUiSettingKeys.COMPACT_PERFORMANCE_MARGIN_TOP_DP,
                 StreamUiSettingKeys.LATENCY_TOAST,
                 StreamUiSettingKeys.FLOATING_CONTROL_ENABLED,
+                StreamUiSettingKeys.FLOATING_ACTION,
+                StreamUiSettingKeys.REMEMBER_FLOATING_POSITION,
+                StreamUiSettingKeys.RUMBLE_OVERLAY_ENABLED,
+                StreamUiSettingKeys
+                        .COMPACT_PERFORMANCE_SCALE_PERCENT,
                 StreamUiSettingKeys.HIDE_BUILT_IN_SHORTCUTS,
                 StreamUiSettingKeys.GAME_MODE_INTEGRATION_DISABLED);
 
