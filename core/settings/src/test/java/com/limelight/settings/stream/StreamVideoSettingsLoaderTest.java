@@ -42,8 +42,6 @@ public final class StreamVideoSettingsLoaderTest {
         assertFalse(settings.isPortrait());
         assertFalse(settings.isExternalDisplay());
         assertFalse(settings.isNativeResolution());
-        assertFalse(settings.isStretchVideo());
-        assertFalse(settings.isDisplayCutoutEnabled());
         assertTrue(settings.shouldOptimizeGameSettings());
         assertEquals(
                 VirtualDisplayMode.DISABLED,
@@ -131,8 +129,6 @@ public final class StreamVideoSettingsLoaderTest {
         assertTrue(settings.isPortrait());
         assertTrue(settings.isExternalDisplay());
         assertFalse(settings.isNativeResolution());
-        assertTrue(settings.isStretchVideo());
-        assertTrue(settings.isDisplayCutoutEnabled());
         assertFalse(settings.shouldOptimizeGameSettings());
         assertEquals(
                 VirtualDisplayMode.VIRTUAL_ONLY,

@@ -19,12 +19,16 @@ public final class StreamDisplaySettingsLoaderTest {
         repository.put(
                 StreamDisplaySettingKeys.GRAVITY,
                 "6");
+        repository.put(
+                StreamDisplaySettingKeys.STRETCH_VIDEO,
+                true);
+        repository.put(
+                StreamDisplaySettingKeys.DISPLAY_CUTOUT,
+                true);
         StreamVideoSettings videoSettings =
                 StreamVideoSettings.builder()
                         .setDimensions(2400, 1080)
                         .setNativeResolution(true)
-                        .setStretchVideo(true)
-                        .setDisplayCutoutEnabled(true)
                         .setExternalDisplay(false)
                         .setHdrEnabled(true)
                         .build();

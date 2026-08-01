@@ -22,8 +22,10 @@ public final class StreamDisplaySettingsLoader {
                 videoSettings.getWidth(),
                 videoSettings.getHeight(),
                 videoSettings.isNativeResolution(),
-                videoSettings.isStretchVideo(),
-                videoSettings.isDisplayCutoutEnabled(),
+                repository.get(
+                        StreamDisplaySettingKeys.STRETCH_VIDEO),
+                repository.get(
+                        StreamDisplaySettingKeys.DISPLAY_CUTOUT),
                 videoSettings.isExternalDisplay(),
                 videoSettings.isHdrEnabled(),
                 StreamDisplaySettings.Gravity.fromStorageValue(

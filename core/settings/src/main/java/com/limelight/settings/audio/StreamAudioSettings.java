@@ -84,7 +84,7 @@ public final class StreamAudioSettings {
         return audioHapticsEnabled;
     }
 
-    public HapticsOutputTarget getHapticsOutputTarget() {
+    HapticsOutputTarget getHapticsOutputTarget() {
         return hapticsOutputTarget;
     }
 

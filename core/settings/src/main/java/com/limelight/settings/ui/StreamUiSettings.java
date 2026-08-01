@@ -116,7 +116,7 @@ public final class StreamUiSettings {
         return rememberFloatingPosition;
     }
 
-    public float getFloatingPositionX() {
+    float getFloatingPositionX() {
         return floatingPositionX;
     }
 
