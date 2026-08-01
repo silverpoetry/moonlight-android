@@ -899,6 +899,9 @@ targets.
   cryptographically generated identity stored through `AtomicFile`. Host
   diagnostics no longer emit client/host IDs, names, MAC addresses, or
   endpoints, and `ComputerDetails.toString()` is redacted by construction.
+- Extracted Android mDNS binding into a lifecycle-owned discovery source.
+  Discovery now publishes immutable, provenance-tagged endpoint candidates;
+  it cannot manufacture stable identity, connection state, or credentials.
 
 ### Exit evidence
 

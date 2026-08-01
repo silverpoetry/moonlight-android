@@ -18,23 +18,22 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import com.limelight.LimeLog;
 import com.limelight.binding.PlatformBinding;
-import com.limelight.discovery.DiscoveryService;
+import com.limelight.computers.discovery.AndroidMdnsDiscoverySource;
+import com.limelight.computers.discovery.HostDiscoveryCandidate;
+import com.limelight.computers.discovery.HostDiscoverySource;
+import com.limelight.computers.model.HostEndpoint;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
-import com.limelight.nvstream.mdns.MdnsComputer;
-import com.limelight.nvstream.mdns.MdnsDiscoveryListener;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.NetHelper;
 import com.limelight.utils.ServerHelper;
 
 import android.app.Service;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.ServiceConnection;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -70,25 +69,7 @@ public class ComputerManagerService extends Service {
 
     private ConnectivityManager.NetworkCallback networkCallback;
 
-    private DiscoveryService.DiscoveryBinder discoveryBinder;
-    private final ServiceConnection discoveryServiceConnection = new ServiceConnection() {
-        public void onServiceConnected(ComponentName className, IBinder binder) {
-            synchronized (discoveryServiceConnection) {
-                DiscoveryService.DiscoveryBinder privateBinder = ((DiscoveryService.DiscoveryBinder)binder);
-
-                // Set us as the event listener
-                privateBinder.setListener(createDiscoveryListener());
-
-                // Signal a possible waiter that we're all setup
-                discoveryBinder = privateBinder;
-                discoveryServiceConnection.notifyAll();
-            }
-        }
-
-        public void onServiceDisconnected(ComponentName className) {
-            discoveryBinder = null;
-        }
-    };
+    private HostDiscoverySource discoverySource;
 
     // Returns true if the details object was modified
     private boolean runPoll(ComputerDetails details, boolean newPc, int offlineCount) throws InterruptedException {
@@ -208,7 +189,7 @@ public class ComputerManagerService extends Service {
             ComputerManagerService.this.listener = listener;
 
             // Start mDNS autodiscovery too
-            discoveryBinder.startDiscovery(MDNS_QUERY_PERIOD_MS);
+            discoverySource.start(MDNS_QUERY_PERIOD_MS);
 
             synchronized (pollingTuples) {
                 for (PollingTuple tuple : pollingTuples) {
@@ -231,18 +212,11 @@ public class ComputerManagerService extends Service {
         }
 
         public void waitForReady() {
-            synchronized (discoveryServiceConnection) {
-                try {
-                    while (discoveryBinder == null) {
-                        // Wait for the bind notification
-                        discoveryServiceConnection.wait(1000);
-                    }
-                } catch (InterruptedException e) {
-                    // InterruptedException clears the thread's interrupt status. Since we can't
-                    // handle that here, we will re-interrupt the thread to set the interrupt
-                    // status back to true.
-                    Thread.currentThread().interrupt();
-                }
+            try {
+                discoverySource.awaitReady();
+            }
+            catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
             }
         }
 
@@ -343,10 +317,7 @@ public class ComputerManagerService extends Service {
 
     @Override
     public boolean onUnbind(Intent intent) {
-        if (discoveryBinder != null) {
-            // Stop mDNS autodiscovery
-            discoveryBinder.stopDiscovery();
-        }
+        discoverySource.stop();
 
         // Stop polling
         pollingActive = false;
@@ -428,45 +399,32 @@ public class ComputerManagerService extends Service {
 
     }
 
-    private MdnsDiscoveryListener createDiscoveryListener() {
-        return new MdnsDiscoveryListener() {
-            @Override
-            public void notifyComputerAdded(MdnsComputer computer) {
-                ComputerDetails details = new ComputerDetails();
+    private void handleDiscoveredHost(HostDiscoveryCandidate candidate) {
+        ComputerDetails details = new ComputerDetails();
+        HostEndpoint localIpv4 = candidate.getEndpoint(
+                HostEndpoint.Kind.LOCAL_IPV4);
+        if (localIpv4 != null) {
+            details.localAddress = new ComputerDetails.AddressTuple(
+                    localIpv4.getAddress(),
+                    localIpv4.getPort());
+            populateExternalAddress(details);
+        }
+        HostEndpoint localIpv6 = candidate.getEndpoint(
+                HostEndpoint.Kind.LOCAL_IPV6);
+        if (localIpv6 != null) {
+            details.ipv6Address = new ComputerDetails.AddressTuple(
+                    localIpv6.getAddress(),
+                    localIpv6.getPort());
+        }
 
-                // Populate the computer template with mDNS info
-                if (computer.getLocalAddress() != null) {
-                    details.localAddress = new ComputerDetails.AddressTuple(computer.getLocalAddress().getHostAddress(), computer.getPort());
-
-                    // Since we're on the same network, we can use STUN to find
-                    // our WAN address, which is also very likely the WAN address
-                    // of the PC. We can use this later to connect remotely.
-                    if (computer.getLocalAddress() instanceof Inet4Address) {
-                        populateExternalAddress(details);
-                    }
-                }
-                if (computer.getIpv6Address() != null) {
-                    details.ipv6Address = new ComputerDetails.AddressTuple(computer.getIpv6Address().getHostAddress(), computer.getPort());
-                }
-
-                try {
-                    // Kick off a blocking serverinfo poll on this machine
-                    if (!addComputerBlocking(details)) {
-                        LimeLog.warning("Auto-discovered host failed to respond");
-                    }
-                } catch (InterruptedException e) {
-                    // InterruptedException clears the thread's interrupt status. Since we can't
-                    // handle that here, we will re-interrupt the thread to set the interrupt
-                    // status back to true.
-                    Thread.currentThread().interrupt();
-                }
+        try {
+            if (!addComputerBlocking(details)) {
+                LimeLog.warning("Auto-discovered host failed to respond");
             }
-
-            @Override
-            public void notifyDiscoveryFailure(Exception e) {
-                LimeLog.severe("mDNS discovery failed");
-            }
-        };
+        }
+        catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private void addTuple(ComputerDetails details) {
@@ -830,9 +788,20 @@ public class ComputerManagerService extends Service {
 
     @Override
     public void onCreate() {
-        // Bind to the discovery service
-        bindService(new Intent(this, DiscoveryService.class),
-                discoveryServiceConnection, Service.BIND_AUTO_CREATE);
+        discoverySource = new AndroidMdnsDiscoverySource(
+                this,
+                new HostDiscoverySource.Listener() {
+                    @Override
+                    public void onHostDiscovered(
+                            HostDiscoveryCandidate candidate) {
+                        handleDiscoveredHost(candidate);
+                    }
+
+                    @Override
+                    public void onDiscoveryFailure() {
+                        LimeLog.severe("mDNS discovery failed");
+                    }
+                });
 
         // Lookup or generate this device's UID
         idManager = new IdentityManager(this);
@@ -895,10 +864,7 @@ public class ComputerManagerService extends Service {
             connMgr.unregisterNetworkCallback(networkCallback);
         }
 
-        if (discoveryBinder != null) {
-            // Unbind from the discovery service
-            unbindService(discoveryServiceConnection);
-        }
+        discoverySource.close();
 
         // FIXME: Should await termination here but we have timeout issues in HttpURLConnection
 
