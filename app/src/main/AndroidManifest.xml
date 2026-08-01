@@ -122,7 +122,7 @@
         </activity>
         <activity
             android:name=".preferences.StreamSettings"
-            android:theme="@style/BaseActivityTheme"
+            android:theme="@style/SettingsActivityTheme"
             android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection"
             android:label="Streaming Settings">
             <meta-data android:name="WindowManagerPreference:FreeformWindowSize" android:value="system-default" />

@@ -432,15 +432,12 @@ final class SettingsScreenRenderer {
             renderSectionDetail(page, selectedSectionIndex, false);
         }
 
-        // Attach the fully constructed destination before detaching the old
-        // detail. The wide shell never becomes empty and is measured once.
-        View previous = wideItemContainer.getChildCount() == 0
-                ? null
-                : wideItemContainer.getChildAt(0);
+        // View mutations made in this call are committed in one traversal.
+        // Remove the previous detail before attaching the fully constructed
+        // replacement so transparent row backgrounds can never composite
+        // two settings sections during a hardware-rendered transition frame.
+        wideItemContainer.removeAllViews();
         wideItemContainer.addView(page, matchParentLayoutParams());
-        if (previous != null) {
-            wideItemContainer.removeView(previous);
-        }
     }
 
     private void renderSectionList(LinearLayout page) {

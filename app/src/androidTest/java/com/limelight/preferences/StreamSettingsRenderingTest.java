@@ -10,6 +10,7 @@ import static org.junit.Assert.assertTrue;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Intent;
+import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -30,8 +31,22 @@ public class StreamSettingsRenderingTest {
 
     @Test
     public void settingsActivityRendersWithoutCrashing() {
-        withSettingsActivity(activity ->
-                assertFalse(activity.isFinishing()));
+        withSettingsActivity(activity -> {
+            assertFalse(activity.isFinishing());
+            assertEquals(
+                    R.style.SettingsActivityAnimation,
+                    activity.getWindow()
+                            .getAttributes()
+                            .windowAnimations);
+            TypedValue windowBackground = new TypedValue();
+            assertTrue(activity.getTheme().resolveAttribute(
+                    android.R.attr.windowBackground,
+                    windowBackground,
+                    true));
+            assertEquals(
+                    R.drawable.bg_gradient_axi_main,
+                    windowBackground.resourceId);
+        });
     }
 
     @Test
@@ -114,7 +129,7 @@ public class StreamSettingsRenderingTest {
             View wideScreenPage = wideLayout
                     ? contentContainer.getChildAt(0)
                     : null;
-            View wideDetailContainer = activity.findViewById(
+            FrameLayout wideDetailContainer = activity.findViewById(
                     R.id.settings_detail_container);
             int visitedSections = 0;
             for (SettingsSection section : SettingsRegistry.load(activity)) {
@@ -128,6 +143,8 @@ public class StreamSettingsRenderingTest {
                 View sectionRow =
                         (View) sectionTitle.getParent().getParent();
                 if (wideLayout) {
+                    View previousDetail =
+                            wideDetailContainer.getChildAt(0);
                     instrumentation.runOnMainSync(
                             sectionRow::performClick);
                     assertEquals(1, contentContainer.getChildCount());
@@ -136,6 +153,10 @@ public class StreamSettingsRenderingTest {
                     assertSame(wideDetailContainer,
                             activity.findViewById(
                                     R.id.settings_detail_container));
+                    assertEquals(1,
+                            wideDetailContainer.getChildCount());
+                    assertNotSame(previousDetail,
+                            wideDetailContainer.getChildAt(0));
                     continue;
                 }
 
