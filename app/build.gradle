@@ -151,15 +151,12 @@ android {
         }
     }
 
-    sourceSets {
-        test.resources.srcDir(
-                'src/main/jni/moonlight-core/moonlight-common-c/tests/fixtures')
-    }
 }
 
 dependencies {
     implementation project(':core:hosts')
     implementation project(':core:settings')
+    implementation project(':core:transfer')
     implementation project(':core:virtual-controls')
 
     androidTestImplementation 'androidx.test:runner:1.7.0'

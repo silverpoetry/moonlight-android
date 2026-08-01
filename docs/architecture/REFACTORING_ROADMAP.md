@@ -1125,6 +1125,11 @@ agree across all participants.
   model, repository/discovery contract, pairing, reachability, and host-session
   policy classes. SQLite, mDNS, Android lifecycle, logging, and NvHTTP adapters
   remain in `app`; the module has no Android SDK or transport dependency.
+- Added `core:transfer` for the platform-neutral file-manifest codec,
+  validation limits, filename policy, and transfer lifecycle state. Removed
+  Android `Uri` from the wire DTO; the App now binds each immutable manifest
+  entry to its source URI in a private adapter object. Canonical common-c
+  fixture verification is owned and executed by the module.
 
 ### Exit evidence
 

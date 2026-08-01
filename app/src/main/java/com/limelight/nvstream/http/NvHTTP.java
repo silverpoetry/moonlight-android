@@ -60,7 +60,7 @@ import org.json.JSONObject;
 import com.limelight.BuildConfig;
 import com.limelight.LimeLog;
 import com.limelight.nvstream.ConnectionContext;
-import com.limelight.nvstream.filetransfer.FileManifest;
+import com.limelight.transfer.FileManifest;
 import com.limelight.nvstream.http.PairingManager.PairState;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.utils.RazerUtils;

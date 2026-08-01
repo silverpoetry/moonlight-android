@@ -22,6 +22,7 @@ tasks.register('verifyLocal') {
     description = 'Runs all JVM tests, Android Lint checks, and builds both release flavors.'
     dependsOn ':core:hosts:test',
             ':core:settings:test',
+            ':core:transfer:test',
             ':core:virtual-controls:test',
             ':app:test',
             ':app:lintNonRootDebug',

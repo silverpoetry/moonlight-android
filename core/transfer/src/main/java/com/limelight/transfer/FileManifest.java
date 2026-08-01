@@ -1,6 +1,4 @@
-package com.limelight.nvstream.filetransfer;
-
-import android.net.Uri;
+package com.limelight.transfer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -10,6 +8,7 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -34,19 +33,12 @@ public final class FileManifest {
         public final String path;
         public final long size;
         public final long modifiedTimeMs;
-        public final Uri sourceUri;
 
         public Entry(byte type, String path, long size, long modifiedTimeMs) {
-            this(type, path, size, modifiedTimeMs, null);
-        }
-
-        public Entry(byte type, String path, long size, long modifiedTimeMs,
-                     Uri sourceUri) {
             this.type = type;
             this.path = path;
             this.size = size;
             this.modifiedTimeMs = modifiedTimeMs;
-            this.sourceUri = sourceUri;
         }
     }
 
@@ -55,7 +47,7 @@ public final class FileManifest {
     public final long totalFileBytes;
 
     private FileManifest(List<Entry> entries, int fileCount, long totalFileBytes) {
-        this.entries = entries;
+        this.entries = Collections.unmodifiableList(new ArrayList<>(entries));
         this.fileCount = fileCount;
         this.totalFileBytes = totalFileBytes;
     }

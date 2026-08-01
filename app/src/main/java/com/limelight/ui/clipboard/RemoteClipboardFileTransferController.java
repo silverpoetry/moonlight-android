@@ -21,6 +21,7 @@ import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.transfer.TransferSettingKeys;
 import com.limelight.settings.transfer.TransferSettings;
 import com.limelight.settings.transfer.TransferSettingsLoader;
+import com.limelight.transfer.ClipboardFileTransferSession;
 import com.limelight.utils.FileUriUtils;
 import com.limelight.utils.UiHelper;
 import com.limelight.utils.UiToast;

@@ -1,4 +1,4 @@
-package com.limelight.nvstream.filetransfer;
+package com.limelight.transfer;
 
 import org.junit.Test;
 
@@ -106,6 +106,16 @@ public final class FileManifestTest {
         byte[] unsafe = loadCanonicalFixture();
         unsafe[unsafe.length - "two.bin".length()] = '/';
         assertThrows(IOException.class, () -> FileManifest.decode(unsafe));
+    }
+
+    @Test
+    public void validatedManifestDoesNotExposeMutableEntryOrder() throws Exception {
+        FileManifest manifest = FileManifest.decode(loadCanonicalFixture());
+
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> manifest.entries.clear());
+        assertEquals(3, manifest.entries.size());
     }
 
     private static void assertEntry(

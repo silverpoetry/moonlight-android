@@ -15,25 +15,22 @@ platform-independent domains:
 | --- | ---: | ---: | --- |
 | Host identity, repository, pairing, and reachability policy | 30 | 17 | None |
 | Typed settings and runtime settings state | 68 | 13 | Gson |
+| File-manifest protocol and transfer lifecycle | 2 | 4 | None |
 | Virtual-control layout documents and repository contract | 8 | 1 | None |
 
 The only dependency leaving the pure settings domain is from virtual-control
-settings to the virtual-control layout model. The host core is independent of
-both. None of these domains imports Android, AndroidX, an Activity, a View,
-`SharedPreferences`, JNI, NvHTTP, or a transport DTO.
+settings to the virtual-control layout model. The host and transfer cores are
+independent of both. None of these domains imports Android, AndroidX, an
+Activity, a View, `SharedPreferences`, JNI, NvHTTP, or a transport DTO.
 
 ## Enforced graph
 
 ```text
-core:hosts ---------------------------+
-                                      |
-core:virtual-controls
-        ^
-        |
-core:settings
-        ^
-        |
-        +---------------------------->app
+app
+ |---> core:hosts
+ |---> core:settings ---> core:virtual-controls
+ |---> core:transfer
+ +---> core:virtual-controls
 ```
 
 - `core:hosts` owns immutable host identity/runtime values, repository and
@@ -42,6 +39,10 @@ core:settings
   in `app`.
 - `core:virtual-controls` owns immutable layout values, document encoding,
   repository contracts, and their JVM tests.
+- `core:transfer` owns the platform-neutral file-manifest wire model,
+  validation and encoding plus transfer lifecycle state. Android source URIs,
+  SAF enumeration/materialization, NvHTTP transport, and progress UI stay in
+  `app`.
 - `core:settings` owns typed keys, migrations, immutable settings snapshots,
   codecs, update transactions, runtime state, and their JVM tests. It exports
   `core:virtual-controls` because virtual-control layout types occur in its
@@ -59,12 +60,15 @@ core:settings
   assembly.
 - Android instrumentation remains in `app`, where Android adapters are
   composed with core contracts.
-- common-c fixtures remain owned by the app/native boundary until a dedicated
-  protocol module can own JNI and fixture revision as one unit.
+- The transfer module tests its encoder and validator directly against the
+  canonical common-c manifest fixture reached through the checked-in native
+  revision. The fixture remains authored in common-c rather than copied into
+  the Android source tree.
 
 ## Next measured candidates
 
-Future extraction must be based on the same evidence. The next candidate is
-the transfer protocol model. Input, rendering, and stream session code still
-have substantial Android/native coupling and must not be split until their
-adapter seams are complete.
+Future extraction must be based on the same evidence. No additional Java
+domain currently meets the extraction threshold. Input, rendering, stream
+session, and the actual file movers still have substantial Android/native or
+transport coupling and must not be split until their adapter seams are
+complete.

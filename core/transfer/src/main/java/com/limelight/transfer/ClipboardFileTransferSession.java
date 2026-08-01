@@ -1,4 +1,4 @@
-package com.limelight.ui.clipboard;
+package com.limelight.transfer;
 
 /**
  * Lifecycle state for one remote clipboard file pull at a time.

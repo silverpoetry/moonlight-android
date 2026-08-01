@@ -1,4 +1,4 @@
-package com.limelight.ui.clipboard;
+package com.limelight.transfer;
 
 import org.junit.Test;
 

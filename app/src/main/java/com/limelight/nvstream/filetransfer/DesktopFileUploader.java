@@ -9,6 +9,7 @@ import android.provider.OpenableColumns;
 import androidx.documentfile.provider.DocumentFile;
 
 import com.limelight.nvstream.http.NvHTTP;
+import com.limelight.transfer.FileManifest;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,9 +32,13 @@ public final class DesktopFileUploader {
 
     public static void upload(Context context, NvHTTP http, List<Uri> sourceUris,
                               Listener listener) throws IOException {
-        List<FileManifest.Entry> entries = enumerate(context, sourceUris);
+        List<SourceEntry> sources = enumerate(context, sourceUris);
+        List<FileManifest.Entry> entries = new ArrayList<>(sources.size());
+        for (SourceEntry source : sources) {
+            entries.add(source.manifestEntry);
+        }
         FileManifest manifest = FileManifest.validate(entries);
-        byte[] encoded = FileManifest.encode(entries);
+        byte[] encoded = FileManifest.encode(manifest.entries);
         String token = randomToken();
         NvHTTP.DesktopFileUploadResult transfer = http.beginDesktopFileUpload(
                 encoded, token, UUID.randomUUID().toString());
@@ -45,12 +50,13 @@ public final class DesktopFileUploader {
             if (entry.type != FileManifest.TYPE_REGULAR) {
                 continue;
             }
-            if (entry.sourceUri == null) {
+            Uri sourceUri = sources.get(index).sourceUri;
+            if (sourceUri == null) {
                 throw new IOException("Shared file is no longer available");
             }
 
             try (InputStream input = context.getContentResolver()
-                    .openInputStream(entry.sourceUri)) {
+                    .openInputStream(sourceUri)) {
                 if (input == null) {
                     throw new IOException("Unable to open " + entry.path);
                 }
@@ -80,14 +86,14 @@ public final class DesktopFileUploader {
         http.completeDesktopFileUpload(transfer.id, token);
     }
 
-    static List<FileManifest.Entry> enumerate(Context context,
-                                              List<Uri> sourceUris)
+    private static List<SourceEntry> enumerate(Context context,
+                                               List<Uri> sourceUris)
             throws IOException {
         if (sourceUris == null || sourceUris.isEmpty()) {
             throw new IOException("No files were shared");
         }
 
-        List<FileManifest.Entry> entries = new ArrayList<>();
+        List<SourceEntry> entries = new ArrayList<>();
         Set<String> topLevelNames = new HashSet<>();
         for (Uri uri : sourceUris) {
             if (uri == null) {
@@ -131,7 +137,7 @@ public final class DesktopFileUploader {
 
     private static void appendTopLevelDocument(
             Context context, DocumentFile document, Set<String> topLevelNames,
-            List<FileManifest.Entry> entries) throws IOException {
+            List<SourceEntry> entries) throws IOException {
         if (document == null || !document.exists() ||
                 (!document.isFile() && !document.isDirectory())) {
             throw new IOException("A shared item is unavailable");
@@ -145,17 +151,18 @@ public final class DesktopFileUploader {
 
     private static void appendContentUri(
             Context context, Uri uri, Set<String> topLevelNames,
-            List<FileManifest.Entry> entries) throws IOException {
+            List<SourceEntry> entries) throws IOException {
         if (entries.size() >= FileManifest.MAX_ENTRIES) {
             throw new IOException("Too many shared files");
         }
         SharedContentInfo content = querySharedContent(context, uri);
         String rootName = uniqueName(content.name, false, topLevelNames);
-        entries.add(new FileManifest.Entry(
-                FileManifest.TYPE_REGULAR,
-                rootName,
-                content.size,
-                0,
+        entries.add(new SourceEntry(
+                new FileManifest.Entry(
+                        FileManifest.TYPE_REGULAR,
+                        rootName,
+                        content.size,
+                        0),
                 uri));
     }
 
@@ -239,18 +246,19 @@ public final class DesktopFileUploader {
 
     private static void appendDocument(Context context, DocumentFile document,
                                        String path,
-                                       List<FileManifest.Entry> entries)
+                                       List<SourceEntry> entries)
             throws IOException {
         if (entries.size() >= FileManifest.MAX_ENTRIES) {
             throw new IOException("Too many shared files");
         }
         if (document.isDirectory()) {
-            entries.add(new FileManifest.Entry(
-                    FileManifest.TYPE_DIRECTORY,
-                    path,
-                    0,
-                    Math.max(0, document.lastModified()),
-                    document.getUri()));
+            entries.add(new SourceEntry(
+                    new FileManifest.Entry(
+                            FileManifest.TYPE_DIRECTORY,
+                            path,
+                            0,
+                            Math.max(0, document.lastModified())),
+                    null));
             DocumentFile[] children = document.listFiles();
             Arrays.sort(children, (first, second) -> {
                 String firstName = first.getName();
@@ -280,11 +288,12 @@ public final class DesktopFileUploader {
         if (size < 0 || size > FileManifest.MAX_FILE_BYTES) {
             throw new IOException("Unable to determine shared file size");
         }
-        entries.add(new FileManifest.Entry(
-                FileManifest.TYPE_REGULAR,
-                path,
-                size,
-                Math.max(0, document.lastModified()),
+        entries.add(new SourceEntry(
+                new FileManifest.Entry(
+                        FileManifest.TYPE_REGULAR,
+                        path,
+                        size,
+                        Math.max(0, document.lastModified())),
                 document.getUri()));
     }
 
@@ -336,5 +345,16 @@ public final class DesktopFileUploader {
             encoded[index * 2 + 1] = alphabet[bytes[index] & 0xF];
         }
         return new String(encoded);
+    }
+
+    /** Binds an Android source handle to its platform-neutral wire entry. */
+    private static final class SourceEntry {
+        final FileManifest.Entry manifestEntry;
+        final Uri sourceUri;
+
+        SourceEntry(FileManifest.Entry manifestEntry, Uri sourceUri) {
+            this.manifestEntry = manifestEntry;
+            this.sourceUri = sourceUri;
+        }
     }
 }

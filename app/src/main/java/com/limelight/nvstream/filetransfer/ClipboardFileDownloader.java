@@ -7,6 +7,7 @@ import android.os.OperationCanceledException;
 import androidx.documentfile.provider.DocumentFile;
 
 import com.limelight.nvstream.http.NvHTTP;
+import com.limelight.transfer.FileManifest;
 
 import java.io.IOException;
 import java.io.OutputStream;
