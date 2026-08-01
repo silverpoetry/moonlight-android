@@ -1,6 +1,5 @@
 package com.limelight.preferences;
 
-import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -15,6 +14,7 @@ import android.view.WindowInsets;
 import android.view.WindowManager;
 
 import androidx.annotation.RequiresApi;
+import androidx.activity.ComponentActivity;
 
 import com.limelight.AboutActivity;
 import com.limelight.PcView;
@@ -38,7 +38,7 @@ import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
 import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
 import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
 
-public class StreamSettings extends Activity {
+public class StreamSettings extends ComponentActivity {
     private static final String EXTRA_SECTION_ID =
             "com.limelight.preferences.StreamSettings.SECTION_ID";
     private static final String STATE_SECTION_KEY =
@@ -309,11 +309,6 @@ public class StreamSettings extends Activity {
             captureNavigationScroll();
             renderSettings();
         }
-    }
-
-    @Override
-    public void onBackPressed() {
-        handleBackNavigation();
     }
 
     @Override

@@ -65,6 +65,31 @@ app
   revision. The fixture remains authored in common-c rather than copied into
   the Android source tree.
 
+## Build governance
+
+- The Gradle 9.6.1 wrapper is pinned with its official SHA-256 checksum. Android
+  Gradle Plugin 9.3.1, all application libraries, and test libraries are owned
+  by the version catalog rather than repeated in module scripts.
+- `build-logic` owns the pure-Java library convention and root verification
+  rules. Core modules declare only their actual dependencies; Java level and
+  compiler encoding are consistent by construction.
+- `settings.gradle` is the only repository owner and rejects repositories added
+  by projects. Dependency verification requires checked-in SHA-256 values for
+  every resolved plugin and library artifact.
+- Local build cache and configuration cache are enabled. A warm full
+  `verifyLocal` gate completes in 12 seconds on the reference workstation after
+  module extraction and build modernization.
+- The app compiles and targets API 37 while retaining API 21 support. Activity
+  1.11.0 and Glide 5.0.7 are intentionally pinned because their next releases
+  raise the minimum supported API to 23.
+- AGP 9.3.1's `BidiSpoofing` detector currently invokes the JDK 21-only
+  `List.removeLast()` API even though AGP runs on JDK 17. Only that crashing
+  detector is disabled. The mandatory cacheable `verifyNoBidiControls` task
+  replaces it with a source-wide scan for every Unicode bidirectional control;
+  all other lint findings remain warnings-as-errors.
+- Android release variants remain unobfuscated by product policy. This build
+  governance work does not add R8 or ProGuard processing.
+
 ## Next measured candidates
 
 Future extraction must be based on the same evidence. No additional Java

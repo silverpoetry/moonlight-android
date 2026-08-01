@@ -1,6 +1,5 @@
 package com.limelight;
 
-import android.app.Activity;
 import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
@@ -13,6 +12,7 @@ import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import androidx.activity.ComponentActivity;
 import com.limelight.utils.UiToast;
 
 import com.limelight.binding.PlatformBinding;
@@ -34,7 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-public class FilePushActivity extends Activity {
+public class FilePushActivity extends ComponentActivity {
     private final ExecutorService executor =
             Executors.newSingleThreadExecutor(runnable -> {
                 Thread thread = new Thread(runnable, "DesktopFileUpload");
@@ -98,11 +98,6 @@ public class FilePushActivity extends Activity {
         }
         executor.shutdownNow();
         super.onDestroy();
-    }
-
-    @Override
-    public void onBackPressed() {
-        handleBackNavigation();
     }
 
     private void handleBackNavigation() {

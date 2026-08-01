@@ -150,8 +150,8 @@ import com.limelight.utils.StreamOrientationController;
 import com.limelight.utils.StreamOrientationRequest;
 import com.limelight.utils.UiHelper;
 import android.annotation.SuppressLint;
+import androidx.activity.ComponentActivity;
 import androidx.annotation.RequiresApi;
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Service;
 import android.content.ClipData;
@@ -196,7 +196,7 @@ import java.util.Arrays;
 import java.util.List;
 
 
-public class Game extends Activity implements OnGenericMotionListener,
+public class Game extends ComponentActivity implements OnGenericMotionListener,
         OnTouchListener, EvdevListener,
         GameGestures, StreamInputGateway,
         StreamUiActions, GameMenuHostProvider,
@@ -1936,11 +1936,6 @@ public class Game extends Activity implements OnGenericMotionListener,
     @Override
     public void cancelPendingStreamBackExit() {
         lastBackPressedElapsedMs = 0;
-    }
-
-    @Override
-    public void onBackPressed() {
-        handleStreamBackPressed();
     }
 
     public void handleStreamBackPressed() {

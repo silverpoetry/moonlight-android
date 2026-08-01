@@ -1,93 +1,53 @@
 package com.limelight.utils;
 
-import android.app.Activity;
-import android.app.Dialog;
-import android.os.Build;
-import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
-import android.window.OnBackInvokedCallback;
-import android.window.OnBackInvokedDispatcher;
+import androidx.activity.ComponentActivity;
+import androidx.activity.ComponentDialog;
+import androidx.activity.OnBackPressedCallback;
 
 /**
- * Lifecycle handle for a custom system-back action.
+ * Lifecycle handle for one custom system-back action.
  *
- * Activities that need non-default back behavior register the same action with the
- * platform dispatcher on Android 13+ and keep their {@code onBackPressed()} fallback
- * for older releases. Calling {@link #unregister()} more than once is safe.
+ * <p>Activities and dialogs register a single AndroidX dispatcher callback
+ * that covers legacy back presses and predictive system-back gestures.
+ * Calling {@link #unregister()} more than once is safe.</p>
  */
 public final class BackNavigationRegistration {
-    private final Activity activity;
-    private final Dialog dialog;
-    private Object platformCallback;
+    private OnBackPressedCallback callback;
 
-    private BackNavigationRegistration(Activity activity,
-                                       Dialog dialog,
-                                       Object platformCallback) {
-        this.activity = activity;
-        this.dialog = dialog;
-        this.platformCallback = platformCallback;
+    private BackNavigationRegistration(OnBackPressedCallback callback) {
+        this.callback = callback;
     }
 
-    @Nullable
-    public static BackNavigationRegistration register(Activity activity, Runnable action) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            return null;
-        }
-        return new BackNavigationRegistration(
-                activity, null, Api33.register(activity, action));
+    public static BackNavigationRegistration register(
+            ComponentActivity activity,
+            Runnable action) {
+        OnBackPressedCallback callback = createCallback(action);
+        activity.getOnBackPressedDispatcher().addCallback(activity, callback);
+        return new BackNavigationRegistration(callback);
     }
 
-    @Nullable
-    public static BackNavigationRegistration register(Dialog dialog, Runnable action) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            return null;
-        }
-        return new BackNavigationRegistration(
-                null, dialog, Api33.register(dialog, action));
+    public static BackNavigationRegistration register(
+            ComponentDialog dialog,
+            Runnable action) {
+        OnBackPressedCallback callback = createCallback(action);
+        dialog.getOnBackPressedDispatcher().addCallback(callback);
+        return new BackNavigationRegistration(callback);
     }
 
     public void unregister() {
-        if (platformCallback == null) {
+        if (callback == null) {
             return;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (activity != null) {
-                Api33.unregister(activity, platformCallback);
-            }
-            else {
-                Api33.unregister(dialog, platformCallback);
-            }
-        }
-        platformCallback = null;
+        callback.remove();
+        callback = null;
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
-    private static final class Api33 {
-        private Api33() {
-        }
-
-        static Object register(Activity activity, Runnable action) {
-            OnBackInvokedCallback callback = action::run;
-            activity.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                    OnBackInvokedDispatcher.PRIORITY_DEFAULT, callback);
-            return callback;
-        }
-
-        static Object register(Dialog dialog, Runnable action) {
-            OnBackInvokedCallback callback = action::run;
-            dialog.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                    OnBackInvokedDispatcher.PRIORITY_DEFAULT, callback);
-            return callback;
-        }
-
-        static void unregister(Activity activity, Object callback) {
-            activity.getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(
-                    (OnBackInvokedCallback) callback);
-        }
-
-        static void unregister(Dialog dialog, Object callback) {
-            dialog.getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(
-                    (OnBackInvokedCallback) callback);
-        }
+    private static OnBackPressedCallback createCallback(Runnable action) {
+        return new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                action.run();
+            }
+        };
     }
 }

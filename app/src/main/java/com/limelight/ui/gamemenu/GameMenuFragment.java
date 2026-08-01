@@ -1,11 +1,11 @@
 package com.limelight.ui.gamemenu;
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
@@ -13,6 +13,7 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.Space;
 import android.widget.TextView;
+import androidx.activity.ComponentDialog;
 
 import com.limelight.R;
 import com.limelight.binding.input.KeyboardTranslator;
@@ -103,23 +104,17 @@ public class GameMenuFragment extends BaseGameMenuDialog
     @Override
     public void onResume() {
         super.onResume();
-        if (getDialog() != null) {
+        Dialog dialog = getDialog();
+        if (dialog != null) {
+            if (!(dialog instanceof ComponentDialog)) {
+                throw new IllegalStateException(
+                        "Game menu dialog must support AndroidX back dispatch");
+            }
             if (backNavigationRegistration == null) {
                 backNavigationRegistration = BackNavigationRegistration.register(
-                        getDialog(), this::handleStreamBack);
+                        (ComponentDialog) dialog,
+                        this::handleStreamBack);
             }
-            getDialog().setOnKeyListener(new DialogInterface.OnKeyListener() {
-                @Override
-                public boolean onKey(DialogInterface dialog, int keyCode, KeyEvent event) {
-                    if (keyCode != KeyEvent.KEYCODE_BACK) {
-                        return false;
-                    }
-                    if (event.getAction() == KeyEvent.ACTION_UP) {
-                        handleStreamBack();
-                    }
-                    return true;
-                }
-            });
         }
     }
 

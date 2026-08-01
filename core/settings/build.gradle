@@ -1,19 +1,10 @@
 plugins {
-    id 'java-library'
-}
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
-}
-
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
+    id 'moonlight.java-library'
 }
 
 dependencies {
     api project(':core:virtual-controls')
-    implementation 'com.google.code.gson:gson:2.14.0'
+    implementation libs.gson
 
-    testImplementation 'junit:junit:4.13.2'
+    testImplementation libs.junit4
 }

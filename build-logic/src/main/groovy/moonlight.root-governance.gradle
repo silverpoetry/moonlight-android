@@ -1,0 +1,22 @@
+import com.moonlight.buildlogic.VerifyNoBidiControls
+
+tasks.register('verifyNoBidiControls', VerifyNoBidiControls) {
+    group = 'verification'
+    description = 'Rejects deceptive bidirectional Unicode controls in source files.'
+    sourceFiles.from(fileTree(rootDir) {
+        include '**/*.java',
+                '**/*.kt',
+                '**/*.groovy',
+                '**/*.gradle',
+                '**/*.toml',
+                '**/*.c',
+                '**/*.cc',
+                '**/*.cpp',
+                '**/*.h',
+                '**/*.hpp',
+                '**/*.mk',
+                '**/CMakeLists.txt',
+                'gradle.properties'
+        exclude '**/.gradle/**', '**/build/**', '**/.git/**'
+    })
+}

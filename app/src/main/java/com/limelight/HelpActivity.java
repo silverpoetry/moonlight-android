@@ -1,16 +1,16 @@
 package com.limelight;
 
-import android.app.Activity;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import androidx.activity.ComponentActivity;
 
 import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.UiHelper;
 
-public class HelpActivity extends Activity {
+public class HelpActivity extends ComponentActivity {
 
     private SpinnerDialog loadingDialog;
     private WebView webView;
@@ -86,16 +86,4 @@ public class HelpActivity extends Activity {
         super.onDestroy();
     }
 
-    @Override
-    // API 21-32 fallback. Android 13+ uses BackNavigationRegistration above.
-    public void onBackPressed() {
-        // Back goes back through the WebView history
-        // until no more history remains
-        if (webView.canGoBack()) {
-            webView.goBack();
-        }
-        else {
-            super.onBackPressed();
-        }
-    }
 }

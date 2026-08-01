@@ -1,14 +1,5 @@
 plugins {
-    id 'java-library'
-}
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
-}
-
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
+    id 'moonlight.java-library'
 }
 
 sourceSets {
@@ -18,5 +9,5 @@ sourceSets {
 }
 
 dependencies {
-    testImplementation 'junit:junit:4.13.2'
+    testImplementation libs.junit4
 }

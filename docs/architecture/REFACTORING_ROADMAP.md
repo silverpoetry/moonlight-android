@@ -1084,7 +1084,7 @@ agree across all participants.
 
 ## Phase 9 — Physical Gradle module boundaries
 
-**Status:** in progress.
+**Status:** complete.
 
 ### Preconditions
 
@@ -1130,6 +1130,23 @@ agree across all participants.
   Android `Uri` from the wire DTO; the App now binds each immutable manifest
   entry to its source URI in a private adapter object. Canonical common-c
   fixture verification is owned and executed by the module.
+- Consolidated plugins and dependencies in a version catalog, moved shared
+  Java and verification policy into an included `build-logic` build, and made
+  root settings the sole repository owner.
+- Upgraded to checksum-pinned Gradle 9.6.1, Android Gradle Plugin 9.3.1, and API
+  37; enabled the build/configuration caches and checked in SHA-256 dependency
+  verification metadata.
+- Replaced platform-specific back callbacks and deprecated `onBackPressed()`
+  overrides with lifecycle-aware AndroidX dispatch in activities and stream
+  dialogs, covering legacy and predictive back through one path.
+- Kept the API 21 product contract explicit with narrow, documented dependency
+  pins, and replaced the one AGP lint detector that crashes on its supported
+  JDK with an enforced source-wide Unicode control scan.
+- Proved the boundary from a clean build: all four debug/release product-flavor
+  lint models, both Release APKs, every app/core JVM test, architecture rules,
+  native builds for four ABIs, strict dependency checks, and the Unicode source
+  gate pass together. The warm full gate improved from the pre-governance
+  22-second measurement to 12 seconds.
 
 ### Exit evidence
 
