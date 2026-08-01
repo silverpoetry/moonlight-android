@@ -1,4 +1,5 @@
 import com.moonlight.buildlogic.GenerateApplicationSbom
+import org.cyclonedx.model.Component
 
 plugins {
     id 'moonlight.root-governance'
@@ -13,7 +14,7 @@ allprojects {
 
 project(':app') {
     tasks.named('cyclonedxDirectBom') {
-        projectType = 'application'
+        projectType = Component.Type.APPLICATION
         componentGroup = 'com.limelight'
         componentName = 'moonlight-android'
         componentVersion = '12.1-260725'
