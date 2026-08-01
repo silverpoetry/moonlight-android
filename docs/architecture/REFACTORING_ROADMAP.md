@@ -1006,7 +1006,12 @@ targets.
   observations, one pure merge policy preserves repository-owned aliases,
   endpoints, and pinned certificates, and app-list, network, pairing, and
   polling transitions publish replacement values. Mutable NvHTTP DTOs exist
-  only inside the legacy transport adapter and detached binder callbacks.
+  only inside the legacy transport adapter.
+- Closed the service/client boundary over immutable host values. Binder
+  queries, invalidation, deletion, app-list ownership, manual admission, and
+  polling callbacks now accept typed IDs/endpoints or publish
+  `HostRuntimeSnapshot`; `PcView` and its grid retain immutable snapshots and
+  create a legacy protocol value only at a transport or compatibility call.
 
 ### Exit evidence
 

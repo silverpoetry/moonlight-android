@@ -1,6 +1,9 @@
 package com.limelight.stream.launch.android;
 
 import com.limelight.computers.ComputerManagerService;
+import com.limelight.computers.LegacyHostRuntimeAdapter;
+import com.limelight.computers.model.HostId;
+import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.stream.launch.PendingStreamReconnect;
@@ -41,9 +44,12 @@ public final class AndroidStreamAutoReconnectController {
             ComputerManagerService.ComputerManagerBinder binder,
             String currentHostId) {
         PendingStreamReconnect pending = pendingStore.get();
-        ComputerDetails computer = binder == null || pending == null
+        HostRuntimeSnapshot host = binder == null || pending == null
                 ? null
-                : binder.getComputer(pending.getHostId());
+                : binder.getHost(HostId.of(pending.getHostId()));
+        ComputerDetails computer = host == null
+                ? null
+                : LegacyHostRuntimeAdapter.toComputerDetails(host);
         boolean hostAvailable = computer != null &&
                 computer.state == ComputerDetails.State.ONLINE &&
                 computer.activeAddress != null;

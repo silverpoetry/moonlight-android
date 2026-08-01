@@ -332,26 +332,28 @@ public class ComputerManagerService extends Service {
             }
         }
 
-        public boolean addComputerBlocking(ComputerDetails fakeDetails) throws InterruptedException {
-            return ComputerManagerService.this.addComputerBlocking(fakeDetails);
+        public boolean addHostBlocking(HostEndpoint endpoint)
+                throws InterruptedException {
+            return ComputerManagerService.this.addHostBlocking(endpoint);
         }
 
-        public void removeComputer(ComputerDetails computer) {
-            ComputerManagerService.this.removeComputer(computer);
+        public void removeHost(HostId hostId) {
+            ComputerManagerService.this.removeHost(hostId);
         }
 
         public String getUniqueId() {
             return idManager.getUniqueId();
         }
 
-        public ComputerDetails getComputer(String uuid) {
+        public HostRuntimeSnapshot getHost(HostId hostId) {
+            HostId checkedHostId = Objects.requireNonNull(
+                    hostId,
+                    "hostId");
             HostRuntimeSlot match = null;
             synchronized (hostSlots) {
                 for (HostRuntimeSlot slot : hostSlots) {
-                    if (sameHostIdentity(
-                            uuid,
-                            slot.snapshot.getRecord()
-                                    .getIdentity().getId().getValue())) {
+                    if (checkedHostId.equals(slot.snapshot.getRecord()
+                            .getIdentity().getId())) {
                         match = slot;
                         break;
                     }
@@ -361,12 +363,11 @@ public class ComputerManagerService extends Service {
                 return null;
             }
             synchronized (match.stateLock) {
-                return LegacyHostRuntimeAdapter.toComputerDetails(
-                        match.snapshot);
+                return match.snapshot;
             }
         }
 
-        public ComputerDetails getComputerByName(String name) {
+        public HostRuntimeSnapshot getHostByName(String name) {
             HostRuntimeSlot match = null;
             synchronized (hostSlots) {
                 for (HostRuntimeSlot slot : hostSlots) {
@@ -383,22 +384,17 @@ public class ComputerManagerService extends Service {
                 return null;
             }
             synchronized (match.stateLock) {
-                return LegacyHostRuntimeAdapter.toComputerDetails(
-                        match.snapshot);
+                return match.snapshot;
             }
         }
 
-        public int getComputerCount() {
+        public int getHostCount() {
             synchronized (hostSlots) {
                 return hostSlots.size();
             }
         }
 
-        public void invalidateStateForComputer(String uuid) {
-            invalidateStateForComputer(HostId.of(uuid));
-        }
-
-        public void invalidateStateForComputer(HostId hostId) {
+        public void invalidateHostState(HostId hostId) {
             HostRuntimeSlot match = null;
             synchronized (hostSlots) {
                 for (HostRuntimeSlot slot : hostSlots) {
@@ -482,7 +478,7 @@ public class ComputerManagerService extends Service {
          * subscription. Closing the parent always closes the child first.
          */
         public synchronized ApplistPoller startAppListPolling(
-                ComputerDetails computer) {
+                HostId hostId) {
             if (closed) {
                 throw new IllegalStateException(
                         "Host polling subscription is closed");
@@ -495,7 +491,7 @@ public class ComputerManagerService extends Service {
                 if (!pollingOwnership.owns(ownerToken)) {
                     return null;
                 }
-                ApplistPoller poller = new ApplistPoller(computer);
+                ApplistPoller poller = new ApplistPoller(hostId);
                 appListPoller = poller;
                 poller.start();
                 return poller;
@@ -748,8 +744,7 @@ public class ComputerManagerService extends Service {
         ComputerManagerListener currentListener =
                 pollingOwnership.getListener();
         if (currentListener != null) {
-            currentListener.notifyComputerUpdated(
-                    LegacyHostRuntimeAdapter.toComputerDetails(snapshot));
+            currentListener.notifyComputerUpdated(snapshot);
         }
     }
 
@@ -759,8 +754,7 @@ public class ComputerManagerService extends Service {
         ComputerManagerListener currentListener =
                 pollingOwnership.getListener(ownerToken);
         if (currentListener != null) {
-            currentListener.notifyComputerUpdated(
-                    LegacyHostRuntimeAdapter.toComputerDetails(snapshot));
+            currentListener.notifyComputerUpdated(snapshot);
         }
     }
 
@@ -815,7 +809,36 @@ public class ComputerManagerService extends Service {
         }
     }
 
-    public boolean addComputerBlocking(ComputerDetails candidate)
+    private boolean addHostBlocking(HostEndpoint endpoint)
+            throws InterruptedException {
+        HostEndpoint checkedEndpoint = Objects.requireNonNull(
+                endpoint,
+                "endpoint");
+        ComputerDetails candidate = new ComputerDetails();
+        ComputerDetails.AddressTuple address =
+                new ComputerDetails.AddressTuple(
+                        checkedEndpoint.getAddress(),
+                        checkedEndpoint.getPort());
+        switch (checkedEndpoint.getKind()) {
+            case LOCAL_IPV4:
+                candidate.localAddress = address;
+                break;
+            case LOCAL_IPV6:
+                candidate.ipv6Address = address;
+                break;
+            case REMOTE:
+                candidate.remoteAddress = address;
+                break;
+            case MANUAL:
+                candidate.manualAddress = address;
+                break;
+            default:
+                throw new AssertionError("Unhandled endpoint kind");
+        }
+        return addComputerBlocking(candidate);
+    }
+
+    private boolean addComputerBlocking(ComputerDetails candidate)
             throws InterruptedException {
         Objects.requireNonNull(candidate, "candidate");
         HostAdmissionGate.Lease admission;
@@ -914,10 +937,8 @@ public class ComputerManagerService extends Service {
         return true;
     }
 
-    public void removeComputer(ComputerDetails computer) {
-        HostId hostId = HostId.of(Objects.requireNonNull(
-                computer,
-                "computer").uuid);
+    private void removeHost(HostId hostId) {
+        HostId checkedHostId = Objects.requireNonNull(hostId, "hostId");
         HostRepositoryLeaseManager.Lease repositoryLease =
                 acquireRepositoryLease();
         if (repositoryLease == null) {
@@ -931,7 +952,7 @@ public class ComputerManagerService extends Service {
                         hostSlots.iterator();
                 while (iterator.hasNext()) {
                     HostRuntimeSlot slot = iterator.next();
-                    if (hostId.equals(slot.snapshot.getRecord()
+                    if (checkedHostId.equals(slot.snapshot.getRecord()
                             .getIdentity().getId())) {
                         if (slot.thread != null) {
                             slot.thread.interrupt();
@@ -945,7 +966,7 @@ public class ComputerManagerService extends Service {
             }
 
             if (removed == null) {
-                hostRepository.deleteHost(hostId);
+                hostRepository.deleteHost(checkedHostId);
                 return;
             }
             // A poll already committing wins before this delete. A poll that
@@ -1375,10 +1396,8 @@ public class ComputerManagerService extends Service {
         private boolean receivedAppList = false;
         private boolean closed;
 
-        private ApplistPoller(ComputerDetails computer) {
-            hostId = HostId.of(Objects.requireNonNull(
-                    computer,
-                    "computer").uuid);
+        private ApplistPoller(HostId hostId) {
+            this.hostId = Objects.requireNonNull(hostId, "hostId");
         }
 
         public void pollNow() {

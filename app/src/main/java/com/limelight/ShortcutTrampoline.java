@@ -11,6 +11,9 @@ import android.os.IBinder;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.computers.HostPollingClientLifecycle;
+import com.limelight.computers.LegacyHostRuntimeAdapter;
+import com.limelight.computers.model.HostId;
+import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
@@ -97,9 +100,12 @@ public class ShortcutTrampoline extends Activity {
             return BindingOutcome.CANCELED;
         }
 
-        ComputerDetails loadedComputer = uuidString != null
-                ? localBinder.getComputer(uuidString)
-                : localBinder.getComputerByName(requestedHostName);
+        HostRuntimeSnapshot loadedHost = uuidString != null
+                ? localBinder.getHost(HostId.of(uuidString))
+                : localBinder.getHostByName(requestedHostName);
+        ComputerDetails loadedComputer = loadedHost == null
+                ? null
+                : LegacyHostRuntimeAdapter.toComputerDetails(loadedHost);
         if (loadedComputer == null) {
             return BindingOutcome.MISSING_HOST;
         }
@@ -125,8 +131,8 @@ public class ShortcutTrampoline extends Activity {
             managerBinder = localBinder;
         }
 
-        localBinder.invalidateStateForComputer(
-                loadedComputer.uuid);
+        localBinder.invalidateHostState(
+                loadedHost.getRecord().getIdentity().getId());
         HostPollingClientLifecycle.StartToken startToken =
                 hostPollingLifecycle.beginStart();
         if (startToken == null || cancellation.isCanceled()) {
@@ -137,10 +143,11 @@ public class ShortcutTrampoline extends Activity {
         ComputerManagerService.HostPollingSubscription subscription;
         try {
             subscription = localBinder.startPolling(
-                    details -> handleComputerUpdate(
+                    snapshot -> handleComputerUpdate(
                             localBinder,
                             startToken,
-                            details));
+                            LegacyHostRuntimeAdapter.toComputerDetails(
+                                    snapshot)));
         }
         catch (RuntimeException | Error error) {
             hostPollingLifecycle.failStart(startToken);
@@ -205,8 +212,8 @@ public class ShortcutTrampoline extends Activity {
             try {
                 WakeOnLanSender.sendWolPacket(computer);
                 if (hostPollingLifecycle.owns(startToken)) {
-                    localBinder.invalidateStateForComputer(
-                            computer.uuid);
+                    localBinder.invalidateHostState(
+                            HostId.of(computer.uuid));
                 }
                 return;
             }

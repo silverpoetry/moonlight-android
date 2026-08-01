@@ -9,7 +9,10 @@ import java.util.List;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.computers.HostPollingClientLifecycle;
+import com.limelight.computers.LegacyHostRuntimeAdapter;
 import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
+import com.limelight.computers.model.HostId;
+import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.computers.session.HostQuitUseCase;
 import com.limelight.computers.session.NvHttpHostQuitBackend;
 import com.limelight.grid.AppGridAdapter;
@@ -153,8 +156,11 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
             return null;
         }
 
-        ComputerDetails loadedComputer =
-                binder.getComputer(uuidString);
+        HostRuntimeSnapshot loadedHost = binder.getHost(
+                HostId.of(uuidString));
+        ComputerDetails loadedComputer = loadedHost == null
+                ? null
+                : LegacyHostRuntimeAdapter.toComputerDetails(loadedHost);
         if (loadedComputer == null) {
             return AppBindingInitialization.missingHost();
         }
@@ -396,7 +402,9 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
             newSubscription = binder.startPolling(
                     new ComputerManagerListener() {
             @Override
-            public void notifyComputerUpdated(final ComputerDetails details) {
+            public void notifyComputerUpdated(HostRuntimeSnapshot snapshot) {
+                final ComputerDetails details = LegacyHostRuntimeAdapter
+                        .toComputerDetails(snapshot);
                 // Do nothing if updates are suspended
                 if (!hostPollingLifecycle.owns(startToken) ||
                         suspendGridUpdates) {
@@ -492,7 +500,8 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
 
         ComputerManagerService.ApplistPoller newPoller;
         try {
-            newPoller = newSubscription.startAppListPolling(computer);
+            newPoller = newSubscription.startAppListPolling(
+                    HostId.of(computer.uuid));
             if (newPoller == null) {
                 newSubscription.close();
                 hostPollingLifecycle.failStart(startToken);

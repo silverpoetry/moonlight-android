@@ -8,11 +8,11 @@ import android.widget.TextView;
 
 import com.limelight.PcView;
 import com.limelight.R;
-import com.limelight.nvstream.http.ComputerDetails;
-import com.limelight.nvstream.http.PairingManager;
+import com.limelight.computers.model.HostConnectionState;
+import com.limelight.computers.model.HostEndpoint;
+import com.limelight.computers.model.HostRuntimeSnapshot;
 
 import java.util.Collections;
-import java.util.Comparator;
 
 public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
     public PcGridAdapter(Context context) {
@@ -25,12 +25,11 @@ public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
     }
 
     private void sortList() {
-        Collections.sort(itemList, new Comparator<PcView.ComputerObject>() {
-            @Override
-            public int compare(PcView.ComputerObject lhs, PcView.ComputerObject rhs) {
-                return lhs.details.name.compareToIgnoreCase(rhs.details.name);
-            }
-        });
+        Collections.sort(
+                itemList,
+                (lhs, rhs) -> displayName(lhs.getSnapshot())
+                        .compareToIgnoreCase(
+                                displayName(rhs.getSnapshot())));
     }
 
     public boolean removeComputer(PcView.ComputerObject computer) {
@@ -38,44 +37,61 @@ public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
     }
 
     @Override
-    public void populateView(View parentView, ImageView imgView, ProgressBar prgView, TextView txtView, ImageView overlayView, PcView.ComputerObject obj) {
+    public void populateView(
+            View parentView,
+            ImageView imgView,
+            ProgressBar prgView,
+            TextView txtView,
+            ImageView overlayView,
+            PcView.ComputerObject obj) {
+        HostRuntimeSnapshot snapshot = obj.getSnapshot();
+        HostConnectionState connection = snapshot.getConnectionState();
         imgView.setImageResource(R.drawable.ic_computer);
-        if (obj.details.state == ComputerDetails.State.ONLINE) {
+        if (connection.getReachability() ==
+                HostConnectionState.Reachability.ONLINE) {
             imgView.setAlpha(1.0f);
         }
         else {
             imgView.setAlpha(0.4f);
         }
 
-        if (obj.details.state == ComputerDetails.State.UNKNOWN) {
+        if (connection.getReachability() ==
+                HostConnectionState.Reachability.UNKNOWN) {
             prgView.setVisibility(View.VISIBLE);
         }
         else {
             prgView.setVisibility(View.INVISIBLE);
         }
 
-        txtView.setText(obj.details.name);
-        if (obj.details.state == ComputerDetails.State.ONLINE) {
+        txtView.setText(displayName(snapshot));
+        if (connection.getReachability() ==
+                HostConnectionState.Reachability.ONLINE) {
             txtView.setAlpha(1.0f);
         }
         else {
             txtView.setAlpha(0.4f);
         }
 
-        if (obj.details.state == ComputerDetails.State.OFFLINE) {
+        if (connection.getReachability() ==
+                HostConnectionState.Reachability.OFFLINE) {
             overlayView.setImageResource(R.drawable.ic_pc_offline);
             overlayView.setAlpha(0.4f);
             overlayView.setVisibility(View.VISIBLE);
         }
         // We must check if the status is exactly online and unpaired
         // to avoid colliding with the loading spinner when status is unknown
-        else if (obj.details.state == ComputerDetails.State.ONLINE &&
-                obj.details.pairState == PairingManager.PairState.NOT_PAIRED) {
+        else if (connection.getReachability() ==
+                        HostConnectionState.Reachability.ONLINE &&
+                connection.getPairingStatus() ==
+                        HostConnectionState.PairingStatus.NOT_PAIRED) {
             overlayView.setImageResource(R.drawable.ic_lock);
             overlayView.setAlpha(1.0f);
             overlayView.setVisibility(View.VISIBLE);
-        } else if(obj.details.state == ComputerDetails.State.ONLINE &&
-                obj.details.pairState == PairingManager.PairState.PAIRED){
+        }
+        else if (connection.getReachability() ==
+                        HostConnectionState.Reachability.ONLINE &&
+                connection.getPairingStatus() ==
+                        HostConnectionState.PairingStatus.PAIRED) {
             overlayView.setImageResource(R.drawable.ic_play);
             overlayView.setAlpha(1.0f);
             overlayView.setVisibility(View.VISIBLE);
@@ -84,30 +100,43 @@ public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
             overlayView.setVisibility(View.GONE);
         }
 
-        TextView txIp=parentView.findViewById(R.id.tx_item_ip);
+        TextView txIp = parentView.findViewById(R.id.tx_item_ip);
         txIp.setVisibility(View.VISIBLE);
-        if (obj.details.state == ComputerDetails.State.ONLINE) {
+        if (connection.getReachability() ==
+                HostConnectionState.Reachability.ONLINE) {
             txIp.setAlpha(1.0f);
-        } else {
+        }
+        else {
             txIp.setAlpha(0.4f);
         }
-        if(obj.details.localAddress!=null){
-            txIp.setText(obj.details.localAddress.address);
-            return;
-        }
-        if(obj.details.ipv6Address!=null){
-            txIp.setText(obj.details.ipv6Address.address);
-            return;
-        }
-
-        if(obj.details.remoteAddress!=null){
-            txIp.setText(obj.details.remoteAddress.address);
-            return;
-        }
-        if(obj.details.manualAddress!=null){
-            txIp.setText(obj.details.manualAddress.address);
+        HostEndpoint endpoint = firstDisplayEndpoint(snapshot);
+        if (endpoint != null) {
+            txIp.setText(endpoint.getAddress());
             return;
         }
         txIp.setVisibility(View.GONE);
+    }
+
+    private static String displayName(HostRuntimeSnapshot snapshot) {
+        return snapshot.getRecord().getIdentity().getDisplayName();
+    }
+
+    private static HostEndpoint firstDisplayEndpoint(
+            HostRuntimeSnapshot snapshot) {
+        HostEndpoint endpoint = snapshot.getRecord().getEndpoint(
+                HostEndpoint.Kind.LOCAL_IPV4);
+        if (endpoint == null) {
+            endpoint = snapshot.getRecord().getEndpoint(
+                    HostEndpoint.Kind.LOCAL_IPV6);
+        }
+        if (endpoint == null) {
+            endpoint = snapshot.getRecord().getEndpoint(
+                    HostEndpoint.Kind.REMOTE);
+        }
+        if (endpoint == null) {
+            endpoint = snapshot.getRecord().getEndpoint(
+                    HostEndpoint.Kind.MANUAL);
+        }
+        return endpoint;
     }
 }

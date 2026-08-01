@@ -1,7 +1,8 @@
 package com.limelight.computers;
 
-import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.computers.model.HostRuntimeSnapshot;
 
+/** Receives detached immutable host-state publications from the service. */
 public interface ComputerManagerListener {
-    void notifyComputerUpdated(ComputerDetails details);
+    void notifyComputerUpdated(HostRuntimeSnapshot snapshot);
 }

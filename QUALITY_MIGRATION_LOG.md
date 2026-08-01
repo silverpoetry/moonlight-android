@@ -1564,6 +1564,18 @@ Verification on 2026-07-31:
 - Centralized remaining NvHTTP conversion in `LegacyHostRuntimeAdapter` and
   added an executable architecture rule preventing the host service or its
   nested lifecycle owners from storing mutable `ComputerDetails` fields.
-- Focused runtime-adapter and architecture-boundary JVM tests pass on the
-  NonRoot Debug variant; the complete release gate remains required before
-  Phase 7 closes.
+- Replaced the Binder's mutable host parameters and return values with typed
+  `HostId`, `HostEndpoint`, and `HostRuntimeSnapshot` contracts. Polling
+  listeners now receive the same immutable value the service publishes, while
+  manual admission no longer constructs a protocol DTO in the Activity.
+- Migrated the host grid to retain and render immutable snapshots. UI actions
+  create detached legacy values only for existing transport, shortcut,
+  wake-on-LAN, and dialog adapters; no mutable protocol record is shared with
+  or retained from the service callback.
+- Added architecture gates that reject future mutable `ComputerDetails`
+  parameters or return values on the Binder and listener contracts.
+- The complete NonRoot Debug JVM suite passed all 907 tests with zero failures,
+  errors, or skips. NonRoot Release Lint and assembly also passed; the signed
+  Release APK installed over the existing application on the physical Xiaomi
+  device and cold-launched `PcView` in 143 ms with the host service bound and
+  no application fatal exception or ANR.

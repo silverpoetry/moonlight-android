@@ -24,7 +24,6 @@ import com.limelight.computers.model.HostEndpoint;
 import com.limelight.computers.model.ManualHostEndpointParser;
 import com.limelight.computers.reachability.Ipv4SubnetMatcher;
 import com.limelight.computers.reachability.ClientConnectivityEndpoint;
-import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.settings.android.AndroidAppLocale;
@@ -200,12 +199,7 @@ public class AddComputerManually extends Activity {
     private AddResult addHost(
             ComputerManagerService.ComputerManagerBinder binder,
             HostEndpoint endpoint) throws InterruptedException {
-        ComputerDetails details = new ComputerDetails();
-        details.manualAddress = new ComputerDetails.AddressTuple(
-                endpoint.getAddress(),
-                endpoint.getPort());
-
-        boolean successful = binder.addComputerBlocking(details);
+        boolean successful = binder.addHostBlocking(endpoint);
         boolean wrongSiteLocalAddress = !successful &&
                 isWrongSubnetSiteLocalAddress(endpoint.getAddress());
         int portTestResult = MoonBridge.ML_TEST_RESULT_INCONCLUSIVE;

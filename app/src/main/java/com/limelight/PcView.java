@@ -10,8 +10,10 @@ import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.computers.ComputerDetailsSnapshot;
 import com.limelight.computers.HostPollingClientLifecycle;
+import com.limelight.computers.LegacyHostRuntimeAdapter;
 import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
 import com.limelight.computers.model.HostId;
+import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.computers.pairing.HostPairingUseCase;
 import com.limelight.computers.pairing.NvHttpPairingBackend;
 import com.limelight.computers.reachability.ClientConnectivityEndpoint;
@@ -374,7 +376,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 return;
             }
             freezeUpdates = false;
-            managerHasKnownHosts = binder.getComputerCount() > 0;
+            managerHasKnownHosts = binder.getHostCount() > 0;
             hostListReady = true;
         }
         updateNoPcFoundVisibilityOnUiThread();
@@ -385,15 +387,19 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     new ComputerManagerListener() {
                     @Override
                     public void notifyComputerUpdated(
-                            final ComputerDetails details) {
+                            HostRuntimeSnapshot snapshot) {
+                        final ComputerDetails details =
+                                LegacyHostRuntimeAdapter
+                                        .toComputerDetails(snapshot);
                         if (hostPollingLifecycle.owns(startToken) &&
                                 !freezeUpdates) {
+                            final HostRuntimeSnapshot published = snapshot;
                             PcView.this.runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
                                     if (hostPollingLifecycle.owns(
                                             startToken)) {
-                                        updateComputer(details);
+                                        updateComputer(published);
                                     }
                                 }
                             });
@@ -628,7 +634,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                                     "Unable to persist paired host certificate");
                         }
                     },
-                    binder::invalidateStateForComputer,
+                    binder::invalidateHostState,
                     cancellation);
         }
     }
@@ -811,7 +817,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         if (binder == null) {
             return;
         }
-        binder.invalidateStateForComputer(computer.uuid);
+        binder.invalidateHostState(HostId.of(computer.uuid));
         if (restartAfterQuit) {
             launchStream(app, computer);
         }
@@ -980,7 +986,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 ComputerManagerService.ComputerManagerBinder binder =
                         managerBinder;
                 if (binder != null) {
-                    binder.invalidateStateForComputer(computer.uuid);
+                    binder.invalidateHostState(HostId.of(computer.uuid));
                 }
                 break;
             case ALREADY_UNPAIRED:
@@ -1098,10 +1104,11 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         final LinearLayout actionList = dialogView.findViewById(R.id.layout_host_menu_actions);
         final TextView cancelButton = dialogView.findViewById(R.id.btn_host_menu_cancel);
 
-        titleView.setText(computer.details.name);
-        statusView.setText(getResources().getString(computer.details.state == ComputerDetails.State.ONLINE
+        ComputerDetails details = computer.toComputerDetails();
+        titleView.setText(details.name);
+        statusView.setText(getResources().getString(details.state == ComputerDetails.State.ONLINE
                 ? R.string.pcview_menu_header_online
-                : computer.details.state == ComputerDetails.State.OFFLINE
+                : details.state == ComputerDetails.State.OFFLINE
                 ? R.string.pcview_menu_header_offline
                 : R.string.pcview_menu_header_unknown));
 
@@ -1172,12 +1179,13 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
     private ArrayList<MenuAction> buildHostMenuActions(final ComputerObject computer) {
         ArrayList<MenuAction> actions = new ArrayList<>();
-        if (computer.details.state == ComputerDetails.State.OFFLINE ||
-                computer.details.state == ComputerDetails.State.UNKNOWN) {
+        final ComputerDetails details = computer.toComputerDetails();
+        if (details.state == ComputerDetails.State.OFFLINE ||
+                details.state == ComputerDetails.State.UNKNOWN) {
             actions.add(new MenuAction(R.string.pcview_menu_send_wol, R.drawable.ic_axi_sleep, new Runnable() {
                 @Override
                 public void run() {
-                    doWakeOnLan(computer.details);
+                    doWakeOnLan(details);
                 }
             }));
             actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_axi_app_about, new Runnable() {
@@ -1187,14 +1195,14 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 }
             }));
         }
-        else if (computer.details.pairState != PairState.PAIRED) {
+        else if (details.pairState != PairState.PAIRED) {
             actions.add(new MenuAction(R.string.pcview_menu_pair_pc, R.drawable.ic_axi_app_add, new Runnable() {
                 @Override
                 public void run() {
-                    doPair(computer.details);
+                    doPair(details);
                 }
             }));
-            if (computer.details.nvidiaServer) {
+            if (details.nvidiaServer) {
                 actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_axi_app_about, new Runnable() {
                     @Override
                     public void run() {
@@ -1204,15 +1212,18 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             }
         }
         else {
-            if (computer.details.runningGameId != 0) {
-                final NvApp runningApp = new NvApp("app", computer.details.runningGameId, false);
+            if (details.runningGameId != 0) {
+                final NvApp runningApp = new NvApp(
+                        "app",
+                        details.runningGameId,
+                        false);
                 actions.add(new MenuAction(R.string.applist_menu_resume, R.drawable.ic_play, new Runnable() {
                     @Override
                     public void run() {
                         if (managerBinder != null) {
                             launchStream(
                                     runningApp,
-                                    computer.details);
+                                    details);
                         }
                     }
                 }));
@@ -1221,7 +1232,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     public void run() {
                         if (managerBinder != null) {
                             quitHostApp(
-                                    computer.details,
+                                    details,
                                     runningApp,
                                     true);
                         }
@@ -1232,7 +1243,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     public void run() {
                         if (managerBinder != null) {
                             quitHostApp(
-                                    computer.details,
+                                    details,
                                     runningApp,
                                     false);
                         }
@@ -1240,7 +1251,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 }));
             }
 
-            if (computer.details.nvidiaServer) {
+            if (details.nvidiaServer) {
                 actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_axi_app_about, new Runnable() {
                     @Override
                     public void run() {
@@ -1252,7 +1263,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             actions.add(new MenuAction(R.string.pcview_menu_app_list, R.drawable.ic_menu_grid, new Runnable() {
                 @Override
                 public void run() {
-                    doAppList(computer.details, false, true);
+                    doAppList(details, false, true);
                 }
             }));
         }
@@ -1270,14 +1281,14 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     LimeLog.info("Ignoring delete PC request from monkey");
                     return;
                 }
-                UiHelper.displayDeletePcConfirmationDialog(PcView.this, computer.details, new Runnable() {
+                UiHelper.displayDeletePcConfirmationDialog(PcView.this, details, new Runnable() {
                     @Override
                     public void run() {
                         if (managerBinder == null) {
                             UiToast.makeText(PcView.this, getResources().getString(R.string.error_manager_not_running), UiToast.LENGTH_LONG).show();
                             return;
                         }
-                        removeComputer(computer.details);
+                        removeComputer(computer.getSnapshot());
                     }
                 }, null);
             }
@@ -1285,7 +1296,11 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         actions.add(new MenuAction(R.string.pcview_menu_details, R.drawable.ic_axi_app_about, new Runnable() {
             @Override
             public void run() {
-                Dialog.displayDialog(PcView.this, getResources().getString(R.string.title_details), computer.details.toString(), false);
+                Dialog.displayDialog(
+                        PcView.this,
+                        getResources().getString(R.string.title_details),
+                        details.toString(),
+                        false);
             }
         }));
         return actions;
@@ -1303,7 +1318,14 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         }
     }
 
-    private void performPcDefaultAction(AbsListView listView, View targetView, int position, long id, ComputerDetails computer) {
+    private void performPcDefaultAction(
+            AbsListView listView,
+            View targetView,
+            int position,
+            long id,
+            HostRuntimeSnapshot snapshot) {
+        ComputerDetails computer = LegacyHostRuntimeAdapter
+                .toComputerDetails(snapshot);
         if (computer.state == ComputerDetails.State.UNKNOWN ||
             computer.state == ComputerDetails.State.OFFLINE) {
             openPcContextMenu(position);
@@ -1314,8 +1336,11 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         }
     }
 
-    private void removeComputer(ComputerDetails details) {
-        managerBinder.removeComputer(details);
+    private void removeComputer(HostRuntimeSnapshot snapshot) {
+        HostId hostId = snapshot.getRecord().getIdentity().getId();
+        ComputerDetails details = LegacyHostRuntimeAdapter
+                .toComputerDetails(snapshot);
+        managerBinder.removeHost(hostId);
 
         new DiskAssetLoader(this).deleteAssetsForComputer(details.uuid);
 
@@ -1328,7 +1353,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         for (int i = 0; i < pcGridAdapter.getCount(); i++) {
             ComputerObject computer = (ComputerObject) pcGridAdapter.getItem(i);
 
-            if (details.equals(computer.details)) {
+            if (hostId.equals(computer.getSnapshot().getRecord()
+                    .getIdentity().getId())) {
                 // Disable or delete shortcuts referencing this PC
                 shortcutHelper.disableComputerShortcut(details,
                         getResources().getString(R.string.scut_deleted_pc));
@@ -1346,8 +1372,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         }
     }
 
-    private void updateComputer(ComputerDetails details) {
+    private void updateComputer(HostRuntimeSnapshot snapshot) {
         ComputerObject existingEntry = null;
+        HostId hostId = snapshot.getRecord().getIdentity().getId();
         managerHasKnownHosts = true;
         hostListReady = true;
 
@@ -1355,7 +1382,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             ComputerObject computer = (ComputerObject) pcGridAdapter.getItem(i);
 
             // Check if this is the same computer
-            if (details.uuid.equals(computer.details.uuid)) {
+            if (hostId.equals(computer.getSnapshot().getRecord()
+                    .getIdentity().getId())) {
                 existingEntry = computer;
                 break;
             }
@@ -1363,11 +1391,11 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
         if (existingEntry != null) {
             // Replace the information in the existing entry
-            existingEntry.details = details;
+            existingEntry.update(snapshot);
         }
         else {
             // Add a new entry
-            pcGridAdapter.addComputer(new ComputerObject(details));
+            pcGridAdapter.addComputer(new ComputerObject(snapshot));
         }
 
         // Notify the view that the data has changed
@@ -1406,14 +1434,19 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             public void onItemClick(AdapterView<?> arg0, View arg1, int pos,
                                     long id) {
                 ComputerObject computer = (ComputerObject) pcGridAdapter.getItem(pos);
-                performPcDefaultAction(listView, arg1, pos, id, computer.details);
+                performPcDefaultAction(
+                        listView,
+                        arg1,
+                        pos,
+                        id,
+                        computer.getSnapshot());
             }
         });
         listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
                 ComputerObject computer = (ComputerObject) pcGridAdapter.getItem(position);
-                doRecentSession(computer.details);
+                doRecentSession(computer.toComputerDetails());
                 return true;
             }
         });
@@ -1476,19 +1509,30 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 rawY >= childLocation[1] && rawY < childLocation[1] + child.getHeight();
     }
 
-    public static class ComputerObject {
-        public ComputerDetails details;
+    public static final class ComputerObject {
+        private HostRuntimeSnapshot snapshot;
 
-        public ComputerObject(ComputerDetails details) {
-            if (details == null) {
-                throw new IllegalArgumentException("details must not be null");
-            }
-            this.details = details;
+        public ComputerObject(HostRuntimeSnapshot snapshot) {
+            update(snapshot);
+        }
+
+        public HostRuntimeSnapshot getSnapshot() {
+            return snapshot;
+        }
+
+        private void update(HostRuntimeSnapshot snapshot) {
+            this.snapshot = java.util.Objects.requireNonNull(
+                    snapshot,
+                    "snapshot");
+        }
+
+        public ComputerDetails toComputerDetails() {
+            return LegacyHostRuntimeAdapter.toComputerDetails(snapshot);
         }
 
         @Override
         public String toString() {
-            return details.name;
+            return snapshot.getRecord().getIdentity().getDisplayName();
         }
     }
 

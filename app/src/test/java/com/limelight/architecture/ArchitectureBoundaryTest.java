@@ -9,6 +9,7 @@ import org.junit.Test;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 
 /**
  * Executable dependency rules for boundaries that have completed migration.
@@ -401,6 +402,57 @@ public final class ArchitectureBoundaryTest {
                         "com.limelight.nvstream.http.ComputerDetails")
                 .because(
                         "the host service stores only immutable runtime snapshots and converts mutable protocol DTOs at its edges")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void hostBinderDoesNotExposeMutableProtocolDtos() {
+        noMethods()
+                .that()
+                .areDeclaredInClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.ComputerManagerService$ComputerManagerBinder")
+                .should()
+                .haveRawReturnType(
+                        "com.limelight.nvstream.http.ComputerDetails")
+                .orShould()
+                .haveRawParameterTypes(
+                        "com.limelight.nvstream.http.ComputerDetails")
+                .because(
+                        "the Binder boundary publishes immutable host values and accepts typed host identities or endpoints")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void hostCallbacksDoNotExposeMutableProtocolDtos() {
+        noMethods()
+                .that()
+                .areDeclaredInClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.ComputerManagerListener")
+                .should()
+                .haveRawReturnType(
+                        "com.limelight.nvstream.http.ComputerDetails")
+                .orShould()
+                .haveRawParameterTypes(
+                        "com.limelight.nvstream.http.ComputerDetails")
+                .because(
+                        "host observers receive immutable snapshots rather than mutable transport records")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void hostGridRendersImmutableDomainState() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.grid.PcGridAdapter")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.http.ComputerDetails")
+                .because(
+                        "host-list rendering consumes immutable runtime snapshots and emits no protocol mutations")
                 .check(productionClasses);
     }
 
