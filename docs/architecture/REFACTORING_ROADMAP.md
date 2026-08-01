@@ -926,6 +926,14 @@ targets.
 - Corrected non-byte-aligned IPv4 subnet matching to compare the most
   significant prefix bits, and made reachability identity checks use canonical
   `HostId` equality with an exact-only fallback for malformed legacy records.
+- Replaced unconditional legacy-database opens with validated, read-only
+  migration snapshots. Missing and corrupt sources never reach SQLite, imports
+  are atomic and cannot overwrite newer host metadata or credentials, and a
+  legacy source is retired only after the destination transaction commits.
+- Replaced the service's check-then-increment database reference count with an
+  atomic repository lease owner. Poll, removal, startup, and pairing writes use
+  scoped leases; an in-flight remote pairing keeps its credential transaction
+  alive through Activity unbind and service destruction.
 
 ### Exit evidence
 

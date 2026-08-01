@@ -387,6 +387,23 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void hostRepositoryLeaseStateIsPlatformIndependent() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.HostRepositoryLeaseManager")
+                .or()
+                .haveNameMatching(
+                        "com\\.limelight\\.computers\\.HostRepositoryLeaseManager\\$.*")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..", "androidx..")
+                .because(
+                        "repository lifetime is a pure atomic ownership policy")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamFailureDiagnosticsDoesNotDependOnConnection() {
         noClasses()
                 .that()

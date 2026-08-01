@@ -3,7 +3,6 @@ package com.limelight.computers;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteException;
 
 import com.limelight.LimeLog;
 import com.limelight.nvstream.http.ComputerDetails;
@@ -86,18 +85,10 @@ public class LegacyDatabaseReader {
         }
     }
 
-    public static List<ComputerDetails> migrateAllComputers(Context c) {
-        try (final SQLiteDatabase computerDb = SQLiteDatabase.openDatabase(
-                c.getDatabasePath(COMPUTER_DB_NAME).getPath(),
-                null, SQLiteDatabase.OPEN_READONLY)
-        ) {
-            // Open the existing database
-            return getAllComputers(computerDb);
-        } catch (SQLiteException e) {
-            return new LinkedList<ComputerDetails>();
-        } finally {
-            // Close and delete the old DB
-            c.deleteDatabase(COMPUTER_DB_NAME);
-        }
+    static LegacyHostDatabaseMigration readMigration(Context context) {
+        return LegacyHostDatabaseMigration.read(
+                context,
+                COMPUTER_DB_NAME,
+                LegacyDatabaseReader::getAllComputers);
     }
 }

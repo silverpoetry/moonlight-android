@@ -447,36 +447,46 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         // so a duplicate click cannot stop polling for the active operation.
         stopComputerUpdates(true);
 
-        NvHTTP http = new NvHTTP(
-                ServerHelper.getCurrentAddressFromComputer(computer),
-                computer.httpsPort,
-                binder.getUniqueId(),
-                computer.serverCert,
-                PlatformBinding.getCryptoProvider(this));
-        http.setClientName(
-                DeviceUtils.getManufacturer() + "-" +
-                        DeviceUtils.getModel());
-        return hostPairingUseCase.execute(
-                HostId.of(computer.uuid),
-                computer.runningGameId != 0,
-                new NvHttpPairingBackend(http),
-                pin -> Dialog.displayDialog(
-                        this,
-                        getString(R.string.pair_pairing_title),
-                        getString(R.string.pair_pairing_msg) + " " +
-                                pin + "\n\n" +
-                                getString(R.string.pair_pairing_help),
-                        false),
-                (hostId, certificate) -> {
-                    if (!binder.updatePinnedCertificate(
-                            hostId,
-                            certificate)) {
-                        throw new IOException(
-                                "Unable to persist paired host certificate");
-                    }
-                },
-                binder::invalidateStateForComputer,
-                cancellation);
+        HostId hostId = HostId.of(computer.uuid);
+        try (ComputerManagerService.HostCredentialWriteSession
+                     credentialSession =
+                     binder.openHostCredentialWriteSession(hostId)) {
+            if (credentialSession == null) {
+                throw new IOException(
+                        "Host repository is unavailable for pairing");
+            }
+
+            NvHTTP http = new NvHTTP(
+                    ServerHelper.getCurrentAddressFromComputer(computer),
+                    computer.httpsPort,
+                    binder.getUniqueId(),
+                    computer.serverCert,
+                    PlatformBinding.getCryptoProvider(this));
+            http.setClientName(
+                    DeviceUtils.getManufacturer() + "-" +
+                            DeviceUtils.getModel());
+            return hostPairingUseCase.execute(
+                    hostId,
+                    computer.runningGameId != 0,
+                    new NvHttpPairingBackend(http),
+                    pin -> Dialog.displayDialog(
+                            this,
+                            getString(R.string.pair_pairing_title),
+                            getString(R.string.pair_pairing_msg) + " " +
+                                    pin + "\n\n" +
+                                    getString(R.string.pair_pairing_help),
+                            false),
+                    (persistedHostId, certificate) -> {
+                        if (!hostId.equals(persistedHostId) ||
+                                !credentialSession.updatePinnedCertificate(
+                                        certificate)) {
+                            throw new IOException(
+                                    "Unable to persist paired host certificate");
+                        }
+                    },
+                    binder::invalidateStateForComputer,
+                    cancellation);
+        }
     }
 
     private void handlePairingResult(

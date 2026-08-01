@@ -8,9 +8,11 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.UnknownHostException;
+import java.security.cert.X509Certificate;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -70,7 +72,7 @@ public class ComputerManagerService extends Service {
     private final ComputerManagerBinder binder = new ComputerManagerBinder();
 
     private ComputerDatabaseManager dbManager;
-    private final AtomicInteger dbRefCount = new AtomicInteger(0);
+    private HostRepositoryLeaseManager repositoryLeases;
 
     private IdentityManager idManager;
     private final LinkedList<PollingTuple> pollingTuples = new LinkedList<>();
@@ -87,79 +89,78 @@ public class ComputerManagerService extends Service {
 
     // Returns true if the details object was modified
     private boolean runPoll(ComputerDetails details, boolean newPc, int offlineCount) throws InterruptedException {
-        if (!getLocalDatabaseReference()) {
+        HostRepositoryLeaseManager.Lease repositoryLease =
+                acquireRepositoryLease();
+        if (repositoryLease == null) {
             return false;
         }
 
-        final int pollTriesBeforeOffline = details.state == ComputerDetails.State.UNKNOWN ?
-                INITIAL_POLL_TRIES : OFFLINE_POLL_TRIES;
+        try (HostRepositoryLeaseManager.Lease ignored = repositoryLease) {
+            final int pollTriesBeforeOffline = details.state == ComputerDetails.State.UNKNOWN ?
+                    INITIAL_POLL_TRIES : OFFLINE_POLL_TRIES;
 
-        activePolls.incrementAndGet();
+            activePolls.incrementAndGet();
 
-        // Poll the machine
-        try {
-            if (!pollComputer(details)) {
-                if (!newPc && offlineCount < pollTriesBeforeOffline) {
-                    // Return without calling the listener
-                    releaseLocalDatabaseReference();
+            // Poll the machine
+            try {
+                if (!pollComputer(details)) {
+                    if (!newPc && offlineCount < pollTriesBeforeOffline) {
+                        // Return without calling the listener
+                        return false;
+                    }
+
+                    details.state = ComputerDetails.State.OFFLINE;
+                }
+            }
+            finally {
+                activePolls.decrementAndGet();
+            }
+
+            // If it's online, update our persistent state
+            if (details.state == ComputerDetails.State.ONLINE) {
+                ComputerDetails existingComputer = dbManager.getComputerByUUID(details.uuid);
+
+                // Check if it's in the database because it could have been
+                // removed after this was issued
+                if (!newPc && existingComputer == null) {
+                    // It's gone
                     return false;
                 }
 
-                details.state = ComputerDetails.State.OFFLINE;
-            }
-        } catch (InterruptedException e) {
-            releaseLocalDatabaseReference();
-            throw e;
-        } finally {
-            activePolls.decrementAndGet();
-        }
-
-        // If it's online, update our persistent state
-        if (details.state == ComputerDetails.State.ONLINE) {
-            ComputerDetails existingComputer = dbManager.getComputerByUUID(details.uuid);
-
-            // Check if it's in the database because it could have been
-            // removed after this was issued
-            if (!newPc && existingComputer == null) {
-                // It's gone
-                releaseLocalDatabaseReference();
-                return false;
-            }
-
-            // If we already have an entry for this computer in the DB, we must
-            // combine the existing data with this new data (which may be partially available
-            // due to detecting the PC via mDNS) without the saved external address. If we
-            // write to the DB without doing this first, we can overwrite our existing data.
-            if (existingComputer != null) {
-                LegacyComputerDetailsMergePolicy.mergeObservation(
-                        existingComputer,
-                        details);
-                dbManager.updateComputerMetadata(existingComputer);
-            }
-            else {
-                try {
-                    // If the active address is a site-local address (RFC 1918),
-                    // then use STUN to populate the external address field if
-                    // it's not set already.
-                    if (details.remoteAddress == null) {
-                        InetAddress addr = InetAddress.getByName(details.activeAddress.address);
-                        if (addr.isSiteLocalAddress()) {
-                            populateExternalAddress(details);
+                // If we already have an entry for this computer in the DB, we must
+                // combine the existing data with this new data (which may be partially available
+                // due to detecting the PC via mDNS) without the saved external address. If we
+                // write to the DB without doing this first, we can overwrite our existing data.
+                if (existingComputer != null) {
+                    LegacyComputerDetailsMergePolicy.mergeObservation(
+                            existingComputer,
+                            details);
+                    dbManager.updateComputerMetadata(existingComputer);
+                }
+                else {
+                    try {
+                        // If the active address is a site-local address (RFC 1918),
+                        // then use STUN to populate the external address field if
+                        // it's not set already.
+                        if (details.remoteAddress == null) {
+                            InetAddress addr = InetAddress.getByName(details.activeAddress.address);
+                            if (addr.isSiteLocalAddress()) {
+                                populateExternalAddress(details);
+                            }
                         }
-                    }
-                } catch (UnknownHostException ignored) {}
+                    } catch (UnknownHostException ignoredError) {}
 
-                dbManager.updateComputerMetadata(details);
+                    dbManager.updateComputerMetadata(details);
+                }
             }
-        }
 
-        // Don't call the listener if this is a failed lookup of a new PC
-        if ((!newPc || details.state == ComputerDetails.State.ONLINE) && listener != null) {
-            listener.notifyComputerUpdated(details);
-        }
+            // Don't call the listener if this is a failed lookup of a new PC
+            if ((!newPc || details.state == ComputerDetails.State.ONLINE) && listener != null) {
+                listener.notifyComputerUpdated(details);
+            }
 
-        releaseLocalDatabaseReference();
-        return true;
+            return true;
+        }
     }
 
     private Thread createPollingThread(final PollingTuple tuple) {
@@ -195,6 +196,18 @@ public class ComputerManagerService extends Service {
     }
 
     public class ComputerManagerBinder extends Binder {
+        /**
+         * Pins the repository for one pairing transaction. The returned
+         * session must be closed after the remote pair/persist boundary.
+         */
+        public HostCredentialWriteSession openHostCredentialWriteSession(
+                HostId hostId) {
+            HostRepositoryLeaseManager.Lease repositoryLease =
+                    acquireRepositoryLease();
+            return repositoryLease == null ? null :
+                    new HostCredentialWriteSession(hostId, repositoryLease);
+        }
+
         public void startPolling(ComputerManagerListener listener) {
             // Polling is active
             pollingActive = true;
@@ -278,43 +291,6 @@ public class ComputerManagerService extends Service {
             }
 
             return null;
-        }
-
-        public boolean updatePinnedCertificate(
-                String uuid,
-                java.security.cert.X509Certificate certificate) {
-            return updatePinnedCertificate(
-                    HostId.of(uuid),
-                    certificate);
-        }
-
-        public boolean updatePinnedCertificate(
-                HostId hostId,
-                java.security.cert.X509Certificate certificate) {
-            if (!getLocalDatabaseReference()) {
-                return false;
-            }
-            try {
-                synchronized (pollingTuples) {
-                    for (PollingTuple tuple : pollingTuples) {
-                        if (!hostId.equals(
-                                HostId.of(tuple.computer.uuid))) {
-                            continue;
-                        }
-                        synchronized (tuple.networkLock) {
-                            dbManager.updatePinnedCertificate(
-                                    tuple.computer.uuid,
-                                    certificate);
-                            tuple.computer.serverCert = certificate;
-                            return true;
-                        }
-                    }
-                }
-                return false;
-            }
-            finally {
-                releaseLocalDatabaseReference();
-            }
         }
 
         public int getComputerCount() {
@@ -455,6 +431,59 @@ public class ComputerManagerService extends Service {
         }
     }
 
+    public final class HostCredentialWriteSession implements AutoCloseable {
+        private final Object stateLock = new Object();
+        private final HostId hostId;
+        private HostRepositoryLeaseManager.Lease repositoryLease;
+
+        private HostCredentialWriteSession(
+                HostId hostId,
+                HostRepositoryLeaseManager.Lease repositoryLease) {
+            this.hostId = Objects.requireNonNull(
+                    hostId,
+                    "hostId");
+            this.repositoryLease = Objects.requireNonNull(
+                    repositoryLease,
+                    "repositoryLease");
+        }
+
+        public boolean updatePinnedCertificate(
+                X509Certificate certificate) {
+            synchronized (stateLock) {
+                if (repositoryLease == null) {
+                    return false;
+                }
+                synchronized (pollingTuples) {
+                    for (PollingTuple tuple : pollingTuples) {
+                        if (!hostId.equals(HostId.of(
+                                tuple.computer.uuid))) {
+                            continue;
+                        }
+                        synchronized (tuple.networkLock) {
+                            dbManager.updatePinnedCertificate(
+                                    tuple.computer.uuid,
+                                    certificate);
+                            tuple.computer.serverCert = certificate;
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+        }
+
+        @Override
+        public void close() {
+            synchronized (stateLock) {
+                if (repositoryLease == null) {
+                    return;
+                }
+                repositoryLease.close();
+                repositoryLease = null;
+            }
+        }
+    }
+
     private void addTuple(ComputerDetails details) {
         synchronized (pollingTuples) {
             for (PollingTuple tuple : pollingTuples) {
@@ -523,44 +552,36 @@ public class ComputerManagerService extends Service {
     }
 
     public void removeComputer(ComputerDetails computer) {
-        if (!getLocalDatabaseReference()) {
+        HostRepositoryLeaseManager.Lease repositoryLease =
+                acquireRepositoryLease();
+        if (repositoryLease == null) {
             return;
         }
 
-        // Remove it from the database
-        dbManager.deleteComputer(computer);
+        try (HostRepositoryLeaseManager.Lease ignored = repositoryLease) {
+            // Remove it from the database
+            dbManager.deleteComputer(computer);
 
-        synchronized (pollingTuples) {
-            // Remove the computer from the computer list
-            for (PollingTuple tuple : pollingTuples) {
-                if (tuple.computer.uuid.equals(computer.uuid)) {
-                    if (tuple.thread != null) {
-                        // Interrupt the thread on this entry
-                        tuple.thread.interrupt();
-                        tuple.thread = null;
+            synchronized (pollingTuples) {
+                // Remove the computer from the computer list
+                for (PollingTuple tuple : pollingTuples) {
+                    if (tuple.computer.uuid.equals(computer.uuid)) {
+                        if (tuple.thread != null) {
+                            // Interrupt the thread on this entry
+                            tuple.thread.interrupt();
+                            tuple.thread = null;
+                        }
+                        pollingTuples.remove(tuple);
+                        break;
                     }
-                    pollingTuples.remove(tuple);
-                    break;
                 }
             }
         }
-
-        releaseLocalDatabaseReference();
     }
 
-    private boolean getLocalDatabaseReference() {
-        if (dbRefCount.get() == 0) {
-            return false;
-        }
-
-        dbRefCount.incrementAndGet();
-        return true;
-    }
-
-    private void releaseLocalDatabaseReference() {
-        if (dbRefCount.decrementAndGet() == 0) {
-            dbManager.close();
-        }
+    private HostRepositoryLeaseManager.Lease acquireRepositoryLease() {
+        HostRepositoryLeaseManager leases = repositoryLeases;
+        return leases == null ? null : leases.tryAcquire();
     }
 
     private ComputerDetails tryPollIp(ComputerDetails details, ComputerDetails.AddressTuple address) {
@@ -772,19 +793,20 @@ public class ComputerManagerService extends Service {
 
         // Initialize the DB
         dbManager = new ComputerDatabaseManager(this);
-        dbRefCount.set(1);
+        repositoryLeases = new HostRepositoryLeaseManager(dbManager::close);
 
         // Grab known machines into our computer list
-        if (!getLocalDatabaseReference()) {
+        HostRepositoryLeaseManager.Lease repositoryLease =
+                acquireRepositoryLease();
+        if (repositoryLease == null) {
             return;
         }
-
-        for (ComputerDetails computer : dbManager.getAllComputers()) {
-            // Add tuples for each computer
-            addTuple(computer);
+        try (HostRepositoryLeaseManager.Lease ignored = repositoryLease) {
+            for (ComputerDetails computer : dbManager.getAllComputers()) {
+                // Add tuples for each computer
+                addTuple(computer);
+            }
         }
-
-        releaseLocalDatabaseReference();
 
         // Monitor for network changes to invalidate our PC state
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -834,7 +856,10 @@ public class ComputerManagerService extends Service {
         // FIXME: Should await termination here but we have timeout issues in HttpURLConnection
 
         // Remove the initial DB reference
-        releaseLocalDatabaseReference();
+        HostRepositoryLeaseManager leases = repositoryLeases;
+        if (leases != null) {
+            leases.close();
+        }
     }
 
     private static ExecutorService createEndpointProbeExecutor() {

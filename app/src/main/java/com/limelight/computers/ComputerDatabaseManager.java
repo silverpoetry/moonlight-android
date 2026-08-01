@@ -14,9 +14,6 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
@@ -31,8 +28,6 @@ public final class ComputerDatabaseManager {
     public static final String COMPUTER_DB_NAME = "computers4.db";
 
     private static final int SCHEMA_VERSION = 5;
-    private static final byte[] SQLITE_HEADER =
-            "SQLite format 3\0".getBytes(StandardCharsets.US_ASCII);
     private static final String COMPUTER_TABLE_NAME = "Computers";
     private static final String COMPUTER_UUID_COLUMN_NAME = "UUID";
     private static final String COMPUTER_NAME_COLUMN_NAME = "ComputerName";
@@ -66,47 +61,13 @@ public final class ComputerDatabaseManager {
         String checkedDatabaseName = Objects.requireNonNull(
                 databaseName,
                 "databaseName");
-        validateExistingDatabaseHeader(
+        SQLiteDatabaseFileHeader.requireValidIfPopulated(
                 context.getDatabasePath(checkedDatabaseName));
         computerDb = context.openOrCreateDatabase(
                 checkedDatabaseName,
                 Context.MODE_PRIVATE,
                 null);
         initializeDb(context, migrateLegacyDatabases);
-    }
-
-    private static void validateExistingDatabaseHeader(File databaseFile) {
-        if (!databaseFile.exists() || databaseFile.length() == 0) {
-            return;
-        }
-        if (databaseFile.length() < SQLITE_HEADER.length) {
-            throw new IllegalStateException(
-                    "Host database has an invalid SQLite header");
-        }
-        byte[] header = new byte[SQLITE_HEADER.length];
-        try (FileInputStream input = new FileInputStream(databaseFile)) {
-            int offset = 0;
-            while (offset < header.length) {
-                int read = input.read(
-                        header,
-                        offset,
-                        header.length - offset);
-                if (read < 0) {
-                    throw new IllegalStateException(
-                            "Host database header is truncated");
-                }
-                offset += read;
-            }
-        }
-        catch (IOException error) {
-            throw new IllegalStateException(
-                    "Unable to validate host database",
-                    error);
-        }
-        if (!java.util.Arrays.equals(header, SQLITE_HEADER)) {
-            throw new IllegalStateException(
-                    "Host database has an invalid SQLite header");
-        }
     }
 
     /** Opens an exported database without mutating its schema. */
@@ -178,9 +139,15 @@ public final class ComputerDatabaseManager {
         }
 
         if (migrateLegacyDatabases) {
-            importLegacyComputers(LegacyDatabaseReader.migrateAllComputers(context));
-            importLegacyComputers(LegacyDatabaseReader2.migrateAllComputers(context));
-            importLegacyComputers(LegacyDatabaseReader3.migrateAllComputers(context));
+            migrateLegacyDatabase(
+                    context,
+                    LegacyDatabaseReader.readMigration(context));
+            migrateLegacyDatabase(
+                    context,
+                    LegacyDatabaseReader2.readMigration(context));
+            migrateLegacyDatabase(
+                    context,
+                    LegacyDatabaseReader3.readMigration(context));
         }
     }
 
@@ -198,9 +165,54 @@ public final class ComputerDatabaseManager {
         }
     }
 
+    private void migrateLegacyDatabase(
+            Context context,
+            LegacyHostDatabaseMigration migration) {
+        if (!migration.isReady()) {
+            return;
+        }
+
+        try {
+            importLegacyComputers(migration.getComputers());
+        }
+        catch (RuntimeException error) {
+            LimeLog.warning(
+                    "Legacy host migration failed; preserving its source database");
+            return;
+        }
+        migration.retire(context);
+    }
+
     private void importLegacyComputers(List<ComputerDetails> computers) {
-        for (ComputerDetails computer : computers) {
-            importComputer(computer);
+        computerDb.beginTransaction();
+        try {
+            for (ComputerDetails computer : computers) {
+                insertLegacyComputer(computer);
+            }
+            computerDb.setTransactionSuccessful();
+        }
+        finally {
+            computerDb.endTransaction();
+        }
+    }
+
+    private void insertLegacyComputer(ComputerDetails details) {
+        ContentValues metadata = createComputerMetadata(details);
+        computerDb.insertWithOnConflict(
+                COMPUTER_TABLE_NAME,
+                null,
+                metadata,
+                SQLiteDatabase.CONFLICT_IGNORE);
+
+        if (details.serverCert != null) {
+            ContentValues credential = createCredential(
+                    details.uuid,
+                    details.serverCert);
+            computerDb.insertWithOnConflict(
+                    CREDENTIAL_TABLE_NAME,
+                    null,
+                    credential,
+                    SQLiteDatabase.CONFLICT_IGNORE);
         }
     }
 
@@ -253,6 +265,15 @@ public final class ComputerDatabaseManager {
     }
 
     private boolean writeComputerMetadata(ComputerDetails details) {
+        return computerDb.insertWithOnConflict(
+                COMPUTER_TABLE_NAME,
+                null,
+                createComputerMetadata(details),
+                SQLiteDatabase.CONFLICT_REPLACE) != -1;
+    }
+
+    private static ContentValues createComputerMetadata(
+            ComputerDetails details) {
         ContentValues values = new ContentValues();
         values.put(COMPUTER_UUID_COLUMN_NAME, requireHostId(details));
         values.put(
@@ -261,26 +282,13 @@ public final class ComputerDatabaseManager {
         values.put(ADDRESSES_COLUMN_NAME, encodeAddresses(details));
         values.put(MAC_ADDRESS_COLUMN_NAME, details.macAddress);
         values.putNull(LEGACY_SERVER_CERT_COLUMN_NAME);
-        return computerDb.insertWithOnConflict(
-                COMPUTER_TABLE_NAME,
-                null,
-                values,
-                SQLiteDatabase.CONFLICT_REPLACE) != -1;
+        return values;
     }
 
     private void writePinnedCertificate(
             String hostId,
             X509Certificate certificate) {
-        ContentValues values = new ContentValues();
-        values.put(CREDENTIAL_HOST_ID_COLUMN_NAME, hostId);
-        try {
-            values.put(CREDENTIAL_CERT_COLUMN_NAME, certificate.getEncoded());
-        }
-        catch (CertificateEncodingException error) {
-            throw new IllegalArgumentException(
-                    "Pinned server certificate cannot be encoded",
-                    error);
-        }
+        ContentValues values = createCredential(hostId, certificate);
         if (computerDb.insertWithOnConflict(
                 CREDENTIAL_TABLE_NAME,
                 null,
@@ -289,6 +297,27 @@ public final class ComputerDatabaseManager {
             throw new IllegalStateException(
                     "Unable to persist pinned server certificate");
         }
+    }
+
+    private static ContentValues createCredential(
+            String hostId,
+            X509Certificate certificate) {
+        ContentValues values = new ContentValues();
+        values.put(
+                CREDENTIAL_HOST_ID_COLUMN_NAME,
+                requireNonEmpty(hostId, "hostId"));
+        try {
+            values.put(
+                    CREDENTIAL_CERT_COLUMN_NAME,
+                    Objects.requireNonNull(certificate, "certificate")
+                            .getEncoded());
+        }
+        catch (CertificateEncodingException error) {
+            throw new IllegalArgumentException(
+                    "Pinned server certificate cannot be encoded",
+                    error);
+        }
+        return values;
     }
 
     private static String requireHostId(ComputerDetails details) {

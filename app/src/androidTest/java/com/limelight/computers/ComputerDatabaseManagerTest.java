@@ -4,6 +4,7 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -28,10 +29,14 @@ import org.junit.runner.RunWith;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.security.cert.X509Certificate;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @RunWith(AndroidJUnit4.class)
 public final class ComputerDatabaseManagerTest {
     private static final String DATABASE_NAME = "host-repository-test.db";
+    private static final String LEGACY_DATABASE_NAME = "computers3.db";
+    private static final String MISSING_DATABASE_NAME =
+            "missing-legacy-host-repository-test.db";
 
     private Context context;
     private File cryptoDirectory;
@@ -42,6 +47,8 @@ public final class ComputerDatabaseManagerTest {
                 .getInstrumentation()
                 .getTargetContext();
         context.deleteDatabase(DATABASE_NAME);
+        context.deleteDatabase(LEGACY_DATABASE_NAME);
+        context.deleteDatabase(MISSING_DATABASE_NAME);
         cryptoDirectory = new File(
                 context.getCacheDir(),
                 "host-repository-crypto");
@@ -52,6 +59,8 @@ public final class ComputerDatabaseManagerTest {
     @After
     public void tearDown() {
         context.deleteDatabase(DATABASE_NAME);
+        context.deleteDatabase(LEGACY_DATABASE_NAME);
+        context.deleteDatabase(MISSING_DATABASE_NAME);
         deleteRecursively(cryptoDirectory);
     }
 
@@ -130,6 +139,106 @@ public final class ComputerDatabaseManagerTest {
         assertEquals(corruptBytes.length, databaseFile.length());
     }
 
+    @Test
+    public void missingLegacyDatabaseNeverReachesSQLiteReader() {
+        AtomicBoolean readerCalled = new AtomicBoolean();
+
+        LegacyHostDatabaseMigration migration =
+                LegacyHostDatabaseMigration.read(
+                        context,
+                        MISSING_DATABASE_NAME,
+                        database -> {
+                            readerCalled.set(true);
+                            throw new AssertionError(
+                                    "Missing database must not be opened");
+                        });
+
+        assertFalse(migration.isReady());
+        assertFalse(readerCalled.get());
+        assertFalse(context.getDatabasePath(MISSING_DATABASE_NAME).exists());
+    }
+
+    @Test
+    public void corruptLegacyDatabaseIsPreservedAndCurrentRepositoryOpens()
+            throws Exception {
+        File legacyFile = context.getDatabasePath(LEGACY_DATABASE_NAME);
+        File parent = legacyFile.getParentFile();
+        assertNotNull(parent);
+        assertTrue(parent.exists() || parent.mkdirs());
+        byte[] corruptBytes = new byte[]{4, 3, 2, 1};
+        try (FileOutputStream output = new FileOutputStream(legacyFile)) {
+            output.write(corruptBytes);
+        }
+
+        ComputerDatabaseManager manager = new ComputerDatabaseManager(
+                context,
+                DATABASE_NAME,
+                true);
+
+        assertTrue(manager.getAllComputers().isEmpty());
+        manager.close();
+        assertTrue(legacyFile.exists());
+        assertEquals(corruptBytes.length, legacyFile.length());
+    }
+
+    @Test
+    public void successfulLegacyMigrationDoesNotOverwriteCurrentHost()
+            throws Exception {
+        ComputerDetails current = new ComputerDetails();
+        current.uuid = "existing-host";
+        current.name = "Current host";
+
+        ComputerDatabaseManager initial = new ComputerDatabaseManager(
+                context,
+                DATABASE_NAME,
+                false);
+        assertTrue(initial.importComputer(current));
+        initial.close();
+
+        try (SQLiteDatabase legacy = createLegacy3Database()) {
+            insertLegacy3Computer(
+                    legacy,
+                    "existing-host",
+                    "Stale legacy host");
+            insertLegacy3Computer(
+                    legacy,
+                    "imported-host",
+                    "Imported host");
+        }
+
+        ComputerDatabaseManager migrated = new ComputerDatabaseManager(
+                context,
+                DATABASE_NAME,
+                true);
+
+        assertEquals(
+                "Current host",
+                migrated.getComputerByUUID("existing-host").name);
+        assertEquals(
+                "Imported host",
+                migrated.getComputerByUUID("imported-host").name);
+        migrated.close();
+        assertFalse(context.getDatabasePath(LEGACY_DATABASE_NAME).exists());
+    }
+
+    @Test
+    public void failedLegacyImportRollsBackAndPreservesSource() {
+        try (SQLiteDatabase legacy = createLegacy3Database()) {
+            insertLegacy3Computer(legacy, "valid-host", "Valid host");
+            insertLegacy3Computer(legacy, "invalid-host", null);
+        }
+
+        ComputerDatabaseManager manager = new ComputerDatabaseManager(
+                context,
+                DATABASE_NAME,
+                true);
+
+        assertNull(manager.getComputerByUUID("valid-host"));
+        assertNull(manager.getComputerByUUID("invalid-host"));
+        manager.close();
+        assertTrue(context.getDatabasePath(LEGACY_DATABASE_NAME).exists());
+    }
+
     private X509Certificate createCertificate() {
         Context isolatedContext = new ContextWrapper(context) {
             @Override
@@ -162,6 +271,34 @@ public final class ComputerDatabaseManagerTest {
             values.put("ServerCert", certificate.getEncoded());
             assertTrue(database.insert("Computers", null, values) != -1);
         }
+    }
+
+    private SQLiteDatabase createLegacy3Database() {
+        SQLiteDatabase database = context.openOrCreateDatabase(
+                LEGACY_DATABASE_NAME,
+                Context.MODE_PRIVATE,
+                null);
+        database.execSQL(
+                "CREATE TABLE Computers(" +
+                        "UUID TEXT PRIMARY KEY, " +
+                        "ComputerName TEXT, " +
+                        "Addresses TEXT NOT NULL, " +
+                        "MacAddress TEXT, " +
+                        "ServerCert BLOB)");
+        return database;
+    }
+
+    private static void insertLegacy3Computer(
+            SQLiteDatabase database,
+            String hostId,
+            String name) {
+        ContentValues values = new ContentValues();
+        values.put("UUID", hostId);
+        values.put("ComputerName", name);
+        values.put("Addresses", "192.168.1.2_47989;;;");
+        values.put("MacAddress", "00:11:22:33:44:55");
+        values.putNull("ServerCert");
+        assertTrue(database.insert("Computers", null, values) != -1);
     }
 
     private void assertCredentialWasMovedOutOfLegacyColumn() {
