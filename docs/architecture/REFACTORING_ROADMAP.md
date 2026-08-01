@@ -891,6 +891,10 @@ targets.
   Address tuples are immutable, remote-port correction creates a new value,
   partial probes preserve unobserved endpoints, and probe data cannot copy or
   replace the pinned server certificate.
+- Migrated pinned certificates transactionally from the legacy host column to
+  a dedicated credential table in the existing backup-compatible database.
+  Discovery writes metadata only; pairing and import use explicit credential
+  mutations, and a database-open failure can no longer delete paired hosts.
 
 ### Exit evidence
 

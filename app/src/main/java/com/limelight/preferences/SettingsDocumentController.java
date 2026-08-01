@@ -363,7 +363,7 @@ final class SettingsDocumentController {
             destinationManager =
                     new ComputerDatabaseManager(activity);
             for (ComputerDetails computer : computers) {
-                destinationManager.updateComputer(computer);
+                destinationManager.importComputer(computer);
             }
             showToast(
                     R.string.settings_hosts_import_succeeded,

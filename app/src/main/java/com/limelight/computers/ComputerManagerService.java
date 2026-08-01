@@ -139,7 +139,7 @@ public class ComputerManagerService extends Service {
                 LegacyComputerDetailsMergePolicy.mergeObservation(
                         existingComputer,
                         details);
-                dbManager.updateComputer(existingComputer);
+                dbManager.updateComputerMetadata(existingComputer);
             }
             else {
                 try {
@@ -154,7 +154,7 @@ public class ComputerManagerService extends Service {
                     }
                 } catch (UnknownHostException ignored) {}
 
-                dbManager.updateComputer(details);
+                dbManager.updateComputerMetadata(details);
             }
         }
 
@@ -294,6 +294,34 @@ public class ComputerManagerService extends Service {
             }
 
             return null;
+        }
+
+        public boolean updatePinnedCertificate(
+                String uuid,
+                java.security.cert.X509Certificate certificate) {
+            if (!getLocalDatabaseReference()) {
+                return false;
+            }
+            try {
+                synchronized (pollingTuples) {
+                    for (PollingTuple tuple : pollingTuples) {
+                        if (!uuid.equals(tuple.computer.uuid)) {
+                            continue;
+                        }
+                        synchronized (tuple.networkLock) {
+                            dbManager.updatePinnedCertificate(
+                                    uuid,
+                                    certificate);
+                            tuple.computer.serverCert = certificate;
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+            finally {
+                releaseLocalDatabaseReference();
+            }
         }
 
         public int getComputerCount() {

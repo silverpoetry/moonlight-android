@@ -425,7 +425,12 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                             success = true;
 
                             // Pin this certificate for later HTTPS use
-                            managerBinder.getComputer(computer.uuid).serverCert = pm.getPairedCert();
+                            if (!managerBinder.updatePinnedCertificate(
+                                    computer.uuid,
+                                    pm.getPairedCert())) {
+                                throw new IOException(
+                                        "Unable to persist paired host certificate");
+                            }
 
                             // Invalidate reachability information after pairing to force
                             // a refresh before reading pair state again
