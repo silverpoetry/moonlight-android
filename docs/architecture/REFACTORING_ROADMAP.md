@@ -916,6 +916,16 @@ targets.
   exact persisted host key before writing a certificate. This preserves
   existing mixed-case host databases while keeping domain identity
   case-insensitive.
+- Replaced the hand-written four-thread endpoint race with an immutable,
+  physically deduplicated reachability plan, a pure priority-selection state
+  machine, and one lifecycle-owned bounded executor. The original local,
+  manual, remote, and IPv6 precedence plus the 200 ms upgrade window are
+  frozen by fixtures; interruption cancels outstanding probes, and an
+  unexpected endpoint exception completes as a failed candidate instead of
+  hanging refresh forever.
+- Corrected non-byte-aligned IPv4 subnet matching to compare the most
+  significant prefix bits, and made reachability identity checks use canonical
+  `HostId` equality with an exact-only fallback for malformed legacy records.
 
 ### Exit evidence
 

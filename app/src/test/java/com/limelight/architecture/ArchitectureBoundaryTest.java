@@ -369,6 +369,24 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void hostReachabilityPolicyIsPlatformAndTransportIndependent() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.computers.reachability..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..",
+                        "com.limelight.nvstream..",
+                        "com.limelight.ui..")
+                .because(
+                        "endpoint ordering, selection, and cancellation run through pure ports")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamFailureDiagnosticsDoesNotDependOnConnection() {
         noClasses()
                 .that()

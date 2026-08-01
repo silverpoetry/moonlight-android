@@ -9,9 +9,13 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.UnknownHostException;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -23,6 +27,9 @@ import com.limelight.computers.discovery.HostDiscoveryCandidate;
 import com.limelight.computers.discovery.HostDiscoverySource;
 import com.limelight.computers.model.HostEndpoint;
 import com.limelight.computers.model.HostId;
+import com.limelight.computers.reachability.HostReachabilityCoordinator;
+import com.limelight.computers.reachability.HostReachabilityPlan;
+import com.limelight.computers.reachability.Ipv4SubnetMatcher;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
@@ -55,6 +62,10 @@ public class ComputerManagerService extends Service {
     private static final int EMPTY_LIST_THRESHOLD = 3;
     private static final int POLL_DATA_TTL_MS = 30000;
     private static final int ADDRESS_UPGRADE_GRACE_MS = 200;
+    private static final int ENDPOINT_PROBE_THREADS = 8;
+    private static final int ENDPOINT_PROBE_QUEUE_CAPACITY = 32;
+    private static final AtomicInteger endpointProbeThreadId =
+            new AtomicInteger();
 
     private final ComputerManagerBinder binder = new ComputerManagerBinder();
 
@@ -71,6 +82,8 @@ public class ComputerManagerService extends Service {
     private ConnectivityManager.NetworkCallback networkCallback;
 
     private HostDiscoverySource discoverySource;
+    private ExecutorService endpointProbeExecutor;
+    private HostReachabilityCoordinator reachabilityCoordinator;
 
     // Returns true if the details object was modified
     private boolean runPoll(ComputerDetails details, boolean newPc, int offlineCount) throws InterruptedException {
@@ -572,7 +585,10 @@ public class ComputerManagerService extends Service {
                 return null;
             }
             // details.uuid can be null on initial PC add
-            else if (details.uuid != null && !details.uuid.equals(newDetails.uuid)) {
+            else if (details.uuid != null &&
+                    !sameHostIdentity(
+                            details.uuid,
+                            newDetails.uuid)) {
                 // We got the wrong PC!
                 LimeLog.info("Polling returned the wrong PC!");
                 return null;
@@ -585,84 +601,6 @@ public class ComputerManagerService extends Service {
         } catch (IOException e) {
             return null;
         }
-    }
-
-    private static class ParallelPollTuple {
-        public ComputerDetails.AddressTuple address;
-        public ComputerDetails existingDetails;
-
-        public volatile boolean complete;
-        public Thread pollingThread;
-        public volatile ComputerDetails returnedDetails;
-
-        public ParallelPollTuple(ComputerDetails.AddressTuple address, ComputerDetails existingDetails) {
-            this.address = address;
-            this.existingDetails = existingDetails;
-        }
-
-        public void interrupt() {
-            if (pollingThread != null) {
-                pollingThread.interrupt();
-            }
-        }
-    }
-
-    private void startParallelPollThread(ParallelPollTuple tuple, HashSet<ComputerDetails.AddressTuple> uniqueAddresses,
-                                         final Object completionLock) {
-        // Don't bother starting a polling thread for an address that doesn't exist
-        // or if the address has already been polled with an earlier tuple
-        if (tuple.address == null || !uniqueAddresses.add(tuple.address)) {
-            tuple.complete = true;
-            tuple.returnedDetails = null;
-            synchronized (completionLock) {
-                completionLock.notifyAll();
-            }
-            return;
-        }
-
-        tuple.pollingThread = new Thread() {
-            @Override
-            public void run() {
-                ComputerDetails details = tryPollIp(tuple.existingDetails, tuple.address);
-
-                synchronized (tuple) {
-                    tuple.complete = true; // Done
-                    tuple.returnedDetails = details; // Polling result
-                }
-
-                synchronized (completionLock) {
-                    completionLock.notifyAll();
-                }
-            }
-        };
-        tuple.pollingThread.setName("Host endpoint poll");
-        tuple.pollingThread.start();
-    }
-
-    private static ComputerDetails getReturnedDetails(ParallelPollTuple tuple) {
-        ComputerDetails details = tuple.returnedDetails;
-        if (details != null) {
-            details.activeAddress = tuple.address;
-        }
-        return details;
-    }
-
-    private static boolean hasIncompleteHigherPriorityPoll(ParallelPollTuple[] pollOrder, int bestIndex) {
-        for (int i = 0; i < bestIndex; i++) {
-            if (!pollOrder[i].complete) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean areAllPollsComplete(ParallelPollTuple[] pollOrder) {
-        for (ParallelPollTuple tuple : pollOrder) {
-            if (!tuple.complete) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private boolean isWrongSubnetSiteLocalAddress(ComputerDetails.AddressTuple address) {
@@ -683,19 +621,10 @@ public class ComputerManagerService extends Service {
                         continue;
                     }
 
-                    byte[] targetAddrBytes = targetAddress.getAddress();
-                    byte[] ifaceAddrBytes = ifaceAddress.getAddress().getAddress();
-
-                    boolean addressMatches = true;
-                    for (int i = 0; i < ifaceAddress.getNetworkPrefixLength(); i++) {
-                        if ((ifaceAddrBytes[i / 8] & (1 << (i % 8))) !=
-                                (targetAddrBytes[i / 8] & (1 << (i % 8)))) {
-                            addressMatches = false;
-                            break;
-                        }
-                    }
-
-                    if (addressMatches) {
+                    if (Ipv4SubnetMatcher.isSameSubnet(
+                            targetAddress.getAddress(),
+                            ifaceAddress.getAddress().getAddress(),
+                            ifaceAddress.getNetworkPrefixLength())) {
                         return false;
                     }
                 }
@@ -709,77 +638,92 @@ public class ComputerManagerService extends Service {
         }
     }
 
-    private ComputerDetails parallelPollPc(ComputerDetails details) throws InterruptedException {
-        ParallelPollTuple localInfo = new ParallelPollTuple(details.localAddress, details);
-        ParallelPollTuple manualInfo = new ParallelPollTuple(details.manualAddress, details);
-        ParallelPollTuple remoteInfo = new ParallelPollTuple(details.remoteAddress, details);
-        ParallelPollTuple ipv6Info = new ParallelPollTuple(details.ipv6Address, details);
+    private static boolean sameHostIdentity(
+            String expected,
+            String actual) {
+        try {
+            return HostId.of(expected).equals(HostId.of(actual));
+        }
+        catch (IllegalArgumentException error) {
+            // Preserve exact matching for malformed identifiers already in a
+            // legacy database without allowing them to match another host.
+            return expected.equals(actual);
+        }
+    }
 
+    private ComputerDetails parallelPollPc(ComputerDetails details) throws InterruptedException {
         boolean preferExternalAddress =
                 details.manualAddress != null && isWrongSubnetSiteLocalAddress(details.localAddress);
+        HostReachabilityPlan plan = HostReachabilityPlan.create(
+                toHostEndpoint(
+                        HostEndpoint.Kind.LOCAL_IPV4,
+                        details.localAddress),
+                toHostEndpoint(
+                        HostEndpoint.Kind.MANUAL,
+                        details.manualAddress),
+                toHostEndpoint(
+                        HostEndpoint.Kind.REMOTE,
+                        details.remoteAddress),
+                toHostEndpoint(
+                        HostEndpoint.Kind.LOCAL_IPV6,
+                        details.ipv6Address),
+                preferExternalAddress);
+        HostReachabilityCoordinator.Result<ComputerDetails> result =
+                reachabilityCoordinator.probe(
+                        plan,
+                        endpoint -> pollEndpoint(details, endpoint));
+        return result == null ? null : result.getValue();
+    }
 
-        Object completionLock = new Object();
-
-        ParallelPollTuple[] pollOrder = preferExternalAddress
-                ? new ParallelPollTuple[] { manualInfo, remoteInfo, ipv6Info, localInfo }
-                : new ParallelPollTuple[] { localInfo, manualInfo, remoteInfo, ipv6Info };
-
-        // These must be started in order of precedence for the deduplication algorithm
-        // to result in the correct behavior.
-        HashSet<ComputerDetails.AddressTuple> uniqueAddresses = new HashSet<>();
-        for (ParallelPollTuple tuple : pollOrder) {
-            startParallelPollThread(tuple, uniqueAddresses, completionLock);
+    private ComputerDetails pollEndpoint(
+            ComputerDetails existingDetails,
+            HostEndpoint endpoint) {
+        ComputerDetails.AddressTuple address = getLegacyAddress(
+                existingDetails,
+                endpoint.getKind());
+        if (address == null) {
+            return null;
         }
+        ComputerDetails returnedDetails = tryPollIp(
+                existingDetails,
+                address);
+        if (returnedDetails != null) {
+            returnedDetails.activeAddress = address;
+        }
+        return returnedDetails;
+    }
 
+    private static HostEndpoint toHostEndpoint(
+            HostEndpoint.Kind kind,
+            ComputerDetails.AddressTuple address) {
+        if (address == null) {
+            return null;
+        }
         try {
-            ComputerDetails bestDetails = null;
-            int bestIndex = Integer.MAX_VALUE;
-            long upgradeDeadlineMs = 0;
+            return new HostEndpoint(
+                    kind,
+                    address.address,
+                    address.port);
+        }
+        catch (IllegalArgumentException error) {
+            return null;
+        }
+    }
 
-            synchronized (completionLock) {
-                while (true) {
-                    for (int i = 0; i < pollOrder.length; i++) {
-                        if (pollOrder[i].complete && pollOrder[i].returnedDetails != null && i < bestIndex) {
-                            bestDetails = getReturnedDetails(pollOrder[i]);
-                            bestIndex = i;
-
-                            if (bestIndex == 0) {
-                                return bestDetails;
-                            }
-                            if (upgradeDeadlineMs == 0) {
-                                upgradeDeadlineMs = SystemClock.elapsedRealtime() + ADDRESS_UPGRADE_GRACE_MS;
-                            }
-                        }
-                    }
-
-                    if (bestDetails != null) {
-                        if (!hasIncompleteHigherPriorityPoll(pollOrder, bestIndex)) {
-                            return bestDetails;
-                        }
-
-                        long remainingMs = upgradeDeadlineMs - SystemClock.elapsedRealtime();
-                        if (remainingMs <= 0) {
-                            return bestDetails;
-                        }
-
-                        completionLock.wait(remainingMs);
-                    }
-                    else {
-                        if (areAllPollsComplete(pollOrder)) {
-                            return null;
-                        }
-
-                        completionLock.wait();
-                    }
-                }
-            }
-        } finally {
-            // Stop any further polling if we've found a working address or we've been
-            // interrupted by an attempt to stop polling.
-            localInfo.interrupt();
-            manualInfo.interrupt();
-            remoteInfo.interrupt();
-            ipv6Info.interrupt();
+    private static ComputerDetails.AddressTuple getLegacyAddress(
+            ComputerDetails details,
+            HostEndpoint.Kind kind) {
+        switch (kind) {
+            case LOCAL_IPV4:
+                return details.localAddress;
+            case LOCAL_IPV6:
+                return details.ipv6Address;
+            case REMOTE:
+                return details.remoteAddress;
+            case MANUAL:
+                return details.manualAddress;
+            default:
+                throw new AssertionError("Unhandled endpoint kind");
         }
     }
 
@@ -803,6 +747,11 @@ public class ComputerManagerService extends Service {
 
     @Override
     public void onCreate() {
+        endpointProbeExecutor = createEndpointProbeExecutor();
+        reachabilityCoordinator = new HostReachabilityCoordinator(
+                endpointProbeExecutor,
+                SystemClock::elapsedRealtime,
+                ADDRESS_UPGRADE_GRACE_MS);
         discoverySource = new AndroidMdnsDiscoverySource(
                 this,
                 new HostDiscoverySource.Listener() {
@@ -880,11 +829,35 @@ public class ComputerManagerService extends Service {
         }
 
         discoverySource.close();
+        endpointProbeExecutor.shutdownNow();
 
         // FIXME: Should await termination here but we have timeout issues in HttpURLConnection
 
         // Remove the initial DB reference
         releaseLocalDatabaseReference();
+    }
+
+    private static ExecutorService createEndpointProbeExecutor() {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                ENDPOINT_PROBE_THREADS,
+                ENDPOINT_PROBE_THREADS,
+                30L,
+                TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(
+                        ENDPOINT_PROBE_QUEUE_CAPACITY),
+                command -> new Thread(
+                        command,
+                        "Host endpoint probe " +
+                                endpointProbeThreadId.incrementAndGet()),
+                (command, owner) -> {
+                    if (owner.isShutdown()) {
+                        throw new RejectedExecutionException(
+                                "Host endpoint probing is shut down");
+                    }
+                    command.run();
+                });
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
     }
 
     @Override
