@@ -5,4 +5,8 @@
         <attr name="pressedColor" format="color" />
         <attr name="arrowSize" format="dimension" />
     </declare-styleable>
+    <declare-styleable name="GameMenuSideTabView">
+        <attr name="sideTabIcon" format="reference" />
+        <attr name="sideTabText" format="string" />
+    </declare-styleable>
 </resources>

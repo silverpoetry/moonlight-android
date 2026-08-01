@@ -14,7 +14,6 @@ import java.util.Objects;
 final class SettingsScreenStateFactory {
     private static final String[] FEATURED_SETTING_IDS = new String[] {
             StreamResolutionSettingKeys.RESOLUTION.getName(),
-            StreamResolutionSettingKeys.ASPECT_RATIO.getName(),
             StreamResolutionSettingKeys.FPS.getName(),
             StreamVideoSettingKeys.BITRATE_KBPS.getName(),
             InputSettingKeys.TOUCH_MODE.getName(),

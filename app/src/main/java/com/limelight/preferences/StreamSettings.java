@@ -41,8 +41,12 @@ import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
 public class StreamSettings extends Activity {
     private static final String STATE_SECTION_KEY =
             "settings.selected_section_key";
-    private static final String STATE_SECTION_DETAIL_VISIBLE =
-            "settings.section_detail_visible";
+    private static final String STATE_ROOT_SCROLL_Y =
+            "settings.root_scroll_y";
+    private static final String STATE_SECTION_SCROLL_Y =
+            "settings.section_scroll_y";
+    private static final String STATE_SECTION_RAIL_SCROLL_Y =
+            "settings.section_rail_scroll_y";
 
     private AppPresentationSettings previousPresentationSettings;
     private int previousDisplayPixelCount;
@@ -51,9 +55,9 @@ public class StreamSettings extends Activity {
     private SettingsScreenModel screenModel =
             new SettingsScreenModel(sections);
     private int selectedSectionIndex = -1;
-    private String selectedSectionKey;
+    private final SettingsNavigationState navigationState =
+            new SettingsNavigationState();
     private String nativeFrameRateValue;
-    private boolean sectionDetailVisible;
     private BackNavigationRegistration backNavigationRegistration;
     private SettingsDocumentController documentController;
     private SettingsMutationController mutationController;
@@ -65,13 +69,7 @@ public class StreamSettings extends Activity {
     static DisplayCutout displayCutoutP;
 
     void reloadSettings() {
-        Integer previousScrollY = screenRenderer == null
-                ? null
-                : screenRenderer.captureScrollY();
-        if (screenRenderer != null && screenRenderer.hasContent()) {
-            selectedSectionKey = screenModel.getSectionKey(
-                    screenRenderer.getSelectedSectionIndex());
-        }
+        captureNavigationScroll();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Display.Mode mode = getWindowManager()
@@ -88,18 +86,14 @@ public class StreamSettings extends Activity {
         initializeRuntimeSettings();
         screenModel.removeEmptySections();
         selectedSectionIndex =
-                screenModel.findSectionIndex(selectedSectionKey);
-        if (sectionDetailVisible && selectedSectionIndex < 0) {
-            sectionDetailVisible = false;
+                screenModel.findSectionIndex(
+                        navigationState.getSelectedSectionId());
+        if (navigationState.hasSelectedSection() &&
+                selectedSectionIndex < 0) {
+            navigationState.selectFeatured();
         }
         if (screenRenderer != null) {
-            screenRenderer.setContent(
-                    createScreenState(),
-                    selectedSectionIndex,
-                    sectionDetailVisible,
-                    getCurrentProfileSummary());
-            screenRenderer.render();
-            screenRenderer.restoreScrollY(previousScrollY);
+            renderSettings();
         }
     }
 
@@ -136,11 +130,27 @@ public class StreamSettings extends Activity {
                 layoutRepository,
                 this::reloadSettings);
         if (savedInstanceState != null) {
-            selectedSectionKey = savedInstanceState.getString(
+            String sectionId = savedInstanceState.getString(
                     STATE_SECTION_KEY);
-            sectionDetailVisible = savedInstanceState.getBoolean(
-                    STATE_SECTION_DETAIL_VISIBLE,
-                    false);
+            if (sectionId != null) {
+                navigationState.selectSection(sectionId);
+            }
+            navigationState.setContentScroll(
+                    null,
+                    savedInstanceState.getInt(
+                            STATE_ROOT_SCROLL_Y,
+                            0));
+            if (sectionId != null) {
+                navigationState.setContentScroll(
+                        sectionId,
+                        savedInstanceState.getInt(
+                                STATE_SECTION_SCROLL_Y,
+                                0));
+            }
+            navigationState.setSectionRailScrollY(
+                    savedInstanceState.getInt(
+                            STATE_SECTION_RAIL_SCROLL_Y,
+                            0));
         }
         screenRenderer = createScreenRenderer();
 
@@ -252,16 +262,8 @@ public class StreamSettings extends Activity {
             }
         }
         if (screenRenderer != null) {
-            screenRenderer.render();
-            if (screenRenderer.isWideLayout() &&
-                    sectionDetailVisible) {
-                sectionDetailVisible = false;
-                screenRenderer.setContent(
-                        createScreenState(),
-                        selectedSectionIndex,
-                        false,
-                        getCurrentProfileSummary());
-            }
+            captureNavigationScroll();
+            renderSettings();
         }
     }
 
@@ -273,10 +275,20 @@ public class StreamSettings extends Activity {
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        outState.putString(STATE_SECTION_KEY, selectedSectionKey);
-        outState.putBoolean(
-                STATE_SECTION_DETAIL_VISIBLE,
-                sectionDetailVisible);
+        captureNavigationScroll();
+        String sectionId = navigationState.getSelectedSectionId();
+        outState.putString(STATE_SECTION_KEY, sectionId);
+        outState.putInt(
+                STATE_ROOT_SCROLL_Y,
+                navigationState.getContentScroll(null));
+        if (sectionId != null) {
+            outState.putInt(
+                    STATE_SECTION_SCROLL_Y,
+                    navigationState.getContentScroll(sectionId));
+        }
+        outState.putInt(
+                STATE_SECTION_RAIL_SCROLL_Y,
+                navigationState.getSectionRailScrollY());
     }
 
     @Override
@@ -312,51 +324,57 @@ public class StreamSettings extends Activity {
     }
 
     private void handleBackNavigation() {
-        if (sectionDetailVisible &&
+        if (navigationState.hasSelectedSection() &&
                 screenRenderer != null &&
                 !screenRenderer.isWideLayout()) {
-            sectionDetailVisible = false;
-            selectedSectionKey = null;
+            captureNavigationScroll();
+            navigationState.returnToRoot();
             selectedSectionIndex = -1;
-            screenRenderer.setContent(
-                    createScreenState(),
-                    selectedSectionIndex,
-                    false,
-                    getCurrentProfileSummary());
-            screenRenderer.render();
+            renderSettings();
             return;
         }
         finishAndApplyLanguage();
     }
 
     private void openSection(int sectionIndex) {
+        captureNavigationScroll();
         if (sectionIndex ==
                 SettingsScreenRenderer.FEATURED_SECTION_INDEX) {
-            selectedSectionKey = null;
+            navigationState.selectFeatured();
             selectedSectionIndex =
                     SettingsScreenRenderer.FEATURED_SECTION_INDEX;
-            sectionDetailVisible = false;
-            screenRenderer.setContent(
-                    createScreenState(),
-                    selectedSectionIndex,
-                    false,
-                    getCurrentProfileSummary());
-            screenRenderer.render();
+            renderSettings();
             return;
         }
         String sectionKey = screenModel.getSectionKey(sectionIndex);
         if (sectionKey == null) {
             return;
         }
-        selectedSectionKey = sectionKey;
+        navigationState.selectSection(sectionKey);
         selectedSectionIndex = sectionIndex;
-        sectionDetailVisible = !screenRenderer.isWideLayout();
+        renderSettings();
+    }
+
+    private void captureNavigationScroll() {
+        if (screenRenderer == null || !screenRenderer.hasContent()) {
+            return;
+        }
+        navigationState.captureContentScroll(
+                screenRenderer.captureScrollY());
+        navigationState.captureSectionRailScroll(
+                screenRenderer.captureSectionListScrollY());
+    }
+
+    private void renderSettings() {
         screenRenderer.setContent(
                 createScreenState(),
                 selectedSectionIndex,
-                sectionDetailVisible,
                 getCurrentProfileSummary());
         screenRenderer.render();
+        screenRenderer.restoreScrollY(
+                navigationState.getContentScrollY());
+        screenRenderer.restoreSectionListScrollY(
+                navigationState.getSectionRailScrollY());
     }
 
     private void finishAndApplyLanguage() {

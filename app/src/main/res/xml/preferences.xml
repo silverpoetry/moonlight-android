@@ -114,6 +114,11 @@
             android:entries="@array/screen_gravity_list_names"
             android:entryValues="@array/screen_gravity_list_values"
             android:defaultValue="0" />
+        <CheckBoxPreference
+            android:key="stream.display.external_display"
+            android:title="外接显示器模式（实验性）"
+            android:summary="串流画面显示在外接显示器，控制和性能信息保留在设备屏幕。"
+            android:defaultValue="false" />
     </PreferenceCategory>
 
     <PreferenceCategory
@@ -211,11 +216,6 @@
             android:title="@string/title_checkbox_disable_adaptive_input_throttling"
             android:summary="@string/summary_checkbox_disable_adaptive_input_throttling"
             android:defaultValue="true" />
-    </PreferenceCategory>
-
-    <PreferenceCategory
-        android:key="section_input_sensitivity"
-        android:title="@string/category_input_sensitivity_settings">
         <CheckBoxPreference
             android:key="input.direct_touch.sensitivity_enabled"
             android:title="@string/settings_title_direct_touch_sensitivity"
@@ -333,17 +333,6 @@
             android:max="30"
             seekbar:min="1"
             seekbar:step="1" />
-        <com.limelight.preferences.SeekBarPreference
-            android:key="input.controller.mouse_emulation.sensitivity_percent"
-            android:dependency="input.controller.mouse_emulation.enabled"
-            android:title="@string/settings_title_controller_mouse_sensitivity"
-            android:summary="@string/settings_summary_pointer_sensitivity"
-            android:dialogMessage="@string/settings_summary_pointer_sensitivity"
-            android:text="%"
-            android:defaultValue="100"
-            android:max="300"
-            seekbar:min="10"
-            seekbar:step="1" />
     </PreferenceCategory>
 
     <PreferenceCategory
@@ -398,6 +387,17 @@
             android:entries="@array/analog_scrolling_names"
             android:entryValues="@array/analog_scrolling_values"
             android:defaultValue="right" />
+        <com.limelight.preferences.SeekBarPreference
+            android:key="input.controller.mouse_emulation.sensitivity_percent"
+            android:dependency="input.controller.mouse_emulation.enabled"
+            android:title="@string/settings_title_controller_mouse_sensitivity"
+            android:summary="@string/settings_summary_pointer_sensitivity"
+            android:dialogMessage="@string/settings_summary_pointer_sensitivity"
+            android:text="%"
+            android:defaultValue="100"
+            android:max="300"
+            seekbar:min="10"
+            seekbar:step="1" />
         <CheckBoxPreference
             android:key="input.controller.flip_face_buttons"
             android:title="@string/title_checkbox_flip_face_buttons"
@@ -462,11 +462,6 @@
             android:title="虚拟手柄使用设备陀螺仪"
             android:summary="把手机或平板的运动传感器作为虚拟手柄运动数据。"
             android:defaultValue="false" />
-    </PreferenceCategory>
-
-    <PreferenceCategory
-        android:key="section_haptics"
-        android:title="@string/category_haptics_settings">
         <CheckBoxPreference
             android:key="input.controller.rumble.fallback_to_device"
             android:title="@string/title_checkbox_vibrate_fallback"
@@ -500,11 +495,6 @@
             android:dependency="input.controller.rumble.force_strong"
             android:title="@string/settings_title_stop_strong_vibration_pulse"
             android:summary="@string/settings_summary_stop_strong_vibration_pulse"
-            android:defaultValue="false" />
-        <CheckBoxPreference
-            android:key="stream.ui.rumble_overlay.enabled"
-            android:title="@string/settings_title_rumble_overlay"
-            android:summary="@string/settings_summary_rumble_overlay"
             android:defaultValue="false" />
         <CheckBoxPreference
             android:key="stream.haptics.audio.enabled"
@@ -694,11 +684,6 @@
             android:summary="@string/summary_checkbox_enable_pip"
             android:defaultValue="false" />
         <CheckBoxPreference
-            android:key="stream.display.external_display"
-            android:title="外接显示器模式（实验性）"
-            android:summary="串流画面显示在外接显示器，控制和性能信息保留在设备屏幕。"
-            android:defaultValue="false" />
-        <CheckBoxPreference
             android:key="stream.ui.performance_overlay.enabled"
             android:title="@string/title_enable_perf_overlay"
             android:summary="@string/summary_enable_perf_overlay"
@@ -743,6 +728,16 @@
             android:max="100"
             seekbar:min="0"
             seekbar:step="2" />
+        <CheckBoxPreference
+            android:key="stream.ui.rumble_overlay.enabled"
+            android:title="@string/settings_title_rumble_overlay"
+            android:summary="@string/settings_summary_rumble_overlay"
+            android:defaultValue="false" />
+        <CheckBoxPreference
+            android:key="stream.ui.shortcuts.hide_built_in"
+            android:title="隐藏内置快捷键"
+            android:summary="仅使用自定义导入的快捷键配置。"
+            android:defaultValue="false" />
         <CheckBoxPreference
             android:key="stream.ui.connection_warnings_disabled"
             android:title="@string/title_checkbox_disable_warnings"
@@ -800,11 +795,6 @@
     <PreferenceCategory
         android:key="section_system_accessibility"
         android:title="@string/category_system_accessibility_settings">
-        <CheckBoxPreference
-            android:key="stream.ui.shortcuts.hide_built_in"
-            android:title="隐藏内置快捷键"
-            android:summary="仅使用自定义导入的快捷键配置。"
-            android:defaultValue="false" />
         <CheckBoxPreference
             android:key="stream.ui.game_mode_integration_disabled"
             android:title="禁用系统游戏模式集成"

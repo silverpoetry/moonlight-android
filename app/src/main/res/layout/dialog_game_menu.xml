@@ -15,29 +15,29 @@
         android:background="#99000000"
         android:orientation="vertical">
 
-        <Button
+        <com.limelight.ui.gamemenu.GameMenuSideTabView
             android:id="@+id/btn_soft_function"
             style="@style/GameMenuSideTabButton"
-            android:drawableTop="@drawable/ic_menu_grid"
-            android:text="@string/game_menu_tab_actions" />
+            app:sideTabIcon="@drawable/ic_menu_grid"
+            app:sideTabText="@string/game_menu_tab_actions" />
 
-        <Button
+        <com.limelight.ui.gamemenu.GameMenuSideTabView
             android:id="@+id/btn_soft_keyboard"
             style="@style/GameMenuSideTabButton"
-            android:drawableTop="@drawable/ic_axi_keyboard"
-            android:text="@string/game_menu_tab_keyboard" />
+            app:sideTabIcon="@drawable/ic_axi_keyboard"
+            app:sideTabText="@string/game_menu_tab_keyboard" />
 
-        <Button
+        <com.limelight.ui.gamemenu.GameMenuSideTabView
             android:id="@+id/btn_desktop"
             style="@style/GameMenuSideTabButton"
-            android:drawableTop="@drawable/ic_axi_desktop"
-            android:text="@string/game_menu_tab_desktop" />
+            app:sideTabIcon="@drawable/ic_axi_desktop"
+            app:sideTabText="@string/game_menu_tab_desktop" />
 
-        <Button
+        <com.limelight.ui.gamemenu.GameMenuSideTabView
             android:id="@+id/btn_window"
             style="@style/GameMenuSideTabButton"
-            android:drawableTop="@drawable/ic_axi_window"
-            android:text="@string/game_menu_tab_windows" />
+            app:sideTabIcon="@drawable/ic_axi_window"
+            app:sideTabText="@string/game_menu_tab_windows" />
     </LinearLayout>
 
     <ScrollView

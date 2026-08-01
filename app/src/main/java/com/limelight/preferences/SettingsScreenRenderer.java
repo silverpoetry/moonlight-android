@@ -60,9 +60,9 @@ final class SettingsScreenRenderer {
     private TextView titleView;
     private TextView subtitleView;
     private ScrollView activeContentScrollView;
+    private ScrollView sectionListScrollView;
     private CharSequence profileSummary = "";
     private int selectedSectionIndex = FEATURED_SECTION_INDEX;
-    private boolean sectionDetailVisible;
     private boolean wideLayout;
     private boolean updatingControls;
     private boolean destroyed;
@@ -150,14 +150,12 @@ final class SettingsScreenRenderer {
     void setContent(
             SettingsScreenState state,
             int selectedSectionIndex,
-            boolean sectionDetailVisible,
             CharSequence profileSummary) {
         if (destroyed) {
             return;
         }
         this.state = Objects.requireNonNull(state, "state");
         this.selectedSectionIndex = selectedSectionIndex;
-        this.sectionDetailVisible = sectionDetailVisible;
         this.profileSummary = profileSummary == null
                 ? ""
                 : profileSummary;
@@ -170,12 +168,15 @@ final class SettingsScreenRenderer {
 
         wideLayout = getAvailableWidthDp() >=
                 WIDE_LAYOUT_MIN_WIDTH_DP;
+        activeContentScrollView = null;
+        sectionListScrollView = null;
+        wideItemContainer = null;
         LinearLayout page = createPageContainer();
 
         if (wideLayout) {
             renderWide(page);
         }
-        else if (sectionDetailVisible && selectedSectionIndex >= 0) {
+        else if (selectedSectionIndex >= 0) {
             renderSectionDetail(page, selectedSectionIndex);
         }
         else {
@@ -206,11 +207,25 @@ final class SettingsScreenRenderer {
                 : activeContentScrollView.getScrollY();
     }
 
+    Integer captureSectionListScrollY() {
+        return sectionListScrollView == null
+                ? null
+                : sectionListScrollView.getScrollY();
+    }
+
     void restoreScrollY(Integer scrollY) {
         if (scrollY == null || activeContentScrollView == null) {
             return;
         }
         ScrollView scrollView = activeContentScrollView;
+        scrollView.post(() -> scrollView.scrollTo(0, scrollY));
+    }
+
+    void restoreSectionListScrollY(Integer scrollY) {
+        if (scrollY == null || sectionListScrollView == null) {
+            return;
+        }
+        ScrollView scrollView = sectionListScrollView;
         scrollView.post(() -> scrollView.scrollTo(0, scrollY));
     }
 
@@ -225,8 +240,7 @@ final class SettingsScreenRenderer {
                 ? ""
                 : updatedProfileSummary;
         if (subtitleView != null &&
-                (selectedSectionIndex == FEATURED_SECTION_INDEX ||
-                        (!wideLayout && !sectionDetailVisible))) {
+                selectedSectionIndex == FEATURED_SECTION_INDEX) {
             subtitleView.setText(profileSummary);
         }
         updatingControls = true;
@@ -293,6 +307,7 @@ final class SettingsScreenRenderer {
         listener = null;
         renderedRows.clear();
         activeContentScrollView = null;
+        sectionListScrollView = null;
         wideItemContainer = null;
         state = null;
     }
@@ -319,6 +334,7 @@ final class SettingsScreenRenderer {
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
         ScrollView sectionScroll = createScrollView();
+        sectionListScrollView = sectionScroll;
         LinearLayout sectionList = createVerticalList();
         sectionScroll.addView(sectionList);
         columns.addView(

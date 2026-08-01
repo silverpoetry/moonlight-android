@@ -1,10 +1,11 @@
 package com.limelight.preferences;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertNull;
 
 import android.app.Activity;
 import android.app.Instrumentation;
@@ -135,6 +136,49 @@ public class StreamSettingsRenderingTest {
                                 R.string.settings_featured_settings)));
             }
             assertTrue(visitedSections > 0);
+        }
+        finally {
+            activity.finish();
+        }
+    }
+
+    @Test
+    public void returningFromSectionRestoresRootScrollPosition() {
+        Instrumentation instrumentation =
+                InstrumentationRegistry.getInstrumentation();
+        StreamSettings activity =
+                startSettingsActivity(instrumentation);
+        try {
+            ScrollView rootScroll = findFirst(
+                    activity.getWindow().getDecorView(),
+                    ScrollView.class);
+            SettingsSection firstSection =
+                    SettingsRegistry.load(activity).get(0);
+            TextView sectionTitle = findText(
+                    activity.getWindow().getDecorView(),
+                    firstSection.title);
+            assertNotNull(rootScroll);
+            assertNotNull(sectionTitle);
+
+            instrumentation.runOnMainSync(() -> rootScroll.scrollTo(
+                    0,
+                    rootScroll.getChildAt(0).getHeight()));
+            instrumentation.waitForIdleSync();
+            int expectedScrollY = rootScroll.getScrollY();
+            assertTrue(expectedScrollY > 0);
+
+            View sectionRow =
+                    (View) sectionTitle.getParent().getParent();
+            instrumentation.runOnMainSync(sectionRow::performClick);
+            instrumentation.waitForIdleSync();
+            instrumentation.runOnMainSync(activity::onBackPressed);
+            instrumentation.waitForIdleSync();
+
+            ScrollView restoredScroll = findFirst(
+                    activity.getWindow().getDecorView(),
+                    ScrollView.class);
+            assertNotNull(restoredScroll);
+            assertEquals(expectedScrollY, restoredScroll.getScrollY());
         }
         finally {
             activity.finish();

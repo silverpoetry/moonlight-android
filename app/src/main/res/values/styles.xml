@@ -143,16 +143,15 @@
         <item name="android:textSize">13sp</item>
     </style>
 
-    <style name="GameMenuSideTabButton" parent="@android:style/Widget.Button">
+    <style name="GameMenuSideTabButton">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">0dp</item>
         <item name="android:layout_weight">1</item>
         <item name="android:background">@drawable/ic_game_menu_btn_side_selector</item>
-        <item name="android:drawablePadding">4dp</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
         <item name="android:gravity">center</item>
-        <item name="android:padding">4dp</item>
-        <item name="android:textColor">@color/game_menu_text_selector</item>
-        <item name="android:textSize">11sp</item>
+        <item name="android:padding">6dp</item>
     </style>
 
     <style name="GameMenuCompactButton" parent="@android:style/Widget.Material.Button.Borderless">

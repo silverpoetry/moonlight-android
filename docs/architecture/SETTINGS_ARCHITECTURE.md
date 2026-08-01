@@ -64,10 +64,18 @@ downgrading a future schema version.
 ## Settings-screen information architecture
 
 The screen is organized by user task rather than by feature origin or author:
-video and display, audio, touch and mouse, input sensitivity, gamepad, haptics,
-virtual controls, clipboard and files, stream interface, app appearance,
-system and accessibility, backup and restore, and about. No category represents
-a fork, private build, or implementation layer.
+video and display, audio, touch and mouse (including pointer sensitivity),
+gamepad and haptics, virtual controls, clipboard and files, stream interface,
+app appearance, system and accessibility, backup and restore, and about. No
+category represents a fork, private build, implementation layer, or a single
+fine-tuning concept. External-display controls belong to video and display;
+shortcut and overlay controls belong to stream interface.
+
+Navigation state is independent of the rendered view tree. A stable section ID
+selects the current page, each page owns its own content scroll offset, and the
+wide-layout section rail owns a separate offset. Re-rendering, visiting a detail
+page, or rotating the device therefore cannot reset the user's position or
+mistake a mutable section index for page identity.
 
 Every persisted option exposed by an in-stream editor also has a canonical
 global-settings row. The return menu is reserved for current-session actions,

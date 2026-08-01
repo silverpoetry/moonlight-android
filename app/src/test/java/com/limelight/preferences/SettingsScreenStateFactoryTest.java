@@ -98,6 +98,43 @@ public final class SettingsScreenStateFactoryTest {
         assertTrue(after.findRow(parent.key).isChecked());
     }
 
+    @Test
+    public void aspectRatioIsAvailableInVideoButNotFeatured() {
+        FakeValues values = new FakeValues();
+        SettingsItem resolution = listItem(
+                StreamResolutionSettingKeys.RESOLUTION,
+                "Resolution");
+        resolution.appendEntry(
+                "1080p",
+                StreamResolutionCodec.RESOLUTION_1080P);
+        SettingsItem aspectRatio = listItem(
+                StreamResolutionSettingKeys.ASPECT_RATIO,
+                "Aspect ratio");
+        aspectRatio.appendEntry("16:9", "16_9");
+
+        SettingsSection video = new SettingsSection(
+                "video",
+                "Video",
+                17);
+        video.items.add(resolution);
+        video.items.add(aspectRatio);
+        ArrayList<SettingsSection> sections = new ArrayList<>();
+        sections.add(video);
+
+        SettingsScreenState state = SettingsScreenStateFactory.create(
+                sections,
+                values,
+                "Open");
+
+        assertEquals(1, state.getFeaturedRows().size());
+        assertEquals(
+                resolution.key,
+                state.getFeaturedRows().get(0).getId());
+        assertEquals(
+                aspectRatio.key,
+                state.findRow(aspectRatio.key).getId());
+    }
+
     private static SettingsItem listItem(
             SettingKey<String> key,
             String title) {

@@ -224,7 +224,7 @@
     <string name="pcview_menu_eol">NVIDIA GameStream 終止服務</string>
     <string name="fps_suffix_fps">FPS</string>
     <string name="title_native_fps_dialog">原生 FPS 警告</string>
-    <string name="category_gamepad_settings">手把設定</string>
+    <string name="category_gamepad_settings">手把與震動回饋</string>
     <string name="title_checkbox_gamepad_touchpad_as_mouse">一律使用觸摸板控制滑鼠</string>
     <string name="summary_checkbox_gamepad_motion_sensors">在使用動態感測器模擬手把時啟用支援的主機以要求動態感測器資料，若動態感測器未在遊戲中使用，停用後可能會輕微降低電力和網路使用量。</string>
     <string name="videoformat_h264always">偏好 H.264</string>
@@ -241,7 +241,6 @@
     <string name="accessibility_virtual_controller">虛擬手把</string>
     <string name="category_video_display_settings">視訊與顯示</string>
     <string name="category_touch_mouse_settings">觸控與滑鼠</string>
-    <string name="category_haptics_settings">震動回饋</string>
     <string name="category_virtual_controls_settings">螢幕控制項</string>
     <string name="category_clipboard_file_settings">剪貼簿與檔案</string>
     <string name="category_stream_interface_settings">串流介面</string>

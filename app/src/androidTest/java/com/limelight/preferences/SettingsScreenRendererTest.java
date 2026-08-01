@@ -66,7 +66,6 @@ public final class SettingsScreenRendererTest {
                                 new FalseValues(),
                                 "Open"),
                         0,
-                        true,
                         "Test profile");
                 renderer.render();
 

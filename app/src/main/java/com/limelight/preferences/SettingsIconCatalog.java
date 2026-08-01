@@ -23,12 +23,8 @@ final class SettingsIconCatalog {
                 return R.drawable.ic_axi_mic;
             case SettingsScreenIds.SECTION_TOUCH_MOUSE:
                 return R.drawable.ic_axi_touch_all;
-            case SettingsScreenIds.SECTION_INPUT_SENSITIVITY:
-                return R.drawable.ic_axi_touch_sensitivity;
             case SettingsScreenIds.SECTION_GAMEPAD:
                 return R.drawable.ic_axi_game_pad;
-            case SettingsScreenIds.SECTION_HAPTICS:
-                return R.drawable.ic_axi_vibrate;
             case SettingsScreenIds.SECTION_VIRTUAL_CONTROLS:
                 return R.drawable.ic_axi_game_control_dpad;
             case SettingsScreenIds.SECTION_CLIPBOARD_FILES:

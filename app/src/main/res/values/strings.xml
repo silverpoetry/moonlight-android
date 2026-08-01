@@ -162,7 +162,7 @@
     <string name="title_checkbox_enable_audiofx">Enable system equalizer support</string>
     <string name="summary_checkbox_enable_audiofx">Allows audio effects to function while streaming, but may increase audio latency</string>
 
-    <string name="category_gamepad_settings">Gamepad Settings</string>
+    <string name="category_gamepad_settings">Gamepad and Haptics</string>
     <string name="title_checkbox_multi_controller">Automatic gamepad presence detection</string>
     <string name="summary_checkbox_multi_controller">Unchecking this option forces a gamepad to always be present</string>
     <string name="title_checkbox_vibrate_fallback">Emulate rumble support with vibration</string>
@@ -732,8 +732,6 @@
     <string name="settings_invalid_bitrate">请输入 0–9999 的数值</string>
     <string name="category_video_display_settings">视频与显示</string>
     <string name="category_touch_mouse_settings">触控与鼠标</string>
-    <string name="category_input_sensitivity_settings">输入灵敏度</string>
-    <string name="category_haptics_settings">震动反馈</string>
     <string name="category_virtual_controls_settings">屏幕控件</string>
     <string name="category_clipboard_file_settings">剪贴板与文件</string>
     <string name="category_stream_interface_settings">串流界面</string>
