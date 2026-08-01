@@ -1549,3 +1549,21 @@ Verification on 2026-07-31:
   passed all 15 repository migration/backup tests, then `verifyConnected`
   passed the complete 144-test NonRoot and 144-test Root suites with zero
   failures, errors, or skips.
+
+## Make host runtime state immutable
+
+- Replaced every service-owned mutable `ComputerDetails` field with an
+  immutable `HostRuntimeSnapshot`. Per-host slots now publish a complete
+  replacement after server-info, app-list, credential, reachability, and
+  invalidation transitions instead of mutating shared protocol data.
+- Added a credential-free `HostRuntimeObservation` and deterministic
+  `HostRuntimeMergePolicy`. Probe data cannot replace a pinned certificate,
+  partial observations retain repository-owned aliases and unobserved
+  endpoints, reported external-port corrections create new endpoint values,
+  and cross-host merges are rejected.
+- Centralized remaining NvHTTP conversion in `LegacyHostRuntimeAdapter` and
+  added an executable architecture rule preventing the host service or its
+  nested lifecycle owners from storing mutable `ComputerDetails` fields.
+- Focused runtime-adapter and architecture-boundary JVM tests pass on the
+  NonRoot Debug variant; the complete release gate remains required before
+  Phase 7 closes.

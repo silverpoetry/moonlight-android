@@ -8,6 +8,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 
 /**
  * Executable dependency rules for boundaries that have completed migration.
@@ -381,6 +382,25 @@ public final class ArchitectureBoundaryTest {
                         "com.limelight.ui..")
                 .because(
                         "host application policy depends on an immutable repository port, not SQLite or protocol DTOs")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void hostServiceDoesNotStoreMutableProtocolDtos() {
+        noFields()
+                .that()
+                .areDeclaredInClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.ComputerManagerService")
+                .or()
+                .areDeclaredInClassesThat()
+                .haveNameMatching(
+                        "com\\.limelight\\.computers\\.ComputerManagerService\\$.*")
+                .should()
+                .haveRawType(
+                        "com.limelight.nvstream.http.ComputerDetails")
+                .because(
+                        "the host service stores only immutable runtime snapshots and converts mutable protocol DTOs at its edges")
                 .check(productionClasses);
     }
 

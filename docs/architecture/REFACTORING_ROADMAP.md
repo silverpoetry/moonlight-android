@@ -1001,6 +1001,12 @@ targets.
   closes its database, and restore
   validates every identity, endpoint, MAC address, and certificate before its
   first destination write.
+- Replaced the host service's long-lived mutable `ComputerDetails` records with
+  immutable runtime snapshots. Server-info probes now produce credential-free
+  observations, one pure merge policy preserves repository-owned aliases,
+  endpoints, and pinned certificates, and app-list, network, pairing, and
+  polling transitions publish replacement values. Mutable NvHTTP DTOs exist
+  only inside the legacy transport adapter and detached binder callbacks.
 
 ### Exit evidence
 

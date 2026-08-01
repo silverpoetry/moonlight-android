@@ -12,7 +12,6 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -30,8 +29,12 @@ import com.limelight.computers.discovery.AndroidMdnsDiscoverySource;
 import com.limelight.computers.discovery.HostDiscoveryCandidate;
 import com.limelight.computers.discovery.HostDiscoverySource;
 import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
+import com.limelight.computers.model.HostConnectionState;
 import com.limelight.computers.model.HostEndpoint;
 import com.limelight.computers.model.HostId;
+import com.limelight.computers.model.HostRuntimeMergePolicy;
+import com.limelight.computers.model.HostRuntimeObservation;
+import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.computers.model.PersistedHost;
 import com.limelight.computers.reachability.HostReachabilityCoordinator;
 import com.limelight.computers.reachability.HostReachabilityPlan;
@@ -40,7 +43,6 @@ import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
-import com.limelight.nvstream.http.PairingManager;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.NetHelper;
 
@@ -78,9 +80,9 @@ public class ComputerManagerService extends Service {
     private HostRepositoryLeaseManager repositoryLeases;
 
     private IdentityManager idManager;
-    // Lock order for host state is networkLock -> stateLock -> pollingTuples.
-    // Code holding pollingTuples must never acquire either tuple lock.
-    private final LinkedList<PollingTuple> pollingTuples = new LinkedList<>();
+    // Lock order for host state is networkLock -> stateLock -> hostSlots.
+    // Code holding hostSlots must never acquire either slot lock.
+    private final List<HostRuntimeSlot> hostSlots = new ArrayList<>();
     private final Object pollingLifecycleLock = new Object();
     private final HostPollingOwnership<ComputerManagerListener>
             pollingOwnership = new HostPollingOwnership<>();
@@ -99,9 +101,7 @@ public class ComputerManagerService extends Service {
     private HostReachabilityCoordinator reachabilityCoordinator;
 
     private boolean runPoll(
-            ComputerDetails target,
-            PollingTuple registeredTuple,
-            boolean newPc,
+            HostRuntimeSlot slot,
             int offlineCount) throws InterruptedException {
         HostRepositoryLeaseManager.Lease repositoryLease =
                 acquireRepositoryLease();
@@ -113,160 +113,142 @@ public class ComputerManagerService extends Service {
                         activePolls.begin();
                 HostRepositoryLeaseManager.Lease ignoredRepository =
                         repositoryLease) {
-            ComputerDetails observation;
+            HostRuntimeSnapshot source;
             int pollTriesBeforeOffline;
-            if (registeredTuple == null) {
-                observation = ComputerDetailsSnapshot.copyOf(target);
-                pollTriesBeforeOffline =
-                        target.state == ComputerDetails.State.UNKNOWN ?
-                                INITIAL_POLL_TRIES : OFFLINE_POLL_TRIES;
-            }
-            else {
-                synchronized (registeredTuple.stateLock) {
-                    if (!isRegistered(registeredTuple)) {
-                        return false;
-                    }
-                    observation = ComputerDetailsSnapshot.copyOf(target);
-                    pollTriesBeforeOffline =
-                            target.state == ComputerDetails.State.UNKNOWN ?
-                                    INITIAL_POLL_TRIES : OFFLINE_POLL_TRIES;
-                }
-            }
-
-            // Poll the machine
-            if (!pollComputer(observation)) {
-                if (!newPc && offlineCount < pollTriesBeforeOffline) {
-                    // Return without calling the listener
+            synchronized (slot.stateLock) {
+                if (!isRegistered(slot)) {
                     return false;
                 }
-
-                observation.state = ComputerDetails.State.OFFLINE;
+                source = slot.snapshot;
+                pollTriesBeforeOffline = source.getConnectionState()
+                        .getReachability() ==
+                        HostConnectionState.Reachability.UNKNOWN
+                                ? INITIAL_POLL_TRIES
+                                : OFFLINE_POLL_TRIES;
             }
 
-            Object stateLock = registeredTuple == null ?
-                    target : registeredTuple.stateLock;
-            ComputerDetails published;
-            synchronized (stateLock) {
-                if (registeredTuple != null &&
-                        !isRegistered(registeredTuple)) {
+            HostRuntimeObservation observation = pollRuntimeHost(
+                    source,
+                    false);
+            if (observation == null &&
+                    offlineCount < pollTriesBeforeOffline) {
+                // Preserve the last published state during the retry window.
+                return false;
+            }
+
+            HostRuntimeSnapshot published;
+            synchronized (slot.stateLock) {
+                if (!isRegistered(slot)) {
                     return false;
                 }
-
-                // If it's online, update our persistent state
-                if (observation.state == ComputerDetails.State.ONLINE) {
-                    PersistedHost existingHost = hostRepository.findHost(
-                            HostId.of(observation.uuid));
-                    ComputerDetails existingComputer =
-                            existingHost == null
-                                    ? null
-                                    : LegacyHostDetailsAdapter
-                                            .toComputerDetails(
-                                                    existingHost);
-
-                    // Check if it's in the database because it could have been
-                    // removed after this was issued
-                    if (!newPc && existingComputer == null) {
+                HostRuntimeSnapshot current = slot.snapshot;
+                if (observation != null) {
+                    if (hostRepository.findHost(
+                            current.getRecord().getIdentity().getId()) == null) {
                         return false;
                     }
-
-                    // Preserve endpoints absent from a partial observation.
-                    if (existingComputer != null) {
-                        LegacyComputerDetailsMergePolicy.mergeObservation(
-                                existingComputer,
-                                observation);
-                        hostRepository.updateHostMetadata(
-                                LegacyHostDetailsAdapter.toHostRecord(
-                                        existingComputer,
-                                        existingHost.getRecord()
-                                                .getIdentity()
-                                                .getUserAlias()));
-                        LegacyComputerDetailsMergePolicy.mergeObservation(
-                                target,
-                                existingComputer);
-                    }
-                    else {
-                        try {
-                            // Populate a guessed external endpoint only for a
-                            // newly discovered local host.
-                            if (observation.remoteAddress == null) {
-                                InetAddress addr = InetAddress.getByName(
-                                        observation.activeAddress.address);
-                                if (addr.isSiteLocalAddress()) {
-                                    populateExternalAddress(observation);
-                                }
-                            }
-                        }
-                        catch (UnknownHostException ignoredError) {
-                        }
-
-                        hostRepository.updateHostMetadata(
-                                LegacyHostDetailsAdapter.toHostRecord(
-                                        observation));
-                        LegacyComputerDetailsMergePolicy.mergeObservation(
-                                target,
-                                observation);
-                    }
+                    published = HostRuntimeMergePolicy.merge(
+                            current,
+                            observation);
+                    persistHostMetadata(published);
                 }
                 else {
-                    LegacyComputerDetailsMergePolicy.mergeObservation(
-                            target,
-                            observation);
+                    published = current.withReachability(
+                            HostConnectionState.Reachability.OFFLINE);
                 }
-
-                published = ComputerDetailsSnapshot.copyOf(target);
+                slot.snapshot = published;
             }
 
-            // Don't call the listener if this is a failed lookup of a new PC
-            if (!newPc || published.state == ComputerDetails.State.ONLINE) {
-                notifyComputerUpdated(published);
-            }
-
+            notifyComputerUpdated(published);
             return true;
         }
     }
 
-    private boolean runPoll(
-            PollingTuple tuple,
-            int offlineCount) throws InterruptedException {
-        return runPoll(
-                tuple.computer,
-                tuple,
-                false,
-                offlineCount);
+    private HostRuntimeSnapshot runNewComputerPoll(
+            HostRuntimeSnapshot source,
+            HostRuntimeSlot expectedExistingSlot)
+            throws InterruptedException {
+        HostRepositoryLeaseManager.Lease repositoryLease =
+                acquireRepositoryLease();
+        if (repositoryLease == null) {
+            return null;
+        }
+        try (InFlightOperationTracker.Lease ignoredOperation =
+                        activePolls.begin();
+                HostRepositoryLeaseManager.Lease ignoredRepository =
+                        repositoryLease) {
+            PersistedHost persistedHost = hostRepository.findHost(
+                    source.getRecord().getIdentity().getId());
+            boolean newHost = persistedHost == null;
+            HostRuntimeSnapshot pollSource = source;
+            if (expectedExistingSlot == null && persistedHost != null) {
+                pollSource = HostRuntimeMergePolicy
+                        .rebaseOnPersistedHost(source, persistedHost);
+            }
+            HostRuntimeObservation observation = pollRuntimeHost(
+                    pollSource,
+                    newHost);
+            if (observation == null) {
+                return null;
+            }
+            HostRuntimeSnapshot published;
+            if (expectedExistingSlot == null) {
+                published = HostRuntimeMergePolicy.merge(
+                        pollSource,
+                        observation);
+                persistHostMetadata(published);
+            }
+            else {
+                synchronized (expectedExistingSlot.stateLock) {
+                    if (!isRegistered(expectedExistingSlot)) {
+                        return null;
+                    }
+                    published = HostRuntimeMergePolicy.merge(
+                            expectedExistingSlot.snapshot,
+                            observation);
+                    persistHostMetadata(published);
+                    expectedExistingSlot.snapshot = published;
+                }
+            }
+            notifyComputerUpdated(published);
+            return published;
+        }
     }
 
-    private boolean runNewComputerPoll(
-            ComputerDetails details) throws InterruptedException {
-        return runPoll(details, null, true, 0);
+    private void persistHostMetadata(HostRuntimeSnapshot snapshot) {
+        if (!hostRepository.updateHostMetadata(snapshot.getRecord())) {
+            throw new IllegalStateException(
+                    "Unable to persist host metadata");
+        }
     }
 
-    private Thread createPollingThread(final PollingTuple tuple) {
+    private Thread createPollingThread(final HostRuntimeSlot slot) {
         Thread t = new Thread() {
             @Override
             public void run() {
 
                 int offlineCount = 0;
-                while (!isInterrupted() && pollingActive && tuple.thread == this) {
+                while (!isInterrupted() && pollingActive && slot.thread == this) {
                     try {
                         // Only allow one request to the machine at a time
-                        tuple.networkLock.lockInterruptibly();
+                        slot.networkLock.lockInterruptibly();
                         try {
                             // stopPolling() may have invalidated this worker
                             // while it was waiting for an app-list request.
-                            if (!isPollingThreadCurrent(tuple, this)) {
+                            if (!isPollingThreadCurrent(slot, this)) {
                                 break;
                             }
                             // Check if this poll has modified the details
-                            if (!runPoll(tuple, offlineCount)) {
+                            if (!runPoll(slot, offlineCount)) {
                                 LimeLog.warning("Host is offline (attempt " + offlineCount + ")");
                                 offlineCount++;
                             } else {
-                                tuple.lastSuccessfulPollMs = SystemClock.elapsedRealtime();
+                                slot.lastSuccessfulPollMs = SystemClock.elapsedRealtime();
                                 offlineCount = 0;
                             }
                         }
                         finally {
-                            tuple.networkLock.unlock();
+                            slot.networkLock.unlock();
                         }
 
                         // Wait until the next polling interval
@@ -363,11 +345,14 @@ public class ComputerManagerService extends Service {
         }
 
         public ComputerDetails getComputer(String uuid) {
-            PollingTuple match = null;
-            synchronized (pollingTuples) {
-                for (PollingTuple tuple : pollingTuples) {
-                    if (sameHostIdentity(uuid, tuple.computer.uuid)) {
-                        match = tuple;
+            HostRuntimeSlot match = null;
+            synchronized (hostSlots) {
+                for (HostRuntimeSlot slot : hostSlots) {
+                    if (sameHostIdentity(
+                            uuid,
+                            slot.snapshot.getRecord()
+                                    .getIdentity().getId().getValue())) {
+                        match = slot;
                         break;
                     }
                 }
@@ -376,16 +361,20 @@ public class ComputerManagerService extends Service {
                 return null;
             }
             synchronized (match.stateLock) {
-                return ComputerDetailsSnapshot.copyOf(match.computer);
+                return LegacyHostRuntimeAdapter.toComputerDetails(
+                        match.snapshot);
             }
         }
 
         public ComputerDetails getComputerByName(String name) {
-            PollingTuple match = null;
-            synchronized (pollingTuples) {
-                for (PollingTuple tuple : pollingTuples) {
-                    if (Objects.equals(name, tuple.computer.name)) {
-                        match = tuple;
+            HostRuntimeSlot match = null;
+            synchronized (hostSlots) {
+                for (HostRuntimeSlot slot : hostSlots) {
+                    if (Objects.equals(
+                            name,
+                            slot.snapshot.getRecord().getIdentity()
+                                    .getAdvertisedName())) {
+                        match = slot;
                         break;
                     }
                 }
@@ -394,13 +383,14 @@ public class ComputerManagerService extends Service {
                 return null;
             }
             synchronized (match.stateLock) {
-                return ComputerDetailsSnapshot.copyOf(match.computer);
+                return LegacyHostRuntimeAdapter.toComputerDetails(
+                        match.snapshot);
             }
         }
 
         public int getComputerCount() {
-            synchronized (pollingTuples) {
-                return pollingTuples.size();
+            synchronized (hostSlots) {
+                return hostSlots.size();
             }
         }
 
@@ -409,12 +399,12 @@ public class ComputerManagerService extends Service {
         }
 
         public void invalidateStateForComputer(HostId hostId) {
-            PollingTuple match = null;
-            synchronized (pollingTuples) {
-                for (PollingTuple tuple : pollingTuples) {
-                    if (hostId.equals(HostId.of(
-                            tuple.computer.uuid))) {
-                        match = tuple;
+            HostRuntimeSlot match = null;
+            synchronized (hostSlots) {
+                for (HostRuntimeSlot slot : hostSlots) {
+                    if (hostId.equals(slot.snapshot.getRecord()
+                            .getIdentity().getId())) {
+                        match = slot;
                         break;
                     }
                 }
@@ -433,8 +423,8 @@ public class ComputerManagerService extends Service {
                 try {
                     synchronized (match.stateLock) {
                         if (isRegistered(match)) {
-                            match.computer.state =
-                                    ComputerDetails.State.UNKNOWN;
+                            match.snapshot = match.snapshot.withReachability(
+                                    HostConnectionState.Reachability.UNKNOWN);
                         }
                     }
                 }
@@ -447,31 +437,31 @@ public class ComputerManagerService extends Service {
 
     private void initializePolling(
             HostPollingOwnership.Token ownerToken) {
-        List<PollingTuple> tuples;
-        synchronized (pollingTuples) {
-            tuples = new ArrayList<>(pollingTuples);
+        List<HostRuntimeSlot> slots;
+        synchronized (hostSlots) {
+            slots = new ArrayList<>(hostSlots);
         }
-        for (PollingTuple tuple : tuples) {
-            ComputerDetails initialSnapshot;
-            synchronized (tuple.stateLock) {
+        for (HostRuntimeSlot slot : slots) {
+            HostRuntimeSnapshot initialSnapshot;
+            synchronized (slot.stateLock) {
                 if (SystemClock.elapsedRealtime() -
-                        tuple.lastSuccessfulPollMs > POLL_DATA_TTL_MS) {
+                        slot.lastSuccessfulPollMs > POLL_DATA_TTL_MS) {
                     LimeLog.info("Timing out stale host state");
-                    tuple.computer.state = ComputerDetails.State.UNKNOWN;
+                    slot.snapshot = slot.snapshot.withReachability(
+                            HostConnectionState.Reachability.UNKNOWN);
                 }
-                initialSnapshot = ComputerDetailsSnapshot.copyOf(
-                        tuple.computer);
+                initialSnapshot = slot.snapshot;
             }
 
             notifyComputerUpdated(ownerToken, initialSnapshot);
 
-            synchronized (pollingTuples) {
-                // This tuple or owner may have changed during its callback.
+            synchronized (hostSlots) {
+                // This slot or owner may have changed during its callback.
                 if (pollingOwnership.owns(ownerToken) &&
-                        pollingTuples.contains(tuple) &&
-                        tuple.thread == null) {
-                    tuple.thread = createPollingThread(tuple);
-                    tuple.thread.start();
+                        hostSlots.contains(slot) &&
+                        slot.thread == null) {
+                    slot.thread = createPollingThread(slot);
+                    slot.thread.start();
                 }
             }
         }
@@ -537,11 +527,11 @@ public class ComputerManagerService extends Service {
 
     private void stopPollingInfrastructure() {
         pollingActive = false;
-        synchronized (pollingTuples) {
-            for (PollingTuple tuple : pollingTuples) {
-                if (tuple.thread != null) {
-                    tuple.thread.interrupt();
-                    tuple.thread = null;
+        synchronized (hostSlots) {
+            for (HostRuntimeSlot slot : hostSlots) {
+                if (slot.thread != null) {
+                    slot.thread.interrupt();
+                    slot.thread = null;
                 }
             }
         }
@@ -681,14 +671,14 @@ public class ComputerManagerService extends Service {
                 if (repositoryLease == null) {
                     return false;
                 }
-                PollingTuple match = null;
-                synchronized (pollingTuples) {
-                    for (PollingTuple tuple : pollingTuples) {
-                        if (!hostId.equals(HostId.of(
-                                tuple.computer.uuid))) {
+                HostRuntimeSlot match = null;
+                synchronized (hostSlots) {
+                    for (HostRuntimeSlot slot : hostSlots) {
+                        if (!hostId.equals(slot.snapshot.getRecord()
+                                .getIdentity().getId())) {
                             continue;
                         }
-                        match = tuple;
+                        match = slot;
                         break;
                     }
                 }
@@ -699,10 +689,13 @@ public class ComputerManagerService extends Service {
                     if (!isRegistered(match)) {
                         return false;
                     }
+                    HostId persistedHostId = match.snapshot.getRecord()
+                            .getIdentity().getId();
                     hostRepository.updatePinnedCertificate(
-                            HostId.of(match.computer.uuid),
+                            persistedHostId,
                             certificate);
-                    match.computer.serverCert = certificate;
+                    match.snapshot = match.snapshot
+                            .withPinnedCertificate(certificate);
                     return true;
                 }
             }
@@ -720,20 +713,23 @@ public class ComputerManagerService extends Service {
         }
     }
 
-    private boolean isRegistered(PollingTuple tuple) {
-        synchronized (pollingTuples) {
-            return pollingTuples.contains(tuple);
+    private boolean isRegistered(HostRuntimeSlot slot) {
+        synchronized (hostSlots) {
+            return hostSlots.contains(slot);
         }
     }
 
-    private PollingTuple findPollingTuple(String uuid) {
+    private HostRuntimeSlot findHostSlot(String uuid) {
         if (uuid == null) {
             return null;
         }
-        synchronized (pollingTuples) {
-            for (PollingTuple tuple : pollingTuples) {
-                if (sameHostIdentity(uuid, tuple.computer.uuid)) {
-                    return tuple;
+        synchronized (hostSlots) {
+            for (HostRuntimeSlot slot : hostSlots) {
+                if (sameHostIdentity(
+                        uuid,
+                        slot.snapshot.getRecord()
+                                .getIdentity().getId().getValue())) {
+                    return slot;
                 }
             }
         }
@@ -741,74 +737,77 @@ public class ComputerManagerService extends Service {
     }
 
     private boolean isPollingThreadCurrent(
-            PollingTuple tuple,
+            HostRuntimeSlot slot,
             Thread worker) {
         return pollingActive &&
-                tuple.thread == worker &&
-                isRegistered(tuple);
+                slot.thread == worker &&
+                isRegistered(slot);
     }
 
-    private void notifyComputerUpdated(ComputerDetails details) {
+    private void notifyComputerUpdated(HostRuntimeSnapshot snapshot) {
         ComputerManagerListener currentListener =
                 pollingOwnership.getListener();
         if (currentListener != null) {
             currentListener.notifyComputerUpdated(
-                    ComputerDetailsSnapshot.copyOf(details));
+                    LegacyHostRuntimeAdapter.toComputerDetails(snapshot));
         }
     }
 
     private void notifyComputerUpdated(
             HostPollingOwnership.Token ownerToken,
-            ComputerDetails details) {
+            HostRuntimeSnapshot snapshot) {
         ComputerManagerListener currentListener =
                 pollingOwnership.getListener(ownerToken);
         if (currentListener != null) {
             currentListener.notifyComputerUpdated(
-                    ComputerDetailsSnapshot.copyOf(details));
+                    LegacyHostRuntimeAdapter.toComputerDetails(snapshot));
         }
     }
 
-    private void addTuple(ComputerDetails details) {
-        PollingTuple tuple = null;
+    private void addHostSlot(HostRuntimeSnapshot snapshot) {
+        HostRuntimeSlot slot = null;
         Thread threadToStart = null;
         boolean created = false;
-        synchronized (pollingTuples) {
-            for (PollingTuple candidate : pollingTuples) {
+        synchronized (hostSlots) {
+            for (HostRuntimeSlot candidate : hostSlots) {
                 // Check if this is the same computer
-                if (sameHostIdentity(
-                        candidate.computer.uuid,
-                        details.uuid)) {
-                    tuple = candidate;
+                if (candidate.snapshot.getRecord().getIdentity().getId()
+                        .equals(snapshot.getRecord().getIdentity().getId())) {
+                    slot = candidate;
                     break;
                 }
             }
 
-            if (tuple == null) {
-                tuple = new PollingTuple(
-                        ComputerDetailsSnapshot.copyOf(details),
-                        null);
-                pollingTuples.add(tuple);
+            if (slot == null) {
+                slot = new HostRuntimeSlot(snapshot, null);
+                hostSlots.add(slot);
                 created = true;
             }
         }
 
         if (!created) {
-            synchronized (tuple.stateLock) {
-                if (!isRegistered(tuple)) {
+            synchronized (slot.stateLock) {
+                if (!isRegistered(slot)) {
                     return;
                 }
-                LegacyComputerDetailsMergePolicy.mergeObservation(
-                        tuple.computer,
-                        details);
+                HostRuntimeSnapshot current = slot.snapshot;
+                slot.snapshot = new HostRuntimeSnapshot(
+                        new PersistedHost(
+                                snapshot.getRecord(),
+                                current.getPersistedHost()
+                                        .getPinnedCertificate()),
+                        snapshot.getConnectionState(),
+                        current.getRawAppList(),
+                        snapshot.isNvidiaServer());
             }
         }
 
-        synchronized (pollingTuples) {
+        synchronized (hostSlots) {
             if (pollingActive &&
-                    pollingTuples.contains(tuple) &&
-                    tuple.thread == null) {
-                tuple.thread = createPollingThread(tuple);
-                threadToStart = tuple.thread;
+                    hostSlots.contains(slot) &&
+                    slot.thread == null) {
+                slot.thread = createPollingThread(slot);
+                threadToStart = slot.thread;
             }
         }
         if (threadToStart != null) {
@@ -846,43 +845,79 @@ public class ComputerManagerService extends Service {
             return false;
         }
 
-        PollingTuple match = findPollingTuple(candidate.uuid);
+        HostRuntimeSnapshot candidateSnapshot;
+        HostRuntimeObservation candidateObservation;
+        try {
+            candidateSnapshot =
+                    LegacyHostRuntimeAdapter.fromComputerDetails(
+                            candidate,
+                            null);
+            candidateObservation =
+                    LegacyHostRuntimeAdapter.toObservation(candidate);
+        }
+        catch (IllegalArgumentException error) {
+            LimeLog.warning("Host returned invalid runtime state");
+            return false;
+        }
+
+        HostRuntimeSlot match = findHostSlot(candidate.uuid);
         if (match == null) {
-            return finishComputerAdmission(candidate);
+            return finishComputerAdmission(
+                    candidateSnapshot,
+                    null);
         }
 
         // Once identity is known, serialize the credential-aware probe with
         // all server-info and app-list traffic for the existing host.
-        match.networkLock.lockInterruptibly();
+        HostRuntimeSlot lockedSlot = match;
+        lockedSlot.networkLock.lockInterruptibly();
         try {
-            synchronized (match.stateLock) {
-                if (!isRegistered(match)) {
-                    return finishComputerAdmission(candidate);
+            HostRuntimeSnapshot seed;
+            HostRuntimeSlot expectedExistingSlot;
+            synchronized (lockedSlot.stateLock) {
+                if (!isRegistered(lockedSlot)) {
+                    return false;
                 }
-                candidate.serverCert = match.computer.serverCert;
+                seed = HostRuntimeMergePolicy.merge(
+                        lockedSlot.snapshot,
+                        candidateObservation);
+                expectedExistingSlot = lockedSlot;
             }
-            return finishComputerAdmission(candidate);
+            return finishComputerAdmission(
+                    seed,
+                    expectedExistingSlot);
         }
         finally {
-            match.networkLock.unlock();
+            lockedSlot.networkLock.unlock();
         }
     }
 
-    private boolean finishComputerAdmission(ComputerDetails candidate)
+    private boolean finishComputerAdmission(
+            HostRuntimeSnapshot seed,
+            HostRuntimeSlot expectedExistingSlot)
             throws InterruptedException {
         // Probe again with the pinned certificate, if one was found, to obtain
         // authoritative pairing state before committing the host record.
-        runNewComputerPoll(candidate);
-        if (candidate.state != ComputerDetails.State.ONLINE) {
+        HostRuntimeSnapshot admitted = runNewComputerPoll(
+                seed,
+                expectedExistingSlot);
+        if (admitted == null || admitted.getConnectionState()
+                .getReachability() !=
+                HostConnectionState.Reachability.ONLINE) {
             return false;
         }
 
-        LimeLog.info("New host added");
-        addTuple(candidate);
+        LimeLog.info("Host admission completed");
+        if (expectedExistingSlot == null) {
+            addHostSlot(admitted);
+        }
         return true;
     }
 
     public void removeComputer(ComputerDetails computer) {
+        HostId hostId = HostId.of(Objects.requireNonNull(
+                computer,
+                "computer").uuid);
         HostRepositoryLeaseManager.Lease repositoryLease =
                 acquireRepositoryLease();
         if (repositoryLease == null) {
@@ -890,35 +925,34 @@ public class ComputerManagerService extends Service {
         }
 
         try (HostRepositoryLeaseManager.Lease ignored = repositoryLease) {
-            PollingTuple removed = null;
-            synchronized (pollingTuples) {
-                Iterator<PollingTuple> iterator =
-                        pollingTuples.iterator();
+            HostRuntimeSlot removed = null;
+            synchronized (hostSlots) {
+                Iterator<HostRuntimeSlot> iterator =
+                        hostSlots.iterator();
                 while (iterator.hasNext()) {
-                    PollingTuple tuple = iterator.next();
-                    if (sameHostIdentity(
-                            tuple.computer.uuid,
-                            computer.uuid)) {
-                        if (tuple.thread != null) {
-                            tuple.thread.interrupt();
-                            tuple.thread = null;
+                    HostRuntimeSlot slot = iterator.next();
+                    if (hostId.equals(slot.snapshot.getRecord()
+                            .getIdentity().getId())) {
+                        if (slot.thread != null) {
+                            slot.thread.interrupt();
+                            slot.thread = null;
                         }
                         iterator.remove();
-                        removed = tuple;
+                        removed = slot;
                         break;
                     }
                 }
             }
 
             if (removed == null) {
-                hostRepository.deleteHost(HostId.of(computer.uuid));
+                hostRepository.deleteHost(hostId);
                 return;
             }
             // A poll already committing wins before this delete. A poll that
-            // completes later observes that the tuple is no longer registered.
+            // completes later observes that the slot is no longer registered.
             synchronized (removed.stateLock) {
-                hostRepository.deleteHost(HostId.of(
-                        removed.computer.uuid));
+                hostRepository.deleteHost(removed.snapshot.getRecord()
+                        .getIdentity().getId());
             }
         }
     }
@@ -1016,7 +1050,9 @@ public class ComputerManagerService extends Service {
         }
     }
 
-    private ComputerDetails parallelPollPc(ComputerDetails details) throws InterruptedException {
+    private HostReachabilityCoordinator.Result<ComputerDetails>
+            parallelPollPcWithEndpoint(ComputerDetails details)
+            throws InterruptedException {
         boolean preferExternalAddress =
                 details.manualAddress != null && isWrongSubnetSiteLocalAddress(details.localAddress);
         HostReachabilityPlan plan = HostReachabilityPlan.create(
@@ -1033,10 +1069,15 @@ public class ComputerManagerService extends Service {
                         HostEndpoint.Kind.LOCAL_IPV6,
                         details.ipv6Address),
                 preferExternalAddress);
+        return reachabilityCoordinator.probe(
+                plan,
+                endpoint -> pollEndpoint(details, endpoint));
+    }
+
+    private ComputerDetails parallelPollPc(ComputerDetails details)
+            throws InterruptedException {
         HostReachabilityCoordinator.Result<ComputerDetails> result =
-                reachabilityCoordinator.probe(
-                        plan,
-                        endpoint -> pollEndpoint(details, endpoint));
+                parallelPollPcWithEndpoint(details);
         return result == null ? null : result.getValue();
     }
 
@@ -1149,9 +1190,8 @@ public class ComputerManagerService extends Service {
         }
         try (HostRepositoryLeaseManager.Lease ignored = repositoryLease) {
             for (PersistedHost host : hostRepository.getAllHosts()) {
-                // Add tuples for each computer
-                addTuple(LegacyHostDetailsAdapter.toComputerDetails(
-                        host));
+                // Add slots for each computer
+                addHostSlot(LegacyHostRuntimeAdapter.fromPersistedHost(host));
             }
         }
 
@@ -1161,13 +1201,15 @@ public class ComputerManagerService extends Service {
                 @Override
                 public void onAvailable(Network network) {
                     LimeLog.info("Resetting PC state for new available network");
-                    updateAllHostStates(ComputerDetails.State.UNKNOWN);
+                    updateAllHostStates(
+                            HostConnectionState.Reachability.UNKNOWN);
                 }
 
                 @Override
                 public void onLost(Network network) {
                     LimeLog.info("Offlining PCs due to network loss");
-                    updateAllHostStates(ComputerDetails.State.OFFLINE);
+                    updateAllHostStates(
+                            HostConnectionState.Reachability.OFFLINE);
                 }
             };
 
@@ -1236,23 +1278,63 @@ public class ComputerManagerService extends Service {
         }
     }
 
-    private void updateAllHostStates(ComputerDetails.State state) {
-        List<PollingTuple> tuples;
-        synchronized (pollingTuples) {
-            tuples = new ArrayList<>(pollingTuples);
+    private HostRuntimeObservation pollRuntimeHost(
+            HostRuntimeSnapshot snapshot,
+            boolean populateNewExternalEndpoint)
+            throws InterruptedException {
+        ComputerDetails pollInput =
+                LegacyHostRuntimeAdapter.toComputerDetails(snapshot);
+        LimeLog.info("Starting host reachability poll");
+        HostReachabilityCoordinator.Result<ComputerDetails> result =
+                parallelPollPcWithEndpoint(pollInput);
+        LimeLog.info("Host reachability poll completed: " +
+                (result == null ? "offline" : "online"));
+        if (result == null) {
+            return null;
         }
-        List<ComputerDetails> updates = new ArrayList<>(tuples.size());
-        for (PollingTuple tuple : tuples) {
-            synchronized (tuple.stateLock) {
-                if (!isRegistered(tuple)) {
-                    continue;
+
+        ComputerDetails observation = result.getValue();
+        if (populateNewExternalEndpoint &&
+                observation.remoteAddress == null) {
+            try {
+                InetAddress address = InetAddress.getByName(
+                        result.getEndpoint().getAddress());
+                if (address.isSiteLocalAddress()) {
+                    populateExternalAddress(observation);
                 }
-                tuple.computer.state = state;
-                updates.add(ComputerDetailsSnapshot.copyOf(
-                        tuple.computer));
+            }
+            catch (UnknownHostException ignoredError) {
             }
         }
-        for (ComputerDetails update : updates) {
+        try {
+            return LegacyHostRuntimeAdapter.toObservation(
+                    observation,
+                    result.getEndpoint());
+        }
+        catch (IllegalArgumentException error) {
+            LimeLog.warning("Host returned invalid runtime state");
+            return null;
+        }
+    }
+
+    private void updateAllHostStates(
+            HostConnectionState.Reachability reachability) {
+        List<HostRuntimeSlot> slots;
+        synchronized (hostSlots) {
+            slots = new ArrayList<>(hostSlots);
+        }
+        List<HostRuntimeSnapshot> updates = new ArrayList<>(slots.size());
+        for (HostRuntimeSlot slot : slots) {
+            synchronized (slot.stateLock) {
+                if (!isRegistered(slot)) {
+                    continue;
+                }
+                slot.snapshot = slot.snapshot.withReachability(
+                        reachability);
+                updates.add(slot.snapshot);
+            }
+        }
+        for (HostRuntimeSnapshot update : updates) {
             notifyComputerUpdated(update);
         }
     }
@@ -1288,13 +1370,15 @@ public class ComputerManagerService extends Service {
     public class ApplistPoller {
         private final Object lifecycleLock = new Object();
         private volatile Thread thread;
-        private final ComputerDetails computer;
+        private final HostId hostId;
         private final Object pollEvent = new Object();
         private boolean receivedAppList = false;
         private boolean closed;
 
         private ApplistPoller(ComputerDetails computer) {
-            this.computer = ComputerDetailsSnapshot.copyOf(computer);
+            hostId = HostId.of(Objects.requireNonNull(
+                    computer,
+                    "computer").uuid);
         }
 
         public void pollNow() {
@@ -1329,13 +1413,12 @@ public class ComputerManagerService extends Service {
                     !ownerThread.isInterrupted();
         }
 
-        private PollingTuple getPollingTuple() {
-            synchronized (pollingTuples) {
-                for (PollingTuple tuple : pollingTuples) {
-                    if (sameHostIdentity(
-                            computer.uuid,
-                            tuple.computer.uuid)) {
-                        return tuple;
+        private HostRuntimeSlot getHostSlot() {
+            synchronized (hostSlots) {
+                for (HostRuntimeSlot slot : hostSlots) {
+                    if (hostId.equals(slot.snapshot.getRecord()
+                            .getIdentity().getId())) {
+                        return slot;
                     }
                 }
             }
@@ -1352,55 +1435,64 @@ public class ComputerManagerService extends Service {
                         if (thread != this || isInterrupted()) {
                             break;
                         }
-                        PollingTuple tuple = getPollingTuple();
-                        if (tuple == null) {
+                        HostRuntimeSlot slot = getHostSlot();
+                        if (slot == null) {
                             continue;
                         }
-                        ComputerDetails currentComputer;
-                        synchronized (tuple.stateLock) {
-                            if (!isRegistered(tuple)) {
+                        HostRuntimeSnapshot currentSnapshot;
+                        synchronized (slot.stateLock) {
+                            if (!isRegistered(slot)) {
                                 continue;
                             }
-                            currentComputer =
-                                    ComputerDetailsSnapshot.copyOf(
-                                            tuple.computer);
+                            currentSnapshot = slot.snapshot;
                         }
 
                         // Can't poll if it's not online or paired
-                        if (currentComputer.state != ComputerDetails.State.ONLINE ||
-                                currentComputer.pairState != PairingManager.PairState.PAIRED) {
-                            notifyComputerUpdated(currentComputer);
-                            continue;
-                        }
-
-                        // Can't poll if there's no UUID yet
-                        if (currentComputer.uuid == null) {
+                        if (currentSnapshot.getConnectionState()
+                                .getReachability() !=
+                                HostConnectionState.Reachability.ONLINE ||
+                                currentSnapshot.getConnectionState()
+                                        .getPairingStatus() !=
+                                        HostConnectionState.PairingStatus.PAIRED) {
+                            notifyComputerUpdated(currentSnapshot);
                             continue;
                         }
 
                         try {
-                            NvHTTP http =
-                                    AndroidNvHttpClientFactory.create(
-                                            ComputerManagerService.this,
-                                            currentComputer,
-                                            idManager.getUniqueId());
-
+                            // Serialize app-list and server-info traffic for
+                            // this host through the same network boundary.
+                            // Re-read the immutable snapshot after acquisition
+                            // so endpoint, pairing, and credential data cannot
+                            // become stale while waiting behind server-info.
                             String appList;
-                            if (tuple != null) {
-                                // If we're polling this machine too, grab the network lock
-                                // while doing the app list request to prevent other requests
-                                // from being issued in the meantime.
-                                tuple.networkLock.lockInterruptibly();
-                                try {
-                                    appList = http.getAppListRaw();
+                            slot.networkLock.lockInterruptibly();
+                            try {
+                                HostRuntimeSnapshot requestSnapshot;
+                                synchronized (slot.stateLock) {
+                                    if (!isRegistered(slot)) {
+                                        continue;
+                                    }
+                                    requestSnapshot = slot.snapshot;
                                 }
-                                finally {
-                                    tuple.networkLock.unlock();
+                                if (requestSnapshot.getConnectionState()
+                                                .getReachability() !=
+                                        HostConnectionState.Reachability.ONLINE ||
+                                        requestSnapshot.getConnectionState()
+                                                .getPairingStatus() !=
+                                        HostConnectionState.PairingStatus.PAIRED) {
+                                    continue;
                                 }
-                            }
-                            else {
-                                // No polling is happening now, so we just call it directly
+                                NvHTTP http =
+                                        AndroidNvHttpClientFactory.create(
+                                                ComputerManagerService.this,
+                                                LegacyHostRuntimeAdapter
+                                                        .toComputerDetails(
+                                                                requestSnapshot),
+                                                idManager.getUniqueId());
                                 appList = http.getAppListRaw();
+                            }
+                            finally {
+                                slot.networkLock.unlock();
                             }
 
                             List<NvApp> list = NvHTTP.getAppListByReader(new StringReader(appList));
@@ -1415,7 +1507,7 @@ public class ComputerManagerService extends Service {
                                     (!list.isEmpty() || emptyAppListResponses >= EMPTY_LIST_THRESHOLD)) {
                                 // Open the cache file
                                 try (final OutputStream cacheOut = CacheHelper.openCacheFileForOutput(
-                                        getCacheDir(), "applist", currentComputer.uuid)
+                                        getCacheDir(), "applist", hostId.getValue())
                                 ) {
                                     CacheHelper.writeStringToOutputStream(cacheOut, appList);
                                 } catch (IOException e) {
@@ -1427,14 +1519,14 @@ public class ComputerManagerService extends Service {
                                     emptyAppListResponses = 0;
                                 }
 
-                                ComputerDetails update;
-                                synchronized (tuple.stateLock) {
-                                    if (!isRegistered(tuple)) {
+                                HostRuntimeSnapshot update;
+                                synchronized (slot.stateLock) {
+                                    if (!isRegistered(slot)) {
                                         continue;
                                     }
-                                    tuple.computer.rawAppList = appList;
-                                    update = ComputerDetailsSnapshot.copyOf(
-                                            tuple.computer);
+                                    slot.snapshot = slot.snapshot
+                                            .withRawAppList(appList);
+                                    update = slot.snapshot;
                                 }
                                 receivedAppList = true;
 
@@ -1481,29 +1573,19 @@ public class ComputerManagerService extends Service {
             }
         }
     }
-}
 
-class PollingTuple {
-    public volatile Thread thread;
-    public final ComputerDetails computer;
-    public final Lock networkLock;
-    public final Object stateLock;
-    public volatile long lastSuccessfulPollMs;
+    private static final class HostRuntimeSlot {
+        private volatile Thread thread;
+        private volatile HostRuntimeSnapshot snapshot;
+        private final Lock networkLock = new ReentrantLock(true);
+        private final Object stateLock = new Object();
+        private volatile long lastSuccessfulPollMs;
 
-    public PollingTuple(ComputerDetails computer, Thread thread) {
-        this.computer = computer;
-        this.thread = thread;
-        this.networkLock = new ReentrantLock(true);
-        this.stateLock = new Object();
-    }
-}
-
-class ReachabilityTuple {
-    public final String reachableAddress;
-    public final ComputerDetails computer;
-
-    public ReachabilityTuple(ComputerDetails computer, String reachableAddress) {
-        this.computer = computer;
-        this.reachableAddress = reachableAddress;
+        private HostRuntimeSlot(
+                HostRuntimeSnapshot snapshot,
+                Thread thread) {
+            this.snapshot = Objects.requireNonNull(snapshot, "snapshot");
+            this.thread = thread;
+        }
     }
 }
