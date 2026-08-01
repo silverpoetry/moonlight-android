@@ -39,7 +39,8 @@ public class LegacyDatabaseReader2 {
                             .generateCertificate(new ByteArrayInputStream(derCertData));
                 }
             } catch (CertificateException e) {
-                e.printStackTrace();
+                com.limelight.LimeLog.warning(
+                        "Skipping invalid legacy pinned host certificate");
             }
         }
 

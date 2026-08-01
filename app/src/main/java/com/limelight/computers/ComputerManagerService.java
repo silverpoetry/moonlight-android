@@ -179,7 +179,7 @@ public class ComputerManagerService extends Service {
                         synchronized (tuple.networkLock) {
                             // Check if this poll has modified the details
                             if (!runPoll(tuple.computer, false, offlineCount)) {
-                                LimeLog.warning(tuple.computer.name + " is offline (try " + offlineCount + ")");
+                                LimeLog.warning("Host is offline (attempt " + offlineCount + ")");
                                 offlineCount++;
                             } else {
                                 tuple.lastSuccessfulPollMs = SystemClock.elapsedRealtime();
@@ -195,7 +195,7 @@ public class ComputerManagerService extends Service {
                 }
             }
         };
-        t.setName("Polling thread for " + tuple.computer.name);
+        t.setName("Host polling");
         return t;
     }
 
@@ -214,7 +214,7 @@ public class ComputerManagerService extends Service {
                 for (PollingTuple tuple : pollingTuples) {
                     // Enforce the poll data TTL
                     if (SystemClock.elapsedRealtime() - tuple.lastSuccessfulPollMs > POLL_DATA_TTL_MS) {
-                        LimeLog.info("Timing out polled state for "+tuple.computer.name);
+                        LimeLog.info("Timing out stale host state");
                         tuple.computer.state = ComputerDetails.State.UNKNOWN;
                     }
 
@@ -238,8 +238,6 @@ public class ComputerManagerService extends Service {
                         discoveryServiceConnection.wait(1000);
                     }
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
-
                     // InterruptedException clears the thread's interrupt status. Since we can't
                     // handle that here, we will re-interrupt the thread to set the interrupt
                     // status back to true.
@@ -253,8 +251,6 @@ public class ComputerManagerService extends Service {
                 try {
                     Thread.sleep(250);
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
-
                     // InterruptedException clears the thread's interrupt status. Since we can't
                     // handle that here, we will re-interrupt the thread to set the interrupt
                     // status back to true.
@@ -456,11 +452,9 @@ public class ComputerManagerService extends Service {
                 try {
                     // Kick off a blocking serverinfo poll on this machine
                     if (!addComputerBlocking(details)) {
-                        LimeLog.warning("Auto-discovered PC failed to respond: "+details);
+                        LimeLog.warning("Auto-discovered host failed to respond");
                     }
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
-
                     // InterruptedException clears the thread's interrupt status. Since we can't
                     // handle that here, we will re-interrupt the thread to set the interrupt
                     // status back to true.
@@ -471,7 +465,6 @@ public class ComputerManagerService extends Service {
             @Override
             public void notifyDiscoveryFailure(Exception e) {
                 LimeLog.severe("mDNS discovery failed");
-                e.printStackTrace();
             }
         };
     }
@@ -532,7 +525,7 @@ public class ComputerManagerService extends Service {
 
         // If the machine is reachable, it was successful
         if (fakeDetails.state == ComputerDetails.State.ONLINE) {
-            LimeLog.info("New PC ("+fakeDetails.name+") is UUID "+fakeDetails.uuid);
+            LimeLog.info("New host added");
 
             // Start a polling thread for this machine
             addTuple(fakeDetails);
@@ -614,7 +607,7 @@ public class ComputerManagerService extends Service {
 
             return newDetails;
         } catch (XmlPullParserException e) {
-            e.printStackTrace();
+            LimeLog.warning("Host poll returned invalid server information");
             return null;
         } catch (IOException e) {
             return null;
@@ -669,7 +662,7 @@ public class ComputerManagerService extends Service {
                 }
             }
         };
-        tuple.pollingThread.setName("Parallel Poll - "+tuple.address+" - "+tuple.existingDetails.name);
+        tuple.pollingThread.setName("Host endpoint poll");
         tuple.pollingThread.start();
     }
 
@@ -738,7 +731,7 @@ public class ComputerManagerService extends Service {
             return true;
         } catch (Exception e) {
             // Some Android builds throw unexpected exceptions while enumerating interfaces.
-            e.printStackTrace();
+            LimeLog.warning("Unable to evaluate local host subnet");
             return false;
         }
     }
@@ -819,10 +812,10 @@ public class ComputerManagerService extends Service {
 
     private boolean pollComputer(ComputerDetails details) throws InterruptedException {
         // Poll all addresses in parallel to speed up the process
-        LimeLog.info("Starting parallel poll for "+details.name+" ("+details.localAddress +", "+details.remoteAddress +", "+details.manualAddress+", "+details.ipv6Address+")");
+        LimeLog.info("Starting host reachability poll");
         ComputerDetails polledDetails = parallelPollPc(details);
-        LimeLog.info("Parallel poll for "+details.name+" returned address: "+
-                (polledDetails != null ? polledDetails.activeAddress : null));
+        LimeLog.info("Host reachability poll completed: " +
+                (polledDetails == null ? "offline" : "online"));
 
         if (polledDetails != null) {
             LegacyComputerDetailsMergePolicy.mergeObservation(
@@ -1008,7 +1001,7 @@ public class ComputerManagerService extends Service {
 
                             List<NvApp> list = NvHTTP.getAppListByReader(new StringReader(appList));
                             if (list.isEmpty()) {
-                                LimeLog.warning("Empty app list received from "+computer.uuid);
+                                LimeLog.warning("Empty app list received from host");
 
                                 // The app list might actually be empty, so if we get an empty response a few times
                                 // in a row, we'll go ahead and believe it.
@@ -1022,7 +1015,7 @@ public class ComputerManagerService extends Service {
                                 ) {
                                     CacheHelper.writeStringToOutputStream(cacheOut, appList);
                                 } catch (IOException e) {
-                                    e.printStackTrace();
+                                    LimeLog.warning("Unable to cache host app list");
                                 }
 
                                 // Reset empty count if it wasn't empty this time
@@ -1041,17 +1034,17 @@ public class ComputerManagerService extends Service {
                                 }
                             }
                             else if (appList.isEmpty()) {
-                                LimeLog.warning("Null app list received from "+computer.uuid);
+                                LimeLog.warning("Null app list received from host");
                             }
                         } catch (IOException e) {
-                            e.printStackTrace();
+                            LimeLog.warning("Unable to retrieve host app list");
                         } catch (XmlPullParserException e) {
-                            e.printStackTrace();
+                            LimeLog.warning("Host returned an invalid app list");
                         }
                     } while (waitPollingDelay());
                 }
             };
-            thread.setName("App list polling thread for " + computer.name);
+            thread.setName("Host app-list polling");
             thread.start();
         }
 

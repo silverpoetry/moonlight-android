@@ -79,7 +79,8 @@ public class LegacyDatabaseReader3 {
                         .generateCertificate(new ByteArrayInputStream(derCertData));
             }
         } catch (CertificateException e) {
-            e.printStackTrace();
+            com.limelight.LimeLog.warning(
+                    "Skipping invalid legacy pinned host certificate");
         }
 
         // This signifies we don't have dynamic state (like pair state)

@@ -1,73 +1,91 @@
 package com.limelight.computers;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.util.Locale;
-import java.util.Random;
+import android.content.Context;
+import android.util.AtomicFile;
 
 import com.limelight.LimeLog;
 
-import android.content.Context;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.util.Locale;
+import java.util.Objects;
 
-public class IdentityManager {
+/** Owns the stable, atomically persisted client identity used for pairing. */
+public final class IdentityManager {
     private static final String UNIQUE_ID_FILE_NAME = "uniqueid";
-    private static final int UID_SIZE_IN_BYTES = 8;
+    private static final int UNIQUE_ID_BYTES = 8;
+    private static final int UNIQUE_ID_CHARACTERS = UNIQUE_ID_BYTES * 2;
 
-    private String uniqueId;
+    private final String uniqueId;
 
-    public IdentityManager(Context c) {
-        uniqueId = loadUniqueId(c);
-        if (uniqueId == null) {
-            uniqueId = generateNewUniqueId(c);
+    public IdentityManager(Context context) {
+        Objects.requireNonNull(context, "context");
+        AtomicFile identityFile = new AtomicFile(
+                new File(context.getFilesDir(), UNIQUE_ID_FILE_NAME));
+        String persistedIdentity = loadUniqueId(identityFile);
+        if (persistedIdentity != null) {
+            uniqueId = persistedIdentity;
+            return;
         }
 
-        LimeLog.info("UID is now: "+uniqueId);
+        uniqueId = String.format(
+                (Locale) null,
+                "%016x",
+                new SecureRandom().nextLong());
+        persistUniqueId(identityFile, uniqueId);
     }
 
     public String getUniqueId() {
         return uniqueId;
     }
 
-    private static String loadUniqueId(Context c) {
-        // 2 Hex digits per byte
-        char[] uid = new char[UID_SIZE_IN_BYTES * 2];
-        LimeLog.info("Reading UID from disk");
-        try (final InputStreamReader reader =
-                     new InputStreamReader(c.openFileInput(UNIQUE_ID_FILE_NAME))
-        ) {
-            if (reader.read(uid) != UID_SIZE_IN_BYTES * 2) {
-                LimeLog.severe("UID file data is truncated");
+    private static String loadUniqueId(AtomicFile identityFile) {
+        try {
+            byte[] encoded = identityFile.readFully();
+            if (encoded.length != UNIQUE_ID_CHARACTERS) {
+                LimeLog.warning("Persisted client identity has an invalid length");
                 return null;
             }
-            return new String(uid);
-        } catch (FileNotFoundException e) {
-            LimeLog.info("No UID file found");
+            String candidate = new String(
+                    encoded,
+                    StandardCharsets.US_ASCII);
+            for (int index = 0; index < candidate.length(); index++) {
+                char character = candidate.charAt(index);
+                if (!((character >= '0' && character <= '9') ||
+                        (character >= 'a' && character <= 'f'))) {
+                    LimeLog.warning("Persisted client identity has an invalid format");
+                    return null;
+                }
+            }
+            return candidate;
+        }
+        catch (FileNotFoundException error) {
             return null;
-        } catch (IOException e) {
-            LimeLog.severe("Error while reading UID file");
-            e.printStackTrace();
+        }
+        catch (IOException error) {
+            LimeLog.warning("Unable to read persisted client identity");
             return null;
         }
     }
 
-    private static String generateNewUniqueId(Context c) {
-        // Generate a new UID hex string
-        LimeLog.info("Generating new UID");
-        String uidStr = String.format((Locale)null, "%016x", new Random().nextLong());
-
-        try (final OutputStreamWriter writer =
-                     new OutputStreamWriter(c.openFileOutput(UNIQUE_ID_FILE_NAME, 0))
-        ) {
-            writer.write(uidStr);
-            LimeLog.info("UID written to disk");
-        } catch (IOException e) {
-            LimeLog.severe("Error while writing UID file");
-            e.printStackTrace();
+    private static void persistUniqueId(
+            AtomicFile identityFile,
+            String uniqueId) {
+        FileOutputStream output = null;
+        try {
+            output = identityFile.startWrite();
+            output.write(uniqueId.getBytes(StandardCharsets.US_ASCII));
+            identityFile.finishWrite(output);
         }
-
-        // We can return a UID even if I/O fails
-        return uidStr;
+        catch (IOException error) {
+            if (output != null) {
+                identityFile.failWrite(output);
+            }
+            LimeLog.warning("Unable to persist client identity atomically");
+        }
     }
 }

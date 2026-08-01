@@ -105,19 +105,15 @@ public class ComputerDetails {
 
     @Override
     public String toString() {
-        StringBuilder str = new StringBuilder();
-        str.append("Name: ").append(name).append("\n");
-        str.append("State: ").append(state).append("\n");
-        str.append("Active Address: ").append(activeAddress).append("\n");
-        str.append("UUID: ").append(uuid).append("\n");
-        str.append("Local Address: ").append(localAddress).append("\n");
-        str.append("Remote Address: ").append(remoteAddress).append("\n");
-        str.append("IPv6 Address: ").append(ipv6Address).append("\n");
-        str.append("Manual Address: ").append(manualAddress).append("\n");
-        str.append("MAC Address: ").append(macAddress).append("\n");
-        str.append("Pair State: ").append(pairState).append("\n");
-        str.append("Running Game ID: ").append(runningGameId).append("\n");
-        str.append("HTTPS Port: ").append(httpsPort).append("\n");
-        return str.toString();
+        return "ComputerDetails{" +
+                "state=" + state +
+                ", pairState=" + pairState +
+                ", hasActiveAddress=" + (activeAddress != null) +
+                ", hasLocalAddress=" + (localAddress != null) +
+                ", hasRemoteAddress=" + (remoteAddress != null) +
+                ", hasManualAddress=" + (manualAddress != null) +
+                ", hasIpv6Address=" + (ipv6Address != null) +
+                ", hasPinnedCertificate=" + (serverCert != null) +
+                '}';
     }
 }

@@ -895,6 +895,10 @@ targets.
   a dedicated credential table in the existing backup-compatible database.
   Discovery writes metadata only; pairing and import use explicit credential
   mutations, and a database-open failure can no longer delete paired hosts.
+- Replaced the logged, pseudo-random client UID with a strictly validated,
+  cryptographically generated identity stored through `AtomicFile`. Host
+  diagnostics no longer emit client/host IDs, names, MAC addresses, or
+  endpoints, and `ComputerDetails.toString()` is redacted by construction.
 
 ### Exit evidence
 
