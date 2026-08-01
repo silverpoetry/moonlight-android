@@ -32,6 +32,7 @@ import com.limelight.computers.discovery.HostDiscoverySource;
 import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
 import com.limelight.computers.model.HostEndpoint;
 import com.limelight.computers.model.HostId;
+import com.limelight.computers.model.PersistedHost;
 import com.limelight.computers.reachability.HostReachabilityCoordinator;
 import com.limelight.computers.reachability.HostReachabilityPlan;
 import com.limelight.computers.reachability.Ipv4SubnetMatcher;
@@ -73,7 +74,7 @@ public class ComputerManagerService extends Service {
 
     private final ComputerManagerBinder binder = new ComputerManagerBinder();
 
-    private ComputerDatabaseManager dbManager;
+    private HostRepository hostRepository;
     private HostRepositoryLeaseManager repositoryLeases;
 
     private IdentityManager idManager;
@@ -153,8 +154,14 @@ public class ComputerManagerService extends Service {
 
                 // If it's online, update our persistent state
                 if (observation.state == ComputerDetails.State.ONLINE) {
+                    PersistedHost existingHost = hostRepository.findHost(
+                            HostId.of(observation.uuid));
                     ComputerDetails existingComputer =
-                            dbManager.getComputerByUUID(observation.uuid);
+                            existingHost == null
+                                    ? null
+                                    : LegacyHostDetailsAdapter
+                                            .toComputerDetails(
+                                                    existingHost);
 
                     // Check if it's in the database because it could have been
                     // removed after this was issued
@@ -167,7 +174,12 @@ public class ComputerManagerService extends Service {
                         LegacyComputerDetailsMergePolicy.mergeObservation(
                                 existingComputer,
                                 observation);
-                        dbManager.updateComputerMetadata(existingComputer);
+                        hostRepository.updateHostMetadata(
+                                LegacyHostDetailsAdapter.toHostRecord(
+                                        existingComputer,
+                                        existingHost.getRecord()
+                                                .getIdentity()
+                                                .getUserAlias()));
                         LegacyComputerDetailsMergePolicy.mergeObservation(
                                 target,
                                 existingComputer);
@@ -187,7 +199,9 @@ public class ComputerManagerService extends Service {
                         catch (UnknownHostException ignoredError) {
                         }
 
-                        dbManager.updateComputerMetadata(observation);
+                        hostRepository.updateHostMetadata(
+                                LegacyHostDetailsAdapter.toHostRecord(
+                                        observation));
                         LegacyComputerDetailsMergePolicy.mergeObservation(
                                 target,
                                 observation);
@@ -685,8 +699,8 @@ public class ComputerManagerService extends Service {
                     if (!isRegistered(match)) {
                         return false;
                     }
-                    dbManager.updatePinnedCertificate(
-                            match.computer.uuid,
+                    hostRepository.updatePinnedCertificate(
+                            HostId.of(match.computer.uuid),
                             certificate);
                     match.computer.serverCert = certificate;
                     return true;
@@ -897,13 +911,14 @@ public class ComputerManagerService extends Service {
             }
 
             if (removed == null) {
-                dbManager.deleteComputer(computer);
+                hostRepository.deleteHost(HostId.of(computer.uuid));
                 return;
             }
             // A poll already committing wins before this delete. A poll that
             // completes later observes that the tuple is no longer registered.
             synchronized (removed.stateLock) {
-                dbManager.deleteComputer(removed.computer);
+                hostRepository.deleteHost(HostId.of(
+                        removed.computer.uuid));
             }
         }
     }
@@ -1122,8 +1137,9 @@ public class ComputerManagerService extends Service {
         idManager = new IdentityManager(this);
 
         // Initialize the DB
-        dbManager = new ComputerDatabaseManager(this);
-        repositoryLeases = new HostRepositoryLeaseManager(dbManager::close);
+        hostRepository = new ComputerDatabaseManager(this);
+        repositoryLeases = new HostRepositoryLeaseManager(
+                hostRepository::close);
 
         // Grab known machines into our computer list
         HostRepositoryLeaseManager.Lease repositoryLease =
@@ -1132,9 +1148,10 @@ public class ComputerManagerService extends Service {
             return;
         }
         try (HostRepositoryLeaseManager.Lease ignored = repositoryLease) {
-            for (ComputerDetails computer : dbManager.getAllComputers()) {
+            for (PersistedHost host : hostRepository.getAllHosts()) {
                 // Add tuples for each computer
-                addTuple(computer);
+                addTuple(LegacyHostDetailsAdapter.toComputerDetails(
+                        host));
             }
         }
 

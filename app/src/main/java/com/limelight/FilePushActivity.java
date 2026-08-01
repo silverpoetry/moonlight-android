@@ -17,6 +17,8 @@ import com.limelight.utils.UiToast;
 
 import com.limelight.binding.PlatformBinding;
 import com.limelight.computers.ComputerDatabaseManager;
+import com.limelight.computers.LegacyHostDetailsAdapter;
+import com.limelight.computers.model.PersistedHost;
 import com.limelight.computers.IdentityManager;
 import com.limelight.nvstream.filetransfer.DesktopFileUploader;
 import com.limelight.nvstream.http.ComputerDetails;
@@ -197,7 +199,9 @@ public class FilePushActivity extends Activity {
         List<ComputerDetails> pairedHosts = new ArrayList<>();
         ComputerDatabaseManager database = new ComputerDatabaseManager(this);
         try {
-            for (ComputerDetails computer : database.getAllComputers()) {
+            for (PersistedHost host : database.getAllHosts()) {
+                ComputerDetails computer = LegacyHostDetailsAdapter
+                        .toComputerDetails(host);
                 if (computer.serverCert != null &&
                         selectAddress(computer) != null) {
                     pairedHosts.add(computer);

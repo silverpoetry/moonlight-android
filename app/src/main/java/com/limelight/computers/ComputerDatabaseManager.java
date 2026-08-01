@@ -6,8 +6,12 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 import com.limelight.LimeLog;
+import com.limelight.computers.model.HostEndpoint;
+import com.limelight.computers.model.HostId;
+import com.limelight.computers.model.HostIdentity;
+import com.limelight.computers.model.HostRecord;
+import com.limelight.computers.model.PersistedHost;
 import com.limelight.nvstream.http.ComputerDetails;
-import com.limelight.nvstream.http.NvHTTP;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -20,19 +24,19 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
 /** Persistent host repository and the sole owner of pinned host certificates. */
-public final class ComputerDatabaseManager {
+public final class ComputerDatabaseManager implements HostRepository {
     public static final String COMPUTER_DB_NAME = "computers4.db";
 
-    private static final int SCHEMA_VERSION = 5;
+    private static final int SCHEMA_VERSION = 6;
     private static final String COMPUTER_TABLE_NAME = "Computers";
     private static final String COMPUTER_UUID_COLUMN_NAME = "UUID";
     private static final String COMPUTER_NAME_COLUMN_NAME = "ComputerName";
+    private static final String USER_ALIAS_COLUMN_NAME = "UserAlias";
     private static final String ADDRESSES_COLUMN_NAME = "Addresses";
     private static final String MAC_ADDRESS_COLUMN_NAME = "MacAddress";
     private static final String LEGACY_SERVER_CERT_COLUMN_NAME = "ServerCert";
@@ -55,6 +59,7 @@ public final class ComputerDatabaseManager {
     private static final class StoredHostRecord {
         final String hostId;
         final String name;
+        final String userAlias;
         final String addresses;
         final String macAddress;
         final byte[] certificate;
@@ -62,11 +67,13 @@ public final class ComputerDatabaseManager {
         StoredHostRecord(
                 String hostId,
                 String name,
+                String userAlias,
                 String addresses,
                 String macAddress,
                 byte[] certificate) {
             this.hostId = hostId;
             this.name = name;
+            this.userAlias = userAlias;
             this.addresses = addresses;
             this.macAddress = macAddress;
             this.certificate = certificate;
@@ -91,7 +98,16 @@ public final class ComputerDatabaseManager {
                 checkedDatabaseName,
                 Context.MODE_PRIVATE,
                 null);
-        initializeDb(context, migrateLegacyDatabases);
+        boolean initialized = false;
+        try {
+            initializeDb(context, migrateLegacyDatabases);
+            initialized = true;
+        }
+        finally {
+            if (!initialized) {
+                computerDb.close();
+            }
+        }
     }
 
     /** Opens an exported database without mutating its schema. */
@@ -106,9 +122,20 @@ public final class ComputerDatabaseManager {
                 checkedFile.getPath(),
                 null,
                 SQLiteDatabase.OPEN_READONLY);
-        requireComputerTable();
+        boolean initialized = false;
+        try {
+            requireComputerTable();
+            requireSupportedSnapshotVersion();
+            initialized = true;
+        }
+        finally {
+            if (!initialized) {
+                computerDb.close();
+            }
+        }
     }
 
+    @Override
     public void close() {
         computerDb.close();
     }
@@ -133,6 +160,11 @@ public final class ComputerDatabaseManager {
 
     private static void createOrUpgradeCurrentSchema(
             SQLiteDatabase database) {
+        int storedVersion = database.getVersion();
+        if (storedVersion > SCHEMA_VERSION) {
+            throw new IllegalStateException(
+                    "Host database schema is newer than this application");
+        }
         database.beginTransaction();
         try {
             database.execSQL(String.format(
@@ -140,15 +172,27 @@ public final class ComputerDatabaseManager {
                     "CREATE TABLE IF NOT EXISTS %s(" +
                             "%s TEXT PRIMARY KEY, " +
                             "%s TEXT NOT NULL, " +
+                            "%s TEXT, " +
                             "%s TEXT NOT NULL, " +
                             "%s TEXT, " +
                             "%s BLOB)",
                     COMPUTER_TABLE_NAME,
                     COMPUTER_UUID_COLUMN_NAME,
                     COMPUTER_NAME_COLUMN_NAME,
+                    USER_ALIAS_COLUMN_NAME,
                     ADDRESSES_COLUMN_NAME,
                     MAC_ADDRESS_COLUMN_NAME,
                     LEGACY_SERVER_CERT_COLUMN_NAME));
+            if (!hasColumn(
+                    database,
+                    COMPUTER_TABLE_NAME,
+                    USER_ALIAS_COLUMN_NAME)) {
+                database.execSQL(String.format(
+                        (Locale) null,
+                        "ALTER TABLE %s ADD COLUMN %s TEXT",
+                        COMPUTER_TABLE_NAME,
+                        USER_ALIAS_COLUMN_NAME));
+            }
             database.execSQL(String.format(
                     (Locale) null,
                     "CREATE TABLE IF NOT EXISTS %s(" +
@@ -191,6 +235,13 @@ public final class ComputerDatabaseManager {
         }
     }
 
+    private void requireSupportedSnapshotVersion() {
+        if (computerDb.getVersion() > SCHEMA_VERSION) {
+            throw new IllegalArgumentException(
+                    "Host snapshot schema is newer than this application");
+        }
+    }
+
     private boolean hasTable(String tableName) {
         return hasTable(computerDb, tableName);
     }
@@ -202,6 +253,23 @@ public final class ComputerDatabaseManager {
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
                 new String[]{tableName})) {
             return cursor.moveToFirst();
+        }
+    }
+
+    private static boolean hasColumn(
+            SQLiteDatabase database,
+            String tableName,
+            String columnName) {
+        try (Cursor cursor = database.rawQuery(
+                "PRAGMA table_info(" + tableName + ")",
+                null)) {
+            int nameIndex = cursor.getColumnIndexOrThrow("name");
+            while (cursor.moveToNext()) {
+                if (columnName.equals(cursor.getString(nameIndex))) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
@@ -237,17 +305,21 @@ public final class ComputerDatabaseManager {
     }
 
     private void insertLegacyComputer(ComputerDetails details) {
-        ContentValues metadata = createComputerMetadata(details);
+        PersistedHost host = LegacyHostDetailsAdapter.toPersistedHost(
+                details);
+        ContentValues metadata = createHostMetadata(
+                host.getRecord(),
+                details.uuid);
         computerDb.insertWithOnConflict(
                 COMPUTER_TABLE_NAME,
                 null,
                 metadata,
                 SQLiteDatabase.CONFLICT_IGNORE);
 
-        if (details.serverCert != null) {
+        if (host.getPinnedCertificate() != null) {
             ContentValues credential = createCredential(
                     details.uuid,
-                    details.serverCert);
+                    host.getPinnedCertificate());
             computerDb.insertWithOnConflict(
                     CREDENTIAL_TABLE_NAME,
                     null,
@@ -256,18 +328,23 @@ public final class ComputerDatabaseManager {
         }
     }
 
-    public void deleteComputer(ComputerDetails details) {
-        String hostId = requireHostId(details);
+    @Override
+    public void deleteHost(HostId hostId) {
+        String encodedHostId = resolveStoredHostId(
+                Objects.requireNonNull(hostId, "hostId"));
+        if (encodedHostId == null) {
+            return;
+        }
         computerDb.beginTransaction();
         try {
             computerDb.delete(
                     CREDENTIAL_TABLE_NAME,
                     CREDENTIAL_HOST_ID_COLUMN_NAME + "=?",
-                    new String[]{hostId});
+                    new String[]{encodedHostId});
             computerDb.delete(
                     COMPUTER_TABLE_NAME,
                     COMPUTER_UUID_COLUMN_NAME + "=?",
-                    new String[]{hostId});
+                    new String[]{encodedHostId});
             computerDb.setTransactionSuccessful();
         }
         finally {
@@ -275,17 +352,22 @@ public final class ComputerDatabaseManager {
         }
     }
 
-    public boolean updateComputerMetadata(ComputerDetails details) {
-        return writeComputerMetadata(details);
+    @Override
+    public boolean updateHostMetadata(HostRecord record) {
+        return writeHostMetadata(record);
     }
 
     /** Atomically imports metadata and an optional pinned certificate. */
-    public boolean importComputer(ComputerDetails details) {
+    @Override
+    public boolean importHost(PersistedHost host) {
+        PersistedHost source = Objects.requireNonNull(host, "host");
         computerDb.beginTransaction();
         try {
-            boolean updated = writeComputerMetadata(details);
-            if (details.serverCert != null) {
-                writePinnedCertificate(details.uuid, details.serverCert);
+            boolean updated = writeHostMetadata(source.getRecord());
+            if (source.getPinnedCertificate() != null) {
+                writePinnedCertificate(
+                        source.getRecord().getIdentity().getId(),
+                        source.getPinnedCertificate());
             }
             computerDb.setTransactionSuccessful();
             return updated;
@@ -360,6 +442,18 @@ public final class ComputerDatabaseManager {
         String hostId = requireNonEmpty(cursor.getString(0), "host ID");
         String name = requireNonEmpty(cursor.getString(1), "computer name");
         String addresses = requireValidAddresses(cursor.getString(2));
+        String macAddress = cursor.getString(3);
+        String userAlias = cursor.getString(5);
+        // Validate every domain field before a restore transaction starts.
+        // The snapshot retains the exact stored key and JSON for compatibility,
+        // while malformed identity or metadata can never enter the live DB.
+        new HostRecord(
+                new HostIdentity(
+                        HostId.of(hostId),
+                        name,
+                        userAlias),
+                decodeEndpoints(addresses),
+                macAddress);
         byte[] certificate = cursor.getBlob(4);
         if (certificate != null) {
             requireValidCertificate(certificate);
@@ -367,26 +461,16 @@ public final class ComputerDatabaseManager {
         return new StoredHostRecord(
                 hostId,
                 name,
+                userAlias,
                 addresses,
-                cursor.getString(3),
+                macAddress,
                 certificate);
     }
 
     private static String requireValidAddresses(String encoded) {
         String value = requireNonEmpty(encoded, "host endpoints");
-        try {
-            JSONObject addresses = new JSONObject(value);
-            tupleFromJson(addresses, AddressFields.LOCAL);
-            tupleFromJson(addresses, AddressFields.REMOTE);
-            tupleFromJson(addresses, AddressFields.MANUAL);
-            tupleFromJson(addresses, AddressFields.IPV6);
-            return value;
-        }
-        catch (JSONException error) {
-            throw new IllegalArgumentException(
-                    "Stored host endpoints are invalid",
-                    error);
-        }
+        decodeEndpoints(value);
+        return value;
     }
 
     private static void requireValidCertificate(byte[] encoded) {
@@ -411,6 +495,7 @@ public final class ComputerDatabaseManager {
                 ContentValues metadata = new ContentValues();
                 metadata.put(COMPUTER_UUID_COLUMN_NAME, record.hostId);
                 metadata.put(COMPUTER_NAME_COLUMN_NAME, record.name);
+                metadata.put(USER_ALIAS_COLUMN_NAME, record.userAlias);
                 metadata.put(ADDRESSES_COLUMN_NAME, record.addresses);
                 metadata.put(MAC_ADDRESS_COLUMN_NAME, record.macAddress);
                 metadata.putNull(LEGACY_SERVER_CERT_COLUMN_NAME);
@@ -467,39 +552,61 @@ public final class ComputerDatabaseManager {
     }
 
     /** Explicit credential mutation used only after successful pairing/import. */
+    @Override
     public void updatePinnedCertificate(
-            String hostId,
+            HostId hostId,
             X509Certificate certificate) {
         writePinnedCertificate(
-                requireNonEmpty(hostId, "hostId"),
+                Objects.requireNonNull(hostId, "hostId"),
                 Objects.requireNonNull(certificate, "certificate"));
     }
 
-    private boolean writeComputerMetadata(ComputerDetails details) {
+    private boolean writeHostMetadata(HostRecord record) {
+        HostRecord host = Objects.requireNonNull(record, "record");
+        HostId hostId = host.getIdentity().getId();
+        String storedHostId = resolveStoredHostId(hostId);
         return computerDb.insertWithOnConflict(
                 COMPUTER_TABLE_NAME,
                 null,
-                createComputerMetadata(details),
+                createHostMetadata(
+                        host,
+                        storedHostId == null
+                                ? hostId.getValue()
+                                : storedHostId),
                 SQLiteDatabase.CONFLICT_REPLACE) != -1;
     }
 
-    private static ContentValues createComputerMetadata(
-            ComputerDetails details) {
+    private static ContentValues createHostMetadata(
+            HostRecord record,
+            String storedHostId) {
+        HostRecord host = Objects.requireNonNull(record, "record");
         ContentValues values = new ContentValues();
-        values.put(COMPUTER_UUID_COLUMN_NAME, requireHostId(details));
+        values.put(
+                COMPUTER_UUID_COLUMN_NAME,
+                requireNonEmpty(storedHostId, "host ID"));
         values.put(
                 COMPUTER_NAME_COLUMN_NAME,
-                requireNonEmpty(details.name, "computer name"));
-        values.put(ADDRESSES_COLUMN_NAME, encodeAddresses(details));
-        values.put(MAC_ADDRESS_COLUMN_NAME, details.macAddress);
+                host.getIdentity().getAdvertisedName());
+        values.put(
+                USER_ALIAS_COLUMN_NAME,
+                host.getIdentity().getUserAlias());
+        values.put(ADDRESSES_COLUMN_NAME, encodeEndpoints(host));
+        values.put(MAC_ADDRESS_COLUMN_NAME, host.getMacAddress());
         values.putNull(LEGACY_SERVER_CERT_COLUMN_NAME);
         return values;
     }
 
     private void writePinnedCertificate(
-            String hostId,
+            HostId hostId,
             X509Certificate certificate) {
-        ContentValues values = createCredential(hostId, certificate);
+        String storedHostId = resolveStoredHostId(hostId);
+        if (storedHostId == null) {
+            throw new IllegalArgumentException(
+                    "Cannot persist a credential for an unknown host");
+        }
+        ContentValues values = createCredential(
+                storedHostId,
+                certificate);
         if (computerDb.insertWithOnConflict(
                 CREDENTIAL_TABLE_NAME,
                 null,
@@ -511,12 +618,12 @@ public final class ComputerDatabaseManager {
     }
 
     private static ContentValues createCredential(
-            String hostId,
+            String storedHostId,
             X509Certificate certificate) {
         ContentValues values = new ContentValues();
         values.put(
                 CREDENTIAL_HOST_ID_COLUMN_NAME,
-                requireNonEmpty(hostId, "hostId"));
+                requireNonEmpty(storedHostId, "host ID"));
         try {
             values.put(
                     CREDENTIAL_CERT_COLUMN_NAME,
@@ -531,12 +638,6 @@ public final class ComputerDatabaseManager {
         return values;
     }
 
-    private static String requireHostId(ComputerDetails details) {
-        return requireNonEmpty(
-                Objects.requireNonNull(details, "details").uuid,
-                "host ID");
-    }
-
     private static String requireNonEmpty(String value, String field) {
         if (value == null || value.trim().isEmpty()) {
             throw new IllegalArgumentException("Missing " + field);
@@ -544,13 +645,25 @@ public final class ComputerDatabaseManager {
         return value;
     }
 
-    private static String encodeAddresses(ComputerDetails details) {
+    private static String encodeEndpoints(HostRecord record) {
         try {
             JSONObject addresses = new JSONObject();
-            addresses.put(AddressFields.LOCAL, tupleToJson(details.localAddress));
-            addresses.put(AddressFields.REMOTE, tupleToJson(details.remoteAddress));
-            addresses.put(AddressFields.MANUAL, tupleToJson(details.manualAddress));
-            addresses.put(AddressFields.IPV6, tupleToJson(details.ipv6Address));
+            addresses.put(
+                    AddressFields.LOCAL,
+                    endpointToJson(record.getEndpoint(
+                            HostEndpoint.Kind.LOCAL_IPV4)));
+            addresses.put(
+                    AddressFields.REMOTE,
+                    endpointToJson(record.getEndpoint(
+                            HostEndpoint.Kind.REMOTE)));
+            addresses.put(
+                    AddressFields.MANUAL,
+                    endpointToJson(record.getEndpoint(
+                            HostEndpoint.Kind.MANUAL)));
+            addresses.put(
+                    AddressFields.IPV6,
+                    endpointToJson(record.getEndpoint(
+                            HostEndpoint.Kind.LOCAL_IPV6)));
             return addresses.toString();
         }
         catch (JSONException error) {
@@ -560,51 +673,89 @@ public final class ComputerDatabaseManager {
         }
     }
 
-    public static JSONObject tupleToJson(
-            ComputerDetails.AddressTuple tuple) throws JSONException {
-        if (tuple == null) {
+    private static JSONObject endpointToJson(
+            HostEndpoint endpoint) throws JSONException {
+        if (endpoint == null) {
             return null;
         }
         JSONObject json = new JSONObject();
-        json.put(AddressFields.ADDRESS, tuple.address);
-        json.put(AddressFields.PORT, tuple.port);
+        json.put(AddressFields.ADDRESS, endpoint.getAddress());
+        json.put(AddressFields.PORT, endpoint.getPort());
         return json;
     }
 
-    public static ComputerDetails.AddressTuple tupleFromJson(
+    private static HostEndpoint endpointFromJson(
             JSONObject json,
-            String name) throws JSONException {
+            String name,
+            HostEndpoint.Kind kind) throws JSONException {
         if (!json.has(name) || json.isNull(name)) {
             return null;
         }
         JSONObject address = json.getJSONObject(name);
-        return new ComputerDetails.AddressTuple(
+        return new HostEndpoint(
+                kind,
                 address.getString(AddressFields.ADDRESS),
                 address.getInt(AddressFields.PORT));
     }
 
-    private ComputerDetails getComputerFromCursor(Cursor cursor) {
-        ComputerDetails details = new ComputerDetails();
-        details.uuid = cursor.getString(0);
-        details.name = cursor.getString(1);
+    private PersistedHost getHostFromCursor(Cursor cursor) {
+        HostRecord record = new HostRecord(
+                new HostIdentity(
+                        HostId.of(cursor.getString(0)),
+                        cursor.getString(1),
+                        cursor.getString(5)),
+                decodeEndpoints(cursor.getString(2)),
+                cursor.getString(3));
+        return new PersistedHost(
+                record,
+                decodeCertificate(cursor.getBlob(4)));
+    }
+
+    private static List<HostEndpoint> decodeEndpoints(String encoded) {
+        List<HostEndpoint> endpoints = new ArrayList<>(4);
         try {
-            JSONObject addresses = new JSONObject(cursor.getString(2));
-            details.localAddress = tupleFromJson(addresses, AddressFields.LOCAL);
-            details.remoteAddress = tupleFromJson(addresses, AddressFields.REMOTE);
-            details.manualAddress = tupleFromJson(addresses, AddressFields.MANUAL);
-            details.ipv6Address = tupleFromJson(addresses, AddressFields.IPV6);
+            JSONObject addresses = new JSONObject(requireNonEmpty(
+                    encoded,
+                    "host endpoints"));
+            addEndpoint(
+                    endpoints,
+                    endpointFromJson(
+                            addresses,
+                            AddressFields.LOCAL,
+                            HostEndpoint.Kind.LOCAL_IPV4));
+            addEndpoint(
+                    endpoints,
+                    endpointFromJson(
+                            addresses,
+                            AddressFields.REMOTE,
+                            HostEndpoint.Kind.REMOTE));
+            addEndpoint(
+                    endpoints,
+                    endpointFromJson(
+                            addresses,
+                            AddressFields.MANUAL,
+                            HostEndpoint.Kind.MANUAL));
+            addEndpoint(
+                    endpoints,
+                    endpointFromJson(
+                            addresses,
+                            AddressFields.IPV6,
+                            HostEndpoint.Kind.LOCAL_IPV6));
+            return endpoints;
         }
-        catch (JSONException error) {
-            throw new IllegalStateException(
+        catch (JSONException | IllegalArgumentException error) {
+            throw new IllegalArgumentException(
                     "Stored host endpoints are invalid",
                     error);
         }
-        details.externalPort = details.remoteAddress == null ?
-                NvHTTP.DEFAULT_HTTP_PORT : details.remoteAddress.port;
-        details.macAddress = cursor.getString(3);
-        details.serverCert = decodeCertificate(cursor.getBlob(4));
-        details.state = ComputerDetails.State.UNKNOWN;
-        return details;
+    }
+
+    private static void addEndpoint(
+            List<HostEndpoint> endpoints,
+            HostEndpoint endpoint) {
+        if (endpoint != null) {
+            endpoints.add(endpoint);
+        }
     }
 
     private static X509Certificate decodeCertificate(byte[] encoded) {
@@ -624,72 +775,100 @@ public final class ComputerDatabaseManager {
         }
     }
 
+    private String resolveStoredHostId(HostId hostId) {
+        try (Cursor cursor = queryComputers(
+                "c." + COMPUTER_UUID_COLUMN_NAME +
+                        "=? COLLATE NOCASE",
+                new String[]{Objects.requireNonNull(
+                        hostId,
+                        "hostId").getValue()})) {
+            return cursor.moveToFirst() ? cursor.getString(0) : null;
+        }
+    }
+
     private Cursor queryComputers(String selection, String[] arguments) {
-        if (hasTable(CREDENTIAL_TABLE_NAME)) {
-            StringBuilder sql = new StringBuilder()
-                    .append("SELECT c.")
-                    .append(COMPUTER_UUID_COLUMN_NAME)
-                    .append(",c.")
-                    .append(COMPUTER_NAME_COLUMN_NAME)
-                    .append(",c.")
-                    .append(ADDRESSES_COLUMN_NAME)
-                    .append(",c.")
-                    .append(MAC_ADDRESS_COLUMN_NAME)
-                    .append(",COALESCE(k.")
+        boolean hasCredentials = hasTable(CREDENTIAL_TABLE_NAME);
+        boolean hasUserAlias = hasColumn(
+                computerDb,
+                COMPUTER_TABLE_NAME,
+                USER_ALIAS_COLUMN_NAME);
+        StringBuilder sql = new StringBuilder()
+                .append("SELECT c.")
+                .append(COMPUTER_UUID_COLUMN_NAME)
+                .append(",c.")
+                .append(COMPUTER_NAME_COLUMN_NAME)
+                .append(",c.")
+                .append(ADDRESSES_COLUMN_NAME)
+                .append(",c.")
+                .append(MAC_ADDRESS_COLUMN_NAME)
+                .append(',');
+        if (hasCredentials) {
+            sql.append("COALESCE(k.")
                     .append(CREDENTIAL_CERT_COLUMN_NAME)
                     .append(",c.")
                     .append(LEGACY_SERVER_CERT_COLUMN_NAME)
-                    .append(") FROM ")
-                    .append(COMPUTER_TABLE_NAME)
-                    .append(" c LEFT JOIN ")
+                    .append(')');
+        }
+        else {
+            sql.append("c.")
+                    .append(LEGACY_SERVER_CERT_COLUMN_NAME);
+        }
+        sql.append(',');
+        if (hasUserAlias) {
+            sql.append("c.").append(USER_ALIAS_COLUMN_NAME);
+        }
+        else {
+            sql.append("NULL");
+        }
+        sql.append(" FROM ")
+                .append(COMPUTER_TABLE_NAME)
+                .append(" c");
+        if (hasCredentials) {
+            sql.append(" LEFT JOIN ")
                     .append(CREDENTIAL_TABLE_NAME)
                     .append(" k ON c.")
                     .append(COMPUTER_UUID_COLUMN_NAME)
                     .append("=k.")
                     .append(CREDENTIAL_HOST_ID_COLUMN_NAME);
-            if (selection != null) {
-                sql.append(" WHERE ").append(selection);
-            }
-            return computerDb.rawQuery(sql.toString(), arguments);
         }
-        return computerDb.query(
-                COMPUTER_TABLE_NAME,
-                new String[]{
-                        COMPUTER_UUID_COLUMN_NAME,
-                        COMPUTER_NAME_COLUMN_NAME,
-                        ADDRESSES_COLUMN_NAME,
-                        MAC_ADDRESS_COLUMN_NAME,
-                        LEGACY_SERVER_CERT_COLUMN_NAME},
-                selection == null ? null : selection.replace("c.", ""),
-                arguments,
-                null,
-                null,
-                null);
+        if (selection != null) {
+            sql.append(" WHERE ").append(selection);
+        }
+        return computerDb.rawQuery(sql.toString(), arguments);
     }
 
-    public List<ComputerDetails> getAllComputers() {
+    @Override
+    public List<PersistedHost> getAllHosts() {
         try (Cursor cursor = queryComputers(null, null)) {
-            List<ComputerDetails> computers = new LinkedList<>();
+            List<PersistedHost> hosts = new ArrayList<>();
             while (cursor.moveToNext()) {
-                computers.add(getComputerFromCursor(cursor));
+                hosts.add(getHostFromCursor(cursor));
             }
-            return computers;
+            return hosts;
         }
     }
 
-    public ComputerDetails getComputerByName(String name) {
+    @Override
+    public PersistedHost findHostByName(String name) {
+        String advertisedName = Objects.requireNonNull(
+                name,
+                "advertisedName");
         try (Cursor cursor = queryComputers(
                 "c." + COMPUTER_NAME_COLUMN_NAME + "=?",
-                new String[]{name})) {
-            return cursor.moveToFirst() ? getComputerFromCursor(cursor) : null;
+                new String[]{advertisedName})) {
+            return cursor.moveToFirst() ? getHostFromCursor(cursor) : null;
         }
     }
 
-    public ComputerDetails getComputerByUUID(String uuid) {
+    @Override
+    public PersistedHost findHost(HostId hostId) {
         try (Cursor cursor = queryComputers(
-                "c." + COMPUTER_UUID_COLUMN_NAME + "=?",
-                new String[]{uuid})) {
-            return cursor.moveToFirst() ? getComputerFromCursor(cursor) : null;
+                "c." + COMPUTER_UUID_COLUMN_NAME +
+                        "=? COLLATE NOCASE",
+                new String[]{Objects.requireNonNull(
+                        hostId,
+                        "hostId").getValue()})) {
+            return cursor.moveToFirst() ? getHostFromCursor(cursor) : null;
         }
     }
 }

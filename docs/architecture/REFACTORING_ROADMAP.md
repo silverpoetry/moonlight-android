@@ -987,6 +987,20 @@ targets.
   TV entry points share the same immutable request and stable Intent contract;
   the mixed-purpose `ServerHelper` and `AutoReconnectHelper` implementations
   are removed.
+- Replaced the database's mutable `ComputerDetails` CRUD surface with a pure
+  `HostRepository` port returning immutable `PersistedHost` values. SQLite and
+  NvHTTP now meet only through an explicit legacy adapter, so protocol probe
+  fields cannot enter persistent metadata or replace a pinned certificate by
+  API construction. The service depends on the repository port while Android
+  database creation remains at its composition root.
+- Upgraded the paired-host database to schema v6 with a first-class user alias,
+  exact preservation of mixed-case legacy storage keys, canonical `HostId`
+  lookup, and transactional migration of existing v5 databases. Read-only old
+  snapshots remain importable without schema mutation; newer live databases
+  and imported snapshots are rejected and preserved, failed construction
+  closes its database, and restore
+  validates every identity, endpoint, MAC address, and certificate before its
+  first destination write.
 
 ### Exit evidence
 

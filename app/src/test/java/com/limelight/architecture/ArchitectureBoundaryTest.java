@@ -352,6 +352,39 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void immutableHostRepositoryModelsArePlatformIndependent() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.computers.model..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..",
+                        "com.limelight.nvstream..",
+                        "com.limelight.ui..")
+                .because(
+                        "persistent host identity, endpoints, credentials, and connection state are immutable domain values")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.HostRepository")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..",
+                        "com.limelight.nvstream..",
+                        "com.limelight.ui..")
+                .because(
+                        "host application policy depends on an immutable repository port, not SQLite or protocol DTOs")
+                .check(productionClasses);
+    }
+
+    @Test
     public void hostSessionPolicyIsPlatformAndTransportIndependent() {
         noClasses()
                 .that()

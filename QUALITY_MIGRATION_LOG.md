@@ -1528,3 +1528,24 @@ Verification on 2026-07-31:
   140 Root API 34 instrumentation tests with zero failures, errors, or skips.
   The NonRoot Release APK installed over the existing emulator application and
   cold-launched `PcView` in 409 ms with no fatal exception or ANR.
+
+## Make the host repository boundary immutable
+
+- Added a platform-independent `HostRepository` port and immutable
+  `PersistedHost` value. Repository APIs now accept `HostId`/`HostRecord` and
+  return immutable records; the remaining mutable NvHTTP `ComputerDetails`
+  conversion is centralized in `LegacyHostDetailsAdapter`. The host service
+  depends on the port rather than the SQLite implementation, while credentials
+  remain structurally separate from observation metadata.
+- Upgraded `computers4.db` from schema v5 to v6 with persistent user aliases.
+  The migration preserves exact legacy UUID casing for metadata/credential
+  joins while domain lookup remains case-insensitive. Portable snapshots retain
+  aliases, read-only pre-v6 snapshots work without mutation, newer live and
+  imported schemas plus corrupt sources are preserved, and restore validates
+  the complete source before an atomic destination transaction.
+- `verifyLocal --rerun-tasks --max-workers=1 --no-daemon` passed all 193 tasks
+  with 896 JVM tests per variant (3,584 executions total), all four Lint
+  variants, and both unminified Release APKs. Focused API 34 instrumentation
+  passed all 15 repository migration/backup tests, then `verifyConnected`
+  passed the complete 144-test NonRoot and 144-test Root suites with zero
+  failures, errors, or skips.
