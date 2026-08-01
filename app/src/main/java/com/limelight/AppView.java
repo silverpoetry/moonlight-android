@@ -40,6 +40,7 @@ import com.limelight.ui.gamemenu.GameDisplayFragment;
 import com.limelight.ui.gamemenu.GameDisplayHost;
 import com.limelight.ui.hosts.ScreenBackgroundPresenter;
 import com.limelight.ui.hosts.HostQuitMessageResolver;
+import com.limelight.ui.hosts.HostServiceBindingController;
 import com.limelight.ui.hosts.HostUiOperationController;
 import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.CacheHelper;
@@ -91,6 +92,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
     private final HostQuitUseCase hostQuitUseCase =
             new HostQuitUseCase();
     private HostUiOperationController hostOperationController;
+    private HostServiceBindingController hostBindingController;
 
     public final static String HIDDEN_APPS_PREF_FILENAME = "HiddenApps";
 
@@ -103,172 +105,237 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
     private final HostPollingClientLifecycle hostPollingLifecycle =
             new HostPollingClientLifecycle();
     private final Object pollingLifecycleLock = new Object();
-    private volatile long managerBindingGeneration;
     private volatile boolean activityDestroyed;
     private boolean managerServiceBound;
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder binder) {
-            final ComputerManagerService.ComputerManagerBinder localBinder =
+            ComputerManagerService.ComputerManagerBinder localBinder =
                     ((ComputerManagerService.ComputerManagerBinder)binder);
-            final long bindingGeneration;
-            synchronized (pollingLifecycleLock) {
-                bindingGeneration = ++managerBindingGeneration;
+            HostServiceBindingController controller =
+                    hostBindingController;
+            if (controller == null) {
+                return;
             }
-
-            // Wait in a separate thread to avoid stalling the UI
-            new Thread() {
-                @Override
-                public void run() {
-                    // Wait for the binder to be ready
-                    if (!localBinder.waitForReady()) {
-                        return;
-                    }
-
-                    synchronized (pollingLifecycleLock) {
-                        if (activityDestroyed ||
-                                bindingGeneration !=
-                                        managerBindingGeneration) {
-                            return;
-                        }
-                    }
-
-                    // Get the computer object
-                    ComputerDetails loadedComputer =
-                            localBinder.getComputer(uuidString);
-                    if (loadedComputer == null) {
-                        runOnUiThread(() -> {
-                            if (isCurrentBindingGeneration(
-                                    bindingGeneration)) {
-                                finish();
-                            }
-                        });
-                        return;
-                    }
-
-                    AppGridAdapter loadedAdapter;
-                    try {
-                        loadedAdapter = new AppGridAdapter(AppView.this,
-                                appPresentationSettings
-                                        .usesSmallAppIcons(),
-                                loadedComputer, localBinder.getUniqueId(),
-                                showHiddenApps);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        runOnUiThread(() -> {
-                            if (isCurrentBindingGeneration(
-                                    bindingGeneration)) {
-                                finish();
-                            }
-                        });
-                        return;
-                    }
-
-                    loadedAdapter.updateHiddenApps(hiddenAppIds, true);
-
-                    // Now make the binder visible. We must do this after appGridAdapter
-                    // is set to prevent us from reaching updateUiWithServerinfo() and
-                    // touching the appGridAdapter prior to initialization.
-                    synchronized (pollingLifecycleLock) {
-                        if (activityDestroyed ||
-                                bindingGeneration !=
-                                        managerBindingGeneration) {
-                            loadedAdapter.cancelQueuedOperations();
-                            return;
-                        }
-                        computer = loadedComputer;
-                        appGridAdapter = loadedAdapter;
-                        managerBinder = localBinder;
-                    }
-
-                    // Add a launcher shortcut for this PC (forced, since this
-                    // is explicit user interaction) only after this binding
-                    // has won the generation race.
-                    shortcutHelper.createAppViewShortcut(
-                            loadedComputer,
-                            true,
-                            getIntent().getBooleanExtra(
-                                    NEW_PAIR_EXTRA,
-                                    false));
-                    shortcutHelper.reportComputerShortcutUsed(
-                            loadedComputer);
-
-                    // Load the app grid with cached data (if possible).
-                    // This must be done _before_ startComputerUpdates()
-                    // so the initial serverinfo response can update the running
-                    // icon.
-                    populateAppGridWithCache();
-
-                    // Start updates
-                    startComputerUpdates();
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (isCurrentManagerBinding(
-                                    bindingGeneration,
-                                    localBinder)) {
-                                tryAutoReconnect();
-                            }
-                        }
-                    });
-
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (!isCurrentManagerBinding(
-                                    bindingGeneration,
-                                    localBinder) ||
-                                    isFinishing() ||
-                                    isChangingConfigurations()) {
-                                return;
-                            }
-
-                            // Despite my best efforts to catch all conditions that could
-                            // cause the activity to be destroyed when we try to commit
-                            // I haven't been able to, so we have this try-catch block.
-                            try {
-                                getFragmentManager().beginTransaction()
-                                        .replace(R.id.appFragmentContainer, new AdapterFragment())
-                                        .commitAllowingStateLoss();
-                            } catch (IllegalStateException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    });
-                }
-            }.start();
+            HostServiceBindingController.ConnectStatus status =
+                    controller.connect(
+                            cancellation -> initializeAppBinding(
+                                    localBinder,
+                                    cancellation),
+                            AppView.this::onAppBindingInitialized,
+                            AppBindingInitialization::discard);
+            if (status != HostServiceBindingController.ConnectStatus.ACCEPTED) {
+                LimeLog.severe(
+                        "Unable to initialize app-list service binding: " +
+                                status);
+            }
         }
 
         public void onServiceDisconnected(ComponentName className) {
+            if (hostBindingController != null) {
+                hostBindingController.disconnect();
+            }
             synchronized (pollingLifecycleLock) {
-                managerBindingGeneration++;
                 managerBinder = null;
             }
             runCloseAction(hostPollingLifecycle.onConnectionLost());
         }
     };
 
-    private boolean isCurrentManagerBinding(
-            long bindingGeneration,
-            ComputerManagerService.ComputerManagerBinder binder) {
-        synchronized (pollingLifecycleLock) {
-            return isCurrentBindingGenerationLocked(
-                    bindingGeneration) &&
-                    managerBinder == binder;
+    private AppBindingInitialization initializeAppBinding(
+            ComputerManagerService.ComputerManagerBinder binder,
+            HostServiceBindingController.CancellationSignal
+                    cancellation) throws Exception {
+        if (!binder.waitForReady() || cancellation.isCanceled()) {
+            return null;
+        }
+
+        ComputerDetails loadedComputer =
+                binder.getComputer(uuidString);
+        if (loadedComputer == null) {
+            return AppBindingInitialization.missingHost();
+        }
+
+        AppGridAdapter loadedAdapter = new AppGridAdapter(
+                this,
+                appPresentationSettings.usesSmallAppIcons(),
+                loadedComputer,
+                binder.getUniqueId(),
+                showHiddenApps);
+        boolean transferred = false;
+        try {
+            loadedAdapter.updateHiddenApps(hiddenAppIds, true);
+            if (cancellation.isCanceled()) {
+                return null;
+            }
+
+            String cachedRawAppList = null;
+            List<NvApp> cachedApps = null;
+            try {
+                cachedRawAppList = CacheHelper
+                        .readInputStreamToString(
+                                CacheHelper.openCacheFileForInput(
+                                        getCacheDir(),
+                                        "applist",
+                                        uuidString));
+                cachedApps = NvHTTP.getAppListByReader(
+                        new StringReader(cachedRawAppList));
+                LimeLog.info("Loaded app list from cache");
+            }
+            catch (IOException | XmlPullParserException error) {
+                LimeLog.info(
+                        "Cached app list unavailable: " +
+                                error.getClass().getSimpleName());
+            }
+            if (cancellation.isCanceled()) {
+                return null;
+            }
+
+            // Shortcut persistence may perform disk I/O, so keep it on the
+            // binding worker after the connection has won cancellation.
+            shortcutHelper.createAppViewShortcut(
+                    loadedComputer,
+                    true,
+                    getIntent().getBooleanExtra(
+                            NEW_PAIR_EXTRA,
+                            false));
+            shortcutHelper.reportComputerShortcutUsed(
+                    loadedComputer);
+            if (cancellation.isCanceled()) {
+                return null;
+            }
+
+            AppBindingInitialization result =
+                    AppBindingInitialization.ready(
+                            binder,
+                            loadedComputer,
+                            loadedAdapter,
+                            cachedRawAppList,
+                            cachedApps);
+            transferred = true;
+            return result;
+        }
+        finally {
+            if (!transferred) {
+                loadedAdapter.cancelQueuedOperations();
+            }
         }
     }
 
-    private boolean isCurrentBindingGeneration(
-            long bindingGeneration) {
-        synchronized (pollingLifecycleLock) {
-            return isCurrentBindingGenerationLocked(
-                    bindingGeneration);
+    private void onAppBindingInitialized(
+            HostServiceBindingController.Result<
+                    AppBindingInitialization> result) {
+        if (!result.isSuccessful()) {
+            LimeLog.severe(
+                    "App-list binding initialization failed: " +
+                            result.getFailure().getClass().getSimpleName());
+            finish();
+            return;
         }
+
+        AppBindingInitialization initialization = result.getValue();
+        if (initialization == null) {
+            return;
+        }
+        if (!initialization.hasHost()) {
+            finish();
+            return;
+        }
+        AppGridAdapter previousAdapter;
+        synchronized (pollingLifecycleLock) {
+            if (activityDestroyed) {
+                initialization.discard();
+                return;
+            }
+            previousAdapter = appGridAdapter;
+            computer = initialization.computer;
+            appGridAdapter = initialization.adapter;
+            managerBinder = initialization.binder;
+        }
+        if (previousAdapter != null &&
+                previousAdapter != initialization.adapter) {
+            previousAdapter.cancelQueuedOperations();
+        }
+
+        lastRawApplist = initialization.cachedRawAppList;
+        lastRunningAppId = 0;
+        if (initialization.cachedApps != null) {
+            if (blockingLoadSpinner != null) {
+                blockingLoadSpinner.dismiss();
+                blockingLoadSpinner = null;
+            }
+            updateUiWithAppList(initialization.cachedApps);
+        }
+        else {
+            LimeLog.info("Loading app list from the network");
+            loadAppsBlocking();
+        }
+
+        startComputerUpdates();
+        tryAutoReconnect();
+        if (isFinishing() ||
+                isChangingConfigurations() ||
+                getFragmentManager().isDestroyed()) {
+            return;
+        }
+        getFragmentManager().beginTransaction()
+                .replace(
+                        R.id.appFragmentContainer,
+                        new AdapterFragment())
+                .commitAllowingStateLoss();
     }
 
-    private boolean isCurrentBindingGenerationLocked(
-            long bindingGeneration) {
-        return !activityDestroyed &&
-                managerBindingGeneration == bindingGeneration;
+    private static final class AppBindingInitialization {
+        private final ComputerManagerService.ComputerManagerBinder binder;
+        private final ComputerDetails computer;
+        private final AppGridAdapter adapter;
+        private final String cachedRawAppList;
+        private final List<NvApp> cachedApps;
+
+        private AppBindingInitialization(
+                ComputerManagerService.ComputerManagerBinder binder,
+                ComputerDetails computer,
+                AppGridAdapter adapter,
+                String cachedRawAppList,
+                List<NvApp> cachedApps) {
+            this.binder = binder;
+            this.computer = computer;
+            this.adapter = adapter;
+            this.cachedRawAppList = cachedRawAppList;
+            this.cachedApps = cachedApps;
+        }
+
+        static AppBindingInitialization missingHost() {
+            return new AppBindingInitialization(
+                    null,
+                    null,
+                    null,
+                    null,
+                    null);
+        }
+
+        static AppBindingInitialization ready(
+                ComputerManagerService.ComputerManagerBinder binder,
+                ComputerDetails computer,
+                AppGridAdapter adapter,
+                String cachedRawAppList,
+                List<NvApp> cachedApps) {
+            return new AppBindingInitialization(
+                    binder,
+                    computer,
+                    adapter,
+                    cachedRawAppList,
+                    cachedApps);
+        }
+
+        boolean hasHost() {
+            return computer != null;
+        }
+
+        void discard() {
+            if (adapter != null) {
+                adapter.cancelQueuedOperations();
+            }
+        }
     }
 
     @Override
@@ -480,6 +547,8 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
 
         hostOperationController = HostUiOperationController.create(
                 this::runOnUiThread);
+        hostBindingController = HostServiceBindingController.create(
+                this::runOnUiThread);
 
         // Assume we're in the foreground when created to avoid a race
         // between binding to CMS and onResume()
@@ -617,24 +686,6 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
         appGridAdapter.updateHiddenApps(hiddenAppIds, hideImmediately);
     }
 
-    private void populateAppGridWithCache() {
-        try {
-            // Try to load from cache
-            lastRawApplist = CacheHelper.readInputStreamToString(CacheHelper.openCacheFileForInput(getCacheDir(), "applist", uuidString));
-            List<NvApp> applist = NvHTTP.getAppListByReader(new StringReader(lastRawApplist));
-            updateUiWithAppList(applist);
-            LimeLog.info("Loaded applist from cache");
-        } catch (IOException | XmlPullParserException e) {
-            if (lastRawApplist != null) {
-                LimeLog.warning("Saved applist corrupted: "+lastRawApplist);
-                e.printStackTrace();
-            }
-            LimeLog.info("Loading applist from the network");
-            // We'll need to load from the network
-            loadAppsBlocking();
-        }
-    }
-
     private void loadAppsBlocking() {
         blockingLoadSpinner = SpinnerDialog.displayDialog(this, getResources().getString(R.string.applist_refresh_title),
                 getResources().getString(R.string.applist_refresh_msg), true);
@@ -648,6 +699,10 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
             hostOperationController.destroy();
             hostOperationController = null;
         }
+        if (hostBindingController != null) {
+            hostBindingController.destroy();
+            hostBindingController = null;
+        }
 
         SpinnerDialog.closeDialogs(this);
         Dialog.closeDialogs();
@@ -657,7 +712,6 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
             managerServiceBound = false;
         }
         synchronized (pollingLifecycleLock) {
-            managerBindingGeneration++;
             managerBinder = null;
         }
         super.onDestroy();

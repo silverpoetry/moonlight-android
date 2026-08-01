@@ -532,6 +532,38 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void hostServiceBindingHasOnePlatformIndependentOwner() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.hosts.HostServiceBindingController")
+                .or()
+                .haveNameMatching(
+                        "com\\.limelight\\.ui\\.hosts\\.HostServiceBindingController\\$.*")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..", "androidx..")
+                .because(
+                        "binding replacement, cancellation, and stale-result disposal are pure lifecycle policy")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.PcView")
+                .or()
+                .haveFullyQualifiedName("com.limelight.AppView")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ShortcutTrampoline")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("java.lang.Thread")
+                .because(
+                        "host screens delegate binding workers to HostServiceBindingController")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamFailureDiagnosticsDoesNotDependOnConnection() {
         noClasses()
                 .that()

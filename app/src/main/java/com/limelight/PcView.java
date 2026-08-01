@@ -39,6 +39,7 @@ import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.ui.hosts.ScreenBackgroundPresenter;
 import com.limelight.ui.hosts.HostPairingController;
 import com.limelight.ui.hosts.HostQuitMessageResolver;
+import com.limelight.ui.hosts.HostServiceBindingController;
 import com.limelight.ui.hosts.HostUiOperationController;
 import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.DeviceUtils;
@@ -106,65 +107,81 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     private final HostUnpairUseCase hostUnpairUseCase =
             new HostUnpairUseCase();
     private HostUiOperationController hostOperationController;
+    private HostServiceBindingController hostBindingController;
     private SpinnerDialog hostOperationProgress;
     private final HostPollingClientLifecycle hostPollingLifecycle =
             new HostPollingClientLifecycle();
-    private volatile long managerBindingGeneration;
     private ComputerObject pendingHostMenuComputer;
     private android.app.AlertDialog pendingHostMenuDialog;
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder binder) {
-            final ComputerManagerService.ComputerManagerBinder localBinder =
+            ComputerManagerService.ComputerManagerBinder localBinder =
                     ((ComputerManagerService.ComputerManagerBinder)binder);
-            final long bindingGeneration;
-            synchronized (managerBindingLock) {
-                bindingGeneration = ++managerBindingGeneration;
+            HostServiceBindingController controller =
+                    hostBindingController;
+            if (controller == null) {
+                return;
             }
-
-            // Wait in a separate thread to avoid stalling the UI
-            new Thread() {
-                @Override
-                public void run() {
-                    // Wait for the binder to be ready
-                    if (!localBinder.waitForReady()) {
-                        return;
-                    }
-
-                    synchronized (managerBindingLock) {
-                        if (activityDestroyed ||
-                                bindingGeneration !=
-                                        managerBindingGeneration) {
-                            return;
-                        }
-                        managerBinder = localBinder;
-                    }
-                    startComputerUpdates();
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (!activityDestroyed &&
-                                    bindingGeneration ==
-                                            managerBindingGeneration) {
-                                tryAutoReconnect();
-                            }
-                        }
-                    });
-
-                    // Force a keypair to be generated early to avoid discovery delays
-                    PlatformBinding.getCryptoProvider(PcView.this).getClientCertificate();
-                }
-            }.start();
+            HostServiceBindingController.ConnectStatus status =
+                    controller.connect(
+                            cancellation -> initializeManagerBinding(
+                                    localBinder,
+                                    cancellation),
+                            PcView.this::onManagerBindingInitialized);
+            if (status != HostServiceBindingController.ConnectStatus.ACCEPTED) {
+                LimeLog.severe(
+                        "Unable to initialize computer manager binding: " +
+                                status);
+            }
         }
 
         public void onServiceDisconnected(ComponentName className) {
+            if (hostBindingController != null) {
+                hostBindingController.disconnect();
+            }
             synchronized (managerBindingLock) {
-                managerBindingGeneration++;
                 managerBinder = null;
                 freezeUpdates = true;
             }
             runCloseAction(hostPollingLifecycle.onConnectionLost());
         }
     };
+
+    private ComputerManagerService.ComputerManagerBinder
+            initializeManagerBinding(
+                    ComputerManagerService.ComputerManagerBinder binder,
+                    HostServiceBindingController.CancellationSignal
+                            cancellation) {
+        if (!binder.waitForReady() || cancellation.isCanceled()) {
+            return null;
+        }
+
+        // Generate the client identity before discovery callbacks need it.
+        PlatformBinding.getCryptoProvider(this)
+                .getClientCertificate();
+        return cancellation.isCanceled() ? null : binder;
+    }
+
+    private void onManagerBindingInitialized(
+            HostServiceBindingController.Result<
+                    ComputerManagerService.ComputerManagerBinder> result) {
+        if (!result.isSuccessful()) {
+            LimeLog.severe(
+                    "Computer manager binding initialization failed: " +
+                            result.getFailure().getClass().getSimpleName());
+            return;
+        }
+        ComputerManagerService.ComputerManagerBinder binder =
+                result.getValue();
+        if (binder == null || activityDestroyed) {
+            return;
+        }
+        synchronized (managerBindingLock) {
+            managerBinder = binder;
+        }
+        startComputerUpdates();
+        tryAutoReconnect();
+    }
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
@@ -260,6 +277,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         hostPairingController = HostPairingController.create(
                 this::runOnUiThread);
         hostOperationController = HostUiOperationController.create(
+                this::runOnUiThread);
+        hostBindingController = HostServiceBindingController.create(
                 this::runOnUiThread);
 
         // Assume we're in the foreground when created to avoid a race
@@ -423,13 +442,16 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             hostOperationController.destroy();
             hostOperationController = null;
         }
+        if (hostBindingController != null) {
+            hostBindingController.destroy();
+            hostBindingController = null;
+        }
         dismissHostOperationProgress();
         if (managerServiceBound) {
             unbindService(serviceConnection);
             managerServiceBound = false;
         }
         synchronized (managerBindingLock) {
-            managerBindingGeneration++;
             managerBinder = null;
         }
         super.onDestroy();

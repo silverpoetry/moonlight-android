@@ -16,6 +16,7 @@ import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
 import com.limelight.nvstream.wol.WakeOnLanSender;
+import com.limelight.ui.hosts.HostServiceBindingController;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.ServerHelper;
@@ -45,127 +46,143 @@ public class ShortcutTrampoline extends Activity {
     private final Object serviceLifecycleLock = new Object();
     private final HostPollingClientLifecycle hostPollingLifecycle =
             new HostPollingClientLifecycle();
-    private long serviceBindingGeneration;
-    private Thread serviceInitializationThread;
+    private HostServiceBindingController hostBindingController;
     private volatile boolean managerServiceBound;
     private volatile boolean activityDestroyed;
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder binder) {
-            final ComputerManagerService.ComputerManagerBinder localBinder =
+            ComputerManagerService.ComputerManagerBinder localBinder =
                     ((ComputerManagerService.ComputerManagerBinder)binder);
-            final long bindingGeneration;
-            final Thread initializationThread;
-            synchronized (serviceLifecycleLock) {
-                if (activityDestroyed) {
-                    return;
-                }
-                bindingGeneration = ++serviceBindingGeneration;
-                initializationThread = new Thread(
-                        () -> initializeServiceBinding(
-                                localBinder,
-                                bindingGeneration),
-                        "Shortcut host initialization");
-                serviceInitializationThread = initializationThread;
+            HostServiceBindingController controller =
+                    hostBindingController;
+            if (controller == null) {
+                return;
             }
-
-            // Wait in a separate thread to avoid stalling the UI
-            initializationThread.start();
+            HostServiceBindingController.ConnectStatus status =
+                    controller.connect(
+                            cancellation -> initializeServiceBinding(
+                                    localBinder,
+                                    cancellation),
+                            ShortcutTrampoline.this::
+                                    onServiceBindingInitialized);
+            if (status != HostServiceBindingController.ConnectStatus.ACCEPTED) {
+                LimeLog.severe(
+                        "Unable to initialize shortcut service binding: " +
+                                status);
+                showConnectionFailure();
+            }
         }
 
         public void onServiceDisconnected(ComponentName className) {
-            Thread initializationThread;
-            synchronized (serviceLifecycleLock) {
-                serviceBindingGeneration++;
-                managerBinder = null;
-                initializationThread = serviceInitializationThread;
-                serviceInitializationThread = null;
+            if (hostBindingController != null) {
+                hostBindingController.disconnect();
             }
-            if (initializationThread != null) {
-                initializationThread.interrupt();
+            synchronized (serviceLifecycleLock) {
+                managerBinder = null;
             }
             runCloseAction(hostPollingLifecycle.onConnectionLost());
         }
     };
 
-    private void initializeServiceBinding(
+    private BindingOutcome initializeServiceBinding(
             ComputerManagerService.ComputerManagerBinder localBinder,
-            long bindingGeneration) {
+            HostServiceBindingController.CancellationSignal
+                    cancellation) throws Exception {
+        if (!localBinder.waitForReady() || cancellation.isCanceled()) {
+            return BindingOutcome.CANCELED;
+        }
+
+        ComputerDetails loadedComputer = uuidString != null
+                ? localBinder.getComputer(uuidString)
+                : localBinder.getComputerByName(requestedHostName);
+        if (loadedComputer == null) {
+            return BindingOutcome.MISSING_HOST;
+        }
+
+        uuidString = loadedComputer.uuid;
+        if (app == null && requestedAppName != null) {
+            app = findCachedAppByName(
+                    uuidString,
+                    requestedAppName);
+            if (app == null) {
+                return BindingOutcome.INVALID_APP;
+            }
+        }
+        if (cancellation.isCanceled()) {
+            return BindingOutcome.CANCELED;
+        }
+
+        synchronized (serviceLifecycleLock) {
+            if (activityDestroyed || cancellation.isCanceled()) {
+                return BindingOutcome.CANCELED;
+            }
+            computer = loadedComputer;
+            managerBinder = localBinder;
+        }
+
+        localBinder.invalidateStateForComputer(
+                loadedComputer.uuid);
+        HostPollingClientLifecycle.StartToken startToken =
+                hostPollingLifecycle.beginStart();
+        if (startToken == null || cancellation.isCanceled()) {
+            hostPollingLifecycle.failStart(startToken);
+            return BindingOutcome.CANCELED;
+        }
+
+        ComputerManagerService.HostPollingSubscription subscription;
         try {
-            if (!localBinder.waitForReady() ||
-                    !isCurrentBinding(bindingGeneration)) {
-                return;
-            }
-
-            ComputerDetails loadedComputer = uuidString != null
-                    ? localBinder.getComputer(uuidString)
-                    : localBinder.getComputerByName(requestedHostName);
-            if (loadedComputer == null) {
-                runOnUiThread(() -> showMissingComputer(
-                        bindingGeneration));
-                return;
-            }
-
-            uuidString = loadedComputer.uuid;
-            if (app == null && requestedAppName != null) {
-                app = findCachedAppByName(
-                        uuidString,
-                        requestedAppName);
-                if (app == null) {
-                    runOnUiThread(() -> showInvalidApp(
-                            bindingGeneration));
-                    return;
-                }
-            }
-
-            synchronized (serviceLifecycleLock) {
-                if (!isCurrentBindingLocked(bindingGeneration)) {
-                    return;
-                }
-                computer = loadedComputer;
-                managerBinder = localBinder;
-            }
-
-            localBinder.invalidateStateForComputer(
-                    loadedComputer.uuid);
-            HostPollingClientLifecycle.StartToken startToken =
-                    hostPollingLifecycle.beginStart();
-            if (startToken == null ||
-                    !isCurrentBinding(bindingGeneration)) {
-                hostPollingLifecycle.failStart(startToken);
-                return;
-            }
-
-            ComputerManagerService.HostPollingSubscription subscription;
-            try {
-                subscription = localBinder.startPolling(
-                        details -> handleComputerUpdate(
-                                localBinder,
-                                startToken,
-                                details));
-            }
-            catch (RuntimeException | Error error) {
-                hostPollingLifecycle.failStart(startToken);
-                throw error;
-            }
-            hostPollingLifecycle.completeStart(
-                    startToken,
-                    subscription::close);
+            subscription = localBinder.startPolling(
+                    details -> handleComputerUpdate(
+                            localBinder,
+                            startToken,
+                            details));
         }
-        catch (RuntimeException error) {
+        catch (RuntimeException | Error error) {
+            hostPollingLifecycle.failStart(startToken);
+            throw error;
+        }
+        hostPollingLifecycle.completeStart(
+                startToken,
+                subscription::close);
+        return BindingOutcome.READY;
+    }
+
+    private void onServiceBindingInitialized(
+            HostServiceBindingController.Result<BindingOutcome> result) {
+        if (!result.isSuccessful()) {
             LimeLog.severe(
-                    "Unable to initialize shortcut host polling");
-            runOnUiThread(() -> showConnectionFailure(
-                    bindingGeneration));
+                    "Unable to initialize shortcut host polling: " +
+                            result.getFailure().getClass().getSimpleName());
+            showConnectionFailure();
+            return;
         }
-        finally {
-            synchronized (serviceLifecycleLock) {
-                if (serviceInitializationThread ==
-                        Thread.currentThread()) {
-                    serviceInitializationThread = null;
-                }
-            }
+        BindingOutcome outcome = result.getValue();
+        if (outcome == null) {
+            return;
         }
+        switch (outcome) {
+            case READY:
+            case CANCELED:
+                return;
+            case MISSING_HOST:
+                showMissingComputer();
+                return;
+            case INVALID_APP:
+                showInvalidApp();
+                return;
+            default:
+                throw new AssertionError(
+                        "Unhandled shortcut binding outcome: " +
+                                outcome);
+        }
+    }
+
+    private enum BindingOutcome {
+        READY,
+        MISSING_HOST,
+        INVALID_APP,
+        CANCELED
     }
 
     private void handleComputerUpdate(
@@ -291,10 +308,7 @@ public class ShortcutTrampoline extends Activity {
         startActivities(intentStack.toArray(new Intent[0]));
     }
 
-    private void showMissingComputer(long bindingGeneration) {
-        if (!isCurrentBinding(bindingGeneration)) {
-            return;
-        }
+    private void showMissingComputer() {
         dismissBlockingSpinner();
         Dialog.displayDialog(
                 this,
@@ -304,10 +318,7 @@ public class ShortcutTrampoline extends Activity {
         releaseServiceConnection();
     }
 
-    private void showConnectionFailure(long bindingGeneration) {
-        if (!isCurrentBinding(bindingGeneration)) {
-            return;
-        }
+    private void showConnectionFailure() {
         dismissBlockingSpinner();
         Dialog.displayDialog(
                 this,
@@ -317,10 +328,7 @@ public class ShortcutTrampoline extends Activity {
         releaseServiceConnection();
     }
 
-    private void showInvalidApp(long bindingGeneration) {
-        if (!isCurrentBinding(bindingGeneration)) {
-            return;
-        }
+    private void showInvalidApp() {
         dismissBlockingSpinner();
         Dialog.displayDialog(
                 this,
@@ -353,18 +361,6 @@ public class ShortcutTrampoline extends Activity {
             return null;
         }
         return null;
-    }
-
-    private boolean isCurrentBinding(long bindingGeneration) {
-        synchronized (serviceLifecycleLock) {
-            return isCurrentBindingLocked(bindingGeneration);
-        }
-    }
-
-    private boolean isCurrentBindingLocked(long bindingGeneration) {
-        return !activityDestroyed &&
-                managerServiceBound &&
-                serviceBindingGeneration == bindingGeneration;
     }
 
     protected boolean validateInput(String uuidString, String appIdString, String nameString) {
@@ -418,6 +414,8 @@ public class ShortcutTrampoline extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         hostPollingLifecycle.activate();
+        hostBindingController = HostServiceBindingController.create(
+                this::runOnUiThread);
 
         UiHelper.notifyNewRootView(this);
         // PC arguments, both are optional, but at least one must be provided
@@ -494,23 +492,22 @@ public class ShortcutTrampoline extends Activity {
 
     private void releaseServiceConnection() {
         Runnable closeAction;
-        Thread initializationThread;
         boolean shouldUnbind;
+        HostServiceBindingController bindingController;
         synchronized (serviceLifecycleLock) {
             if (activityDestroyed) {
                 return;
             }
             activityDestroyed = true;
-            serviceBindingGeneration++;
             managerBinder = null;
-            initializationThread = serviceInitializationThread;
-            serviceInitializationThread = null;
+            bindingController = hostBindingController;
+            hostBindingController = null;
             shouldUnbind = managerServiceBound;
             managerServiceBound = false;
             closeAction = hostPollingLifecycle.destroy();
         }
-        if (initializationThread != null) {
-            initializationThread.interrupt();
+        if (bindingController != null) {
+            bindingController.destroy();
         }
         runCloseAction(closeAction);
         if (shouldUnbind) {

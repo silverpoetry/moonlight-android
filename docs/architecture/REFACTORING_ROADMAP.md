@@ -970,6 +970,12 @@ targets.
   callback. It owns and releases its scheduler, preserves protocol failures,
   and retains only application context in its presentation callback. Pairing,
   quit, and unpair also share one credential-aware Android NvHTTP factory.
+- `PcView`, `AppView`, and shortcut launch now share one replaceable host-service
+  binding initializer instead of owning anonymous or hand-managed threads.
+  Reconnect interrupts the superseded wait, disconnect and destruction
+  generation-gate queued callbacks, and completed values that lose the race are
+  explicitly disposed. App-list cache parsing remains off the main thread, and
+  a stale prepared adapter cancels its queued asset work before being dropped.
 
 ### Exit evidence
 
