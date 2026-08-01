@@ -20,17 +20,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-public final class ManualHostOperationControllerTest {
+public final class HostUiOperationControllerTest {
     @Test
     public void publishesResultOnCallbackExecutor() {
         ManualExecutorService worker = new ManualExecutorService();
         ManualExecutor callbacks = new ManualExecutor();
-        ManualHostOperationController controller =
-                new ManualHostOperationController(worker, callbacks);
+        HostUiOperationController controller =
+                new HostUiOperationController(worker, callbacks);
         AtomicReference<String> value = new AtomicReference<>();
 
         assertEquals(
-                ManualHostOperationController.RequestStatus.ACCEPTED,
+                HostUiOperationController.RequestStatus.ACCEPTED,
                 controller.request(
                         () -> "resolved",
                         result -> value.set(result.getValue())));
@@ -45,28 +45,28 @@ public final class ManualHostOperationControllerTest {
     public void rejectsDuplicateUntilCompletionIsDelivered() {
         ManualExecutorService worker = new ManualExecutorService();
         ManualExecutor callbacks = new ManualExecutor();
-        ManualHostOperationController controller =
-                new ManualHostOperationController(worker, callbacks);
+        HostUiOperationController controller =
+                new HostUiOperationController(worker, callbacks);
         AtomicInteger executions = new AtomicInteger();
 
         controller.request(
                 executions::incrementAndGet,
                 result -> {});
         assertEquals(
-                ManualHostOperationController.RequestStatus.ALREADY_RUNNING,
+                HostUiOperationController.RequestStatus.ALREADY_RUNNING,
                 controller.request(
                         executions::incrementAndGet,
                         result -> {}));
         worker.runAll();
         assertEquals(
-                ManualHostOperationController.RequestStatus.ALREADY_RUNNING,
+                HostUiOperationController.RequestStatus.ALREADY_RUNNING,
                 controller.request(
                         executions::incrementAndGet,
                         result -> {}));
         callbacks.runAll();
 
         assertEquals(
-                ManualHostOperationController.RequestStatus.ACCEPTED,
+                HostUiOperationController.RequestStatus.ACCEPTED,
                 controller.request(
                         executions::incrementAndGet,
                         result -> {}));
@@ -79,8 +79,8 @@ public final class ManualHostOperationControllerTest {
     public void cancelInterruptsWorkAndSuppressesQueuedCallback() {
         ManualExecutorService worker = new ManualExecutorService();
         ManualExecutor callbacks = new ManualExecutor();
-        ManualHostOperationController controller =
-                new ManualHostOperationController(worker, callbacks);
+        HostUiOperationController controller =
+                new HostUiOperationController(worker, callbacks);
         AtomicInteger deliveries = new AtomicInteger();
 
         controller.request(() -> "done", result ->
@@ -91,7 +91,7 @@ public final class ManualHostOperationControllerTest {
 
         assertEquals(0, deliveries.get());
         assertEquals(
-                ManualHostOperationController.RequestStatus.ACCEPTED,
+                HostUiOperationController.RequestStatus.ACCEPTED,
                 controller.request(
                         () -> "next",
                         result -> deliveries.incrementAndGet()));
@@ -101,8 +101,8 @@ public final class ManualHostOperationControllerTest {
     public void cancelBeforeWorkerStartsPreventsOperation() {
         ManualExecutorService worker = new ManualExecutorService();
         ManualExecutor callbacks = new ManualExecutor();
-        ManualHostOperationController controller =
-                new ManualHostOperationController(worker, callbacks);
+        HostUiOperationController controller =
+                new HostUiOperationController(worker, callbacks);
         AtomicInteger executions = new AtomicInteger();
 
         controller.request(
@@ -121,8 +121,8 @@ public final class ManualHostOperationControllerTest {
         java.util.concurrent.ExecutorService worker =
                 java.util.concurrent.Executors.newSingleThreadExecutor();
         ManualExecutor callbacks = new ManualExecutor();
-        ManualHostOperationController controller =
-                new ManualHostOperationController(worker, callbacks);
+        HostUiOperationController controller =
+                new HostUiOperationController(worker, callbacks);
         java.util.concurrent.CountDownLatch started =
                 new java.util.concurrent.CountDownLatch(1);
         AtomicBoolean interrupted = new AtomicBoolean();
@@ -144,7 +144,7 @@ public final class ManualHostOperationControllerTest {
 
         assertTrue(interrupted.get());
         assertEquals(
-                ManualHostOperationController.RequestStatus.DESTROYED,
+                HostUiOperationController.RequestStatus.DESTROYED,
                 controller.request(() -> "never", result -> {}));
         callbacks.runAll();
     }
@@ -153,10 +153,10 @@ public final class ManualHostOperationControllerTest {
     public void operationFailureIsPublishedAsData() {
         ManualExecutorService worker = new ManualExecutorService();
         ManualExecutor callbacks = new ManualExecutor();
-        ManualHostOperationController controller =
-                new ManualHostOperationController(worker, callbacks);
+        HostUiOperationController controller =
+                new HostUiOperationController(worker, callbacks);
         IOException failure = new IOException("network");
-        AtomicReference<ManualHostOperationController.Result<String>> result =
+        AtomicReference<HostUiOperationController.Result<String>> result =
                 new AtomicReference<>();
 
         controller.request(() -> {
@@ -173,13 +173,13 @@ public final class ManualHostOperationControllerTest {
     public void rejectedSchedulingClearsPendingOwnership() {
         ManualExecutorService worker = new ManualExecutorService();
         worker.shutdown();
-        ManualHostOperationController controller =
-                new ManualHostOperationController(
+        HostUiOperationController controller =
+                new HostUiOperationController(
                         worker,
                         new ManualExecutor());
 
         assertEquals(
-                ManualHostOperationController.RequestStatus.UNAVAILABLE,
+                HostUiOperationController.RequestStatus.UNAVAILABLE,
                 controller.request(() -> "never", result -> {}));
         controller.destroy();
         assertTrue(worker.isShutdown());

@@ -35,6 +35,10 @@ import com.limelight.binding.input.virtual_controller.keyboard.StreamVirtualCont
 import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode;
 import com.limelight.binding.video.AndroidDecoderCrashStore;
 import com.limelight.binding.video.DecoderCrashTracker;
+import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
+import com.limelight.computers.session.DeferredHostQuitController;
+import com.limelight.computers.session.HostQuitUseCase;
+import com.limelight.computers.session.NvHttpHostQuitBackend;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.StreamConfiguration;
 import com.limelight.nvstream.StreamSessionController;
@@ -132,11 +136,11 @@ import com.limelight.ui.StreamWindowPolicy;
 import com.limelight.ui.StreamUiActions;
 import com.limelight.ui.StreamView;
 import com.limelight.ui.floatingview.StreamFloatingControlController;
+import com.limelight.ui.hosts.HostQuitMessageResolver;
 import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.RazerUtils;
-import com.limelight.utils.ServerHelper;
 import com.limelight.utils.StreamOrientationController;
 import com.limelight.utils.StreamOrientationRequest;
 import com.limelight.utils.UiHelper;
@@ -179,6 +183,7 @@ import android.widget.TextView;
 import com.limelight.utils.UiToast;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -331,6 +336,8 @@ public class Game extends Activity implements OnGenericMotionListener,
     private ViewParent rootView;
 
     private StreamReqBean streamReqBean;
+    private HostQuitUseCase.Backend pendingHostQuitBackend;
+    private boolean hostQuitRequested;
     private ConnectivityManager connManager;
 
     private BackNavigationRegistration backNavigationRegistration;
@@ -1366,13 +1373,16 @@ public class Game extends Activity implements OnGenericMotionListener,
                         .suppressFailurePresentation();
             }
             stopConnection();
-            if(isQuitSteamingFlag){
-                new Handler().postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        quitSteaming();
-                    }
-                },200); // 延时100毫秒
+            if (hostQuitRequested) {
+                HostQuitUseCase.Backend backend =
+                        pendingHostQuitBackend;
+                pendingHostQuitBackend = null;
+                hostQuitRequested = false;
+                if (backend != null) {
+                    scheduleDeferredHostQuit(
+                            backend,
+                            streamReqBean.getAppName());
+                }
             }
             if (streamUiSettingsState
                     .get()
@@ -2190,8 +2200,79 @@ public class Game extends Activity implements OnGenericMotionListener,
 
     @Override
     public void requestStreamQuit() {
-        isQuitSteamingFlag = true;
+        if (hostQuitRequested) {
+            UiToast.makeText(
+                    this,
+                    R.string.host_operation_in_progress,
+                    UiToast.LENGTH_SHORT).show();
+            return;
+        }
+        if (streamReqBean == null) {
+            UiToast.makeText(
+                    this,
+                    R.string.host_operation_unavailable,
+                    UiToast.LENGTH_LONG).show();
+            disconnect();
+            return;
+        }
+        try {
+            pendingHostQuitBackend =
+                    new NvHttpHostQuitBackend(
+                            AndroidNvHttpClientFactory.create(
+                                    getApplicationContext(),
+                                    streamReqBean));
+            hostQuitRequested = true;
+            UiToast.makeText(
+                    this,
+                    getText(R.string.applist_quit_app) + " " +
+                            streamReqBean.getAppName() + "...",
+                    UiToast.LENGTH_SHORT).show();
+        }
+        catch (IOException failure) {
+            pendingHostQuitBackend = null;
+            hostQuitRequested = false;
+            UiToast.makeText(
+                    this,
+                    HostQuitMessageResolver.resolveFailure(
+                            this,
+                            streamReqBean.getAppName(),
+                            failure),
+                    UiToast.LENGTH_LONG).show();
+        }
         disconnect();
+    }
+
+    private void scheduleDeferredHostQuit(
+            HostQuitUseCase.Backend backend,
+            String appName) {
+        Context applicationContext = getApplicationContext();
+        DeferredHostQuitController controller =
+                DeferredHostQuitController.create();
+        DeferredHostQuitController.RequestStatus status =
+                controller.request(
+                        backend,
+                        200L,
+                        result -> {
+                            CharSequence message = result.isSuccessful()
+                                    ? HostQuitMessageResolver.resolve(
+                                            applicationContext,
+                                            appName,
+                                            result.getOutcome())
+                                    : HostQuitMessageResolver.resolveFailure(
+                                            applicationContext,
+                                            appName,
+                                            result.getFailure());
+                            UiToast.makeText(
+                                    applicationContext,
+                                    message,
+                                    UiToast.LENGTH_LONG).show();
+                        });
+        if (status != DeferredHostQuitController.RequestStatus.ACCEPTED) {
+            UiToast.makeText(
+                    applicationContext,
+                    R.string.host_operation_unavailable,
+                    UiToast.LENGTH_LONG).show();
+        }
     }
 
     @Override
@@ -2254,13 +2335,6 @@ public class Game extends Activity implements OnGenericMotionListener,
     public boolean isMicUplinkActive() {
         return microphoneController != null &&
                 microphoneController.isActive();
-    }
-
-    //是否退出串流
-    public boolean isQuitSteamingFlag;
-
-    public void quitSteaming(){
-        ServerHelper.doQuit(this,streamReqBean, null);
     }
 
     private StreamFloatingControlController

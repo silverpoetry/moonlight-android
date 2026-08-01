@@ -23,13 +23,13 @@ import com.limelight.computers.ComputerManagerService;
 import com.limelight.computers.model.HostEndpoint;
 import com.limelight.computers.model.ManualHostEndpointParser;
 import com.limelight.computers.reachability.Ipv4SubnetMatcher;
+import com.limelight.computers.reachability.ClientConnectivityEndpoint;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.settings.android.AndroidAppLocale;
-import com.limelight.ui.hosts.ManualHostOperationController;
+import com.limelight.ui.hosts.HostUiOperationController;
 import com.limelight.utils.Dialog;
-import com.limelight.utils.ServerHelper;
 import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.UiHelper;
 import com.limelight.utils.UiToast;
@@ -60,7 +60,7 @@ public class AddComputerManually extends Activity {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView hostText;
     private volatile ComputerManagerService.ComputerManagerBinder managerBinder;
-    private ManualHostOperationController operationController;
+    private HostUiOperationController operationController;
     private SpinnerDialog activeProgress;
     private boolean serviceBound;
     private boolean started;
@@ -99,7 +99,7 @@ public class AddComputerManually extends Activity {
                 R.id.rv_top_view,
                 R.id.addComputerContent);
 
-        operationController = ManualHostOperationController.create(
+        operationController = HostUiOperationController.create(
                 command -> mainHandler.post(command));
         hostText = findViewById(R.id.hostTextView);
         hostText.setImeOptions(EditorInfo.IME_ACTION_DONE);
@@ -189,7 +189,7 @@ public class AddComputerManually extends Activity {
             return true;
         }
 
-        ManualHostOperationController.RequestStatus status =
+        HostUiOperationController.RequestStatus status =
                 operationController.request(
                         () -> addHost(binder, endpoint),
                         this::onHostAdditionCompleted);
@@ -211,8 +211,8 @@ public class AddComputerManually extends Activity {
         int portTestResult = MoonBridge.ML_TEST_RESULT_INCONCLUSIVE;
         if (!successful && !wrongSiteLocalAddress) {
             portTestResult = MoonBridge.testClientConnectivity(
-                    ServerHelper.CONNECTION_TEST_SERVER,
-                    443,
+                    ClientConnectivityEndpoint.HOST,
+                    ClientConnectivityEndpoint.HTTPS_PORT,
                     MoonBridge.ML_PORT_FLAG_TCP_47984 |
                             MoonBridge.ML_PORT_FLAG_TCP_47989);
         }
@@ -223,7 +223,7 @@ public class AddComputerManually extends Activity {
     }
 
     private void onHostAdditionCompleted(
-            ManualHostOperationController.Result<AddResult> result) {
+            HostUiOperationController.Result<AddResult> result) {
         dismissProgress();
         if (!started || destroyed) {
             return;
@@ -264,7 +264,7 @@ public class AddComputerManually extends Activity {
             return;
         }
 
-        ManualHostOperationController.RequestStatus status =
+        HostUiOperationController.RequestStatus status =
                 operationController.request(
                         () -> SrvResolver.resolveSRVRecord(input),
                         this::onSrvResolutionCompleted);
@@ -272,7 +272,7 @@ public class AddComputerManually extends Activity {
     }
 
     private void onSrvResolutionCompleted(
-            ManualHostOperationController.Result<SrvResolver.ResultCode>
+            HostUiOperationController.Result<SrvResolver.ResultCode>
                     result) {
         dismissProgress();
         if (!started || destroyed) {
@@ -307,7 +307,7 @@ public class AddComputerManually extends Activity {
     }
 
     private void handleRequestStatus(
-            ManualHostOperationController.RequestStatus status) {
+            HostUiOperationController.RequestStatus status) {
         switch (status) {
             case ACCEPTED:
                 activeProgress = SpinnerDialog.displayDialog(

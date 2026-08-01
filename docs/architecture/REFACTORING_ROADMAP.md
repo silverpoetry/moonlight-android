@@ -958,6 +958,18 @@ targets.
   and own one bounded worker instead of leaking a queue, thread, and separate
   executor. Manual subnet diagnostics reuse the verified most-significant-bit
   prefix policy rather than maintaining a divergent copy in the Activity.
+- Host quit and unpair now run through transport-independent state machines,
+  explicit NvHTTP adapters, and one lifecycle-owned foreground operation
+  controller. Duplicate actions are rejected, late Activity callbacks are
+  suppressed, error 599 is a typed session-ownership outcome, and restart is
+  attempted only after the host confirms that the previous session ended.
+  Wake-on-LAN and connectivity diagnostics use the same foreground ownership
+  boundary instead of unmanaged Activity threads.
+- Stream-menu quit now crosses teardown through a one-shot, platform-independent
+  deferred controller rather than a mutable static dispatcher or Activity
+  callback. It owns and releases its scheduler, preserves protocol failures,
+  and retains only application context in its presentation callback. Pairing,
+  quit, and unpair also share one credential-aware Android NvHTTP factory.
 
 ### Exit evidence
 

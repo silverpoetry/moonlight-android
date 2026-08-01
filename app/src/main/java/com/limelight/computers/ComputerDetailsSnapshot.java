@@ -5,11 +5,11 @@ import com.limelight.nvstream.http.ComputerDetails;
 import java.util.Objects;
 
 /** Creates detached snapshots at the legacy mutable DTO boundary. */
-final class ComputerDetailsSnapshot {
+public final class ComputerDetailsSnapshot {
     private ComputerDetailsSnapshot() {
     }
 
-    static ComputerDetails copyOf(ComputerDetails source) {
+    public static ComputerDetails copyOf(ComputerDetails source) {
         ComputerDetails checked = Objects.requireNonNull(source, "source");
         ComputerDetails snapshot = new ComputerDetails();
         snapshot.uuid = checked.uuid;

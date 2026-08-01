@@ -11,15 +11,14 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.ThreadFactory;
 
 /**
- * Lifecycle owner for the single foreground operation on the manual-host
- * screen.
+ * Lifecycle owner for one foreground host operation on an Android screen.
  *
  * <p>The controller rejects duplicate submissions, interrupts owned work when
  * the screen stops, and generation-gates callbacks already queued for the UI
  * thread. It intentionally knows nothing about Android widgets, host
  * protocols, or localized presentation.</p>
  */
-public final class ManualHostOperationController {
+public final class HostUiOperationController {
     public enum RequestStatus {
         ACCEPTED,
         ALREADY_RUNNING,
@@ -58,7 +57,7 @@ public final class ManualHostOperationController {
     }
 
     private static final ThreadFactory THREAD_FACTORY = command -> {
-        Thread thread = new Thread(command, "ManualHostOperation");
+        Thread thread = new Thread(command, "HostUiOperation");
         thread.setDaemon(true);
         return thread;
     };
@@ -71,14 +70,14 @@ public final class ManualHostOperationController {
     private long generation;
     private boolean destroyed;
 
-    public static ManualHostOperationController create(
+    public static HostUiOperationController create(
             Executor callbackExecutor) {
-        return new ManualHostOperationController(
+        return new HostUiOperationController(
                 Executors.newSingleThreadExecutor(THREAD_FACTORY),
                 callbackExecutor);
     }
 
-    ManualHostOperationController(
+    HostUiOperationController(
             ExecutorService workerExecutor,
             Executor callbackExecutor) {
         this.workerExecutor = Objects.requireNonNull(
@@ -106,7 +105,7 @@ public final class ManualHostOperationController {
             }
             if (generation == Long.MAX_VALUE) {
                 throw new IllegalStateException(
-                        "Manual-host operation generation overflow");
+                        "Host UI operation generation overflow");
             }
             operationGeneration = ++generation;
             task = new FutureTask<>(() -> {
@@ -130,7 +129,7 @@ public final class ManualHostOperationController {
                 }
             }
             LimeLog.severe(
-                    "Unable to schedule manual-host operation: " +
+                    "Unable to schedule host UI operation: " +
                             error.getClass().getSimpleName());
             return RequestStatus.UNAVAILABLE;
         }
@@ -191,7 +190,7 @@ public final class ManualHostOperationController {
         catch (RuntimeException error) {
             clearIfCurrent(operationGeneration);
             LimeLog.severe(
-                    "Unable to publish manual-host result: " +
+                    "Unable to publish host UI operation result: " +
                             error.getClass().getSimpleName());
         }
     }

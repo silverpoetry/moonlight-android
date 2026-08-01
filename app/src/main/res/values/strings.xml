@@ -125,6 +125,9 @@
     <string name="applist_quit_app">Quitting</string>
     <string name="applist_quit_success">Successfully quit</string>
     <string name="applist_quit_fail">Failed to quit</string>
+    <string name="applist_quit_not_session_owner">This session was started by another device and cannot be ended here. End it on the original device or the host. (Error code: 599)</string>
+    <string name="host_operation_in_progress">A host operation is already in progress</string>
+    <string name="host_operation_unavailable">The host operation is currently unavailable</string>
     <string name="applist_quit_confirmation">Are you sure you want to quit the running app? All unsaved data will be lost.</string>
 
     <!-- Add computer manually activity -->

@@ -84,6 +84,9 @@
     <string name="applist_quit_app">正在結束</string>
     <string name="applist_quit_success">成功結束</string>
     <string name="applist_quit_fail">無法結束</string>
+    <string name="applist_quit_not_session_owner">此串流由其他裝置啟動，無法在本裝置結束。請在原裝置或主機上結束串流。（錯誤代碼：599）</string>
+    <string name="host_operation_in_progress">已有一項主機操作正在進行</string>
+    <string name="host_operation_unavailable">主機操作目前無法使用</string>
     <string name="applist_quit_confirmation">您確定要結束執行中的遊戲？所有未儲存的資料將丟失。</string>
     <!-- Add computer manually activity -->
     <string name="title_add_pc">手動新增電腦</string>

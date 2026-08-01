@@ -8,10 +8,17 @@ import java.net.UnknownHostException;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
+import com.limelight.computers.ComputerDetailsSnapshot;
 import com.limelight.computers.HostPollingClientLifecycle;
+import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
 import com.limelight.computers.model.HostId;
 import com.limelight.computers.pairing.HostPairingUseCase;
 import com.limelight.computers.pairing.NvHttpPairingBackend;
+import com.limelight.computers.reachability.ClientConnectivityEndpoint;
+import com.limelight.computers.session.HostQuitUseCase;
+import com.limelight.computers.session.HostUnpairUseCase;
+import com.limelight.computers.session.NvHttpHostQuitBackend;
+import com.limelight.computers.session.NvHttpHostUnpairBackend;
 import com.limelight.grid.PcGridAdapter;
 import com.limelight.grid.assets.DiskAssetLoader;
 import com.limelight.nvstream.http.ComputerDetails;
@@ -19,6 +26,7 @@ import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
 import com.limelight.nvstream.http.PairingManager.PairState;
+import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.nvstream.wol.WakeOnLanSender;
 import com.limelight.preferences.AddComputerManually;
 import com.limelight.preferences.GlPreferences;
@@ -30,12 +38,15 @@ import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.ui.hosts.ScreenBackgroundPresenter;
 import com.limelight.ui.hosts.HostPairingController;
+import com.limelight.ui.hosts.HostQuitMessageResolver;
+import com.limelight.ui.hosts.HostUiOperationController;
 import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.DeviceUtils;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.HelpLauncher;
 import com.limelight.utils.ServerHelper;
 import com.limelight.utils.ShortcutHelper;
+import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.UiHelper;
 
 import android.app.Activity;
@@ -90,6 +101,12 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     private final HostPairingUseCase hostPairingUseCase =
             new HostPairingUseCase();
     private HostPairingController hostPairingController;
+    private final HostQuitUseCase hostQuitUseCase =
+            new HostQuitUseCase();
+    private final HostUnpairUseCase hostUnpairUseCase =
+            new HostUnpairUseCase();
+    private HostUiOperationController hostOperationController;
+    private SpinnerDialog hostOperationProgress;
     private final HostPollingClientLifecycle hostPollingLifecycle =
             new HostPollingClientLifecycle();
     private volatile long managerBindingGeneration;
@@ -241,6 +258,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         super.onCreate(savedInstanceState);
 
         hostPairingController = HostPairingController.create(
+                this::runOnUiThread);
+        hostOperationController = HostUiOperationController.create(
                 this::runOnUiThread);
 
         // Assume we're in the foreground when created to avoid a race
@@ -400,6 +419,11 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             hostPairingController.destroy();
             hostPairingController = null;
         }
+        if (hostOperationController != null) {
+            hostOperationController.destroy();
+            hostOperationController = null;
+        }
+        dismissHostOperationProgress();
         if (managerServiceBound) {
             unbindService(serviceConnection);
             managerServiceBound = false;
@@ -429,6 +453,10 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         super.onPause();
 
         inForeground = false;
+        if (hostOperationController != null) {
+            hostOperationController.cancelCurrent();
+        }
+        dismissHostOperationProgress();
         stopComputerUpdates(false);
     }
 
@@ -509,12 +537,10 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                         "Host repository is unavailable for pairing");
             }
 
-            NvHTTP http = new NvHTTP(
-                    ServerHelper.getCurrentAddressFromComputer(computer),
-                    computer.httpsPort,
-                    binder.getUniqueId(),
-                    computer.serverCert,
-                    PlatformBinding.getCryptoProvider(this));
+            NvHTTP http = AndroidNvHttpClientFactory.create(
+                    this,
+                    computer,
+                    binder.getUniqueId());
             http.setClientName(
                     DeviceUtils.getManufacturer() + "-" +
                             DeviceUtils.getModel());
@@ -616,26 +642,217 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             return;
         }
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                String message;
-                try {
-                    WakeOnLanSender.sendWolPacket(computer);
-                    message = getResources().getString(R.string.wol_waking_msg);
-                } catch (IOException e) {
-                    message = getResources().getString(R.string.wol_fail);
-                }
+        HostUiOperationController controller =
+                hostOperationController;
+        if (controller == null) {
+            UiToast.makeText(
+                    this,
+                    R.string.host_operation_unavailable,
+                    UiToast.LENGTH_LONG).show();
+            return;
+        }
 
-                final String toastMessage = message;
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        UiToast.makeText(PcView.this, toastMessage, UiToast.LENGTH_LONG).show();
-                    }
-                });
+        ComputerDetails snapshot =
+                ComputerDetailsSnapshot.copyOf(computer);
+        HostUiOperationController.RequestStatus status =
+                controller.request(
+                        () -> {
+                            WakeOnLanSender.sendWolPacket(snapshot);
+                            return null;
+                        },
+                        result -> UiToast.makeText(
+                                this,
+                                result.isSuccessful()
+                                        ? R.string.wol_waking_msg
+                                        : R.string.wol_fail,
+                                UiToast.LENGTH_LONG).show());
+        showHostOperationRejection(status);
+    }
+
+    private void quitHostApp(
+            ComputerDetails computer,
+            NvApp app,
+            boolean restartAfterQuit) {
+        ComputerManagerService.ComputerManagerBinder binder =
+                managerBinder;
+        HostUiOperationController controller =
+                hostOperationController;
+        if (binder == null || controller == null) {
+            UiToast.makeText(
+                    this,
+                    R.string.error_manager_not_running,
+                    UiToast.LENGTH_LONG).show();
+            return;
+        }
+
+        final HostQuitUseCase.Backend backend;
+        try {
+            backend = new NvHttpHostQuitBackend(
+                    AndroidNvHttpClientFactory.create(
+                            this,
+                            computer,
+                            binder.getUniqueId()));
+        }
+        catch (IOException failure) {
+            showQuitFailure(app.getAppName(), failure);
+            return;
+        }
+
+        HostUiOperationController.RequestStatus status =
+                controller.request(
+                        () -> hostQuitUseCase.execute(backend),
+                        result -> onQuitCompleted(
+                                computer,
+                                app,
+                                restartAfterQuit,
+                                result));
+        if (status == HostUiOperationController.RequestStatus.ACCEPTED) {
+            UiToast.makeText(
+                    this,
+                    getText(R.string.applist_quit_app) + " " +
+                            app.getAppName() + "...",
+                    UiToast.LENGTH_SHORT).show();
+        }
+        else {
+            showHostOperationRejection(status);
+        }
+    }
+
+    private void onQuitCompleted(
+            ComputerDetails computer,
+            NvApp app,
+            boolean restartAfterQuit,
+            HostUiOperationController.Result<HostQuitUseCase.Outcome>
+                    result) {
+        if (!result.isSuccessful()) {
+            showQuitFailure(app.getAppName(), result.getFailure());
+            return;
+        }
+
+        HostQuitUseCase.Outcome outcome = result.getValue();
+        UiToast.makeText(
+                this,
+                HostQuitMessageResolver.resolve(
+                        this,
+                        app.getAppName(),
+                        outcome),
+                UiToast.LENGTH_LONG).show();
+        if (outcome != HostQuitUseCase.Outcome.QUIT) {
+            return;
+        }
+
+        ComputerManagerService.ComputerManagerBinder binder =
+                managerBinder;
+        if (binder == null) {
+            return;
+        }
+        binder.invalidateStateForComputer(computer.uuid);
+        if (restartAfterQuit) {
+            ServerHelper.doStart(this, app, computer, binder);
+        }
+    }
+
+    private void showQuitFailure(
+            String appName,
+            Exception failure) {
+        UiToast.makeText(
+                this,
+                HostQuitMessageResolver.resolveFailure(
+                        this,
+                        appName,
+                        failure),
+                UiToast.LENGTH_LONG).show();
+    }
+
+    private void runNetworkTest() {
+        HostUiOperationController controller =
+                hostOperationController;
+        if (controller == null) {
+            UiToast.makeText(
+                    this,
+                    R.string.host_operation_unavailable,
+                    UiToast.LENGTH_LONG).show();
+            return;
+        }
+
+        HostUiOperationController.RequestStatus status =
+                controller.request(
+                        () -> MoonBridge.testClientConnectivity(
+                                ClientConnectivityEndpoint.HOST,
+                                ClientConnectivityEndpoint.HTTPS_PORT,
+                                MoonBridge.ML_PORT_FLAG_ALL),
+                        this::onNetworkTestCompleted);
+        if (status == HostUiOperationController.RequestStatus.ACCEPTED) {
+            hostOperationProgress = SpinnerDialog.displayDialog(
+                    this,
+                    getString(R.string.nettest_title_waiting),
+                    getString(R.string.nettest_text_waiting),
+                    false);
+        }
+        else {
+            showHostOperationRejection(status);
+        }
+    }
+
+    private void showHostOperationRejection(
+            HostUiOperationController.RequestStatus status) {
+        if (status == HostUiOperationController.RequestStatus.ACCEPTED) {
+            return;
+        }
+        if (status ==
+                HostUiOperationController.RequestStatus.ALREADY_RUNNING) {
+            UiToast.makeText(
+                    this,
+                    R.string.host_operation_in_progress,
+                    UiToast.LENGTH_SHORT).show();
+            return;
+        }
+        UiToast.makeText(
+                this,
+                R.string.host_operation_unavailable,
+                UiToast.LENGTH_LONG).show();
+    }
+
+    private void onNetworkTestCompleted(
+            HostUiOperationController.Result<Integer> result) {
+        dismissHostOperationProgress();
+        String summary;
+        if (!result.isSuccessful()) {
+            summary = getString(R.string.nettest_text_failure);
+            String detail = result.getFailure().getMessage();
+            if (detail != null && !detail.trim().isEmpty()) {
+                summary += "\n" + detail;
             }
-        }).start();
+        }
+        else {
+            int portFlags = result.getValue();
+            if (portFlags == MoonBridge.ML_TEST_RESULT_INCONCLUSIVE) {
+                summary = getString(
+                        R.string.nettest_text_inconclusive);
+            }
+            else if (portFlags == 0) {
+                summary = getString(R.string.nettest_text_success);
+            }
+            else {
+                summary = getString(R.string.nettest_text_failure) +
+                        MoonBridge.stringifyPortFlags(
+                                portFlags,
+                                "\n");
+            }
+        }
+        Dialog.displayDialog(
+                this,
+                getString(R.string.nettest_title_done),
+                summary,
+                false);
+    }
+
+    private void dismissHostOperationProgress() {
+        SpinnerDialog progress = hostOperationProgress;
+        hostOperationProgress = null;
+        if (progress != null) {
+            progress.dismiss();
+        }
     }
 
     private void doUnpair(final ComputerDetails computer) {
@@ -643,52 +860,100 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             UiToast.makeText(PcView.this, getResources().getString(R.string.error_pc_offline), UiToast.LENGTH_SHORT).show();
             return;
         }
-        if (managerBinder == null) {
+        ComputerManagerService.ComputerManagerBinder binder =
+                managerBinder;
+        HostUiOperationController controller =
+                hostOperationController;
+        if (binder == null || controller == null) {
             UiToast.makeText(PcView.this, getResources().getString(R.string.error_manager_not_running), UiToast.LENGTH_LONG).show();
             return;
         }
 
-        UiToast.makeText(PcView.this, getResources().getString(R.string.unpairing), UiToast.LENGTH_SHORT).show();
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                NvHTTP httpConn;
-                String message;
-                try {
-                    httpConn = new NvHTTP(ServerHelper.getCurrentAddressFromComputer(computer),
-                            computer.httpsPort, managerBinder.getUniqueId(), computer.serverCert,
-                            PlatformBinding.getCryptoProvider(PcView.this));
-                    httpConn.setClientName(DeviceUtils.getManufacturer()+"-"+DeviceUtils.getModel());
-                    if (httpConn.getPairState() == PairingManager.PairState.PAIRED) {
-                        httpConn.unpair();
-                        if (httpConn.getPairState() == PairingManager.PairState.NOT_PAIRED) {
-                            message = getResources().getString(R.string.unpair_success);
-                        }
-                        else {
-                            message = getResources().getString(R.string.unpair_fail);
-                        }
-                    }
-                    else {
-                        message = getResources().getString(R.string.unpair_error);
-                    }
-                } catch (UnknownHostException e) {
-                    message = getResources().getString(R.string.error_unknown_host);
-                } catch (FileNotFoundException e) {
-                    message = getResources().getString(R.string.error_404);
-                } catch (XmlPullParserException | IOException e) {
-                    message = e.getMessage();
-                    e.printStackTrace();
-                }
+        final HostUnpairUseCase.Backend backend;
+        try {
+            backend = new NvHttpHostUnpairBackend(
+                    AndroidNvHttpClientFactory.create(
+                            this,
+                            computer,
+                            binder.getUniqueId()),
+                    DeviceUtils.getManufacturer() + "-" +
+                            DeviceUtils.getModel());
+        }
+        catch (IOException failure) {
+            showUnpairFailure(failure);
+            return;
+        }
 
-                final String toastMessage = message;
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        UiToast.makeText(PcView.this, toastMessage, UiToast.LENGTH_LONG).show();
-                    }
-                });
-            }
-        }).start();
+        HostUiOperationController.RequestStatus status =
+                controller.request(
+                        () -> hostUnpairUseCase.execute(backend),
+                        result -> onUnpairCompleted(computer, result));
+        if (status == HostUiOperationController.RequestStatus.ACCEPTED) {
+            UiToast.makeText(
+                    this,
+                    R.string.unpairing,
+                    UiToast.LENGTH_SHORT).show();
+        }
+        else {
+            showHostOperationRejection(status);
+        }
+    }
+
+    private void onUnpairCompleted(
+            ComputerDetails computer,
+            HostUiOperationController.Result<HostUnpairUseCase.Outcome>
+                    result) {
+        if (!result.isSuccessful()) {
+            showUnpairFailure(result.getFailure());
+            return;
+        }
+
+        int message;
+        switch (result.getValue()) {
+            case UNPAIRED:
+                message = R.string.unpair_success;
+                ComputerManagerService.ComputerManagerBinder binder =
+                        managerBinder;
+                if (binder != null) {
+                    binder.invalidateStateForComputer(computer.uuid);
+                }
+                break;
+            case ALREADY_UNPAIRED:
+                message = R.string.unpair_error;
+                break;
+            case REJECTED:
+                message = R.string.unpair_fail;
+                break;
+            default:
+                throw new AssertionError(
+                        "Unhandled unpair outcome: " +
+                                result.getValue());
+        }
+        UiToast.makeText(
+                this,
+                message,
+                UiToast.LENGTH_LONG).show();
+    }
+
+    private void showUnpairFailure(Exception failure) {
+        CharSequence message;
+        if (failure instanceof UnknownHostException) {
+            message = getText(R.string.error_unknown_host);
+        }
+        else if (failure instanceof FileNotFoundException) {
+            message = getText(R.string.error_404);
+        }
+        else if (failure.getMessage() != null &&
+                !failure.getMessage().trim().isEmpty()) {
+            message = failure.getMessage();
+        }
+        else {
+            message = getText(R.string.unpair_fail);
+        }
+        UiToast.makeText(
+                this,
+                message,
+                UiToast.LENGTH_LONG).show();
     }
 
     private void doAppList(ComputerDetails computer, boolean newlyPaired, boolean showHiddenGames) {
@@ -876,17 +1141,10 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     @Override
                     public void run() {
                         if (managerBinder != null) {
-                            ServerHelper.doQuit(PcView.this, computer.details, runningApp, managerBinder, new Runnable() {
-                                @Override
-                                public void run() {
-                                    runOnUiThread(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            ServerHelper.doStart(PcView.this, runningApp, computer.details, managerBinder);
-                                        }
-                                    });
-                                }
-                            });
+                            quitHostApp(
+                                    computer.details,
+                                    runningApp,
+                                    true);
                         }
                     }
                 }));
@@ -894,7 +1152,10 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     @Override
                     public void run() {
                         if (managerBinder != null) {
-                            ServerHelper.doQuit(PcView.this, computer.details, runningApp, managerBinder, null);
+                            quitHostApp(
+                                    computer.details,
+                                    runningApp,
+                                    false);
                         }
                     }
                 }));
@@ -920,7 +1181,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         actions.add(new MenuAction(R.string.pcview_menu_test_network, R.drawable.ic_axi_performance, new Runnable() {
             @Override
             public void run() {
-                ServerHelper.doNetworkTest(PcView.this);
+                runNetworkTest();
             }
         }));
         actions.add(new MenuAction(R.string.pcview_menu_delete_pc, R.drawable.ic_axi_delete, new Runnable() {

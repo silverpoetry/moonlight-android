@@ -84,6 +84,9 @@
     <string name="applist_quit_app"> 退出中 </string>
     <string name="applist_quit_success"> 成功退出串流 </string>
     <string name="applist_quit_fail"> 退出串流失败 </string>
+    <string name="applist_quit_not_session_owner">此串流由其他设备启动，无法在本设备结束。请在原设备或主机上结束串流。（错误代码：599）</string>
+    <string name="host_operation_in_progress">已有一项主机操作正在进行</string>
+    <string name="host_operation_unavailable">主机操作当前不可用</string>
     <string name="applist_quit_confirmation">您确定要退出当前游戏？所有未保存的数据将丢失。</string>
     <!-- Add computer manually activity -->
     <string name="title_add_pc"> 手动添加电脑 </string>

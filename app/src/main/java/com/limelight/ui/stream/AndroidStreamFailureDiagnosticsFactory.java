@@ -3,7 +3,7 @@ package com.limelight.ui.stream;
 import android.os.Handler;
 
 import com.limelight.nvstream.jni.MoonBridge;
-import com.limelight.utils.ServerHelper;
+import com.limelight.computers.reachability.ClientConnectivityEndpoint;
 
 import java.util.Objects;
 
@@ -22,7 +22,7 @@ public final class AndroidStreamFailureDiagnosticsFactory {
         StreamFailureDiagnostics diagnostics =
                 StreamFailureDiagnostics.create(
                         portFlags -> MoonBridge.testClientConnectivity(
-                                ServerHelper.CONNECTION_TEST_SERVER,
+                                ClientConnectivityEndpoint.HOST,
                                 CONNECTION_TEST_PORT,
                                 portFlags),
                         handler::post);

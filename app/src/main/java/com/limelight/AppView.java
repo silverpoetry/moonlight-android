@@ -9,6 +9,9 @@ import java.util.List;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.computers.HostPollingClientLifecycle;
+import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
+import com.limelight.computers.session.HostQuitUseCase;
+import com.limelight.computers.session.NvHttpHostQuitBackend;
 import com.limelight.grid.AppGridAdapter;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
@@ -36,6 +39,8 @@ import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.ui.gamemenu.GameDisplayFragment;
 import com.limelight.ui.gamemenu.GameDisplayHost;
 import com.limelight.ui.hosts.ScreenBackgroundPresenter;
+import com.limelight.ui.hosts.HostQuitMessageResolver;
+import com.limelight.ui.hosts.HostUiOperationController;
 import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.Dialog;
@@ -83,6 +88,9 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
     private boolean showHiddenApps;
     private HashSet<Integer> hiddenAppIds = new HashSet<>();
     private android.app.AlertDialog pendingAppMenuDialog;
+    private final HostQuitUseCase hostQuitUseCase =
+            new HostQuitUseCase();
+    private HostUiOperationController hostOperationController;
 
     public final static String HIDDEN_APPS_PREF_FILENAME = "HiddenApps";
 
@@ -470,6 +478,9 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        hostOperationController = HostUiOperationController.create(
+                this::runOnUiThread);
+
         // Assume we're in the foreground when created to avoid a race
         // between binding to CMS and onResume()
         inForeground = true;
@@ -633,6 +644,10 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
     protected void onDestroy() {
         activityDestroyed = true;
         runCloseAction(hostPollingLifecycle.destroy());
+        if (hostOperationController != null) {
+            hostOperationController.destroy();
+            hostOperationController = null;
+        }
 
         SpinnerDialog.closeDialogs(this);
         Dialog.closeDialogs();
@@ -666,6 +681,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
         super.onPause();
 
         inForeground = false;
+        cancelHostOperation();
         stopComputerUpdates();
     }
 
@@ -831,32 +847,126 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
         return actions;
     }
 
-    private void quitCurrentApp(final AppObject app, final Runnable onComplete) {
-        suspendGridUpdates = true;
-        ServerHelper.doQuit(AppView.this, computer, app.app, managerBinder, new Runnable() {
-            @Override
-            public void run() {
-                suspendGridUpdates = false;
-                if (poller != null) {
-                    poller.pollNow();
-                }
-                if (onComplete != null) {
-                    onComplete.run();
-                }
-            }
-        });
+    private void quitCurrentApp(
+            AppObject app,
+            Runnable onQuitSucceeded) {
+        ComputerManagerService.ComputerManagerBinder binder =
+                managerBinder;
+        HostUiOperationController controller =
+                hostOperationController;
+        if (binder == null || controller == null) {
+            UiToast.makeText(
+                    this,
+                    R.string.error_manager_not_running,
+                    UiToast.LENGTH_LONG).show();
+            return;
+        }
+
+        final HostQuitUseCase.Backend backend;
+        try {
+            backend = new NvHttpHostQuitBackend(
+                    AndroidNvHttpClientFactory.create(
+                            this,
+                            computer,
+                            binder.getUniqueId()));
+        }
+        catch (IOException failure) {
+            showQuitFailure(app.app.getAppName(), failure);
+            return;
+        }
+
+        HostUiOperationController.RequestStatus status =
+                controller.request(
+                        () -> hostQuitUseCase.execute(backend),
+                        result -> onQuitCompleted(
+                                app,
+                                onQuitSucceeded,
+                                result));
+        if (status == HostUiOperationController.RequestStatus.ACCEPTED) {
+            suspendGridUpdates = true;
+            UiToast.makeText(
+                    this,
+                    getText(R.string.applist_quit_app) + " " +
+                            app.app.getAppName() + "...",
+                    UiToast.LENGTH_SHORT).show();
+        }
+        else if (status ==
+                HostUiOperationController.RequestStatus.ALREADY_RUNNING) {
+            UiToast.makeText(
+                    this,
+                    R.string.host_operation_in_progress,
+                    UiToast.LENGTH_SHORT).show();
+        }
+        else {
+            UiToast.makeText(
+                    this,
+                    R.string.host_operation_unavailable,
+                    UiToast.LENGTH_LONG).show();
+        }
+    }
+
+    private void onQuitCompleted(
+            AppObject app,
+            Runnable onQuitSucceeded,
+            HostUiOperationController.Result<HostQuitUseCase.Outcome>
+                    result) {
+        suspendGridUpdates = false;
+        if (!result.isSuccessful()) {
+            showQuitFailure(
+                    app.app.getAppName(),
+                    result.getFailure());
+            return;
+        }
+
+        HostQuitUseCase.Outcome outcome = result.getValue();
+        UiToast.makeText(
+                this,
+                HostQuitMessageResolver.resolve(
+                        this,
+                        app.app.getAppName(),
+                        outcome),
+                UiToast.LENGTH_LONG).show();
+        if (outcome != HostQuitUseCase.Outcome.QUIT) {
+            return;
+        }
+        ComputerManagerService.ApplistPoller currentPoller = poller;
+        if (currentPoller != null) {
+            currentPoller.pollNow();
+        }
+        if (onQuitSucceeded != null) {
+            onQuitSucceeded.run();
+        }
+    }
+
+    private void showQuitFailure(
+            String appName,
+            Exception failure) {
+        UiToast.makeText(
+                this,
+                HostQuitMessageResolver.resolveFailure(
+                        this,
+                        appName,
+                        failure),
+                UiToast.LENGTH_LONG).show();
+    }
+
+    private void cancelHostOperation() {
+        if (hostOperationController != null) {
+            hostOperationController.cancelCurrent();
+        }
+        suspendGridUpdates = false;
     }
 
     private void restartCurrentApp(final AppObject app) {
-        quitCurrentApp(app, new Runnable() {
-            @Override
-            public void run() {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        ServerHelper.doStart(AppView.this, app.app, computer, managerBinder);
-                    }
-                });
+        quitCurrentApp(app, () -> {
+            ComputerManagerService.ComputerManagerBinder binder =
+                    managerBinder;
+            if (binder != null) {
+                ServerHelper.doStart(
+                        AppView.this,
+                        app.app,
+                        computer,
+                        binder);
             }
         });
     }

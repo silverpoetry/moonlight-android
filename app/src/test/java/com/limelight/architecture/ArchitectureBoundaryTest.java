@@ -352,6 +352,39 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void hostSessionPolicyIsPlatformAndTransportIndependent() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.session.HostQuitUseCase")
+                .or()
+                .haveNameMatching(
+                        "com\\.limelight\\.computers\\.session\\.HostQuitUseCase\\$.*")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.session.HostUnpairUseCase")
+                .or()
+                .haveNameMatching(
+                        "com\\.limelight\\.computers\\.session\\.HostUnpairUseCase\\$.*")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.session.DeferredHostQuitController")
+                .or()
+                .haveNameMatching(
+                        "com\\.limelight\\.computers\\.session\\.DeferredHostQuitController\\$.*")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..",
+                        "com.limelight.nvstream..",
+                        "com.limelight.ui..")
+                .because(
+                        "host session state and deferred execution are pure application policy")
+                .check(productionClasses);
+    }
+
+    @Test
     public void hostPairingLifecycleDoesNotDependOnActivity() {
         noClasses()
                 .that()
@@ -369,14 +402,14 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
-    public void manualHostOperationsHaveOnePlatformIndependentOwner() {
+    public void foregroundHostOperationsHaveOnePlatformIndependentOwner() {
         noClasses()
                 .that()
                 .haveFullyQualifiedName(
-                        "com.limelight.ui.hosts.ManualHostOperationController")
+                        "com.limelight.ui.hosts.HostUiOperationController")
                 .or()
                 .haveNameMatching(
-                        "com\\.limelight\\.ui\\.hosts\\.ManualHostOperationController\\$.*")
+                        "com\\.limelight\\.ui\\.hosts\\.HostUiOperationController\\$.*")
                 .or()
                 .haveFullyQualifiedName(
                         "com.limelight.computers.model.ManualHostEndpointParser")
@@ -391,12 +424,18 @@ public final class ArchitectureBoundaryTest {
                 .that()
                 .haveFullyQualifiedName(
                         "com.limelight.preferences.AddComputerManually")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.AppView")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.PcView")
                 .should()
                 .dependOnClassesThat()
                 .haveFullyQualifiedName(
                         "java.util.concurrent.Executors")
                 .because(
-                        "the Activity delegates worker ownership to ManualHostOperationController")
+                        "host Activities delegate foreground worker ownership to HostUiOperationController")
                 .check(productionClasses);
     }
 
