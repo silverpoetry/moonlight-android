@@ -55,4 +55,21 @@ public final class ClipboardFileTransferSessionTest {
         assertFalse(session.beginDirectorySelection());
         assertNotEquals(0, generation);
     }
+
+    @Test
+    public void cancellationInvalidatesLateCallbacksAndAllowsRetry() {
+        ClipboardFileTransferSession session =
+                new ClipboardFileTransferSession();
+
+        long first = session.beginTransfer();
+        assertNotEquals(0, first);
+        assertTrue(session.cancelTransfer(first));
+        assertFalse(session.isCurrentTransfer(first));
+        assertFalse(session.finishTransfer(first));
+
+        long retry = session.beginTransfer();
+        assertNotEquals(0, retry);
+        assertNotEquals(first, retry);
+        assertTrue(session.finishTransfer(retry));
+    }
 }

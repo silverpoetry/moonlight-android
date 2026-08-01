@@ -10,6 +10,7 @@ import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.net.RouteInfo;
 import android.os.Build;
+import android.os.CancellationSignal;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -49,6 +50,7 @@ public class NvConnection implements StreamSessionConnection,
         void onProgress(long transferredBytes, long totalBytes);
         void onComplete(int topLevelItemCount);
         void onError(String message);
+        void onCancelled();
     }
     public interface MousePositionListener {
         void onMousePosition(short x, short y, short referenceWidth, short referenceHeight);
@@ -74,14 +76,19 @@ public class NvConnection implements StreamSessionConnection,
     private volatile MousePositionListener mousePositionListener;
     private volatile ClipboardSyncController clipboardSyncController;
 
-    public void downloadRemoteClipboardFiles(android.net.Uri destinationTree,
-                                             ClipboardFileDownloadListener listener) {
+    public void downloadRemoteClipboardFiles(
+            android.net.Uri destinationTree,
+            CancellationSignal cancellationSignal,
+            ClipboardFileDownloadListener listener) {
         ClipboardSyncController controller = clipboardSyncController;
         if (controller == null) {
             listener.onError("剪贴板同步尚未连接");
             return;
         }
-        controller.downloadRemoteFiles(destinationTree, listener);
+        controller.downloadRemoteFiles(
+                destinationTree,
+                cancellationSignal,
+                listener);
     }
     private double normalizedMouseX = 0.5;
     private double normalizedMouseY = 0.5;

@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.CancellationSignal;
 import android.text.format.Formatter;
 import android.view.View;
 import android.view.Window;
@@ -39,6 +40,7 @@ public final class RemoteClipboardFileTransferController {
     private final ClipboardFileTransferSession session =
             new ClipboardFileTransferSession();
     private AlertDialog transferDialog;
+    private CancellationSignal transferCancellation;
 
     public RemoteClipboardFileTransferController(
             Activity activity,
@@ -149,6 +151,7 @@ public final class RemoteClipboardFileTransferController {
     }
 
     public void destroy() {
+        cancelActiveTransfer();
         session.destroy();
         dismissTransferDialog();
     }
@@ -161,8 +164,12 @@ public final class RemoteClipboardFileTransferController {
 
         String destinationName = getDestinationName(directory);
         TransferDialogViews views = createTransferDialog(destinationName);
+        CancellationSignal cancellationSignal = new CancellationSignal();
+        transferCancellation = cancellationSignal;
+        showCancelAction(views, generation, cancellationSignal);
         connection.downloadRemoteClipboardFiles(
                 directory,
+                cancellationSignal,
                 new NvConnection.ClipboardFileDownloadListener() {
                     @Override
                     public void onProgress(long transferredBytes,
@@ -182,6 +189,7 @@ public final class RemoteClipboardFileTransferController {
                                 !session.finishTransfer(generation)) {
                             return;
                         }
+                        clearCancellation(cancellationSignal);
                         showComplete(
                                 views,
                                 destinationName,
@@ -194,9 +202,52 @@ public final class RemoteClipboardFileTransferController {
                                 !session.finishTransfer(generation)) {
                             return;
                         }
+                        clearCancellation(cancellationSignal);
                         showError(views, directory, message);
                     }
+
+                    @Override
+                    public void onCancelled() {
+                        if (!isCurrentTransfer(generation, views.dialog) ||
+                                !session.finishTransfer(generation)) {
+                            return;
+                        }
+                        clearCancellation(cancellationSignal);
+                        dismissTransferDialog(views.dialog);
+                    }
                 });
+    }
+
+    private void showCancelAction(
+            TransferDialogViews views,
+            long generation,
+            CancellationSignal cancellationSignal) {
+        views.actions.setVisibility(View.VISIBLE);
+        views.secondaryAction.setVisibility(View.GONE);
+        views.primaryAction.setText(R.string.file_push_cancel);
+        views.primaryAction.setOnClickListener(view -> {
+            if (!session.cancelTransfer(generation)) {
+                return;
+            }
+            cancellationSignal.cancel();
+            clearCancellation(cancellationSignal);
+            dismissTransferDialog(views.dialog);
+        });
+    }
+
+    private void cancelActiveTransfer() {
+        CancellationSignal cancellationSignal = transferCancellation;
+        transferCancellation = null;
+        if (cancellationSignal != null) {
+            cancellationSignal.cancel();
+        }
+    }
+
+    private void clearCancellation(
+            CancellationSignal cancellationSignal) {
+        if (transferCancellation == cancellationSignal) {
+            transferCancellation = null;
+        }
     }
 
     private TransferDialogViews createTransferDialog(

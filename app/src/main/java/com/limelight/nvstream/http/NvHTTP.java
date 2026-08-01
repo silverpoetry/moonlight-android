@@ -2,6 +2,7 @@ package com.limelight.nvstream.http;
 
 import android.annotation.SuppressLint;
 import android.os.Build;
+import android.os.CancellationSignal;
 import android.text.TextUtils;
 
 import java.io.ByteArrayOutputStream;
@@ -64,6 +65,7 @@ import com.limelight.nvstream.http.PairingManager.PairState;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.utils.RazerUtils;
 
+import okhttp3.Call;
 import okhttp3.ConnectionPool;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
@@ -1025,6 +1027,12 @@ public class NvHTTP {
 
     public ClipboardFileReference pullClipboardFiles(long originId)
             throws IOException {
+        return pullClipboardFiles(originId, null);
+    }
+
+    public ClipboardFileReference pullClipboardFiles(
+            long originId,
+            CancellationSignal cancellationSignal) throws IOException {
         if (originId == 0) {
             throw new IOException("Clipboard session is unavailable");
         }
@@ -1041,8 +1049,10 @@ public class NvHTTP {
                 .readTimeout(30, TimeUnit.SECONDS)
                 .build();
 
-        try (Response response = OkHttpCalls.execute(
-                performAndroidTlsHack(client).newCall(request))) {
+        try (ClipboardHttpResponse clipboardResponse =
+                     executeClipboardCall(
+                             client, request, cancellationSignal)) {
+            Response response = clipboardResponse.response;
             if (response.code() == 404) {
                 throw new FileNotFoundException(
                         "Host clipboard does not contain files");
@@ -1075,6 +1085,13 @@ public class NvHTTP {
 
     public byte[] downloadClipboardFileManifest(String id, long originId)
             throws IOException {
+        return downloadClipboardFileManifest(id, originId, null);
+    }
+
+    public byte[] downloadClipboardFileManifest(
+            String id,
+            long originId,
+            CancellationSignal cancellationSignal) throws IOException {
         if (!isCanonicalUuid(id) || originId == 0) {
             throw new IOException("Invalid clipboard file reference");
         }
@@ -1093,8 +1110,10 @@ public class NvHTTP {
                 .readTimeout(90, TimeUnit.SECONDS)
                 .build();
 
-        try (Response response = OkHttpCalls.execute(
-                performAndroidTlsHack(client).newCall(request))) {
+        try (ClipboardHttpResponse clipboardResponse =
+                     executeClipboardCall(
+                             client, request, cancellationSignal)) {
+            Response response = clipboardResponse.response;
             if (!response.isSuccessful()) {
                 throw new HostHttpResponseException(response.code(), response.message());
             }
@@ -1128,6 +1147,17 @@ public class NvHTTP {
     public byte[] downloadClipboardFileChunk(String id, long originId,
                                              int fileIndex, long offset,
                                              int length) throws IOException {
+        return downloadClipboardFileChunk(
+                id, originId, fileIndex, offset, length, null);
+    }
+
+    public byte[] downloadClipboardFileChunk(
+            String id,
+            long originId,
+            int fileIndex,
+            long offset,
+            int length,
+            CancellationSignal cancellationSignal) throws IOException {
         if (!isCanonicalUuid(id) || originId == 0 || fileIndex < 0 ||
                 offset < 0 || length <= 0 ||
                 length > FileManifest.MAX_CHUNK_BYTES) {
@@ -1150,8 +1180,10 @@ public class NvHTTP {
                 .readTimeout(90, TimeUnit.SECONDS)
                 .build();
 
-        try (Response response = OkHttpCalls.execute(
-                performAndroidTlsHack(client).newCall(request))) {
+        try (ClipboardHttpResponse clipboardResponse =
+                     executeClipboardCall(
+                             client, request, cancellationSignal)) {
+            Response response = clipboardResponse.response;
             if (!response.isSuccessful()) {
                 throw new HostHttpResponseException(response.code(), response.message());
             }
@@ -1176,6 +1208,88 @@ public class NvHTTP {
                 throw new IOException("Clipboard file chunk integrity check failed");
             }
             return bytes;
+        }
+    }
+
+    public void releaseClipboardFileSource(String id, long originId)
+            throws IOException {
+        if (!isCanonicalUuid(id) || originId == 0) {
+            throw new IOException("Invalid clipboard file reference");
+        }
+
+        HttpUrl url = getHttpsUrl(true).newBuilder()
+                .addPathSegments("api/v2/clipboard/files")
+                .addPathSegment(id)
+                .addPathSegment("release")
+                .build();
+        Request request = new Request.Builder()
+                .url(url)
+                .post(RequestBody.create(new byte[0], null))
+                .header("X-Clipboard-Origin", Long.toUnsignedString(originId))
+                .build();
+
+        try (Response response = OkHttpCalls.execute(
+                performAndroidTlsHack(
+                        httpClientShortConnectTimeout).newCall(request))) {
+            if (!response.isSuccessful() && response.code() != 404) {
+                throw new HostHttpResponseException(
+                        response.code(), response.message());
+            }
+        }
+    }
+
+    private ClipboardHttpResponse executeClipboardCall(
+            OkHttpClient client,
+            Request request,
+            CancellationSignal cancellationSignal) throws IOException {
+        Call call = performAndroidTlsHack(client).newCall(request);
+        if (cancellationSignal == null) {
+            return new ClipboardHttpResponse(
+                    OkHttpCalls.execute(call),
+                    null);
+        }
+
+        cancellationSignal.throwIfCanceled();
+        cancellationSignal.setOnCancelListener(call::cancel);
+        try {
+            cancellationSignal.throwIfCanceled();
+            return new ClipboardHttpResponse(
+                    OkHttpCalls.execute(call),
+                    cancellationSignal);
+        }
+        catch (IOException error) {
+            cancellationSignal.setOnCancelListener(null);
+            cancellationSignal.throwIfCanceled();
+            throw error;
+        }
+        catch (RuntimeException error) {
+            cancellationSignal.setOnCancelListener(null);
+            throw error;
+        }
+    }
+
+    private static final class ClipboardHttpResponse
+            implements AutoCloseable {
+        final Response response;
+        private final CancellationSignal cancellationSignal;
+
+        ClipboardHttpResponse(
+                Response response,
+                CancellationSignal cancellationSignal) {
+            this.response = response;
+            this.cancellationSignal = cancellationSignal;
+        }
+
+        @Override
+        public void close() {
+            try {
+                response.close();
+            }
+            finally {
+                if (cancellationSignal != null) {
+                    cancellationSignal.setOnCancelListener(null);
+                }
+            }
         }
     }
 

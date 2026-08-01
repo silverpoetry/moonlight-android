@@ -41,6 +41,15 @@ public final class ClipboardFileTransferSession {
         return true;
     }
 
+    public boolean cancelTransfer(long transferGeneration) {
+        if (!isCurrentTransfer(transferGeneration)) {
+            return false;
+        }
+        transferInProgress = false;
+        generation++;
+        return true;
+    }
+
     public boolean isCurrentTransfer(long transferGeneration) {
         return !destroyed &&
                 transferInProgress &&

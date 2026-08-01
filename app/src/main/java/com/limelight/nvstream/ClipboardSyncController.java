@@ -9,8 +9,10 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
+import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.OperationCanceledException;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
 
@@ -36,6 +38,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedListener,
         MoonBridge.ClipboardListener {
@@ -62,6 +65,8 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     private final AtomicLong localGeneration = new AtomicLong();
     private final AtomicLong remoteGeneration = new AtomicLong();
     private final AtomicLong clipboardChangeSequence = new AtomicLong();
+    private final AtomicReference<CancellationSignal> activeFileDownload =
+            new AtomicReference<>();
 
     private volatile boolean started;
     private volatile boolean ready;
@@ -113,6 +118,10 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         remoteGeneration.incrementAndGet();
         MoonBridge.setClipboardListener(null);
         mainHandler.post(() -> clipboardManager.removePrimaryClipChangedListener(this));
+        CancellationSignal fileDownload = activeFileDownload.getAndSet(null);
+        if (fileDownload != null) {
+            fileDownload.cancel();
+        }
         ioExecutor.shutdownNow();
         pendingLocalKey = null;
         pendingRemoteKey = null;
@@ -196,8 +205,10 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         }
     }
 
-    void downloadRemoteFiles(Uri destinationTree,
-                             NvConnection.ClipboardFileDownloadListener listener) {
+    void downloadRemoteFiles(
+            Uri destinationTree,
+            CancellationSignal cancellationSignal,
+            NvConnection.ClipboardFileDownloadListener listener) {
         if (!started || !ready || destinationTree == null || nvHttp == null) {
             LimeLog.warning("Clipboard file pull unavailable: started=" +
                     started + ", ready=" + ready +
@@ -208,35 +219,80 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             return;
         }
 
+        CancellationSignal previous =
+                activeFileDownload.getAndSet(cancellationSignal);
+        if (previous != null) {
+            previous.cancel();
+        }
         ioExecutor.execute(() -> {
+            long originId = 0;
+            String transferId = null;
+            Integer topLevelCount = null;
+            String errorMessage = null;
+            boolean cancelled = false;
             try {
-                long originId = MoonBridge.getClipboardOriginId();
+                cancellationSignal.throwIfCanceled();
+                originId = MoonBridge.getClipboardOriginId();
                 if (originId == 0) {
                     throw new IOException("Clipboard session is unavailable");
                 }
                 NvHTTP.ClipboardFileReference pulled =
-                        nvHttp.pullClipboardFiles(originId);
+                        nvHttp.pullClipboardFiles(
+                                originId,
+                                cancellationSignal);
+                transferId = pulled.id;
                 LimeLog.info("Remote clipboard file offer prepared: " +
                         pulled.id);
-                int topLevelCount = ClipboardFileDownloader.download(
+                topLevelCount = ClipboardFileDownloader.download(
                         context,
                         nvHttp,
                         destinationTree,
                         pulled.id,
                         originId,
                         (transferred, total) -> mainHandler.post(() ->
-                                listener.onProgress(transferred, total)));
-                mainHandler.post(() -> listener.onComplete(topLevelCount));
+                                listener.onProgress(transferred, total)),
+                        cancellationSignal);
+            } catch (OperationCanceledException error) {
+                cancelled = true;
             } catch (FileNotFoundException error) {
-                mainHandler.post(() -> listener.onError(
-                        "远端剪贴板中没有文件或文件夹"));
+                errorMessage = "远端剪贴板中没有文件或文件夹";
             } catch (Throwable error) {
                 LimeLog.warning("Clipboard file download failed: " +
                         error.getMessage());
-                mainHandler.post(() -> listener.onError(
-                        error.getMessage() == null ?
-                                "文件拉取失败" :
-                                error.getMessage()));
+                errorMessage = error.getMessage() == null ?
+                        "文件拉取失败" :
+                        error.getMessage();
+            } finally {
+                if (transferId != null && originId != 0) {
+                    try {
+                        nvHttp.releaseClipboardFileSource(
+                                transferId,
+                                originId);
+                    }
+                    catch (Throwable releaseError) {
+                        LimeLog.warning(
+                                "Clipboard file source release failed: " +
+                                releaseError.getMessage());
+                    }
+                }
+                activeFileDownload.compareAndSet(
+                        cancellationSignal,
+                        null);
+            }
+
+            if (cancelled) {
+                mainHandler.post(listener::onCancelled);
+            }
+            else if (topLevelCount != null) {
+                int completedCount = topLevelCount;
+                mainHandler.post(() ->
+                        listener.onComplete(completedCount));
+            }
+            else {
+                String completedError = errorMessage == null ?
+                        "文件拉取失败" : errorMessage;
+                mainHandler.post(() ->
+                        listener.onError(completedError));
             }
         });
     }
