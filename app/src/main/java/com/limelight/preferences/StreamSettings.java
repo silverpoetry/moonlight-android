@@ -39,6 +39,8 @@ import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
 import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
 
 public class StreamSettings extends Activity {
+    private static final String EXTRA_SECTION_ID =
+            "com.limelight.preferences.StreamSettings.SECTION_ID";
     private static final String STATE_SECTION_KEY =
             "settings.selected_section_key";
     private static final String STATE_ROOT_SCROLL_Y =
@@ -64,6 +66,8 @@ public class StreamSettings extends Activity {
     private SettingsChangeEffectScheduler changeEffectScheduler;
     private SettingsDialogPresenter dialogPresenter;
     private SettingsScreenRenderer screenRenderer;
+    private boolean sectionActivity;
+    private boolean sectionLaunchPending;
 
     // Android 9 exposes the cutout only after the window is attached.
     static DisplayCutout displayCutoutP;
@@ -85,11 +89,20 @@ public class StreamSettings extends Activity {
         nativeFrameRateValue = null;
         initializeRuntimeSettings();
         screenModel.removeEmptySections();
+        if (sectionActivity &&
+                !navigationState.hasSelectedSection()) {
+            finish();
+            return;
+        }
         selectedSectionIndex =
                 screenModel.findSectionIndex(
                         navigationState.getSelectedSectionId());
         if (navigationState.hasSelectedSection() &&
                 selectedSectionIndex < 0) {
+            if (sectionActivity) {
+                finish();
+                return;
+            }
             navigationState.selectFeatured();
         }
         if (screenRenderer != null) {
@@ -129,6 +142,10 @@ public class StreamSettings extends Activity {
                 store.repository,
                 layoutRepository,
                 this::reloadSettings);
+        sectionActivity = getIntent().hasExtra(EXTRA_SECTION_ID);
+        String requestedSectionId = sectionActivity
+                ? getIntent().getStringExtra(EXTRA_SECTION_ID)
+                : null;
         if (savedInstanceState != null) {
             String sectionId = savedInstanceState.getString(
                     STATE_SECTION_KEY);
@@ -151,6 +168,12 @@ public class StreamSettings extends Activity {
                     savedInstanceState.getInt(
                             STATE_SECTION_RAIL_SCROLL_Y,
                             0));
+        }
+        if (sectionActivity &&
+                !navigationState.hasSelectedSection() &&
+                requestedSectionId != null &&
+                !requestedSectionId.isEmpty()) {
+            navigationState.selectSection(requestedSectionId);
         }
         screenRenderer = createScreenRenderer();
 
@@ -242,6 +265,7 @@ public class StreamSettings extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        sectionLaunchPending = false;
         if (screenRenderer != null && screenRenderer.hasContent()) {
             reloadSettings();
         }
@@ -324,28 +348,26 @@ public class StreamSettings extends Activity {
     }
 
     private void handleBackNavigation() {
-        if (navigationState.hasSelectedSection() &&
-                screenRenderer != null &&
-                !screenRenderer.isWideLayout()) {
-            captureNavigationScroll();
-            navigationState.returnToRoot();
-            selectedSectionIndex = -1;
-            renderSettings(
-                    SettingsPageTransitionController.Direction.BACKWARD);
-            return;
-        }
         finishAndApplyLanguage();
     }
 
     private void openSection(int sectionIndex) {
         captureNavigationScroll();
+        if (screenRenderer == null) {
+            return;
+        }
+
+        if (!screenRenderer.isWideLayout()) {
+            openCompactSection(sectionIndex);
+            return;
+        }
+
         if (sectionIndex ==
                 SettingsScreenRenderer.FEATURED_SECTION_INDEX) {
             navigationState.selectFeatured();
             selectedSectionIndex =
                     SettingsScreenRenderer.FEATURED_SECTION_INDEX;
-            renderSettings(
-                    SettingsPageTransitionController.Direction.FORWARD);
+            renderWideSelection();
             return;
         }
         String sectionKey = screenModel.getSectionKey(sectionIndex);
@@ -354,8 +376,45 @@ public class StreamSettings extends Activity {
         }
         navigationState.selectSection(sectionKey);
         selectedSectionIndex = sectionIndex;
-        renderSettings(
-                SettingsPageTransitionController.Direction.FORWARD);
+        renderWideSelection();
+    }
+
+    private void openCompactSection(int sectionIndex) {
+        if (sectionLaunchPending ||
+                sectionIndex ==
+                        SettingsScreenRenderer.FEATURED_SECTION_INDEX) {
+            return;
+        }
+        String sectionId = screenModel.getSectionKey(sectionIndex);
+        if (sectionId == null) {
+            return;
+        }
+
+        sectionLaunchPending = true;
+        Intent intent = new Intent(this, StreamSettings.class);
+        intent.putExtra(EXTRA_SECTION_ID, sectionId);
+        try {
+            startActivity(intent);
+        }
+        catch (RuntimeException exception) {
+            sectionLaunchPending = false;
+            throw exception;
+        }
+    }
+
+    private void renderWideSelection() {
+        screenRenderer.setContent(
+                createScreenState(),
+                selectedSectionIndex,
+                getCurrentProfileSummary());
+        if (!screenRenderer.renderWideSelection()) {
+            renderSettings();
+            return;
+        }
+        screenRenderer.restoreScrollY(
+                navigationState.getContentScrollY());
+        screenRenderer.restoreSectionListScrollY(
+                navigationState.getSectionRailScrollY());
     }
 
     private void captureNavigationScroll() {
@@ -369,20 +428,28 @@ public class StreamSettings extends Activity {
     }
 
     private void renderSettings() {
-        renderSettings(SettingsPageTransitionController.Direction.NONE);
-    }
-
-    private void renderSettings(
-            SettingsPageTransitionController.Direction direction) {
+        normalizeCompactRootNavigation();
         screenRenderer.setContent(
                 createScreenState(),
                 selectedSectionIndex,
                 getCurrentProfileSummary());
-        screenRenderer.render(direction);
+        screenRenderer.render();
         screenRenderer.restoreScrollY(
                 navigationState.getContentScrollY());
         screenRenderer.restoreSectionListScrollY(
                 navigationState.getSectionRailScrollY());
+    }
+
+    private void normalizeCompactRootNavigation() {
+        if (sectionActivity ||
+                screenRenderer == null ||
+                screenRenderer.willUseWideLayout() ||
+                !navigationState.hasSelectedSection()) {
+            return;
+        }
+        navigationState.returnToRoot();
+        selectedSectionIndex =
+                SettingsScreenRenderer.FEATURED_SECTION_INDEX;
     }
 
     private void finishAndApplyLanguage() {

@@ -58,7 +58,6 @@ final class SettingsScreenRenderer {
     private FrameLayout root;
     private LinearLayout outerContainer;
     private FrameLayout mainContainer;
-    private SettingsPageTransitionController pageTransitionController;
     private FrameLayout wideItemContainer;
     private TextView titleView;
     private TextView subtitleView;
@@ -93,8 +92,6 @@ final class SettingsScreenRenderer {
         root.addView(mainContainer, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
-        pageTransitionController =
-                new SettingsPageTransitionController(mainContainer);
         return root;
     }
 
@@ -113,26 +110,11 @@ final class SettingsScreenRenderer {
     }
 
     void render() {
-        render(SettingsPageTransitionController.Direction.NONE);
-    }
-
-    void render(SettingsPageTransitionController.Direction direction) {
         if (destroyed || mainContainer == null || state == null) {
             return;
         }
 
-        boolean nextWideLayout = getAvailableWidthDp() >=
-                WIDE_LAYOUT_MIN_WIDTH_DP;
-        if (nextWideLayout &&
-                wideLayout &&
-                direction != SettingsPageTransitionController.Direction.NONE &&
-                wideItemContainer != null) {
-            updateWideSectionSelection();
-            renderWideItemContent();
-            return;
-        }
-
-        wideLayout = nextWideLayout;
+        wideLayout = willUseWideLayout();
         activeContentScrollView = null;
         sectionListScrollView = null;
         wideItemContainer = null;
@@ -161,12 +143,21 @@ final class SettingsScreenRenderer {
             renderSectionList(page);
         }
 
-        pageTransitionController.replace(
-                screenPage,
-                wideLayout
-                        ? SettingsPageTransitionController.Direction.NONE
-                        : direction);
+        mainContainer.removeAllViews();
+        mainContainer.addView(screenPage, matchParentLayoutParams());
         outerContainer.requestApplyInsets();
+    }
+
+    boolean renderWideSelection() {
+        if (destroyed ||
+                !wideLayout ||
+                wideItemContainer == null ||
+                state == null) {
+            return false;
+        }
+        updateWideSectionSelection();
+        renderWideItemContent();
+        return true;
     }
 
     boolean hasContent() {
@@ -175,6 +166,10 @@ final class SettingsScreenRenderer {
 
     boolean isWideLayout() {
         return wideLayout;
+    }
+
+    boolean willUseWideLayout() {
+        return getAvailableWidthDp() >= WIDE_LAYOUT_MIN_WIDTH_DP;
     }
 
     int getSelectedSectionIndex() {
@@ -290,10 +285,6 @@ final class SettingsScreenRenderer {
         activeContentScrollView = null;
         sectionListScrollView = null;
         wideItemContainer = null;
-        if (pageTransitionController != null) {
-            pageTransitionController.destroy();
-            pageTransitionController = null;
-        }
         state = null;
     }
 
@@ -435,21 +426,21 @@ final class SettingsScreenRenderer {
 
         LinearLayout page = createPageContainer();
         if (selectedSectionIndex == FEATURED_SECTION_INDEX) {
-            renderFeaturedSettings(page);
+            renderFeaturedSettings(page, false);
         }
         else {
-            renderSectionDetail(page, selectedSectionIndex);
+            renderSectionDetail(page, selectedSectionIndex, false);
         }
 
-        // The wide shell owns its header. Detail rendering only populates the
-        // right pane and must not make the entire two-column page relayout.
-        titleView.setText(R.string.settings_title);
-        subtitleView.setText(profileSummary);
-
-        wideItemContainer.removeAllViews();
-        wideItemContainer.addView(page, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
+        // Attach the fully constructed destination before detaching the old
+        // detail. The wide shell never becomes empty and is measured once.
+        View previous = wideItemContainer.getChildCount() == 0
+                ? null
+                : wideItemContainer.getChildAt(0);
+        wideItemContainer.addView(page, matchParentLayoutParams());
+        if (previous != null) {
+            wideItemContainer.removeView(previous);
+        }
     }
 
     private void renderSectionList(LinearLayout page) {
@@ -477,9 +468,17 @@ final class SettingsScreenRenderer {
     }
 
     private void renderFeaturedSettings(LinearLayout page) {
+        renderFeaturedSettings(page, true);
+    }
+
+    private void renderFeaturedSettings(
+            LinearLayout page,
+            boolean updateHeader) {
         renderedRows.clear();
-        titleView.setText(R.string.settings_featured_settings);
-        subtitleView.setText(profileSummary);
+        if (updateHeader) {
+            titleView.setText(R.string.settings_featured_settings);
+            subtitleView.setText(profileSummary);
+        }
         ScrollView scroll = createScrollView();
         activeContentScrollView = scroll;
         LinearLayout list = createVerticalList();
@@ -518,15 +517,24 @@ final class SettingsScreenRenderer {
     private void renderSectionDetail(
             LinearLayout page,
             int sectionIndex) {
+        renderSectionDetail(page, sectionIndex, true);
+    }
+
+    private void renderSectionDetail(
+            LinearLayout page,
+            int sectionIndex,
+            boolean updateHeader) {
         renderedRows.clear();
         SettingsScreenState.Section section =
                 state.getSections().get(sectionIndex);
         List<SettingsScreenState.Row> rows = section.getRows();
-        titleView.setText(section.getTitle());
-        subtitleView.setText(context.getResources().getQuantityString(
-                R.plurals.settings_item_count,
-                rows.size(),
-                rows.size()));
+        if (updateHeader) {
+            titleView.setText(section.getTitle());
+            subtitleView.setText(context.getResources().getQuantityString(
+                    R.plurals.settings_item_count,
+                    rows.size(),
+                    rows.size()));
+        }
 
         ScrollView scroll = createScrollView();
         activeContentScrollView = scroll;
@@ -797,6 +805,12 @@ final class SettingsScreenRenderer {
 
     private int dp(float value) {
         return UiHelper.dpToPx(context, value);
+    }
+
+    private FrameLayout.LayoutParams matchParentLayoutParams() {
+        return new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT);
     }
 
     private final class RenderedSettingsRow {

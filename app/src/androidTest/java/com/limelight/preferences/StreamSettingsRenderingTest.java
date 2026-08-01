@@ -3,7 +3,7 @@ package com.limelight.preferences;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -100,7 +100,7 @@ public class StreamSettingsRenderingTest {
     }
 
     @Test
-    public void everyVisibleSectionReusesActivityAndBackReturnsToRoot()
+    public void everyVisibleSectionUsesActivityStackOrStableWideShell()
             throws InterruptedException {
         Instrumentation instrumentation =
                 InstrumentationRegistry.getInstrumentation();
@@ -127,13 +127,9 @@ public class StreamSettingsRenderingTest {
                 visitedSections++;
                 View sectionRow =
                         (View) sectionTitle.getParent().getParent();
-
-                instrumentation.runOnMainSync(
-                        sectionRow::performClick);
-                waitForTransition(instrumentation);
-
-                assertFalse(activity.isFinishing());
                 if (wideLayout) {
+                    instrumentation.runOnMainSync(
+                            sectionRow::performClick);
                     assertEquals(1, contentContainer.getChildCount());
                     assertSame(wideScreenPage,
                             contentContainer.getChildAt(0));
@@ -142,13 +138,31 @@ public class StreamSettingsRenderingTest {
                                     R.id.settings_detail_container));
                     continue;
                 }
-                assertNull(findText(
-                        activity.getWindow().getDecorView(),
-                        activity.getString(
-                                R.string.settings_featured_settings)));
 
-                instrumentation.runOnMainSync(activity::onBackPressed);
-                waitForTransition(instrumentation);
+                Instrumentation.ActivityMonitor monitor =
+                        instrumentation.addMonitor(
+                                StreamSettings.class.getName(),
+                                null,
+                                false);
+                View rootScreenPage = contentContainer.getChildAt(0);
+                instrumentation.runOnMainSync(
+                        sectionRow::performClick);
+                StreamSettings detailActivity = (StreamSettings)
+                        instrumentation.waitForMonitorWithTimeout(
+                                monitor,
+                                2_000);
+                instrumentation.removeMonitor(monitor);
+
+                assertNotNull(detailActivity);
+                assertNotSame(activity, detailActivity);
+                assertEquals(1, contentContainer.getChildCount());
+                assertSame(rootScreenPage,
+                        contentContainer.getChildAt(0));
+                assertNotNull(findText(
+                        detailActivity.getWindow().getDecorView(),
+                        section.title));
+                instrumentation.runOnMainSync(detailActivity::finish);
+                instrumentation.waitForIdleSync();
 
                 assertNotNull(findText(
                         activity.getWindow().getDecorView(),
@@ -181,6 +195,11 @@ public class StreamSettingsRenderingTest {
             assertNotNull(rootScroll);
             assertNotNull(sectionTitle);
 
+            if (activity.findViewById(
+                    R.id.settings_detail_container) != null) {
+                return;
+            }
+
             instrumentation.runOnMainSync(() -> rootScroll.scrollTo(
                     0,
                     rootScroll.getChildAt(0).getHeight()));
@@ -190,10 +209,20 @@ public class StreamSettingsRenderingTest {
 
             View sectionRow =
                     (View) sectionTitle.getParent().getParent();
+            Instrumentation.ActivityMonitor monitor =
+                    instrumentation.addMonitor(
+                            StreamSettings.class.getName(),
+                            null,
+                            false);
             instrumentation.runOnMainSync(sectionRow::performClick);
+            StreamSettings detailActivity = (StreamSettings)
+                    instrumentation.waitForMonitorWithTimeout(
+                            monitor,
+                            2_000);
+            instrumentation.removeMonitor(monitor);
+            assertNotNull(detailActivity);
+            instrumentation.runOnMainSync(detailActivity::finish);
             instrumentation.waitForIdleSync();
-            instrumentation.runOnMainSync(activity::onBackPressed);
-            waitForTransition(instrumentation);
 
             ScrollView restoredScroll = findFirst(
                     activity.getWindow().getDecorView(),
@@ -207,7 +236,7 @@ public class StreamSettingsRenderingTest {
     }
 
     @Test
-    public void sectionNavigationUsesStackMotionOrStableWideShell()
+    public void sectionNavigationUsesSystemStackOrStableWideShell()
             throws InterruptedException {
         Instrumentation instrumentation =
                 InstrumentationRegistry.getInstrumentation();
@@ -231,9 +260,9 @@ public class StreamSettingsRenderingTest {
                     R.id.settings_detail_container);
             View sectionRow =
                     (View) sectionTitle.getParent().getParent();
-            instrumentation.runOnMainSync(sectionRow::performClick);
 
             if (wideLayout) {
+                instrumentation.runOnMainSync(sectionRow::performClick);
                 assertEquals(1, contentContainer.getChildCount());
                 assertSame(originalScreenPage,
                         contentContainer.getChildAt(0));
@@ -244,19 +273,29 @@ public class StreamSettingsRenderingTest {
                 return;
             }
 
-            assertStackTransition(contentContainer);
+            Instrumentation.ActivityMonitor monitor =
+                    instrumentation.addMonitor(
+                            StreamSettings.class.getName(),
+                            null,
+                            false);
+            instrumentation.runOnMainSync(sectionRow::performClick);
+            StreamSettings detailActivity = (StreamSettings)
+                    instrumentation.waitForMonitorWithTimeout(
+                            monitor,
+                            2_000);
+            instrumentation.removeMonitor(monitor);
+
+            assertNotNull(detailActivity);
+            assertNotSame(activity, detailActivity);
+            assertSettled(contentContainer);
             assertSame(originalScreenPage,
                     contentContainer.getChildAt(0));
-            waitForTransition(instrumentation);
-            assertSettled(contentContainer);
-            View detailScreenPage = contentContainer.getChildAt(0);
-
-            instrumentation.runOnMainSync(activity::onBackPressed);
-            assertStackTransition(contentContainer);
-            assertSame(detailScreenPage,
-                    contentContainer.getChildAt(1));
-            waitForTransition(instrumentation);
-            assertSettled(contentContainer);
+            FrameLayout detailContainer = detailActivity.findViewById(
+                    R.id.settings_content_container);
+            assertNotNull(detailContainer);
+            assertSettled(detailContainer);
+            instrumentation.runOnMainSync(detailActivity::finish);
+            instrumentation.waitForIdleSync();
         }
         finally {
             activity.finish();
@@ -338,26 +377,6 @@ public class StreamSettingsRenderingTest {
         assertEquals(0f, currentPage.getTranslationX(), 0f);
         assertEquals(1f, currentPage.getAlpha(), 0f);
         assertNotNull(currentPage.getBackground());
-    }
-
-    private static void assertStackTransition(FrameLayout container) {
-        assertEquals(2, container.getChildCount());
-        for (int index = 0; index < container.getChildCount(); index++) {
-            View page = container.getChildAt(index);
-            assertEquals(1f, page.getAlpha(), 0f);
-            assertNotNull(page.getBackground());
-        }
-    }
-
-    private static void waitForTransition(
-            Instrumentation instrumentation)
-            throws InterruptedException {
-        long transitionDuration = instrumentation
-                .getTargetContext()
-                .getResources()
-                .getInteger(android.R.integer.config_mediumAnimTime);
-        Thread.sleep(transitionDuration + 100L);
-        instrumentation.waitForIdleSync();
     }
 
     private interface ActivityAssertion {
