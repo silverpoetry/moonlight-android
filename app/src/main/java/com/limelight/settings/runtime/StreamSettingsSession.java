@@ -8,6 +8,7 @@ import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsState;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.settings.input.InputSettingsState;
 import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.settings.stream.StreamVideoSettings;
@@ -117,6 +118,31 @@ public final class StreamSettingsSession {
         effects.onInputSettingsChanged(previous, current);
     }
 
+    /**
+     * Reconciles externally edited force-press values into the active stream.
+     *
+     * <p>Only the three settings that the touch controller can apply safely
+     * without reconnecting are copied. Session-scoped transport and pointer
+     * mode decisions remain unchanged until the next stream.</p>
+     */
+    public void refreshForcePressSettings() {
+        InputSettings previous = inputState.get();
+        InputSettings persisted = InputSettingsLoader.load(repository);
+        InputSettings current = previous.toBuilder()
+                .setBarometerForcePressEnabled(
+                        persisted.isBarometerForcePressEnabled())
+                .setBarometerForcePressThresholdHpa(
+                        persisted.getBarometerForcePressThresholdHpa())
+                .setBarometerForcePressMinimumDurationMs(
+                        persisted.getBarometerForcePressMinimumDurationMs())
+                .build();
+        if (!forcePressSettingsDiffer(previous, current)) {
+            return;
+        }
+        inputState.replace(current);
+        effects.onInputSettingsChanged(previous, current);
+    }
+
     public void applyController(ControllerSettingsUpdate update) {
         Objects.requireNonNull(update, "update");
         ControllerSettings previous = controllerState.get();
@@ -179,5 +205,17 @@ public final class StreamSettingsSession {
         virtualControlState.replace(
                 VirtualControlSettingsLoader.load(repository));
         effects.onVirtualControlSettingsReloaded();
+    }
+
+    private static boolean forcePressSettingsDiffer(
+            InputSettings first,
+            InputSettings second) {
+        return first.isBarometerForcePressEnabled() !=
+                        second.isBarometerForcePressEnabled() ||
+                Float.compare(
+                        first.getBarometerForcePressThresholdHpa(),
+                        second.getBarometerForcePressThresholdHpa()) != 0 ||
+                first.getBarometerForcePressMinimumDurationMs() !=
+                        second.getBarometerForcePressMinimumDurationMs();
     }
 }

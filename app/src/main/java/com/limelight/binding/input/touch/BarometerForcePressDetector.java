@@ -7,13 +7,13 @@ import java.util.Set;
 /**
  * Fuses a live touchscreen contact with a positive barometer transient.
  *
- * <p>The pressure baseline is learned only while no pointer is touching the
- * screen and is frozen for the complete touch session, so a real pressure
- * spike cannot be absorbed into the baseline. The user-configured threshold is
- * fixed. A minimum stable contact-set duration filters pressure transients
- * caused by fingers landing on the screen. A detected force press remains
- * latched even after pressure falls and is released when its owning contact
- * set changes or the session is cancelled.</p>
+ * <p>An idle baseline seeds each touch session. While the configured minimum
+ * contact duration is still arming, the baseline follows the current pressure
+ * so the ordinary pressure change caused by landing a finger cannot become a
+ * delayed force press. The baseline is then frozen and the fixed,
+ * user-configured threshold is applied to subsequent pressure rise. A detected
+ * force press remains latched even after pressure falls and is released when
+ * its owning contact set changes or the session is cancelled.</p>
  */
 final class BarometerForcePressDetector {
     private static final int IDLE_WINDOW_SIZE = 64;
@@ -38,9 +38,11 @@ final class BarometerForcePressDetector {
     private boolean forcePressed;
     private boolean forceTriggeredOnLastSample;
     private boolean forceBlockedForTouchSession;
+    private boolean receivedArmingSample;
 
     void onPointerDown(int pointerId, long eventTimeMs) {
-        if (activePointers.isEmpty()) {
+        boolean firstContact = activePointers.isEmpty();
+        if (firstContact) {
             primaryPointerId = pointerId;
             forcePointerId = -1;
             forcePressed = false;
@@ -52,7 +54,7 @@ final class BarometerForcePressDetector {
             currentDeltaHpa = 0.0f;
         }
         activePointers.add(pointerId);
-        contactSetStartTimeMs = eventTimeMs;
+        beginContactSet(eventTimeMs, !firstContact);
     }
 
     void onPointerUp(int pointerId, long eventTimeMs) {
@@ -70,7 +72,7 @@ final class BarometerForcePressDetector {
             primaryPointerId = activePointers.iterator().next();
         }
         if (!activePointers.isEmpty()) {
-            contactSetStartTimeMs = eventTimeMs;
+            beginContactSet(eventTimeMs, true);
         }
     }
 
@@ -92,14 +94,24 @@ final class BarometerForcePressDetector {
         if (!isFinite(sessionBaselineHpa)) {
             sessionBaselineHpa = pressureHpa;
         }
+
+        long contactDurationMs = Math.max(
+                0,
+                sampleTimeMs - contactSetStartTimeMs);
+        if (minimumTouchDurationMs > 0 &&
+                (contactDurationMs < minimumTouchDurationMs ||
+                        !receivedArmingSample)) {
+            sessionBaselineHpa = pressureHpa;
+            currentDeltaHpa = 0.0f;
+            receivedArmingSample = true;
+            return;
+        }
         currentDeltaHpa = pressureHpa - sessionBaselineHpa;
 
         if (!forcePressed &&
                 !forceBlockedForTouchSession &&
                 activePointers.size() >= 1 &&
                 activePointers.size() <= 2 &&
-                sampleTimeMs - contactSetStartTimeMs >=
-                        minimumTouchDurationMs &&
                 currentDeltaHpa >= getThresholdHpa()) {
             forcePressed = true;
             forceTriggeredOnLastSample = true;
@@ -165,7 +177,19 @@ final class BarometerForcePressDetector {
         sessionBaselineHpa = Float.NaN;
         currentDeltaHpa = 0.0f;
         contactSetStartTimeMs = 0;
+        receivedArmingSample = false;
         forceBlockedForTouchSession = false;
+    }
+
+    private void beginContactSet(
+            long eventTimeMs,
+            boolean resetBaseline) {
+        contactSetStartTimeMs = eventTimeMs;
+        if (resetBaseline) {
+            sessionBaselineHpa = currentPressureHpa;
+        }
+        currentDeltaHpa = 0.0f;
+        receivedArmingSample = false;
     }
 
     boolean hasStableBaseline() {

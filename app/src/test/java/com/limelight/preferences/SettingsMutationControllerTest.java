@@ -8,6 +8,8 @@ import com.limelight.settings.SettingKey;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.SettingsScreenIds;
 import com.limelight.settings.input.InputSettingKeys;
+import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.settings.stream.StreamResolutionCodec;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
@@ -139,6 +141,28 @@ public final class SettingsMutationControllerTest {
 
         assertTrue(repository.get(booleanKey));
         assertEquals(Integer.valueOf(42), repository.get(integerKey));
+    }
+
+    @Test
+    public void forcePressThresholdKeepsItsExactRuntimeUnit() {
+        FakeRepository repository = new FakeRepository();
+        SettingsMutationController controller =
+                new SettingsMutationController(
+                        new SettingsStore(repository));
+
+        controller.changeInteger(
+                item(InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD),
+                875);
+
+        InputSettings runtime = InputSettingsLoader.load(repository);
+        assertEquals(
+                Integer.valueOf(875),
+                repository.get(
+                        InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD));
+        assertEquals(
+                0.875f,
+                runtime.getBarometerForcePressThresholdHpa(),
+                0.0001f);
     }
 
     @Test

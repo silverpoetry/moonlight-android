@@ -51,6 +51,7 @@ import com.limelight.nvstream.mic.MicrophoneUplinkConfig;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.AndroidDisplayAspectProvider;
 import com.limelight.settings.android.AndroidAppLocale;
+import com.limelight.settings.android.AndroidSettingsGroupObserver;
 import com.limelight.settings.android.AndroidStreamSettingsBootstrap;
 import com.limelight.settings.android.SharedPreferencesCustomResolutionRepository;
 import com.limelight.settings.android.AndroidSettingsRepository;
@@ -61,6 +62,7 @@ import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsLoader;
 import com.limelight.settings.controller.ControllerSettingsState;
 import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.settings.input.InputSettingsState;
 import com.limelight.settings.runtime.StreamSettingsSession;
@@ -228,6 +230,7 @@ public class Game extends Activity implements OnGenericMotionListener,
     private TransferSettings transferSettings;
     private SettingsRepository settingsRepository;
     private StreamSettingsSession streamSettingsSession;
+    private AndroidSettingsGroupObserver forcePressSettingsObserver;
     private GameMenuCardLayoutRepository
             gameMenuCardLayoutRepository;
     private GameMenuShortcutRepository
@@ -433,6 +436,15 @@ public class Game extends Activity implements OnGenericMotionListener,
         virtualControlLayoutRepository =
                 new AndroidVirtualControlLayoutRepository(this);
         streamSettingsSession = createStreamSettingsSession();
+        forcePressSettingsObserver = new AndroidSettingsGroupObserver(
+                this,
+                Arrays.asList(
+                        InputSettingKeys.BAROMETER_FORCE_PRESS,
+                        InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD,
+                        InputSettingKeys
+                                .BAROMETER_FORCE_PRESS_MINIMUM_DURATION),
+                streamSettingsSession::refreshForcePressSettings);
+        forcePressSettingsObserver.start();
         gameMenuHost = new StreamGameMenuHost(
                 streamSettingsSession,
                 customResolutionRepository,
@@ -1203,6 +1215,10 @@ public class Game extends Activity implements OnGenericMotionListener,
     @Override
     protected void onDestroy() {
         sessionDependenciesReady = false;
+        if (forcePressSettingsObserver != null) {
+            forcePressSettingsObserver.close();
+            forcePressSettingsObserver = null;
+        }
         unregisterInputGateway();
         cancelPendingUiCallbacks();
         if (sessionController != null) {

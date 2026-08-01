@@ -23,8 +23,6 @@ public class InputSettingsLoaderTest {
         assertFalse(settings.isLocalSystemCursorEnabled());
         assertTrue(
                 settings.isAdaptiveInputThrottlingDisabled());
-        assertFalse(
-                settings.isAccessibilityKeyLoggingEnabled());
         assertEquals(
                 100,
                 settings.getTouchpadPointerSensitivityX());
@@ -101,11 +99,6 @@ public class InputSettingsLoaderTest {
                         .DISABLE_ADAPTIVE_INPUT_THROTTLING
                         .getName(),
                 false);
-        repository.values.put(
-                InputSettingKeys
-                        .ACCESSIBILITY_KEY_LOGGING
-                        .getName(),
-                true);
 
         InputSettings settings =
                 InputSettingsLoader.load(repository);
@@ -113,8 +106,6 @@ public class InputSettingsLoaderTest {
         assertTrue(settings.isLocalSystemCursorEnabled());
         assertFalse(
                 settings.isAdaptiveInputThrottlingDisabled());
-        assertTrue(
-                settings.isAccessibilityKeyLoggingEnabled());
     }
 
     @Test

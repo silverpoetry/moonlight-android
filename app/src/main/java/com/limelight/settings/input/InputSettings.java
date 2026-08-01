@@ -9,7 +9,6 @@ public final class InputSettings {
     private final boolean absoluteMouseMode;
     private final boolean localSystemCursorEnabled;
     private final boolean adaptiveInputThrottlingDisabled;
-    private final boolean accessibilityKeyLoggingEnabled;
     private final boolean barometerForcePressEnabled;
     private final float barometerForcePressThresholdHpa;
     private final int barometerForcePressMinimumDurationMs;
@@ -38,8 +37,6 @@ public final class InputSettings {
                 builder.localSystemCursorEnabled;
         adaptiveInputThrottlingDisabled =
                 builder.adaptiveInputThrottlingDisabled;
-        accessibilityKeyLoggingEnabled =
-                builder.accessibilityKeyLoggingEnabled;
         barometerForcePressEnabled =
                 builder.barometerForcePressEnabled;
         barometerForcePressThresholdHpa = clamp(
@@ -125,10 +122,6 @@ public final class InputSettings {
 
     public boolean isAdaptiveInputThrottlingDisabled() {
         return adaptiveInputThrottlingDisabled;
-    }
-
-    public boolean isAccessibilityKeyLoggingEnabled() {
-        return accessibilityKeyLoggingEnabled;
     }
 
     public boolean isBarometerForcePressEnabled() {
@@ -236,7 +229,6 @@ public final class InputSettings {
         private boolean absoluteMouseMode;
         private boolean localSystemCursorEnabled;
         private boolean adaptiveInputThrottlingDisabled = true;
-        private boolean accessibilityKeyLoggingEnabled;
         private boolean barometerForcePressEnabled;
         private float barometerForcePressThresholdHpa =
                 InputSettingKeys
@@ -283,8 +275,6 @@ public final class InputSettings {
                     settings.localSystemCursorEnabled;
             adaptiveInputThrottlingDisabled =
                     settings.adaptiveInputThrottlingDisabled;
-            accessibilityKeyLoggingEnabled =
-                    settings.accessibilityKeyLoggingEnabled;
             barometerForcePressEnabled =
                     settings.barometerForcePressEnabled;
             barometerForcePressThresholdHpa =
@@ -346,12 +336,6 @@ public final class InputSettings {
         public Builder setAdaptiveInputThrottlingDisabled(
                 boolean disabled) {
             adaptiveInputThrottlingDisabled = disabled;
-            return this;
-        }
-
-        public Builder setAccessibilityKeyLoggingEnabled(
-                boolean enabled) {
-            accessibilityKeyLoggingEnabled = enabled;
             return this;
         }
 

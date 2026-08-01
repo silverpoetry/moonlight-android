@@ -51,11 +51,22 @@ public final class BarometerForcePressController
     }
 
     public void setThresholdHpa(float thresholdHpa) {
+        boolean changed = Float.compare(
+                detector.getThresholdHpa(),
+                thresholdHpa) != 0;
         detector.setThresholdHpa(thresholdHpa);
+        if (enabled && changed) {
+            logConfiguration("updated");
+        }
     }
 
     public void setMinimumTouchDurationMs(long minimumTouchDurationMs) {
+        boolean changed = detector.getMinimumTouchDurationMs() !=
+                minimumTouchDurationMs;
         detector.setMinimumTouchDurationMs(minimumTouchDurationMs);
+        if (enabled && changed) {
+            logConfiguration("updated");
+        }
     }
 
     public void setEnabled(boolean enabled) {
@@ -69,6 +80,9 @@ public final class BarometerForcePressController
         }
         this.enabled = newEnabled;
         updateRegistration();
+        if (newEnabled) {
+            logConfiguration("enabled");
+        }
     }
 
     public void start() {
@@ -194,5 +208,16 @@ public final class BarometerForcePressController
             sensorManager.unregisterListener(this);
             registered = false;
         }
+    }
+
+    private void logConfiguration(String state) {
+        LimeLog.info(String.format(
+                Locale.US,
+                "Barometer force press %s: threshold=%.4f " +
+                        "minimumTouchDurationMs=%d registered=%s",
+                state,
+                detector.getThresholdHpa(),
+                detector.getMinimumTouchDurationMs(),
+                registered));
     }
 }

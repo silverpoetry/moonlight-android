@@ -28,7 +28,7 @@ public class BarometerForcePressDetectorTest {
 
         down(1);
         down(2);
-        pressure(1000.5f);
+        pressure(1001.0f);
         assertTrue(detector.isForcePressed());
 
         detector.cancelTouchSession();
@@ -110,6 +110,9 @@ public class BarometerForcePressDetectorTest {
 
         timeMs += 1;
         pressure(1000.3f);
+        assertFalse(detector.isForcePressed());
+
+        pressure(1000.6f);
         assertTrue(detector.isForcePressed());
     }
 
@@ -125,6 +128,27 @@ public class BarometerForcePressDetectorTest {
 
         timeMs += 100;
         pressure(1000.3f);
+        assertFalse(detector.isForcePressed());
+
+        pressure(1000.6f);
+        assertTrue(detector.isForcePressed());
+    }
+
+    @Test
+    public void landingPressureCannotBecomeDelayedForcePress() {
+        detector.setThresholdHpa(0.4f);
+        detector.setMinimumTouchDurationMs(100);
+
+        down(40);
+        timeMs += 50;
+        pressure(1001.0f);
+        timeMs += 50;
+        pressure(1001.0f);
+        assertFalse(detector.isForcePressed());
+
+        pressure(1001.3f);
+        assertFalse(detector.isForcePressed());
+        pressure(1001.5f);
         assertTrue(detector.isForcePressed());
     }
 

@@ -14,6 +14,7 @@ import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsState;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettings;
+import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.input.InputSettingsState;
 import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.settings.stream.StreamVideoSettings;
@@ -73,6 +74,38 @@ public final class StreamSettingsSessionTest {
     }
 
     @Test
+    public void externalForcePressSettingsRefreshActiveSnapshotOnly() {
+        Fixture fixture = new Fixture();
+        fixture.effects.fixture = fixture;
+        fixture.repository.edit()
+                .put(InputSettingKeys.BAROMETER_FORCE_PRESS, true)
+                .put(
+                        InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD,
+                        875)
+                .put(
+                        InputSettingKeys
+                                .BAROMETER_FORCE_PRESS_MINIMUM_DURATION,
+                        320)
+                .apply();
+
+        fixture.session.refreshForcePressSettings();
+        fixture.session.refreshForcePressSettings();
+
+        InputSettings refreshed = fixture.session.getInputSettings();
+        assertTrue(refreshed.isBarometerForcePressEnabled());
+        assertEquals(
+                0.875f,
+                refreshed.getBarometerForcePressThresholdHpa(),
+                0.0001f);
+        assertEquals(
+                320,
+                refreshed.getBarometerForcePressMinimumDurationMs());
+        assertTrue(refreshed.isAbsoluteMouseMode());
+        assertEquals(1, fixture.effects.inputChanges);
+        assertEquals(1, fixture.repository.applyCount);
+    }
+
+    @Test
     public void runtimeEffectsObservePersistedPublishedSnapshots() {
         Fixture fixture = new Fixture();
         fixture.effects.fixture = fixture;
@@ -121,7 +154,9 @@ public final class StreamSettingsSessionTest {
                 new StreamSettingsSession(
                         repository,
                         new InputSettingsState(
-                                InputSettings.builder().build()),
+                                InputSettings.builder()
+                                        .setAbsoluteMouseMode(true)
+                                        .build()),
                         new ControllerSettingsState(
                                 ControllerSettings.builder()
                                         .setBatteryReportingEnabled(false)
@@ -148,12 +183,14 @@ public final class StreamSettingsSessionTest {
         private boolean uiObservedPublishedState;
         private InputSettings lastInput;
         private boolean inputObservedPublishedState;
+        private int inputChanges;
 
         @Override
         public void onInputSettingsChanged(
                 InputSettings previous,
                 InputSettings current) {
             lastInput = current;
+            inputChanges++;
             inputObservedPublishedState =
                     fixture.repository.applyCount == 1 &&
                             fixture.session.getInputSettings() == current &&

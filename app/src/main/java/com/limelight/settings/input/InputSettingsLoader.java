@@ -28,10 +28,6 @@ public final class InputSettingsLoader {
                         repository.get(
                                 InputSettingKeys
                                         .DISABLE_ADAPTIVE_INPUT_THROTTLING))
-                .setAccessibilityKeyLoggingEnabled(
-                        repository.get(
-                                InputSettingKeys
-                                        .ACCESSIBILITY_KEY_LOGGING))
                 .setBarometerForcePressEnabled(repository.get(
                         InputSettingKeys.BAROMETER_FORCE_PRESS))
                 .setBarometerForcePressThresholdHpa(
