@@ -56,7 +56,6 @@ final class SettingsScreenRenderer {
     private FrameLayout root;
     private LinearLayout outerContainer;
     private FrameLayout mainContainer;
-    private SettingsPageTransitionController pageTransitionController;
     private FrameLayout wideItemContainer;
     private TextView titleView;
     private TextView subtitleView;
@@ -91,8 +90,6 @@ final class SettingsScreenRenderer {
         root.addView(mainContainer, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
-        pageTransitionController =
-                new SettingsPageTransitionController(mainContainer);
         return root;
     }
 
@@ -111,10 +108,6 @@ final class SettingsScreenRenderer {
     }
 
     void render() {
-        render(SettingsPageTransitionController.Direction.NONE);
-    }
-
-    void render(SettingsPageTransitionController.Direction direction) {
         if (destroyed || mainContainer == null || state == null) {
             return;
         }
@@ -148,11 +141,10 @@ final class SettingsScreenRenderer {
             renderSectionList(page);
         }
 
-        pageTransitionController.replace(
-                screenPage,
-                wideLayout
-                        ? SettingsPageTransitionController.Direction.NONE
-                        : direction);
+        mainContainer.removeAllViews();
+        mainContainer.addView(screenPage, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
         outerContainer.requestApplyInsets();
     }
 
@@ -271,10 +263,6 @@ final class SettingsScreenRenderer {
 
     void destroy() {
         destroyed = true;
-        if (pageTransitionController != null) {
-            pageTransitionController.destroy();
-            pageTransitionController = null;
-        }
         listener = null;
         renderedRows.clear();
         activeContentScrollView = null;

@@ -7,11 +7,9 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
-import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Intent;
-import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -191,7 +189,7 @@ public class StreamSettingsRenderingTest {
     }
 
     @Test
-    public void sectionNavigationMatchesAdaptiveNavigationMotion()
+    public void sectionNavigationReplacesContentImmediately()
             throws InterruptedException {
         Instrumentation instrumentation =
                 InstrumentationRegistry.getInstrumentation();
@@ -214,15 +212,8 @@ public class StreamSettingsRenderingTest {
                     (View) sectionTitle.getParent().getParent();
             instrumentation.runOnMainSync(() -> {
                 sectionRow.performClick();
-                if (wideLayout) {
-                    assertSettled(contentContainer);
-                }
-                else {
-                    assertForwardTransition(contentContainer);
-                }
+                assertSettled(contentContainer);
             });
-            waitForTransition(instrumentation);
-            assertSettled(contentContainer);
 
             if (wideLayout) {
                 return;
@@ -305,22 +296,6 @@ public class StreamSettingsRenderingTest {
             }
         }
         return null;
-    }
-
-    private static void assertForwardTransition(
-            FrameLayout container) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                !ValueAnimator.areAnimatorsEnabled()) {
-            assertSettled(container);
-            return;
-        }
-        assertEquals(2, container.getChildCount());
-        View incomingPage = container.getChildAt(1);
-        assertNotNull(incomingPage.getBackground());
-        assertEquals(1f, incomingPage.getAlpha(), 0f);
-        float minimumFullPageOffset = container.getWidth() * 0.9f;
-        assertTrue(incomingPage.getTranslationX() >=
-                minimumFullPageOffset);
     }
 
     private static void assertSettled(FrameLayout container) {
