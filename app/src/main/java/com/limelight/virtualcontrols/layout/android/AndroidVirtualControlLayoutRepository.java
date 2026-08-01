@@ -6,11 +6,10 @@ import android.net.Uri;
 import android.util.AtomicFile;
 
 import androidx.annotation.Nullable;
-import androidx.core.content.FileProvider;
-
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
+import com.limelight.platform.files.AndroidPrivateFileShare;
 import com.limelight.virtualcontrols.layout.VirtualControlLayoutDocument;
 import com.limelight.virtualcontrols.layout.VirtualControlLayoutKey;
 import com.limelight.virtualcontrols.layout.VirtualControlLayoutOrientation;
@@ -105,15 +104,13 @@ public final class AndroidVirtualControlLayoutRepository
 
     @Nullable
     public Uri getShareUri(
-            VirtualControlLayoutKey key) {
+            VirtualControlLayoutKey key) throws IOException {
         File file = resolveFile(key);
         if (!file.isFile()) {
             return null;
         }
-        return FileProvider.getUriForFile(
+        return AndroidPrivateFileShare.stageReadOnly(
                 applicationContext,
-                applicationContext.getPackageName() +
-                        ".fileprovider",
                 file);
     }
 

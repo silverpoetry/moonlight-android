@@ -1,3 +1,5 @@
+import com.moonlight.buildlogic.VerifyAndroidSecurityPolicy
+import com.moonlight.buildlogic.VerifyForbiddenFiles
 import com.moonlight.buildlogic.VerifyNoBidiControls
 
 tasks.register('verifyNoBidiControls', VerifyNoBidiControls) {
@@ -17,6 +19,36 @@ tasks.register('verifyNoBidiControls', VerifyNoBidiControls) {
                 '**/*.mk',
                 '**/CMakeLists.txt',
                 'gradle.properties'
+        exclude '**/.gradle/**', '**/build/**', '**/.git/**'
+    })
+}
+
+tasks.register('verifyAndroidSecurityPolicy', VerifyAndroidSecurityPolicy) {
+    group = 'verification'
+    description = 'Locks reviewed Android sharing, backup, component, and trust boundaries.'
+    manifestFile.set(layout.projectDirectory.file('app/src/main/AndroidManifest.xml'))
+    fileProviderPathsFile.set(layout.projectDirectory.file(
+            'app/src/main/res/xml/provider_file_paths.xml'))
+    legacyBackupRulesFile.set(layout.projectDirectory.file(
+            'app/src/main/res/xml/backup_rules.xml'))
+    modernBackupRulesFile.set(layout.projectDirectory.file(
+            'app/src/main/res/xml/backup_rules_s.xml'))
+    networkSecurityConfigFile.set(layout.projectDirectory.file(
+            'app/src/main/res/xml/network_security_config.xml'))
+}
+
+tasks.register('verifyNoRepositorySecrets', VerifyForbiddenFiles) {
+    group = 'verification'
+    description = 'Rejects repository-local signing material and exported client credentials.'
+    forbiddenFiles.from(fileTree(rootDir) {
+        include '**/*.jks',
+                '**/*.keystore',
+                '**/*.p12',
+                '**/*.pfx',
+                '**/*.pem',
+                '**/*.key',
+                '**/signing.properties',
+                '**/client.crt'
         exclude '**/.gradle/**', '**/build/**', '**/.git/**'
     })
 }

@@ -116,12 +116,14 @@
         </activity>
         <activity
             android:name=".AppView"
+            android:exported="false"
             android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection">
             <meta-data android:name="WindowManagerPreference:FreeformWindowSize" android:value="system-default" />
             <meta-data android:name="WindowManagerPreference:FreeformWindowOrientation" android:value="landscape" />
         </activity>
         <activity
             android:name=".preferences.StreamSettings"
+            android:exported="false"
             android:theme="@style/SettingsActivityTheme"
             android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection"
             android:label="Streaming Settings">
@@ -130,6 +132,7 @@
         </activity>
         <activity
             android:name=".preferences.AddComputerManually"
+            android:exported="false"
             android:windowSoftInputMode="stateVisible"
             android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection"
             android:label="Add Computer Manually">
@@ -139,6 +142,7 @@
         <!-- PiP and low-latency display mode are platform-gated stream capabilities. -->
         <activity
             android:name=".Game"
+            android:exported="false"
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection"
             android:noHistory="true"
             android:supportsPictureInPicture="true"
@@ -182,22 +186,28 @@
 
         <service
             android:name=".discovery.DiscoveryService"
+            android:exported="false"
             android:label="mDNS PC Auto-Discovery Service" />
         <service
             android:name=".computers.ComputerManagerService"
+            android:exported="false"
             android:label="Computer Management Service" />
         <service
             android:name=".binding.input.driver.UsbDriverService"
+            android:exported="false"
             android:label="Usb Driver Service" />
 
         <activity
             android:name=".HelpActivity"
+            android:exported="false"
             android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection">
             <meta-data android:name="WindowManagerPreference:FreeformWindowSize" android:value="system-default" />
             <meta-data android:name="WindowManagerPreference:FreeformWindowOrientation" android:value="landscape" />
         </activity>
 
-        <activity android:name=".AboutActivity"
+        <activity
+            android:name=".AboutActivity"
+            android:exported="false"
             android:launchMode="singleTask"
             android:theme="@style/AxiGamePlayTheme.GamePad"/>
 

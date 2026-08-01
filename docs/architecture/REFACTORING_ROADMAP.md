@@ -1023,7 +1023,7 @@ targets.
 - `verifyLocal --rerun-tasks --max-workers=1 --no-daemon` passes all 193
   tasks. All four JVM variants pass 907 tests with no failures, errors, or
   skips; every Lint variant and both unminified Release APKs pass.
-- API 34 connected verification passes all 146 NonRoot and 146 Root
+- API 34 connected verification passes all 149 NonRoot and 149 Root
   instrumentation tests with no failures, errors, or skips. A physical Xiaomi
   install cold-launches the immutable host-list path with its service bound and
   no application fatal exception or ANR.
@@ -1213,9 +1213,16 @@ agree across all participants.
   view/color/invalidation helpers. Clean root and non-root Java compilation now
   reports zero deprecation warnings; full Debug/Release lint remains warnings
   as errors with only documented API-21 dependency pins exempted.
-- Revalidated the slice with all app/core JVM tests, 146 connected tests per
+- Revalidated the slice with all app/core JVM tests, 149 connected tests per
   product flavor, both Release APKs, four native ABIs, and the complete
   `verifyLocal` governance gate.
+- Locked the reviewed Android security surface in
+  `ANDROID_SECURITY_BOUNDARIES.md` and a release gate. Persistent files are no
+  longer broad FileProvider roots; outbound data is staged into isolated cache
+  sessions, clipboard URIs are confined to their own cache, every component
+  has an explicit exported state, and every backup/transfer mode excludes host
+  databases plus client identity. Connected fixtures prove both allowed and
+  rejected file-sharing paths.
 
 ### Exit evidence
 

@@ -42,3 +42,13 @@ app/.externalNativeBuild/
 
 # NDK stuff
 .cxx/
+
+# Local signing material and exported client credentials
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+signing.properties
+client.crt

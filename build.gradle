@@ -7,6 +7,8 @@ tasks.register('verifyLocal') {
     group = 'verification'
     description = 'Runs all JVM tests, Android Lint checks, and builds both release flavors.'
     dependsOn verifyNoBidiControls,
+            verifyAndroidSecurityPolicy,
+            verifyNoRepositorySecrets,
             ':core:hosts:test',
             ':core:settings:test',
             ':core:transfer:test',

@@ -7,11 +7,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.AtomicFile;
 
-import androidx.core.content.FileProvider;
-
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.computers.ComputerDatabaseManager;
+import com.limelight.platform.files.AndroidPrivateFileShare;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
@@ -151,27 +150,27 @@ final class SettingsDocumentController {
                 openClipboardDirectory();
                 break;
             case EXPORT_VIRTUAL_KEYBOARD:
-                exportVirtualControlLayout(false);
+                runOnIo(() -> exportVirtualControlLayout(false));
                 break;
             case EXPORT_VIRTUAL_GAMEPAD:
-                exportVirtualControlLayout(true);
+                runOnIo(() -> exportVirtualControlLayout(true));
                 break;
             case EXPORT_HOSTS:
                 runOnIo(this::exportHosts);
                 break;
             case EXPORT_CERTIFICATE:
-                exportFile(
+                runOnIo(() -> exportFile(
                         new File(
                                 activity.getFilesDir(),
                                 CERTIFICATE_FILE_NAME),
-                        "*/*");
+                        "*/*"));
                 break;
             case EXPORT_PRIVATE_KEY:
-                exportFile(
+                runOnIo(() -> exportFile(
                         new File(
                                 activity.getFilesDir(),
                                 PRIVATE_KEY_FILE_NAME),
-                        "*/*");
+                        "*/*"));
                 break;
             default:
                 throw new AssertionError(
@@ -260,23 +259,23 @@ final class SettingsDocumentController {
     }
 
     private void exportVirtualControlLayout(boolean gamepad) {
-        Uri uri = virtualControlLayoutRepository.getShareUri(
-                selectedLayoutKey(gamepad));
-        if (uri == null) {
-            showToast(
-                    R.string.virtual_control_layout_export_missing,
-                    UiToast.LENGTH_SHORT);
-            return;
+        try {
+            Uri uri = virtualControlLayoutRepository.getShareUri(
+                    selectedLayoutKey(gamepad));
+            if (uri == null) {
+                showToast(
+                        R.string.virtual_control_layout_export_missing,
+                        UiToast.LENGTH_SHORT);
+                return;
+            }
+            runOnMain(() -> shareReadOnly(
+                    uri,
+                    "text/plain",
+                    R.string.settings_share_configuration));
         }
-
-        Intent intent = new Intent(Intent.ACTION_SEND);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        intent.putExtra(Intent.EXTRA_STREAM, uri);
-        intent.setType("text/plain");
-        activity.startActivity(Intent.createChooser(
-                intent,
-                activity.getString(
-                        R.string.settings_share_configuration)));
+        catch (IOException | RuntimeException error) {
+            showExportError("virtual-control layout", error);
+        }
     }
 
     private VirtualControlLayoutKey selectedLayoutKey(
@@ -293,20 +292,48 @@ final class SettingsDocumentController {
     }
 
     private void exportFile(File file, String mimeType) {
-        if (!file.exists()) {
+        if (!file.isFile()) {
             return;
         }
-        Uri uri = FileProvider.getUriForFile(
-                activity,
-                activity.getPackageName() + ".fileprovider",
-                file);
+        try {
+            Uri uri = AndroidPrivateFileShare.stageReadOnly(
+                    activity,
+                    file);
+            runOnMain(() -> shareReadOnly(
+                    uri,
+                    mimeType,
+                    R.string.settings_share_data));
+        }
+        catch (IOException | RuntimeException error) {
+            showExportError(file.getName(), error);
+        }
+    }
+
+    private void shareReadOnly(
+            Uri uri,
+            String mimeType,
+            int chooserTitle) {
         Intent intent = new Intent(Intent.ACTION_SEND);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         intent.putExtra(Intent.EXTRA_STREAM, uri);
         intent.setType(mimeType);
         activity.startActivity(Intent.createChooser(
                 intent,
-                activity.getString(R.string.settings_share_data)));
+                activity.getString(chooserTitle)));
+    }
+
+    private void showExportError(String subject, Exception error) {
+        String detail = error.getMessage();
+        if (detail == null || detail.trim().isEmpty()) {
+            detail = error.getClass().getSimpleName();
+        }
+        LimeLog.warning(
+                "Unable to export " + subject + ": " + detail);
+        showToast(
+                activity.getString(
+                        R.string.settings_export_failed,
+                        detail),
+                UiToast.LENGTH_SHORT);
     }
 
     private void exportHosts() {
@@ -319,9 +346,9 @@ final class SettingsDocumentController {
         try {
             manager = new ComputerDatabaseManager(activity);
             manager.writePortableSnapshot(snapshot);
-            runOnMain(() -> exportFile(
+            exportFile(
                     snapshot,
-                    HOST_DATABASE_MIME_TYPE));
+                    HOST_DATABASE_MIME_TYPE);
         }
         catch (Exception error) {
             String detail = error.getMessage();

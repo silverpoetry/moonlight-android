@@ -2,8 +2,6 @@ package com.limelight;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
-import android.net.Uri;
-import androidx.core.content.FileProvider;
 import android.text.TextUtils;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -13,18 +11,22 @@ import com.limelight.binding.input.StreamInputGateway;
 import com.limelight.binding.input.StreamInputGatewayRegistry;
 import com.limelight.settings.android.AndroidSettingObserver;
 import com.limelight.settings.input.InputSettingKeys;
-import com.limelight.utils.FileUriUtils;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
 public class KeyboardAccessibilityService extends AccessibilityService {
     private static final String KEY_REMAP_FILE_NAME =
             "axi_switch_keyboard.json";
+    private static final int MAX_KEY_REMAP_CHARACTERS = 4 * 1024 * 1024;
 
     //不屏蔽的按键列表
     private static final List<Integer> PASSTHROUGH_KEYS = Arrays.asList(
@@ -84,10 +86,7 @@ public class KeyboardAccessibilityService extends AccessibilityService {
         }
 
         File mappingFile = new File(getFilesDir(), KEY_REMAP_FILE_NAME);
-        String authority =
-                getApplicationContext().getPackageName() + ".fileprovider";
-        Uri uri = FileProvider.getUriForFile(this, authority, mappingFile);
-        String mappingJson = FileUriUtils.openUriForRead(this, uri);
+        String mappingJson = readMappingFile(mappingFile);
         if (TextUtils.isEmpty(mappingJson)) {
             return null;
         }
@@ -108,6 +107,36 @@ public class KeyboardAccessibilityService extends AccessibilityService {
                             error.getMessage());
         }
         return null;
+    }
+
+    private static String readMappingFile(File file) {
+        if (!file.isFile()) {
+            return "";
+        }
+
+        StringBuilder contents = new StringBuilder();
+        try (Reader input = new InputStreamReader(
+                new FileInputStream(file),
+                StandardCharsets.UTF_8)) {
+            char[] buffer = new char[4096];
+            int count;
+            while ((count = input.read(buffer)) != -1) {
+                if (contents.length() + count >
+                        MAX_KEY_REMAP_CHARACTERS) {
+                    LimeLog.warning(
+                            "Accessibility key mapping exceeds size limit");
+                    return "";
+                }
+                contents.append(buffer, 0, count);
+            }
+            return contents.toString();
+        }
+        catch (IOException error) {
+            LimeLog.warning(
+                    "Unable to read accessibility key mapping: " +
+                            error.getMessage());
+            return "";
+        }
     }
 
     @Override

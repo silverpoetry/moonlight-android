@@ -16,9 +16,8 @@ import android.os.OperationCanceledException;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
 
-import androidx.core.content.FileProvider;
-
 import com.limelight.LimeLog;
+import com.limelight.platform.files.AndroidPrivateFileShare;
 import com.limelight.nvstream.filetransfer.ClipboardFileDownloader;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.jni.MoonBridge;
@@ -588,8 +587,8 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     private void applyInboundImageUri(File file, long generation) {
         Uri uri;
         try {
-            uri = FileProvider.getUriForFile(context,
-                    context.getPackageName() + ".fileprovider",
+            uri = AndroidPrivateFileShare.exposeClipboardFile(
+                    context,
                     file);
         } catch (Throwable error) {
             LimeLog.warning("Failed to expose clipboard image: " + error.getMessage());
@@ -805,7 +804,9 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     }
 
     private File clipboardCacheDirectory() {
-        File directory = new File(context.getCacheDir(), "clipboard");
+        File directory = new File(
+                context.getCacheDir(),
+                AndroidPrivateFileShare.CLIPBOARD_CACHE_DIRECTORY);
         if (!directory.exists()) {
             directory.mkdirs();
         }
@@ -845,13 +846,14 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             }
             if (activeClipboardUri != null) {
                 try {
-                    Uri fileUri = FileProvider.getUriForFile(context,
-                            context.getPackageName() + ".fileprovider",
-                            file);
+                    Uri fileUri =
+                            AndroidPrivateFileShare.exposeClipboardFile(
+                                    context,
+                                    file);
                     if (activeClipboardUri.equals(fileUri)) {
                         continue;
                     }
-                } catch (IllegalArgumentException ignored) {
+                } catch (IOException | IllegalArgumentException ignored) {
                 }
             }
             file.delete();
