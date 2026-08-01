@@ -1,13 +1,16 @@
 package com.limelight.ui.BaseFragmentDialog;
 
 import android.app.Dialog;
-import android.app.DialogFragment;
-import android.app.FragmentManager;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import androidx.annotation.LayoutRes;
 import androidx.activity.ComponentDialog;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.FragmentManager;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -32,26 +35,20 @@ public abstract class BaseGameMenuFragmentDialog extends DialogFragment {
 
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
-        return new ComponentDialog(getActivity(), getTheme());
+        return new ComponentDialog(requireContext(), getTheme());
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        getDialog().getWindow().requestFeature(Window.FEATURE_NO_TITLE);
-//
-//        // If we're going to use immersive mode, we want to have
-//        // the entire screen
-        getDialog().getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-        );
-//
-        getDialog().setCanceledOnTouchOutside(getCancelOutside());
+        Window window = requireDialog().getWindow();
+        if (window == null) {
+            throw new IllegalStateException(
+                    "Game menu dialog window is unavailable");
+        }
+        window.requestFeature(Window.FEATURE_NO_TITLE);
+        applyImmersiveSystemBars(window);
+        requireDialog().setCanceledOnTouchOutside(getCancelOutside());
 
         View v = inflater.inflate(getLayoutRes(), container, false);
         bindView(v);
@@ -68,6 +65,11 @@ public abstract class BaseGameMenuFragmentDialog extends DialogFragment {
         super.onStart();
 
         Window window = getDialog().getWindow();
+        if (window == null) {
+            throw new IllegalStateException(
+                    "Game menu dialog window is unavailable");
+        }
+        applyImmersiveSystemBars(window);
         WindowManager.LayoutParams params = window.getAttributes();
 
         params.dimAmount = getDimAmount();
@@ -97,14 +99,18 @@ public abstract class BaseGameMenuFragmentDialog extends DialogFragment {
         }
         window.setAttributes(params);
 
-//        getDialog().getWindow().getDecorView().setSystemUiVisibility(
-//                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-//                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-//                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-//                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-//                        | View.SYSTEM_UI_FLAG_FULLSCREEN
-//                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-//        );
+    }
+
+    private static void applyImmersiveSystemBars(Window window) {
+        WindowCompat.setDecorFitsSystemWindows(window, false);
+        WindowInsetsControllerCompat controller =
+                WindowCompat.getInsetsController(
+                        window,
+                        window.getDecorView());
+        controller.setSystemBarsBehavior(
+                WindowInsetsControllerCompat
+                        .BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        controller.hide(WindowInsetsCompat.Type.systemBars());
     }
 
     public int getViewSize() {

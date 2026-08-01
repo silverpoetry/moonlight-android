@@ -54,6 +54,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
     // FLAG_LOW_LATENCY is a compile-time integer flag. It was publicized in API 24,
     // but AudioAttributes.Builder#setFlags() safely accepts it on our API 21 minimum.
     @SuppressLint("InlinedApi")
+    @SuppressWarnings("deprecation")
     private AudioTrack createAudioTrack(int channelConfig, int sampleRate, int bufferSize, boolean lowLatency) {
         AudioAttributes.Builder attributesBuilder = new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_GAME);

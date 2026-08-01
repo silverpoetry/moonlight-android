@@ -1,9 +1,10 @@
 package com.limelight.ui.gamemenu;
 
-import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.graphics.Rect;
 import android.os.Build;
+import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -12,6 +13,8 @@ import android.widget.EditText;
 import android.widget.TextView;
 
 import androidx.annotation.StringRes;
+import androidx.annotation.NonNull;
+import androidx.fragment.app.Fragment;
 
 import com.limelight.R;
 import com.limelight.settings.stream.CustomResolution;
@@ -30,6 +33,10 @@ import java.util.Set;
 public class GameDisplayResolutionFragment
         extends BaseGameMenuDialog implements View.OnClickListener {
     private static final int PRESET_COUNT = 6;
+    private static final String RESULT_KEY =
+            GameDisplayResolutionFragment.class.getName() + ".result";
+    private static final String RESULT_WIDTH = "width";
+    private static final String RESULT_HEIGHT = "height";
 
     private final Set<CustomResolution> defaultResolutions =
             new HashSet<>();
@@ -41,14 +48,14 @@ public class GameDisplayResolutionFragment
     private CustomResolutionRepository repository;
 
     @Override
-    public void onAttach(Activity activity) {
-        super.onAttach(activity);
-        if (!(activity instanceof GameDisplayHost)) {
+    public void onAttach(@NonNull Context context) {
+        super.onAttach(context);
+        if (!(context instanceof GameDisplayHost)) {
             throw new IllegalStateException(
                     "Resolution dialog host must implement GameDisplayHost");
         }
         repository =
-                ((GameDisplayHost) activity)
+                ((GameDisplayHost) context)
                         .getCustomResolutionRepository();
     }
 
@@ -158,7 +165,7 @@ public class GameDisplayResolutionFragment
 
     private void selectResolution(
             CustomResolution resolution) {
-        requireTargetListener().onResolutionSelected(
+        publishResolution(
                 resolution.getWidth(),
                 resolution.getHeight());
         dismiss();
@@ -239,9 +246,7 @@ public class GameDisplayResolutionFragment
         }
 
         saveResolution(width, height);
-        requireTargetListener().onResolutionSelected(
-                width,
-                height);
+        publishResolution(width, height);
         dismiss();
     }
 
@@ -250,12 +255,25 @@ public class GameDisplayResolutionFragment
                 getActivity(), messageRes, UiToast.LENGTH_SHORT).show();
     }
 
-    private Listener requireTargetListener() {
-        if (!(getTargetFragment() instanceof Listener)) {
-            throw new IllegalStateException(
-                    "Resolution dialog target must implement Listener");
-        }
-        return (Listener) getTargetFragment();
+    private void publishResolution(int width, int height) {
+        Bundle result = new Bundle();
+        result.putInt(RESULT_WIDTH, width);
+        result.putInt(RESULT_HEIGHT, height);
+        getParentFragmentManager().setFragmentResult(
+                RESULT_KEY, result);
+    }
+
+    public static void registerResultListener(
+            Fragment owner,
+            Listener listener) {
+        owner.getParentFragmentManager()
+                .setFragmentResultListener(
+                        RESULT_KEY,
+                        owner,
+                        (requestKey, result) ->
+                                listener.onResolutionSelected(
+                                        result.getInt(RESULT_WIDTH),
+                                        result.getInt(RESULT_HEIGHT)));
     }
 
     public interface Listener {

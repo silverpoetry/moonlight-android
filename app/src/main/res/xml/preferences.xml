@@ -26,7 +26,7 @@
             android:entries="@array/fps_names"
             android:entryValues="@array/fps_values"
             android:defaultValue="60" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="stream.video.bitrate_kbps"
             android:title="@string/title_seekbar_bitrate"
             android:summary="@string/summary_seekbar_bitrate"
@@ -158,7 +158,7 @@
             android:entries="@array/mouse_model_names_axi"
             android:entryValues="@array/mouse_model_values_axi"
             android:defaultValue="0" />
-        <com.limelight.preferences.IntegerListPreference
+        <IntegerListPreference
             android:key="input.touch.keyboard_gesture_finger_count"
             android:title="@string/settings_title_soft_keyboard_gesture"
             android:summary="@string/settings_summary_soft_keyboard_gesture"
@@ -185,7 +185,7 @@
             android:title="@string/title_checkbox_barometer_force_press"
             android:summary="@string/summary_checkbox_barometer_force_press"
             android:defaultValue="false" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.touch.force_press.threshold_milli_hpa"
             android:dependency="input.touch.force_press.enabled"
             android:title="@string/title_seekbar_barometer_force_press_threshold"
@@ -199,7 +199,7 @@
             seekbar:keyStep="10"
             seekbar:divisor="1000"
             seekbar:decimals="3" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.touch.force_press.minimum_duration_ms"
             android:dependency="input.touch.force_press.enabled"
             android:title="@string/title_seekbar_barometer_force_press_min_duration"
@@ -221,7 +221,7 @@
             android:title="@string/settings_title_direct_touch_sensitivity"
             android:summary="@string/settings_summary_direct_touch_sensitivity"
             android:defaultValue="false" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.direct_touch.sensitivity_x"
             android:dependency="input.direct_touch.sensitivity_enabled"
             android:title="@string/settings_title_direct_touch_sensitivity_x"
@@ -232,7 +232,7 @@
             android:max="800"
             seekbar:min="10"
             seekbar:step="1" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.direct_touch.sensitivity_y"
             android:dependency="input.direct_touch.sensitivity_enabled"
             android:title="@string/settings_title_direct_touch_sensitivity_y"
@@ -255,7 +255,7 @@
             android:title="@string/settings_title_direct_touch_recenter"
             android:summary="@string/settings_summary_direct_touch_recenter"
             android:defaultValue="true" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.touchpad.pointer_sensitivity_x"
             android:title="@string/settings_title_touchpad_pointer_x"
             android:summary="@string/settings_summary_pointer_sensitivity"
@@ -265,7 +265,7 @@
             android:max="300"
             seekbar:min="10"
             seekbar:step="1" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.touchpad.pointer_sensitivity_y"
             android:title="@string/settings_title_touchpad_pointer_y"
             android:summary="@string/settings_summary_pointer_sensitivity"
@@ -275,7 +275,7 @@
             android:max="300"
             seekbar:min="10"
             seekbar:step="1" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.virtual_touchpad.sensitivity_x"
             android:title="@string/settings_title_virtual_touchpad_x"
             android:summary="@string/settings_summary_pointer_sensitivity"
@@ -285,7 +285,7 @@
             android:max="300"
             seekbar:min="10"
             seekbar:step="1" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.virtual_touchpad.sensitivity_y"
             android:title="@string/settings_title_virtual_touchpad_y"
             android:summary="@string/settings_summary_pointer_sensitivity"
@@ -295,7 +295,7 @@
             android:max="300"
             seekbar:min="10"
             seekbar:step="1" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.external_touchpad.sensitivity_x"
             android:title="@string/settings_title_external_touchpad_x"
             android:summary="@string/settings_summary_pointer_sensitivity"
@@ -305,7 +305,7 @@
             android:max="300"
             seekbar:min="10"
             seekbar:step="1" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.external_touchpad.sensitivity_y"
             android:title="@string/settings_title_external_touchpad_y"
             android:summary="@string/settings_summary_pointer_sensitivity"
@@ -315,7 +315,7 @@
             android:max="300"
             seekbar:min="10"
             seekbar:step="1" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.external_touchpad.scroll_amount"
             android:title="@string/settings_title_external_touchpad_scroll"
             android:summary="@string/settings_summary_scroll_amount"
@@ -324,7 +324,7 @@
             android:max="30"
             seekbar:min="1"
             seekbar:step="1" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.mouse.wheel_scroll_amount"
             android:title="@string/settings_title_mouse_wheel_scroll"
             android:summary="@string/settings_summary_scroll_amount"
@@ -338,7 +338,7 @@
     <PreferenceCategory
         android:key="section_gamepad"
         android:title="@string/category_gamepad_settings">
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.controller.stick_deadzone_percent"
             android:title="@string/title_seekbar_deadzone"
             android:summary="@string/summary_seekbar_deadzone"
@@ -371,7 +371,7 @@
             android:title="@string/title_checkbox_mouse_emulation"
             android:summary="@string/summary_checkbox_mouse_emulation"
             android:defaultValue="true" />
-        <com.limelight.preferences.IntegerListPreference
+        <IntegerListPreference
             android:key="input.controller.mouse_emulation.button"
             android:dependency="input.controller.mouse_emulation.enabled"
             android:title="@string/settings_title_controller_menu_shortcut"
@@ -387,7 +387,7 @@
             android:entries="@array/analog_scrolling_names"
             android:entryValues="@array/analog_scrolling_values"
             android:defaultValue="right" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.controller.mouse_emulation.sensitivity_percent"
             android:dependency="input.controller.mouse_emulation.enabled"
             android:title="@string/settings_title_controller_mouse_sensitivity"
@@ -435,7 +435,7 @@
             android:title="@string/settings_title_force_gyro_swap_axes"
             android:summary="@string/settings_summary_force_gyro_swap_axes"
             android:defaultValue="true" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.controller.motion.force_gyro_sensitivity_percent"
             android:dependency="input.controller.motion.force_gyro"
             android:title="@string/settings_title_force_gyro_sensitivity"
@@ -467,7 +467,7 @@
             android:title="@string/title_checkbox_vibrate_fallback"
             android:summary="@string/summary_checkbox_vibrate_fallback"
             android:defaultValue="false" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.controller.rumble.fallback_strength_percent"
             android:dependency="input.controller.rumble.fallback_to_device"
             android:title="@string/title_seekbar_vibrate_fallback_strength"
@@ -509,7 +509,7 @@
             android:entries="@array/audio_haptics_output_target_names"
             android:entryValues="@array/audio_haptics_output_target_values"
             android:defaultValue="phone" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="stream.haptics.audio.strength_percent"
             android:dependency="stream.haptics.audio.enabled"
             android:title="音频震动强度"
@@ -557,7 +557,7 @@
             android:title="@string/title_checkbox_vibrate_osc"
             android:summary="@string/summary_checkbox_vibrate_osc"
             android:defaultValue="true" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.virtual_gamepad.opacity_percent"
             android:dependency="input.virtual_gamepad.enabled"
             android:title="@string/dialog_title_osc_opacity"
@@ -593,7 +593,7 @@
             android:entries="@array/keyboard_axi_names"
             android:entryValues="@array/keyboard_axi_values"
             android:defaultValue="OSC_Keyboard" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.virtual_keyboard.opacity_percent"
             android:title="虚拟全键盘透明度"
             android:summary="调整虚拟全键盘的透明度。"
@@ -602,7 +602,7 @@
             android:max="100"
             seekbar:min="0"
             seekbar:step="1" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="input.virtual_keyboard.height_dp"
             android:title="虚拟全键盘高度"
             android:summary="调整虚拟全键盘的显示高度。"
@@ -664,7 +664,7 @@
             android:title="启用悬浮快捷按钮"
             android:summary="在串流界面显示用于打开快捷菜单的悬浮按钮。"
             android:defaultValue="true" />
-        <com.limelight.preferences.IntegerListPreference
+        <IntegerListPreference
             android:key="stream.ui.floating_control.action"
             android:dependency="stream.ui.floating_control.enabled"
             android:title="@string/settings_title_floating_control_action"
@@ -706,7 +706,7 @@
             android:title="显示扩展性能参数"
             android:summary="增加分辨率、HDR 和解码器等参数。"
             android:defaultValue="true" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="stream.ui.performance_overlay.scale_percent"
             android:dependency="stream.ui.performance_overlay.compact"
             android:title="@string/settings_title_performance_overlay_scale"
@@ -718,7 +718,7 @@
             seekbar:min="50"
             seekbar:step="5"
             seekbar:keyStep="5" />
-        <com.limelight.preferences.SeekBarPreference
+        <SeekBarPreference
             android:key="stream.ui.performance_overlay.margin_top_dp"
             android:title="性能信息顶部边距"
             android:summary="调整精简性能信息距屏幕顶部的距离。"
@@ -758,14 +758,14 @@
             android:title="部分页面使用浅色主题"
             android:summary="在 Android 10 及以上系统生效。"
             android:defaultValue="true" />
-        <com.limelight.preferences.LanguagePreference
+        <LanguagePreference
             android:key="app.language"
             android:title="@string/title_language_list"
             android:summary="@string/summary_language_list"
             android:entries="@array/language_names"
             android:entryValues="@array/language_values"
             android:defaultValue="default" />
-        <com.limelight.preferences.SmallIconCheckboxPreference
+        <SmallIconCheckboxPreference
             android:key="app.appearance.small_icons"
             android:title="@string/title_checkbox_small_icon_mode"
             android:summary="@string/summary_checkbox_small_icon_mode" />
@@ -843,12 +843,12 @@
     <PreferenceCategory
         android:key="section_about"
         android:title="@string/category_about_settings">
-        <com.limelight.preferences.WebLauncherPreference
+        <WebLauncherPreference
             android:key="action_about_app"
             android:title="关于 Moonlight"
             android:summary="版本、许可证与项目贡献者"
             url="about" />
-        <com.limelight.preferences.WebLauncherPreference
+        <WebLauncherPreference
             android:key="action_about_help"
             android:title="Moonlight 使用指南"
             android:summary="查看官方使用文档"

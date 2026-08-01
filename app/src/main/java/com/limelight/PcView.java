@@ -54,7 +54,6 @@ import com.limelight.utils.ShortcutHelper;
 import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.UiHelper;
 
-import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.Service;
 import android.content.ComponentName;
@@ -78,6 +77,7 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import androidx.fragment.app.FragmentActivity;
 import com.limelight.utils.UiToast;
 
 import org.xmlpull.v1.XmlPullParserException;
@@ -90,7 +90,7 @@ import cn.axi.gamepad.an.AxiGamePadIndexActivity;
 import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
 import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
 
-public class PcView extends Activity implements AdapterFragmentCallbacks {
+public class PcView extends FragmentActivity implements AdapterFragmentCallbacks {
     private View noPcFoundLayout;
     private PcGridAdapter pcGridAdapter;
     private ShortcutHelper shortcutHelper;
@@ -268,7 +268,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             }
         });
 
-        getFragmentManager().beginTransaction()
+        getSupportFragmentManager().beginTransaction()
             .replace(R.id.pcFragmentContainer, new AdapterFragment())
             .commitAllowingStateLoss();
 

@@ -28,6 +28,17 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void productionCodeDoesNotUsePlatformPreferenceWidgets() {
+        noClasses()
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android.preference..")
+                .because(
+                        "preferences.xml is presentation schema and persistence uses the typed settings repository")
+                .check(productionClasses);
+    }
+
+    @Test
     public void extractedStreamUiDoesNotDependOnGameActivity() {
         noClasses()
                 .that()

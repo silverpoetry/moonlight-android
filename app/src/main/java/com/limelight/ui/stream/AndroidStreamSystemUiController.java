@@ -4,30 +4,22 @@ import android.app.Activity;
 import android.os.Build;
 import android.os.Handler;
 import android.view.View;
-import android.view.WindowManager;
+
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import java.util.Objects;
 
-/** Owns the legacy immersive-window lifecycle for one stream Activity. */
-public final class AndroidStreamSystemUiController
-        implements View.OnSystemUiVisibilityChangeListener {
+/** Owns edge-to-edge and immersive-system-bar policy for one stream Activity. */
+public final class AndroidStreamSystemUiController {
     public interface BooleanValue {
         boolean get();
     }
 
-    private static final int INITIAL_LAYOUT_FLAGS =
-            View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
-                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
-    private static final int IMMERSIVE_FLAGS =
-            INITIAL_LAYOUT_FLAGS |
-                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
-                    View.SYSTEM_UI_FLAG_FULLSCREEN |
-                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
-    private static final long VISIBILITY_RESTORE_DELAY_MS = 2_000L;
-
     private final Activity activity;
     private final View decorView;
+    private final WindowInsetsControllerCompat insetsController;
     private final BooleanValue sessionConnected;
     private final Runnable applyScheduledVisibility =
             this::applyCurrentVisibility;
@@ -39,6 +31,9 @@ public final class AndroidStreamSystemUiController
             BooleanValue sessionConnected) {
         this.activity = Objects.requireNonNull(activity, "activity");
         this.decorView = activity.getWindow().getDecorView();
+        this.insetsController = WindowCompat.getInsetsController(
+                activity.getWindow(),
+                decorView);
         this.sessionConnected = Objects.requireNonNull(
                 sessionConnected,
                 "sessionConnected");
@@ -46,27 +41,23 @@ public final class AndroidStreamSystemUiController
 
     public void attachInitialLayout() {
         ensureActive();
-        activity.getWindow().addFlags(
-                WindowManager.LayoutParams.FLAG_FULLSCREEN |
-                        WindowManager.LayoutParams
-                                .FLAG_LAYOUT_IN_SCREEN);
-        decorView.setSystemUiVisibility(INITIAL_LAYOUT_FLAGS);
-        decorView.setOnSystemUiVisibilityChangeListener(this);
+        insetsController.setSystemBarsBehavior(
+                WindowInsetsControllerCompat
+                        .BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        applyCurrentVisibility();
     }
 
     public void onMultiWindowModeChanged(boolean multiWindow) {
         if (destroyed) {
             return;
         }
-        if (multiWindow) {
-            activity.getWindow().clearFlags(
-                    WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        }
-        else {
-            activity.getWindow().addFlags(
-                    WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        }
         scheduleImmersiveMode(50L);
+    }
+
+    public void onWindowFocusChanged(boolean hasFocus) {
+        if (!destroyed && hasFocus && sessionConnected.get()) {
+            scheduleImmersiveMode(250L);
+        }
     }
 
     public void scheduleImmersiveMode(long delayMs) {
@@ -83,20 +74,6 @@ public final class AndroidStreamSystemUiController
                 Math.max(0L, delayMs));
     }
 
-    @Override
-    public void onSystemUiVisibilityChange(int visibility) {
-        boolean fullscreenVisible =
-                (visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) != 0;
-        boolean navigationHidden =
-                (visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) != 0;
-        if (StreamSystemUiVisibilityPolicy.shouldRestoreImmersiveMode(
-                sessionConnected.get(),
-                fullscreenVisible,
-                navigationHidden)) {
-            scheduleImmersiveMode(VISIBILITY_RESTORE_DELAY_MS);
-        }
-    }
-
     public void destroy() {
         if (destroyed) {
             return;
@@ -106,20 +83,25 @@ public final class AndroidStreamSystemUiController
         if (handler != null) {
             handler.removeCallbacks(applyScheduledVisibility);
         }
-        decorView.setOnSystemUiVisibilityChangeListener(null);
     }
 
     private void applyCurrentVisibility() {
         if (destroyed) {
             return;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
-                activity.isInMultiWindowMode()) {
-            decorView.setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+        boolean multiWindow = Build.VERSION.SDK_INT >=
+                Build.VERSION_CODES.N &&
+                activity.isInMultiWindowMode();
+        WindowCompat.setDecorFitsSystemWindows(
+                activity.getWindow(),
+                multiWindow);
+        if (multiWindow) {
+            insetsController.show(
+                    WindowInsetsCompat.Type.systemBars());
         }
         else {
-            decorView.setSystemUiVisibility(IMMERSIVE_FLAGS);
+            insetsController.hide(
+                    WindowInsetsCompat.Type.systemBars());
         }
     }
 

@@ -209,8 +209,8 @@ final class GameMenuCardEditor {
                     return view.startDragAndDrop(
                             clipData, shadow, card.id, 0);
                 }
-                return view.startDrag(
-                        clipData, shadow, card.id, 0);
+                return startLegacyDrag(
+                        view, clipData, shadow, card.id);
             });
             tile.setContentDescription(activity.getString(
                     R.string.game_menu_customize_move_or_remove,
@@ -221,6 +221,16 @@ final class GameMenuCardEditor {
                     card.contentDescription));
         }
         return tile;
+    }
+
+    /** API 21-23 compatibility path; startDragAndDrop starts at API 24. */
+    @SuppressWarnings("deprecation")
+    private static boolean startLegacyDrag(
+            View view,
+            ClipData clipData,
+            View.DragShadowBuilder shadow,
+            String cardId) {
+        return view.startDrag(clipData, shadow, cardId, 0);
     }
 
     private boolean handleVisibleGridDrag(

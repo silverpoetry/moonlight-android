@@ -1,7 +1,7 @@
 package com.limelight.ui.gamemenu;
 
-import android.app.Activity;
 import android.app.Dialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.os.Handler;
@@ -14,6 +14,7 @@ import android.widget.LinearLayout;
 import android.widget.Space;
 import android.widget.TextView;
 import androidx.activity.ComponentDialog;
+import androidx.annotation.NonNull;
 
 import com.limelight.R;
 import com.limelight.binding.input.KeyboardTranslator;
@@ -59,13 +60,13 @@ public class GameMenuFragment extends BaseGameMenuDialog
     }
 
     @Override
-    public void onAttach(Activity activity) {
-        super.onAttach(activity);
-        if (!(activity instanceof GameMenuHostProvider)) {
+    public void onAttach(@NonNull Context context) {
+        super.onAttach(context);
+        if (!(context instanceof GameMenuHostProvider)) {
             throw new IllegalStateException(
                     "GameMenuFragment host must provide GameMenuHost");
         }
-        hostProvider = (GameMenuHostProvider) activity;
+        hostProvider = (GameMenuHostProvider) context;
     }
 
     @Override
@@ -520,7 +521,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
                     }
                 }
             });
-            fragment.show(getFragmentManager());
+            fragment.show(getParentFragmentManager());
             return;
         }
 
@@ -634,7 +635,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
                     this::executeShortcut);
             fragment.setOnShortcutsChangedListener(
                     this::rebuildActionGrid);
-            fragment.show(getFragmentManager());
+            fragment.show(getParentFragmentManager());
             return;
         }
         if(v.getId()==R.id.bt_touch_list){
@@ -662,7 +663,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
                     host.switchMouseModel(index);
                 }
             });
-            fragment.show(getFragmentManager());
+            fragment.show(getParentFragmentManager());
             return;
         }
 
@@ -690,7 +691,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
                     }
                 }
             });
-            fragment.show(getFragmentManager());
+            fragment.show(getParentFragmentManager());
             return;
         }
 
@@ -698,7 +699,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
             GameDisplayFragment fragment =
                     GameDisplayFragment.newInstance(true);
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.show(getFragmentManager());
+            fragment.show(getParentFragmentManager());
             return;
         }
 
@@ -725,7 +726,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
                         }
                     });
             fragment.setSettings(menuState.getControllerSettings());
-            fragment.show(getFragmentManager());
+            fragment.show(getParentFragmentManager());
             return;
         }
 
@@ -787,7 +788,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
                     host.setVirtualKeysEditMode(mode);
                 }
             });
-            fragment.show(getFragmentManager());
+            fragment.show(getParentFragmentManager());
             return;
         }
 

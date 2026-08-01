@@ -150,8 +150,8 @@ import com.limelight.utils.StreamOrientationController;
 import com.limelight.utils.StreamOrientationRequest;
 import com.limelight.utils.UiHelper;
 import android.annotation.SuppressLint;
-import androidx.activity.ComponentActivity;
 import androidx.annotation.RequiresApi;
+import androidx.fragment.app.FragmentActivity;
 import android.app.AlertDialog;
 import android.app.Service;
 import android.content.ClipData;
@@ -196,7 +196,7 @@ import java.util.Arrays;
 import java.util.List;
 
 
-public class Game extends ComponentActivity implements OnGenericMotionListener,
+public class Game extends FragmentActivity implements OnGenericMotionListener,
         OnTouchListener, EvdevListener,
         GameGestures, StreamInputGateway,
         StreamUiActions, GameMenuHostProvider,
@@ -278,7 +278,7 @@ public class Game extends ComponentActivity implements OnGenericMotionListener,
         streamView.requestFocus();
         inputManager.showSoftInput(
                 streamView,
-                InputMethodManager.SHOW_IMPLICIT);
+                0);
     };
     private AndroidStreamNativeCursorController nativeCursorController;
 
@@ -353,6 +353,9 @@ public class Game extends ComponentActivity implements OnGenericMotionListener,
                 this,
                 this::isSessionConnected);
         systemUiController.attachInitialLayout();
+        addOnMultiWindowModeChangedListener(
+                info -> handleMultiWindowModeChanged(
+                        info.isInMultiWindowMode()));
 
         // Change volume button behavior
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
@@ -1170,6 +1173,9 @@ public class Game extends ComponentActivity implements OnGenericMotionListener,
         if (conn != null) {
             conn.onWindowFocusChanged(hasFocus);
         }
+        if (systemUiController != null) {
+            systemUiController.onWindowFocusChanged(hasFocus);
+        }
         if (hasFocus && showSoftKeyboardWhenFocused) {
             showSoftKeyboardWhenFocused = false;
             showKeyboard();
@@ -1188,10 +1194,8 @@ public class Game extends ComponentActivity implements OnGenericMotionListener,
         }
     }
 
-    @Override
-    @RequiresApi(api = Build.VERSION_CODES.N)
-    public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
-        super.onMultiWindowModeChanged(isInMultiWindowMode);
+    private void handleMultiWindowModeChanged(
+            boolean isInMultiWindowMode) {
         setPreferredOrientationForCurrentDisplay();
 
         // In multi-window, we don't want to use the full-screen layout
@@ -1199,11 +1203,9 @@ public class Game extends ComponentActivity implements OnGenericMotionListener,
         // This function will also be called for PiP so we can cover
         // that case here too.
         if (isInMultiWindowMode) {
-            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
             mediaResourceOwner.notifyVideoBackground();
         }
         else {
-            getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
             mediaResourceOwner.notifyVideoForeground();
         }
 
@@ -1595,7 +1597,7 @@ public class Game extends ComponentActivity implements OnGenericMotionListener,
         inputManager.restartInput(streamView);
         if (!inputManager.showSoftInput(
                 streamView,
-                InputMethodManager.SHOW_IMPLICIT)) {
+                0)) {
             streamView.removeCallbacks(showSoftKeyboardRetry);
             streamView.postDelayed(
                     showSoftKeyboardRetry,
@@ -1911,17 +1913,24 @@ public class Game extends ComponentActivity implements OnGenericMotionListener,
 
     @Override
     public boolean onKey(View view, int keyCode, KeyEvent keyEvent) {
+        if (keyEvent.getAction() == actionMultiple()) {
+            return keyboardInputController
+                    .handleKeyMultiple(keyEvent);
+        }
         switch (keyEvent.getAction()) {
             case KeyEvent.ACTION_DOWN:
                 return keyboardInputController.handleKeyDown(keyEvent);
             case KeyEvent.ACTION_UP:
                 return keyboardInputController.handleKeyUp(keyEvent);
-            case KeyEvent.ACTION_MULTIPLE:
-                return keyboardInputController
-                        .handleKeyMultiple(keyEvent);
             default:
                 return false;
         }
+    }
+
+    /** ACTION_MULTIPLE remains the only carrier for some composed IME text. */
+    @SuppressWarnings("deprecation")
+    private static int actionMultiple() {
+        return KeyEvent.ACTION_MULTIPLE;
     }
 
     @Override

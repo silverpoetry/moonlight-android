@@ -15,6 +15,8 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.RadioGroup;
 
+import androidx.core.content.ContextCompat;
+
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.binding.input.ControllerHandler;
@@ -22,6 +24,7 @@ import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsState;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsState;
+import com.limelight.utils.AndroidVibratorCompat;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -95,7 +98,9 @@ public class VirtualController {
         this.virtualControlSettingsState = Objects.requireNonNull(
                 virtualControlSettingsState,
                 "virtualControlSettingsState");
-        this.vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+        this.vibrator = Objects.requireNonNull(
+                ContextCompat.getSystemService(context, Vibrator.class),
+                "vibrator");
 
 //        buttonConfigure = new Button(context);
 //        buttonConfigure.setAlpha(0.25f);
@@ -324,7 +329,7 @@ public class VirtualController {
                 vibrator.hasVibrator()) {
             //摇杆不震动
             if(inputContext.inputMap!=0||inputContext.leftTrigger!=0x00||inputContext.rightTrigger!=0x00) {
-                vibrator.vibrate(10);
+                AndroidVibratorCompat.vibrateOneShot(vibrator, 10);
             }
         }
         // HACK: GFE sometimes discards gamepad packets when they are received

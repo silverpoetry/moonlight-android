@@ -181,13 +181,24 @@ public final class KeyboardInputController
 
     public boolean handleKeyMultiple(KeyEvent event) {
         Objects.requireNonNull(event, "event");
+        String characters = getMultipleEventCharacters(event);
         if (event.getKeyCode() != KeyEvent.KEYCODE_UNKNOWN ||
-                event.getCharacters() == null) {
+                characters == null) {
             return false;
         }
 
-        keyboardInputSink.sendUtf8Text(event.getCharacters());
+        keyboardInputSink.sendUtf8Text(characters);
         return true;
+    }
+
+    /**
+     * ACTION_MULTIPLE character payloads have no replacement API. Keep this
+     * compatibility read isolated so composed text from physical IMEs remains
+     * supported without suppressing deprecation checks for the controller.
+     */
+    @SuppressWarnings("deprecation")
+    private static String getMultipleEventCharacters(KeyEvent event) {
+        return event.getCharacters();
     }
 
     public void sendText(String text) {

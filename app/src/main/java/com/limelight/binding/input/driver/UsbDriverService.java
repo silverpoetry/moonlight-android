@@ -14,7 +14,9 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.view.InputDevice;
+import androidx.core.content.IntentCompat;
 import com.limelight.utils.UiToast;
 
 import com.limelight.LimeLog;
@@ -139,7 +141,10 @@ public class UsbDriverService extends Service implements UsbDriverListener {
 
             // Initial attachment broadcast
             if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action)) {
-                final UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                final UsbDevice device = IntentCompat.getParcelableExtra(
+                        intent,
+                        UsbManager.EXTRA_DEVICE,
+                        UsbDevice.class);
 
                 // shouldClaimDevice() looks at the kernel's enumerated input
                 // devices to make its decision about whether to prompt to take
@@ -148,7 +153,7 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                 // kernel is capable of running the device. Let's post a delayed
                 // message to process this state change to allow the kernel
                 // some time to bring up the stack.
-                new Handler().postDelayed(new Runnable() {
+                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                     @Override
                     public void run() {
                         // Continue the state machine
@@ -158,7 +163,10 @@ public class UsbDriverService extends Service implements UsbDriverListener {
             }
             // Subsequent permission dialog completion intent
             else if (ACTION_USB_PERMISSION.equals(action)) {
-                UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                UsbDevice device = IntentCompat.getParcelableExtra(
+                        intent,
+                        UsbManager.EXTRA_DEVICE,
+                        UsbDevice.class);
 
                 // Permission dialog is now closed
                 UsbDriverCallbackRegistry.Callbacks callbacks =

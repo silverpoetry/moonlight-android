@@ -21,6 +21,8 @@ import android.view.InputDevice;
 import android.view.InputEvent;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.Display;
+import androidx.core.content.ContextCompat;
 import com.limelight.utils.UiToast;
 
 import com.google.gson.Gson;
@@ -59,6 +61,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private final ControllerMouseEmulationTranslator.Output
             mouseEmulationOutput;
     private final Activity activityContext;
+    private final Display activityDisplay;
     private final double stickDeadzone;
     private final InputDeviceContext defaultContext;
     private final GameGestures gestures;
@@ -266,8 +269,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 RazerKishiHapticsController.create(
                         usbManager,
                         this::shouldUseControllerAudioHaptics);
-        Vibrator deviceVibrator = (Vibrator) activityContext
-                .getSystemService(Context.VIBRATOR_SERVICE);
+        Vibrator deviceVibrator = ContextCompat.getSystemService(
+                activityContext, Vibrator.class);
+        this.activityDisplay = getActivityDisplay(activityContext);
         this.deviceSensorManager = (SensorManager) activityContext.getSystemService(Context.SENSOR_SERVICE);
         this.inputManager = (InputManager) activityContext.getSystemService(Context.INPUT_SERVICE);
         this.controllerInventory =
@@ -1298,10 +1302,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                         motionType,
                         needsDeviceOrientationCorrection,
                         settingsState::get,
-                        () -> activityContext
-                                .getWindowManager()
-                                .getDefaultDisplay()
-                                .getRotation(),
+                        activityDisplay::getRotation,
                         this::getControllerLeftTriggerState,
                         new ControllerMotionEventProcessor.Output() {
                             @Override
@@ -1342,6 +1343,24 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
             @Override
             public void onAccuracyChanged(Sensor sensor, int accuracy) {}
         };
+    }
+
+    private static Display getActivityDisplay(Activity activity) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Display display = activity.getDisplay();
+            if (display == null) {
+                throw new IllegalStateException(
+                        "Controller activity is not attached to a display");
+            }
+            return display;
+        }
+        return getLegacyActivityDisplay(activity);
+    }
+
+    /** API 21-29 compatibility path; Activity.getDisplay() starts at API 30. */
+    @SuppressWarnings("deprecation")
+    private static Display getLegacyActivityDisplay(Activity activity) {
+        return activity.getWindowManager().getDefaultDisplay();
     }
 
     public void handleSetMotionEventState(

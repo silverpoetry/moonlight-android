@@ -7,6 +7,8 @@ import android.hardware.SensorManager;
 import android.os.Build;
 import android.os.Vibrator;
 
+import androidx.core.content.ContextCompat;
+
 /** Android adapter that converts platform details into semantic capabilities. */
 final class AndroidSettingsDeviceCapabilities {
     private static final String FEATURE_FIRE_OS =
@@ -19,10 +21,12 @@ final class AndroidSettingsDeviceCapabilities {
 
     static SettingsDeviceCapabilities collect(Context context) {
         PackageManager packageManager = context.getPackageManager();
-        SensorManager sensorManager = (SensorManager)
-                context.getSystemService(Context.SENSOR_SERVICE);
-        Vibrator vibrator = (Vibrator)
-                context.getSystemService(Context.VIBRATOR_SERVICE);
+        SensorManager sensorManager = ContextCompat.getSystemService(
+                context,
+                SensorManager.class);
+        Vibrator vibrator = ContextCompat.getSystemService(
+                context,
+                Vibrator.class);
         boolean vibratorAvailable =
                 vibrator != null && vibrator.hasVibrator();
 

@@ -155,6 +155,16 @@ android {
 
 }
 
+tasks.withType(JavaCompile).configureEach {
+    // Keep compiler debt visible with actionable file and symbol names.
+    options.compilerArgs += [
+            '-Xlint:deprecation',
+            '-Xlint:unchecked',
+            '-Xmaxwarns',
+            '1000'
+    ]
+}
+
 dependencies {
     implementation project(':core:hosts')
     implementation project(':core:settings')
@@ -176,6 +186,7 @@ dependencies {
     implementation libs.androidx.activity
     implementation libs.androidx.appcompat
     implementation libs.androidx.documentfile
+    implementation libs.androidx.fragment
     implementation libs.glide.runtime
     annotationProcessor libs.glide.compiler
     implementation libs.apmem.layouts

@@ -1,6 +1,5 @@
 package com.limelight.ui.gamemenu;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.graphics.Rect;
@@ -13,6 +12,7 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.TextView;
+import androidx.annotation.NonNull;
 
 import com.limelight.R;
 import com.limelight.shortcuts.GameMenuShortcut;
@@ -40,13 +40,13 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
             new ArrayList<>();
 
     @Override
-    public void onAttach(Activity activity) {
-        super.onAttach(activity);
-        if (!(activity instanceof GameMenuHostProvider)) {
+    public void onAttach(@NonNull Context context) {
+        super.onAttach(context);
+        if (!(context instanceof GameMenuHostProvider)) {
             throw new IllegalStateException(
                     "GameListQuickFragment host must provide GameMenuHost");
         }
-        hostProvider = (GameMenuHostProvider) activity;
+        hostProvider = (GameMenuHostProvider) context;
     }
 
     @Override
@@ -149,7 +149,7 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
                 showPersistenceFailure();
             }
         });
-        fragment.show(getFragmentManager());
+        fragment.show(getParentFragmentManager());
     }
 
     private boolean requestShortcutDeletion(

@@ -553,6 +553,12 @@ public class ComputerManagerService extends Service {
         }
     }
 
+    /**
+     * Performs one synchronous non-VPN network snapshot for native STUN.
+     * Android exposes no replacement that both enumerates every current
+     * network synchronously and supports API 21-22 process binding.
+     */
+    @SuppressWarnings("deprecation")
     private void populateExternalAddress(ComputerDetails details) {
         boolean boundToNetwork = false;
         boolean activeNetworkIsVpn = NetHelper.isActiveNetworkVpn(this);

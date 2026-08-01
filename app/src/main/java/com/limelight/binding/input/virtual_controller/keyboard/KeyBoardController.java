@@ -4,7 +4,6 @@
 
 package com.limelight.binding.input.virtual_controller.keyboard;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -25,6 +24,8 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentActivity;
 import com.limelight.utils.UiToast;
 
 import com.google.gson.Gson;
@@ -42,6 +43,7 @@ import com.limelight.ui.gamemenu.GameKeyboardUpdateFragment;
 import com.limelight.ui.gamemenu.GamePadAddFragment;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
 import com.limelight.utils.SeekBarValueRange;
+import com.limelight.utils.AndroidVibratorCompat;
 import com.limelight.utils.UiHelper;
 import com.limelight.virtualcontrols.layout.VirtualControlLayoutDocument;
 import com.limelight.virtualcontrols.layout.VirtualControlLayoutKey;
@@ -78,7 +80,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
 
     ControllerInputContext inputContext = new ControllerInputContext();
 
-    private final Activity context;
+    private final FragmentActivity context;
     private final Handler handler;
 
     private final Runnable delayedRetransmitRunnable = new Runnable() {
@@ -130,7 +132,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
 
     public KeyBoardController(final ControllerHandler controllerHandler,
                               FrameLayout layout,
-                              final Activity context,
+                              final FragmentActivity context,
                               InputSettingsState inputSettingsState,
                               VirtualControlSettingsState
                                       virtualControlSettingsState,
@@ -154,7 +156,9 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
         this.layoutRepository = Objects.requireNonNull(
                 layoutRepository,
                 "layoutRepository");
-        this.vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+        this.vibrator = Objects.requireNonNull(
+                ContextCompat.getSystemService(context, Vibrator.class),
+                "vibrator");
         buttonConfigure=View.inflate(context,R.layout.axi_keyboard_top_right_view,null);
         buttonConfigure.setAlpha(
                 getSettings().getControlOpacityPercent() /
@@ -213,7 +217,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
                     LimeLog.info("axi->组合键:"+new Gson().toJson(bean));
                     addItem(bean);
                 });
-                fragment.show(context.getFragmentManager());
+                fragment.show(context.getSupportFragmentManager());
                 return;
             }
             GameKeyboardUpdateFragment fragment=new GameKeyboardUpdateFragment();
@@ -233,7 +237,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
                 LimeLog.info("axi->组合键:"+new Gson().toJson(bean));
                 addItem(bean);
             });
-            fragment.show(context.getFragmentManager());
+            fragment.show(context.getSupportFragmentManager());
         });
 
         buttonConfigure.findViewById(R.id.btn_game_virtual_save).setOnClickListener(v -> {
@@ -844,7 +848,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
         if (getSettings().isKeyboardHapticsEnabled() &&
                 vibrator.hasVibrator() &&
                 keyEvent.getSource() != 2) {
-            vibrator.vibrate(10);
+            AndroidVibratorCompat.vibrateOneShot(vibrator, 10);
         }
     }
 
@@ -859,7 +863,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
     public void sendAssembleKey(String codes,int action){
         if (getSettings().isKeyboardHapticsEnabled() &&
                 vibrator.hasVibrator()) {
-            vibrator.vibrate(10);
+            AndroidVibratorCompat.vibrateOneShot(vibrator, 10);
         }
         String[] keys=codes.split(",");
         // Custom shortcut actions.
@@ -943,7 +947,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
                 vibrator.hasVibrator()) {
             //摇杆不震动
             if(inputContext.inputMap!=0||inputContext.leftTrigger!=0x00||inputContext.rightTrigger!=0x00) {
-                vibrator.vibrate(10);
+                AndroidVibratorCompat.vibrateOneShot(vibrator, 10);
             }
         }
         // HACK: GFE sometimes discards gamepad packets when they are received

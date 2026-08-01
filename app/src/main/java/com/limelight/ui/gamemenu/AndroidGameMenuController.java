@@ -1,7 +1,7 @@
 package com.limelight.ui.gamemenu;
 
-import android.app.Activity;
-import android.app.Fragment;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
 
 import com.limelight.binding.input.GameInputDevice;
 import com.limelight.utils.UiHelper;
@@ -19,14 +19,14 @@ public final class AndroidGameMenuController
         implements StreamGameMenuHost.MenuSession {
     private static final int MENU_WIDTH_DP = 364;
 
-    private final Activity activity;
+    private final FragmentActivity activity;
     private final GameMenuSession<GameMenuFragment> session =
             new GameMenuSession<>();
 
     private GameMenuFragment menu;
     private boolean destroyed;
 
-    public AndroidGameMenuController(Activity activity) {
+    public AndroidGameMenuController(FragmentActivity activity) {
         this.activity = Objects.requireNonNull(activity, "activity");
     }
 
@@ -42,7 +42,7 @@ public final class AndroidGameMenuController
             return;
         }
 
-        Fragment restored = activity.getFragmentManager()
+        Fragment restored = activity.getSupportFragmentManager()
                 .findFragmentByTag(GameMenuFragment.FRAGMENT_TAG);
         if (restored instanceof GameMenuFragment) {
             menu = (GameMenuFragment) restored;
@@ -53,7 +53,7 @@ public final class AndroidGameMenuController
         menu = GameMenuFragment.newInstance(
                 UiHelper.dpToPx(activity, MENU_WIDTH_DP));
         session.open(menu, inputDevice);
-        menu.show(activity.getFragmentManager());
+        menu.show(activity.getSupportFragmentManager());
     }
 
     public boolean isVisible() {

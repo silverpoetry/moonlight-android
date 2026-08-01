@@ -88,6 +88,7 @@ final class ControllerVibrationRenderer {
             return singleTarget(deviceVibrator, true);
         }
 
+        Vibrator inputVibrator;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             VibratorManager inputManager =
                     inputDevice.getVibratorManager();
@@ -97,9 +98,12 @@ final class ControllerVibrationRenderer {
             if (hasControlledVibrators(inputManager, 2)) {
                 return managerTarget(inputManager, false);
             }
+            inputVibrator = inputManager.getDefaultVibrator();
+        } else {
+            inputVibrator = getInputDeviceVibratorBeforeS(inputDevice);
         }
-        if (inputDevice.getVibrator().hasVibrator()) {
-            return singleTarget(inputDevice.getVibrator(), false);
+        if (inputVibrator.hasVibrator()) {
+            return singleTarget(inputVibrator, false);
         }
         if (!external) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -292,10 +296,10 @@ final class ControllerVibrationRenderer {
                 return;
             case CANCEL_WITH_STOP_PULSE:
                 vibrator.cancel();
-                vibrator.vibrate(1);
+                vibrateStrong(vibrator, 1);
                 return;
             case STRONG_CONTINUOUS:
-                vibrator.vibrate(CONTINUOUS_DURATION_MS);
+                vibrateStrong(vibrator, CONTINUOUS_DURATION_MS);
                 return;
             case AMPLITUDE_CONTINUOUS:
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
@@ -329,11 +333,7 @@ final class ControllerVibrationRenderer {
                             .build();
             vibrator.vibrate(effect, attributes);
         } else {
-            AudioAttributes attributes =
-                    new AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_GAME)
-                            .build();
-            vibrator.vibrate(effect, attributes);
+            vibrateEffectBeforeTiramisu(vibrator, effect);
         }
     }
 
@@ -350,13 +350,63 @@ final class ControllerVibrationRenderer {
             vibrator.vibrate(
                     VibrationEffect.createWaveform(pattern, 0),
                     attributes);
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrateEffectBeforeTiramisu(
+                    vibrator,
+                    VibrationEffect.createWaveform(pattern, 0));
         } else {
-            AudioAttributes attributes =
-                    new AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_GAME)
-                            .build();
-            vibrator.vibrate(pattern, 0, attributes);
+            vibrateWaveformBeforeOreo(vibrator, pattern);
         }
+    }
+
+    /** InputDevice exposes its single-vibrator path only through this API below S. */
+    @SuppressWarnings("deprecation")
+    private static Vibrator getInputDeviceVibratorBeforeS(
+            InputDevice inputDevice) {
+        return inputDevice.getVibrator();
+    }
+
+    private static void vibrateStrong(Vibrator vibrator, long durationMs) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(
+                    durationMs,
+                    VibrationEffect.DEFAULT_AMPLITUDE));
+        } else {
+            vibrateStrongBeforeOreo(vibrator, durationMs);
+        }
+    }
+
+    /** API 26-32 media/game vibration overload retained for matching stream haptics. */
+    @RequiresApi(Build.VERSION_CODES.O)
+    @SuppressWarnings("deprecation")
+    private static void vibrateEffectBeforeTiramisu(
+            Vibrator vibrator,
+            VibrationEffect effect) {
+        AudioAttributes attributes =
+                new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_GAME)
+                        .build();
+        vibrator.vibrate(effect, attributes);
+    }
+
+    /** API 21-25 compatibility path; VibrationEffect starts at API 26. */
+    @SuppressWarnings("deprecation")
+    private static void vibrateStrongBeforeOreo(
+            Vibrator vibrator,
+            long durationMs) {
+        vibrator.vibrate(durationMs);
+    }
+
+    /** API 21-25 compatibility path for repeating PWM vibration. */
+    @SuppressWarnings("deprecation")
+    private static void vibrateWaveformBeforeOreo(
+            Vibrator vibrator,
+            long[] pattern) {
+        AudioAttributes attributes =
+                new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_GAME)
+                        .build();
+        vibrator.vibrate(pattern, 0, attributes);
     }
 
     private static Target managerTarget(

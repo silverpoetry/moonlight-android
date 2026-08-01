@@ -1158,7 +1158,7 @@ agree across all participants.
 
 ## Phase 10 — Debt removal and release hardening
 
-**Status:** pending.
+**Status:** in progress.
 
 ### Deliverables
 
@@ -1174,6 +1174,23 @@ agree across all participants.
 - Dependency/SBOM, license, secret, certificate, exported-component, path,
   permission, and network-security review.
 - Crash-free upgrade/rollback rehearsal and documented operational runbook.
+
+### Completed slices
+
+- Migrated the remaining platform Fragment stack to AndroidX lifecycle,
+  FragmentManager, result, and back-dispatch contracts. Display subdialogs now
+  return selections through Fragment Result rather than deprecated target
+  pointers.
+- Removed the obsolete `android.preference` widget subclasses. The settings
+  XML is now presentation schema consumed only by `SettingsRegistry`; it no
+  longer names fake runtime widget classes that are never inflated.
+- Enabled detailed Java deprecation/unchecked diagnostics and began replacing
+  scattered compatibility calls with narrow, version-bounded adapters for
+  handlers, USB parcelables, vibration, display, networking, and input.
+- Added an active-stream observer for the complete barometer force-press
+  setting group. Enablement, fixed threshold, and minimum contact duration are
+  coalesced into one immutable runtime update and covered at repository,
+  session, and detector levels.
 
 ### Exit evidence
 

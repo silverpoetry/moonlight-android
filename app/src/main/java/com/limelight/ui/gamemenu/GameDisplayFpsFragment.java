@@ -9,6 +9,8 @@ import android.widget.EditText;
 import android.widget.TextView;
 
 import androidx.annotation.StringRes;
+import androidx.core.hardware.display.DisplayManagerCompat;
+import androidx.fragment.app.Fragment;
 
 import com.limelight.R;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
@@ -17,6 +19,9 @@ import com.limelight.utils.UiToast;
 public class GameDisplayFpsFragment
         extends BaseGameMenuDialog implements View.OnClickListener {
     private static final String ARG_UNLOCK_FPS = "unlock_fps";
+    private static final String RESULT_KEY =
+            GameDisplayFpsFragment.class.getName() + ".result";
+    private static final String RESULT_FPS = "fps";
     private static final int MIN_FPS = 1;
     private static final int MAX_CUSTOM_FPS = 999;
 
@@ -61,8 +66,13 @@ public class GameDisplayFpsFragment
         view.findViewById(R.id.bt_display_fps_max)
                 .setOnClickListener(this);
 
-        Display display =
-                getActivity().getWindowManager().getDefaultDisplay();
+        Display display = DisplayManagerCompat
+                .getInstance(requireContext())
+                .getDisplay(Display.DEFAULT_DISPLAY);
+        if (display == null) {
+            throw new IllegalStateException(
+                    "Default display is unavailable");
+        }
         maxSupportedFps = Math.round(display.getRefreshRate());
         Bundle arguments = getArguments();
         boolean unlockFps = arguments != null &&
@@ -138,7 +148,10 @@ public class GameDisplayFpsFragment
     }
 
     private void selectFps(int fps) {
-        requireTargetListener().onFpsSelected(fps);
+        Bundle result = new Bundle();
+        result.putInt(RESULT_FPS, fps);
+        getParentFragmentManager().setFragmentResult(
+                RESULT_KEY, result);
         dismiss();
     }
 
@@ -147,12 +160,16 @@ public class GameDisplayFpsFragment
                 getActivity(), messageRes, UiToast.LENGTH_SHORT).show();
     }
 
-    private Listener requireTargetListener() {
-        if (!(getTargetFragment() instanceof Listener)) {
-            throw new IllegalStateException(
-                    "FPS dialog target must implement Listener");
-        }
-        return (Listener) getTargetFragment();
+    public static void registerResultListener(
+            Fragment owner,
+            Listener listener) {
+        owner.getParentFragmentManager()
+                .setFragmentResultListener(
+                        RESULT_KEY,
+                        owner,
+                        (requestKey, result) ->
+                                listener.onFpsSelected(
+                                        result.getInt(RESULT_FPS)));
     }
 
     public interface Listener {

@@ -54,7 +54,6 @@ import com.limelight.utils.ShortcutHelper;
 import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.UiHelper;
 
-import android.app.Activity;
 import android.app.Service;
 import android.content.ComponentName;
 import android.content.Intent;
@@ -73,11 +72,12 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import androidx.fragment.app.FragmentActivity;
 import com.limelight.utils.UiToast;
 
 import org.xmlpull.v1.XmlPullParserException;
 
-public class AppView extends Activity implements AdapterFragmentCallbacks,
+public class AppView extends FragmentActivity implements AdapterFragmentCallbacks,
         GameDisplayHost {
     private AppGridAdapter appGridAdapter;
     private String uuidString;
@@ -284,10 +284,10 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
         tryAutoReconnect();
         if (isFinishing() ||
                 isChangingConfigurations() ||
-                getFragmentManager().isDestroyed()) {
+                getSupportFragmentManager().isDestroyed()) {
             return;
         }
-        getFragmentManager().beginTransaction()
+        getSupportFragmentManager().beginTransaction()
                 .replace(
                         R.id.appFragmentContainer,
                         new AdapterFragment())
@@ -364,7 +364,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
 
             try {
                 // Reinflate the app grid itself to pick up the layout change
-                getFragmentManager().beginTransaction()
+                getSupportFragmentManager().beginTransaction()
                         .replace(R.id.appFragmentContainer, new AdapterFragment())
                         .commitAllowingStateLoss();
             } catch (IllegalStateException e) {
@@ -640,7 +640,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
                 dialogFragment =
                         GameDisplayFragment.newInstance(false);
                 dialogFragment.setWidth(UiHelper.dpToPx(AppView.this,364));
-                dialogFragment.show(getFragmentManager());
+                dialogFragment.show(getSupportFragmentManager());
             }
                 });
 

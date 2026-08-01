@@ -7,6 +7,8 @@ import android.os.SystemClock;
 import android.os.VibrationAttributes;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import androidx.annotation.RequiresApi;
+import androidx.core.content.ContextCompat;
 
 import com.limelight.LimeLog;
 import com.limelight.settings.audio.StreamAudioSettings.VoiceFilter;
@@ -39,7 +41,8 @@ public final class AudioHapticsController {
 
     public AudioHapticsController(Context context, boolean enabled, int strengthPercent,
                                   VoiceFilter voiceFilter) {
-        this.vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+        this.vibrator = ContextCompat.getSystemService(
+                context, Vibrator.class);
         this.enabled = enabled && this.vibrator != null && this.vibrator.hasVibrator();
         this.strengthPercent = Math.max(0, strengthPercent);
         this.voiceFilter = normalizeVoiceFilter(voiceFilter);
@@ -217,10 +220,7 @@ public final class AudioHapticsController {
                 vibrator.vibrate(effect, attrs);
             }
             else {
-                AudioAttributes attrs = new AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_GAME)
-                        .build();
-                vibrator.vibrate(effect, attrs);
+                vibrateBeforeTiramisu(effect);
             }
 
             lastAmplitude = amplitude;
@@ -246,12 +246,28 @@ public final class AudioHapticsController {
         try {
             long legacyPulseMs = Math.max(LEGACY_MIN_PULSE_MS,
                     Math.round(LEGACY_PULSE_MS * Math.max(0.35f, legacyStrengthScale)));
-            vibrator.vibrate(legacyPulseMs);
+            vibrateBeforeOreo(legacyPulseMs);
             lastVibrationTimeMs = now;
             lastAmplitude = amplitude;
         }
         catch (Exception e) {
             LimeLog.warning("Audio haptics legacy vibrate failed: " + e.getMessage());
         }
+    }
+
+    /** API 26-32 compatibility path; VibrationAttributes starts at API 33. */
+    @RequiresApi(Build.VERSION_CODES.O)
+    @SuppressWarnings("deprecation")
+    private void vibrateBeforeTiramisu(VibrationEffect effect) {
+        AudioAttributes attributes = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_GAME)
+                .build();
+        vibrator.vibrate(effect, attributes);
+    }
+
+    /** API 21-25 compatibility path; VibrationEffect starts at API 26. */
+    @SuppressWarnings("deprecation")
+    private void vibrateBeforeOreo(long durationMs) {
+        vibrator.vibrate(durationMs);
     }
 }

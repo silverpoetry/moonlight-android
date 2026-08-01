@@ -95,7 +95,6 @@ public class DiskAssetLoader {
                     STANDARD_ASSET_HEIGHT / sampleSize);
             if (isLowRamDevice) {
                 options.inPreferredConfig = Bitmap.Config.RGB_565;
-                options.inDither = true;
             }
             else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 options.inPreferredConfig = Bitmap.Config.HARDWARE;

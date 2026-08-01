@@ -1,6 +1,8 @@
 package com.limelight.ui.gamemenu;
 
 import androidx.annotation.StringRes;
+import androidx.fragment.app.Fragment;
+import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.EditText;
@@ -14,6 +16,9 @@ public class GameDisplayBitrateFragment
         extends BaseGameMenuDialog implements View.OnClickListener {
     private static final int MIN_BITRATE_MBPS = 1;
     private static final int MAX_BITRATE_MBPS = 99_999;
+    private static final String RESULT_KEY =
+            GameDisplayBitrateFragment.class.getName() + ".result";
+    private static final String RESULT_BITRATE = "bitrate";
     private static final int[] PRESET_BITRATES_MBPS = {
             20, 50, 60, 100, 150, 200, 300
     };
@@ -74,7 +79,10 @@ public class GameDisplayBitrateFragment
     }
 
     private void selectBitrate(int bitrate) {
-        requireTargetListener().onBitrateSelected(bitrate);
+        Bundle result = new Bundle();
+        result.putInt(RESULT_BITRATE, bitrate);
+        getParentFragmentManager().setFragmentResult(
+                RESULT_KEY, result);
         dismiss();
     }
 
@@ -83,12 +91,17 @@ public class GameDisplayBitrateFragment
                 getActivity(), messageRes, UiToast.LENGTH_SHORT).show();
     }
 
-    private Listener requireTargetListener() {
-        if (!(getTargetFragment() instanceof Listener)) {
-            throw new IllegalStateException(
-                    "Bitrate dialog target must implement Listener");
-        }
-        return (Listener) getTargetFragment();
+    public static void registerResultListener(
+            Fragment owner,
+            Listener listener) {
+        owner.getParentFragmentManager()
+                .setFragmentResultListener(
+                        RESULT_KEY,
+                        owner,
+                        (requestKey, result) ->
+                                listener.onBitrateSelected(
+                                        result.getInt(
+                                                RESULT_BITRATE)));
     }
 
     public interface Listener {

@@ -1,8 +1,8 @@
 package com.limelight.ui.BaseFragmentDialog;
 
-import android.app.FragmentManager;
 import android.os.Bundle;
 import androidx.annotation.LayoutRes;
+import androidx.fragment.app.FragmentManager;
 import android.view.View;
 
 public class BaseGameMenuDialog extends BaseGameMenuFragmentDialog {

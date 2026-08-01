@@ -229,7 +229,7 @@ same `ControllerSettingsState`.
 | --- | --- | --- | --- |
 | Stream display/window | `StreamDisplaySettings`; `StreamVideoSettings` with one immutable active-session snapshot plus an atomic settings-UI state | `Game` receives dimensions, native/stretch/cutout/external-display/HDR/gravity, virtual-display mode, display-mode enforcement, and SOPS launch policy from typed composition; both display-dialog entry points consume one typed snapshot and emit typed intents | The temporary `LegacyPreferenceSettingsAdapter` is deleted; generic settings-screen rows still need typed intents |
 | Stream video/decoder | `StreamDecoderSettings`; typed resolution and video aggregates; pure `StreamFramePacingPolicy` | Decoder, launch, refresh-rate selection, warning thresholds, cursor scaling, and performance-statistics paths no longer receive `PreferenceConfiguration`; resolution/FPS/bitrate parsing, repair, frame-pacing fallback, and default policy have one safe codec/policy; display Apply persists its seven owned values atomically | Stream composition has no legacy adapter; remaining generic settings-screen rows still use the legacy screen implementation |
-| Input and gestures | `InputSettings` with one atomic `InputSettingsState` per stream | Pointer, touchscreen/touchpad, gesture, keyboard, virtual-touchpad, mouse-wheel, native/local cursor, and adaptive transport-throttling policy no longer read storage or receive `PreferenceConfiguration`; the global screen owns every persisted input row, while the live touch-sensitivity editor emits typed update intents against the same snapshot | Remaining generic settings rows still require typed intents |
+| Input and gestures | `InputSettings` with one atomic `InputSettingsState` per stream | Pointer, touchscreen/touchpad, gesture, keyboard, virtual-touchpad, mouse-wheel, native/local cursor, and adaptive transport-throttling policy no longer read storage or receive `PreferenceConfiguration`; the global screen owns every persisted input row, while the live touch-sensitivity editor emits typed update intents against the same snapshot. The force-press enablement, fixed pressure threshold, and minimum contact duration form one observed group: external settings edits are coalesced, reloaded into one immutable snapshot, and applied to the active detector without reconnecting. | Remaining generic settings rows still require typed intents |
 | Physical controllers | `ControllerSettings` with one atomic `ControllerSettingsState` per stream | `ControllerHandler` and `UsbDriverService` no longer receive `PreferenceConfiguration` or reread storage from controller, sensor, rumble, battery, USB attach, or permission callbacks; global settings own persistent controller policy, while specialized live touch/device editors emit typed intents; rumble-trigger linkage, force-gyro policy, and DualSense adaptive-trigger application consume the same live snapshot | Remaining generic settings rows still require typed intents |
 | On-screen controls | `VirtualControlSettings` with one atomic `VirtualControlSettingsState` per stream | Active virtual gamepad, virtual-key, touchpad-button, and full-keyboard rendering/input paths consume typed snapshots; the virtual-key startup default and automatic-orientation policy are typed, while current overlay visibility is reported by the owning controller rather than written into persistent configuration; stream-menu writers emit immutable domain updates; named layouts use `VirtualControlLayoutRepository` rather than direct file access | Layout element DTO/codec separation from the game-menu model remains; unused named-`SharedPreferences` loader path has been removed |
 | Stream audio | `StreamAudioSettings` with one atomic `StreamAudioSettingsState` per stream | Playback, mute, audio effects, and phone/controller audio-haptics consume the same typed snapshot; mute is an explicit first-page live action backed by the same global typed key; PCM callbacks perform no preference I/O; controller rumble suppression and USB/Kishi routing no longer duplicate audio policy inside `ControllerSettings` | Restart-only settings use the canonical global settings screen |
@@ -270,11 +270,12 @@ same policy through an Android adapter before resetting GameManager state.
 
 Display dialogs resolve `GameDisplayHost` from their attached Activity rather
 than receiving repositories, snapshots, or persistence callbacks through
-instance-field setters. Nested resolution, FPS, and bitrate dialogs return
-their typed selection to the display dialog through a Fragment target that the
-platform restores with Fragment state. Consequently, process or configuration
-recreation cannot leave a visible display dialog with an unbound persistence
-dependency.
+instance-field setters. Nested resolution, FPS, and bitrate dialogs publish
+their typed selections through AndroidX Fragment Result keys registered by the
+parent dialog. The FragmentManager owns pending result delivery across normal
+lifecycle changes, and no deprecated target-fragment pointer or instance-field
+callback is required. Consequently, process or configuration recreation cannot
+leave a visible display dialog with an unbound persistence dependency.
 
 Audio effects, channel layout, and host-side playback are captured when a
 stream is composed. Mute and audio-haptics policy are intentionally

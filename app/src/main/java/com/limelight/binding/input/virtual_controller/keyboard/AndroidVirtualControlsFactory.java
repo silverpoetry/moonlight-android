@@ -1,7 +1,7 @@
 package com.limelight.binding.input.virtual_controller.keyboard;
 
-import android.app.Activity;
 import android.widget.FrameLayout;
+import androidx.fragment.app.FragmentActivity;
 
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.StreamInputGateway;
@@ -17,7 +17,7 @@ public final class AndroidVirtualControlsFactory
         implements StreamVirtualControlsController.Factory {
     private final ControllerHandler controllerHandler;
     private final FrameLayout parent;
-    private final Activity activity;
+    private final FragmentActivity activity;
     private final InputSettingsState inputSettingsState;
     private final VirtualControlSettingsState virtualControlSettingsState;
     private final VirtualControlLayoutRepository layoutRepository;
@@ -27,7 +27,7 @@ public final class AndroidVirtualControlsFactory
     public AndroidVirtualControlsFactory(
             ControllerHandler controllerHandler,
             FrameLayout parent,
-            Activity activity,
+            FragmentActivity activity,
             InputSettingsState inputSettingsState,
             VirtualControlSettingsState virtualControlSettingsState,
             VirtualControlLayoutRepository layoutRepository,

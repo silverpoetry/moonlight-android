@@ -411,25 +411,35 @@ public class NvConnection implements StreamSessionConnection,
                 }
             }
         }
-        else {
-            NetworkInfo activeNetworkInfo = connMgr.getActiveNetworkInfo();
-            if (activeNetworkInfo != null) {
-                switch (activeNetworkInfo.getType()) {
-                    case ConnectivityManager.TYPE_VPN:
-                    case ConnectivityManager.TYPE_MOBILE:
-                    case ConnectivityManager.TYPE_MOBILE_DUN:
-                    case ConnectivityManager.TYPE_MOBILE_HIPRI:
-                    case ConnectivityManager.TYPE_MOBILE_MMS:
-                    case ConnectivityManager.TYPE_MOBILE_SUPL:
-                    case ConnectivityManager.TYPE_WIMAX:
-                        // VPNs and cellular connections are always remote connections
-                        return StreamConfiguration.STREAM_CFG_REMOTE;
-                }
-            }
+        else if (isLegacyRemoteNetwork(connMgr)) {
+            return StreamConfiguration.STREAM_CFG_REMOTE;
         }
 
         // If we can't determine the connection type, let moonlight-common-c decide.
         return StreamConfiguration.STREAM_CFG_AUTO;
+    }
+
+    /** API 21-22 compatibility path; NetworkCapabilities starts at API 23. */
+    @SuppressWarnings("deprecation")
+    private static boolean isLegacyRemoteNetwork(
+            ConnectivityManager connectivityManager) {
+        NetworkInfo networkInfo =
+                connectivityManager.getActiveNetworkInfo();
+        if (networkInfo == null) {
+            return false;
+        }
+        switch (networkInfo.getType()) {
+            case ConnectivityManager.TYPE_VPN:
+            case ConnectivityManager.TYPE_MOBILE:
+            case ConnectivityManager.TYPE_MOBILE_DUN:
+            case ConnectivityManager.TYPE_MOBILE_HIPRI:
+            case ConnectivityManager.TYPE_MOBILE_MMS:
+            case ConnectivityManager.TYPE_MOBILE_SUPL:
+            case ConnectivityManager.TYPE_WIMAX:
+                return true;
+            default:
+                return false;
+        }
     }
 
     private NvHTTP startApp() throws XmlPullParserException, IOException

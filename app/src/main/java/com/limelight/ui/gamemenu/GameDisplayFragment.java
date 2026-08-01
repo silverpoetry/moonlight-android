@@ -1,11 +1,12 @@
 package com.limelight.ui.gamemenu;
 
-import android.app.Activity;
+import android.content.Context;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.RadioGroup;
 import android.widget.TextView;
+import androidx.annotation.NonNull;
 
 import com.limelight.R;
 import com.limelight.settings.audio.StreamAudioSettings;
@@ -67,13 +68,13 @@ public final class GameDisplayFragment
     }
 
     @Override
-    public void onAttach(Activity activity) {
-        super.onAttach(activity);
-        if (activity instanceof GameMenuHostProvider) {
-            hostProvider = (GameMenuHostProvider) activity;
+    public void onAttach(@NonNull Context context) {
+        super.onAttach(context);
+        if (context instanceof GameMenuHostProvider) {
+            hostProvider = (GameMenuHostProvider) context;
         }
-        else if (activity instanceof GameDisplayHost) {
-            host = (GameDisplayHost) activity;
+        else if (context instanceof GameDisplayHost) {
+            host = (GameDisplayHost) context;
         }
         else {
             throw new IllegalStateException(
@@ -93,6 +94,17 @@ public final class GameDisplayFragment
     }
 
     @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        GameDisplayResolutionFragment.registerResultListener(
+                this, this);
+        GameDisplayBitrateFragment.registerResultListener(
+                this, this);
+        GameDisplayFpsFragment.registerResultListener(
+                this, this);
+    }
+
+    @Override
     public int getLayoutRes() {
         return R.layout.dialog_game_menu_display;
     }
@@ -103,7 +115,7 @@ public final class GameDisplayFragment
         if (hostProvider != null) {
             host = hostProvider.getGameMenuHost();
         }
-        requireHost();
+        requireDisplayHost();
         Bundle arguments = getArguments();
         showLock = arguments == null ||
                 arguments.getBoolean(ARG_SHOW_LOCK, true);
@@ -122,7 +134,7 @@ public final class GameDisplayFragment
         bindListeners(view);
     }
 
-    private void requireHost() {
+    private void requireDisplayHost() {
         if (host == null) {
             throw new IllegalStateException(
                     "Display settings host is not attached");
@@ -548,8 +560,7 @@ public final class GameDisplayFragment
                 new GameDisplayResolutionFragment();
         fragment.setWidth(
                 UiHelper.dpToPx(getActivity(), 364));
-        fragment.setTargetFragment(this, 0);
-        fragment.show(getFragmentManager());
+        fragment.show(getParentFragmentManager());
     }
 
     private void showBitrateDialog() {
@@ -557,8 +568,7 @@ public final class GameDisplayFragment
                 new GameDisplayBitrateFragment();
         fragment.setWidth(
                 UiHelper.dpToPx(getActivity(), 364));
-        fragment.setTargetFragment(this, 0);
-        fragment.show(getFragmentManager());
+        fragment.show(getParentFragmentManager());
     }
 
     private void showFpsDialog() {
@@ -567,8 +577,7 @@ public final class GameDisplayFragment
                         videoSettings.isFpsUnlocked());
         fragment.setWidth(
                 UiHelper.dpToPx(getActivity(), 364));
-        fragment.setTargetFragment(this, 0);
-        fragment.show(getFragmentManager());
+        fragment.show(getParentFragmentManager());
     }
 
     private void dispatchVideo(
