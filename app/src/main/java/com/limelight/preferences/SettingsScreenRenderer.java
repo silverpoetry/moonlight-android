@@ -51,11 +51,14 @@ final class SettingsScreenRenderer {
     private Listener listener;
     private final ArrayList<RenderedSettingsRow> renderedRows =
             new ArrayList<>();
+    private final ArrayList<View> wideSectionRows =
+            new ArrayList<>();
 
     private SettingsScreenState state;
     private FrameLayout root;
     private LinearLayout outerContainer;
     private FrameLayout mainContainer;
+    private SettingsPageTransitionController pageTransitionController;
     private FrameLayout wideItemContainer;
     private TextView titleView;
     private TextView subtitleView;
@@ -90,6 +93,8 @@ final class SettingsScreenRenderer {
         root.addView(mainContainer, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
+        pageTransitionController =
+                new SettingsPageTransitionController(mainContainer);
         return root;
     }
 
@@ -108,15 +113,30 @@ final class SettingsScreenRenderer {
     }
 
     void render() {
+        render(SettingsPageTransitionController.Direction.NONE);
+    }
+
+    void render(SettingsPageTransitionController.Direction direction) {
         if (destroyed || mainContainer == null || state == null) {
             return;
         }
 
-        wideLayout = getAvailableWidthDp() >=
+        boolean nextWideLayout = getAvailableWidthDp() >=
                 WIDE_LAYOUT_MIN_WIDTH_DP;
+        if (nextWideLayout &&
+                wideLayout &&
+                direction != SettingsPageTransitionController.Direction.NONE &&
+                wideItemContainer != null) {
+            updateWideSectionSelection();
+            renderWideItemContent();
+            return;
+        }
+
+        wideLayout = nextWideLayout;
         activeContentScrollView = null;
         sectionListScrollView = null;
         wideItemContainer = null;
+        wideSectionRows.clear();
         FrameLayout screenPage = createScreenPage();
         LinearLayout page = createPageContainer();
         FrameLayout contentContainer = new FrameLayout(context);
@@ -141,10 +161,11 @@ final class SettingsScreenRenderer {
             renderSectionList(page);
         }
 
-        mainContainer.removeAllViews();
-        mainContainer.addView(screenPage, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
+        pageTransitionController.replace(
+                screenPage,
+                wideLayout
+                        ? SettingsPageTransitionController.Direction.NONE
+                        : direction);
         outerContainer.requestApplyInsets();
     }
 
@@ -265,9 +286,14 @@ final class SettingsScreenRenderer {
         destroyed = true;
         listener = null;
         renderedRows.clear();
+        wideSectionRows.clear();
         activeContentScrollView = null;
         sectionListScrollView = null;
         wideItemContainer = null;
+        if (pageTransitionController != null) {
+            pageTransitionController.destroy();
+            pageTransitionController = null;
+        }
         state = null;
     }
 
@@ -364,15 +390,19 @@ final class SettingsScreenRenderer {
                         dp(300),
                         ViewGroup.LayoutParams.MATCH_PARENT));
 
-        sectionList.addView(createFeaturedSectionRow(
-                selectedSectionIndex == FEATURED_SECTION_INDEX));
+        View featuredRow = createFeaturedSectionRow(
+                selectedSectionIndex == FEATURED_SECTION_INDEX);
+        wideSectionRows.add(featuredRow);
+        sectionList.addView(featuredRow);
         List<SettingsScreenState.Section> sections =
                 state.getSections();
         for (int index = 0; index < sections.size(); index++) {
-            sectionList.addView(createSectionRow(
+            View sectionRow = createSectionRow(
                     sections.get(index),
                     index,
-                    index == selectedSectionIndex));
+                    index == selectedSectionIndex);
+            wideSectionRows.add(sectionRow);
+            sectionList.addView(sectionRow);
         }
 
         wideItemContainer = new FrameLayout(context);
@@ -387,6 +417,17 @@ final class SettingsScreenRenderer {
         renderWideItemContent();
     }
 
+    private void updateWideSectionSelection() {
+        for (View row : wideSectionRows) {
+            Object tag = row.getTag();
+            boolean selected = tag instanceof Integer &&
+                    (Integer) tag == selectedSectionIndex;
+            row.setBackgroundResource(selected
+                    ? R.drawable.bg_settings_selected_card
+                    : R.drawable.ic_game_menu_btn_selector);
+        }
+    }
+
     private void renderWideItemContent() {
         if (wideItemContainer == null) {
             return;
@@ -399,6 +440,11 @@ final class SettingsScreenRenderer {
         else {
             renderSectionDetail(page, selectedSectionIndex);
         }
+
+        // The wide shell owns its header. Detail rendering only populates the
+        // right pane and must not make the entire two-column page relayout.
+        titleView.setText(R.string.settings_title);
+        subtitleView.setText(profileSummary);
 
         wideItemContainer.removeAllViews();
         wideItemContainer.addView(page, new FrameLayout.LayoutParams(

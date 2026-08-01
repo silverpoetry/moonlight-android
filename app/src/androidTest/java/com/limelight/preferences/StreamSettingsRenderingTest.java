@@ -107,6 +107,15 @@ public class StreamSettingsRenderingTest {
         StreamSettings activity =
                 startSettingsActivity(instrumentation);
         try {
+            boolean wideLayout = activity.findViewById(
+                    R.id.settings_detail_container) != null;
+            FrameLayout contentContainer = activity.findViewById(
+                    R.id.settings_content_container);
+            View wideScreenPage = wideLayout
+                    ? contentContainer.getChildAt(0)
+                    : null;
+            View wideDetailContainer = activity.findViewById(
+                    R.id.settings_detail_container);
             int visitedSections = 0;
             for (SettingsSection section : SettingsRegistry.load(activity)) {
                 TextView sectionTitle = findText(
@@ -124,6 +133,15 @@ public class StreamSettingsRenderingTest {
                 waitForTransition(instrumentation);
 
                 assertFalse(activity.isFinishing());
+                if (wideLayout) {
+                    assertEquals(1, contentContainer.getChildCount());
+                    assertSame(wideScreenPage,
+                            contentContainer.getChildAt(0));
+                    assertSame(wideDetailContainer,
+                            activity.findViewById(
+                                    R.id.settings_detail_container));
+                    continue;
+                }
                 assertNull(findText(
                         activity.getWindow().getDecorView(),
                         activity.getString(
@@ -189,7 +207,7 @@ public class StreamSettingsRenderingTest {
     }
 
     @Test
-    public void sectionNavigationReplacesContentImmediately()
+    public void sectionNavigationUsesStackMotionOrStableWideShell()
             throws InterruptedException {
         Instrumentation instrumentation =
                 InstrumentationRegistry.getInstrumentation();
@@ -208,21 +226,37 @@ public class StreamSettingsRenderingTest {
             assertNotNull(sectionTitle);
             boolean wideLayout = contentContainer.findViewById(
                     R.id.settings_detail_container) != null;
+            View originalScreenPage = contentContainer.getChildAt(0);
+            View originalWideDetail = contentContainer.findViewById(
+                    R.id.settings_detail_container);
             View sectionRow =
                     (View) sectionTitle.getParent().getParent();
-            instrumentation.runOnMainSync(() -> {
-                sectionRow.performClick();
-                assertSettled(contentContainer);
-            });
+            instrumentation.runOnMainSync(sectionRow::performClick);
 
             if (wideLayout) {
+                assertEquals(1, contentContainer.getChildCount());
+                assertSame(originalScreenPage,
+                        contentContainer.getChildAt(0));
+                assertSame(originalWideDetail,
+                        contentContainer.findViewById(
+                                R.id.settings_detail_container));
+                assertSettled(contentContainer);
                 return;
             }
 
-            instrumentation.runOnMainSync(() -> {
-                activity.onBackPressed();
-                assertSettled(contentContainer);
-            });
+            assertStackTransition(contentContainer);
+            assertSame(originalScreenPage,
+                    contentContainer.getChildAt(0));
+            waitForTransition(instrumentation);
+            assertSettled(contentContainer);
+            View detailScreenPage = contentContainer.getChildAt(0);
+
+            instrumentation.runOnMainSync(activity::onBackPressed);
+            assertStackTransition(contentContainer);
+            assertSame(detailScreenPage,
+                    contentContainer.getChildAt(1));
+            waitForTransition(instrumentation);
+            assertSettled(contentContainer);
         }
         finally {
             activity.finish();
@@ -304,6 +338,15 @@ public class StreamSettingsRenderingTest {
         assertEquals(0f, currentPage.getTranslationX(), 0f);
         assertEquals(1f, currentPage.getAlpha(), 0f);
         assertNotNull(currentPage.getBackground());
+    }
+
+    private static void assertStackTransition(FrameLayout container) {
+        assertEquals(2, container.getChildCount());
+        for (int index = 0; index < container.getChildCount(); index++) {
+            View page = container.getChildAt(index);
+            assertEquals(1f, page.getAlpha(), 0f);
+            assertNotNull(page.getBackground());
+        }
     }
 
     private static void waitForTransition(

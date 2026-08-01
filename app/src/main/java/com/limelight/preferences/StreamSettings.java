@@ -330,7 +330,8 @@ public class StreamSettings extends Activity {
             captureNavigationScroll();
             navigationState.returnToRoot();
             selectedSectionIndex = -1;
-            renderSettings();
+            renderSettings(
+                    SettingsPageTransitionController.Direction.BACKWARD);
             return;
         }
         finishAndApplyLanguage();
@@ -343,7 +344,8 @@ public class StreamSettings extends Activity {
             navigationState.selectFeatured();
             selectedSectionIndex =
                     SettingsScreenRenderer.FEATURED_SECTION_INDEX;
-            renderSettings();
+            renderSettings(
+                    SettingsPageTransitionController.Direction.FORWARD);
             return;
         }
         String sectionKey = screenModel.getSectionKey(sectionIndex);
@@ -352,7 +354,8 @@ public class StreamSettings extends Activity {
         }
         navigationState.selectSection(sectionKey);
         selectedSectionIndex = sectionIndex;
-        renderSettings();
+        renderSettings(
+                SettingsPageTransitionController.Direction.FORWARD);
     }
 
     private void captureNavigationScroll() {
@@ -366,11 +369,16 @@ public class StreamSettings extends Activity {
     }
 
     private void renderSettings() {
+        renderSettings(SettingsPageTransitionController.Direction.NONE);
+    }
+
+    private void renderSettings(
+            SettingsPageTransitionController.Direction direction) {
         screenRenderer.setContent(
                 createScreenState(),
                 selectedSectionIndex,
                 getCurrentProfileSummary());
-        screenRenderer.render();
+        screenRenderer.render(direction);
         screenRenderer.restoreScrollY(
                 navigationState.getContentScrollY());
         screenRenderer.restoreSectionListScrollY(
