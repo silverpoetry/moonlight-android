@@ -68,6 +68,7 @@ public class StreamSettings extends Activity {
     private SettingsScreenRenderer screenRenderer;
     private boolean sectionActivity;
     private boolean sectionLaunchPending;
+    private boolean reloadAfterPause;
 
     // Android 9 exposes the cutout only after the window is attached.
     static DisplayCutout displayCutoutP;
@@ -183,6 +184,10 @@ public class StreamSettings extends Activity {
             UiHelper.setStatusBarLightMode(getWindow(), true);
         }
         registerBackCallback();
+        // Build the first frame before Android starts the Activity window
+        // transition. Waiting for attachment leaves the incoming window empty
+        // for part of the animation and makes compact navigation flash.
+        reloadSettings();
     }
 
     private SettingsDialogPresenter createDialogPresenter() {
@@ -259,16 +264,27 @@ public class StreamSettings extends Activity {
                 displayCutoutP = insets.getDisplayCutout();
             }
         }
-        reloadSettings();
+        if (screenRenderer != null) {
+            screenRenderer.applyWindowPadding();
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         sectionLaunchPending = false;
-        if (screenRenderer != null && screenRenderer.hasContent()) {
+        if (reloadAfterPause &&
+                screenRenderer != null &&
+                screenRenderer.hasContent()) {
             reloadSettings();
         }
+        reloadAfterPause = false;
+    }
+
+    @Override
+    protected void onPause() {
+        reloadAfterPause = true;
+        super.onPause();
     }
 
     @Override
