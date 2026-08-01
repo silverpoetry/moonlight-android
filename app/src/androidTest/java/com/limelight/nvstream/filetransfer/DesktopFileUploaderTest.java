@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.limelight.BuildConfig;
+import com.limelight.transfer.FileManifest;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,15 +28,18 @@ public final class DesktopFileUploaderTest {
                 "content://" + BuildConfig.APPLICATION_ID +
                         ".desktopfiletest/item");
 
-        List<FileManifest.Entry> entries = DesktopFileUploader.enumerate(
-                context, Collections.singletonList(uri));
+        List<DesktopFileUploadSource> sources =
+                DesktopFileUploadSourceEnumerator.enumerate(
+                        context,
+                        Collections.singletonList(uri));
 
-        assertEquals(1, entries.size());
-        FileManifest.Entry entry = entries.get(0);
+        assertEquals(1, sources.size());
+        DesktopFileUploadSource source = sources.get(0);
+        FileManifest.Entry entry = source.getManifestEntry();
         assertEquals(FileManifest.TYPE_REGULAR, entry.type);
         assertEquals(GenericContentProvider.FILE_NAME, entry.path);
         assertEquals(GenericContentProvider.FILE_CONTENT.length, entry.size);
-        assertEquals(uri, entry.sourceUri);
+        assertEquals(uri, source.getSourceUri());
 
         try (InputStream input =
                      context.getContentResolver().openInputStream(uri)) {
@@ -55,14 +59,17 @@ public final class DesktopFileUploaderTest {
                 "content://" + BuildConfig.APPLICATION_ID +
                         ".desktopfiletest/without-metadata");
 
-        List<FileManifest.Entry> entries = DesktopFileUploader.enumerate(
-                context, Collections.singletonList(uri));
+        List<DesktopFileUploadSource> sources =
+                DesktopFileUploadSourceEnumerator.enumerate(
+                        context,
+                        Collections.singletonList(uri));
 
-        assertEquals(1, entries.size());
-        FileManifest.Entry entry = entries.get(0);
+        assertEquals(1, sources.size());
+        DesktopFileUploadSource source = sources.get(0);
+        FileManifest.Entry entry = source.getManifestEntry();
         assertEquals(FileManifest.TYPE_REGULAR, entry.type);
         assertEquals("without-metadata", entry.path);
         assertEquals(GenericContentProvider.FILE_CONTENT.length, entry.size);
-        assertEquals(uri, entry.sourceUri);
+        assertEquals(uri, source.getSourceUri());
     }
 }
