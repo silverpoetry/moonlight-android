@@ -318,20 +318,16 @@ public class StreamSettingsRenderingTest {
         }
         assertEquals(2, container.getChildCount());
         View incomingPage = container.getChildAt(1);
-        View motionView = incomingPage.findViewById(
-                R.id.settings_detail_container);
-        if (motionView == null) {
-            motionView = incomingPage;
-        }
+        assertNotNull(incomingPage.getBackground());
+        assertEquals(1f, incomingPage.getAlpha(), 0f);
+        float minimumFullPageOffset = container.getWidth() * 0.9f;
         if (forward) {
-            assertTrue(motionView.getTranslationX() > 0f);
+            assertTrue(incomingPage.getTranslationX() >=
+                    minimumFullPageOffset);
         }
         else {
-            assertTrue(motionView.getTranslationX() < 0f);
-        }
-        if (motionView != incomingPage) {
-            assertEquals(0f, incomingPage.getTranslationX(), 0f);
-            assertEquals(1f, incomingPage.getAlpha(), 0f);
+            assertTrue(incomingPage.getTranslationX() <=
+                    -minimumFullPageOffset);
         }
     }
 
@@ -340,18 +336,17 @@ public class StreamSettingsRenderingTest {
         View currentPage = container.getChildAt(0);
         assertEquals(0f, currentPage.getTranslationX(), 0f);
         assertEquals(1f, currentPage.getAlpha(), 0f);
-        View motionView = currentPage.findViewById(
-                R.id.settings_detail_container);
-        if (motionView != null) {
-            assertEquals(0f, motionView.getTranslationX(), 0f);
-            assertEquals(1f, motionView.getAlpha(), 0f);
-        }
+        assertNotNull(currentPage.getBackground());
     }
 
     private static void waitForTransition(
             Instrumentation instrumentation)
             throws InterruptedException {
-        Thread.sleep(300);
+        long transitionDuration = instrumentation
+                .getTargetContext()
+                .getResources()
+                .getInteger(android.R.integer.config_mediumAnimTime);
+        Thread.sleep(transitionDuration + 100L);
         instrumentation.waitForIdleSync();
     }
 

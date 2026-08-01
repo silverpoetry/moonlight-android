@@ -86,68 +86,13 @@ final class SettingsScreenRenderer {
                 ViewGroup.LayoutParams.MATCH_PARENT));
         root.setBackgroundResource(R.drawable.bg_gradient_axi_main);
 
-        outerContainer = new LinearLayout(context);
-        outerContainer.setOrientation(LinearLayout.VERTICAL);
-        applyWindowPadding();
-        root.addView(outerContainer, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
-
-        LinearLayout header = new LinearLayout(context);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        outerContainer.addView(header, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        ImageButton backButton = new ImageButton(context);
-        backButton.setImageResource(R.drawable.ic_axi_back);
-        backButton.setBackgroundResource(
-                R.drawable.ic_game_menu_btn_transparent);
-        backButton.setPadding(dp(9), dp(9), dp(9), dp(9));
-        header.addView(backButton, new LinearLayout.LayoutParams(
-                dp(44),
-                dp(44)));
-        backButton.setOnClickListener(view -> {
-            if (listener != null) {
-                listener.onBackRequested();
-            }
-        });
-
-        LinearLayout titleBlock = new LinearLayout(context);
-        titleBlock.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams titleParams =
-                new LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1);
-        titleParams.leftMargin = dp(10);
-        header.addView(titleBlock, titleParams);
-
-        titleView = new TextView(context);
-        titleView.setTextColor(Color.WHITE);
-        titleView.setTextSize(24);
-        titleView.setTypeface(null, Typeface.BOLD);
-        titleBlock.addView(titleView);
-
-        subtitleView = new TextView(context);
-        subtitleView.setTextColor(0xCCFFFFFF);
-        subtitleView.setTextSize(12);
-        subtitleView.setSingleLine(true);
-        subtitleView.setEllipsize(TextUtils.TruncateAt.END);
-        titleBlock.addView(subtitleView);
-
         mainContainer = new FrameLayout(context);
         mainContainer.setId(R.id.settings_content_container);
+        root.addView(mainContainer, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
         pageTransitionController =
                 new SettingsPageTransitionController(mainContainer);
-        LinearLayout.LayoutParams contentParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        0,
-                        1);
-        contentParams.topMargin = dp(14);
-        outerContainer.addView(mainContainer, contentParams);
         return root;
     }
 
@@ -179,11 +124,22 @@ final class SettingsScreenRenderer {
         activeContentScrollView = null;
         sectionListScrollView = null;
         wideItemContainer = null;
+        FrameLayout screenPage = createScreenPage();
         LinearLayout page = createPageContainer();
-        View motionView = page;
+        FrameLayout contentContainer = new FrameLayout(context);
+        LinearLayout.LayoutParams contentParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        0,
+                        1);
+        contentParams.topMargin = dp(14);
+        outerContainer.addView(contentContainer, contentParams);
+        contentContainer.addView(page, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
 
         if (wideLayout) {
-            motionView = renderWide(page);
+            renderWide(page);
         }
         else if (selectedSectionIndex >= 0) {
             renderSectionDetail(page, selectedSectionIndex);
@@ -193,9 +149,9 @@ final class SettingsScreenRenderer {
         }
 
         pageTransitionController.replace(
-                page,
-                motionView,
+                screenPage,
                 direction);
+        outerContainer.requestApplyInsets();
     }
 
     boolean hasContent() {
@@ -336,7 +292,69 @@ final class SettingsScreenRenderer {
         return page;
     }
 
-    private View renderWide(LinearLayout page) {
+    private FrameLayout createScreenPage() {
+        FrameLayout screenPage = new FrameLayout(context);
+        screenPage.setBackgroundResource(
+                R.drawable.bg_gradient_axi_main);
+        screenPage.setAlpha(1f);
+
+        outerContainer = new LinearLayout(context);
+        outerContainer.setOrientation(LinearLayout.VERTICAL);
+        screenPage.addView(outerContainer, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        applyWindowPadding();
+        addHeader(outerContainer);
+        return screenPage;
+    }
+
+    private void addHeader(LinearLayout page) {
+        LinearLayout header = new LinearLayout(context);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        page.addView(header, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        ImageButton backButton = new ImageButton(context);
+        backButton.setImageResource(R.drawable.ic_axi_back);
+        backButton.setBackgroundResource(
+                R.drawable.ic_game_menu_btn_transparent);
+        backButton.setPadding(dp(9), dp(9), dp(9), dp(9));
+        header.addView(backButton, new LinearLayout.LayoutParams(
+                dp(44),
+                dp(44)));
+        backButton.setOnClickListener(view -> {
+            if (listener != null) {
+                listener.onBackRequested();
+            }
+        });
+
+        LinearLayout titleBlock = new LinearLayout(context);
+        titleBlock.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams titleParams =
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1);
+        titleParams.leftMargin = dp(10);
+        header.addView(titleBlock, titleParams);
+
+        titleView = new TextView(context);
+        titleView.setTextColor(Color.WHITE);
+        titleView.setTextSize(24);
+        titleView.setTypeface(null, Typeface.BOLD);
+        titleBlock.addView(titleView);
+
+        subtitleView = new TextView(context);
+        subtitleView.setTextColor(0xCCFFFFFF);
+        subtitleView.setTextSize(12);
+        subtitleView.setSingleLine(true);
+        subtitleView.setEllipsize(TextUtils.TruncateAt.END);
+        titleBlock.addView(subtitleView);
+    }
+
+    private void renderWide(LinearLayout page) {
         titleView.setText(R.string.settings_title);
         subtitleView.setText(profileSummary);
 
@@ -377,7 +395,6 @@ final class SettingsScreenRenderer {
         itemParams.leftMargin = dp(14);
         columns.addView(wideItemContainer, itemParams);
         renderWideItemContent();
-        return wideItemContainer;
     }
 
     private void renderWideItemContent() {
