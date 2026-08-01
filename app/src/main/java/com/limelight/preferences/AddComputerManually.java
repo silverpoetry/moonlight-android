@@ -1,29 +1,5 @@
 package com.limelight.preferences;
 
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.InterfaceAddress;
-import java.net.NetworkInterface;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Collections;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-
-import com.limelight.BaseActivity;
-import com.limelight.SrvResolver;
-import com.limelight.computers.ComputerManagerService;
-import com.limelight.R;
-import com.limelight.settings.android.AndroidAppLocale;
-import com.limelight.nvstream.http.ComputerDetails;
-import com.limelight.nvstream.http.NvHTTP;
-import com.limelight.nvstream.jni.MoonBridge;
-import com.limelight.utils.Dialog;
-import com.limelight.utils.ServerHelper;
-import com.limelight.utils.SpinnerDialog;
-import com.limelight.utils.UiHelper;
-
 import android.app.Activity;
 import android.app.Service;
 import android.content.ComponentName;
@@ -36,336 +12,381 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.text.TextUtils;
 import android.view.KeyEvent;
-import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.TextView;
+
+import com.limelight.LimeLog;
+import com.limelight.R;
+import com.limelight.SrvResolver;
+import com.limelight.computers.ComputerManagerService;
+import com.limelight.computers.model.HostEndpoint;
+import com.limelight.computers.model.ManualHostEndpointParser;
+import com.limelight.computers.reachability.Ipv4SubnetMatcher;
+import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.nvstream.http.NvHTTP;
+import com.limelight.nvstream.jni.MoonBridge;
+import com.limelight.settings.android.AndroidAppLocale;
+import com.limelight.ui.hosts.ManualHostOperationController;
+import com.limelight.utils.Dialog;
+import com.limelight.utils.ServerHelper;
+import com.limelight.utils.SpinnerDialog;
+import com.limelight.utils.UiHelper;
 import com.limelight.utils.UiToast;
 
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.InterfaceAddress;
+import java.net.NetworkInterface;
+import java.util.Collections;
+
+/** Android presentation adapter for manual host admission. */
 public class AddComputerManually extends Activity {
+    private static final class AddResult {
+        private final boolean successful;
+        private final boolean wrongSiteLocalAddress;
+        private final int portTestResult;
+
+        private AddResult(
+                boolean successful,
+                boolean wrongSiteLocalAddress,
+                int portTestResult) {
+            this.successful = successful;
+            this.wrongSiteLocalAddress = wrongSiteLocalAddress;
+            this.portTestResult = portTestResult;
+        }
+    }
+
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView hostText;
-    private ComputerManagerService.ComputerManagerBinder managerBinder;
-    private final LinkedBlockingQueue<String> computersToAdd = new LinkedBlockingQueue<>();
-    private Thread addThread;
-    private final ServiceConnection serviceConnection = new ServiceConnection() {
-        public void onServiceConnected(ComponentName className, final IBinder binder) {
-            managerBinder = ((ComputerManagerService.ComputerManagerBinder)binder);
-            startAddThread();
-        }
+    private volatile ComputerManagerService.ComputerManagerBinder managerBinder;
+    private ManualHostOperationController operationController;
+    private SpinnerDialog activeProgress;
+    private boolean serviceBound;
+    private boolean started;
+    private boolean destroyed;
 
-        public void onServiceDisconnected(ComponentName className) {
-            joinAddThread();
-            managerBinder = null;
-        }
-    };
-
-    private boolean isWrongSubnetSiteLocalAddress(String address) {
-        try {
-            InetAddress targetAddress = InetAddress.getByName(address);
-            if (!(targetAddress instanceof Inet4Address) || !targetAddress.isSiteLocalAddress()) {
-                return false;
-            }
-
-            // We have a site-local address. Look for a matching local interface.
-            for (NetworkInterface iface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                for (InterfaceAddress addr : iface.getInterfaceAddresses()) {
-                    if (!(addr.getAddress() instanceof Inet4Address) || !addr.getAddress().isSiteLocalAddress()) {
-                        // Skip non-site-local or non-IPv4 addresses
-                        continue;
-                    }
-
-                    byte[] targetAddrBytes = targetAddress.getAddress();
-                    byte[] ifaceAddrBytes = addr.getAddress().getAddress();
-
-                    // Compare prefix to ensure it's the same
-                    boolean addressMatches = true;
-                    for (int i = 0; i < addr.getNetworkPrefixLength(); i++) {
-                        if ((ifaceAddrBytes[i / 8] & (1 << (i % 8))) != (targetAddrBytes[i / 8] & (1 << (i % 8)))) {
-                            addressMatches = false;
-                            break;
-                        }
-                    }
-
-                    if (addressMatches) {
-                        return false;
-                    }
-                }
-            }
-
-            // Couldn't find a matching interface
-            return true;
-        } catch (Exception e) {
-            // Catch all exceptions because some broken Android devices
-            // will throw an NPE from inside getNetworkInterfaces().
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    private URI parseRawUserInputToUri(String rawUserInput) {
-        try {
-            // Try adding a scheme and parsing the remaining input.
-            // This handles input like 127.0.0.1:47989, [::1], [::1]:47989, and 127.0.0.1.
-            URI uri = new URI("moonlight://" + rawUserInput);
-            if (uri.getHost() != null && !uri.getHost().isEmpty()) {
-                return uri;
-            }
-        } catch (URISyntaxException ignored) {}
-
-        try {
-            // Attempt to escape the input as an IPv6 literal.
-            // This handles input like ::1.
-            URI uri = new URI("moonlight://[" + rawUserInput + "]");
-            if (uri.getHost() != null && !uri.getHost().isEmpty()) {
-                return uri;
-            }
-        } catch (URISyntaxException ignored) {}
-
-        return null;
-    }
-
-    private void doAddPc(String rawUserInput) throws InterruptedException {
-        boolean wrongSiteLocal = false;
-        boolean invalidInput = false;
-        boolean success;
-        int portTestResult;
-
-        SpinnerDialog dialog = SpinnerDialog.displayDialog(this, getResources().getString(R.string.title_add_pc),
-            getResources().getString(R.string.msg_add_pc), false);
-
-        try {
-            ComputerDetails details = new ComputerDetails();
-
-            // Check if we parsed a host address successfully
-            URI uri = parseRawUserInputToUri(rawUserInput);
-            if (uri != null && uri.getHost() != null && !uri.getHost().isEmpty()) {
-                String host = uri.getHost();
-                int port = uri.getPort();
-
-                // If a port was not specified, use the default
-                if (port == -1) {
-                    port = NvHTTP.DEFAULT_HTTP_PORT;
-                }
-
-                details.manualAddress = new ComputerDetails.AddressTuple(host, port);
-                success = managerBinder.addComputerBlocking(details);
-                if (!success){
-                    wrongSiteLocal = isWrongSubnetSiteLocalAddress(host);
-                }
-            } else {
-                // Invalid user input
-                success = false;
-                invalidInput = true;
-            }
-        } catch (InterruptedException e) {
-            // Propagate the InterruptedException to the caller for proper handling
-            dialog.dismiss();
-            throw e;
-        } catch (IllegalArgumentException e) {
-            // This can be thrown from OkHttp if the host fails to canonicalize to a valid name.
-            // https://github.com/square/okhttp/blob/okhttp_27/okhttp/src/main/java/com/squareup/okhttp/HttpUrl.java#L705
-            e.printStackTrace();
-            success = false;
-            invalidInput = true;
-        }
-
-        // Keep the SpinnerDialog open while testing connectivity
-        if (!success && !wrongSiteLocal && !invalidInput) {
-            // Run the test before dismissing the spinner because it can take a few seconds.
-            portTestResult = MoonBridge.testClientConnectivity(ServerHelper.CONNECTION_TEST_SERVER, 443,
-                    MoonBridge.ML_PORT_FLAG_TCP_47984 | MoonBridge.ML_PORT_FLAG_TCP_47989);
-        } else {
-            // Don't bother with the test if we succeeded or the IP address was bogus
-            portTestResult = MoonBridge.ML_TEST_RESULT_INCONCLUSIVE;
-        }
-
-        dialog.dismiss();
-
-        if (invalidInput) {
-            Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title), getResources().getString(R.string.addpc_unknown_host), false);
-        }
-        else if (wrongSiteLocal) {
-            Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title), getResources().getString(R.string.addpc_wrong_sitelocal), false);
-        }
-        else if (!success) {
-            String dialogText;
-            if (portTestResult != MoonBridge.ML_TEST_RESULT_INCONCLUSIVE && portTestResult != 0)  {
-                dialogText = getResources().getString(R.string.nettest_text_blocked);
-            }
-            else {
-                dialogText = getResources().getString(R.string.addpc_fail);
-            }
-            Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title), dialogText, false);
-        }
-        else {
-            AddComputerManually.this.runOnUiThread(new Runnable() {
+    private final ServiceConnection serviceConnection =
+            new ServiceConnection() {
                 @Override
-                public void run() {
-                if (!isFinishing()) {
-                    // Close the activity
-                    AddComputerManually.this.finish();
-                }
-                }
-            });
-        }
-
-    }
-
-    private void startAddThread() {
-        addThread = new Thread() {
-            @Override
-            public void run() {
-                while (!isInterrupted()) {
-                    try {
-                        String computer = computersToAdd.take();
-                        doAddPc(computer);
-                    } catch (InterruptedException e) {
-                        return;
+                public void onServiceConnected(
+                        ComponentName className,
+                        IBinder binder) {
+                    if (!destroyed) {
+                        managerBinder =
+                                (ComputerManagerService.ComputerManagerBinder)
+                                        binder;
                     }
                 }
-            }
-        };
-        addThread.setName("UI - AddComputerManually");
-        addThread.start();
-    }
 
-    private void joinAddThread() {
-        if (addThread != null) {
-            addThread.interrupt();
-
-            try {
-                addThread.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-
-                // InterruptedException clears the thread's interrupt status. Since we can't
-                // handle that here, we will re-interrupt the thread to set the interrupt
-                // status back to true.
-                Thread.currentThread().interrupt();
-            }
-
-            addThread = null;
-        }
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-
-        Dialog.closeDialogs();
-        SpinnerDialog.closeDialogs(this);
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-
-        if (managerBinder != null) {
-            joinAddThread();
-            unbindService(serviceConnection);
-        }
-    }
+                @Override
+                public void onServiceDisconnected(ComponentName className) {
+                    managerBinder = null;
+                    if (operationController != null) {
+                        operationController.cancelCurrent();
+                    }
+                    dismissProgress();
+                }
+            };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         AndroidAppLocale.apply(this);
-
         setContentView(R.layout.activity_add_computer_manually);
-
         UiHelper.notifyNewEdgeToEdgeRootView(
                 this,
                 R.id.rv_top_view,
                 R.id.addComputerContent);
 
-        this.hostText = findViewById(R.id.hostTextView);
+        operationController = ManualHostOperationController.create(
+                command -> mainHandler.post(command));
+        hostText = findViewById(R.id.hostTextView);
         hostText.setImeOptions(EditorInfo.IME_ACTION_DONE);
-        hostText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
-            public boolean onEditorAction(TextView textView, int actionId, KeyEvent keyEvent) {
-                if (actionId == EditorInfo.IME_ACTION_DONE ||
-                        (keyEvent != null &&
-                                keyEvent.getAction() == KeyEvent.ACTION_DOWN &&
-                                keyEvent.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
-                    return handleDoneEvent();
-                }
-                else if (actionId == EditorInfo.IME_ACTION_PREVIOUS) {
-                    // This is how the Fire TV dismisses the keyboard
-                    InputMethodManager imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
-                    imm.hideSoftInputFromWindow(hostText.getWindowToken(), 0);
-                    return false;
-                }
-
-                return false;
+        hostText.setOnEditorActionListener((textView, actionId, keyEvent) -> {
+            if (actionId == EditorInfo.IME_ACTION_DONE ||
+                    (keyEvent != null &&
+                            keyEvent.getAction() == KeyEvent.ACTION_DOWN &&
+                            keyEvent.getKeyCode() ==
+                                    KeyEvent.KEYCODE_ENTER)) {
+                return submitHostAddition();
             }
+            if (actionId == EditorInfo.IME_ACTION_PREVIOUS) {
+                InputMethodManager inputManager =
+                        (InputMethodManager) getSystemService(
+                                Context.INPUT_METHOD_SERVICE);
+                inputManager.hideSoftInputFromWindow(
+                        hostText.getWindowToken(),
+                        0);
+            }
+            return false;
         });
 
-        findViewById(R.id.addPcButton).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                handleDoneEvent();
-            }
-        });
+        findViewById(R.id.addPcButton).setOnClickListener(
+                view -> submitHostAddition());
+        findViewById(R.id.razerPort).setOnClickListener(
+                view -> hostText.append(":51337"));
+        findViewById(R.id.getPcButton).setOnClickListener(
+                view -> submitSrvResolution());
 
-        findViewById(R.id.razerPort).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                hostText.append(":51337");
-            }
-        });
-
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        Handler handler = new Handler(Looper.getMainLooper());
-        findViewById(R.id.getPcButton).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String text=hostText.getText().toString().trim();
-                if(TextUtils.isEmpty(text)){
-                    UiToast.makeText(AddComputerManually.this, getResources().getString(R.string.addpc_enter_ip), UiToast.LENGTH_LONG).show();
-                    return;
-                }
-                SpinnerDialog dialog = SpinnerDialog.displayDialog(AddComputerManually.this, "提示",
-                        "请求中....", false);
-                //"wtb.plus"
-                executor.execute(() -> {
-                    // 在后台线程中执行网络请求
-                    SrvResolver.ResultCode result = SrvResolver.resolveSRVRecord(text);
-                    // 切换到主线程更新 UI
-                    handler.post(() -> {
-                        dialog.dismiss();
-                        if (result == null) {
-                            return;
-                        }
-                        if(result.getCode()!=0){
-                            UiToast.makeText(AddComputerManually.this,result.getResult(),UiToast.LENGTH_SHORT).show();
-                            return;
-                        }
-                        if(TextUtils.isEmpty(result.getResult())){
-                            UiToast.makeText(AddComputerManually.this,"没有检索到_limelightax._tcp",UiToast.LENGTH_SHORT).show();
-                            return;
-                        }
-                        hostText.setText(result.getResult());
-                    });
-                });
-            }
-        });
-
-        // Bind to the ComputerManager service
-        bindService(new Intent(AddComputerManually.this,
-                    ComputerManagerService.class), serviceConnection, Service.BIND_AUTO_CREATE);
+        serviceBound = bindService(
+                new Intent(this, ComputerManagerService.class),
+                serviceConnection,
+                Service.BIND_AUTO_CREATE);
     }
 
-    // Returns true if the event should be eaten
-    private boolean handleDoneEvent() {
-        String hostAddress = hostText.getText().toString().trim();
+    @Override
+    protected void onStart() {
+        super.onStart();
+        started = true;
+    }
 
-        if (hostAddress.length() == 0) {
-            UiToast.makeText(AddComputerManually.this, getResources().getString(R.string.addpc_enter_ip), UiToast.LENGTH_LONG).show();
+    @Override
+    protected void onStop() {
+        started = false;
+        operationController.cancelCurrent();
+        dismissProgress();
+        Dialog.closeDialogs();
+        SpinnerDialog.closeDialogs(this);
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        destroyed = true;
+        managerBinder = null;
+        if (operationController != null) {
+            operationController.destroy();
+            operationController = null;
+        }
+        mainHandler.removeCallbacksAndMessages(null);
+        dismissProgress();
+        if (serviceBound) {
+            unbindService(serviceConnection);
+            serviceBound = false;
+        }
+        super.onDestroy();
+    }
+
+    private boolean submitHostAddition() {
+        String rawInput = hostText.getText().toString().trim();
+        if (rawInput.isEmpty()) {
+            showToast(R.string.addpc_enter_ip, UiToast.LENGTH_LONG);
             return true;
         }
 
-        computersToAdd.add(hostAddress);
-        return false;
+        HostEndpoint endpoint = ManualHostEndpointParser.parse(
+                rawInput,
+                NvHTTP.DEFAULT_HTTP_PORT);
+        if (endpoint == null) {
+            showErrorDialog(R.string.addpc_unknown_host);
+            return true;
+        }
+
+        ComputerManagerService.ComputerManagerBinder binder = managerBinder;
+        if (binder == null) {
+            showErrorDialog(R.string.addpc_fail);
+            return true;
+        }
+
+        ManualHostOperationController.RequestStatus status =
+                operationController.request(
+                        () -> addHost(binder, endpoint),
+                        this::onHostAdditionCompleted);
+        handleRequestStatus(status);
+        return true;
+    }
+
+    private AddResult addHost(
+            ComputerManagerService.ComputerManagerBinder binder,
+            HostEndpoint endpoint) throws InterruptedException {
+        ComputerDetails details = new ComputerDetails();
+        details.manualAddress = new ComputerDetails.AddressTuple(
+                endpoint.getAddress(),
+                endpoint.getPort());
+
+        boolean successful = binder.addComputerBlocking(details);
+        boolean wrongSiteLocalAddress = !successful &&
+                isWrongSubnetSiteLocalAddress(endpoint.getAddress());
+        int portTestResult = MoonBridge.ML_TEST_RESULT_INCONCLUSIVE;
+        if (!successful && !wrongSiteLocalAddress) {
+            portTestResult = MoonBridge.testClientConnectivity(
+                    ServerHelper.CONNECTION_TEST_SERVER,
+                    443,
+                    MoonBridge.ML_PORT_FLAG_TCP_47984 |
+                            MoonBridge.ML_PORT_FLAG_TCP_47989);
+        }
+        return new AddResult(
+                successful,
+                wrongSiteLocalAddress,
+                portTestResult);
+    }
+
+    private void onHostAdditionCompleted(
+            ManualHostOperationController.Result<AddResult> result) {
+        dismissProgress();
+        if (!started || destroyed) {
+            return;
+        }
+        if (!result.isSuccessful()) {
+            if (!(result.getFailure() instanceof InterruptedException)) {
+                LimeLog.warning(
+                        "Manual host admission failed: " +
+                                result.getFailure()
+                                        .getClass()
+                                        .getSimpleName());
+                showErrorDialog(R.string.addpc_fail);
+            }
+            return;
+        }
+
+        AddResult addResult = result.getValue();
+        if (addResult.successful) {
+            finish();
+        }
+        else if (addResult.wrongSiteLocalAddress) {
+            showErrorDialog(R.string.addpc_wrong_sitelocal);
+        }
+        else if (addResult.portTestResult !=
+                        MoonBridge.ML_TEST_RESULT_INCONCLUSIVE &&
+                addResult.portTestResult != 0) {
+            showErrorDialog(R.string.nettest_text_blocked);
+        }
+        else {
+            showErrorDialog(R.string.addpc_fail);
+        }
+    }
+
+    private void submitSrvResolution() {
+        String input = hostText.getText().toString().trim();
+        if (TextUtils.isEmpty(input)) {
+            showToast(R.string.addpc_enter_ip, UiToast.LENGTH_LONG);
+            return;
+        }
+
+        ManualHostOperationController.RequestStatus status =
+                operationController.request(
+                        () -> SrvResolver.resolveSRVRecord(input),
+                        this::onSrvResolutionCompleted);
+        handleRequestStatus(status);
+    }
+
+    private void onSrvResolutionCompleted(
+            ManualHostOperationController.Result<SrvResolver.ResultCode>
+                    result) {
+        dismissProgress();
+        if (!started || destroyed) {
+            return;
+        }
+        if (!result.isSuccessful() || result.getValue() == null) {
+            if (result.getFailure() != null &&
+                    !(result.getFailure() instanceof InterruptedException)) {
+                LimeLog.warning(
+                        "SRV host resolution failed: " +
+                                result.getFailure()
+                                        .getClass()
+                                        .getSimpleName());
+            }
+            showErrorDialog(R.string.addpc_unknown_host);
+            return;
+        }
+
+        SrvResolver.ResultCode resolved = result.getValue();
+        if (resolved.getCode() != 0) {
+            UiToast.makeText(
+                    this,
+                    resolved.getResult(),
+                    UiToast.LENGTH_SHORT).show();
+        }
+        else if (TextUtils.isEmpty(resolved.getResult())) {
+            showToast(R.string.addpc_srv_not_found, UiToast.LENGTH_SHORT);
+        }
+        else {
+            hostText.setText(resolved.getResult());
+        }
+    }
+
+    private void handleRequestStatus(
+            ManualHostOperationController.RequestStatus status) {
+        switch (status) {
+            case ACCEPTED:
+                activeProgress = SpinnerDialog.displayDialog(
+                        this,
+                        getString(R.string.title_add_pc),
+                        getString(R.string.msg_add_pc),
+                        false);
+                break;
+            case ALREADY_RUNNING:
+                // The existing progress UI already represents the operation.
+                break;
+            case DESTROYED:
+            case UNAVAILABLE:
+                showErrorDialog(R.string.addpc_fail);
+                break;
+            default:
+                throw new AssertionError(
+                        "Unhandled request status: " + status);
+        }
+    }
+
+    private void dismissProgress() {
+        if (activeProgress != null) {
+            activeProgress.dismiss();
+            activeProgress = null;
+        }
+    }
+
+    private void showErrorDialog(int messageResource) {
+        if (!destroyed) {
+            Dialog.displayDialog(
+                    this,
+                    getString(R.string.conn_error_title),
+                    getString(messageResource),
+                    false);
+        }
+    }
+
+    private void showToast(int messageResource, int duration) {
+        UiToast.makeText(
+                this,
+                getString(messageResource),
+                duration).show();
+    }
+
+    private boolean isWrongSubnetSiteLocalAddress(String address) {
+        try {
+            InetAddress targetAddress = InetAddress.getByName(address);
+            if (!(targetAddress instanceof Inet4Address) ||
+                    !targetAddress.isSiteLocalAddress()) {
+                return false;
+            }
+
+            for (NetworkInterface networkInterface :
+                    Collections.list(
+                            NetworkInterface.getNetworkInterfaces())) {
+                for (InterfaceAddress interfaceAddress :
+                        networkInterface.getInterfaceAddresses()) {
+                    InetAddress localAddress =
+                            interfaceAddress.getAddress();
+                    if (!(localAddress instanceof Inet4Address) ||
+                            !localAddress.isSiteLocalAddress()) {
+                        continue;
+                    }
+                    if (Ipv4SubnetMatcher.isSameSubnet(
+                            targetAddress.getAddress(),
+                            localAddress.getAddress(),
+                            interfaceAddress.getNetworkPrefixLength())) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        catch (Exception error) {
+            // Some Android builds throw from network-interface enumeration.
+            LimeLog.warning(
+                    "Unable to evaluate manual host subnet");
+            return false;
+        }
     }
 }

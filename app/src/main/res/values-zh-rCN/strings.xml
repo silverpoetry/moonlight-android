@@ -281,6 +281,7 @@
     <string name="appview_menu_options">应用选项</string>
     <string name="addpc_get_from_svr">根据 SVR 记录获取地址</string>
     <string name="addpc_append_razer_port">追加 Razer 雷游端口号</string>
+    <string name="addpc_srv_not_found">未找到 _limelightax._tcp SRV 记录</string>
     <string name="accessibility_virtual_controller">虚拟手柄</string>
     <string name="category_video_display_settings">视频与显示</string>
     <string name="category_touch_mouse_settings">触控与鼠标</string>

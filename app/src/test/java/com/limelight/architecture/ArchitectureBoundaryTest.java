@@ -369,6 +369,38 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void manualHostOperationsHaveOnePlatformIndependentOwner() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.hosts.ManualHostOperationController")
+                .or()
+                .haveNameMatching(
+                        "com\\.limelight\\.ui\\.hosts\\.ManualHostOperationController\\$.*")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.model.ManualHostEndpointParser")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..", "androidx..")
+                .because(
+                        "manual-host parsing, cancellation, and stale-callback policy are pure")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences.AddComputerManually")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "java.util.concurrent.Executors")
+                .because(
+                        "the Activity delegates worker ownership to ManualHostOperationController")
+                .check(productionClasses);
+    }
+
+    @Test
     public void hostReachabilityPolicyIsPlatformAndTransportIndependent() {
         noClasses()
                 .that()

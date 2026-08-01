@@ -952,6 +952,12 @@ targets.
   server-info and app-list traffic through a fair interruptible lock; service
   destruction rejects queued admissions and cancels the active probe instead
   of allowing a late database resurrection.
+- The manual-host screen now delegates address parsing and single-operation
+  ownership to platform-independent components. Add and SRV requests reject
+  duplicates, cancel on stop, suppress callbacks after lifecycle invalidation,
+  and own one bounded worker instead of leaking a queue, thread, and separate
+  executor. Manual subnet diagnostics reuse the verified most-significant-bit
+  prefix policy rather than maintaining a divergent copy in the Activity.
 
 ### Exit evidence
 
