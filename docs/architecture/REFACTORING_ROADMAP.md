@@ -946,6 +946,12 @@ targets.
   repository leases finish safely. `PcView`, `AppView`, and shortcut launch
   use the same lifecycle contract; shortcut name resolution no longer opens
   the host database from an Activity.
+- Manual and mDNS host admission now share one interruptible, service-owned
+  serialization boundary until a stable host identity exists. The
+  credential-aware second probe is then serialized with that host's
+  server-info and app-list traffic through a fair interruptible lock; service
+  destruction rejects queued admissions and cancels the active probe instead
+  of allowing a late database resurrection.
 
 ### Exit evidence
 

@@ -85,6 +85,8 @@ public class ComputerManagerService extends Service {
             pollingOwnership = new HostPollingOwnership<>();
     private final InFlightOperationTracker activePolls =
             new InFlightOperationTracker();
+    private final HostAdmissionGate hostAdmissionGate =
+            new HostAdmissionGate();
     private volatile boolean pollingActive;
     private volatile boolean serviceDestroyed;
     private final Lock defaultNetworkLock = new ReentrantLock();
@@ -233,7 +235,8 @@ public class ComputerManagerService extends Service {
                 while (!isInterrupted() && pollingActive && tuple.thread == this) {
                     try {
                         // Only allow one request to the machine at a time
-                        synchronized (tuple.networkLock) {
+                        tuple.networkLock.lockInterruptibly();
+                        try {
                             // stopPolling() may have invalidated this worker
                             // while it was waiting for an app-list request.
                             if (!isPollingThreadCurrent(tuple, this)) {
@@ -247,6 +250,9 @@ public class ComputerManagerService extends Service {
                                 tuple.lastSuccessfulPollMs = SystemClock.elapsedRealtime();
                                 offlineCount = 0;
                             }
+                        }
+                        finally {
+                            tuple.networkLock.unlock();
                         }
 
                         // Wait until the next polling interval
@@ -403,13 +409,23 @@ public class ComputerManagerService extends Service {
                 // Order invalidation after any request already using this
                 // host. Otherwise a late server-info result can immediately
                 // overwrite UNKNOWN and suppress the requested refresh.
-                synchronized (match.networkLock) {
+                try {
+                    match.networkLock.lockInterruptibly();
+                }
+                catch (InterruptedException error) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                try {
                     synchronized (match.stateLock) {
                         if (isRegistered(match)) {
                             match.computer.state =
                                     ComputerDetails.State.UNKNOWN;
                         }
                     }
+                }
+                finally {
+                    match.networkLock.unlock();
                 }
             }
         }
@@ -696,6 +712,20 @@ public class ComputerManagerService extends Service {
         }
     }
 
+    private PollingTuple findPollingTuple(String uuid) {
+        if (uuid == null) {
+            return null;
+        }
+        synchronized (pollingTuples) {
+            for (PollingTuple tuple : pollingTuples) {
+                if (sameHostIdentity(uuid, tuple.computer.uuid)) {
+                    return tuple;
+                }
+            }
+        }
+        return null;
+    }
+
     private boolean isPollingThreadCurrent(
             PollingTuple tuple,
             Thread worker) {
@@ -772,46 +802,70 @@ public class ComputerManagerService extends Service {
         }
     }
 
-    public boolean addComputerBlocking(ComputerDetails fakeDetails) throws InterruptedException {
-        // Block while we try to fill the details
-
-        // We cannot use runPoll() here because it will attempt to persist the state of the machine
-        // in the database, which would be bad because we don't have our pinned cert loaded yet.
-        if (pollComputer(fakeDetails)) {
-            // See if we have record of this PC to pull its pinned cert
-            PollingTuple match = null;
-            synchronized (pollingTuples) {
-                for (PollingTuple tuple : pollingTuples) {
-                    if (sameHostIdentity(
-                            tuple.computer.uuid,
-                            fakeDetails.uuid)) {
-                        match = tuple;
-                        break;
-                    }
-                }
-            }
-            if (match != null) {
-                synchronized (match.stateLock) {
-                    fakeDetails.serverCert = match.computer.serverCert;
-                }
-            }
-
-            // Poll again, possibly with the pinned cert, to get accurate pairing information.
-            // This will insert the host into the database too.
-            runNewComputerPoll(fakeDetails);
+    public boolean addComputerBlocking(ComputerDetails candidate)
+            throws InterruptedException {
+        Objects.requireNonNull(candidate, "candidate");
+        HostAdmissionGate.Lease admission;
+        try {
+            admission = hostAdmissionGate.acquire();
         }
-
-        // If the machine is reachable, it was successful
-        if (fakeDetails.state == ComputerDetails.State.ONLINE) {
-            LimeLog.info("New host added");
-
-            // Start a polling thread for this machine
-            addTuple(fakeDetails);
-            return true;
-        }
-        else {
+        catch (IllegalStateException error) {
+            // Service teardown closes the admission owner before disposing its
+            // discovery and repository dependencies.
             return false;
         }
+        try (HostAdmissionGate.Lease ignoredAdmission = admission;
+                InFlightOperationTracker.Lease ignoredOperation =
+                        activePolls.begin()) {
+            if (serviceDestroyed) {
+                return false;
+            }
+            return addComputerSerialized(candidate);
+        }
+    }
+
+    private boolean addComputerSerialized(ComputerDetails candidate)
+            throws InterruptedException {
+        // The first probe resolves stable identity without persisting anything;
+        // no pinned certificate is available at this boundary yet.
+        if (!pollComputer(candidate)) {
+            return false;
+        }
+
+        PollingTuple match = findPollingTuple(candidate.uuid);
+        if (match == null) {
+            return finishComputerAdmission(candidate);
+        }
+
+        // Once identity is known, serialize the credential-aware probe with
+        // all server-info and app-list traffic for the existing host.
+        match.networkLock.lockInterruptibly();
+        try {
+            synchronized (match.stateLock) {
+                if (!isRegistered(match)) {
+                    return finishComputerAdmission(candidate);
+                }
+                candidate.serverCert = match.computer.serverCert;
+            }
+            return finishComputerAdmission(candidate);
+        }
+        finally {
+            match.networkLock.unlock();
+        }
+    }
+
+    private boolean finishComputerAdmission(ComputerDetails candidate)
+            throws InterruptedException {
+        // Probe again with the pinned certificate, if one was found, to obtain
+        // authoritative pairing state before committing the host record.
+        runNewComputerPoll(candidate);
+        if (candidate.state != ComputerDetails.State.ONLINE) {
+            return false;
+        }
+
+        LimeLog.info("New host added");
+        addTuple(candidate);
+        return true;
     }
 
     public void removeComputer(ComputerDetails computer) {
@@ -943,7 +997,7 @@ public class ComputerManagerService extends Service {
         catch (IllegalArgumentException error) {
             // Preserve exact matching for malformed identifiers already in a
             // legacy database without allowing them to match another host.
-            return expected.equals(actual);
+            return Objects.equals(expected, actual);
         }
     }
 
@@ -1108,6 +1162,7 @@ public class ComputerManagerService extends Service {
     @Override
     public void onDestroy() {
         serviceDestroyed = true;
+        hostAdmissionGate.close();
         try {
             stopAllPolling();
 
@@ -1321,8 +1376,12 @@ public class ComputerManagerService extends Service {
                                 // If we're polling this machine too, grab the network lock
                                 // while doing the app list request to prevent other requests
                                 // from being issued in the meantime.
-                                synchronized (tuple.networkLock) {
+                                tuple.networkLock.lockInterruptibly();
+                                try {
                                     appList = http.getAppListRaw();
+                                }
+                                finally {
+                                    tuple.networkLock.unlock();
                                 }
                             }
                             else {
@@ -1374,6 +1433,9 @@ public class ComputerManagerService extends Service {
                             else if (appList.isEmpty()) {
                                 LimeLog.warning("Null app list received from host");
                             }
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            break;
                         } catch (IOException e) {
                             LimeLog.warning("Unable to retrieve host app list");
                         } catch (XmlPullParserException e) {
@@ -1410,14 +1472,14 @@ public class ComputerManagerService extends Service {
 class PollingTuple {
     public volatile Thread thread;
     public final ComputerDetails computer;
-    public final Object networkLock;
+    public final Lock networkLock;
     public final Object stateLock;
     public volatile long lastSuccessfulPollMs;
 
     public PollingTuple(ComputerDetails computer, Thread thread) {
         this.computer = computer;
         this.thread = thread;
-        this.networkLock = new Object();
+        this.networkLock = new ReentrantLock(true);
         this.stateLock = new Object();
     }
 }

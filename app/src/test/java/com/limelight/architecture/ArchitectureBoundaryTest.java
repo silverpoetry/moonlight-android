@@ -404,7 +404,7 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
-    public void hostPollingLifecycleIsPlatformIndependent() {
+    public void hostServiceLifecyclePrimitivesArePlatformIndependent() {
         noClasses()
                 .that()
                 .haveFullyQualifiedName(
@@ -427,6 +427,12 @@ public final class ArchitectureBoundaryTest {
                 .or()
                 .haveNameMatching(
                         "com\\.limelight\\.computers\\.HostPollingClientLifecycle\\$.*")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.HostAdmissionGate")
+                .or()
+                .haveNameMatching(
+                        "com\\.limelight\\.computers\\.HostAdmissionGate\\$.*")
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage("android..", "androidx..")
