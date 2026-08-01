@@ -3,10 +3,10 @@ package com.limelight.utils;
 import android.content.Context;
 import android.graphics.Point;
 import android.util.DisplayMetrics;
-import android.view.WindowManager;
 
 import com.limelight.LimeLog;
 import com.limelight.nvstream.StreamConfiguration;
+import com.limelight.platform.AndroidDisplayCompat;
 
 import java.text.DecimalFormat;
 
@@ -85,15 +85,6 @@ public class RazerUtils {
 
     // 获取设备的实际屏幕分辨率
     public static Point getScreenResolution(Context context) {
-        Point screenResolution = new Point();
-        DisplayMetrics realMetrics = new DisplayMetrics();
-
-        WindowManager display = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
-        display.getDefaultDisplay().getRealMetrics(realMetrics);
-
-        screenResolution.x = realMetrics.widthPixels;
-        screenResolution.y = realMetrics.heightPixels;
-
-        return screenResolution;
+        return AndroidDisplayCompat.getPhysicalDisplaySize(context);
     }
 }

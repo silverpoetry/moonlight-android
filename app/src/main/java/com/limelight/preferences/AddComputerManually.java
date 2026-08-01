@@ -1,6 +1,5 @@
 package com.limelight.preferences;
 
-import android.app.Activity;
 import android.app.Service;
 import android.content.ComponentName;
 import android.content.Context;
@@ -18,6 +17,7 @@ import android.widget.TextView;
 
 import com.limelight.LimeLog;
 import com.limelight.R;
+import com.limelight.BaseActivity;
 import com.limelight.SrvResolver;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.computers.model.HostEndpoint;
@@ -26,7 +26,6 @@ import com.limelight.computers.reachability.Ipv4SubnetMatcher;
 import com.limelight.computers.reachability.ClientConnectivityEndpoint;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.jni.MoonBridge;
-import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.ui.hosts.HostUiOperationController;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.SpinnerDialog;
@@ -40,7 +39,7 @@ import java.net.NetworkInterface;
 import java.util.Collections;
 
 /** Android presentation adapter for manual host admission. */
-public class AddComputerManually extends Activity {
+public class AddComputerManually extends BaseActivity {
     private static final class AddResult {
         private final boolean successful;
         private final boolean wrongSiteLocalAddress;
@@ -91,7 +90,6 @@ public class AddComputerManually extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        AndroidAppLocale.apply(this);
         setContentView(R.layout.activity_add_computer_manually);
         UiHelper.notifyNewEdgeToEdgeRootView(
                 this,

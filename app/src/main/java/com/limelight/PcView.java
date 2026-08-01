@@ -33,7 +33,6 @@ import com.limelight.nvstream.wol.WakeOnLanSender;
 import com.limelight.preferences.AddComputerManually;
 import com.limelight.preferences.GlPreferences;
 import com.limelight.preferences.StreamSettings;
-import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
 import com.limelight.settings.app.AppPresentationSettings;
 import com.limelight.stream.launch.RecentStreamSession;
@@ -77,7 +76,6 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import androidx.fragment.app.FragmentActivity;
 import com.limelight.utils.UiToast;
 
 import org.xmlpull.v1.XmlPullParserException;
@@ -90,7 +88,7 @@ import cn.axi.gamepad.an.AxiGamePadIndexActivity;
 import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
 import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
 
-public class PcView extends FragmentActivity implements AdapterFragmentCallbacks {
+public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
     private View noPcFoundLayout;
     private PcGridAdapter pcGridAdapter;
     private ShortcutHelper shortcutHelper;
@@ -342,8 +340,6 @@ public class PcView extends FragmentActivity implements AdapterFragmentCallbacks
         completeOnCreateCalled = true;
 
         shortcutHelper = new ShortcutHelper(this);
-
-        AndroidAppLocale.apply(this);
 
         // Bind to the computer manager service
         managerServiceBound = bindService(

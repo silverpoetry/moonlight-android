@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
-import android.graphics.Insets;
 import android.graphics.Typeface;
 import android.os.Build;
 import android.text.TextUtils;
@@ -13,7 +12,6 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
-import android.view.WindowInsets;
 import android.widget.CompoundButton;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -22,6 +20,10 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
+
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.limelight.R;
 import com.limelight.utils.UiHelper;
@@ -270,35 +272,20 @@ final class SettingsScreenRenderer {
                 topPadding,
                 horizontalPadding,
                 bottomPadding);
-        outerContainer.setOnApplyWindowInsetsListener((view, insets) -> {
-            int leftInset = 0;
-            int topInset;
-            int rightInset = 0;
-            int bottomInset;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                Insets safeInsets = insets.getInsets(
-                        WindowInsets.Type.systemBars() |
-                                WindowInsets.Type.displayCutout());
-                leftInset = safeInsets.left;
-                topInset = safeInsets.top;
-                rightInset = safeInsets.right;
-                bottomInset = safeInsets.bottom;
-            }
-            else {
-                topInset = insets.getSystemWindowInsetTop();
-                bottomInset = 0;
-            }
-            if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
-                bottomInset = insets.getTappableElementInsets().bottom;
-            }
-            view.setPadding(
-                    horizontalPadding + leftInset,
-                    topPadding + topInset,
-                    horizontalPadding + rightInset,
-                    bottomPadding + bottomInset);
-            return insets;
-        });
-        outerContainer.requestApplyInsets();
+        ViewCompat.setOnApplyWindowInsetsListener(
+                outerContainer,
+                (view, insets) -> {
+                    Insets safeInsets = insets.getInsets(
+                            WindowInsetsCompat.Type.systemBars() |
+                                    WindowInsetsCompat.Type.displayCutout());
+                    view.setPadding(
+                            horizontalPadding + safeInsets.left,
+                            topPadding + safeInsets.top,
+                            horizontalPadding + safeInsets.right,
+                            bottomPadding + safeInsets.bottom);
+                    return insets;
+                });
+        ViewCompat.requestApplyInsets(outerContainer);
     }
 
     void destroy() {

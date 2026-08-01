@@ -22,7 +22,6 @@ import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
 import com.limelight.settings.SettingsMigrationRunner;
 import com.limelight.settings.SettingsRepository;
-import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
 import com.limelight.settings.android.AndroidDisplayAspectProvider;
 import com.limelight.settings.android.SharedPreferencesCustomResolutionRepository;
@@ -72,12 +71,11 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import androidx.fragment.app.FragmentActivity;
 import com.limelight.utils.UiToast;
 
 import org.xmlpull.v1.XmlPullParserException;
 
-public class AppView extends FragmentActivity implements AdapterFragmentCallbacks,
+public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
         GameDisplayHost {
     private AppGridAdapter appGridAdapter;
     private String uuidString;
@@ -575,8 +573,6 @@ public class AppView extends FragmentActivity implements AdapterFragmentCallback
         hostPollingLifecycle.activate();
 
         shortcutHelper = new ShortcutHelper(this);
-
-        AndroidAppLocale.apply(this);
 
         setContentView(R.layout.activity_app_view_new);
 

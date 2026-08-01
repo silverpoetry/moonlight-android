@@ -1612,6 +1612,22 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void sharedPlatformAdaptersRemainPolicyFree() {
+        noClasses()
+                .that()
+                .resideInAPackage("com.limelight.platform..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "com.limelight.preferences..",
+                        "com.limelight.settings..",
+                        "com.limelight.ui..")
+                .because(
+                        "shared Android compatibility adapters expose platform facts, not product policy")
+                .check(productionClasses);
+    }
+
+    @Test
     public void floatingViewDoesNotOwnMutableSettingsState() {
         noClasses()
                 .that()

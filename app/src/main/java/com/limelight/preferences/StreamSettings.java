@@ -3,7 +3,6 @@ package com.limelight.preferences;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -14,13 +13,16 @@ import android.view.WindowInsets;
 import android.view.WindowManager;
 
 import androidx.annotation.RequiresApi;
-import androidx.activity.ComponentActivity;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.view.WindowCompat;
 
 import com.limelight.AboutActivity;
+import com.limelight.BaseActivity;
 import com.limelight.PcView;
 import com.limelight.R;
-import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
+import com.limelight.platform.AndroidDisplayCompat;
 import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.app.AppPresentationSettings;
 import com.limelight.settings.input.InputSettingKeys;
@@ -34,11 +36,7 @@ import com.limelight.virtualcontrols.layout.android.AndroidVirtualControlLayoutR
 
 import java.util.ArrayList;
 
-import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
-import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
-import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
-
-public class StreamSettings extends ComponentActivity {
+public class StreamSettings extends BaseActivity {
     private static final String EXTRA_SECTION_ID =
             "com.limelight.preferences.StreamSettings.SECTION_ID";
     private static final String STATE_SECTION_KEY =
@@ -49,6 +47,8 @@ public class StreamSettings extends ComponentActivity {
             "settings.section_scroll_y";
     private static final String STATE_SECTION_RAIL_SCROLL_Y =
             "settings.section_rail_scroll_y";
+    private static final String STATE_DOCUMENT_REQUEST_CODE =
+            "settings.document_request_code";
 
     private AppPresentationSettings previousPresentationSettings;
     private int previousDisplayPixelCount;
@@ -69,16 +69,28 @@ public class StreamSettings extends ComponentActivity {
     private boolean sectionActivity;
     private boolean sectionLaunchPending;
     private boolean reloadAfterPause;
+    private final ActivityResultLauncher<Intent> documentLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> handleDocumentActivityResult(
+                            result.getResultCode(),
+                            result.getData()));
 
     // Android 9 exposes the cutout only after the window is attached.
     static DisplayCutout displayCutoutP;
+
+    void handleDocumentActivityResult(int resultCode, Intent data) {
+        if (documentController != null) {
+            documentController.handleActivityResult(resultCode, data);
+        }
+    }
 
     void reloadSettings() {
         captureNavigationScroll();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Display.Mode mode = getWindowManager()
-                    .getDefaultDisplay()
+            Display.Mode mode = AndroidDisplayCompat
+                    .getActivityDisplay(this)
                     .getMode();
             previousDisplayPixelCount =
                     mode.getPhysicalWidth() * mode.getPhysicalHeight();
@@ -124,8 +136,6 @@ public class StreamSettings extends ComponentActivity {
             setTheme(R.style.SettingsActivityDarkTheme);
         }
         super.onCreate(savedInstanceState);
-
-        AndroidAppLocale.apply(this);
         store = new SettingsStore(this);
         AndroidVirtualControlLayoutRepository layoutRepository =
                 new AndroidVirtualControlLayoutRepository(this);
@@ -142,10 +152,17 @@ public class StreamSettings extends ComponentActivity {
                     }
                 });
         dialogPresenter = createDialogPresenter();
+        int pendingDocumentRequest = savedInstanceState == null
+                ? SettingsDocumentController.NO_PENDING_REQUEST
+                : savedInstanceState.getInt(
+                        STATE_DOCUMENT_REQUEST_CODE,
+                        SettingsDocumentController.NO_PENDING_REQUEST);
         documentController = new SettingsDocumentController(
                 this,
                 store.repository,
                 layoutRepository,
+                documentLauncher::launch,
+                pendingDocumentRequest,
                 this::reloadSettings);
         sectionActivity = getIntent().hasExtra(EXTRA_SECTION_ID);
         String requestedSectionId = sectionActivity
@@ -295,8 +312,8 @@ public class StreamSettings extends ComponentActivity {
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Display.Mode mode = getWindowManager()
-                    .getDefaultDisplay()
+            Display.Mode mode = AndroidDisplayCompat
+                    .getActivityDisplay(this)
                     .getMode();
             int displayPixelCount =
                     mode.getPhysicalWidth() * mode.getPhysicalHeight();
@@ -328,6 +345,11 @@ public class StreamSettings extends ComponentActivity {
         outState.putInt(
                 STATE_SECTION_RAIL_SCROLL_Y,
                 navigationState.getSectionRailScrollY());
+        if (documentController != null) {
+            outState.putInt(
+                    STATE_DOCUMENT_REQUEST_CODE,
+                    documentController.getPendingRequestCode());
+        }
     }
 
     @Override
@@ -497,22 +519,10 @@ public class StreamSettings extends ComponentActivity {
                                     .LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
             getWindow().setAttributes(layoutParams);
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            getWindow().setDecorFitsSystemWindows(false);
-        }
-        getWindow().setStatusBarColor(Color.TRANSPARENT);
-        getWindow().setNavigationBarColor(Color.TRANSPARENT);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            getWindow().setNavigationBarDividerColor(
-                    Color.TRANSPARENT);
-        }
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             getWindow().setNavigationBarContrastEnforced(false);
         }
-        getWindow().getDecorView().setSystemUiVisibility(
-                SYSTEM_UI_FLAG_LAYOUT_STABLE |
-                        SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
-                        SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
         screenRenderer.applyWindowPadding();
     }
 
@@ -718,17 +728,4 @@ public class StreamSettings extends ComponentActivity {
                 bitrateText);
     }
 
-    @Override
-    public void onActivityResult(
-            int requestCode,
-            int resultCode,
-            Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (documentController != null) {
-            documentController.handleActivityResult(
-                    requestCode,
-                    resultCode,
-                    data);
-        }
-    }
 }

@@ -2,6 +2,7 @@ package com.limelight.settings.android;
 
 import android.app.Activity;
 import android.app.LocaleManager;
+import android.content.Context;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.os.LocaleList;
@@ -14,55 +15,54 @@ import java.util.Locale;
 import java.util.Objects;
 
 /**
- * Applies the legacy in-app language setting and migrates it to Android's
- * per-app locale API where available.
+ * Creates the pre-Android 13 localized Activity context and migrates the
+ * legacy language setting to Android's per-app locale API when available.
  */
 public final class AndroidAppLocale {
     private AndroidAppLocale() {
     }
 
-    public static void apply(Activity activity) {
-        Objects.requireNonNull(activity, "activity");
-        apply(
-                activity,
-                AndroidAppPresentationSettingsLoader.load(activity));
+    public static Context wrapBaseContext(Context context) {
+        Objects.requireNonNull(context, "context");
+        AppPresentationSettings settings =
+                AndroidAppPresentationSettingsLoader.load(context);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ||
+                settings.usesSystemLanguage()) {
+            return context;
+        }
+
+        Configuration configuration = new Configuration(
+                context.getResources().getConfiguration());
+        configuration.setLocale(Locale.forLanguageTag(
+                settings.getLanguage()));
+        return context.createConfigurationContext(configuration);
     }
 
-    static void apply(
-            Activity activity,
-            AppPresentationSettings settings) {
+    public static void migrateToPlatformLocales(Activity activity) {
+        Objects.requireNonNull(activity, "activity");
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return;
+        }
+
+        AppPresentationSettings settings =
+                AndroidAppPresentationSettingsLoader.load(activity);
         if (settings.usesSystemLanguage()) {
             return;
         }
-
         String language = settings.getLanguage();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            LocaleManager localeManager =
-                    activity.getSystemService(LocaleManager.class);
-            if (localeManager == null) {
-                return;
-            }
-            localeManager.setApplicationLocales(
-                    LocaleList.forLanguageTags(language));
-            SettingsRepository repository =
-                    AndroidSettingsRepository.create(activity);
-            repository.edit()
-                    .put(
-                            AppPresentationSettingKeys.LANGUAGE,
-                            AppPresentationSettingKeys
-                                    .SYSTEM_LANGUAGE)
-                    .apply();
+        LocaleManager localeManager =
+                activity.getSystemService(LocaleManager.class);
+        if (localeManager == null) {
             return;
         }
-
-        Configuration configuration =
-                new Configuration(
-                        activity.getResources()
-                                .getConfiguration());
-        configuration.setLocale(
-                Locale.forLanguageTag(language));
-        activity.getResources().updateConfiguration(
-                configuration,
-                activity.getResources().getDisplayMetrics());
+        localeManager.setApplicationLocales(
+                LocaleList.forLanguageTags(language));
+        SettingsRepository repository =
+                AndroidSettingsRepository.create(activity);
+        repository.edit()
+                .put(
+                        AppPresentationSettingKeys.LANGUAGE,
+                        AppPresentationSettingKeys.SYSTEM_LANGUAGE)
+                .apply();
     }
 }

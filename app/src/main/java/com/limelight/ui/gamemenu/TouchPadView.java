@@ -4,7 +4,6 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
@@ -20,7 +19,6 @@ public class TouchPadView extends View {
 
     private float cursorX, cursorY;
 
-    private Drawable backgroundDrawable;
     private Paint cursorPaint;
     private Paint pressOverlayPaint;
 
@@ -69,21 +67,11 @@ public class TouchPadView extends View {
 //        });
     }
 
-    public void setBackgroundDrawable(Drawable drawable) {
-        backgroundDrawable = drawable;
-        invalidate();
-    }
-
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
-        if (backgroundDrawable != null) {
-            backgroundDrawable.setBounds(0, 0, getWidth(), getHeight());
-            backgroundDrawable.draw(canvas);
-        } else {
-            canvas.drawColor(Color.parseColor("#383838"));
-        }
+        canvas.drawColor(Color.parseColor("#383838"));
 
         // 光标
 //        canvas.drawCircle(cursorX, cursorY, 15, cursorPaint);

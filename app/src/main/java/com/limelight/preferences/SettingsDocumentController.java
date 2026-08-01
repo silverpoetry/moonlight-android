@@ -37,6 +37,11 @@ import java.util.concurrent.RejectedExecutionException;
  * export, and persisted document-tree permission.
  */
 final class SettingsDocumentController {
+    interface DocumentLauncher {
+        void launch(Intent intent);
+    }
+
+    static final int NO_PENDING_REQUEST = 0;
     static final int REQUEST_VIRTUAL_KEYBOARD_IMPORT = 1001;
     static final int REQUEST_VIRTUAL_GAMEPAD_IMPORT = 1002;
     static final int REQUEST_HOSTS_IMPORT = 1003;
@@ -66,6 +71,7 @@ final class SettingsDocumentController {
     private final SettingsRepository repository;
     private final AndroidVirtualControlLayoutRepository
             virtualControlLayoutRepository;
+    private final DocumentLauncher documentLauncher;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService ioExecutor =
             Executors.newSingleThreadExecutor(runnable -> {
@@ -77,12 +83,15 @@ final class SettingsDocumentController {
             });
     private volatile Runnable settingsChanged;
     private volatile boolean destroyed;
+    private final RequestState requestState;
 
     SettingsDocumentController(
             Activity activity,
             SettingsRepository repository,
             AndroidVirtualControlLayoutRepository
                     virtualControlLayoutRepository,
+            DocumentLauncher documentLauncher,
+            int restoredPendingRequestCode,
             Runnable settingsChanged) {
         this.activity = Objects.requireNonNull(activity, "activity");
         this.repository = Objects.requireNonNull(
@@ -91,6 +100,10 @@ final class SettingsDocumentController {
         this.virtualControlLayoutRepository = Objects.requireNonNull(
                 virtualControlLayoutRepository,
                 "virtualControlLayoutRepository");
+        this.documentLauncher = Objects.requireNonNull(
+                documentLauncher,
+                "documentLauncher");
+        requestState = new RequestState(restoredPendingRequestCode);
         this.settingsChanged = Objects.requireNonNull(
                 settingsChanged,
                 "settingsChanged");
@@ -167,10 +180,8 @@ final class SettingsDocumentController {
         return true;
     }
 
-    boolean handleActivityResult(
-            int requestCode,
-            int resultCode,
-            Intent data) {
+    boolean handleActivityResult(int resultCode, Intent data) {
+        int requestCode = requestState.consume();
         if (!isKnownRequest(requestCode)) {
             return false;
         }
@@ -214,6 +225,10 @@ final class SettingsDocumentController {
         return true;
     }
 
+    int getPendingRequestCode() {
+        return requestState.peek();
+    }
+
     void destroy() {
         destroyed = true;
         settingsChanged = null;
@@ -225,7 +240,7 @@ final class SettingsDocumentController {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType(mimeType);
-        activity.startActivityForResult(intent, requestCode);
+        launch(intent, requestCode);
     }
 
     private void openClipboardDirectory() {
@@ -235,9 +250,13 @@ final class SettingsDocumentController {
                         Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
                         Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION |
                         Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
-        activity.startActivityForResult(
-                intent,
-                REQUEST_CLIPBOARD_DIRECTORY);
+        launch(intent, REQUEST_CLIPBOARD_DIRECTORY);
+    }
+
+    private void launch(Intent intent, int requestCode) {
+        requestState.launch(
+                requestCode,
+                () -> documentLauncher.launch(intent));
     }
 
     private void exportVirtualControlLayout(boolean gamepad) {
@@ -599,6 +618,56 @@ final class SettingsDocumentController {
                 return true;
             default:
                 return false;
+        }
+    }
+
+    /** Lifecycle state for the single Activity Result launcher. */
+    static final class RequestState {
+        private int pendingRequestCode;
+
+        RequestState(int restoredRequestCode) {
+            pendingRequestCode = isKnownRequest(restoredRequestCode)
+                    ? restoredRequestCode
+                    : NO_PENDING_REQUEST;
+        }
+
+        void begin(int requestCode) {
+            if (!isKnownRequest(requestCode)) {
+                throw new IllegalArgumentException(
+                        "Unknown settings document request: " +
+                                requestCode);
+            }
+            if (pendingRequestCode != NO_PENDING_REQUEST) {
+                throw new IllegalStateException(
+                        "A settings document request is already active");
+            }
+            pendingRequestCode = requestCode;
+        }
+
+        void launch(int requestCode, Runnable launcher) {
+            Objects.requireNonNull(launcher, "launcher");
+            begin(requestCode);
+            try {
+                launcher.run();
+            }
+            catch (RuntimeException error) {
+                cancel();
+                throw error;
+            }
+        }
+
+        int consume() {
+            int requestCode = pendingRequestCode;
+            pendingRequestCode = NO_PENDING_REQUEST;
+            return requestCode;
+        }
+
+        int peek() {
+            return pendingRequestCode;
+        }
+
+        void cancel() {
+            pendingRequestCode = NO_PENDING_REQUEST;
         }
     }
 }

@@ -186,8 +186,11 @@ public class NativeCursorOverlayView extends View {
         }
 
         RectF bounds = getCursorBounds();
-        invalidate((int)bounds.left - 2, (int)bounds.top - 2,
-                (int)bounds.right + 2, (int)bounds.bottom + 2);
+        postInvalidateOnAnimation(
+                (int) bounds.left - 2,
+                (int) bounds.top - 2,
+                (int) bounds.right + 2,
+                (int) bounds.bottom + 2);
     }
 
     private RectF getCursorBounds() {

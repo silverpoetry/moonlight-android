@@ -1,9 +1,9 @@
 package com.limelight.settings.android;
 
 import android.content.Context;
-import android.os.Build;
-import android.view.Display;
-import android.view.WindowManager;
+import android.graphics.Point;
+
+import com.limelight.platform.AndroidDisplayCompat;
 
 import com.limelight.settings.stream.StreamResolutionCodec;
 
@@ -20,28 +20,10 @@ public final class AndroidDisplayAspectProvider {
     public static StreamResolutionCodec.DisplayAspect get(
             Context context) {
         Objects.requireNonNull(context, "context");
-        int width = 16;
-        int height = 9;
-        WindowManager windowManager =
-                (WindowManager) context.getSystemService(
-                        Context.WINDOW_SERVICE);
-        if (windowManager != null) {
-            Display display = windowManager.getDefaultDisplay();
-            if (display != null) {
-                if (Build.VERSION.SDK_INT >=
-                        Build.VERSION_CODES.M) {
-                    Display.Mode mode = display.getMode();
-                    width = mode.getPhysicalWidth();
-                    height = mode.getPhysicalHeight();
-                }
-                else {
-                    width = display.getWidth();
-                    height = display.getHeight();
-                }
-            }
-        }
+        Point size = AndroidDisplayCompat.getPhysicalDisplaySize(
+                context);
         return new StreamResolutionCodec.DisplayAspect(
-                width,
-                height);
+                size.x,
+                size.y);
     }
 }

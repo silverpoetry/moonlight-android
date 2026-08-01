@@ -1191,6 +1191,25 @@ agree across all participants.
   setting group. Enablement, fixed threshold, and minimum contact duration are
   coalesced into one immutable runtime update and covered at repository,
   session, and detector levels.
+- Centralized display, form-factor, and active-network API-level differences
+  in policy-free Android platform adapters. Supported API 21/22 fallbacks are
+  the only narrowly suppressed legacy calls; product settings and stream code
+  consume typed platform facts instead of branching on deprecated APIs.
+- Replaced settings document `startActivityForResult` routing with one
+  lifecycle-aware Activity Result launcher and a single persisted pending
+  request. Cancellation, invalid restoration, overlapping requests, and
+  launch failure are fixture-locked.
+- Replaced live `Resources.updateConfiguration` mutation with localized base
+  contexts before Activity creation, while retaining the Android 13 per-app
+  locale migration. Host, app, stream, manual-add, and settings entry points
+  share one lifecycle owner.
+- Removed the unused legacy device-inspection surface and remaining obsolete
+  view/color/invalidation helpers. Clean root and non-root Java compilation now
+  reports zero deprecation warnings; full Debug/Release lint remains warnings
+  as errors with only documented API-21 dependency pins exempted.
+- Revalidated the slice with all app/core JVM tests, 146 connected tests per
+  product flavor, both Release APKs, four native ABIs, and the complete
+  `verifyLocal` governance gate.
 
 ### Exit evidence
 

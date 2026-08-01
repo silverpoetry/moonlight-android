@@ -1,7 +1,6 @@
 package com.limelight.ui.stream;
 
 import android.app.Activity;
-import android.content.pm.PackageManager;
 import android.graphics.Point;
 import android.os.Build;
 import android.view.Display;
@@ -14,6 +13,8 @@ import com.limelight.LimeLog;
 import com.limelight.settings.stream.StreamDecoderSettings;
 import com.limelight.settings.stream.StreamDisplaySettings;
 import com.limelight.settings.stream.StreamVideoSettings;
+import com.limelight.platform.AndroidDeviceCategory;
+import com.limelight.platform.AndroidDisplayCompat;
 import com.limelight.ui.StreamLayoutGeometry;
 import com.limelight.ui.StreamView;
 import com.limelight.ui.StreamWindowPolicy;
@@ -79,11 +80,7 @@ public final class AndroidStreamDisplayController {
         this.videoSettings = Objects.requireNonNull(
                 videoSettings,
                 "videoSettings");
-        PackageManager packageManager = activity.getPackageManager();
-        television = packageManager.hasSystemFeature(
-                PackageManager.FEATURE_TELEVISION) ||
-                packageManager.hasSystemFeature(
-                        PackageManager.FEATURE_LEANBACK);
+        television = AndroidDeviceCategory.isTelevision(activity);
         systemManagedRefreshRate =
                 StreamDisplayRefreshPolicy
                         .shouldLetSystemManageRefreshRate(
@@ -101,8 +98,8 @@ public final class AndroidStreamDisplayController {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             return false;
         }
-        Display display = activity.getWindowManager()
-                .getDefaultDisplay();
+        Display display = AndroidDisplayCompat.getActivityDisplay(
+                activity);
         for (Display.Mode candidate : display.getSupportedModes()) {
             if (StreamWindowPolicy.matchesPhysicalResolution(
                     width,
@@ -118,8 +115,8 @@ public final class AndroidStreamDisplayController {
     @MainThread
     public Preparation prepare(
             StreamDecoderSettings.FramePacing framePacing) {
-        Display display = activity.getWindowManager()
-                .getDefaultDisplay();
+        Display display = AndroidDisplayCompat.getActivityDisplay(
+                activity);
         WindowManager.LayoutParams windowLayoutParams =
                 activity.getWindow().getAttributes();
         boolean mayReduceRefreshRate =
@@ -145,9 +142,7 @@ public final class AndroidStreamDisplayController {
         float effectiveRefreshRate = television
                 ? selectedRefreshRate
                 : Math.min(
-                        activity.getWindowManager()
-                                .getDefaultDisplay()
-                                .getRefreshRate(),
+                        display.getRefreshRate(),
                         selectedRefreshRate);
         return new Preparation(
                 effectiveRefreshRate,
@@ -259,8 +254,8 @@ public final class AndroidStreamDisplayController {
     private void configureRenderSurface(Display display) {
         boolean aspectRatioMatch = false;
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            Point screenSize = new Point(0, 0);
-            display.getSize(screenSize);
+            Point screenSize = AndroidDisplayCompat.getWindowSize(
+                    activity);
             aspectRatioMatch =
                     StreamLayoutGeometry.hasCompatibleAspectRatio(
                             screenSize.x,

@@ -257,7 +257,9 @@ Application presentation is independent from stream-session UI.
 label, and background policy. The platform-independent loader produces one
 immutable snapshot; `AndroidAppPresentationSettingsLoader` alone computes and
 persists the device-dependent small-icon default. `AndroidAppLocale` owns the
-Android 13 per-app locale migration and pre-Android-13 resource override.
+Android 13 per-app locale migration and creates the localized Activity base
+context on older releases; no Activity mutates a live `Resources`
+configuration.
 Host/app activities and adapters do not receive the former cross-domain
 property bag.
 
@@ -276,6 +278,13 @@ parent dialog. The FragmentManager owns pending result delivery across normal
 lifecycle changes, and no deprecated target-fragment pointer or instance-field
 callback is required. Consequently, process or configuration recreation cannot
 leave a visible display dialog with an unbound persistence dependency.
+
+Settings document and directory pickers use one lifecycle-aware Activity
+Result launcher. `SettingsDocumentController` owns the single pending typed
+request, persists that request code across Activity recreation, consumes each
+result once, and clears the state if launch fails. Import/export parsing and
+I/O remain on its bounded executor; the Activity only binds lifecycle delivery
+to that controller.
 
 Audio effects, channel layout, and host-side playback are captured when a
 stream is composed. Mute and audio-haptics policy are intentionally

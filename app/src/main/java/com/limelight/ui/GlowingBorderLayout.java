@@ -10,6 +10,7 @@ import android.graphics.RectF;
 import android.graphics.SweepGradient;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.animation.LinearInterpolator;
@@ -92,7 +93,9 @@ public class GlowingBorderLayout extends FrameLayout {
 
         mPaint.setShader(null);
         mPaint.setStyle(Paint.Style.FILL);
-        mPaint.setColor(getResources().getColor(R.color.pc_app_item_bg_color));
+        mPaint.setColor(ContextCompat.getColor(
+                getContext(),
+                R.color.pc_app_item_bg_color));
         canvas.drawRoundRect(mRectF, mCornerRadius, mCornerRadius, mPaint);
 
         super.onDraw(canvas);
@@ -116,7 +119,9 @@ public class GlowingBorderLayout extends FrameLayout {
             // 未聚焦时的普通边框
             mPaint.setStrokeWidth(mStrokeWidth*0.7f);
             mPaint.setShader(null);
-            mPaint.setColor(getResources().getColor(R.color.pc_app_item_stoke_color));
+            mPaint.setColor(ContextCompat.getColor(
+                    getContext(),
+                    R.color.pc_app_item_stoke_color));
             canvas.drawRoundRect(mRectF, mCornerRadius, mCornerRadius, mPaint);
         }
     }

@@ -4,8 +4,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.format.Formatter;
@@ -20,6 +18,7 @@ import android.widget.TextView;
 import androidx.appcompat.content.res.AppCompatResources;
 
 import com.limelight.R;
+import com.limelight.platform.AndroidNetworkTransport;
 import com.limelight.binding.video.PerfOverlayListener;
 import com.limelight.binding.video.PerfOverlayStats;
 import com.limelight.settings.ui.StreamUiSettings;
@@ -400,12 +399,9 @@ public final class StreamPerformanceOverlayController
     }
 
     private void applyNetworkIcon() {
-        ConnectivityManager connectivityManager =
-                (ConnectivityManager) activity.getSystemService(
-                        Context.CONNECTIVITY_SERVICE);
-        NetworkInfo networkInfo =
-                connectivityManager.getActiveNetworkInfo();
-        if (networkInfo == null) {
+        AndroidNetworkTransport transport =
+                AndroidNetworkTransport.getActive(activity);
+        if (transport == AndroidNetworkTransport.NONE) {
             compactOverlay.setCompoundDrawables(
                     null,
                     null,
@@ -414,8 +410,7 @@ public final class StreamPerformanceOverlayController
             return;
         }
 
-        int icon = networkInfo.getType() ==
-                ConnectivityManager.TYPE_MOBILE ?
+        int icon = transport == AndroidNetworkTransport.CELLULAR ?
                 R.drawable.icon_axi_mobile :
                 R.drawable.icon_axi_wifi;
         Drawable drawable =

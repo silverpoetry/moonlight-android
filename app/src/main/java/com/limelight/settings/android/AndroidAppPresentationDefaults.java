@@ -1,10 +1,10 @@
 package com.limelight.settings.android;
 
 import android.content.Context;
-import android.content.pm.PackageManager;
-import android.os.Build;
 
 import java.util.Objects;
+
+import com.limelight.platform.AndroidDeviceCategory;
 
 /**
  * Resolves Android device-specific defaults for application presentation.
@@ -17,16 +17,7 @@ public final class AndroidAppPresentationDefaults {
 
     public static boolean shouldUseSmallAppIcons(Context context) {
         Objects.requireNonNull(context, "context");
-        PackageManager packageManager =
-                context.getPackageManager();
-        if (packageManager != null &&
-                (packageManager.hasSystemFeature(
-                        PackageManager.FEATURE_TELEVISION) ||
-                        Build.VERSION.SDK_INT >=
-                                Build.VERSION_CODES.LOLLIPOP_MR1 &&
-                                packageManager.hasSystemFeature(
-                                        PackageManager
-                                                .FEATURE_LEANBACK))) {
+        if (AndroidDeviceCategory.isTelevision(context)) {
             return false;
         }
 

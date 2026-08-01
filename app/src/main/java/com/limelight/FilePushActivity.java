@@ -13,6 +13,7 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.activity.ComponentActivity;
+import androidx.core.content.IntentCompat;
 import com.limelight.utils.UiToast;
 
 import com.limelight.binding.PlatformBinding;
@@ -373,13 +374,19 @@ public class FilePushActivity extends ComponentActivity {
             return uris;
         }
         if (Intent.ACTION_SEND_MULTIPLE.equals(intent.getAction())) {
-            ArrayList<Uri> values = intent.getParcelableArrayListExtra(
-                    Intent.EXTRA_STREAM);
+            ArrayList<Uri> values =
+                    IntentCompat.getParcelableArrayListExtra(
+                            intent,
+                            Intent.EXTRA_STREAM,
+                            Uri.class);
             if (values != null) {
                 uris.addAll(values);
             }
         } else if (Intent.ACTION_SEND.equals(intent.getAction())) {
-            Uri value = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            Uri value = IntentCompat.getParcelableExtra(
+                    intent,
+                    Intent.EXTRA_STREAM,
+                    Uri.class);
             if (value != null) {
                 uris.add(value);
             }

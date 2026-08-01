@@ -108,9 +108,7 @@ public class StreamSettingsRenderingTest {
             Instrumentation instrumentation =
                     InstrumentationRegistry.getInstrumentation();
             instrumentation.runOnMainSync(() ->
-                    activity.onActivityResult(
-                            SettingsDocumentController
-                                    .REQUEST_BACKGROUND,
+                    activity.handleDocumentActivityResult(
                             Activity.RESULT_CANCELED,
                             null));
             assertFalse(activity.isFinishing());

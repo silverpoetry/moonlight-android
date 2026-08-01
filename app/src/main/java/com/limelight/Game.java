@@ -50,7 +50,6 @@ import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.nvstream.mic.MicrophoneUplinkConfig;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.AndroidDisplayAspectProvider;
-import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.settings.android.AndroidSettingsGroupObserver;
 import com.limelight.settings.android.AndroidStreamSettingsBootstrap;
 import com.limelight.settings.android.SharedPreferencesCustomResolutionRepository;
@@ -151,7 +150,6 @@ import com.limelight.utils.StreamOrientationRequest;
 import com.limelight.utils.UiHelper;
 import android.annotation.SuppressLint;
 import androidx.annotation.RequiresApi;
-import androidx.fragment.app.FragmentActivity;
 import android.app.AlertDialog;
 import android.app.Service;
 import android.content.ClipData;
@@ -196,7 +194,7 @@ import java.util.Arrays;
 import java.util.List;
 
 
-public class Game extends FragmentActivity implements OnGenericMotionListener,
+public class Game extends BaseActivity implements OnGenericMotionListener,
         OnTouchListener, EvdevListener,
         GameGestures, StreamInputGateway,
         StreamUiActions, GameMenuHostProvider,
@@ -343,8 +341,6 @@ public class Game extends FragmentActivity implements OnGenericMotionListener,
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        AndroidAppLocale.apply(this);
 
         // We don't want a title bar
         requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -971,6 +967,11 @@ public class Game extends FragmentActivity implements OnGenericMotionListener,
         }
         sessionDependenciesReady = true;
         renderSurfaceController.startIfReady();
+    }
+
+    @Override
+    protected boolean shouldEnableEdgeToEdge() {
+        return false;
     }
 
     private StreamSettingsSession createStreamSettingsSession() {

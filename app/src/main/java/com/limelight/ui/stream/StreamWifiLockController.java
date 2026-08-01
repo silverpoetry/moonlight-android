@@ -89,7 +89,7 @@ public final class StreamWifiLockController {
         acquisitionAttempted = true;
 
         highPerformanceLock = acquireLock(
-                WifiManager.WIFI_MODE_FULL_HIGH_PERF,
+                legacyHighPerformanceMode(),
                 HIGH_PERFORMANCE_TAG);
         if (lowLatencyMode != NO_LOW_LATENCY_MODE) {
             lowLatencyLock = acquireLock(
@@ -97,6 +97,14 @@ public final class StreamWifiLockController {
                     LOW_LATENCY_TAG);
         }
         return isAnyLockHeld();
+    }
+
+    @SuppressWarnings("deprecation")
+    private static int legacyHighPerformanceMode() {
+        // LOW_LATENCY is not available before Android 10. Keep the old mode
+        // isolated here for supported API 21-28 devices and as an independent
+        // fallback on vendor implementations where the newer lock fails.
+        return WifiManager.WIFI_MODE_FULL_HIGH_PERF;
     }
 
     @MainThread

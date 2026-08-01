@@ -10,15 +10,16 @@ import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
-import android.graphics.Insets;
 import android.os.Build;
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.Window;
-import android.view.WindowInsets;
 import android.view.WindowManager;
 
 import com.limelight.LimeLog;
@@ -185,42 +186,38 @@ public class UiHelper {
             final int initialTop = view.getPaddingTop();
             final int initialRight = view.getPaddingRight();
             final int initialBottom = view.getPaddingBottom();
-            view.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
-                @Override
-                public WindowInsets onApplyWindowInsets(View view, WindowInsets windowInsets) {
-                    int bottomInset;
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        bottomInset = getSafeContentInsets(windowInsets).bottom;
-                    }
-                    else {
-                        bottomInset = windowInsets.getTappableElementInsets().bottom;
-                    }
-                    view.setPadding(initialLeft,
-                            initialTop,
-                            initialRight,
-                            initialBottom + bottomInset);
-                    return windowInsets;
-                }
-            });
-            view.requestApplyInsets();
+            ViewCompat.setOnApplyWindowInsetsListener(
+                    view,
+                    (target, windowInsets) -> {
+                        int bottomInset = getSafeContentInsets(
+                                windowInsets).bottom;
+                        target.setPadding(initialLeft,
+                                initialTop,
+                                initialRight,
+                                initialBottom + bottomInset);
+                        return windowInsets;
+                    });
+            ViewCompat.requestApplyInsets(view);
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.R)
-    private static WindowInsetsPolicy.EdgeInsets getSafeContentInsets(WindowInsets windowInsets) {
+    private static WindowInsetsPolicy.EdgeInsets getSafeContentInsets(
+            WindowInsetsCompat windowInsets) {
         WindowInsetsPolicy.EdgeInsets systemBars =
-                toEdgeInsets(windowInsets.getInsets(WindowInsets.Type.systemBars()));
+                toEdgeInsets(windowInsets.getInsets(
+                        WindowInsetsCompat.Type.systemBars()));
         WindowInsetsPolicy.EdgeInsets displayCutout =
-                toEdgeInsets(windowInsets.getInsets(WindowInsets.Type.displayCutout()));
+                toEdgeInsets(windowInsets.getInsets(
+                        WindowInsetsCompat.Type.displayCutout()));
         return WindowInsetsPolicy.resolveSafeContentInsets(systemBars, displayCutout);
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.R)
-    private static WindowInsetsPolicy.EdgeInsets getTappableInsets(WindowInsets windowInsets) {
-        return toEdgeInsets(windowInsets.getInsets(WindowInsets.Type.tappableElement()));
+    private static WindowInsetsPolicy.EdgeInsets getTappableInsets(
+            WindowInsetsCompat windowInsets) {
+        return toEdgeInsets(windowInsets.getInsets(
+                WindowInsetsCompat.Type.tappableElement()));
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.R)
     private static WindowInsetsPolicy.EdgeInsets toEdgeInsets(Insets insets) {
         return new WindowInsetsPolicy.EdgeInsets(
                 insets.left, insets.top, insets.right, insets.bottom);
@@ -271,13 +268,9 @@ public class UiHelper {
 
     private static void updateNavigationBarScrim(Activity activity,
                                                   int tappableBottom) {
-        if (tappableBottom != 0) {
-            activity.getWindow().addFlags(
-                    WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
-        }
-        else {
-            activity.getWindow().clearFlags(
-                    WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            activity.getWindow().setNavigationBarContrastEnforced(
+                    tappableBottom != 0);
         }
     }
 
@@ -303,32 +296,36 @@ public class UiHelper {
             return;
         }
 
-        activity.getWindow().setDecorFitsSystemWindows(false);
+        WindowCompat.setDecorFitsSystemWindows(
+                activity.getWindow(),
+                false);
         final View contentView = activity.findViewById(android.R.id.content);
-        contentView.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
-            @Override
-            public WindowInsets onApplyWindowInsets(View view, WindowInsets windowInsets) {
-                WindowInsetsPolicy.EdgeInsets systemBars =
-                        toEdgeInsets(windowInsets.getInsets(WindowInsets.Type.systemBars()));
-                WindowInsetsPolicy.EdgeInsets displayCutout =
-                        toEdgeInsets(windowInsets.getInsets(WindowInsets.Type.displayCutout()));
-                WindowInsetsPolicy.EdgeInsets contentInsets =
-                        WindowInsetsPolicy.resolveStreamInsets(
-                                activity.isInMultiWindowMode(),
-                                allowDisplayCutout,
-                                systemBars,
-                                displayCutout);
-                view.setPadding(contentInsets.left, contentInsets.top,
-                        contentInsets.right, contentInsets.bottom);
-                return windowInsets;
-            }
-        });
-        contentView.requestApplyInsets();
+        ViewCompat.setOnApplyWindowInsetsListener(
+                contentView,
+                (view, windowInsets) -> {
+                    WindowInsetsPolicy.EdgeInsets systemBars =
+                            toEdgeInsets(windowInsets.getInsets(
+                                    WindowInsetsCompat.Type.systemBars()));
+                    WindowInsetsPolicy.EdgeInsets displayCutout =
+                            toEdgeInsets(windowInsets.getInsets(
+                                    WindowInsetsCompat.Type.displayCutout()));
+                    WindowInsetsPolicy.EdgeInsets contentInsets =
+                            WindowInsetsPolicy.resolveStreamInsets(
+                                    activity.isInMultiWindowMode(),
+                                    allowDisplayCutout,
+                                    systemBars,
+                                    displayCutout);
+                    view.setPadding(contentInsets.left, contentInsets.top,
+                            contentInsets.right, contentInsets.bottom);
+                    return windowInsets;
+                });
+        ViewCompat.requestApplyInsets(contentView);
     }
 
     public static void refreshStreamWindowInsets(Activity activity) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            activity.findViewById(android.R.id.content).requestApplyInsets();
+            ViewCompat.requestApplyInsets(
+                    activity.findViewById(android.R.id.content));
         }
     }
 
@@ -342,31 +339,20 @@ public class UiHelper {
         }
 
         final ViewPadding initialPadding = new ViewPadding(rootView);
-        rootView.setOnApplyWindowInsetsListener(
-                new View.OnApplyWindowInsetsListener() {
-                @Override
-                public WindowInsets onApplyWindowInsets(View view, WindowInsets windowInsets) {
-                    WindowInsetsPolicy.EdgeInsets contentInsets;
-                    int tappableBottom;
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        contentInsets = getSafeContentInsets(windowInsets);
-                        tappableBottom = getTappableInsets(windowInsets).bottom;
-                    }
-                    else {
-                        Insets tappableInsets = windowInsets.getTappableElementInsets();
-                        contentInsets = new WindowInsetsPolicy.EdgeInsets(
-                                tappableInsets.left, tappableInsets.top,
-                                tappableInsets.right, tappableInsets.bottom);
-                        tappableBottom = tappableInsets.bottom;
-                    }
+        ViewCompat.setOnApplyWindowInsetsListener(
+                rootView,
+                (view, windowInsets) -> {
+                    WindowInsetsPolicy.EdgeInsets contentInsets =
+                            getSafeContentInsets(windowInsets);
+                    int tappableBottom =
+                            getTappableInsets(windowInsets).bottom;
                     initialPadding.apply(view, contentInsets.left,
                             contentInsets.top, contentInsets.right, 0);
                     updateNavigationBarScrim(activity, tappableBottom);
 
                     return windowInsets;
-                }
-        });
-        rootView.requestApplyInsets();
+                });
+        ViewCompat.requestApplyInsets(rootView);
     }
 
     /**
@@ -400,37 +386,24 @@ public class UiHelper {
         contentRoot.setPadding(0, 0, 0, 0);
         final ViewPadding headerPadding = new ViewPadding(headerView);
         final ViewPadding bodyPadding = new ViewPadding(bodyView);
-        contentRoot.setOnApplyWindowInsetsListener(
-                new View.OnApplyWindowInsetsListener() {
-                    @Override
-                    public WindowInsets onApplyWindowInsets(View view,
-                                                            WindowInsets windowInsets) {
-                        WindowInsetsPolicy.EdgeInsets contentInsets;
-                        int tappableBottom;
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                            contentInsets = getSafeContentInsets(windowInsets);
-                            tappableBottom = getTappableInsets(windowInsets).bottom;
-                        }
-                        else {
-                            Insets tappableInsets =
-                                    windowInsets.getTappableElementInsets();
-                            contentInsets = new WindowInsetsPolicy.EdgeInsets(
-                                    tappableInsets.left, tappableInsets.top,
-                                    tappableInsets.right, tappableInsets.bottom);
-                            tappableBottom = tappableInsets.bottom;
-                        }
+        ViewCompat.setOnApplyWindowInsetsListener(
+                contentRoot,
+                (view, windowInsets) -> {
+                    WindowInsetsPolicy.EdgeInsets contentInsets =
+                            getSafeContentInsets(windowInsets);
+                    int tappableBottom =
+                            getTappableInsets(windowInsets).bottom;
 
-                        headerPadding.apply(headerView,
-                                contentInsets.left, contentInsets.top,
-                                contentInsets.right, 0);
-                        bodyPadding.apply(bodyView,
-                                contentInsets.left, 0,
-                                contentInsets.right, contentInsets.bottom);
-                        updateNavigationBarScrim(activity, tappableBottom);
-                        return windowInsets;
-                    }
+                    headerPadding.apply(headerView,
+                            contentInsets.left, contentInsets.top,
+                            contentInsets.right, 0);
+                    bodyPadding.apply(bodyView,
+                            contentInsets.left, 0,
+                            contentInsets.right, contentInsets.bottom);
+                    updateNavigationBarScrim(activity, tappableBottom);
+                    return windowInsets;
                 });
-        contentRoot.requestApplyInsets();
+        ViewCompat.requestApplyInsets(contentRoot);
     }
 
     public static void showDecoderCrashDialog(Activity activity) {
@@ -533,16 +506,11 @@ public class UiHelper {
 
     public static void setStatusBarLightMode(@NonNull final Window window,
                                              final boolean isLightMode) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            View decorView = window.getDecorView();
-            int vis = decorView.getSystemUiVisibility();
-            if (isLightMode) {
-                vis |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-            } else {
-                vis &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-            }
-            decorView.setSystemUiVisibility(vis);
-        }
+        WindowInsetsControllerCompat controller =
+                WindowCompat.getInsetsController(
+                        window,
+                        window.getDecorView());
+        controller.setAppearanceLightStatusBars(isLightMode);
     }
 
 }

@@ -1,10 +1,9 @@
 package com.limelight.preferences;
 
 import android.app.Activity;
-import android.content.pm.PackageManager;
+import android.graphics.Point;
 import android.media.MediaCodecInfo;
 import android.os.Build;
-import android.util.DisplayMetrics;
 import android.util.Range;
 import android.view.Display;
 import android.view.DisplayCutout;
@@ -12,6 +11,8 @@ import android.view.DisplayCutout;
 import com.limelight.LimeLog;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.settings.android.AndroidHdrCompatibility;
+import com.limelight.platform.AndroidDeviceCategory;
+import com.limelight.platform.AndroidDisplayCompat;
 
 /** Android adapter for display, cutout, decoder, and HDR capabilities. */
 final class AndroidSettingsDisplayCapabilities {
@@ -24,9 +25,8 @@ final class AndroidSettingsDisplayCapabilities {
     static SettingsDisplayCapabilities collect(
             Activity activity,
             DisplayCutout androidPieCutout) {
-        Display display = activity
-                .getWindowManager()
-                .getDefaultDisplay();
+        Display display = AndroidDisplayCompat.getActivityDisplay(
+                activity);
         SettingsDisplayCapabilities.Builder capabilities =
                 SettingsDisplayCapabilities.builder();
         float maximumRefreshRate = display.getRefreshRate();
@@ -37,9 +37,8 @@ final class AndroidSettingsDisplayCapabilities {
                     capabilities,
                     display,
                     androidPieCutout);
-            boolean television = activity
-                    .getPackageManager()
-                    .hasSystemFeature(PackageManager.FEATURE_TELEVISION);
+            boolean television = AndroidDeviceCategory.isTelevision(
+                    activity);
 
             for (Display.Mode mode : display.getSupportedModes()) {
                 int width = Math.max(
@@ -74,11 +73,11 @@ final class AndroidSettingsDisplayCapabilities {
                     MIME_HEVC);
         }
         else {
-            DisplayMetrics metrics = new DisplayMetrics();
-            display.getRealMetrics(metrics);
+            Point size = AndroidDisplayCompat.getPhysicalDisplaySize(
+                    activity);
             capabilities.addNativeResolution(
-                    Math.max(metrics.widthPixels, metrics.heightPixels),
-                    Math.min(metrics.widthPixels, metrics.heightPixels),
+                    Math.max(size.x, size.y),
+                    Math.min(size.x, size.y),
                     false);
         }
 
@@ -112,10 +111,11 @@ final class AndroidSettingsDisplayCapabilities {
             return false;
         }
 
-        DisplayMetrics metrics = new DisplayMetrics();
-        display.getRealMetrics(metrics);
-        int adjustedWidth = metrics.widthPixels - horizontalInsets;
-        int adjustedHeight = metrics.heightPixels - verticalInsets;
+        Point size = new Point();
+        Display.Mode mode = display.getMode();
+        size.set(mode.getPhysicalWidth(), mode.getPhysicalHeight());
+        int adjustedWidth = size.x - horizontalInsets;
+        int adjustedHeight = size.y - verticalInsets;
         if (adjustedWidth <= 0 || adjustedHeight <= 0) {
             LimeLog.warning(
                     "Ignoring invalid cutout-adjusted display dimensions");
@@ -185,12 +185,8 @@ final class AndroidSettingsDisplayCapabilities {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             return SettingsDisplayCapabilities.HdrState.UNAVAILABLE;
         }
-        Display.HdrCapabilities hdrCapabilities =
-                display.getHdrCapabilities();
-        if (hdrCapabilities == null) {
-            return SettingsDisplayCapabilities.HdrState.UNAVAILABLE;
-        }
-        for (int hdrType : hdrCapabilities.getSupportedHdrTypes()) {
+        for (int hdrType :
+                AndroidDisplayCompat.getSupportedHdrTypes(display)) {
             if (hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10) {
                 return AndroidHdrCompatibility.isHdrStreamingAllowed()
                         ? SettingsDisplayCapabilities.HdrState.AVAILABLE

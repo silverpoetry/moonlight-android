@@ -46,7 +46,7 @@ public final class ScreenBackgroundPresenter {
         }
 
         try {
-            Glide.with(activity)
+            Glide.with(backgroundView)
                     .load(imageFile)
                     .skipMemoryCache(true)
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
