@@ -56,6 +56,7 @@ final class SettingsScreenRenderer {
     private FrameLayout root;
     private LinearLayout outerContainer;
     private FrameLayout mainContainer;
+    private SettingsPageTransitionController pageTransitionController;
     private FrameLayout wideItemContainer;
     private TextView titleView;
     private TextView subtitleView;
@@ -137,6 +138,9 @@ final class SettingsScreenRenderer {
         titleBlock.addView(subtitleView);
 
         mainContainer = new FrameLayout(context);
+        mainContainer.setId(R.id.settings_content_container);
+        pageTransitionController =
+                new SettingsPageTransitionController(mainContainer);
         LinearLayout.LayoutParams contentParams =
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -162,6 +166,10 @@ final class SettingsScreenRenderer {
     }
 
     void render() {
+        render(SettingsPageTransitionController.Direction.NONE);
+    }
+
+    void render(SettingsPageTransitionController.Direction direction) {
         if (destroyed || mainContainer == null || state == null) {
             return;
         }
@@ -183,10 +191,11 @@ final class SettingsScreenRenderer {
             renderSectionList(page);
         }
 
-        mainContainer.removeAllViews();
-        mainContainer.addView(page, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
+        pageTransitionController.replace(
+                page,
+                wideLayout
+                        ? SettingsPageTransitionController.Direction.NONE
+                        : direction);
     }
 
     boolean hasContent() {
@@ -304,6 +313,10 @@ final class SettingsScreenRenderer {
 
     void destroy() {
         destroyed = true;
+        if (pageTransitionController != null) {
+            pageTransitionController.destroy();
+            pageTransitionController = null;
+        }
         listener = null;
         renderedRows.clear();
         activeContentScrollView = null;

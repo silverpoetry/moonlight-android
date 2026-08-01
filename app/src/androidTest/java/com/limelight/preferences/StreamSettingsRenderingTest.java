@@ -7,11 +7,14 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Intent;
+import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
@@ -99,7 +102,8 @@ public class StreamSettingsRenderingTest {
     }
 
     @Test
-    public void everyVisibleSectionReusesActivityAndBackReturnsToRoot() {
+    public void everyVisibleSectionReusesActivityAndBackReturnsToRoot()
+            throws InterruptedException {
         Instrumentation instrumentation =
                 InstrumentationRegistry.getInstrumentation();
         StreamSettings activity =
@@ -119,7 +123,7 @@ public class StreamSettingsRenderingTest {
 
                 instrumentation.runOnMainSync(
                         sectionRow::performClick);
-                instrumentation.waitForIdleSync();
+                waitForTransition(instrumentation);
 
                 assertFalse(activity.isFinishing());
                 assertNull(findText(
@@ -128,7 +132,7 @@ public class StreamSettingsRenderingTest {
                                 R.string.settings_featured_settings)));
 
                 instrumentation.runOnMainSync(activity::onBackPressed);
-                instrumentation.waitForIdleSync();
+                waitForTransition(instrumentation);
 
                 assertNotNull(findText(
                         activity.getWindow().getDecorView(),
@@ -143,7 +147,8 @@ public class StreamSettingsRenderingTest {
     }
 
     @Test
-    public void returningFromSectionRestoresRootScrollPosition() {
+    public void returningFromSectionRestoresRootScrollPosition()
+            throws InterruptedException {
         Instrumentation instrumentation =
                 InstrumentationRegistry.getInstrumentation();
         StreamSettings activity =
@@ -172,13 +177,60 @@ public class StreamSettingsRenderingTest {
             instrumentation.runOnMainSync(sectionRow::performClick);
             instrumentation.waitForIdleSync();
             instrumentation.runOnMainSync(activity::onBackPressed);
-            instrumentation.waitForIdleSync();
+            waitForTransition(instrumentation);
 
             ScrollView restoredScroll = findFirst(
                     activity.getWindow().getDecorView(),
                     ScrollView.class);
             assertNotNull(restoredScroll);
             assertEquals(expectedScrollY, restoredScroll.getScrollY());
+        }
+        finally {
+            activity.finish();
+        }
+    }
+
+    @Test
+    public void sectionNavigationUsesPairedDirectionalTransitions()
+            throws InterruptedException {
+        Instrumentation instrumentation =
+                InstrumentationRegistry.getInstrumentation();
+        StreamSettings activity =
+                startSettingsActivity(instrumentation);
+        try {
+            FrameLayout contentContainer =
+                    activity.findViewById(
+                            R.id.settings_content_container);
+            SettingsSection firstSection =
+                    SettingsRegistry.load(activity).get(0);
+            TextView sectionTitle = findText(
+                    activity.getWindow().getDecorView(),
+                    firstSection.title);
+            assertNotNull(contentContainer);
+            assertNotNull(sectionTitle);
+            if (contentContainer.getWidth() >= dp(activity, 720)) {
+                return;
+            }
+
+            View sectionRow =
+                    (View) sectionTitle.getParent().getParent();
+            instrumentation.runOnMainSync(() -> {
+                sectionRow.performClick();
+                assertDirectionalTransition(
+                        contentContainer,
+                        true);
+            });
+            waitForTransition(instrumentation);
+            assertSettled(contentContainer);
+
+            instrumentation.runOnMainSync(() -> {
+                activity.onBackPressed();
+                assertDirectionalTransition(
+                        contentContainer,
+                        false);
+            });
+            waitForTransition(instrumentation);
+            assertSettled(contentContainer);
         }
         finally {
             activity.finish();
@@ -252,6 +304,44 @@ public class StreamSettingsRenderingTest {
             }
         }
         return null;
+    }
+
+    private static void assertDirectionalTransition(
+            FrameLayout container,
+            boolean forward) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                !ValueAnimator.areAnimatorsEnabled()) {
+            assertSettled(container);
+            return;
+        }
+        assertEquals(2, container.getChildCount());
+        View incomingPage = container.getChildAt(1);
+        if (forward) {
+            assertTrue(incomingPage.getTranslationX() > 0f);
+        }
+        else {
+            assertTrue(incomingPage.getTranslationX() < 0f);
+        }
+    }
+
+    private static void assertSettled(FrameLayout container) {
+        assertEquals(1, container.getChildCount());
+        View currentPage = container.getChildAt(0);
+        assertEquals(0f, currentPage.getTranslationX(), 0f);
+        assertEquals(1f, currentPage.getAlpha(), 0f);
+    }
+
+    private static void waitForTransition(
+            Instrumentation instrumentation)
+            throws InterruptedException {
+        Thread.sleep(300);
+        instrumentation.waitForIdleSync();
+    }
+
+    private static int dp(Activity activity, int value) {
+        return Math.round(value * activity.getResources()
+                .getDisplayMetrics()
+                .density);
     }
 
     private interface ActivityAssertion {
