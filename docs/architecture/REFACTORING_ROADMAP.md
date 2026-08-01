@@ -1030,7 +1030,7 @@ targets.
 
 ## Phase 8 — Cross-client transfer and microphone contracts
 
-**Status:** pending.
+**Status:** in progress.
 
 This phase covers Android, Moonlight Qt, Sunshine, and the shared common-c
 protocol together. It is complete only when capability semantics and fixtures
@@ -1050,6 +1050,26 @@ agree across all participants.
   with explicit format/channel conversion and bounded callback work.
 - Shared protocol fixtures and failure-injection tests across Android, Qt,
   Sunshine, and common-c.
+
+### Completed slices
+
+- Unified all participants on exact clipboard protocol v4 with one capability
+  mask, explicit rejection reasons, retry classification, strict validation,
+  and no fallback to an unused legacy wire version.
+- Made Android file pulls cancellable and atomic: hidden staging entries are
+  published only after the entire manifest and content pass validation, while
+  cancellation or failure removes every partial result and releases the host
+  source.
+- Made Sunshine local and remote source release symmetric and origin-bound,
+  and bounded sources plus pending requests with explicit backpressure tests.
+- Added one canonical manifest fixture in common-c. Android verifies decode,
+  re-encode, unsafe paths, ordering, duplicates, and corruption against it;
+  Qt verifies its extracted manifest encoder byte-for-byte; Sunshine verifies
+  that its remote request/fulfill state machine preserves the same bytes and
+  digest.
+- Added microphone wire, lifecycle, replay, lost-BYE, queue, and format tests
+  for the common-c SRTP uplink, Android capture controller, and Sunshine host
+  receiver.
 
 ### Exit evidence
 
@@ -1101,6 +1121,10 @@ agree across all participants.
   composition root.
 - Updated `verifyLocal` so module-local tests are mandatory rather than being
   accidentally omitted when app tests run.
+- Added `core:hosts` as an independent Java library owning 30 immutable host
+  model, repository/discovery contract, pairing, reachability, and host-session
+  policy classes. SQLite, mDNS, Android lifecycle, logging, and NvHTTP adapters
+  remain in `app`; the module has no Android SDK or transport dependency.
 
 ### Exit evidence
 

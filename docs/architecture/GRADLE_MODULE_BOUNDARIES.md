@@ -13,25 +13,33 @@ platform-independent domains:
 
 | Domain | Pure Java files | Android adapter files | External dependency |
 | --- | ---: | ---: | --- |
+| Host identity, repository, pairing, and reachability policy | 30 | 17 | None |
 | Typed settings and runtime settings state | 68 | 13 | Gson |
 | Virtual-control layout documents and repository contract | 8 | 1 | None |
 
 The only dependency leaving the pure settings domain is from virtual-control
-settings to the virtual-control layout model. Neither domain imports Android,
-AndroidX, an Activity, a View, `SharedPreferences`, JNI, or a transport DTO.
+settings to the virtual-control layout model. The host core is independent of
+both. None of these domains imports Android, AndroidX, an Activity, a View,
+`SharedPreferences`, JNI, NvHTTP, or a transport DTO.
 
 ## Enforced graph
 
 ```text
+core:hosts ---------------------------+
+                                      |
 core:virtual-controls
         ^
         |
 core:settings
         ^
         |
-       app
+        +---------------------------->app
 ```
 
+- `core:hosts` owns immutable host identity/runtime values, repository and
+  discovery contracts, pairing policy, bounded reachability selection, and
+  host quit/unpair use cases. Android database, mDNS, and NvHTTP adapters stay
+  in `app`.
 - `core:virtual-controls` owns immutable layout values, document encoding,
   repository contracts, and their JVM tests.
 - `core:settings` owns typed keys, migrations, immutable settings snapshots,
@@ -46,7 +54,7 @@ core:settings
 ## Verification ownership
 
 - Each core module runs its own unit tests through its `test` task.
-- Root `verifyLocal` depends explicitly on both core test tasks in addition to
+- Root `verifyLocal` depends explicitly on every core test task in addition to
   every app JVM variant, all four app Lint variants, and root/non-root Release
   assembly.
 - Android instrumentation remains in `app`, where Android adapters are
@@ -56,7 +64,7 @@ core:settings
 
 ## Next measured candidates
 
-Future extraction must be based on the same evidence. The next candidates are
-immutable host identity/repository policy and transfer protocol models. Input,
-rendering, and stream session code still have substantial Android/native
-coupling and must not be split until their adapter seams are complete.
+Future extraction must be based on the same evidence. The next candidate is
+the transfer protocol model. Input, rendering, and stream session code still
+have substantial Android/native coupling and must not be split until their
+adapter seams are complete.

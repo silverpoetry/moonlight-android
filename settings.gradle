@@ -1,3 +1,4 @@
 include ':app'
+include ':core:hosts'
 include ':core:settings'
 include ':core:virtual-controls'
