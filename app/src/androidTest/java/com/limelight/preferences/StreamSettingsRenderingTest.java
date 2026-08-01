@@ -208,10 +208,8 @@ public class StreamSettingsRenderingTest {
                     firstSection.title);
             assertNotNull(contentContainer);
             assertNotNull(sectionTitle);
-            if (contentContainer.getWidth() >= dp(activity, 720)) {
-                return;
-            }
-
+            boolean wideLayout = contentContainer.findViewById(
+                    R.id.settings_detail_container) != null;
             View sectionRow =
                     (View) sectionTitle.getParent().getParent();
             instrumentation.runOnMainSync(() -> {
@@ -222,6 +220,10 @@ public class StreamSettingsRenderingTest {
             });
             waitForTransition(instrumentation);
             assertSettled(contentContainer);
+
+            if (wideLayout) {
+                return;
+            }
 
             instrumentation.runOnMainSync(() -> {
                 activity.onBackPressed();
@@ -316,11 +318,20 @@ public class StreamSettingsRenderingTest {
         }
         assertEquals(2, container.getChildCount());
         View incomingPage = container.getChildAt(1);
+        View motionView = incomingPage.findViewById(
+                R.id.settings_detail_container);
+        if (motionView == null) {
+            motionView = incomingPage;
+        }
         if (forward) {
-            assertTrue(incomingPage.getTranslationX() > 0f);
+            assertTrue(motionView.getTranslationX() > 0f);
         }
         else {
-            assertTrue(incomingPage.getTranslationX() < 0f);
+            assertTrue(motionView.getTranslationX() < 0f);
+        }
+        if (motionView != incomingPage) {
+            assertEquals(0f, incomingPage.getTranslationX(), 0f);
+            assertEquals(1f, incomingPage.getAlpha(), 0f);
         }
     }
 
@@ -329,6 +340,12 @@ public class StreamSettingsRenderingTest {
         View currentPage = container.getChildAt(0);
         assertEquals(0f, currentPage.getTranslationX(), 0f);
         assertEquals(1f, currentPage.getAlpha(), 0f);
+        View motionView = currentPage.findViewById(
+                R.id.settings_detail_container);
+        if (motionView != null) {
+            assertEquals(0f, motionView.getTranslationX(), 0f);
+            assertEquals(1f, motionView.getAlpha(), 0f);
+        }
     }
 
     private static void waitForTransition(
@@ -336,12 +353,6 @@ public class StreamSettingsRenderingTest {
             throws InterruptedException {
         Thread.sleep(300);
         instrumentation.waitForIdleSync();
-    }
-
-    private static int dp(Activity activity, int value) {
-        return Math.round(value * activity.getResources()
-                .getDisplayMetrics()
-                .density);
     }
 
     private interface ActivityAssertion {

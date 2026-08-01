@@ -36,7 +36,8 @@ final class SettingsPageTransitionController {
     private final PathInterpolator interpolator =
             new PathInterpolator(0.2f, 0f, 0f, 1f);
 
-    private View currentPage;
+    private Page currentPage;
+    private Page outgoingPage;
     private long generation;
     private boolean destroyed;
 
@@ -46,36 +47,47 @@ final class SettingsPageTransitionController {
                 "container");
     }
 
-    void replace(View nextPage, Direction direction) {
+    /**
+     * Replaces the current page while animating only the page region that
+     * represents navigation progress. This keeps persistent chrome, such as
+     * the wide-layout section rail, visually stationary.
+     */
+    void replace(
+            View nextPage,
+            View nextMotionView,
+            Direction direction) {
         Objects.requireNonNull(nextPage, "nextPage");
+        Objects.requireNonNull(nextMotionView, "nextMotionView");
         Objects.requireNonNull(direction, "direction");
         if (destroyed) {
             return;
         }
 
         settleOnCurrentPage();
-        View previousPage = currentPage;
-        currentPage = nextPage;
+        Page previousPage = currentPage;
+        Page nextPageEntry = new Page(nextPage, nextMotionView);
+        currentPage = nextPageEntry;
         long transitionGeneration = ++generation;
 
         if (previousPage == null ||
                 direction == Direction.NONE ||
                 !areAnimationsEnabled()) {
-            showImmediately(nextPage);
+            showImmediately(nextPageEntry);
             return;
         }
 
         container.addView(nextPage, matchParentLayoutParams());
-        disableInteraction(previousPage);
+        outgoingPage = previousPage;
+        disableInteraction(previousPage.root);
 
         float directionSign = direction == Direction.FORWARD
                 ? 1f
                 : -1f;
         float slideDistance = getSlideDistance();
-        nextPage.setAlpha(INCOMING_START_ALPHA);
-        nextPage.setTranslationX(directionSign * slideDistance);
+        nextMotionView.setAlpha(INCOMING_START_ALPHA);
+        nextMotionView.setTranslationX(directionSign * slideDistance);
 
-        previousPage.animate()
+        previousPage.motion.animate()
                 .translationX(-directionSign * slideDistance *
                         OUTGOING_DISTANCE_RATIO)
                 .alpha(OUTGOING_END_ALPHA)
@@ -83,7 +95,7 @@ final class SettingsPageTransitionController {
                 .setInterpolator(interpolator)
                 .withLayer()
                 .start();
-        nextPage.animate()
+        nextMotionView.animate()
                 .translationX(0f)
                 .alpha(1f)
                 .setDuration(DURATION_MS)
@@ -92,7 +104,7 @@ final class SettingsPageTransitionController {
                 .withEndAction(() -> finishTransition(
                         transitionGeneration,
                         previousPage,
-                        nextPage))
+                        nextPageEntry))
                 .start();
     }
 
@@ -102,22 +114,25 @@ final class SettingsPageTransitionController {
         }
         destroyed = true;
         generation++;
-        cancelChildAnimations();
+        cancelPageAnimations();
         currentPage = null;
+        outgoingPage = null;
     }
 
-    private void showImmediately(View nextPage) {
-        cancelChildAnimations();
+    private void showImmediately(Page nextPage) {
+        cancelPageAnimations();
         container.removeAllViews();
         resetVisualState(nextPage);
-        container.addView(nextPage, matchParentLayoutParams());
+        container.addView(nextPage.root, matchParentLayoutParams());
+        outgoingPage = null;
     }
 
     private void settleOnCurrentPage() {
         generation++;
-        cancelChildAnimations();
+        cancelPageAnimations();
         if (currentPage == null) {
             container.removeAllViews();
+            outgoingPage = null;
             return;
         }
 
@@ -125,31 +140,34 @@ final class SettingsPageTransitionController {
                 index >= 0;
                 index--) {
             View child = container.getChildAt(index);
-            if (child != currentPage) {
+            if (child != currentPage.root) {
                 container.removeViewAt(index);
             }
         }
         resetVisualState(currentPage);
+        outgoingPage = null;
     }
 
     private void finishTransition(
             long transitionGeneration,
-            View previousPage,
-            View nextPage) {
+            Page previousPage,
+            Page nextPage) {
         if (destroyed ||
                 transitionGeneration != generation ||
                 currentPage != nextPage) {
             return;
         }
-        container.removeView(previousPage);
+        container.removeView(previousPage.root);
         resetVisualState(nextPage);
+        outgoingPage = null;
     }
 
-    private void cancelChildAnimations() {
-        for (int index = 0;
-                index < container.getChildCount();
-                index++) {
-            container.getChildAt(index).animate().cancel();
+    private void cancelPageAnimations() {
+        if (currentPage != null) {
+            currentPage.motion.animate().cancel();
+        }
+        if (outgoingPage != null && outgoingPage != currentPage) {
+            outgoingPage.motion.animate().cancel();
         }
     }
 
@@ -164,9 +182,11 @@ final class SettingsPageTransitionController {
         }
     }
 
-    private void resetVisualState(View view) {
-        view.setAlpha(1f);
-        view.setTranslationX(0f);
+    private void resetVisualState(Page page) {
+        page.root.setAlpha(1f);
+        page.root.setTranslationX(0f);
+        page.motion.setAlpha(1f);
+        page.motion.setTranslationX(0f);
     }
 
     private float getSlideDistance() {
@@ -196,5 +216,15 @@ final class SettingsPageTransitionController {
         return new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT);
+    }
+
+    private static final class Page {
+        final View root;
+        final View motion;
+
+        Page(View root, View motion) {
+            this.root = root;
+            this.motion = motion;
+        }
     }
 }

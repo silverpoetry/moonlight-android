@@ -180,9 +180,10 @@ final class SettingsScreenRenderer {
         sectionListScrollView = null;
         wideItemContainer = null;
         LinearLayout page = createPageContainer();
+        View motionView = page;
 
         if (wideLayout) {
-            renderWide(page);
+            motionView = renderWide(page);
         }
         else if (selectedSectionIndex >= 0) {
             renderSectionDetail(page, selectedSectionIndex);
@@ -193,9 +194,8 @@ final class SettingsScreenRenderer {
 
         pageTransitionController.replace(
                 page,
-                wideLayout
-                        ? SettingsPageTransitionController.Direction.NONE
-                        : direction);
+                motionView,
+                direction);
     }
 
     boolean hasContent() {
@@ -336,7 +336,7 @@ final class SettingsScreenRenderer {
         return page;
     }
 
-    private void renderWide(LinearLayout page) {
+    private View renderWide(LinearLayout page) {
         titleView.setText(R.string.settings_title);
         subtitleView.setText(profileSummary);
 
@@ -368,6 +368,7 @@ final class SettingsScreenRenderer {
         }
 
         wideItemContainer = new FrameLayout(context);
+        wideItemContainer.setId(R.id.settings_detail_container);
         LinearLayout.LayoutParams itemParams =
                 new LinearLayout.LayoutParams(
                         0,
@@ -376,6 +377,7 @@ final class SettingsScreenRenderer {
         itemParams.leftMargin = dp(14);
         columns.addView(wideItemContainer, itemParams);
         renderWideItemContent();
+        return wideItemContainer;
     }
 
     private void renderWideItemContent() {
