@@ -388,7 +388,7 @@ A slice is incomplete if callers can still bypass the new boundary.
 
 ## Phase 6 — Runtime composition and monolith decomposition
 
-**Status:** in progress.
+**Status:** complete.
 
 This phase reduces `Game`, `ControllerHandler`, `MediaCodecDecoderRenderer`, and
 remaining large UI controllers by ownership, not by arbitrary line-count
@@ -846,17 +846,24 @@ targets.
 
 ### Exit evidence
 
-- No extracted controller retains an Activity beyond its lifecycle scope.
-- Each subsystem can be constructed with fakes in a JVM or focused Android
-  test.
-- Device attach/detach, focus loss, configuration change, stream restart, and
-  process recreation have deterministic tests.
-- Splitting does not add queues or asynchronous hops to realtime input/audio/
-  video paths.
+- Every Android controller holding an Activity is owned by `Game` and released
+  in the same `onDestroy()` scope; policy/session owners accept fake ports and
+  do not retain the Activity.
+- Stream render, presentation, input lifecycle, USB binding, controller device
+  replacement, menu state, live settings, microphone, diagnostics, and overlay
+  owners are constructed under JVM fixtures or focused Android adapters.
+- Surface recreation, focus/capture transitions, device attach/detach and state
+  migration, repeated stream start/stop, restored menu Fragments, and terminal
+  late callbacks have deterministic fixtures. Debug deep-link smoke keeps the
+  full `Game` Activity alive through dependency composition, and Release
+  launcher smoke runs after every full gate.
+- All controller and decoder extraction is synchronous on the pre-existing
+  callback path. No new queue, worker thread, lock, timer, packet allocation,
+  or transport hop was added to realtime input/audio/video flow.
 
 ## Phase 7 — Hosts, discovery, pairing, and credentials
 
-**Status:** pending.
+**Status:** in progress.
 
 ### Deliverables
 
@@ -869,6 +876,17 @@ targets.
 - Pairing and launch state machines that reject stale callbacks and duplicate
   operations.
 - Database migration and backup/restore tests using existing paired-host data.
+
+### Completed slices
+
+- Introduced immutable, comparable values for stable host ID, advertised and
+  user-facing identity, endpoint provenance, persistent host metadata, and
+  transient connection state. Credentials are absent from discovery and host
+  metadata types, so a probe result cannot overwrite a certificate by API
+  construction.
+- Added a deterministic observation merge policy: an observation updates only
+  the endpoint kinds it actually reports, preserves user aliases and
+  unobserved manual/remote endpoints, and rejects cross-host merges.
 
 ### Exit evidence
 
