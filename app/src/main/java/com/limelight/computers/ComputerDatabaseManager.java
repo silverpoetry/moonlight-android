@@ -14,10 +14,12 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -47,7 +49,29 @@ public final class ComputerDatabaseManager {
         String PORT = "port";
     }
 
+    private final File databaseFile;
     private final SQLiteDatabase computerDb;
+
+    private static final class StoredHostRecord {
+        final String hostId;
+        final String name;
+        final String addresses;
+        final String macAddress;
+        final byte[] certificate;
+
+        StoredHostRecord(
+                String hostId,
+                String name,
+                String addresses,
+                String macAddress,
+                byte[] certificate) {
+            this.hostId = hostId;
+            this.name = name;
+            this.addresses = addresses;
+            this.macAddress = macAddress;
+            this.certificate = certificate;
+        }
+    }
 
     public ComputerDatabaseManager(Context context) {
         this(context, COMPUTER_DB_NAME, true);
@@ -61,8 +85,8 @@ public final class ComputerDatabaseManager {
         String checkedDatabaseName = Objects.requireNonNull(
                 databaseName,
                 "databaseName");
-        SQLiteDatabaseFileHeader.requireValidIfPopulated(
-                context.getDatabasePath(checkedDatabaseName));
+        databaseFile = context.getDatabasePath(checkedDatabaseName);
+        SQLiteDatabaseFileHeader.requireValidIfPopulated(databaseFile);
         computerDb = context.openOrCreateDatabase(
                 checkedDatabaseName,
                 Context.MODE_PRIVATE,
@@ -73,8 +97,13 @@ public final class ComputerDatabaseManager {
     /** Opens an exported database without mutating its schema. */
     public ComputerDatabaseManager(Context context, File file) {
         Objects.requireNonNull(context, "context");
+        File checkedFile = Objects.requireNonNull(file, "file");
+        if (!SQLiteDatabaseFileHeader.isValid(checkedFile)) {
+            throw new IllegalArgumentException("Not a host database");
+        }
+        databaseFile = checkedFile;
         computerDb = SQLiteDatabase.openDatabase(
-                Objects.requireNonNull(file, "file").getPath(),
+                checkedFile.getPath(),
                 null,
                 SQLiteDatabase.OPEN_READONLY);
         requireComputerTable();
@@ -87,56 +116,7 @@ public final class ComputerDatabaseManager {
     private void initializeDb(
             Context context,
             boolean migrateLegacyDatabases) {
-        computerDb.beginTransaction();
-        try {
-            computerDb.execSQL(String.format(
-                    (Locale) null,
-                    "CREATE TABLE IF NOT EXISTS %s(" +
-                            "%s TEXT PRIMARY KEY, " +
-                            "%s TEXT NOT NULL, " +
-                            "%s TEXT NOT NULL, " +
-                            "%s TEXT, " +
-                            "%s BLOB)",
-                    COMPUTER_TABLE_NAME,
-                    COMPUTER_UUID_COLUMN_NAME,
-                    COMPUTER_NAME_COLUMN_NAME,
-                    ADDRESSES_COLUMN_NAME,
-                    MAC_ADDRESS_COLUMN_NAME,
-                    LEGACY_SERVER_CERT_COLUMN_NAME));
-            computerDb.execSQL(String.format(
-                    (Locale) null,
-                    "CREATE TABLE IF NOT EXISTS %s(" +
-                            "%s TEXT PRIMARY KEY, " +
-                            "%s BLOB NOT NULL)",
-                    CREDENTIAL_TABLE_NAME,
-                    CREDENTIAL_HOST_ID_COLUMN_NAME,
-                    CREDENTIAL_CERT_COLUMN_NAME));
-
-            // Upgrade computers4.db in place. Moving then clearing the legacy
-            // column makes HostCredentials the only credential owner.
-            computerDb.execSQL(String.format(
-                    (Locale) null,
-                    "INSERT OR IGNORE INTO %s(%s, %s) " +
-                            "SELECT %s, %s FROM %s WHERE %s IS NOT NULL",
-                    CREDENTIAL_TABLE_NAME,
-                    CREDENTIAL_HOST_ID_COLUMN_NAME,
-                    CREDENTIAL_CERT_COLUMN_NAME,
-                    COMPUTER_UUID_COLUMN_NAME,
-                    LEGACY_SERVER_CERT_COLUMN_NAME,
-                    COMPUTER_TABLE_NAME,
-                    LEGACY_SERVER_CERT_COLUMN_NAME));
-            computerDb.execSQL(String.format(
-                    (Locale) null,
-                    "UPDATE %s SET %s=NULL WHERE %s IS NOT NULL",
-                    COMPUTER_TABLE_NAME,
-                    LEGACY_SERVER_CERT_COLUMN_NAME,
-                    LEGACY_SERVER_CERT_COLUMN_NAME));
-            computerDb.setVersion(SCHEMA_VERSION);
-            computerDb.setTransactionSuccessful();
-        }
-        finally {
-            computerDb.endTransaction();
-        }
+        createOrUpgradeCurrentSchema(computerDb);
 
         if (migrateLegacyDatabases) {
             migrateLegacyDatabase(
@@ -151,6 +131,60 @@ public final class ComputerDatabaseManager {
         }
     }
 
+    private static void createOrUpgradeCurrentSchema(
+            SQLiteDatabase database) {
+        database.beginTransaction();
+        try {
+            database.execSQL(String.format(
+                    (Locale) null,
+                    "CREATE TABLE IF NOT EXISTS %s(" +
+                            "%s TEXT PRIMARY KEY, " +
+                            "%s TEXT NOT NULL, " +
+                            "%s TEXT NOT NULL, " +
+                            "%s TEXT, " +
+                            "%s BLOB)",
+                    COMPUTER_TABLE_NAME,
+                    COMPUTER_UUID_COLUMN_NAME,
+                    COMPUTER_NAME_COLUMN_NAME,
+                    ADDRESSES_COLUMN_NAME,
+                    MAC_ADDRESS_COLUMN_NAME,
+                    LEGACY_SERVER_CERT_COLUMN_NAME));
+            database.execSQL(String.format(
+                    (Locale) null,
+                    "CREATE TABLE IF NOT EXISTS %s(" +
+                            "%s TEXT PRIMARY KEY, " +
+                            "%s BLOB NOT NULL)",
+                    CREDENTIAL_TABLE_NAME,
+                    CREDENTIAL_HOST_ID_COLUMN_NAME,
+                    CREDENTIAL_CERT_COLUMN_NAME));
+
+            // Upgrade computers4.db in place. Moving then clearing the legacy
+            // column makes HostCredentials the only credential owner.
+            database.execSQL(String.format(
+                    (Locale) null,
+                    "INSERT OR IGNORE INTO %s(%s, %s) " +
+                            "SELECT %s, %s FROM %s WHERE %s IS NOT NULL",
+                    CREDENTIAL_TABLE_NAME,
+                    CREDENTIAL_HOST_ID_COLUMN_NAME,
+                    CREDENTIAL_CERT_COLUMN_NAME,
+                    COMPUTER_UUID_COLUMN_NAME,
+                    LEGACY_SERVER_CERT_COLUMN_NAME,
+                    COMPUTER_TABLE_NAME,
+                    LEGACY_SERVER_CERT_COLUMN_NAME));
+            database.execSQL(String.format(
+                    (Locale) null,
+                    "UPDATE %s SET %s=NULL WHERE %s IS NOT NULL",
+                    COMPUTER_TABLE_NAME,
+                    LEGACY_SERVER_CERT_COLUMN_NAME,
+                    LEGACY_SERVER_CERT_COLUMN_NAME));
+            database.setVersion(SCHEMA_VERSION);
+            database.setTransactionSuccessful();
+        }
+        finally {
+            database.endTransaction();
+        }
+    }
+
     private void requireComputerTable() {
         if (!hasTable(COMPUTER_TABLE_NAME)) {
             throw new IllegalArgumentException("Not a host database");
@@ -158,7 +192,13 @@ public final class ComputerDatabaseManager {
     }
 
     private boolean hasTable(String tableName) {
-        try (Cursor cursor = computerDb.rawQuery(
+        return hasTable(computerDb, tableName);
+    }
+
+    private static boolean hasTable(
+            SQLiteDatabase database,
+            String tableName) {
+        try (Cursor cursor = database.rawQuery(
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
                 new String[]{tableName})) {
             return cursor.moveToFirst();
@@ -252,6 +292,177 @@ public final class ComputerDatabaseManager {
         }
         finally {
             computerDb.endTransaction();
+        }
+    }
+
+    /** Writes a closed, self-contained snapshot without sharing the live DB. */
+    public void writePortableSnapshot(File destination) {
+        File checkedDestination = Objects.requireNonNull(
+                destination,
+                "destination");
+        if (sameFile(databaseFile, checkedDestination)) {
+            throw new IllegalArgumentException(
+                    "Snapshot destination must differ from its source");
+        }
+
+        List<StoredHostRecord> records = readStoredHostRecords();
+        File parent = checkedDestination.getParentFile();
+        if (parent == null || (!parent.exists() && !parent.mkdirs())) {
+            throw new IllegalStateException(
+                    "Unable to create host snapshot directory");
+        }
+        if (checkedDestination.exists() &&
+                !SQLiteDatabase.deleteDatabase(checkedDestination) &&
+                checkedDestination.exists()) {
+            throw new IllegalStateException(
+                    "Unable to replace previous host snapshot");
+        }
+
+        try (SQLiteDatabase snapshot =
+                     SQLiteDatabase.openOrCreateDatabase(
+                             checkedDestination,
+                             null)) {
+            createOrUpgradeCurrentSchema(snapshot);
+            replaceStoredHostRecords(snapshot, records, false);
+        }
+        catch (RuntimeException error) {
+            SQLiteDatabase.deleteDatabase(checkedDestination);
+            throw error;
+        }
+
+        if (!SQLiteDatabaseFileHeader.isValid(checkedDestination)) {
+            SQLiteDatabase.deleteDatabase(checkedDestination);
+            throw new IllegalStateException(
+                    "Host snapshot was not finalized correctly");
+        }
+    }
+
+    /** Atomically merges all validated records from a portable snapshot. */
+    public int restoreFrom(ComputerDatabaseManager source) {
+        List<StoredHostRecord> records = Objects.requireNonNull(
+                source,
+                "source").readStoredHostRecords();
+        replaceStoredHostRecords(computerDb, records, true);
+        return records.size();
+    }
+
+    private List<StoredHostRecord> readStoredHostRecords() {
+        try (Cursor cursor = queryComputers(null, null)) {
+            List<StoredHostRecord> records = new ArrayList<>();
+            while (cursor.moveToNext()) {
+                records.add(readStoredHostRecord(cursor));
+            }
+            return records;
+        }
+    }
+
+    private static StoredHostRecord readStoredHostRecord(Cursor cursor) {
+        String hostId = requireNonEmpty(cursor.getString(0), "host ID");
+        String name = requireNonEmpty(cursor.getString(1), "computer name");
+        String addresses = requireValidAddresses(cursor.getString(2));
+        byte[] certificate = cursor.getBlob(4);
+        if (certificate != null) {
+            requireValidCertificate(certificate);
+        }
+        return new StoredHostRecord(
+                hostId,
+                name,
+                addresses,
+                cursor.getString(3),
+                certificate);
+    }
+
+    private static String requireValidAddresses(String encoded) {
+        String value = requireNonEmpty(encoded, "host endpoints");
+        try {
+            JSONObject addresses = new JSONObject(value);
+            tupleFromJson(addresses, AddressFields.LOCAL);
+            tupleFromJson(addresses, AddressFields.REMOTE);
+            tupleFromJson(addresses, AddressFields.MANUAL);
+            tupleFromJson(addresses, AddressFields.IPV6);
+            return value;
+        }
+        catch (JSONException error) {
+            throw new IllegalArgumentException(
+                    "Stored host endpoints are invalid",
+                    error);
+        }
+    }
+
+    private static void requireValidCertificate(byte[] encoded) {
+        try {
+            CertificateFactory.getInstance("X.509")
+                    .generateCertificate(new ByteArrayInputStream(encoded));
+        }
+        catch (CertificateException error) {
+            throw new IllegalArgumentException(
+                    "Stored pinned host certificate is invalid",
+                    error);
+        }
+    }
+
+    private static void replaceStoredHostRecords(
+            SQLiteDatabase destination,
+            List<StoredHostRecord> records,
+            boolean clearMissingCredentials) {
+        destination.beginTransaction();
+        try {
+            for (StoredHostRecord record : records) {
+                ContentValues metadata = new ContentValues();
+                metadata.put(COMPUTER_UUID_COLUMN_NAME, record.hostId);
+                metadata.put(COMPUTER_NAME_COLUMN_NAME, record.name);
+                metadata.put(ADDRESSES_COLUMN_NAME, record.addresses);
+                metadata.put(MAC_ADDRESS_COLUMN_NAME, record.macAddress);
+                metadata.putNull(LEGACY_SERVER_CERT_COLUMN_NAME);
+                if (destination.insertWithOnConflict(
+                        COMPUTER_TABLE_NAME,
+                        null,
+                        metadata,
+                        SQLiteDatabase.CONFLICT_REPLACE) == -1) {
+                    throw new IllegalStateException(
+                            "Unable to restore host metadata");
+                }
+
+                if (record.certificate != null) {
+                    ContentValues credential = new ContentValues();
+                    credential.put(
+                            CREDENTIAL_HOST_ID_COLUMN_NAME,
+                            record.hostId);
+                    credential.put(
+                            CREDENTIAL_CERT_COLUMN_NAME,
+                            record.certificate);
+                    if (destination.insertWithOnConflict(
+                            CREDENTIAL_TABLE_NAME,
+                            null,
+                            credential,
+                            SQLiteDatabase.CONFLICT_REPLACE) == -1) {
+                        throw new IllegalStateException(
+                                "Unable to restore host credential");
+                    }
+                }
+                else if (clearMissingCredentials) {
+                    destination.delete(
+                            CREDENTIAL_TABLE_NAME,
+                            CREDENTIAL_HOST_ID_COLUMN_NAME + "=?",
+                            new String[]{record.hostId});
+                }
+            }
+            destination.setVersion(SCHEMA_VERSION);
+            destination.setTransactionSuccessful();
+        }
+        finally {
+            destination.endTransaction();
+        }
+    }
+
+    private static boolean sameFile(File first, File second) {
+        try {
+            return first.getCanonicalFile().equals(
+                    second.getCanonicalFile());
+        }
+        catch (IOException error) {
+            return first.getAbsoluteFile().equals(
+                    second.getAbsoluteFile());
         }
     }
 

@@ -12,7 +12,6 @@ import androidx.core.content.FileProvider;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.computers.ComputerDatabaseManager;
-import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
@@ -28,7 +27,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -52,6 +50,12 @@ final class SettingsDocumentController {
     private static final String PRIVATE_KEY_FILE_NAME = "client.key";
     private static final String ACCESSIBILITY_FILE_NAME =
             "axi_switch_keyboard.json";
+    private static final String HOST_SNAPSHOT_DIRECTORY =
+            "host-backups";
+    private static final String HOST_SNAPSHOT_FILE =
+            "moonlight-hosts.db";
+    private static final String HOST_DATABASE_MIME_TYPE =
+            "application/vnd.sqlite3";
     private static final long MAX_DATA_IMPORT_BYTES = 4L * 1024L * 1024L;
     private static final long MAX_HOST_DATABASE_BYTES =
             64L * 1024L * 1024L;
@@ -140,11 +144,7 @@ final class SettingsDocumentController {
                 exportVirtualControlLayout(true);
                 break;
             case EXPORT_HOSTS:
-                exportFile(
-                        activity.getDatabasePath(
-                                ComputerDatabaseManager
-                                        .COMPUTER_DB_NAME),
-                        "*/*");
+                runOnIo(this::exportHosts);
                 break;
             case EXPORT_CERTIFICATE:
                 exportFile(
@@ -290,6 +290,38 @@ final class SettingsDocumentController {
                 activity.getString(R.string.settings_share_data)));
     }
 
+    private void exportHosts() {
+        File snapshot = new File(
+                new File(
+                        activity.getCacheDir(),
+                        HOST_SNAPSHOT_DIRECTORY),
+                HOST_SNAPSHOT_FILE);
+        ComputerDatabaseManager manager = null;
+        try {
+            manager = new ComputerDatabaseManager(activity);
+            manager.writePortableSnapshot(snapshot);
+            runOnMain(() -> exportFile(
+                    snapshot,
+                    HOST_DATABASE_MIME_TYPE));
+        }
+        catch (Exception error) {
+            String detail = error.getMessage();
+            if (detail == null || detail.trim().isEmpty()) {
+                detail = error.getClass().getSimpleName();
+            }
+            LimeLog.warning(
+                    "Unable to export host database: " + detail);
+            showToast(
+                    activity.getString(
+                            R.string.settings_export_failed,
+                            detail),
+                    UiToast.LENGTH_SHORT);
+        }
+        finally {
+            closeDatabase(manager);
+        }
+    }
+
     private void persistClipboardDirectory(
             Intent data,
             Uri directory) {
@@ -358,13 +390,9 @@ final class SettingsDocumentController {
             importManager = new ComputerDatabaseManager(
                     activity,
                     databaseFile);
-            List<ComputerDetails> computers =
-                    importManager.getAllComputers();
             destinationManager =
                     new ComputerDatabaseManager(activity);
-            for (ComputerDetails computer : computers) {
-                destinationManager.importComputer(computer);
-            }
+            destinationManager.restoreFrom(importManager);
             showToast(
                     R.string.settings_hosts_import_succeeded,
                     UiToast.LENGTH_SHORT);

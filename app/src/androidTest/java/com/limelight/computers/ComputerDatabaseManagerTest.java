@@ -34,12 +34,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RunWith(AndroidJUnit4.class)
 public final class ComputerDatabaseManagerTest {
     private static final String DATABASE_NAME = "host-repository-test.db";
+    private static final String SOURCE_DATABASE_NAME =
+            "host-repository-source-test.db";
     private static final String LEGACY_DATABASE_NAME = "computers3.db";
     private static final String MISSING_DATABASE_NAME =
             "missing-legacy-host-repository-test.db";
 
     private Context context;
     private File cryptoDirectory;
+    private File snapshotFile;
 
     @Before
     public void setUp() {
@@ -47,11 +50,16 @@ public final class ComputerDatabaseManagerTest {
                 .getInstrumentation()
                 .getTargetContext();
         context.deleteDatabase(DATABASE_NAME);
+        context.deleteDatabase(SOURCE_DATABASE_NAME);
         context.deleteDatabase(LEGACY_DATABASE_NAME);
         context.deleteDatabase(MISSING_DATABASE_NAME);
         cryptoDirectory = new File(
                 context.getCacheDir(),
                 "host-repository-crypto");
+        snapshotFile = new File(
+                context.getCacheDir(),
+                "host-repository-snapshot-test.db");
+        SQLiteDatabase.deleteDatabase(snapshotFile);
         deleteRecursively(cryptoDirectory);
         assertTrue(cryptoDirectory.mkdirs());
     }
@@ -59,8 +67,10 @@ public final class ComputerDatabaseManagerTest {
     @After
     public void tearDown() {
         context.deleteDatabase(DATABASE_NAME);
+        context.deleteDatabase(SOURCE_DATABASE_NAME);
         context.deleteDatabase(LEGACY_DATABASE_NAME);
         context.deleteDatabase(MISSING_DATABASE_NAME);
+        SQLiteDatabase.deleteDatabase(snapshotFile);
         deleteRecursively(cryptoDirectory);
     }
 
@@ -239,6 +249,118 @@ public final class ComputerDatabaseManagerTest {
         assertTrue(context.getDatabasePath(LEGACY_DATABASE_NAME).exists());
     }
 
+    @Test
+    public void portableSnapshotRoundTripsMetadataAndCredential()
+            throws Exception {
+        X509Certificate certificate = createCertificate();
+        ComputerDetails original = new ComputerDetails();
+        original.uuid = "snapshot-host";
+        original.name = "Snapshot host";
+        original.localAddress = new ComputerDetails.AddressTuple(
+                "192.168.1.10",
+                47989);
+        original.serverCert = certificate;
+
+        ComputerDatabaseManager source = new ComputerDatabaseManager(
+                context,
+                DATABASE_NAME,
+                false);
+        assertTrue(source.importComputer(original));
+        source.writePortableSnapshot(snapshotFile);
+        source.close();
+
+        assertTrue(snapshotFile.isFile());
+        ComputerDatabaseManager snapshot =
+                new ComputerDatabaseManager(context, snapshotFile);
+        ComputerDetails restored = snapshot.getComputerByUUID(
+                original.uuid);
+        assertNotNull(restored);
+        assertEquals(original.name, restored.name);
+        assertEquals(original.localAddress, restored.localAddress);
+        assertArrayEquals(
+                certificate.getEncoded(),
+                restored.serverCert.getEncoded());
+        snapshot.close();
+    }
+
+    @Test
+    public void corruptImportIsRejectedBeforeSQLiteAndPreserved()
+            throws Exception {
+        byte[] corruptBytes = new byte[]{9, 8, 7, 6};
+        try (FileOutputStream output =
+                     new FileOutputStream(snapshotFile)) {
+            output.write(corruptBytes);
+        }
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ComputerDatabaseManager(
+                        context,
+                        snapshotFile));
+        assertTrue(snapshotFile.exists());
+        assertEquals(corruptBytes.length, snapshotFile.length());
+    }
+
+    @Test
+    public void restoreIsAtomicWhenAnySourceRecordIsInvalid() {
+        ComputerDetails current = new ComputerDetails();
+        current.uuid = "current-host";
+        current.name = "Current host";
+        ComputerDatabaseManager destination = new ComputerDatabaseManager(
+                context,
+                DATABASE_NAME,
+                false);
+        assertTrue(destination.importComputer(current));
+
+        createCurrentSchemaSourceWithInvalidRecord();
+        ComputerDatabaseManager source = new ComputerDatabaseManager(
+                context,
+                context.getDatabasePath(SOURCE_DATABASE_NAME));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> destination.restoreFrom(source));
+        assertNotNull(destination.getComputerByUUID("current-host"));
+        assertNull(destination.getComputerByUUID("valid-source-host"));
+        assertNull(destination.getComputerByUUID("invalid-source-host"));
+
+        source.close();
+        destination.close();
+    }
+
+    @Test
+    public void restoreReplacesCredentialAndClearsMissingCredential()
+            throws Exception {
+        X509Certificate certificate = createCertificate();
+        ComputerDatabaseManager destination = new ComputerDatabaseManager(
+                context,
+                DATABASE_NAME,
+                false);
+        ComputerDetails destinationHost = new ComputerDetails();
+        destinationHost.uuid = "restore-host";
+        destinationHost.name = "Old host";
+        destinationHost.serverCert = certificate;
+        assertTrue(destination.importComputer(destinationHost));
+
+        ComputerDatabaseManager source = new ComputerDatabaseManager(
+                context,
+                SOURCE_DATABASE_NAME,
+                false);
+        ComputerDetails sourceHost = new ComputerDetails();
+        sourceHost.uuid = destinationHost.uuid;
+        sourceHost.name = "Restored host";
+        assertTrue(source.importComputer(sourceHost));
+
+        assertEquals(1, destination.restoreFrom(source));
+        ComputerDetails restored = destination.getComputerByUUID(
+                destinationHost.uuid);
+        assertEquals("Restored host", restored.name);
+        assertNull(restored.serverCert);
+
+        source.close();
+        destination.close();
+    }
+
     private X509Certificate createCertificate() {
         Context isolatedContext = new ContextWrapper(context) {
             @Override
@@ -297,6 +419,49 @@ public final class ComputerDatabaseManagerTest {
         values.put("ComputerName", name);
         values.put("Addresses", "192.168.1.2_47989;;;");
         values.put("MacAddress", "00:11:22:33:44:55");
+        values.putNull("ServerCert");
+        assertTrue(database.insert("Computers", null, values) != -1);
+    }
+
+    private void createCurrentSchemaSourceWithInvalidRecord() {
+        try (SQLiteDatabase database = context.openOrCreateDatabase(
+                SOURCE_DATABASE_NAME,
+                Context.MODE_PRIVATE,
+                null)) {
+            database.execSQL(
+                    "CREATE TABLE Computers(" +
+                            "UUID TEXT PRIMARY KEY, " +
+                            "ComputerName TEXT NOT NULL, " +
+                            "Addresses TEXT NOT NULL, " +
+                            "MacAddress TEXT, " +
+                            "ServerCert BLOB)");
+            database.execSQL(
+                    "CREATE TABLE HostCredentials(" +
+                            "HostId TEXT PRIMARY KEY, " +
+                            "ServerCert BLOB NOT NULL)");
+            insertStoredHost(
+                    database,
+                    "valid-source-host",
+                    "Valid source host",
+                    new JSONObject().toString());
+            insertStoredHost(
+                    database,
+                    "invalid-source-host",
+                    "Invalid source host",
+                    "{");
+        }
+    }
+
+    private static void insertStoredHost(
+            SQLiteDatabase database,
+            String hostId,
+            String name,
+            String addresses) {
+        ContentValues values = new ContentValues();
+        values.put("UUID", hostId);
+        values.put("ComputerName", name);
+        values.put("Addresses", addresses);
+        values.putNull("MacAddress");
         values.putNull("ServerCert");
         assertTrue(database.insert("Computers", null, values) != -1);
     }

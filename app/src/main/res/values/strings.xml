@@ -727,6 +727,7 @@
     <string name="settings_hosts_import_succeeded">导入成功，重新打开应用后生效</string>
     <string name="settings_import_succeeded">导入成功</string>
     <string name="settings_import_failed">导入失败：%1$s</string>
+    <string name="settings_export_failed">导出失败：%1$s</string>
     <string name="settings_import_too_large">选择的文件过大</string>
     <string name="settings_hdr_firmware_required">请更新 NVIDIA SHIELD Android TV 固件以启用 HDR</string>
     <string name="settings_invalid_bitrate">请输入 0–9999 的数值</string>

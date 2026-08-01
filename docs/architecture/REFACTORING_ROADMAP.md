@@ -934,6 +934,11 @@ targets.
   atomic repository lease owner. Poll, removal, startup, and pairing writes use
   scoped leases; an in-flight remote pairing keeps its credential transaction
   alive through Activity unbind and service destruction.
+- Host export now produces a validated, closed portable snapshot on the
+  settings I/O executor instead of sharing the live WAL-backed database file.
+  Restore validates the complete source first and merges metadata plus
+  credentials in one transaction, so corrupt input cannot leave a partial
+  restore or silently retain a credential absent from the backup.
 
 ### Exit evidence
 
