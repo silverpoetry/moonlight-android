@@ -137,7 +137,10 @@ import com.limelight.ui.StreamUiActions;
 import com.limelight.ui.StreamView;
 import com.limelight.ui.floatingview.StreamFloatingControlController;
 import com.limelight.ui.hosts.HostQuitMessageResolver;
-import com.limelight.utils.AutoReconnectHelper;
+import com.limelight.stream.launch.PendingStreamReconnect;
+import com.limelight.stream.launch.PendingStreamReconnectStore;
+import com.limelight.stream.launch.android.AndroidPendingStreamReconnectMapper;
+import com.limelight.stream.launch.android.AndroidStreamLaunchContract;
 import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.RazerUtils;
@@ -321,17 +324,6 @@ public class Game extends Activity implements OnGenericMotionListener,
             }
         }
     };
-
-    public static final String EXTRA_HOST = "Host";
-    public static final String EXTRA_PORT = "Port";
-    public static final String EXTRA_HTTPS_PORT = "HttpsPort";
-    public static final String EXTRA_APP_NAME = "AppName";
-    public static final String EXTRA_APP_ID = "AppId";
-    public static final String EXTRA_UNIQUEID = "UniqueId";
-    public static final String EXTRA_PC_UUID = "UUID";
-    public static final String EXTRA_PC_NAME = "PcName";
-    public static final String EXTRA_APP_HDR = "HDR";
-    public static final String EXTRA_SERVER_CERT = "ServerCert";
 
     private ViewParent rootView;
 
@@ -551,17 +543,30 @@ public class Game extends Activity implements OnGenericMotionListener,
                 StreamWifiLockController.create(this);
         wifiLockController.acquire();
 
-        appName = Game.this.getIntent().getStringExtra(EXTRA_APP_NAME);
-        pcName = Game.this.getIntent().getStringExtra(EXTRA_PC_NAME);
+        appName = Game.this.getIntent().getStringExtra(
+                AndroidStreamLaunchContract.EXTRA_APP_NAME);
+        pcName = Game.this.getIntent().getStringExtra(
+                AndroidStreamLaunchContract.EXTRA_HOST_NAME);
 
-        String host = Game.this.getIntent().getStringExtra(EXTRA_HOST);
+        String host = Game.this.getIntent().getStringExtra(
+                AndroidStreamLaunchContract.EXTRA_HOST);
         streamHost = host;
-        int port = Game.this.getIntent().getIntExtra(EXTRA_PORT, NvHTTP.DEFAULT_HTTP_PORT);
-        int httpsPort = Game.this.getIntent().getIntExtra(EXTRA_HTTPS_PORT, 0); // 0 is treated as unknown
-        int appId = Game.this.getIntent().getIntExtra(EXTRA_APP_ID, StreamConfiguration.INVALID_APP_ID);
-        String uniqueId = Game.this.getIntent().getStringExtra(EXTRA_UNIQUEID);
-        boolean appSupportsHdr = Game.this.getIntent().getBooleanExtra(EXTRA_APP_HDR, false);
-        byte[] derCertData = Game.this.getIntent().getByteArrayExtra(EXTRA_SERVER_CERT);
+        int port = Game.this.getIntent().getIntExtra(
+                AndroidStreamLaunchContract.EXTRA_PORT,
+                NvHTTP.DEFAULT_HTTP_PORT);
+        int httpsPort = Game.this.getIntent().getIntExtra(
+                AndroidStreamLaunchContract.EXTRA_HTTPS_PORT,
+                0); // 0 is treated as unknown
+        int appId = Game.this.getIntent().getIntExtra(
+                AndroidStreamLaunchContract.EXTRA_APP_ID,
+                StreamConfiguration.INVALID_APP_ID);
+        String uniqueId = Game.this.getIntent().getStringExtra(
+                AndroidStreamLaunchContract.EXTRA_UNIQUE_ID);
+        boolean appSupportsHdr = Game.this.getIntent().getBooleanExtra(
+                AndroidStreamLaunchContract.EXTRA_APP_HDR,
+                false);
+        byte[] derCertData = Game.this.getIntent().getByteArrayExtra(
+                AndroidStreamLaunchContract.EXTRA_SERVER_CERTIFICATE);
 
         app = new NvApp(appName != null ? appName : "app", appId, appSupportsHdr);
 
@@ -728,7 +733,8 @@ public class Game extends Activity implements OnGenericMotionListener,
         launchReporter = AndroidStreamLaunchReporterFactory.create(
                 this,
                 pcName,
-                getIntent().getStringExtra(EXTRA_PC_UUID),
+                getIntent().getStringExtra(
+                        AndroidStreamLaunchContract.EXTRA_HOST_ID),
                 app,
                 appName != null);
         sessionUiEffects = new StreamSessionUiEffects(
@@ -1441,7 +1447,12 @@ public class Game extends Activity implements OnGenericMotionListener,
                 !isFinishing()) {
             PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
             if (powerManager != null && powerManager.isInteractive()) {
-                AutoReconnectHelper.savePendingStream(getIntent());
+                PendingStreamReconnect reconnect =
+                        AndroidPendingStreamReconnectMapper.fromIntent(
+                                getIntent());
+                if (reconnect != null) {
+                    getPendingStreamReconnectStore().save(reconnect);
+                }
             }
             else {
                 isAutoLink = true;
@@ -1453,7 +1464,7 @@ public class Game extends Activity implements OnGenericMotionListener,
 
     @Override
     public void finish() {
-        AutoReconnectHelper.clearPendingStream();
+        getPendingStreamReconnectStore().clear();
         super.finish();
         if (streamVideoSettingsState != null &&
                 streamVideoSettingsState
@@ -1471,6 +1482,12 @@ public class Game extends Activity implements OnGenericMotionListener,
     }
 
     private boolean isAutoLink=false;
+
+    private PendingStreamReconnectStore
+            getPendingStreamReconnectStore() {
+        return ((MoonlightApplication) getApplication())
+                .getPendingStreamReconnectStore();
+    }
 
     @Override
     protected void onStart() {

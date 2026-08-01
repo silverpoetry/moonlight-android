@@ -976,6 +976,17 @@ targets.
   generation-gate queued callbacks, and completed values that lose the race are
   explicitly disposed. App-list cache parsing remains off the main thread, and
   a stale prepared adapter cancels its queued asset work before being dropped.
+- Stream launch now crosses one immutable request and one Android Intent
+  adapter. Activity-scoped admission rejects duplicate starts until a complete
+  pause/resume round trip, recent-session persistence occurs only after Android
+  accepts the launch, and certificate serialization failures are terminal typed
+  results rather than a launch with silently missing credentials. Automatic
+  reconnect uses one application-owned compare-and-clear handoff instead of a
+  mutable static registry, so a stale consumer cannot erase its replacement.
+  Host and app screens share the lifecycle-owned launcher, while shortcut and
+  TV entry points share the same immutable request and stable Intent contract;
+  the mixed-purpose `ServerHelper` and `AutoReconnectHelper` implementations
+  are removed.
 
 ### Exit evidence
 

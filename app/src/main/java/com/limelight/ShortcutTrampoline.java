@@ -16,10 +16,13 @@ import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
 import com.limelight.nvstream.wol.WakeOnLanSender;
+import com.limelight.stream.launch.StreamLaunchRequest;
+import com.limelight.stream.launch.android.AndroidStreamLaunchIntentFactory;
+import com.limelight.stream.launch.android.AndroidStreamLaunchContract;
+import com.limelight.stream.launch.android.AndroidStreamLaunchRequestFactory;
 import com.limelight.ui.hosts.HostServiceBindingController;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.Dialog;
-import com.limelight.utils.ServerHelper;
 import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.UiHelper;
 
@@ -27,6 +30,7 @@ import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.security.cert.CertificateEncodingException;
 import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -259,21 +263,26 @@ public class ShortcutTrampoline extends Activity {
         if (app != null) {
             if (details.runningGameId == 0 ||
                     details.runningGameId == app.getAppId()) {
-                intentStack.add(ServerHelper.createStartIntent(
-                        this,
-                        app,
+                Intent streamIntent = createStreamIntent(
                         details,
-                        localBinder));
+                        app,
+                        localBinder);
+                if (streamIntent == null) {
+                    return;
+                }
+                intentStack.add(streamIntent);
                 finish();
                 startActivities(intentStack.toArray(new Intent[0]));
                 return;
             }
 
-            Intent startIntent = ServerHelper.createStartIntent(
-                    this,
-                    app,
+            Intent startIntent = createStreamIntent(
                     details,
+                    app,
                     localBinder);
+            if (startIntent == null) {
+                return;
+            }
             UiHelper.displayQuitConfirmationDialog(
                     this,
                     () -> {
@@ -286,7 +295,20 @@ public class ShortcutTrampoline extends Activity {
             return;
         }
 
-        finish();
+        Intent runningStreamIntent = null;
+        if (details.runningGameId != 0) {
+            runningStreamIntent = createStreamIntent(
+                    details,
+                    new NvApp(
+                            null,
+                            details.runningGameId,
+                            false),
+                    localBinder);
+            if (runningStreamIntent == null) {
+                return;
+            }
+        }
+
         Intent pcIntent = new Intent(this, PcView.class);
         pcIntent.setAction(Intent.ACTION_MAIN);
         pcIntent.setFlags(
@@ -298,14 +320,35 @@ public class ShortcutTrampoline extends Activity {
                 .putExtra(AppView.UUID_EXTRA, details.uuid);
         appIntent.setClass(this, AppView.class);
         intentStack.add(appIntent);
-        if (details.runningGameId != 0) {
-            intentStack.add(ServerHelper.createStartIntent(
-                    this,
-                    new NvApp(null, details.runningGameId, false),
-                    details,
-                    localBinder));
+        if (runningStreamIntent != null) {
+            intentStack.add(runningStreamIntent);
         }
+        finish();
         startActivities(intentStack.toArray(new Intent[0]));
+    }
+
+    private Intent createStreamIntent(
+            ComputerDetails details,
+            NvApp targetApp,
+            ComputerManagerService.ComputerManagerBinder binder) {
+        try {
+            StreamLaunchRequest request =
+                    AndroidStreamLaunchRequestFactory.create(
+                            details,
+                            targetApp,
+                            binder.getUniqueId());
+            return AndroidStreamLaunchIntentFactory.create(
+                    this,
+                    request);
+        }
+        catch (CertificateEncodingException |
+                IllegalArgumentException failure) {
+            LimeLog.warning(
+                    "Invalid shortcut stream launch: " +
+                            failure.getClass().getSimpleName());
+            showConnectionFailure();
+            return null;
+        }
     }
 
     private void showMissingComputer() {
@@ -424,8 +467,10 @@ public class ShortcutTrampoline extends Activity {
                 getIntent().getStringExtra(AppView.NAME_EXTRA);
 
         // App arguments, both are optional, but one must be provided in order to start an app
-        String appIdString = getIntent().getStringExtra(Game.EXTRA_APP_ID);
-        String appNameString = getIntent().getStringExtra(Game.EXTRA_APP_NAME);
+        String appIdString = getIntent().getStringExtra(
+                AndroidStreamLaunchContract.EXTRA_APP_ID);
+        String appNameString = getIntent().getStringExtra(
+                AndroidStreamLaunchContract.EXTRA_APP_NAME);
 
         if (!validateInput(
                 uuidString,
@@ -440,9 +485,12 @@ public class ShortcutTrampoline extends Activity {
         }
 
         if (appIdString != null && !appIdString.isEmpty()) {
-            app = new NvApp(getIntent().getStringExtra(Game.EXTRA_APP_NAME),
+            app = new NvApp(getIntent().getStringExtra(
+                    AndroidStreamLaunchContract.EXTRA_APP_NAME),
                     Integer.parseInt(appIdString),
-                    getIntent().getBooleanExtra(Game.EXTRA_APP_HDR, false));
+                    getIntent().getBooleanExtra(
+                            AndroidStreamLaunchContract.EXTRA_APP_HDR,
+                            false));
         }
         else if (appNameString != null && !appNameString.isEmpty()) {
             requestedAppName = appNameString;

@@ -24,6 +24,7 @@ import com.limelight.PosterContentProvider;
 import com.limelight.R;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
+import com.limelight.stream.launch.android.AndroidShortcutIntentFactory;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -78,7 +79,8 @@ public class TvChannelHelper {
                     .setType(TvContract.Channels.TYPE_PREVIEW)
                     .setDisplayName(computer.name)
                     .setInternalProviderId(computer.uuid)
-                    .setAppLinkIntent(ServerHelper.createPcShortcutIntent(context, computer));
+                    .setAppLinkIntent(AndroidShortcutIntentFactory
+                            .createHostIntent(context, computer));
 
             Long channelId = getChannelId(computer.uuid);
             if (channelId != null) {
@@ -153,7 +155,8 @@ public class TvChannelHelper {
                     .setTitle(app.getAppName())
                     .setPosterArtAspectRatio(ASPECT_RATIO_MOVIE_POSTER)
                     .setPosterArtUri(PosterContentProvider.createBoxArtUri(context, computer.uuid, ""+app.getAppId()))
-                    .setIntent(ServerHelper.createAppShortcutIntent(context, computer, app))
+                    .setIntent(AndroidShortcutIntentFactory
+                            .createAppIntent(context, computer, app))
                     .setInternalProviderId(""+app.getAppId())
                     // Weight should increase each time we run the game
                     .setWeight((int)((System.currentTimeMillis() - 1500000000000L) / 1000));

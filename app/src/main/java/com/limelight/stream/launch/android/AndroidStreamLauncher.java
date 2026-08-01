@@ -1,0 +1,151 @@
+package com.limelight.stream.launch.android;
+
+import android.app.Activity;
+
+import com.limelight.LimeLog;
+import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.nvstream.http.NvApp;
+import com.limelight.stream.launch.RecentStreamSession;
+import com.limelight.stream.launch.RecentStreamSessionRepository;
+import com.limelight.stream.launch.StreamLaunchRequest;
+import com.limelight.stream.launch.StreamLaunchUseCase;
+
+import java.security.cert.CertificateEncodingException;
+import java.util.Objects;
+
+/** Activity-scoped application boundary for admitting a stream launch. */
+public final class AndroidStreamLauncher {
+    public enum Outcome {
+        STARTED,
+        ALREADY_STARTING,
+        HOST_UNAVAILABLE,
+        INVALID_REQUEST,
+        LAUNCH_FAILED,
+        OWNER_UNAVAILABLE
+    }
+
+    public static final class Result {
+        private final Outcome outcome;
+        private final Exception failure;
+
+        private Result(Outcome outcome, Exception failure) {
+            this.outcome = Objects.requireNonNull(outcome, "outcome");
+            this.failure = failure;
+        }
+
+        public Outcome getOutcome() {
+            return outcome;
+        }
+
+        public Exception getFailure() {
+            return failure;
+        }
+
+        public boolean isStarted() {
+            return outcome == Outcome.STARTED;
+        }
+    }
+
+    private final Activity activity;
+    private final StreamLaunchUseCase useCase;
+
+    public AndroidStreamLauncher(Activity activity) {
+        this(
+                activity,
+                new SharedPreferencesRecentStreamSessionRepository(
+                        activity));
+    }
+
+    AndroidStreamLauncher(
+            Activity activity,
+            RecentStreamSessionRepository recentSessions) {
+        this.activity = Objects.requireNonNull(activity, "activity");
+        useCase = new StreamLaunchUseCase(
+                Objects.requireNonNull(
+                        recentSessions,
+                        "recentSessions"));
+    }
+
+    public Result launch(
+            ComputerDetails computer,
+            NvApp app,
+            String uniqueId) {
+        if (computer == null ||
+                computer.state == ComputerDetails.State.OFFLINE ||
+                computer.activeAddress == null) {
+            return result(Outcome.HOST_UNAVAILABLE);
+        }
+        if (app == null) {
+            return result(Outcome.INVALID_REQUEST);
+        }
+        if (activity.isFinishing() || activity.isDestroyed()) {
+            return result(Outcome.OWNER_UNAVAILABLE);
+        }
+
+        final StreamLaunchRequest request;
+        try {
+            request = AndroidStreamLaunchRequestFactory.create(
+                    computer,
+                    app,
+                    uniqueId);
+        }
+        catch (CertificateEncodingException |
+                IllegalArgumentException failure) {
+            return new Result(Outcome.INVALID_REQUEST, failure);
+        }
+
+        StreamLaunchUseCase.Result result = useCase.launch(
+                request,
+                acceptedRequest -> activity.startActivity(
+                        AndroidStreamLaunchIntentFactory.create(
+                                activity,
+                                acceptedRequest)));
+        if (result.getPersistenceFailure() != null) {
+            LimeLog.warning(
+                    "Unable to remember recent stream: " +
+                            result.getPersistenceFailure()
+                                    .getClass()
+                                    .getSimpleName());
+        }
+        return map(result);
+    }
+
+    public RecentStreamSession findRecentSession(String hostId) {
+        return useCase.findRecentSession(hostId);
+    }
+
+    public void onOwnerResumed() {
+        useCase.onOwnerResumed();
+    }
+
+    public void onOwnerPaused() {
+        useCase.onOwnerPaused();
+    }
+
+    public void onOwnerDestroyed() {
+        useCase.onOwnerDestroyed();
+    }
+
+    private static Result map(StreamLaunchUseCase.Result result) {
+        switch (result.getOutcome()) {
+            case STARTED:
+                return result(Outcome.STARTED);
+            case ALREADY_STARTING:
+                return result(Outcome.ALREADY_STARTING);
+            case OWNER_UNAVAILABLE:
+                return result(Outcome.OWNER_UNAVAILABLE);
+            case LAUNCH_FAILED:
+                return new Result(
+                        Outcome.LAUNCH_FAILED,
+                        result.getLaunchFailure());
+            default:
+                throw new AssertionError(
+                        "Unhandled launch result: " +
+                                result.getOutcome());
+        }
+    }
+
+    private static Result result(Outcome outcome) {
+        return new Result(outcome, null);
+    }
+}

@@ -22,8 +22,7 @@ public final class AndroidNvHttpClientFactory {
             String uniqueId) throws IOException {
         Objects.requireNonNull(computer, "computer");
         if (computer.activeAddress == null) {
-            throw new IOException(
-                    "No active address for " + computer.name);
+            throw new IOException("Host has no active address");
         }
         return create(
                 context,

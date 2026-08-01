@@ -1889,4 +1889,63 @@ public final class ArchitectureBoundaryTest {
                         "shortcut identity, documents, codecs, and persistence port are pure Java")
                 .check(productionClasses);
     }
+
+    @Test
+    public void streamLaunchDomainIsPlatformIndependent() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.stream.launch")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..",
+                        "com.limelight.nvstream..",
+                        "com.limelight.ui..",
+                        "com.limelight.preferences..")
+                .because(
+                        "stream launch admission and reconnect policy are pure domain state")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void hostScreensCannotConstructGameLaunchIntents() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.AppView")
+                .or()
+                .haveFullyQualifiedName("com.limelight.PcView")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .orShould()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.stream.launch.android.AndroidStreamLaunchIntentFactory")
+                .orShould()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.stream.launch.android.SharedPreferencesRecentStreamSessionRepository")
+                .because(
+                        "host screens launch through one lifecycle-owned application boundary")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void onlyLaunchIntentAdapterTargetsGameActivity() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.stream.launch.android..")
+                .and()
+                .doNotHaveFullyQualifiedName(
+                        "com.limelight.stream.launch.android.AndroidStreamLaunchIntentFactory")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .because(
+                        "the launch contract and platform adapters must not depend on the destination Activity")
+                .check(productionClasses);
+    }
 }

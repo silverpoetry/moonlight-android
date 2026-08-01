@@ -11,6 +11,7 @@ import android.os.Build;
 import com.limelight.R;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
+import com.limelight.stream.launch.android.AndroidShortcutIntentFactory;
 
 import java.util.Collections;
 import java.util.LinkedList;
@@ -95,7 +96,8 @@ public class ShortcutHelper {
     public void createAppViewShortcut(ComputerDetails computer, boolean forceAdd, boolean newlyPaired) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
             ShortcutInfo sinfo = new ShortcutInfo.Builder(context, computer.uuid)
-                    .setIntent(ServerHelper.createPcShortcutIntent(context, computer))
+                    .setIntent(AndroidShortcutIntentFactory
+                            .createHostIntent(context, computer))
                     .setShortLabel(computer.name)
                     .setLongLabel(computer.name)
                     .setIcon(Icon.createWithResource(context, R.mipmap.ic_pc_scut))
@@ -157,7 +159,8 @@ public class ShortcutHelper {
             }
 
             ShortcutInfo sInfo = new ShortcutInfo.Builder(context, getShortcutIdForGame(computer, app))
-                .setIntent(ServerHelper.createAppShortcutIntent(context, computer, app))
+                .setIntent(AndroidShortcutIntentFactory
+                        .createAppIntent(context, computer, app))
                 .setShortLabel(app.getAppName() + " (" + computer.name + ")")
                 .setIcon(appIcon)
                 .build();

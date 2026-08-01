@@ -54,6 +54,7 @@
          while supported releases consume them. DeX still documents an explicit resizable
          declaration, so keep it once at application scope instead of duplicating it. -->
     <application
+        android:name=".MoonlightApplication"
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/backup_rules_s"

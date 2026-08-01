@@ -3,9 +3,8 @@ package com.limelight.grid.assets;
 import android.content.Context;
 
 import com.limelight.LimeLog;
-import com.limelight.binding.PlatformBinding;
+import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
 import com.limelight.nvstream.http.NvHTTP;
-import com.limelight.utils.ServerHelper;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,9 +21,10 @@ public class NetworkAssetLoader {
     public InputStream getBitmapStream(CachedAppAssetLoader.LoaderTuple tuple) {
         InputStream in = null;
         try {
-            NvHTTP http = new NvHTTP(ServerHelper.getCurrentAddressFromComputer(tuple.computer),
-                    tuple.computer.httpsPort, uniqueId, tuple.computer.serverCert,
-                    PlatformBinding.getCryptoProvider(context));
+            NvHTTP http = AndroidNvHttpClientFactory.create(
+                    context,
+                    tuple.computer,
+                    uniqueId);
             in = http.getBoxArt(tuple.app);
         } catch (IOException ignored) {}
 

@@ -34,6 +34,9 @@ import com.limelight.settings.stream.StreamVideoSettings;
 import com.limelight.settings.stream.StreamVideoSettingsLoader;
 import com.limelight.settings.stream.StreamVideoSettingsState;
 import com.limelight.settings.stream.StreamVideoSettingsUpdate;
+import com.limelight.stream.launch.android.AndroidStreamAutoReconnectController;
+import com.limelight.stream.launch.android.AndroidStreamLaunchFeedback;
+import com.limelight.stream.launch.android.AndroidStreamLauncher;
 import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.ui.gamemenu.GameDisplayFragment;
@@ -42,10 +45,8 @@ import com.limelight.ui.hosts.ScreenBackgroundPresenter;
 import com.limelight.ui.hosts.HostQuitMessageResolver;
 import com.limelight.ui.hosts.HostServiceBindingController;
 import com.limelight.ui.hosts.HostUiOperationController;
-import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.Dialog;
-import com.limelight.utils.ServerHelper;
 import com.limelight.utils.ShortcutHelper;
 import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.UiHelper;
@@ -93,6 +94,9 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
             new HostQuitUseCase();
     private HostUiOperationController hostOperationController;
     private HostServiceBindingController hostBindingController;
+    private AndroidStreamLauncher streamLauncher;
+    private AndroidStreamAutoReconnectController
+            autoReconnectController;
 
     public final static String HIDDEN_APPS_PREF_FILENAME = "HiddenApps";
 
@@ -549,6 +553,12 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
                 this::runOnUiThread);
         hostBindingController = HostServiceBindingController.create(
                 this::runOnUiThread);
+        streamLauncher = new AndroidStreamLauncher(this);
+        autoReconnectController =
+                new AndroidStreamAutoReconnectController(
+                        ((MoonlightApplication) getApplication())
+                                .getPendingStreamReconnectStore(),
+                        streamLauncher);
 
         // Assume we're in the foreground when created to avoid a race
         // between binding to CMS and onResume()
@@ -694,6 +704,9 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
     @Override
     protected void onDestroy() {
         activityDestroyed = true;
+        if (streamLauncher != null) {
+            streamLauncher.onOwnerDestroyed();
+        }
         runCloseAction(hostPollingLifecycle.destroy());
         if (hostOperationController != null) {
             hostOperationController.destroy();
@@ -721,6 +734,10 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
     protected void onResume() {
         super.onResume();
 
+        if (streamLauncher != null) {
+            streamLauncher.onOwnerResumed();
+        }
+
         // Display a decoder crash notification if we've returned after a crash
         UiHelper.showDecoderCrashDialog(this);
 
@@ -734,17 +751,44 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
     protected void onPause() {
         super.onPause();
 
+        if (streamLauncher != null) {
+            streamLauncher.onOwnerPaused();
+        }
         inForeground = false;
         cancelHostOperation();
         stopComputerUpdates();
     }
 
     private void tryAutoReconnect() {
-        if (!inForeground || managerBinder == null) {
+        if (!inForeground ||
+                managerBinder == null ||
+                autoReconnectController == null) {
             return;
         }
 
-        AutoReconnectHelper.maybeResumeStream(this, managerBinder, uuidString);
+        autoReconnectController.maybeResume(
+                managerBinder,
+                uuidString);
+    }
+
+    private void launchStream(
+            NvApp app,
+            ComputerDetails targetComputer) {
+        ComputerManagerService.ComputerManagerBinder binder =
+                managerBinder;
+        if (binder == null || streamLauncher == null) {
+            UiToast.makeText(
+                    this,
+                    R.string.error_manager_not_running,
+                    UiToast.LENGTH_LONG).show();
+            return;
+        }
+
+        AndroidStreamLauncher.Result result = streamLauncher.launch(
+                targetComputer,
+                app,
+                binder.getUniqueId());
+        AndroidStreamLaunchFeedback.showIfNeeded(this, result);
     }
 
     private void showAppOptionsDialog(final AppObject app, final View targetView) {
@@ -834,7 +878,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
                 actions.add(new MenuAction(R.string.applist_menu_resume, R.drawable.ic_play, new Runnable() {
                     @Override
                     public void run() {
-                        ServerHelper.doStart(AppView.this, app.app, computer, managerBinder);
+                        launchStream(app.app, computer);
                     }
                 }));
                 actions.add(new MenuAction(R.string.applist_menu_restart, R.drawable.ic_axi_reboot, new Runnable() {
@@ -854,7 +898,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
                 actions.add(new MenuAction(R.string.applist_menu_quit_and_start, R.drawable.ic_axi_reboot, new Runnable() {
                     @Override
                     public void run() {
-                        ServerHelper.doStart(AppView.this, app.app, computer, managerBinder);
+                        launchStream(app.app, computer);
                     }
                 }));
             }
@@ -1016,11 +1060,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
             ComputerManagerService.ComputerManagerBinder binder =
                     managerBinder;
             if (binder != null) {
-                ServerHelper.doStart(
-                        AppView.this,
-                        app.app,
-                        computer,
-                        binder);
+                launchStream(app.app, computer);
             }
         });
     }
@@ -1171,7 +1211,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
             public void onItemClick(AdapterView<?> arg0, View arg1, int pos,
                                     long id) {
                 AppObject app = (AppObject) appGridAdapter.getItem(pos);
-                ServerHelper.doStart(AppView.this, app.app, computer, managerBinder);
+                launchStream(app.app, computer);
             }
         });
         listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {

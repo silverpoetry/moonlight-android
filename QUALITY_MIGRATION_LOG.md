@@ -1502,3 +1502,29 @@ Verification on 2026-07-31:
   `verifyLocal --rerun-tasks --no-daemon` execution that passed all 193 tasks
   with 613 JVM tests per variant (2,452 executions total), all Lint variants,
   and both unminified Release APKs.
+
+## Centralize stream launch and reconnect ownership
+
+- Replaced mutable Activity-to-Activity launch assembly with one immutable
+  `StreamLaunchRequest`, a pure admission/use-case boundary, and one Android
+  Intent adapter. Every serialized extra is owned by
+  `AndroidStreamLaunchContract`; only the target adapter depends on `Game`.
+- `PcView` and `AppView` now own lifecycle-scoped launchers. Duplicate taps are
+  rejected until a complete pause/resume round trip, a failed Android launch
+  reopens admission, and a recent session is persisted only after Android
+  accepts the destination Activity.
+- Automatic reconnect now crosses Activities through one application-owned,
+  compare-and-clear handoff. Stale consumers cannot erase a replacement, host
+  mismatch/unavailability and invalid app identity are distinct outcomes, and
+  a missing app ID can resolve only from the host's currently running app.
+- Shortcut and TV entry points use the same stable extra contract, request
+  validation, and certificate encoding behavior. Certificate serialization
+  failure is terminal instead of silently launching without the pinned
+  credential. The mixed-purpose `ServerHelper` and static
+  `AutoReconnectHelper` production paths were deleted.
+- `verifyLocal --rerun-tasks --no-daemon` passed all 193 tasks with 892 JVM
+  tests per variant (3,568 executions total), every Lint variant, and both
+  unminified Release APKs. A fresh connected run passed all 140 NonRoot and
+  140 Root API 34 instrumentation tests with zero failures, errors, or skips.
+  The NonRoot Release APK installed over the existing emulator application and
+  cold-launched `PcView` in 409 ms with no fatal exception or ANR.

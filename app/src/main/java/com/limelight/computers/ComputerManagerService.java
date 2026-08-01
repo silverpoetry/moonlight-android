@@ -29,6 +29,7 @@ import com.limelight.binding.PlatformBinding;
 import com.limelight.computers.discovery.AndroidMdnsDiscoverySource;
 import com.limelight.computers.discovery.HostDiscoveryCandidate;
 import com.limelight.computers.discovery.HostDiscoverySource;
+import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
 import com.limelight.computers.model.HostEndpoint;
 import com.limelight.computers.model.HostId;
 import com.limelight.computers.reachability.HostReachabilityCoordinator;
@@ -41,7 +42,6 @@ import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.NetHelper;
-import com.limelight.utils.ServerHelper;
 
 import android.app.Service;
 import android.content.Context;
@@ -1362,14 +1362,11 @@ public class ComputerManagerService extends Service {
                         }
 
                         try {
-                            NvHTTP http = new NvHTTP(
-                                    ServerHelper.getCurrentAddressFromComputer(
-                                            currentComputer),
-                                    currentComputer.httpsPort,
-                                    idManager.getUniqueId(),
-                                    currentComputer.serverCert,
-                                    PlatformBinding.getCryptoProvider(
-                                            ComputerManagerService.this));
+                            NvHTTP http =
+                                    AndroidNvHttpClientFactory.create(
+                                            ComputerManagerService.this,
+                                            currentComputer,
+                                            idManager.getUniqueId());
 
                             String appList;
                             if (tuple != null) {

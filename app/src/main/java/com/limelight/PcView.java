@@ -34,6 +34,10 @@ import com.limelight.preferences.StreamSettings;
 import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
 import com.limelight.settings.app.AppPresentationSettings;
+import com.limelight.stream.launch.RecentStreamSession;
+import com.limelight.stream.launch.android.AndroidStreamAutoReconnectController;
+import com.limelight.stream.launch.android.AndroidStreamLaunchFeedback;
+import com.limelight.stream.launch.android.AndroidStreamLauncher;
 import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.ui.hosts.ScreenBackgroundPresenter;
@@ -41,11 +45,9 @@ import com.limelight.ui.hosts.HostPairingController;
 import com.limelight.ui.hosts.HostQuitMessageResolver;
 import com.limelight.ui.hosts.HostServiceBindingController;
 import com.limelight.ui.hosts.HostUiOperationController;
-import com.limelight.utils.AutoReconnectHelper;
 import com.limelight.utils.DeviceUtils;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.HelpLauncher;
-import com.limelight.utils.ServerHelper;
 import com.limelight.utils.ShortcutHelper;
 import com.limelight.utils.SpinnerDialog;
 import com.limelight.utils.UiHelper;
@@ -108,6 +110,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             new HostUnpairUseCase();
     private HostUiOperationController hostOperationController;
     private HostServiceBindingController hostBindingController;
+    private AndroidStreamLauncher streamLauncher;
+    private AndroidStreamAutoReconnectController
+            autoReconnectController;
     private SpinnerDialog hostOperationProgress;
     private final HostPollingClientLifecycle hostPollingLifecycle =
             new HostPollingClientLifecycle();
@@ -280,6 +285,12 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 this::runOnUiThread);
         hostBindingController = HostServiceBindingController.create(
                 this::runOnUiThread);
+        streamLauncher = new AndroidStreamLauncher(this);
+        autoReconnectController =
+                new AndroidStreamAutoReconnectController(
+                        ((MoonlightApplication) getApplication())
+                                .getPendingStreamReconnectStore(),
+                        streamLauncher);
 
         // Assume we're in the foreground when created to avoid a race
         // between binding to CMS and onResume()
@@ -433,6 +444,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     @Override
     public void onDestroy() {
         activityDestroyed = true;
+        if (streamLauncher != null) {
+            streamLauncher.onOwnerDestroyed();
+        }
         runCloseAction(hostPollingLifecycle.destroy());
         if (hostPairingController != null) {
             hostPairingController.destroy();
@@ -461,6 +475,10 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     protected void onResume() {
         super.onResume();
 
+        if (streamLauncher != null) {
+            streamLauncher.onOwnerResumed();
+        }
+
         // Display a decoder crash notification if we've returned after a crash
         UiHelper.showDecoderCrashDialog(this);
 
@@ -474,6 +492,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     protected void onPause() {
         super.onPause();
 
+        if (streamLauncher != null) {
+            streamLauncher.onOwnerPaused();
+        }
         inForeground = false;
         if (hostOperationController != null) {
             hostOperationController.cancelCurrent();
@@ -490,11 +511,33 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     }
 
     private void tryAutoReconnect() {
-        if (!inForeground || managerBinder == null) {
+        if (!inForeground ||
+                managerBinder == null ||
+                autoReconnectController == null) {
             return;
         }
 
-        AutoReconnectHelper.maybeResumeStream(this, managerBinder, null);
+        autoReconnectController.maybeResume(managerBinder, null);
+    }
+
+    private void launchStream(
+            NvApp app,
+            ComputerDetails targetComputer) {
+        ComputerManagerService.ComputerManagerBinder binder =
+                managerBinder;
+        if (binder == null || streamLauncher == null) {
+            UiToast.makeText(
+                    this,
+                    R.string.error_manager_not_running,
+                    UiToast.LENGTH_LONG).show();
+            return;
+        }
+
+        AndroidStreamLauncher.Result result = streamLauncher.launch(
+                targetComputer,
+                app,
+                binder.getUniqueId());
+        AndroidStreamLaunchFeedback.showIfNeeded(this, result);
     }
 
     private void doPair(final ComputerDetails computer) {
@@ -770,7 +813,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         }
         binder.invalidateStateForComputer(computer.uuid);
         if (restartAfterQuit) {
-            ServerHelper.doStart(this, app, computer, binder);
+            launchStream(app, computer);
         }
     }
 
@@ -1011,13 +1054,25 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         }
 
         if (computer.runningGameId != 0) {
-            ServerHelper.doStart(this, new NvApp("app", computer.runningGameId, false), computer, managerBinder);
+            launchStream(
+                    new NvApp(
+                            "app",
+                            computer.runningGameId,
+                            false),
+                    computer);
             return;
         }
 
-        NvApp recentApp = ServerHelper.getRecentSession(this, computer);
-        if (recentApp != null) {
-            ServerHelper.doStart(this, recentApp, computer, managerBinder);
+        RecentStreamSession recentSession = streamLauncher == null
+                ? null
+                : streamLauncher.findRecentSession(computer.uuid);
+        if (recentSession != null) {
+            launchStream(
+                    new NvApp(
+                            recentSession.getAppName(),
+                            recentSession.getAppId(),
+                            recentSession.supportsHdr()),
+                    computer);
         }
         else {
             doAppList(computer, false, false);
@@ -1155,7 +1210,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     @Override
                     public void run() {
                         if (managerBinder != null) {
-                            ServerHelper.doStart(PcView.this, runningApp, computer.details, managerBinder);
+                            launchStream(
+                                    runningApp,
+                                    computer.details);
                         }
                     }
                 }));
