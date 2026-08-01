@@ -749,4 +749,17 @@
     <string name="stream_warning_hdr_android_version_unsupported">HDR requires Android 7.0 or later</string>
     <string name="stream_warning_hevc_decoder_unavailable">No HEVC decoder was found</string>
     <string name="stream_warning_av1_decoder_unavailable">No AV1 decoder was found</string>
+    <string name="input_diagnostics_title">输入设备诊断</string>
+    <string name="input_diagnostics_subtitle">本地测试，不会向主机发送输入</string>
+    <string name="input_diagnostics_refresh">刷新设备</string>
+    <string name="input_diagnostics_test_device_vibration">测试设备震动</string>
+    <string name="input_diagnostics_test_controller_vibration">测试最近使用的手柄震动</string>
+    <string name="input_diagnostics_test_controller_vibration_format">测试手柄震动：%1$s</string>
+    <string name="input_diagnostics_no_device_vibrator">当前设备没有可用震动器</string>
+    <string name="input_diagnostics_no_controller_vibrator">最近使用的手柄没有可用震动器</string>
+    <string name="input_diagnostics_devices">已连接输入设备</string>
+    <string name="input_diagnostics_live_input">实时输入</string>
+    <string name="input_diagnostics_sensors">设备运动传感器</string>
+    <string name="input_diagnostics_loading">正在读取…</string>
+    <string name="input_diagnostics_input_hint">按下键盘或手柄按键，或移动摇杆，即可查看 Android 实际报告的事件。</string>
 </resources>

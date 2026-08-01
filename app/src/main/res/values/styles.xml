@@ -294,7 +294,7 @@
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">56dp</item>
         <item name="android:layout_marginBottom">10dp</item>
-        <item name="android:background">@drawable/axi_gameplay_gamepad_item_bg</item>
+        <item name="android:background">@drawable/bg_update_dialog_card</item>
         <item name="android:drawablePadding">16dp</item>
         <item name="android:gravity">center_vertical</item>
         <item name="android:paddingStart">18dp</item>
@@ -302,6 +302,41 @@
         <item name="android:textColor">@android:color/white</item>
         <item name="android:textSize">15sp</item>
         <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="InputDiagnosticsActionButton" parent="@android:style/Widget.Material.Button.Borderless">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">56dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">@drawable/ic_game_menu_btn_selector</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="InputDiagnosticsSectionTitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">24dp</item>
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="InputDiagnosticsCard">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/bg_update_dialog_card</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:padding">16dp</item>
+        <item name="android:textColor">#F2FFFFFF</item>
+        <item name="android:textIsSelectable">true</item>
+        <item name="android:textSize">13sp</item>
     </style>
 
 </resources>

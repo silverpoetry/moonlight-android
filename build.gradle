@@ -1,6 +1,50 @@
+import com.moonlight.buildlogic.GenerateApplicationSbom
+
 plugins {
     id 'moonlight.root-governance'
     alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.cyclonedx.bom)
+}
+
+allprojects {
+    group = 'com.limelight'
+    version = '12.1-260725'
+}
+
+project(':app') {
+    tasks.named('cyclonedxDirectBom') {
+        projectType = 'application'
+        componentGroup = 'com.limelight'
+        componentName = 'moonlight-android'
+        componentVersion = '12.1-260725'
+        includeConfigs.set([
+                'nonRootReleaseRuntimeClasspath',
+                'rootReleaseRuntimeClasspath'
+        ])
+        includeBomSerialNumber = false
+        includeLicenseText = true
+        includeBuildSystem = false
+        includeBuildEnvironment = false
+        jsonOutput.set(rootProject.layout.buildDirectory.file(
+                'reports/sbom/gradle-components.cdx.json'))
+        xmlOutput.unsetConvention()
+    }
+}
+
+tasks.register('applicationSbom', GenerateApplicationSbom) {
+    group = 'documentation'
+    description = 'Generates the complete application CycloneDX SBOM.'
+    dependsOn ':app:cyclonedxDirectBom',
+            verifyNativeDependencies,
+            verifyVendoredDependencies
+    gradleSbom.set(layout.buildDirectory.file(
+            'reports/sbom/gradle-components.cdx.json'))
+    nativeManifest.set(layout.projectDirectory.file(
+            'gradle/native-dependencies.json'))
+    vendoredManifest.set(layout.projectDirectory.file(
+            'gradle/vendored-dependencies.json'))
+    outputFile.set(layout.buildDirectory.file(
+            'reports/sbom/moonlight-android.cdx.json'))
 }
 
 tasks.register('verifyLocal') {
@@ -9,10 +53,14 @@ tasks.register('verifyLocal') {
     dependsOn verifyNoBidiControls,
             verifyAndroidSecurityPolicy,
             verifyNoRepositorySecrets,
+            verifyNativeDependencies,
+            verifyVendoredDependencies,
+            applicationSbom,
             ':core:hosts:test',
             ':core:settings:test',
             ':core:transfer:test',
             ':core:virtual-controls:test',
+            ':core:shield-controller-extensions:lint',
             ':app:test',
             ':app:lintNonRootDebug',
             ':app:lintNonRootRelease',
@@ -25,5 +73,7 @@ tasks.register('verifyLocal') {
 tasks.register('verifyConnected') {
     group = 'verification'
     description = 'Runs local verification plus every instrumentation test on a connected device.'
-    dependsOn verifyLocal, ':app:connectedAndroidTest'
+    dependsOn verifyLocal,
+            ':app:connectedAndroidTest',
+            ':core:shield-controller-extensions:connectedAndroidTest'
 }

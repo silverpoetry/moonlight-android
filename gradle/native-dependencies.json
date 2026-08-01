@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "dependencies": [
+    {
+      "id": "openssl",
+      "metadataName": "OpenSSL",
+      "version": "3.5.7",
+      "root": "app/src/main/jni/moonlight-core/openssl",
+      "source": "https://github.com/openssl/openssl/releases/download/openssl-3.5.7/openssl-3.5.7.tar.gz",
+      "sourceSha256": "a8c0d28a529ca480f9f36cf5792e2cd21984552a3c8e4aa11a24aa31aeac98e8",
+      "ndk": "27.0.12077973",
+      "minApi": 21,
+      "license": "LICENSE.txt",
+      "packagedLicense": "app/src/main/assets/third_party_licenses/openssl-3.5.7.txt",
+      "metadata": "BUILD-METADATA.txt",
+      "libraries": ["libcrypto.a", "libssl.a"],
+      "excluded": ["Android.mk"],
+      "treeSha256": "164f1549388a0319dff96a049456144517086ca07afd550641d0b235fc6b9403"
+    },
+    {
+      "id": "libopus",
+      "metadataName": "libopus",
+      "version": "1.6.1",
+      "root": "app/src/main/jni/moonlight-core/libopus",
+      "source": "https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz",
+      "sourceSha256": "6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1",
+      "ndk": "27.0.12077973",
+      "minApi": 21,
+      "license": "LICENSE.txt",
+      "packagedLicense": "app/src/main/assets/third_party_licenses/libopus-1.6.1.txt",
+      "metadata": "BUILD-METADATA.txt",
+      "libraries": ["libopus.a"],
+      "excluded": ["Android.mk"],
+      "treeSha256": "119bb99d4a3e92ffcddc8f2eb08c13dea7fb2274308bad69ed9b552b3f4ac996"
+    }
+  ]
+}

@@ -12,14 +12,15 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri('https://jitpack.io') }
     }
 }
 
 rootProject.name = 'moonlight-android'
 
 include ':app'
+include ':core'
 include ':core:hosts'
 include ':core:settings'
 include ':core:transfer'
 include ':core:virtual-controls'
+include ':core:shield-controller-extensions'

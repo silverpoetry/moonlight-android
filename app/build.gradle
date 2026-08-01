@@ -170,18 +170,17 @@ dependencies {
     implementation project(':core:settings')
     implementation project(':core:transfer')
     implementation project(':core:virtual-controls')
+    implementation project(':core:shield-controller-extensions')
 
     androidTestImplementation libs.androidx.test.runner
     androidTestImplementation libs.androidx.test.junit
     testImplementation libs.junit4
     testImplementation libs.archunit
 
-    implementation files('libs/axi_gamepad_1.0.5.aar')
     implementation libs.bundles.bouncycastle
     implementation libs.jcodec
     implementation libs.okhttp
     implementation libs.jmdns
-    implementation libs.shield.controller.extensions
     implementation libs.gson
     implementation libs.androidx.activity
     implementation libs.androidx.appcompat
@@ -190,5 +189,4 @@ dependencies {
     implementation libs.androidx.fragment
     implementation libs.glide.runtime
     annotationProcessor libs.glide.compiler
-    implementation libs.apmem.layouts
 }

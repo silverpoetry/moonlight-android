@@ -209,7 +209,12 @@
             android:name=".AboutActivity"
             android:exported="false"
             android:launchMode="singleTask"
-            android:theme="@style/AxiGamePlayTheme.GamePad"/>
+            android:theme="@style/BaseActivityTheme"/>
+
+        <activity
+            android:name=".input.diagnostics.InputDiagnosticsActivity"
+            android:exported="false"
+            android:theme="@style/BaseActivityTheme" />
 
         <!-- 无障碍 实体键盘 屏蔽某些快捷键 -->
         <service

@@ -20,9 +20,8 @@ import com.limelight.R;
 import com.limelight.settings.stream.CustomResolution;
 import com.limelight.settings.stream.CustomResolutionRepository;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
+import com.limelight.ui.WrappingFlowLayout;
 import com.limelight.utils.UiToast;
-
-import org.apmem.tools.layouts.FlowLayout;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -43,7 +42,7 @@ public class GameDisplayResolutionFragment
 
     private EditText widthInput;
     private EditText heightInput;
-    private FlowLayout customResolutionFlow;
+    private WrappingFlowLayout customResolutionFlow;
     private TextView customResolutionTitle;
     private CustomResolutionRepository repository;
 

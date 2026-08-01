@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "dependencies": [
+    {
+      "id": "shield-controller-extensions",
+      "name": "ShieldControllerExtensions",
+      "version": "1.0.1",
+      "root": "core/shield-controller-extensions",
+      "source": "https://github.com/cgutman/ShieldControllerExtensions.git",
+      "commit": "48356a2263839949fdfdf0795b3d8cc38edeef9b",
+      "licenseId": "MIT",
+      "license": "LICENSE.txt",
+      "packagedLicense": "app/src/main/assets/third_party_licenses/shield-controller-extensions-1.0.1.txt",
+      "metadata": "UPSTREAM-METADATA.txt",
+      "treeSha256": "a396a3671fb17e069267425ffe902ed9c27c4e0c13c2d564a1ac1a4762803d8d"
+    }
+  ]
+}

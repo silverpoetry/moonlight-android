@@ -1,0 +1,39 @@
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace = 'org.cgutman.shieldcontrollerextensions'
+    compileSdk = 37
+
+    defaultConfig {
+        minSdk = 21
+        testInstrumentationRunner =
+                'androidx.test.runner.AndroidJUnitRunner'
+    }
+
+    compileOptions {
+        encoding = 'UTF-8'
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    lint {
+        abortOnError = true
+        warningsAsErrors = true
+    }
+}
+
+dependencies {
+    androidTestImplementation libs.androidx.test.runner
+    androidTestImplementation libs.androidx.test.junit
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += [
+            '-Xlint:deprecation',
+            '-Xlint:unchecked',
+            '-Xmaxwarns',
+            '1000'
+    ]
+}

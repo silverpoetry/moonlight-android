@@ -1,6 +1,8 @@
 import com.moonlight.buildlogic.VerifyAndroidSecurityPolicy
 import com.moonlight.buildlogic.VerifyForbiddenFiles
 import com.moonlight.buildlogic.VerifyNoBidiControls
+import com.moonlight.buildlogic.VerifyNativeDependencies
+import com.moonlight.buildlogic.VerifyVendoredDependencies
 
 tasks.register('verifyNoBidiControls', VerifyNoBidiControls) {
     group = 'verification'
@@ -51,4 +53,28 @@ tasks.register('verifyNoRepositorySecrets', VerifyForbiddenFiles) {
                 '**/client.crt'
         exclude '**/.gradle/**', '**/build/**', '**/.git/**'
     })
+}
+
+tasks.register('verifyNativeDependencies', VerifyNativeDependencies) {
+    group = 'verification'
+    description = 'Verifies checked-in native dependency provenance and content.'
+    manifestFile.set(layout.projectDirectory.file(
+            'gradle/native-dependencies.json'))
+    repositoryDirectory.set(layout.projectDirectory)
+    dependencyFiles.from(
+            fileTree('app/src/main/jni/moonlight-core/openssl'),
+            fileTree('app/src/main/jni/moonlight-core/libopus'),
+            fileTree('app/src/main/assets/third_party_licenses'),
+            fileTree('app/libs'))
+}
+
+tasks.register('verifyVendoredDependencies', VerifyVendoredDependencies) {
+    group = 'verification'
+    description = 'Verifies source, license, and content of vendored dependencies.'
+    manifestFile.set(layout.projectDirectory.file(
+            'gradle/vendored-dependencies.json'))
+    repositoryDirectory.set(layout.projectDirectory)
+    dependencyFiles.from(fileTree('core/shield-controller-extensions') {
+        exclude 'build/**'
+    }, fileTree('app/src/main/assets/third_party_licenses'))
 }

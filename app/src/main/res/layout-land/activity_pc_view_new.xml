@@ -46,11 +46,11 @@
             android:layout_height="wrap_content">
 
             <ImageButton
-                android:id="@+id/axiButton"
+                android:id="@+id/inputDiagnosticsButton"
                 android:background="@drawable/ic_game_menu_btn_side_selector"
                 android:src="@drawable/ic_game_controller"
                 android:layout_marginEnd="8dp"
-                android:contentDescription="@string/accessibility_virtual_controller"
+                android:contentDescription="@string/input_diagnostics_title"
                 android:scaleType="centerInside"
                 android:layout_width="48dp"
                 android:layout_height="48dp"/>

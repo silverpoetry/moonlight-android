@@ -1,0 +1,5 @@
+name=ShieldControllerExtensions
+version=1.0.1
+source=https://github.com/cgutman/ShieldControllerExtensions.git
+commit=48356a2263839949fdfdf0795b3d8cc38edeef9b
+license=MIT

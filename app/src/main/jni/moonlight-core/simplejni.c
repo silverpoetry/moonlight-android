@@ -9,10 +9,132 @@
 #include "minisdl.h"
 #include "controller_type.h"
 #include "controller_list.h"
+#include "moonlight-common-c/src/PlatformCrypto.h"
 
 _Static_assert(sizeof(jbyte) == sizeof(uint8_t), "JNI byte must be 8-bit");
 _Static_assert(sizeof(jint) == sizeof(uint32_t), "JNI int must be 32-bit");
 _Static_assert(sizeof(jfloat) == sizeof(float), "JNI float must match native float");
+
+static bool runCryptoKnownAnswerTests(void) {
+    static const unsigned char aesKey[16] = {
+        0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
+        0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c,
+    };
+    static const unsigned char aesInput[16] = {
+        0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96,
+        0xe9, 0x3d, 0x7e, 0x11, 0x73, 0x93, 0x17, 0x2a,
+    };
+    static const unsigned char aesExpected[16] = {
+        0x3a, 0xd7, 0x7b, 0xb4, 0x0d, 0x7a, 0x36, 0x60,
+        0xa8, 0x9e, 0xca, 0xf3, 0x24, 0x66, 0xef, 0x97,
+    };
+    static const unsigned char hkdfInput[22] = {
+        0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b,
+        0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b,
+        0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b,
+    };
+    static const unsigned char hkdfSalt[13] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+        0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c,
+    };
+    static const unsigned char hkdfInfo[10] = {
+        0xf0, 0xf1, 0xf2, 0xf3, 0xf4,
+        0xf5, 0xf6, 0xf7, 0xf8, 0xf9,
+    };
+    static const unsigned char hkdfExpected[42] = {
+        0x3c, 0xb2, 0x5f, 0x25, 0xfa, 0xac, 0xd5, 0x7a,
+        0x90, 0x43, 0x4f, 0x64, 0xd0, 0x36, 0x2f, 0x2a,
+        0x2d, 0x2d, 0x0a, 0x90, 0xcf, 0x1a, 0x5a, 0x4c,
+        0x5d, 0xb0, 0x2d, 0x56, 0xec, 0xc4, 0xc5, 0xbf,
+        0x34, 0x00, 0x72, 0x08, 0xd5, 0xb8, 0x87, 0x18,
+        0x58, 0x65,
+    };
+    static const unsigned char gcmIv[12] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
+        0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+    };
+    static const unsigned char gcmAad[8] = {
+        0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
+    };
+    static const unsigned char gcmPlaintext[20] = {
+        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+        0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+        0x20, 0x21, 0x22, 0x23,
+    };
+    unsigned char aesOutput[sizeof(aesExpected)];
+    unsigned char hkdfOutput[sizeof(hkdfExpected)];
+    unsigned char gcmInput[sizeof(gcmPlaintext)];
+    unsigned char gcmCiphertext[sizeof(gcmPlaintext)];
+    unsigned char gcmOutput[sizeof(gcmPlaintext)];
+    unsigned char gcmTag[16];
+    int encryptedLength = 0;
+    int decryptedLength = 0;
+    PPLT_CRYPTO_CONTEXT encryptContext = NULL;
+    PPLT_CRYPTO_CONTEXT decryptContext = NULL;
+    bool success = false;
+
+    if (!PltAesEcbEncryptBlock(aesKey, sizeof(aesKey), aesInput, aesOutput) ||
+        memcmp(aesOutput, aesExpected, sizeof(aesExpected)) != 0 ||
+        !PltHkdfSha256(hkdfInput, sizeof(hkdfInput),
+                       hkdfSalt, sizeof(hkdfSalt),
+                       hkdfInfo, sizeof(hkdfInfo),
+                       hkdfOutput, sizeof(hkdfOutput)) ||
+        memcmp(hkdfOutput, hkdfExpected, sizeof(hkdfExpected)) != 0) {
+        goto Exit;
+    }
+
+    encryptContext = PltCreateCryptoContext();
+    decryptContext = PltCreateCryptoContext();
+    if (encryptContext == NULL || decryptContext == NULL) {
+        goto Exit;
+    }
+
+    memcpy(gcmInput, gcmPlaintext, sizeof(gcmInput));
+    if (!PltEncryptMessageEx(encryptContext, ALGORITHM_AES_GCM, 0,
+                             (unsigned char*) aesKey, sizeof(aesKey),
+                             (unsigned char*) gcmIv, sizeof(gcmIv),
+                             (unsigned char*) gcmAad, sizeof(gcmAad),
+                             gcmTag, sizeof(gcmTag),
+                             gcmInput, sizeof(gcmInput),
+                             gcmCiphertext, &encryptedLength) ||
+        encryptedLength != sizeof(gcmPlaintext) ||
+        !PltDecryptMessageEx(decryptContext, ALGORITHM_AES_GCM, 0,
+                             (unsigned char*) aesKey, sizeof(aesKey),
+                             (unsigned char*) gcmIv, sizeof(gcmIv),
+                             (unsigned char*) gcmAad, sizeof(gcmAad),
+                             gcmTag, sizeof(gcmTag),
+                             gcmCiphertext, encryptedLength,
+                             gcmOutput, &decryptedLength) ||
+        decryptedLength != sizeof(gcmPlaintext) ||
+        memcmp(gcmOutput, gcmPlaintext, sizeof(gcmPlaintext)) != 0) {
+        goto Exit;
+    }
+
+    success = true;
+
+Exit:
+    if (encryptContext != NULL) {
+        PltDestroyCryptoContext(encryptContext);
+    }
+    if (decryptContext != NULL) {
+        PltDestroyCryptoContext(decryptContext);
+    }
+    memset(aesOutput, 0, sizeof(aesOutput));
+    memset(hkdfOutput, 0, sizeof(hkdfOutput));
+    memset(gcmInput, 0, sizeof(gcmInput));
+    memset(gcmCiphertext, 0, sizeof(gcmCiphertext));
+    memset(gcmOutput, 0, sizeof(gcmOutput));
+    memset(gcmTag, 0, sizeof(gcmTag));
+    return success;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_limelight_nvstream_jni_MoonBridge_nativeCryptoSelfTest(
+        JNIEnv* env, jclass clazz) {
+    (void) env;
+    (void) clazz;
+    return runCryptoKnownAnswerTests() ? JNI_TRUE : JNI_FALSE;
+}
 
 JNIEXPORT void JNICALL
 Java_com_limelight_nvstream_jni_MoonBridge_sendMouseMove(JNIEnv *env, jclass clazz, jshort deltaX, jshort deltaY) {

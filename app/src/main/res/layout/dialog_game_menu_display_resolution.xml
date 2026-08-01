@@ -110,7 +110,7 @@
                     android:textStyle="bold"
                     android:textSize="11sp" />
 
-                <org.apmem.tools.layouts.FlowLayout
+                <com.limelight.ui.WrappingFlowLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content">
 
@@ -186,7 +186,7 @@
                         android:textColor="@android:color/white"
                         android:textSize="11sp" />
 
-                </org.apmem.tools.layouts.FlowLayout>
+                </com.limelight.ui.WrappingFlowLayout>
 
                 <TextView
                     android:id="@+id/tx_custom_title"
@@ -199,11 +199,11 @@
                     android:textSize="11sp"
                     android:visibility="gone" />
 
-                <org.apmem.tools.layouts.FlowLayout
+                <com.limelight.ui.WrappingFlowLayout
                     android:id="@+id/flow_custom"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content">
-                </org.apmem.tools.layouts.FlowLayout>
+                </com.limelight.ui.WrappingFlowLayout>
 
             </LinearLayout>
 

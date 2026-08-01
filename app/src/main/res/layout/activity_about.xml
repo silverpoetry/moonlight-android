@@ -16,7 +16,8 @@
         android:layout_marginStart="10dp"
         android:contentDescription="@string/accessibility_back"
         android:padding="10dp"
-        android:src="@drawable/axi_gameplay_ic_back_selector" />
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_axi_back" />
 
     <ScrollView
         android:layout_width="match_parent"

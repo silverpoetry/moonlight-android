@@ -147,6 +147,10 @@ public class MoonBridge {
 
     static {
         System.loadLibrary("moonlight-core");
+        if (!nativeCryptoSelfTest()) {
+            throw new ExceptionInInitializerError(
+                    "Native cryptography self-test failed");
+        }
         init();
     }
 
@@ -498,6 +502,16 @@ public class MoonBridge {
     public static native boolean guessControllerHasPaddles(int vendorId, int productId);
 
     public static native boolean guessControllerHasShareButton(int vendorId, int productId);
+
+    /**
+     * Re-runs the native known-answer tests used during class initialization.
+     * This is exposed for diagnostics and release verification.
+     */
+    public static boolean isNativeCryptoOperational() {
+        return nativeCryptoSelfTest();
+    }
+
+    private static native boolean nativeCryptoSelfTest();
 
     public static native void init();
 }

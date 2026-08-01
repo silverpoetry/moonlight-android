@@ -83,7 +83,7 @@ import org.xmlpull.v1.XmlPullParserException;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
-import cn.axi.gamepad.an.AxiGamePadIndexActivity;
+import com.limelight.input.diagnostics.InputDiagnosticsActivity;
 
 import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
 import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
@@ -228,8 +228,8 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         ImageButton settingsButton = findViewById(R.id.settingsButton);
         ImageButton addComputerButton = findViewById(R.id.manuallyAddPc);
         ImageButton helpButton = findViewById(R.id.helpButton);
-        ImageButton axButton = findViewById(R.id.axiButton);
-        axButton.setVisibility(View.VISIBLE);
+        ImageButton inputDiagnosticsButton = findViewById(
+                R.id.inputDiagnosticsButton);
         settingsButton.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -258,10 +258,12 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             helpButton.setVisibility(View.GONE);
         }
 
-        axButton.setOnClickListener(new OnClickListener() {
+        inputDiagnosticsButton.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent i = new Intent(PcView.this, AxiGamePadIndexActivity.class);
+                Intent i = new Intent(
+                        PcView.this,
+                        InputDiagnosticsActivity.class);
                 startActivity(i);
             }
         });
