@@ -10,8 +10,8 @@ public class ComputerDetails {
     }
 
     public static class AddressTuple {
-        public String address;
-        public int port;
+        public final String address;
+        public final int port;
 
         public AddressTuple(String address, int port) {
             if (address == null) {
@@ -82,11 +82,6 @@ public class ComputerDetails {
         state = State.UNKNOWN;
     }
 
-    public ComputerDetails(ComputerDetails details) {
-        // Copy details from the other computer
-        update(details);
-    }
-
     public int guessExternalPort() {
         if (externalPort != 0) {
             return externalPort;
@@ -106,46 +101,6 @@ public class ComputerDetails {
         else {
             return NvHTTP.DEFAULT_HTTP_PORT;
         }
-    }
-
-    public void update(ComputerDetails details) {
-        this.state = details.state;
-        this.name = details.name;
-        this.uuid = details.uuid;
-        if (details.activeAddress != null) {
-            this.activeAddress = details.activeAddress;
-        }
-        // We can get IPv4 loopback addresses with GS IPv6 Forwarder
-        if (details.localAddress != null && !details.localAddress.address.startsWith("127.")) {
-            this.localAddress = details.localAddress;
-        }
-        if (details.remoteAddress != null) {
-            this.remoteAddress = details.remoteAddress;
-        }
-        else if (this.remoteAddress != null && details.externalPort != 0) {
-            // If we have a remote address already (perhaps via STUN) but our updated details
-            // don't have a new one (because GFE doesn't send one), propagate the external
-            // port to the current remote address. We may have tried to guess it previously.
-            this.remoteAddress.port = details.externalPort;
-        }
-        if (details.manualAddress != null) {
-            this.manualAddress = details.manualAddress;
-        }
-        if (details.ipv6Address != null) {
-            this.ipv6Address = details.ipv6Address;
-        }
-        if (details.macAddress != null && !details.macAddress.equals("00:00:00:00:00:00")) {
-            this.macAddress = details.macAddress;
-        }
-        if (details.serverCert != null) {
-            this.serverCert = details.serverCert;
-        }
-        this.externalPort = details.externalPort;
-        this.httpsPort = details.httpsPort;
-        this.pairState = details.pairState;
-        this.runningGameId = details.runningGameId;
-        this.nvidiaServer = details.nvidiaServer;
-        this.rawAppList = details.rawAppList;
     }
 
     @Override

@@ -136,7 +136,9 @@ public class ComputerManagerService extends Service {
             // due to detecting the PC via mDNS) without the saved external address. If we
             // write to the DB without doing this first, we can overwrite our existing data.
             if (existingComputer != null) {
-                existingComputer.update(details);
+                LegacyComputerDetailsMergePolicy.mergeObservation(
+                        existingComputer,
+                        details);
                 dbManager.updateComputer(existingComputer);
             }
             else {
@@ -452,7 +454,9 @@ public class ComputerManagerService extends Service {
                 // Check if this is the same computer
                 if (tuple.computer.uuid.equals(details.uuid)) {
                     // Update the saved computer with potentially new details
-                    tuple.computer.update(details);
+                    LegacyComputerDetailsMergePolicy.mergeObservation(
+                            tuple.computer,
+                            details);
 
                     // Start a polling thread if polling is active
                     if (pollingActive && tuple.thread == null) {
@@ -793,7 +797,9 @@ public class ComputerManagerService extends Service {
                 (polledDetails != null ? polledDetails.activeAddress : null));
 
         if (polledDetails != null) {
-            details.update(polledDetails);
+            LegacyComputerDetailsMergePolicy.mergeObservation(
+                    details,
+                    polledDetails);
             return true;
         }
         else {

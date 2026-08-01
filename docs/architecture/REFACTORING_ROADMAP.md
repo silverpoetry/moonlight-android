@@ -887,6 +887,10 @@ targets.
 - Added a deterministic observation merge policy: an observation updates only
   the endpoint kinds it actually reports, preserves user aliases and
   unobserved manual/remote endpoints, and rejects cross-host merges.
+- Routed every legacy host probe merge through one explicit transition policy.
+  Address tuples are immutable, remote-port correction creates a new value,
+  partial probes preserve unobserved endpoints, and probe data cannot copy or
+  replace the pinned server certificate.
 
 ### Exit evidence
 
