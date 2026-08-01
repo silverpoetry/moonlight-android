@@ -13,9 +13,11 @@ import java.util.Objects;
  * Owns replacement transitions for the settings page stack.
  *
  * <p>The controller keeps exactly one authoritative current page. During a
- * transition, the outgoing page remains attached only long enough to render
- * the paired navigation animation. Starting another transition settles the
- * previous one first, so rapid navigation cannot leave stale pages behind.</p>
+ * forward transition, the outgoing page remains attached only long enough
+ * to render the same entrance motion used when opening settings. Backward
+ * and non-navigation replacements settle immediately. Starting another
+ * transition first removes stale pages, so rapid navigation cannot leave
+ * duplicate content behind.</p>
  */
 final class SettingsPageTransitionController {
     enum Direction {
@@ -59,7 +61,7 @@ final class SettingsPageTransitionController {
         long transitionGeneration = ++generation;
 
         if (previousPage == null ||
-                direction == Direction.NONE ||
+                direction != Direction.FORWARD ||
                 !areAnimationsEnabled()) {
             showImmediately(nextPage);
             return;
@@ -69,15 +71,12 @@ final class SettingsPageTransitionController {
         outgoingPage = previousPage;
         disableInteraction(previousPage);
 
-        float directionSign = direction == Direction.FORWARD
-                ? 1f
-                : -1f;
         float slideDistance = getSlideDistance();
         nextPage.setAlpha(1f);
-        nextPage.setTranslationX(directionSign * slideDistance);
+        nextPage.setTranslationX(slideDistance);
 
         previousPage.animate()
-                .translationX(-directionSign * slideDistance *
+                .translationX(-slideDistance *
                         OUTGOING_DISTANCE_RATIO)
                 .setDuration(getDurationMs())
                 .setInterpolator(interpolator)

@@ -150,7 +150,9 @@ final class SettingsScreenRenderer {
 
         pageTransitionController.replace(
                 screenPage,
-                direction);
+                wideLayout
+                        ? SettingsPageTransitionController.Direction.NONE
+                        : direction);
         outerContainer.requestApplyInsets();
     }
 

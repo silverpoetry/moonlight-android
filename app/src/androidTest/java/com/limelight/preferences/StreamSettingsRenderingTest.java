@@ -191,7 +191,7 @@ public class StreamSettingsRenderingTest {
     }
 
     @Test
-    public void sectionNavigationUsesPairedDirectionalTransitions()
+    public void sectionNavigationMatchesAdaptiveNavigationMotion()
             throws InterruptedException {
         Instrumentation instrumentation =
                 InstrumentationRegistry.getInstrumentation();
@@ -214,9 +214,12 @@ public class StreamSettingsRenderingTest {
                     (View) sectionTitle.getParent().getParent();
             instrumentation.runOnMainSync(() -> {
                 sectionRow.performClick();
-                assertDirectionalTransition(
-                        contentContainer,
-                        true);
+                if (wideLayout) {
+                    assertSettled(contentContainer);
+                }
+                else {
+                    assertForwardTransition(contentContainer);
+                }
             });
             waitForTransition(instrumentation);
             assertSettled(contentContainer);
@@ -227,12 +230,8 @@ public class StreamSettingsRenderingTest {
 
             instrumentation.runOnMainSync(() -> {
                 activity.onBackPressed();
-                assertDirectionalTransition(
-                        contentContainer,
-                        false);
+                assertSettled(contentContainer);
             });
-            waitForTransition(instrumentation);
-            assertSettled(contentContainer);
         }
         finally {
             activity.finish();
@@ -308,9 +307,8 @@ public class StreamSettingsRenderingTest {
         return null;
     }
 
-    private static void assertDirectionalTransition(
-            FrameLayout container,
-            boolean forward) {
+    private static void assertForwardTransition(
+            FrameLayout container) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
                 !ValueAnimator.areAnimatorsEnabled()) {
             assertSettled(container);
@@ -321,14 +319,8 @@ public class StreamSettingsRenderingTest {
         assertNotNull(incomingPage.getBackground());
         assertEquals(1f, incomingPage.getAlpha(), 0f);
         float minimumFullPageOffset = container.getWidth() * 0.9f;
-        if (forward) {
-            assertTrue(incomingPage.getTranslationX() >=
-                    minimumFullPageOffset);
-        }
-        else {
-            assertTrue(incomingPage.getTranslationX() <=
-                    -minimumFullPageOffset);
-        }
+        assertTrue(incomingPage.getTranslationX() >=
+                minimumFullPageOffset);
     }
 
     private static void assertSettled(FrameLayout container) {
