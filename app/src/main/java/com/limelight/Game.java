@@ -85,7 +85,9 @@ import com.limelight.virtualcontrols.layout.VirtualControlLayoutRepository;
 import com.limelight.virtualcontrols.layout.android.AndroidVirtualControlLayoutRepository;
 import com.limelight.ui.gamemenu.GameMenuHost;
 import com.limelight.ui.gamemenu.AndroidGameMenuController;
+import com.limelight.ui.gamemenu.AndroidDeviceBatteryProvider;
 import com.limelight.ui.gamemenu.GameMenuHostProvider;
+import com.limelight.ui.gamemenu.GameMenuState;
 import com.limelight.ui.gamemenu.StreamGameMenuHost;
 import com.limelight.ui.clipboard.RemoteClipboardFileTransferController;
 import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
@@ -222,6 +224,7 @@ public class Game extends Activity implements OnGenericMotionListener,
     private GameMenuShortcutRepository
             gameMenuShortcutRepository;
     private AndroidGameMenuController gameMenuController;
+    private AndroidDeviceBatteryProvider deviceBatteryProvider;
     private GameMenuHost gameMenuHost;
     private DecoderCrashTracker decoderCrashTracker;
 
@@ -376,6 +379,7 @@ public class Game extends Activity implements OnGenericMotionListener,
                                         .LEGACY_IMPORTED_PREFERENCES_NAME,
                                 Context.MODE_PRIVATE));
         gameMenuController = new AndroidGameMenuController(this);
+        deviceBatteryProvider = new AndroidDeviceBatteryProvider(this);
         streamVideoSettings =
                 StreamVideoSettingsLoader.load(
                         settingsRepository,
@@ -2157,6 +2161,13 @@ public class Game extends Activity implements OnGenericMotionListener,
     public boolean isVirtualKeysVisible() {
         return virtualControlsController != null &&
                 virtualControlsController.isVirtualKeysVisible();
+    }
+
+    @Override
+    public int getDeviceBatteryPercent() {
+        return deviceBatteryProvider == null ?
+                GameMenuState.UNKNOWN_BATTERY_PERCENT :
+                deviceBatteryProvider.getBatteryPercent();
     }
 
     @Override

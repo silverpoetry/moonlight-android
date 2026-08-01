@@ -263,6 +263,7 @@
     <string name="game_menu_customize_badge_remove">−</string>
     <string name="game_menu_customize_no_visible">点击编辑按钮添加操作或快捷键</string>
     <string name="game_menu_battery_percent">%1$d%%</string>
+    <string name="game_menu_battery_unknown">--%</string>
     <string name="game_menu_action_disconnect">断开连接</string>
     <string name="game_menu_action_quit_stream">退出串流</string>
     <string name="game_menu_action_rotate">旋转屏幕</string>

@@ -39,8 +39,9 @@ public final class StreamGameMenuHostTest {
         fixture.host.toggleGamepadMouseEmulation();
         fixture.host.onGameMenuDismissed(null);
 
-        assertTrue(fixture.host
-                .isOnscreenControllerRumbleEnabled());
+        assertTrue(fixture.host.getState()
+                .getControllerSettings()
+                .isOnscreenRumbleEnabled());
         assertEquals(
                 true,
                 fixture.repository.values.get(
@@ -181,6 +182,11 @@ public final class StreamGameMenuHostTest {
         }
 
         @Override
+        public int getDeviceBatteryPercent() {
+            return 50;
+        }
+
+        @Override
         public VirtualControlEditMode getVirtualGamepadEditMode() {
             return VirtualControlEditMode.NONE;
         }
@@ -314,7 +320,8 @@ public final class StreamGameMenuHostTest {
         @Override
         public com.limelight.settings.ui.GameMenuCardLayoutLoadResult
                 load() {
-            return null;
+            return com.limelight.settings.ui
+                    .GameMenuCardLayoutLoadResult.absent();
         }
 
         @Override

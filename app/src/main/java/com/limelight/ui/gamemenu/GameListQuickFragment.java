@@ -31,6 +31,7 @@ import java.util.List;
  * only renders immutable shortcut snapshots and emits user intents.</p>
  */
 public class GameListQuickFragment extends BaseGameMenuDialog {
+    private GameMenuHostProvider hostProvider;
     private GameMenuHost host;
     private String title;
     private boolean hideBuiltInShortcuts;
@@ -41,16 +42,17 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
     @Override
     public void onAttach(Activity activity) {
         super.onAttach(activity);
-        if (!(activity instanceof GameMenuHost)) {
+        if (!(activity instanceof GameMenuHostProvider)) {
             throw new IllegalStateException(
-                    "GameListQuickFragment host must implement GameMenuHost");
+                    "GameListQuickFragment host must provide GameMenuHost");
         }
-        host = (GameMenuHost) activity;
+        hostProvider = (GameMenuHostProvider) activity;
     }
 
     @Override
     public void onDetach() {
         host = null;
+        hostProvider = null;
         super.onDetach();
     }
 
@@ -62,6 +64,11 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
     @Override
     public void bindView(View view) {
         super.bindView(view);
+        host = resolveHost();
+        if (host == null) {
+            throw new IllegalStateException(
+                    "GameMenuHost is not initialized");
+        }
         ImageButton backButton =
                 view.findViewById(R.id.ibtn_back);
         ListView shortcutList =
@@ -192,8 +199,15 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
             return new ArrayList<>();
         }
         return GameMenuShortcutCatalog.loadShortcuts(
-                host.loadGameMenuShortcuts(),
+                host.getState().getShortcuts(),
                 !hideBuiltInShortcuts);
+    }
+
+    private GameMenuHost resolveHost() {
+        if (host == null && hostProvider != null) {
+            host = hostProvider.getGameMenuHost();
+        }
+        return host;
     }
 
     private static List<GameMenuQuickBean> toRows(

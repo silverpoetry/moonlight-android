@@ -538,6 +538,12 @@ targets.
   The existing app-list display editor retains its narrower direct host, and
   fake menu-session/platform ports fixture ordering and ownership without an
   Activity.
+- `GameMenuState` is the immutable render snapshot for the menu and shortcut
+  editor. Visibility, active-state, settings, layout, shortcut, microphone,
+  input-readiness, and battery facts are sampled together by the application
+  host; Fragments render that snapshot and emit typed intents. Sticky-battery
+  broadcast access moved to `AndroidDeviceBatteryProvider`, eliminating the
+  last direct device-I/O and exception-printing branch from the menu UI.
 - `StreamHdrRequestPolicy` owns HDR request eligibility and user-warning
   selection from immutable settings and device facts. The Android capability
   provider samples OS, firmware, and display HDR10 support once; `Game` no

@@ -1,19 +1,12 @@
 package com.limelight.ui.gamemenu;
 
 import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode;
-import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
-import com.limelight.settings.input.InputSettings;
 import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.settings.ui.GameMenuCardLayout;
-import com.limelight.settings.ui.GameMenuCardLayoutLoadResult;
-import com.limelight.settings.ui.StreamUiSettings;
 import com.limelight.settings.ui.StreamUiSettingsUpdate;
-import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 import com.limelight.shortcuts.GameMenuShortcut;
-
-import java.util.List;
 
 /**
  * Lifecycle-bound capabilities exposed by the streaming Activity to its menu.
@@ -22,31 +15,13 @@ import java.util.List;
  * retain the Activity after {@code onDetach()}.</p>
  */
 public interface GameMenuHost extends GameDisplayHost {
-    boolean isInputReady();
-
-    boolean isMicUplinkActive();
-
-    boolean getScreenMoveZoom();
-
-    boolean isGamepadMouseEmulationAvailable();
-
-    boolean isVirtualControllerVisible();
-
-    boolean isVirtualKeysVisible();
-
-    GameMenuCardLayoutLoadResult loadGameMenuCardLayout();
+    GameMenuState getState();
 
     void saveGameMenuCardLayout(GameMenuCardLayout layout);
-
-    List<GameMenuShortcut> loadGameMenuShortcuts();
 
     boolean saveGameMenuShortcut(GameMenuShortcut shortcut);
 
     boolean deleteGameMenuShortcut(String shortcutId);
-
-    VirtualControlEditMode getVirtualGamepadEditMode();
-
-    VirtualControlEditMode getVirtualKeysEditMode();
 
     void handleStreamBackPressed();
 
@@ -90,16 +65,10 @@ public interface GameMenuHost extends GameDisplayHost {
 
     void switchMouseModel(int mode);
 
-    InputSettings getInputSettings();
-
-    ControllerSettings getControllerSettings();
-
     void applyInputSettingsUpdate(InputSettingsUpdate update);
 
     void applyControllerSettingsUpdate(
             ControllerSettingsUpdate update);
-
-    StreamUiSettings getStreamUiSettings();
 
     void applyStreamUiSettingsUpdate(
             StreamUiSettingsUpdate update);
@@ -107,10 +76,6 @@ public interface GameMenuHost extends GameDisplayHost {
     void applyDualSenseTriggerSettings();
 
     void updateVirtualView();
-
-    VirtualControlSettings getVirtualControlSettings();
-
-    boolean isOnscreenControllerRumbleEnabled();
 
     void applyVirtualControlSettingsUpdate(
             VirtualControlSettingsUpdate<?> update);

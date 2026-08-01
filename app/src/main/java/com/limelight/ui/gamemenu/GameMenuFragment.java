@@ -1,10 +1,7 @@
 package com.limelight.ui.gamemenu;
 
 import android.app.Activity;
-import android.content.Context;
 import android.content.DialogInterface;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -50,6 +47,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
             new Handler(Looper.getMainLooper());
     private GameMenuHostProvider hostProvider;
     private GameMenuHost host;
+    private GameMenuState menuState;
     private BackNavigationRegistration backNavigationRegistration;
 
     public static GameMenuFragment newInstance(int widthPx) {
@@ -74,6 +72,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
     public void onDetach() {
         mainHandler.removeCallbacksAndMessages(null);
         host = null;
+        menuState = null;
         hostProvider = null;
         super.onDetach();
     }
@@ -94,8 +93,9 @@ public class GameMenuFragment extends BaseGameMenuDialog
     public void refreshMicrophoneState() {
         GameMenuHost currentHost = resolveHost();
         if (btn_mic != null && currentHost != null) {
+            menuState = currentHost.getState();
             btn_mic.setBackgroundResource(
-                    currentHost.isMicUplinkActive() ?
+                    menuState.isMicrophoneActive() ?
                             R.drawable.ic_game_menu_btn_green_selector :
                             R.drawable.ic_game_menu_btn_selector);
         }
@@ -184,6 +184,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
             throw new IllegalStateException(
                     "GameMenuHost is not initialized");
         }
+        menuState = host.getState();
         actionGrid = v.findViewById(R.id.game_menu_action_grid);
         collectActionButtons(v);
         rebuildActionGrid();
@@ -204,9 +205,13 @@ public class GameMenuFragment extends BaseGameMenuDialog
                 .setOnClickListener(view -> showCardEditor());
 
         tx_title_battery=v.findViewById(R.id.tx_title_battery);
-        tx_title_battery.setText(getString(
-                R.string.game_menu_battery_percent,
-                getPhoneBattery(getActivity())));
+        int batteryPercent = menuState.getBatteryPercent();
+        tx_title_battery.setText(
+                batteryPercent == GameMenuState.UNKNOWN_BATTERY_PERCENT ?
+                        getString(R.string.game_menu_battery_unknown) :
+                        getString(
+                                R.string.game_menu_battery_percent,
+                                batteryPercent));
     }
 
     private void collectActionButtons(View root) {
@@ -229,6 +234,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
     }
 
     private void rebuildActionGrid() {
+        menuState = host.getState();
         // Buttons are reused so their active state and listeners remain
         // attached. Detach them from the old row before removing that row.
         // Removing the row alone does not clear each button's parent pointer.
@@ -239,14 +245,14 @@ public class GameMenuFragment extends BaseGameMenuDialog
         List<GameMenuCardCatalog.Card> catalog = loadCardCatalog();
         GameMenuCardConfiguration.State configuration =
                 GameMenuCardConfiguration.load(
-                        host.loadGameMenuCardLayout(),
+                        menuState.getCardLayout(),
                         catalog);
         LinearLayout row = null;
         int column = 0;
         int displayedCount = 0;
         for (GameMenuCardCatalog.Card card : configuration.visible) {
             if (card.requiresGamepad() &&
-                    !host.isGamepadMouseEmulationAvailable()) {
+                    !menuState.isMouseEmulationAvailable()) {
                 continue;
             }
             Button button = card.action != null ?
@@ -294,11 +300,11 @@ public class GameMenuFragment extends BaseGameMenuDialog
 
     private List<GameMenuCardCatalog.Card> loadCardCatalog() {
         boolean includeBuiltInShortcuts =
-                !host.getStreamUiSettings()
+                !menuState.getUiSettings()
                         .shouldHideBuiltInShortcuts();
         return GameMenuCardCatalog.load(
                 getActivity(),
-                host.loadGameMenuShortcuts(),
+                menuState.getShortcuts(),
                 includeBuiltInShortcuts);
     }
 
@@ -366,19 +372,21 @@ public class GameMenuFragment extends BaseGameMenuDialog
         if (host == null) {
             return;
         }
+        menuState = host.getState();
         setActionButtonActive(
                 btn_performance,
-                host.getStreamUiSettings()
+                menuState.getUiSettings()
                         .isPerformanceOverlayEnabled());
         setActionButtonActive(
                 btn_game_pad,
-                host.isVirtualControllerVisible());
+                menuState.isVirtualControllerVisible());
         setActionButtonActive(
                 btn_v_keyboard,
-                host.isVirtualKeysVisible());
+                menuState.isVirtualKeysVisible());
         setActionButtonActive(
-                btn_screen_move, host.getScreenMoveZoom());
-        refreshMicrophoneState();
+                btn_screen_move, menuState.isScreenMoveZoom());
+        setActionButtonActive(
+                btn_mic, menuState.isMicrophoneActive());
     }
 
     private void setActionButtonActive(Button button, boolean active) {
@@ -394,11 +402,12 @@ public class GameMenuFragment extends BaseGameMenuDialog
         if (cardEditor != null || getActivity() == null) {
             return;
         }
+        menuState = host.getState();
         List<GameMenuCardCatalog.Card> catalog =
                 loadCardCatalog();
         GameMenuCardConfiguration.State configuration =
                 GameMenuCardConfiguration.load(
-                        host.loadGameMenuCardLayout(),
+                        menuState.getCardLayout(),
                         catalog);
         cardEditor = new GameMenuCardEditor(
                 getActivity(),
@@ -432,6 +441,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
         if (host == null) {
             return;
         }
+        menuState = host.getState();
         host.cancelPendingStreamBackExit();
 
         if (v.getTag() instanceof GameMenuShortcutCatalog.Entry) {
@@ -448,7 +458,8 @@ public class GameMenuFragment extends BaseGameMenuDialog
             fragment.setOnClick(new GameFunctionFragment.onClick() {
                 @Override
                 public void click(String title, int index) {
-                    if (host == null || !host.isInputReady()) {
+                    if (host == null ||
+                            !host.getState().isInputReady()) {
                         return;
                     }
                     switch (index){
@@ -527,26 +538,29 @@ public class GameMenuFragment extends BaseGameMenuDialog
         }
         if(v.getId()==R.id.btn_game_pad){
             host.toggleVirtualGamepad();
+            menuState = host.getState();
             setActionButtonActive(
                     btn_game_pad,
-                    host.isVirtualControllerVisible());
+                    menuState.isVirtualControllerVisible());
             return;
         }
 
         if(v.getId()==R.id.btn_performance){
             host.showHUD();
+            menuState = host.getState();
             setActionButtonActive(
                     btn_performance,
-                    host.getStreamUiSettings()
+                    menuState.getUiSettings()
                             .isPerformanceOverlayEnabled());
             return;
         }
 
         if(v.getId()==R.id.btn_v_keyboard){
             host.toggleVirtualKeys();
+            menuState = host.getState();
             setActionButtonActive(
                     btn_v_keyboard,
-                    host.isVirtualKeysVisible());
+                    menuState.isVirtualKeysVisible());
             return;
         }
 
@@ -598,7 +612,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle("快捷键(字体倾斜项可长按删除)");
             fragment.setHideBuiltInShortcuts(
-                    host.getStreamUiSettings()
+                    menuState.getUiSettings()
                             .shouldHideBuiltInShortcuts());
             fragment.setOnShortcutSelectedListener(
                     this::executeShortcut);
@@ -641,8 +655,8 @@ public class GameMenuFragment extends BaseGameMenuDialog
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle("触控灵敏度");
             fragment.setSettings(
-                    host.getInputSettings(),
-                    host.getControllerSettings());
+                    menuState.getInputSettings(),
+                    menuState.getControllerSettings());
             fragment.setListener(new GameTouchFragment.Listener() {
                 @Override
                 public void onInputSettingsUpdate(
@@ -694,7 +708,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
                             }
                         }
                     });
-            fragment.setSettings(host.getControllerSettings());
+            fragment.setSettings(menuState.getControllerSettings());
             fragment.show(getFragmentManager());
             return;
         }
@@ -704,10 +718,10 @@ public class GameMenuFragment extends BaseGameMenuDialog
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle(R.string.game_menu_misc_title);
             fragment.setSettings(
-                    host.getStreamUiSettings(),
-                    host.getInputSettings(),
-                    host.getControllerSettings(),
-                    host.getStreamAudioSettings());
+                    menuState.getUiSettings(),
+                    menuState.getInputSettings(),
+                    menuState.getControllerSettings(),
+                    menuState.getAudioSettings());
             fragment.setListener(
                     new GameDisplaySettingFragment.Listener() {
                 @Override
@@ -750,12 +764,15 @@ public class GameMenuFragment extends BaseGameMenuDialog
             GameMenuVirtualViewFragment fragment=new GameMenuVirtualViewFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle(R.string.game_menu_virtual_controls_title);
-            fragment.setGamePadMode(host.getVirtualGamepadEditMode());
-            fragment.setGameKeyMode(host.getVirtualKeysEditMode());
+            fragment.setGamePadMode(
+                    menuState.getVirtualGamepadEditMode());
+            fragment.setGameKeyMode(
+                    menuState.getVirtualKeysEditMode());
             fragment.setSettings(
-                    host.getVirtualControlSettings());
+                    menuState.getVirtualControlSettings());
             fragment.setOnscreenControllerRumbleEnabled(
-                    host.isOnscreenControllerRumbleEnabled());
+                    menuState.getControllerSettings()
+                            .isOnscreenRumbleEnabled());
             fragment.setListener(new GameMenuVirtualViewFragment.Listener() {
                 @Override
                 public void onRefreshRequested() {
@@ -817,21 +834,6 @@ public class GameMenuFragment extends BaseGameMenuDialog
         }
         return host;
     }
-
-
-    private int getPhoneBattery(Context context) {
-        try{
-            int level = 0;
-            Intent batteryInfoIntent = context.getApplicationContext().registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-            level = batteryInfoIntent.getIntExtra("level", 0);
-            int batterySum = batteryInfoIntent.getIntExtra("scale", 100);
-            return 100 * level / batterySum;
-        }catch (Exception e){
-            e.printStackTrace();
-        }
-        return 100;
-    }
-
     private void sendKeyboardChord(short[] keyCodes) {
         if (host != null) {
             host.sendKeyboardChord(keyCodes);

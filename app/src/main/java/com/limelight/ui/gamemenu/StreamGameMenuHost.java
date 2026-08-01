@@ -3,25 +3,19 @@ package com.limelight.ui.gamemenu;
 import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode;
 import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.audio.StreamAudioSettingsUpdate;
-import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
-import com.limelight.settings.input.InputSettings;
 import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.settings.runtime.StreamSettingsSession;
 import com.limelight.settings.stream.CustomResolutionRepository;
 import com.limelight.settings.stream.StreamVideoSettings;
 import com.limelight.settings.stream.StreamVideoSettingsUpdate;
 import com.limelight.settings.ui.GameMenuCardLayout;
-import com.limelight.settings.ui.GameMenuCardLayoutLoadResult;
 import com.limelight.settings.ui.GameMenuCardLayoutRepository;
-import com.limelight.settings.ui.StreamUiSettings;
 import com.limelight.settings.ui.StreamUiSettingsUpdate;
-import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 import com.limelight.shortcuts.GameMenuShortcut;
 import com.limelight.shortcuts.GameMenuShortcutRepository;
 
-import java.util.List;
 import java.util.Objects;
 
 /**
@@ -52,6 +46,8 @@ public final class StreamGameMenuHost implements GameMenuHost {
         boolean isVirtualControllerVisible();
 
         boolean isVirtualKeysVisible();
+
+        int getDeviceBatteryPercent();
 
         VirtualControlEditMode getVirtualGamepadEditMode();
 
@@ -104,6 +100,27 @@ public final class StreamGameMenuHost implements GameMenuHost {
         void pullRemoteClipboardFiles();
     }
 
+    @Override
+    public GameMenuState getState() {
+        return new GameMenuState(
+                actions.isInputReady(),
+                actions.isMicUplinkActive(),
+                actions.getScreenMoveZoom(),
+                menuSession.isMouseEmulationAvailable(),
+                actions.isVirtualControllerVisible(),
+                actions.isVirtualKeysVisible(),
+                actions.getDeviceBatteryPercent(),
+                cardLayoutRepository.load(),
+                shortcutRepository.load(),
+                settingsSession.getInputSettings(),
+                settingsSession.getControllerSettings(),
+                settingsSession.getAudioSettings(),
+                settingsSession.getUiSettings(),
+                settingsSession.getVirtualControlSettings(),
+                actions.getVirtualGamepadEditMode(),
+                actions.getVirtualKeysEditMode());
+    }
+
     private final StreamSettingsSession settingsSession;
     private final CustomResolutionRepository customResolutionRepository;
     private final GameMenuCardLayoutRepository cardLayoutRepository;
@@ -133,48 +150,8 @@ public final class StreamGameMenuHost implements GameMenuHost {
     }
 
     @Override
-    public boolean isInputReady() {
-        return actions.isInputReady();
-    }
-
-    @Override
-    public boolean isMicUplinkActive() {
-        return actions.isMicUplinkActive();
-    }
-
-    @Override
-    public boolean getScreenMoveZoom() {
-        return actions.getScreenMoveZoom();
-    }
-
-    @Override
-    public boolean isGamepadMouseEmulationAvailable() {
-        return menuSession.isMouseEmulationAvailable();
-    }
-
-    @Override
-    public boolean isVirtualControllerVisible() {
-        return actions.isVirtualControllerVisible();
-    }
-
-    @Override
-    public boolean isVirtualKeysVisible() {
-        return actions.isVirtualKeysVisible();
-    }
-
-    @Override
-    public GameMenuCardLayoutLoadResult loadGameMenuCardLayout() {
-        return cardLayoutRepository.load();
-    }
-
-    @Override
     public void saveGameMenuCardLayout(GameMenuCardLayout layout) {
         cardLayoutRepository.save(layout);
-    }
-
-    @Override
-    public List<GameMenuShortcut> loadGameMenuShortcuts() {
-        return shortcutRepository.load();
     }
 
     @Override
@@ -185,16 +162,6 @@ public final class StreamGameMenuHost implements GameMenuHost {
     @Override
     public boolean deleteGameMenuShortcut(String shortcutId) {
         return shortcutRepository.delete(shortcutId);
-    }
-
-    @Override
-    public VirtualControlEditMode getVirtualGamepadEditMode() {
-        return actions.getVirtualGamepadEditMode();
-    }
-
-    @Override
-    public VirtualControlEditMode getVirtualKeysEditMode() {
-        return actions.getVirtualKeysEditMode();
     }
 
     @Override
@@ -304,16 +271,6 @@ public final class StreamGameMenuHost implements GameMenuHost {
     }
 
     @Override
-    public InputSettings getInputSettings() {
-        return settingsSession.getInputSettings();
-    }
-
-    @Override
-    public ControllerSettings getControllerSettings() {
-        return settingsSession.getControllerSettings();
-    }
-
-    @Override
     public void applyInputSettingsUpdate(InputSettingsUpdate update) {
         settingsSession.applyInput(update);
     }
@@ -322,11 +279,6 @@ public final class StreamGameMenuHost implements GameMenuHost {
     public void applyControllerSettingsUpdate(
             ControllerSettingsUpdate update) {
         settingsSession.applyController(update);
-    }
-
-    @Override
-    public StreamUiSettings getStreamUiSettings() {
-        return settingsSession.getUiSettings();
     }
 
     @Override
@@ -343,17 +295,6 @@ public final class StreamGameMenuHost implements GameMenuHost {
     @Override
     public void updateVirtualView() {
         settingsSession.reloadVirtualControls();
-    }
-
-    @Override
-    public VirtualControlSettings getVirtualControlSettings() {
-        return settingsSession.getVirtualControlSettings();
-    }
-
-    @Override
-    public boolean isOnscreenControllerRumbleEnabled() {
-        return settingsSession.getControllerSettings()
-                .isOnscreenRumbleEnabled();
     }
 
     @Override
