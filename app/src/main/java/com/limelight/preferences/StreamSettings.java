@@ -117,7 +117,11 @@ public class StreamSettings extends Activity {
                 AndroidAppPresentationSettingsLoader.load(this);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
                 !previousPresentationSettings.usesLightTheme()) {
-            setTheme(R.style.AppTheme);
+            // Keep the settings-specific window contract when selecting the
+            // dark presentation. Falling back to the application theme here
+            // also drops the root/detail activity transition declared by the
+            // settings surface.
+            setTheme(R.style.SettingsActivityDarkTheme);
         }
         super.onCreate(savedInstanceState);
 
@@ -429,8 +433,10 @@ public class StreamSettings extends Activity {
         }
         screenRenderer.restoreScrollY(
                 navigationState.getContentScrollY());
-        screenRenderer.restoreSectionListScrollY(
-                navigationState.getSectionRailScrollY());
+        // The wide shell and its section rail are retained in place. Reposting
+        // the same rail position after every detail replacement can race the
+        // touch-driven scroll state and produce a visible jump near the end of
+        // the list.
     }
 
     private void captureNavigationScroll() {

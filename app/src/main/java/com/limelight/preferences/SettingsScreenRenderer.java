@@ -12,6 +12,7 @@ import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.WindowInsets;
 import android.widget.CompoundButton;
 import android.widget.FrameLayout;
@@ -192,16 +193,39 @@ final class SettingsScreenRenderer {
         if (scrollY == null || activeContentScrollView == null) {
             return;
         }
-        ScrollView scrollView = activeContentScrollView;
-        scrollView.post(() -> scrollView.scrollTo(0, scrollY));
+        restoreScrollBeforeFirstDraw(activeContentScrollView, scrollY);
     }
 
     void restoreSectionListScrollY(Integer scrollY) {
         if (scrollY == null || sectionListScrollView == null) {
             return;
         }
-        ScrollView scrollView = sectionListScrollView;
-        scrollView.post(() -> scrollView.scrollTo(0, scrollY));
+        restoreScrollBeforeFirstDraw(sectionListScrollView, scrollY);
+    }
+
+    private void restoreScrollBeforeFirstDraw(
+            ScrollView scrollView,
+            int scrollY) {
+        int targetScrollY = Math.max(0, scrollY);
+        if (targetScrollY == 0) {
+            scrollView.scrollTo(0, 0);
+            return;
+        }
+
+        ViewTreeObserver observer = scrollView.getViewTreeObserver();
+        observer.addOnPreDrawListener(
+                new ViewTreeObserver.OnPreDrawListener() {
+                    @Override
+                    public boolean onPreDraw() {
+                        ViewTreeObserver currentObserver =
+                                scrollView.getViewTreeObserver();
+                        if (currentObserver.isAlive()) {
+                            currentObserver.removeOnPreDrawListener(this);
+                        }
+                        scrollView.scrollTo(0, targetScrollY);
+                        return true;
+                    }
+                });
     }
 
     void updateState(

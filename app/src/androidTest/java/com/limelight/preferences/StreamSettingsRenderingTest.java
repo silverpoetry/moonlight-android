@@ -10,6 +10,7 @@ import static org.junit.Assert.assertTrue;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Intent;
+import android.os.Build;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,6 +23,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.limelight.R;
+import com.limelight.settings.SettingsRepository;
+import com.limelight.settings.android.AndroidSettingsRepository;
+import com.limelight.settings.app.AppPresentationSettingKeys;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,6 +51,43 @@ public class StreamSettingsRenderingTest {
                     R.drawable.bg_gradient_axi_main,
                     windowBackground.resourceId);
         });
+    }
+
+    @Test
+    public void darkSettingsActivityRetainsWindowTransitionContract() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return;
+        }
+
+        Instrumentation instrumentation =
+                InstrumentationRegistry.getInstrumentation();
+        SettingsRepository repository =
+                AndroidSettingsRepository.create(
+                        instrumentation.getTargetContext());
+        boolean originalLightTheme = repository.get(
+                AppPresentationSettingKeys.LIGHT_THEME);
+        StreamSettings activity = null;
+        try {
+            assertTrue(repository.edit()
+                    .put(AppPresentationSettingKeys.LIGHT_THEME, false)
+                    .commit());
+            activity = startSettingsActivity(instrumentation);
+            assertEquals(
+                    R.style.SettingsActivityAnimation,
+                    activity.getWindow()
+                            .getAttributes()
+                            .windowAnimations);
+        }
+        finally {
+            if (activity != null) {
+                activity.finish();
+            }
+            assertTrue(repository.edit()
+                    .put(
+                            AppPresentationSettingKeys.LIGHT_THEME,
+                            originalLightTheme)
+                    .commit());
+        }
     }
 
     @Test

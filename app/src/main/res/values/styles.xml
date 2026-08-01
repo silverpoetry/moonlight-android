@@ -63,6 +63,17 @@
         <item name="android:windowAnimationStyle">@style/SettingsActivityAnimation</item>
     </style>
 
+    <!--
+        API 29+ normally uses the light BaseActivityTheme. The user's dark
+        appearance preference therefore needs a dark settings variant rather
+        than the generic AppTheme, so both presentations keep the identical
+        root/detail window background and transition contract.
+    -->
+    <style name="SettingsActivityDarkTheme" parent="AppTheme">
+        <item name="android:windowBackground">@drawable/bg_gradient_axi_main</item>
+        <item name="android:windowAnimationStyle">@style/SettingsActivityAnimation</item>
+    </style>
+
     <style name="SettingsActivityAnimation" parent="@android:style/Animation.Activity">
         <item name="android:activityOpenEnterAnimation">@anim/settings_activity_open_enter</item>
         <item name="android:activityOpenExitAnimation">@anim/settings_activity_open_exit</item>
