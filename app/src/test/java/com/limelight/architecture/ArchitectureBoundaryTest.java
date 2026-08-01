@@ -404,6 +404,57 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void hostPollingLifecycleIsPlatformIndependent() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.HostPollingOwnership")
+                .or()
+                .haveNameMatching(
+                        "com\\.limelight\\.computers\\.HostPollingOwnership\\$.*")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.ComputerDetailsSnapshot")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.InFlightOperationTracker")
+                .or()
+                .haveNameMatching(
+                        "com\\.limelight\\.computers\\.InFlightOperationTracker\\$.*")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.HostPollingClientLifecycle")
+                .or()
+                .haveNameMatching(
+                        "com\\.limelight\\.computers\\.HostPollingClientLifecycle\\$.*")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..", "androidx..")
+                .because(
+                        "polling ownership and DTO snapshots are pure state boundaries")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void hostScreensDoNotOpenTheHostDatabaseDirectly() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.PcView")
+                .or()
+                .haveFullyQualifiedName("com.limelight.AppView")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ShortcutTrampoline")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.ComputerDatabaseManager")
+                .because(
+                        "host UI must use the service-owned repository boundary")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamFailureDiagnosticsDoesNotDependOnConnection() {
         noClasses()
                 .that()

@@ -8,6 +8,7 @@ import java.util.List;
 
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
+import com.limelight.computers.HostPollingClientLifecycle;
 import com.limelight.grid.AppGridAdapter;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
@@ -73,12 +74,12 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
     private ShortcutHelper shortcutHelper;
 
     private ComputerDetails computer;
-    private ComputerManagerService.ApplistPoller poller;
+    private volatile ComputerManagerService.ApplistPoller poller;
     private SpinnerDialog blockingLoadSpinner;
     private String lastRawApplist;
     private int lastRunningAppId;
-    private boolean suspendGridUpdates;
-    private boolean inForeground;
+    private volatile boolean suspendGridUpdates;
+    private volatile boolean inForeground;
     private boolean showHiddenApps;
     private HashSet<Integer> hiddenAppIds = new HashSet<>();
     private android.app.AlertDialog pendingAppMenuDialog;
@@ -90,48 +91,98 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
     public final static String NEW_PAIR_EXTRA = "NewPair";
     public final static String SHOW_HIDDEN_APPS_EXTRA = "ShowHiddenApps";
 
-    private ComputerManagerService.ComputerManagerBinder managerBinder;
+    private volatile ComputerManagerService.ComputerManagerBinder managerBinder;
+    private final HostPollingClientLifecycle hostPollingLifecycle =
+            new HostPollingClientLifecycle();
+    private final Object pollingLifecycleLock = new Object();
+    private volatile long managerBindingGeneration;
+    private volatile boolean activityDestroyed;
+    private boolean managerServiceBound;
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder binder) {
             final ComputerManagerService.ComputerManagerBinder localBinder =
                     ((ComputerManagerService.ComputerManagerBinder)binder);
+            final long bindingGeneration;
+            synchronized (pollingLifecycleLock) {
+                bindingGeneration = ++managerBindingGeneration;
+            }
 
             // Wait in a separate thread to avoid stalling the UI
             new Thread() {
                 @Override
                 public void run() {
                     // Wait for the binder to be ready
-                    localBinder.waitForReady();
-
-                    // Get the computer object
-                    computer = localBinder.getComputer(uuidString);
-                    if (computer == null) {
-                        finish();
+                    if (!localBinder.waitForReady()) {
                         return;
                     }
 
-                    // Add a launcher shortcut for this PC (forced, since this is user interaction)
-                    shortcutHelper.createAppViewShortcut(computer, true, getIntent().getBooleanExtra(NEW_PAIR_EXTRA, false));
-                    shortcutHelper.reportComputerShortcutUsed(computer);
+                    synchronized (pollingLifecycleLock) {
+                        if (activityDestroyed ||
+                                bindingGeneration !=
+                                        managerBindingGeneration) {
+                            return;
+                        }
+                    }
 
+                    // Get the computer object
+                    ComputerDetails loadedComputer =
+                            localBinder.getComputer(uuidString);
+                    if (loadedComputer == null) {
+                        runOnUiThread(() -> {
+                            if (isCurrentBindingGeneration(
+                                    bindingGeneration)) {
+                                finish();
+                            }
+                        });
+                        return;
+                    }
+
+                    AppGridAdapter loadedAdapter;
                     try {
-                        appGridAdapter = new AppGridAdapter(AppView.this,
+                        loadedAdapter = new AppGridAdapter(AppView.this,
                                 appPresentationSettings
                                         .usesSmallAppIcons(),
-                                computer, localBinder.getUniqueId(),
+                                loadedComputer, localBinder.getUniqueId(),
                                 showHiddenApps);
                     } catch (Exception e) {
                         e.printStackTrace();
-                        finish();
+                        runOnUiThread(() -> {
+                            if (isCurrentBindingGeneration(
+                                    bindingGeneration)) {
+                                finish();
+                            }
+                        });
                         return;
                     }
 
-                    appGridAdapter.updateHiddenApps(hiddenAppIds, true);
+                    loadedAdapter.updateHiddenApps(hiddenAppIds, true);
 
                     // Now make the binder visible. We must do this after appGridAdapter
                     // is set to prevent us from reaching updateUiWithServerinfo() and
                     // touching the appGridAdapter prior to initialization.
-                    managerBinder = localBinder;
+                    synchronized (pollingLifecycleLock) {
+                        if (activityDestroyed ||
+                                bindingGeneration !=
+                                        managerBindingGeneration) {
+                            loadedAdapter.cancelQueuedOperations();
+                            return;
+                        }
+                        computer = loadedComputer;
+                        appGridAdapter = loadedAdapter;
+                        managerBinder = localBinder;
+                    }
+
+                    // Add a launcher shortcut for this PC (forced, since this
+                    // is explicit user interaction) only after this binding
+                    // has won the generation race.
+                    shortcutHelper.createAppViewShortcut(
+                            loadedComputer,
+                            true,
+                            getIntent().getBooleanExtra(
+                                    NEW_PAIR_EXTRA,
+                                    false));
+                    shortcutHelper.reportComputerShortcutUsed(
+                            loadedComputer);
 
                     // Load the app grid with cached data (if possible).
                     // This must be done _before_ startComputerUpdates()
@@ -144,14 +195,22 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            tryAutoReconnect();
+                            if (isCurrentManagerBinding(
+                                    bindingGeneration,
+                                    localBinder)) {
+                                tryAutoReconnect();
+                            }
                         }
                     });
 
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            if (isFinishing() || isChangingConfigurations()) {
+                            if (!isCurrentManagerBinding(
+                                    bindingGeneration,
+                                    localBinder) ||
+                                    isFinishing() ||
+                                    isChangingConfigurations()) {
                                 return;
                             }
 
@@ -172,9 +231,37 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
         }
 
         public void onServiceDisconnected(ComponentName className) {
-            managerBinder = null;
+            synchronized (pollingLifecycleLock) {
+                managerBindingGeneration++;
+                managerBinder = null;
+            }
+            runCloseAction(hostPollingLifecycle.onConnectionLost());
         }
     };
+
+    private boolean isCurrentManagerBinding(
+            long bindingGeneration,
+            ComputerManagerService.ComputerManagerBinder binder) {
+        synchronized (pollingLifecycleLock) {
+            return isCurrentBindingGenerationLocked(
+                    bindingGeneration) &&
+                    managerBinder == binder;
+        }
+    }
+
+    private boolean isCurrentBindingGeneration(
+            long bindingGeneration) {
+        synchronized (pollingLifecycleLock) {
+            return isCurrentBindingGenerationLocked(
+                    bindingGeneration);
+        }
+    }
+
+    private boolean isCurrentBindingGenerationLocked(
+            long bindingGeneration) {
+        return !activityDestroyed &&
+                managerBindingGeneration == bindingGeneration;
+    }
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
@@ -205,16 +292,35 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
     }
 
     private void startComputerUpdates() {
-        // Don't start polling if we're not bound or in the foreground
-        if (managerBinder == null || !inForeground) {
+        ComputerManagerService.ComputerManagerBinder binder;
+        synchronized (pollingLifecycleLock) {
+            if (managerBinder == null ||
+                    !inForeground) {
+                return;
+            }
+            binder = managerBinder;
+        }
+        HostPollingClientLifecycle.StartToken startToken =
+                hostPollingLifecycle.beginStart();
+        if (startToken == null) {
             return;
         }
+        synchronized (pollingLifecycleLock) {
+            if (managerBinder != binder || !inForeground) {
+                hostPollingLifecycle.failStart(startToken);
+                return;
+            }
+        }
 
-        managerBinder.startPolling(new ComputerManagerListener() {
+        ComputerManagerService.HostPollingSubscription newSubscription;
+        try {
+            newSubscription = binder.startPolling(
+                    new ComputerManagerListener() {
             @Override
             public void notifyComputerUpdated(final ComputerDetails details) {
                 // Do nothing if updates are suspended
-                if (suspendGridUpdates) {
+                if (!hostPollingLifecycle.owns(startToken) ||
+                        suspendGridUpdates) {
                     return;
                 }
 
@@ -228,6 +334,9 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
                     AppView.this.runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
+                            if (!hostPollingLifecycle.owns(startToken)) {
+                                return;
+                            }
                             // Display a toast to the user and quit the activity
                             UiToast.makeText(AppView.this, getResources().getText(R.string.lost_connection), UiToast.LENGTH_SHORT).show();
                             finish();
@@ -242,6 +351,9 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
                     AppView.this.runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
+                            if (!hostPollingLifecycle.owns(startToken)) {
+                                return;
+                            }
                             // Disable shortcuts referencing this PC for now
                             shortcutHelper.disableComputerShortcut(details,
                                     getResources().getString(R.string.scut_not_paired));
@@ -258,7 +370,9 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
                 AppView.this.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        tryAutoReconnect();
+                        if (hostPollingLifecycle.owns(startToken)) {
+                            tryAutoReconnect();
+                        }
                     }
                 });
 
@@ -290,25 +404,57 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
                     e.printStackTrace();
                 }
             }
-        });
-
-        if (poller == null) {
-            poller = managerBinder.createAppListPoller(computer);
+                    });
         }
-        poller.start();
+        catch (RuntimeException | Error error) {
+            hostPollingLifecycle.failStart(startToken);
+            throw error;
+        }
+
+        ComputerManagerService.ApplistPoller newPoller;
+        try {
+            newPoller = newSubscription.startAppListPolling(computer);
+            if (newPoller == null) {
+                newSubscription.close();
+                hostPollingLifecycle.failStart(startToken);
+                return;
+            }
+        }
+        catch (RuntimeException | Error error) {
+            newSubscription.close();
+            hostPollingLifecycle.failStart(startToken);
+            throw error;
+        }
+        poller = newPoller;
+        Runnable closeAction = () -> closeHostUpdates(
+                newSubscription,
+                newPoller);
+        hostPollingLifecycle.completeStart(startToken, closeAction);
     }
 
     private void stopComputerUpdates() {
-        if (poller != null) {
-            poller.stop();
-        }
-
-        if (managerBinder != null) {
-            managerBinder.stopPolling();
-        }
+        runCloseAction(hostPollingLifecycle.deactivate());
 
         if (appGridAdapter != null) {
             appGridAdapter.cancelQueuedOperations();
+        }
+    }
+
+    private void closeHostUpdates(
+            ComputerManagerService.HostPollingSubscription subscription,
+            ComputerManagerService.ApplistPoller appListPoller) {
+        synchronized (pollingLifecycleLock) {
+            if (poller == appListPoller) {
+                poller = null;
+            }
+        }
+        // The host subscription owns and closes its app-list worker.
+        subscription.close();
+    }
+
+    private static void runCloseAction(Runnable closeAction) {
+        if (closeAction != null) {
+            closeAction.run();
         }
     }
 
@@ -327,6 +473,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
         // Assume we're in the foreground when created to avoid a race
         // between binding to CMS and onResume()
         inForeground = true;
+        hostPollingLifecycle.activate();
 
         shortcutHelper = new ShortcutHelper(this);
 
@@ -396,10 +543,12 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
                 dialogFragment.setWidth(UiHelper.dpToPx(AppView.this,364));
                 dialogFragment.show(getFragmentManager());
             }
-        });
+                });
 
         // Bind to the computer manager service
-        bindService(new Intent(this, ComputerManagerService.class), serviceConnection,
+        managerServiceBound = bindService(
+                new Intent(this, ComputerManagerService.class),
+                serviceConnection,
                 Service.BIND_AUTO_CREATE);
     }
 
@@ -482,14 +631,21 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
+        activityDestroyed = true;
+        runCloseAction(hostPollingLifecycle.destroy());
 
         SpinnerDialog.closeDialogs(this);
         Dialog.closeDialogs();
 
-        if (managerBinder != null) {
+        if (managerServiceBound) {
             unbindService(serviceConnection);
+            managerServiceBound = false;
         }
+        synchronized (pollingLifecycleLock) {
+            managerBindingGeneration++;
+            managerBinder = null;
+        }
+        super.onDestroy();
     }
 
     @Override
@@ -500,6 +656,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks,
         UiHelper.showDecoderCrashDialog(this);
 
         inForeground = true;
+        hostPollingLifecycle.activate();
         startComputerUpdates();
         tryAutoReconnect();
     }

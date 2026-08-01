@@ -939,6 +939,13 @@ targets.
   Restore validates the complete source first and merges metadata plus
   credentials in one transaction, so corrupt input cannot leave a partial
   restore or silently retain a credential absent from the backup.
+- Host-list polling now has one generation-scoped service subscription and
+  detached callback snapshots. A stale Activity cannot stop its replacement
+  or consume a late callback, app-list polling is a child resource closed by
+  its parent subscription, and service teardown rejects new work while active
+  repository leases finish safely. `PcView`, `AppView`, and shortcut launch
+  use the same lifecycle contract; shortcut name resolution no longer opens
+  the host database from an Activity.
 
 ### Exit evidence
 

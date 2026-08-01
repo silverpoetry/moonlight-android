@@ -47,7 +47,11 @@ public final class LegacyComputerDetailsMergePolicy {
         destination.pairState = observation.pairState;
         destination.runningGameId = observation.runningGameId;
         destination.nvidiaServer = observation.nvidiaServer;
-        destination.rawAppList = observation.rawAppList;
+        // Server-info probes do not carry an app list. Preserve the latest
+        // app-list worker result unless this observation explicitly has one.
+        if (observation.rawAppList != null) {
+            destination.rawAppList = observation.rawAppList;
+        }
     }
 
     private static boolean isUsableLocalAddress(

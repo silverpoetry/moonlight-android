@@ -8,6 +8,7 @@ import java.net.UnknownHostException;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
+import com.limelight.computers.HostPollingClientLifecycle;
 import com.limelight.computers.model.HostId;
 import com.limelight.computers.pairing.HostPairingUseCase;
 import com.limelight.computers.pairing.NvHttpPairingBackend;
@@ -80,38 +81,53 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     private volatile ComputerManagerService.ComputerManagerBinder
             managerBinder;
     private final Object managerBindingLock = new Object();
-    private boolean freezeUpdates, runningPolling, inForeground, completeOnCreateCalled;
+    private volatile boolean freezeUpdates;
+    private volatile boolean inForeground;
+    private boolean completeOnCreateCalled;
     private boolean hostListReady, managerHasKnownHosts;
     private boolean managerServiceBound;
     private volatile boolean activityDestroyed;
     private final HostPairingUseCase hostPairingUseCase =
             new HostPairingUseCase();
     private HostPairingController hostPairingController;
+    private final HostPollingClientLifecycle hostPollingLifecycle =
+            new HostPollingClientLifecycle();
+    private volatile long managerBindingGeneration;
     private ComputerObject pendingHostMenuComputer;
     private android.app.AlertDialog pendingHostMenuDialog;
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder binder) {
             final ComputerManagerService.ComputerManagerBinder localBinder =
                     ((ComputerManagerService.ComputerManagerBinder)binder);
+            final long bindingGeneration;
+            synchronized (managerBindingLock) {
+                bindingGeneration = ++managerBindingGeneration;
+            }
 
             // Wait in a separate thread to avoid stalling the UI
             new Thread() {
                 @Override
                 public void run() {
                     // Wait for the binder to be ready
-                    localBinder.waitForReady();
+                    if (!localBinder.waitForReady()) {
+                        return;
+                    }
 
                     synchronized (managerBindingLock) {
-                        if (activityDestroyed) {
+                        if (activityDestroyed ||
+                                bindingGeneration !=
+                                        managerBindingGeneration) {
                             return;
                         }
                         managerBinder = localBinder;
-                        startComputerUpdates();
                     }
+                    startComputerUpdates();
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            if (!activityDestroyed) {
+                            if (!activityDestroyed &&
+                                    bindingGeneration ==
+                                            managerBindingGeneration) {
                                 tryAutoReconnect();
                             }
                         }
@@ -125,8 +141,11 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
         public void onServiceDisconnected(ComponentName className) {
             synchronized (managerBindingLock) {
+                managerBindingGeneration++;
                 managerBinder = null;
+                freezeUpdates = true;
             }
+            runCloseAction(hostPollingLifecycle.onConnectionLost());
         }
     };
 
@@ -227,6 +246,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         // Assume we're in the foreground when created to avoid a race
         // between binding to CMS and onResume()
         inForeground = true;
+        hostPollingLifecycle.activate();
 
         // Create a GLSurfaceView to fetch GLRenderer unless we have
         // a cached result already.
@@ -287,64 +307,95 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     }
 
     private void startComputerUpdates() {
-        // Only allow polling to start if we're bound to CMS, polling is not already running,
-        // and our activity is in the foreground.
-        if (managerBinder != null && !runningPolling && inForeground) {
-            freezeUpdates = false;
-            managerHasKnownHosts = managerBinder.getComputerCount() > 0;
-            hostListReady = true;
-            updateNoPcFoundVisibilityOnUiThread();
-
-            managerBinder.startPolling(new ComputerManagerListener() {
-                @Override
-                public void notifyComputerUpdated(final ComputerDetails details) {
-                    if (!freezeUpdates) {
-                        PcView.this.runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                updateComputer(details);
-                            }
-                        });
-
-                        // Add a launcher shortcut for this PC (off the main thread to prevent ANRs)
-                        if (details.pairState == PairState.PAIRED) {
-                            shortcutHelper.createAppViewShortcutForOnlineHost(details);
-                        }
-
-                        PcView.this.runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                tryAutoReconnect();
-                            }
-                        });
-                    }
-                }
-            });
-            runningPolling = true;
+        ComputerManagerService.ComputerManagerBinder binder;
+        synchronized (managerBindingLock) {
+            if (managerBinder == null || !inForeground) {
+                return;
+            }
+            binder = managerBinder;
         }
+        HostPollingClientLifecycle.StartToken startToken =
+                hostPollingLifecycle.beginStart();
+        if (startToken == null) {
+            return;
+        }
+        synchronized (managerBindingLock) {
+            if (managerBinder != binder || !inForeground) {
+                hostPollingLifecycle.failStart(startToken);
+                return;
+            }
+            freezeUpdates = false;
+            managerHasKnownHosts = binder.getComputerCount() > 0;
+            hostListReady = true;
+        }
+        updateNoPcFoundVisibilityOnUiThread();
+
+        ComputerManagerService.HostPollingSubscription newSubscription;
+        try {
+            newSubscription = binder.startPolling(
+                    new ComputerManagerListener() {
+                    @Override
+                    public void notifyComputerUpdated(
+                            final ComputerDetails details) {
+                        if (hostPollingLifecycle.owns(startToken) &&
+                                !freezeUpdates) {
+                            PcView.this.runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    if (hostPollingLifecycle.owns(
+                                            startToken)) {
+                                        updateComputer(details);
+                                    }
+                                }
+                            });
+
+                            // Add a launcher shortcut for this PC (off the main thread to prevent ANRs)
+                            if (details.pairState == PairState.PAIRED) {
+                                shortcutHelper.createAppViewShortcutForOnlineHost(
+                                        details);
+                            }
+
+                            PcView.this.runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    if (hostPollingLifecycle.owns(
+                                            startToken)) {
+                                        tryAutoReconnect();
+                                    }
+                                }
+                            });
+                        }
+                    }
+                    });
+        }
+        catch (RuntimeException | Error error) {
+            hostPollingLifecycle.failStart(startToken);
+            freezeUpdates = true;
+            throw error;
+        }
+
+        hostPollingLifecycle.completeStart(
+                startToken,
+                newSubscription::close);
     }
 
     private void stopComputerUpdates(boolean wait) {
-        if (managerBinder != null) {
-            if (!runningPolling) {
-                return;
-            }
-
+        ComputerManagerService.ComputerManagerBinder binder;
+        synchronized (managerBindingLock) {
             freezeUpdates = true;
+            binder = managerBinder;
+        }
 
-            managerBinder.stopPolling();
-
-            if (wait) {
-                managerBinder.waitForPollingStopped();
-            }
-
-            runningPolling = false;
+        runCloseAction(hostPollingLifecycle.deactivate());
+        if (wait && binder != null) {
+            binder.waitForPollingStopped();
         }
     }
 
     @Override
     public void onDestroy() {
         activityDestroyed = true;
+        runCloseAction(hostPollingLifecycle.destroy());
         if (hostPairingController != null) {
             hostPairingController.destroy();
             hostPairingController = null;
@@ -354,6 +405,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             managerServiceBound = false;
         }
         synchronized (managerBindingLock) {
+            managerBindingGeneration++;
             managerBinder = null;
         }
         super.onDestroy();
@@ -367,6 +419,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         UiHelper.showDecoderCrashDialog(this);
 
         inForeground = true;
+        hostPollingLifecycle.activate();
         startComputerUpdates();
         tryAutoReconnect();
     }
@@ -486,6 +539,12 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     },
                     binder::invalidateStateForComputer,
                     cancellation);
+        }
+    }
+
+    private static void runCloseAction(Runnable closeAction) {
+        if (closeAction != null) {
+            closeAction.run();
         }
     }
 

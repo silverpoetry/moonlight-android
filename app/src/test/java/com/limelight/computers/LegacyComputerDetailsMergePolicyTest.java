@@ -15,16 +15,20 @@ public final class LegacyComputerDetailsMergePolicyTest {
     @Test
     public void observationCannotReplacePinnedCredential() {
         ComputerDetails destination = persistentDetails();
-        X509Certificate pinnedCertificate = new TestCertificate("pinned");
+        X509Certificate pinnedCertificate =
+                new TestX509Certificate("pinned");
         destination.serverCert = pinnedCertificate;
+        destination.rawAppList = "<cached-app-list/>";
         ComputerDetails observation = observation();
-        observation.serverCert = new TestCertificate("untrusted observation");
+        observation.serverCert =
+                new TestX509Certificate("untrusted observation");
 
         LegacyComputerDetailsMergePolicy.mergeObservation(
                 destination,
                 observation);
 
         assertSame(pinnedCertificate, destination.serverCert);
+        assertEquals("<cached-app-list/>", destination.rawAppList);
     }
 
     @Test
@@ -102,38 +106,4 @@ public final class LegacyComputerDetailsMergePolicyTest {
         return new ComputerDetails.AddressTuple(address, port);
     }
 
-    private static final class TestCertificate extends X509Certificate {
-        private final String id;
-
-        private TestCertificate(String id) {
-            this.id = id;
-        }
-
-        @Override public void checkValidity() {}
-        @Override public void checkValidity(java.util.Date date) {}
-        @Override public int getVersion() { return 3; }
-        @Override public java.math.BigInteger getSerialNumber() { return java.math.BigInteger.ONE; }
-        @Override public java.security.Principal getIssuerDN() { return () -> id; }
-        @Override public java.security.Principal getSubjectDN() { return () -> id; }
-        @Override public java.util.Date getNotBefore() { return new java.util.Date(0); }
-        @Override public java.util.Date getNotAfter() { return new java.util.Date(Long.MAX_VALUE); }
-        @Override public byte[] getTBSCertificate() { return new byte[0]; }
-        @Override public byte[] getSignature() { return new byte[0]; }
-        @Override public String getSigAlgName() { return "none"; }
-        @Override public String getSigAlgOID() { return "0"; }
-        @Override public byte[] getSigAlgParams() { return null; }
-        @Override public boolean[] getIssuerUniqueID() { return null; }
-        @Override public boolean[] getSubjectUniqueID() { return null; }
-        @Override public boolean[] getKeyUsage() { return null; }
-        @Override public int getBasicConstraints() { return -1; }
-        @Override public byte[] getEncoded() { return id.getBytes(java.nio.charset.StandardCharsets.UTF_8); }
-        @Override public void verify(java.security.PublicKey key) {}
-        @Override public void verify(java.security.PublicKey key, String sigProvider) {}
-        @Override public String toString() { return id; }
-        @Override public java.security.PublicKey getPublicKey() { return null; }
-        @Override public boolean hasUnsupportedCriticalExtension() { return false; }
-        @Override public java.util.Set<String> getCriticalExtensionOIDs() { return null; }
-        @Override public java.util.Set<String> getNonCriticalExtensionOIDs() { return null; }
-        @Override public byte[] getExtensionValue(String oid) { return null; }
-    }
 }

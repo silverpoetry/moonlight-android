@@ -8,9 +8,9 @@ import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
 
-import com.limelight.computers.ComputerDatabaseManager;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
+import com.limelight.computers.HostPollingClientLifecycle;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
@@ -27,200 +27,345 @@ import org.xmlpull.v1.XmlPullParserException;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ShortcutTrampoline extends Activity {
     private String uuidString;
+    private String requestedHostName;
+    private String requestedAppName;
     private NvApp app;
-    private ArrayList<Intent> intentStack = new ArrayList<>();
+    private final ArrayList<Intent> intentStack = new ArrayList<>();
 
-    private int wakeHostTries = 10;
+    private final AtomicInteger wakeHostTries = new AtomicInteger(10);
     private ComputerDetails computer;
     private SpinnerDialog blockingLoadSpinner;
 
-    private ComputerManagerService.ComputerManagerBinder managerBinder;
+    private volatile ComputerManagerService.ComputerManagerBinder managerBinder;
+    private final Object serviceLifecycleLock = new Object();
+    private final HostPollingClientLifecycle hostPollingLifecycle =
+            new HostPollingClientLifecycle();
+    private long serviceBindingGeneration;
+    private Thread serviceInitializationThread;
+    private volatile boolean managerServiceBound;
+    private volatile boolean activityDestroyed;
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder binder) {
             final ComputerManagerService.ComputerManagerBinder localBinder =
                     ((ComputerManagerService.ComputerManagerBinder)binder);
+            final long bindingGeneration;
+            final Thread initializationThread;
+            synchronized (serviceLifecycleLock) {
+                if (activityDestroyed) {
+                    return;
+                }
+                bindingGeneration = ++serviceBindingGeneration;
+                initializationThread = new Thread(
+                        () -> initializeServiceBinding(
+                                localBinder,
+                                bindingGeneration),
+                        "Shortcut host initialization");
+                serviceInitializationThread = initializationThread;
+            }
 
             // Wait in a separate thread to avoid stalling the UI
-            new Thread() {
-                @Override
-                public void run() {
-                    // Wait for the binder to be ready
-                    localBinder.waitForReady();
-
-                    // Now make the binder visible
-                    managerBinder = localBinder;
-
-                    // Get the computer object
-                    computer = managerBinder.getComputer(uuidString);
-
-                    if (computer == null) {
-                        Dialog.displayDialog(ShortcutTrampoline.this,
-                                getResources().getString(R.string.conn_error_title),
-                                getResources().getString(R.string.scut_pc_not_found),
-                                true);
-
-                        if (blockingLoadSpinner != null) {
-                            blockingLoadSpinner.dismiss();
-                            blockingLoadSpinner = null;
-                        }
-
-                        if (managerBinder != null) {
-                            unbindService(serviceConnection);
-                            managerBinder = null;
-                        }
-
-                        return;
-                    }
-
-                    // Force CMS to repoll this machine
-                    managerBinder.invalidateStateForComputer(computer.uuid);
-
-                    // Start polling
-                    managerBinder.startPolling(new ComputerManagerListener() {
-                        @Override
-                        public void notifyComputerUpdated(final ComputerDetails details) {
-                            // Don't care about other computers
-                            if (!details.uuid.equalsIgnoreCase(uuidString)) {
-                                return;
-                            }
-
-                            // Try to wake the target PC if it's offline (up to some retry limit)
-                            if (details.state == ComputerDetails.State.OFFLINE && details.macAddress != null && --wakeHostTries >= 0) {
-                                try {
-                                    // Make a best effort attempt to wake the target PC
-                                    WakeOnLanSender.sendWolPacket(computer);
-
-                                    // If we sent at least one WoL packet, reset the computer state
-                                    // to force ComputerManager to poll it again.
-                                    managerBinder.invalidateStateForComputer(computer.uuid);
-                                    return;
-                                } catch (IOException e) {
-                                    // If we got an exception, we couldn't send a single WoL packet,
-                                    // so fallthrough into the offline error path.
-                                    e.printStackTrace();
-                                }
-                            }
-
-                            if (details.state != ComputerDetails.State.UNKNOWN) {
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        // Stop showing the spinner
-                                        if (blockingLoadSpinner != null) {
-                                            blockingLoadSpinner.dismiss();
-                                            blockingLoadSpinner = null;
-                                        }
-
-                                        // If the managerBinder was destroyed before this callback,
-                                        // just finish the activity.
-                                        if (managerBinder == null) {
-                                            finish();
-                                            return;
-                                        }
-
-                                        if (details.state == ComputerDetails.State.ONLINE && details.pairState == PairingManager.PairState.PAIRED) {
-                                            
-                                            // Launch game if provided app ID, otherwise launch app view
-                                            if (app != null) {
-                                                if (details.runningGameId == 0 || details.runningGameId == app.getAppId()) {
-                                                    intentStack.add(ServerHelper.createStartIntent(ShortcutTrampoline.this, app, details, managerBinder));
-
-                                                    // Close this activity
-                                                    finish();
-
-                                                    // Now start the activities
-                                                    startActivities(intentStack.toArray(new Intent[]{}));
-                                                } else {
-                                                    // Create the start intent immediately, so we can safely unbind the managerBinder
-                                                    // below before we return.
-                                                    final Intent startIntent = ServerHelper.createStartIntent(ShortcutTrampoline.this, app, details, managerBinder);
-
-                                                    UiHelper.displayQuitConfirmationDialog(ShortcutTrampoline.this, new Runnable() {
-                                                        @Override
-                                                        public void run() {
-                                                            intentStack.add(startIntent);
-
-                                                            // Close this activity
-                                                            finish();
-
-                                                            // Now start the activities
-                                                            startActivities(intentStack.toArray(new Intent[]{}));
-                                                        }
-                                                    }, new Runnable() {
-                                                        @Override
-                                                        public void run() {
-                                                            // Close this activity
-                                                            finish();
-                                                        }
-                                                    });
-                                                }
-                                            } else {
-                                                // Close this activity
-                                                finish();
-
-                                                // Add the PC view at the back (and clear the task)
-                                                Intent i;
-                                                i = new Intent(ShortcutTrampoline.this, PcView.class);
-                                                i.setAction(Intent.ACTION_MAIN);
-                                                i.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
-                                                intentStack.add(i);
-
-                                                // Take this intent's data and create an intent to start the app view
-                                                i = new Intent(getIntent());
-                                                i.setClass(ShortcutTrampoline.this, AppView.class);
-                                                intentStack.add(i);
-
-                                                // If a game is running, we'll make the stream the top level activity
-                                                if (details.runningGameId != 0) {
-                                                    intentStack.add(ServerHelper.createStartIntent(ShortcutTrampoline.this,
-                                                            new NvApp(null, details.runningGameId, false), details, managerBinder));
-                                                }
-
-                                                // Now start the activities
-                                                startActivities(intentStack.toArray(new Intent[]{}));
-                                            }
-                                            
-                                        }
-                                        else if (details.state == ComputerDetails.State.OFFLINE) {
-                                            // Computer offline - display an error dialog
-                                            Dialog.displayDialog(ShortcutTrampoline.this,
-                                                    getResources().getString(R.string.conn_error_title),
-                                                    getResources().getString(R.string.error_pc_offline),
-                                                    true);
-                                        } else if (details.pairState != PairingManager.PairState.PAIRED) {
-                                            // Computer not paired - display an error dialog
-                                            Dialog.displayDialog(ShortcutTrampoline.this,
-                                                    getResources().getString(R.string.conn_error_title),
-                                                    getResources().getString(R.string.scut_not_paired),
-                                                    true);
-                                        }
-
-                                        // We don't want any more callbacks from now on, so go ahead
-                                        // and unbind from the service
-                                        if (managerBinder != null) {
-                                            managerBinder.stopPolling();
-                                            unbindService(serviceConnection);
-                                            managerBinder = null;
-                                        }
-                                    }
-                                });
-                            }
-                        }
-                    });
-                }
-            }.start();
+            initializationThread.start();
         }
 
         public void onServiceDisconnected(ComponentName className) {
-            managerBinder = null;
+            Thread initializationThread;
+            synchronized (serviceLifecycleLock) {
+                serviceBindingGeneration++;
+                managerBinder = null;
+                initializationThread = serviceInitializationThread;
+                serviceInitializationThread = null;
+            }
+            if (initializationThread != null) {
+                initializationThread.interrupt();
+            }
+            runCloseAction(hostPollingLifecycle.onConnectionLost());
         }
     };
+
+    private void initializeServiceBinding(
+            ComputerManagerService.ComputerManagerBinder localBinder,
+            long bindingGeneration) {
+        try {
+            if (!localBinder.waitForReady() ||
+                    !isCurrentBinding(bindingGeneration)) {
+                return;
+            }
+
+            ComputerDetails loadedComputer = uuidString != null
+                    ? localBinder.getComputer(uuidString)
+                    : localBinder.getComputerByName(requestedHostName);
+            if (loadedComputer == null) {
+                runOnUiThread(() -> showMissingComputer(
+                        bindingGeneration));
+                return;
+            }
+
+            uuidString = loadedComputer.uuid;
+            if (app == null && requestedAppName != null) {
+                app = findCachedAppByName(
+                        uuidString,
+                        requestedAppName);
+                if (app == null) {
+                    runOnUiThread(() -> showInvalidApp(
+                            bindingGeneration));
+                    return;
+                }
+            }
+
+            synchronized (serviceLifecycleLock) {
+                if (!isCurrentBindingLocked(bindingGeneration)) {
+                    return;
+                }
+                computer = loadedComputer;
+                managerBinder = localBinder;
+            }
+
+            localBinder.invalidateStateForComputer(
+                    loadedComputer.uuid);
+            HostPollingClientLifecycle.StartToken startToken =
+                    hostPollingLifecycle.beginStart();
+            if (startToken == null ||
+                    !isCurrentBinding(bindingGeneration)) {
+                hostPollingLifecycle.failStart(startToken);
+                return;
+            }
+
+            ComputerManagerService.HostPollingSubscription subscription;
+            try {
+                subscription = localBinder.startPolling(
+                        details -> handleComputerUpdate(
+                                localBinder,
+                                startToken,
+                                details));
+            }
+            catch (RuntimeException | Error error) {
+                hostPollingLifecycle.failStart(startToken);
+                throw error;
+            }
+            hostPollingLifecycle.completeStart(
+                    startToken,
+                    subscription::close);
+        }
+        catch (RuntimeException error) {
+            LimeLog.severe(
+                    "Unable to initialize shortcut host polling");
+            runOnUiThread(() -> showConnectionFailure(
+                    bindingGeneration));
+        }
+        finally {
+            synchronized (serviceLifecycleLock) {
+                if (serviceInitializationThread ==
+                        Thread.currentThread()) {
+                    serviceInitializationThread = null;
+                }
+            }
+        }
+    }
+
+    private void handleComputerUpdate(
+            ComputerManagerService.ComputerManagerBinder localBinder,
+            HostPollingClientLifecycle.StartToken startToken,
+            ComputerDetails details) {
+        if (!hostPollingLifecycle.owns(startToken) ||
+                details.uuid == null ||
+                !details.uuid.equalsIgnoreCase(uuidString)) {
+            return;
+        }
+
+        if (details.state == ComputerDetails.State.OFFLINE &&
+                details.macAddress != null &&
+                wakeHostTries.getAndDecrement() > 0) {
+            try {
+                WakeOnLanSender.sendWolPacket(computer);
+                if (hostPollingLifecycle.owns(startToken)) {
+                    localBinder.invalidateStateForComputer(
+                            computer.uuid);
+                }
+                return;
+            }
+            catch (IOException error) {
+                // Fall through to the terminal offline result when no Wake-on-
+                // LAN packet could be sent.
+                error.printStackTrace();
+            }
+        }
+
+        if (details.state != ComputerDetails.State.UNKNOWN) {
+            runOnUiThread(() -> handleTerminalComputerState(
+                    localBinder,
+                    startToken,
+                    details));
+        }
+    }
+
+    private void handleTerminalComputerState(
+            ComputerManagerService.ComputerManagerBinder localBinder,
+            HostPollingClientLifecycle.StartToken startToken,
+            ComputerDetails details) {
+        if (!hostPollingLifecycle.owns(startToken) ||
+                managerBinder != localBinder ||
+                activityDestroyed) {
+            return;
+        }
+
+        dismissBlockingSpinner();
+        if (details.state == ComputerDetails.State.ONLINE &&
+                details.pairState == PairingManager.PairState.PAIRED) {
+            launchRequestedTarget(details, localBinder);
+        }
+        else if (details.state == ComputerDetails.State.OFFLINE) {
+            Dialog.displayDialog(
+                    this,
+                    getString(R.string.conn_error_title),
+                    getString(R.string.error_pc_offline),
+                    true);
+        }
+        else if (details.pairState != PairingManager.PairState.PAIRED) {
+            Dialog.displayDialog(
+                    this,
+                    getString(R.string.conn_error_title),
+                    getString(R.string.scut_not_paired),
+                    true);
+        }
+        releaseServiceConnection();
+    }
+
+    private void launchRequestedTarget(
+            ComputerDetails details,
+            ComputerManagerService.ComputerManagerBinder localBinder) {
+        if (app != null) {
+            if (details.runningGameId == 0 ||
+                    details.runningGameId == app.getAppId()) {
+                intentStack.add(ServerHelper.createStartIntent(
+                        this,
+                        app,
+                        details,
+                        localBinder));
+                finish();
+                startActivities(intentStack.toArray(new Intent[0]));
+                return;
+            }
+
+            Intent startIntent = ServerHelper.createStartIntent(
+                    this,
+                    app,
+                    details,
+                    localBinder);
+            UiHelper.displayQuitConfirmationDialog(
+                    this,
+                    () -> {
+                        intentStack.add(startIntent);
+                        finish();
+                        startActivities(intentStack.toArray(
+                                new Intent[0]));
+                    },
+                    this::finish);
+            return;
+        }
+
+        finish();
+        Intent pcIntent = new Intent(this, PcView.class);
+        pcIntent.setAction(Intent.ACTION_MAIN);
+        pcIntent.setFlags(
+                Intent.FLAG_ACTIVITY_CLEAR_TASK |
+                        Intent.FLAG_ACTIVITY_NEW_TASK);
+        intentStack.add(pcIntent);
+
+        Intent appIntent = new Intent(getIntent())
+                .putExtra(AppView.UUID_EXTRA, details.uuid);
+        appIntent.setClass(this, AppView.class);
+        intentStack.add(appIntent);
+        if (details.runningGameId != 0) {
+            intentStack.add(ServerHelper.createStartIntent(
+                    this,
+                    new NvApp(null, details.runningGameId, false),
+                    details,
+                    localBinder));
+        }
+        startActivities(intentStack.toArray(new Intent[0]));
+    }
+
+    private void showMissingComputer(long bindingGeneration) {
+        if (!isCurrentBinding(bindingGeneration)) {
+            return;
+        }
+        dismissBlockingSpinner();
+        Dialog.displayDialog(
+                this,
+                getString(R.string.conn_error_title),
+                getString(R.string.scut_pc_not_found),
+                true);
+        releaseServiceConnection();
+    }
+
+    private void showConnectionFailure(long bindingGeneration) {
+        if (!isCurrentBinding(bindingGeneration)) {
+            return;
+        }
+        dismissBlockingSpinner();
+        Dialog.displayDialog(
+                this,
+                getString(R.string.conn_error_title),
+                getString(R.string.conn_error_msg),
+                true);
+        releaseServiceConnection();
+    }
+
+    private void showInvalidApp(long bindingGeneration) {
+        if (!isCurrentBinding(bindingGeneration)) {
+            return;
+        }
+        dismissBlockingSpinner();
+        Dialog.displayDialog(
+                this,
+                getString(R.string.conn_error_title),
+                getString(R.string.scut_invalid_app_id),
+                true);
+        releaseServiceConnection();
+    }
+
+    private NvApp findCachedAppByName(
+            String hostId,
+            String appName) {
+        try {
+            String rawAppList = CacheHelper.readInputStreamToString(
+                    CacheHelper.openCacheFileForInput(
+                            getCacheDir(),
+                            "applist",
+                            hostId));
+            if (rawAppList.isEmpty()) {
+                return null;
+            }
+            for (NvApp candidate : NvHTTP.getAppListByReader(
+                    new StringReader(rawAppList))) {
+                if (candidate.getAppName().equals(appName)) {
+                    return candidate;
+                }
+            }
+        }
+        catch (IOException | XmlPullParserException error) {
+            return null;
+        }
+        return null;
+    }
+
+    private boolean isCurrentBinding(long bindingGeneration) {
+        synchronized (serviceLifecycleLock) {
+            return isCurrentBindingLocked(bindingGeneration);
+        }
+    }
+
+    private boolean isCurrentBindingLocked(long bindingGeneration) {
+        return !activityDestroyed &&
+                managerServiceBound &&
+                serviceBindingGeneration == bindingGeneration;
+    }
 
     protected boolean validateInput(String uuidString, String appIdString, String nameString) {
         // Validate PC UUID/Name
@@ -272,40 +417,28 @@ public class ShortcutTrampoline extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        hostPollingLifecycle.activate();
 
         UiHelper.notifyNewRootView(this);
-        ComputerDatabaseManager dbManager = new ComputerDatabaseManager(this);
-        ComputerDetails _computer = null;
-
         // PC arguments, both are optional, but at least one must be provided
         uuidString = getIntent().getStringExtra(AppView.UUID_EXTRA);
-        String nameString = getIntent().getStringExtra(AppView.NAME_EXTRA);
+        requestedHostName =
+                getIntent().getStringExtra(AppView.NAME_EXTRA);
 
         // App arguments, both are optional, but one must be provided in order to start an app
         String appIdString = getIntent().getStringExtra(Game.EXTRA_APP_ID);
         String appNameString = getIntent().getStringExtra(Game.EXTRA_APP_NAME);
 
-        if (!validateInput(uuidString, appIdString, nameString)) {
+        if (!validateInput(
+                uuidString,
+                appIdString,
+                requestedHostName)) {
             // Invalid input, so just return
             return;
         }
 
-        if (uuidString == null || uuidString.isEmpty()) {
-            // Use nameString to find the corresponding UUID
-            _computer = dbManager.getComputerByName(nameString);
-
-            if (_computer == null) {
-                Dialog.displayDialog(ShortcutTrampoline.this,
-                        getResources().getString(R.string.conn_error_title),
-                        getResources().getString(R.string.scut_pc_not_found),
-                        true);
-                return;
-            }
-
-            uuidString = _computer.uuid;
-
-            // Set the AppView UUID intent, since it wasn't provided
-            setIntent(new Intent(getIntent()).putExtra(AppView.UUID_EXTRA, uuidString));
+        if (uuidString != null && uuidString.isEmpty()) {
+            uuidString = null;
         }
 
         if (appIdString != null && !appIdString.isEmpty()) {
@@ -314,50 +447,22 @@ public class ShortcutTrampoline extends Activity {
                     getIntent().getBooleanExtra(Game.EXTRA_APP_HDR, false));
         }
         else if (appNameString != null && !appNameString.isEmpty()) {
-            // Use appNameString to find the corresponding AppId
-            try {
-                int appId = -1;
-                String rawAppList = CacheHelper.readInputStreamToString(CacheHelper.openCacheFileForInput(getCacheDir(), "applist", uuidString));
-
-                if (rawAppList.isEmpty()) {
-                    Dialog.displayDialog(ShortcutTrampoline.this,
-                            getResources().getString(R.string.conn_error_title),
-                            getResources().getString(R.string.scut_invalid_app_id),
-                            true);
-                    return;
-                }
-                List<NvApp> applist = NvHTTP.getAppListByReader(new StringReader(rawAppList));
-
-                for (NvApp _app : applist) {
-                    if (_app.getAppName().equals(appNameString)) {
-                        appId = _app.getAppId();
-                        break;
-                    }
-                }
-                if (appId < 0) {
-                    Dialog.displayDialog(ShortcutTrampoline.this,
-                            getResources().getString(R.string.conn_error_title),
-                            getResources().getString(R.string.scut_invalid_app_id),
-                            true);
-                    return;
-                }
-                setIntent(new Intent(getIntent()).putExtra(Game.EXTRA_APP_ID, appId));
-                app = new NvApp(
-                        appNameString,
-                        appId,
-                        getIntent().getBooleanExtra(Game.EXTRA_APP_HDR, false));
-            } catch (IOException | XmlPullParserException e) {
-                Dialog.displayDialog(ShortcutTrampoline.this,
-                        getResources().getString(R.string.conn_error_title),
-                        getResources().getString(R.string.scut_invalid_app_id),
-                        true);
-                return;
-            }
+            requestedAppName = appNameString;
         }
 
         // Bind to the computer manager service
-        bindService(new Intent(this, ComputerManagerService.class), serviceConnection,
+        managerServiceBound = bindService(
+                new Intent(this, ComputerManagerService.class),
+                serviceConnection,
                 Service.BIND_AUTO_CREATE);
+        if (!managerServiceBound) {
+            Dialog.displayDialog(
+                    this,
+                    getString(R.string.conn_error_title),
+                    getString(R.string.conn_error_msg),
+                    true);
+            return;
+        }
 
         blockingLoadSpinner = SpinnerDialog.displayDialog(this, getResources().getString(R.string.conn_establishing_title),
                 getResources().getString(R.string.applist_connect_msg), true);
@@ -367,19 +472,55 @@ public class ShortcutTrampoline extends Activity {
     protected void onStop() {
         super.onStop();
 
+        dismissBlockingSpinner();
+
+        Dialog.closeDialogs();
+        releaseServiceConnection();
+        finish();
+    }
+
+    @Override
+    protected void onDestroy() {
+        releaseServiceConnection();
+        super.onDestroy();
+    }
+
+    private void dismissBlockingSpinner() {
         if (blockingLoadSpinner != null) {
             blockingLoadSpinner.dismiss();
             blockingLoadSpinner = null;
         }
+    }
 
-        Dialog.closeDialogs();
-
-        if (managerBinder != null) {
-            managerBinder.stopPolling();
-            unbindService(serviceConnection);
+    private void releaseServiceConnection() {
+        Runnable closeAction;
+        Thread initializationThread;
+        boolean shouldUnbind;
+        synchronized (serviceLifecycleLock) {
+            if (activityDestroyed) {
+                return;
+            }
+            activityDestroyed = true;
+            serviceBindingGeneration++;
             managerBinder = null;
+            initializationThread = serviceInitializationThread;
+            serviceInitializationThread = null;
+            shouldUnbind = managerServiceBound;
+            managerServiceBound = false;
+            closeAction = hostPollingLifecycle.destroy();
         }
+        if (initializationThread != null) {
+            initializationThread.interrupt();
+        }
+        runCloseAction(closeAction);
+        if (shouldUnbind) {
+            unbindService(serviceConnection);
+        }
+    }
 
-        finish();
+    private static void runCloseAction(Runnable closeAction) {
+        if (closeAction != null) {
+            closeAction.run();
+        }
     }
 }

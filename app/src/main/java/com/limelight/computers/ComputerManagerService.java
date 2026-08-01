@@ -9,7 +9,9 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.UnknownHostException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
@@ -75,10 +77,16 @@ public class ComputerManagerService extends Service {
     private HostRepositoryLeaseManager repositoryLeases;
 
     private IdentityManager idManager;
+    // Lock order for host state is networkLock -> stateLock -> pollingTuples.
+    // Code holding pollingTuples must never acquire either tuple lock.
     private final LinkedList<PollingTuple> pollingTuples = new LinkedList<>();
-    private ComputerManagerListener listener = null;
-    private final AtomicInteger activePolls = new AtomicInteger(0);
-    private boolean pollingActive = false;
+    private final Object pollingLifecycleLock = new Object();
+    private final HostPollingOwnership<ComputerManagerListener>
+            pollingOwnership = new HostPollingOwnership<>();
+    private final InFlightOperationTracker activePolls =
+            new InFlightOperationTracker();
+    private volatile boolean pollingActive;
+    private volatile boolean serviceDestroyed;
     private final Lock defaultNetworkLock = new ReentrantLock();
 
     private ConnectivityManager.NetworkCallback networkCallback;
@@ -87,80 +95,133 @@ public class ComputerManagerService extends Service {
     private ExecutorService endpointProbeExecutor;
     private HostReachabilityCoordinator reachabilityCoordinator;
 
-    // Returns true if the details object was modified
-    private boolean runPoll(ComputerDetails details, boolean newPc, int offlineCount) throws InterruptedException {
+    private boolean runPoll(
+            ComputerDetails target,
+            PollingTuple registeredTuple,
+            boolean newPc,
+            int offlineCount) throws InterruptedException {
         HostRepositoryLeaseManager.Lease repositoryLease =
                 acquireRepositoryLease();
         if (repositoryLease == null) {
             return false;
         }
 
-        try (HostRepositoryLeaseManager.Lease ignored = repositoryLease) {
-            final int pollTriesBeforeOffline = details.state == ComputerDetails.State.UNKNOWN ?
-                    INITIAL_POLL_TRIES : OFFLINE_POLL_TRIES;
-
-            activePolls.incrementAndGet();
-
-            // Poll the machine
-            try {
-                if (!pollComputer(details)) {
-                    if (!newPc && offlineCount < pollTriesBeforeOffline) {
-                        // Return without calling the listener
+        try (InFlightOperationTracker.Lease ignoredOperation =
+                        activePolls.begin();
+                HostRepositoryLeaseManager.Lease ignoredRepository =
+                        repositoryLease) {
+            ComputerDetails observation;
+            int pollTriesBeforeOffline;
+            if (registeredTuple == null) {
+                observation = ComputerDetailsSnapshot.copyOf(target);
+                pollTriesBeforeOffline =
+                        target.state == ComputerDetails.State.UNKNOWN ?
+                                INITIAL_POLL_TRIES : OFFLINE_POLL_TRIES;
+            }
+            else {
+                synchronized (registeredTuple.stateLock) {
+                    if (!isRegistered(registeredTuple)) {
                         return false;
                     }
-
-                    details.state = ComputerDetails.State.OFFLINE;
+                    observation = ComputerDetailsSnapshot.copyOf(target);
+                    pollTriesBeforeOffline =
+                            target.state == ComputerDetails.State.UNKNOWN ?
+                                    INITIAL_POLL_TRIES : OFFLINE_POLL_TRIES;
                 }
             }
-            finally {
-                activePolls.decrementAndGet();
-            }
 
-            // If it's online, update our persistent state
-            if (details.state == ComputerDetails.State.ONLINE) {
-                ComputerDetails existingComputer = dbManager.getComputerByUUID(details.uuid);
-
-                // Check if it's in the database because it could have been
-                // removed after this was issued
-                if (!newPc && existingComputer == null) {
-                    // It's gone
+            // Poll the machine
+            if (!pollComputer(observation)) {
+                if (!newPc && offlineCount < pollTriesBeforeOffline) {
+                    // Return without calling the listener
                     return false;
                 }
 
-                // If we already have an entry for this computer in the DB, we must
-                // combine the existing data with this new data (which may be partially available
-                // due to detecting the PC via mDNS) without the saved external address. If we
-                // write to the DB without doing this first, we can overwrite our existing data.
-                if (existingComputer != null) {
-                    LegacyComputerDetailsMergePolicy.mergeObservation(
-                            existingComputer,
-                            details);
-                    dbManager.updateComputerMetadata(existingComputer);
+                observation.state = ComputerDetails.State.OFFLINE;
+            }
+
+            Object stateLock = registeredTuple == null ?
+                    target : registeredTuple.stateLock;
+            ComputerDetails published;
+            synchronized (stateLock) {
+                if (registeredTuple != null &&
+                        !isRegistered(registeredTuple)) {
+                    return false;
                 }
-                else {
-                    try {
-                        // If the active address is a site-local address (RFC 1918),
-                        // then use STUN to populate the external address field if
-                        // it's not set already.
-                        if (details.remoteAddress == null) {
-                            InetAddress addr = InetAddress.getByName(details.activeAddress.address);
-                            if (addr.isSiteLocalAddress()) {
-                                populateExternalAddress(details);
+
+                // If it's online, update our persistent state
+                if (observation.state == ComputerDetails.State.ONLINE) {
+                    ComputerDetails existingComputer =
+                            dbManager.getComputerByUUID(observation.uuid);
+
+                    // Check if it's in the database because it could have been
+                    // removed after this was issued
+                    if (!newPc && existingComputer == null) {
+                        return false;
+                    }
+
+                    // Preserve endpoints absent from a partial observation.
+                    if (existingComputer != null) {
+                        LegacyComputerDetailsMergePolicy.mergeObservation(
+                                existingComputer,
+                                observation);
+                        dbManager.updateComputerMetadata(existingComputer);
+                        LegacyComputerDetailsMergePolicy.mergeObservation(
+                                target,
+                                existingComputer);
+                    }
+                    else {
+                        try {
+                            // Populate a guessed external endpoint only for a
+                            // newly discovered local host.
+                            if (observation.remoteAddress == null) {
+                                InetAddress addr = InetAddress.getByName(
+                                        observation.activeAddress.address);
+                                if (addr.isSiteLocalAddress()) {
+                                    populateExternalAddress(observation);
+                                }
                             }
                         }
-                    } catch (UnknownHostException ignoredError) {}
+                        catch (UnknownHostException ignoredError) {
+                        }
 
-                    dbManager.updateComputerMetadata(details);
+                        dbManager.updateComputerMetadata(observation);
+                        LegacyComputerDetailsMergePolicy.mergeObservation(
+                                target,
+                                observation);
+                    }
                 }
+                else {
+                    LegacyComputerDetailsMergePolicy.mergeObservation(
+                            target,
+                            observation);
+                }
+
+                published = ComputerDetailsSnapshot.copyOf(target);
             }
 
             // Don't call the listener if this is a failed lookup of a new PC
-            if ((!newPc || details.state == ComputerDetails.State.ONLINE) && listener != null) {
-                listener.notifyComputerUpdated(details);
+            if (!newPc || published.state == ComputerDetails.State.ONLINE) {
+                notifyComputerUpdated(published);
             }
 
             return true;
         }
+    }
+
+    private boolean runPoll(
+            PollingTuple tuple,
+            int offlineCount) throws InterruptedException {
+        return runPoll(
+                tuple.computer,
+                tuple,
+                false,
+                offlineCount);
+    }
+
+    private boolean runNewComputerPoll(
+            ComputerDetails details) throws InterruptedException {
+        return runPoll(details, null, true, 0);
     }
 
     private Thread createPollingThread(final PollingTuple tuple) {
@@ -173,8 +234,13 @@ public class ComputerManagerService extends Service {
                     try {
                         // Only allow one request to the machine at a time
                         synchronized (tuple.networkLock) {
+                            // stopPolling() may have invalidated this worker
+                            // while it was waiting for an app-list request.
+                            if (!isPollingThreadCurrent(tuple, this)) {
+                                break;
+                            }
                             // Check if this poll has modified the details
-                            if (!runPoll(tuple.computer, false, offlineCount)) {
+                            if (!runPoll(tuple, offlineCount)) {
                                 LimeLog.warning("Host is offline (attempt " + offlineCount + ")");
                                 offlineCount++;
                             } else {
@@ -208,55 +274,59 @@ public class ComputerManagerService extends Service {
                     new HostCredentialWriteSession(hostId, repositoryLease);
         }
 
-        public void startPolling(ComputerManagerListener listener) {
-            // Polling is active
-            pollingActive = true;
-
-            // Set the listener
-            ComputerManagerService.this.listener = listener;
-
-            // Start mDNS autodiscovery too
-            discoverySource.start(MDNS_QUERY_PERIOD_MS);
-
-            synchronized (pollingTuples) {
-                for (PollingTuple tuple : pollingTuples) {
-                    // Enforce the poll data TTL
-                    if (SystemClock.elapsedRealtime() - tuple.lastSuccessfulPollMs > POLL_DATA_TTL_MS) {
-                        LimeLog.info("Timing out stale host state");
-                        tuple.computer.state = ComputerDetails.State.UNKNOWN;
+        public HostPollingSubscription startPolling(
+                ComputerManagerListener listener) {
+            HostPollingOwnership.Token ownerToken;
+            synchronized (pollingLifecycleLock) {
+                if (serviceDestroyed) {
+                    throw new IllegalStateException(
+                            "Computer manager service is destroyed");
+                }
+                ownerToken = pollingOwnership.replace(listener);
+                if (!pollingActive) {
+                    try {
+                        discoverySource.start(MDNS_QUERY_PERIOD_MS);
+                        pollingActive = true;
                     }
-
-                    // Report this computer initially
-                    listener.notifyComputerUpdated(tuple.computer);
-
-                    // This polling thread might already be there
-                    if (tuple.thread == null) {
-                        tuple.thread = createPollingThread(tuple);
-                        tuple.thread.start();
+                    catch (RuntimeException | Error error) {
+                        pollingOwnership.release(ownerToken);
+                        throw error;
                     }
                 }
             }
+
+            try {
+                initializePolling(ownerToken);
+                return new HostPollingSubscription(ownerToken);
+            }
+            catch (RuntimeException | Error error) {
+                stopPolling(ownerToken);
+                throw error;
+            }
         }
 
-        public void waitForReady() {
+        public boolean waitForReady() {
             try {
                 discoverySource.awaitReady();
+                return true;
             }
             catch (InterruptedException error) {
                 Thread.currentThread().interrupt();
+                return false;
+            }
+            catch (IllegalStateException error) {
+                // Service destruction closes the discovery source and wakes
+                // any client still waiting for its binding.
+                return false;
             }
         }
 
         public void waitForPollingStopped() {
-            while (activePolls.get() != 0) {
-                try {
-                    Thread.sleep(250);
-                } catch (InterruptedException e) {
-                    // InterruptedException clears the thread's interrupt status. Since we can't
-                    // handle that here, we will re-interrupt the thread to set the interrupt
-                    // status back to true.
-                    Thread.currentThread().interrupt();
-                }
+            try {
+                activePolls.awaitIdle();
+            }
+            catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
             }
         }
 
@@ -268,29 +338,44 @@ public class ComputerManagerService extends Service {
             ComputerManagerService.this.removeComputer(computer);
         }
 
-        public void stopPolling() {
-            // Just call the unbind handler to cleanup
-            ComputerManagerService.this.onUnbind(null);
-        }
-
-        public ApplistPoller createAppListPoller(ComputerDetails computer) {
-            return new ApplistPoller(computer);
-        }
-
         public String getUniqueId() {
             return idManager.getUniqueId();
         }
 
         public ComputerDetails getComputer(String uuid) {
+            PollingTuple match = null;
             synchronized (pollingTuples) {
                 for (PollingTuple tuple : pollingTuples) {
-                    if (uuid.equals(tuple.computer.uuid)) {
-                        return tuple.computer;
+                    if (sameHostIdentity(uuid, tuple.computer.uuid)) {
+                        match = tuple;
+                        break;
                     }
                 }
             }
+            if (match == null) {
+                return null;
+            }
+            synchronized (match.stateLock) {
+                return ComputerDetailsSnapshot.copyOf(match.computer);
+            }
+        }
 
-            return null;
+        public ComputerDetails getComputerByName(String name) {
+            PollingTuple match = null;
+            synchronized (pollingTuples) {
+                for (PollingTuple tuple : pollingTuples) {
+                    if (Objects.equals(name, tuple.computer.name)) {
+                        match = tuple;
+                        break;
+                    }
+                }
+            }
+            if (match == null) {
+                return null;
+            }
+            synchronized (match.stateLock) {
+                return ComputerDetailsSnapshot.copyOf(match.computer);
+            }
         }
 
         public int getComputerCount() {
@@ -304,14 +389,25 @@ public class ComputerManagerService extends Service {
         }
 
         public void invalidateStateForComputer(HostId hostId) {
+            PollingTuple match = null;
             synchronized (pollingTuples) {
                 for (PollingTuple tuple : pollingTuples) {
                     if (hostId.equals(HostId.of(
                             tuple.computer.uuid))) {
-                        // We need the network lock to prevent a concurrent poll
-                        // from wiping this change out
-                        synchronized (tuple.networkLock) {
-                            tuple.computer.state = ComputerDetails.State.UNKNOWN;
+                        match = tuple;
+                        break;
+                    }
+                }
+            }
+            if (match != null) {
+                // Order invalidation after any request already using this
+                // host. Otherwise a late server-info result can immediately
+                // overwrite UNKNOWN and suppress the requested refresh.
+                synchronized (match.networkLock) {
+                    synchronized (match.stateLock) {
+                        if (isRegistered(match)) {
+                            match.computer.state =
+                                    ComputerDetails.State.UNKNOWN;
                         }
                     }
                 }
@@ -319,26 +415,126 @@ public class ComputerManagerService extends Service {
         }
     }
 
-    @Override
-    public boolean onUnbind(Intent intent) {
-        discoverySource.stop();
+    private void initializePolling(
+            HostPollingOwnership.Token ownerToken) {
+        List<PollingTuple> tuples;
+        synchronized (pollingTuples) {
+            tuples = new ArrayList<>(pollingTuples);
+        }
+        for (PollingTuple tuple : tuples) {
+            ComputerDetails initialSnapshot;
+            synchronized (tuple.stateLock) {
+                if (SystemClock.elapsedRealtime() -
+                        tuple.lastSuccessfulPollMs > POLL_DATA_TTL_MS) {
+                    LimeLog.info("Timing out stale host state");
+                    tuple.computer.state = ComputerDetails.State.UNKNOWN;
+                }
+                initialSnapshot = ComputerDetailsSnapshot.copyOf(
+                        tuple.computer);
+            }
 
-        // Stop polling
+            notifyComputerUpdated(ownerToken, initialSnapshot);
+
+            synchronized (pollingTuples) {
+                // This tuple or owner may have changed during its callback.
+                if (pollingOwnership.owns(ownerToken) &&
+                        pollingTuples.contains(tuple) &&
+                        tuple.thread == null) {
+                    tuple.thread = createPollingThread(tuple);
+                    tuple.thread.start();
+                }
+            }
+        }
+    }
+
+    public final class HostPollingSubscription implements AutoCloseable {
+        private final HostPollingOwnership.Token ownerToken;
+        private ApplistPoller appListPoller;
+        private boolean closed;
+
+        private HostPollingSubscription(
+                HostPollingOwnership.Token ownerToken) {
+            this.ownerToken = ownerToken;
+        }
+
+        /**
+         * Creates the optional app-list worker as a child of this host
+         * subscription. Closing the parent always closes the child first.
+         */
+        public synchronized ApplistPoller startAppListPolling(
+                ComputerDetails computer) {
+            if (closed) {
+                throw new IllegalStateException(
+                        "Host polling subscription is closed");
+            }
+            if (appListPoller != null) {
+                throw new IllegalStateException(
+                        "App-list polling is already active");
+            }
+            synchronized (pollingLifecycleLock) {
+                if (!pollingOwnership.owns(ownerToken)) {
+                    return null;
+                }
+                ApplistPoller poller = new ApplistPoller(computer);
+                appListPoller = poller;
+                poller.start();
+                return poller;
+            }
+        }
+
+        @Override
+        public synchronized void close() {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            if (appListPoller != null) {
+                appListPoller.stop();
+                appListPoller = null;
+            }
+            stopPolling(ownerToken);
+        }
+    }
+
+    private void stopPolling(HostPollingOwnership.Token ownerToken) {
+        synchronized (pollingLifecycleLock) {
+            if (!pollingOwnership.release(ownerToken)) {
+                return;
+            }
+            stopPollingInfrastructure();
+        }
+    }
+
+    private void stopPollingInfrastructure() {
         pollingActive = false;
         synchronized (pollingTuples) {
             for (PollingTuple tuple : pollingTuples) {
                 if (tuple.thread != null) {
-                    // Interrupt and remove the thread
                     tuple.thread.interrupt();
                     tuple.thread = null;
                 }
             }
         }
+        try {
+            discoverySource.stop();
+        }
+        catch (RuntimeException error) {
+            LimeLog.warning("Unable to stop host discovery cleanly");
+        }
+    }
 
-        // Remove the listener
-        listener = null;
+    @Override
+    public boolean onUnbind(Intent intent) {
+        stopAllPolling();
 
         return false;
+    }
+
+    private void stopAllPolling() {
+        synchronized (pollingLifecycleLock) {
+            pollingOwnership.clear();
+            stopPollingInfrastructure();
+        }
     }
 
     private void populateExternalAddress(ComputerDetails details) {
@@ -346,61 +542,63 @@ public class ComputerManagerService extends Service {
         boolean activeNetworkIsVpn = NetHelper.isActiveNetworkVpn(this);
         ConnectivityManager connMgr = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
 
-        // Check if we're currently connected to a VPN which may send our
-        // STUN request from an unexpected interface
         if (activeNetworkIsVpn) {
-            // Acquire the default network lock since we could be changing global process state
             defaultNetworkLock.lock();
+        }
 
-            // On Lollipop or later, we can bind our process to the underlying interface
-            // to ensure our STUN request goes out on that interface or not at all (which is
-            // preferable to getting a VPN endpoint address back).
-            Network[] networks = connMgr.getAllNetworks();
-            for (Network net : networks) {
-                NetworkCapabilities netCaps = connMgr.getNetworkCapabilities(net);
-                if (netCaps != null) {
-                    if (!netCaps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) &&
-                            !netCaps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
-                        // This network looks like an underlying multicast-capable transport,
-                        // so let's guess that it's probably where our mDNS response came from.
+        try {
+            // When a VPN is active, bind STUN to a non-VPN network or skip it.
+            if (activeNetworkIsVpn) {
+                Network[] networks = connMgr.getAllNetworks();
+                for (Network net : networks) {
+                    NetworkCapabilities netCaps =
+                            connMgr.getNetworkCapabilities(net);
+                    if (netCaps != null &&
+                            !netCaps.hasTransport(
+                                    NetworkCapabilities.TRANSPORT_CELLULAR) &&
+                            !netCaps.hasTransport(
+                                    NetworkCapabilities.TRANSPORT_VPN)) {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                             if (connMgr.bindProcessToNetwork(net)) {
                                 boundToNetwork = true;
                                 break;
                             }
-                        } else if (ConnectivityManager.setProcessDefaultNetwork(net)) {
+                        }
+                        else if (ConnectivityManager
+                                .setProcessDefaultNetwork(net)) {
                             boundToNetwork = true;
                             break;
                         }
                     }
                 }
             }
-        }
 
-        // Perform the STUN request if we're not on a VPN or if we bound to a network
-        if (!activeNetworkIsVpn || boundToNetwork) {
-            String stunResolvedAddress = NvConnection.findExternalAddressForMdns("stun.moonlight-stream.org", 3478);
-            if (stunResolvedAddress != null) {
-                // We don't know for sure what the external port is, so we will have to guess.
-                // When we contact the PC (if we haven't already), it will update the port.
-                details.remoteAddress = new ComputerDetails.AddressTuple(stunResolvedAddress, details.guessExternalPort());
+            if (!activeNetworkIsVpn || boundToNetwork) {
+                String resolvedAddress =
+                        NvConnection.findExternalAddressForMdns(
+                                "stun.moonlight-stream.org",
+                                3478);
+                if (resolvedAddress != null) {
+                    details.remoteAddress =
+                            new ComputerDetails.AddressTuple(
+                                    resolvedAddress,
+                                    details.guessExternalPort());
+                }
             }
         }
-
-        // Unbind from the network
-        if (boundToNetwork) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                connMgr.bindProcessToNetwork(null);
-            } else {
-                ConnectivityManager.setProcessDefaultNetwork(null);
+        finally {
+            if (boundToNetwork) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    connMgr.bindProcessToNetwork(null);
+                }
+                else {
+                    ConnectivityManager.setProcessDefaultNetwork(null);
+                }
+            }
+            if (activeNetworkIsVpn) {
+                defaultNetworkLock.unlock();
             }
         }
-
-        // Unlock the network state
-        if (activeNetworkIsVpn) {
-            defaultNetworkLock.unlock();
-        }
-
     }
 
     private void handleDiscoveredHost(HostDiscoveryCandidate candidate) {
@@ -453,22 +651,30 @@ public class ComputerManagerService extends Service {
                 if (repositoryLease == null) {
                     return false;
                 }
+                PollingTuple match = null;
                 synchronized (pollingTuples) {
                     for (PollingTuple tuple : pollingTuples) {
                         if (!hostId.equals(HostId.of(
                                 tuple.computer.uuid))) {
                             continue;
                         }
-                        synchronized (tuple.networkLock) {
-                            dbManager.updatePinnedCertificate(
-                                    tuple.computer.uuid,
-                                    certificate);
-                            tuple.computer.serverCert = certificate;
-                            return true;
-                        }
+                        match = tuple;
+                        break;
                     }
                 }
-                return false;
+                if (match == null) {
+                    return false;
+                }
+                synchronized (match.stateLock) {
+                    if (!isRegistered(match)) {
+                        return false;
+                    }
+                    dbManager.updatePinnedCertificate(
+                            match.computer.uuid,
+                            certificate);
+                    match.computer.serverCert = certificate;
+                    return true;
+                }
             }
         }
 
@@ -484,36 +690,85 @@ public class ComputerManagerService extends Service {
         }
     }
 
-    private void addTuple(ComputerDetails details) {
+    private boolean isRegistered(PollingTuple tuple) {
         synchronized (pollingTuples) {
-            for (PollingTuple tuple : pollingTuples) {
+            return pollingTuples.contains(tuple);
+        }
+    }
+
+    private boolean isPollingThreadCurrent(
+            PollingTuple tuple,
+            Thread worker) {
+        return pollingActive &&
+                tuple.thread == worker &&
+                isRegistered(tuple);
+    }
+
+    private void notifyComputerUpdated(ComputerDetails details) {
+        ComputerManagerListener currentListener =
+                pollingOwnership.getListener();
+        if (currentListener != null) {
+            currentListener.notifyComputerUpdated(
+                    ComputerDetailsSnapshot.copyOf(details));
+        }
+    }
+
+    private void notifyComputerUpdated(
+            HostPollingOwnership.Token ownerToken,
+            ComputerDetails details) {
+        ComputerManagerListener currentListener =
+                pollingOwnership.getListener(ownerToken);
+        if (currentListener != null) {
+            currentListener.notifyComputerUpdated(
+                    ComputerDetailsSnapshot.copyOf(details));
+        }
+    }
+
+    private void addTuple(ComputerDetails details) {
+        PollingTuple tuple = null;
+        Thread threadToStart = null;
+        boolean created = false;
+        synchronized (pollingTuples) {
+            for (PollingTuple candidate : pollingTuples) {
                 // Check if this is the same computer
-                if (tuple.computer.uuid.equals(details.uuid)) {
-                    // Update the saved computer with potentially new details
-                    LegacyComputerDetailsMergePolicy.mergeObservation(
-                            tuple.computer,
-                            details);
-
-                    // Start a polling thread if polling is active
-                    if (pollingActive && tuple.thread == null) {
-                        tuple.thread = createPollingThread(tuple);
-                        tuple.thread.start();
-                    }
-
-                    // Found an entry so we're done
-                    return;
+                if (sameHostIdentity(
+                        candidate.computer.uuid,
+                        details.uuid)) {
+                    tuple = candidate;
+                    break;
                 }
             }
 
-            // If we got here, we didn't find an entry
-            PollingTuple tuple = new PollingTuple(details, null);
-            if (pollingActive) {
+            if (tuple == null) {
+                tuple = new PollingTuple(
+                        ComputerDetailsSnapshot.copyOf(details),
+                        null);
+                pollingTuples.add(tuple);
+                created = true;
+            }
+        }
+
+        if (!created) {
+            synchronized (tuple.stateLock) {
+                if (!isRegistered(tuple)) {
+                    return;
+                }
+                LegacyComputerDetailsMergePolicy.mergeObservation(
+                        tuple.computer,
+                        details);
+            }
+        }
+
+        synchronized (pollingTuples) {
+            if (pollingActive &&
+                    pollingTuples.contains(tuple) &&
+                    tuple.thread == null) {
                 tuple.thread = createPollingThread(tuple);
+                threadToStart = tuple.thread;
             }
-            pollingTuples.add(tuple);
-            if (tuple.thread != null) {
-                tuple.thread.start();
-            }
+        }
+        if (threadToStart != null) {
+            threadToStart.start();
         }
     }
 
@@ -524,18 +779,26 @@ public class ComputerManagerService extends Service {
         // in the database, which would be bad because we don't have our pinned cert loaded yet.
         if (pollComputer(fakeDetails)) {
             // See if we have record of this PC to pull its pinned cert
+            PollingTuple match = null;
             synchronized (pollingTuples) {
                 for (PollingTuple tuple : pollingTuples) {
-                    if (tuple.computer.uuid.equals(fakeDetails.uuid)) {
-                        fakeDetails.serverCert = tuple.computer.serverCert;
+                    if (sameHostIdentity(
+                            tuple.computer.uuid,
+                            fakeDetails.uuid)) {
+                        match = tuple;
                         break;
                     }
+                }
+            }
+            if (match != null) {
+                synchronized (match.stateLock) {
+                    fakeDetails.serverCert = match.computer.serverCert;
                 }
             }
 
             // Poll again, possibly with the pinned cert, to get accurate pairing information.
             // This will insert the host into the database too.
-            runPoll(fakeDetails, true, 0);
+            runNewComputerPoll(fakeDetails);
         }
 
         // If the machine is reachable, it was successful
@@ -559,22 +822,34 @@ public class ComputerManagerService extends Service {
         }
 
         try (HostRepositoryLeaseManager.Lease ignored = repositoryLease) {
-            // Remove it from the database
-            dbManager.deleteComputer(computer);
-
+            PollingTuple removed = null;
             synchronized (pollingTuples) {
-                // Remove the computer from the computer list
-                for (PollingTuple tuple : pollingTuples) {
-                    if (tuple.computer.uuid.equals(computer.uuid)) {
+                Iterator<PollingTuple> iterator =
+                        pollingTuples.iterator();
+                while (iterator.hasNext()) {
+                    PollingTuple tuple = iterator.next();
+                    if (sameHostIdentity(
+                            tuple.computer.uuid,
+                            computer.uuid)) {
                         if (tuple.thread != null) {
-                            // Interrupt the thread on this entry
                             tuple.thread.interrupt();
                             tuple.thread = null;
                         }
-                        pollingTuples.remove(tuple);
+                        iterator.remove();
+                        removed = tuple;
                         break;
                     }
                 }
+            }
+
+            if (removed == null) {
+                dbManager.deleteComputer(computer);
+                return;
+            }
+            // A poll already committing wins before this delete. A poll that
+            // completes later observes that the tuple is no longer registered.
+            synchronized (removed.stateLock) {
+                dbManager.deleteComputer(removed.computer);
             }
         }
     }
@@ -768,6 +1043,7 @@ public class ComputerManagerService extends Service {
 
     @Override
     public void onCreate() {
+        super.onCreate();
         endpointProbeExecutor = createEndpointProbeExecutor();
         reachabilityCoordinator = new HostReachabilityCoordinator(
                 endpointProbeExecutor,
@@ -814,27 +1090,13 @@ public class ComputerManagerService extends Service {
                 @Override
                 public void onAvailable(Network network) {
                     LimeLog.info("Resetting PC state for new available network");
-                    synchronized (pollingTuples) {
-                        for (PollingTuple tuple : pollingTuples) {
-                            tuple.computer.state = ComputerDetails.State.UNKNOWN;
-                            if (listener != null) {
-                                listener.notifyComputerUpdated(tuple.computer);
-                            }
-                        }
-                    }
+                    updateAllHostStates(ComputerDetails.State.UNKNOWN);
                 }
 
                 @Override
                 public void onLost(Network network) {
                     LimeLog.info("Offlining PCs due to network loss");
-                    synchronized (pollingTuples) {
-                        for (PollingTuple tuple : pollingTuples) {
-                            tuple.computer.state = ComputerDetails.State.OFFLINE;
-                            if (listener != null) {
-                                listener.notifyComputerUpdated(tuple.computer);
-                            }
-                        }
-                    }
+                    updateAllHostStates(ComputerDetails.State.OFFLINE);
                 }
             };
 
@@ -845,20 +1107,81 @@ public class ComputerManagerService extends Service {
 
     @Override
     public void onDestroy() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            ConnectivityManager connMgr = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-            connMgr.unregisterNetworkCallback(networkCallback);
+        serviceDestroyed = true;
+        try {
+            stopAllPolling();
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
+                    networkCallback != null) {
+                ConnectivityManager connMgr =
+                        (ConnectivityManager) getSystemService(
+                                Context.CONNECTIVITY_SERVICE);
+                try {
+                    connMgr.unregisterNetworkCallback(networkCallback);
+                }
+                catch (RuntimeException error) {
+                    LimeLog.warning(
+                            "Unable to unregister host network callback cleanly");
+                }
+                networkCallback = null;
+            }
+
+            if (discoverySource != null) {
+                try {
+                    discoverySource.close();
+                }
+                catch (RuntimeException error) {
+                    LimeLog.warning(
+                            "Unable to close host discovery cleanly");
+                }
+                discoverySource = null;
+            }
+            if (endpointProbeExecutor != null) {
+                try {
+                    endpointProbeExecutor.shutdownNow();
+                }
+                catch (RuntimeException error) {
+                    LimeLog.warning(
+                            "Unable to stop endpoint probing cleanly");
+                }
+                endpointProbeExecutor = null;
+            }
+
+            HostRepositoryLeaseManager leases = repositoryLeases;
+            repositoryLeases = null;
+            if (leases != null) {
+                try {
+                    leases.close();
+                }
+                catch (RuntimeException error) {
+                    LimeLog.warning(
+                            "Unable to close host repository cleanly");
+                }
+            }
         }
+        finally {
+            super.onDestroy();
+        }
+    }
 
-        discoverySource.close();
-        endpointProbeExecutor.shutdownNow();
-
-        // FIXME: Should await termination here but we have timeout issues in HttpURLConnection
-
-        // Remove the initial DB reference
-        HostRepositoryLeaseManager leases = repositoryLeases;
-        if (leases != null) {
-            leases.close();
+    private void updateAllHostStates(ComputerDetails.State state) {
+        List<PollingTuple> tuples;
+        synchronized (pollingTuples) {
+            tuples = new ArrayList<>(pollingTuples);
+        }
+        List<ComputerDetails> updates = new ArrayList<>(tuples.size());
+        for (PollingTuple tuple : tuples) {
+            synchronized (tuple.stateLock) {
+                if (!isRegistered(tuple)) {
+                    continue;
+                }
+                tuple.computer.state = state;
+                updates.add(ComputerDetailsSnapshot.copyOf(
+                        tuple.computer));
+            }
+        }
+        for (ComputerDetails update : updates) {
+            notifyComputerUpdated(update);
         }
     }
 
@@ -891,22 +1214,29 @@ public class ComputerManagerService extends Service {
     }
 
     public class ApplistPoller {
-        private Thread thread;
+        private final Object lifecycleLock = new Object();
+        private volatile Thread thread;
         private final ComputerDetails computer;
         private final Object pollEvent = new Object();
         private boolean receivedAppList = false;
+        private boolean closed;
 
-        public ApplistPoller(ComputerDetails computer) {
-            this.computer = computer;
+        private ApplistPoller(ComputerDetails computer) {
+            this.computer = ComputerDetailsSnapshot.copyOf(computer);
         }
 
         public void pollNow() {
+            synchronized (lifecycleLock) {
+                if (closed) {
+                    return;
+                }
+            }
             synchronized (pollEvent) {
                 pollEvent.notify();
             }
         }
 
-        private boolean waitPollingDelay() {
+        private boolean waitPollingDelay(Thread ownerThread) {
             try {
                 synchronized (pollEvent) {
                     if (receivedAppList) {
@@ -923,13 +1253,16 @@ public class ComputerManagerService extends Service {
                 return false;
             }
 
-            return thread != null && !thread.isInterrupted();
+            return thread == ownerThread &&
+                    !ownerThread.isInterrupted();
         }
 
-        private PollingTuple getPollingTuple(ComputerDetails details) {
+        private PollingTuple getPollingTuple() {
             synchronized (pollingTuples) {
                 for (PollingTuple tuple : pollingTuples) {
-                    if (details.uuid.equals(tuple.computer.uuid)) {
+                    if (sameHostIdentity(
+                            computer.uuid,
+                            tuple.computer.uuid)) {
                         return tuple;
                     }
                 }
@@ -938,31 +1271,50 @@ public class ComputerManagerService extends Service {
             return null;
         }
 
-        public void start() {
-            thread = new Thread() {
+        private void start() {
+            Thread worker = new Thread() {
                 @Override
                 public void run() {
                     int emptyAppListResponses = 0;
                     do {
-                        // Can't poll if it's not online or paired
-                        if (computer.state != ComputerDetails.State.ONLINE ||
-                                computer.pairState != PairingManager.PairState.PAIRED) {
-                            if (listener != null) {
-                                listener.notifyComputerUpdated(computer);
+                        if (thread != this || isInterrupted()) {
+                            break;
+                        }
+                        PollingTuple tuple = getPollingTuple();
+                        if (tuple == null) {
+                            continue;
+                        }
+                        ComputerDetails currentComputer;
+                        synchronized (tuple.stateLock) {
+                            if (!isRegistered(tuple)) {
+                                continue;
                             }
+                            currentComputer =
+                                    ComputerDetailsSnapshot.copyOf(
+                                            tuple.computer);
+                        }
+
+                        // Can't poll if it's not online or paired
+                        if (currentComputer.state != ComputerDetails.State.ONLINE ||
+                                currentComputer.pairState != PairingManager.PairState.PAIRED) {
+                            notifyComputerUpdated(currentComputer);
                             continue;
                         }
 
                         // Can't poll if there's no UUID yet
-                        if (computer.uuid == null) {
+                        if (currentComputer.uuid == null) {
                             continue;
                         }
 
-                        PollingTuple tuple = getPollingTuple(computer);
-
                         try {
-                            NvHTTP http = new NvHTTP(ServerHelper.getCurrentAddressFromComputer(computer), computer.httpsPort, idManager.getUniqueId(),
-                                    computer.serverCert, PlatformBinding.getCryptoProvider(ComputerManagerService.this));
+                            NvHTTP http = new NvHTTP(
+                                    ServerHelper.getCurrentAddressFromComputer(
+                                            currentComputer),
+                                    currentComputer.httpsPort,
+                                    idManager.getUniqueId(),
+                                    currentComputer.serverCert,
+                                    PlatformBinding.getCryptoProvider(
+                                            ComputerManagerService.this));
 
                             String appList;
                             if (tuple != null) {
@@ -990,7 +1342,7 @@ public class ComputerManagerService extends Service {
                                     (!list.isEmpty() || emptyAppListResponses >= EMPTY_LIST_THRESHOLD)) {
                                 // Open the cache file
                                 try (final OutputStream cacheOut = CacheHelper.openCacheFileForOutput(
-                                        getCacheDir(), "applist", computer.uuid)
+                                        getCacheDir(), "applist", currentComputer.uuid)
                                 ) {
                                     CacheHelper.writeStringToOutputStream(cacheOut, appList);
                                 } catch (IOException e) {
@@ -1002,14 +1354,21 @@ public class ComputerManagerService extends Service {
                                     emptyAppListResponses = 0;
                                 }
 
-                                // Update the computer
-                                computer.rawAppList = appList;
+                                ComputerDetails update;
+                                synchronized (tuple.stateLock) {
+                                    if (!isRegistered(tuple)) {
+                                        continue;
+                                    }
+                                    tuple.computer.rawAppList = appList;
+                                    update = ComputerDetailsSnapshot.copyOf(
+                                            tuple.computer);
+                                }
                                 receivedAppList = true;
 
                                 // Notify that the app list has been updated
                                 // and ensure that the thread is still active
-                                if (listener != null && thread != null) {
-                                    listener.notifyComputerUpdated(computer);
+                                if (thread == this) {
+                                    notifyComputerUpdated(update);
                                 }
                             }
                             else if (appList.isEmpty()) {
@@ -1020,35 +1379,46 @@ public class ComputerManagerService extends Service {
                         } catch (XmlPullParserException e) {
                             LimeLog.warning("Host returned an invalid app list");
                         }
-                    } while (waitPollingDelay());
+                    } while (waitPollingDelay(this));
                 }
             };
-            thread.setName("Host app-list polling");
-            thread.start();
+            worker.setName("Host app-list polling");
+            synchronized (lifecycleLock) {
+                if (thread != null || closed) {
+                    return;
+                }
+                thread = worker;
+                worker.start();
+            }
         }
 
         public void stop() {
-            if (thread != null) {
-                thread.interrupt();
-
-                // Don't join here because we might be blocked on network I/O
-
+            Thread worker;
+            synchronized (lifecycleLock) {
+                closed = true;
+                worker = thread;
                 thread = null;
+            }
+            if (worker != null) {
+                // Don't join here because we might be blocked on network I/O.
+                worker.interrupt();
             }
         }
     }
 }
 
 class PollingTuple {
-    public Thread thread;
+    public volatile Thread thread;
     public final ComputerDetails computer;
     public final Object networkLock;
-    public long lastSuccessfulPollMs;
+    public final Object stateLock;
+    public volatile long lastSuccessfulPollMs;
 
     public PollingTuple(ComputerDetails computer, Thread thread) {
         this.computer = computer;
         this.thread = thread;
         this.networkLock = new Object();
+        this.stateLock = new Object();
     }
 }
 
