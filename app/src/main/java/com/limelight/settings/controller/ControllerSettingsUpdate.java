@@ -116,6 +116,15 @@ public final class ControllerSettingsUpdate {
     }
 
     public static ControllerSettingsUpdate
+            onscreenRumbleEnabled(boolean enabled) {
+        return single(
+                ControllerSettingKeys.ONSCREEN_RUMBLE,
+                enabled,
+                ControllerSettings.Builder
+                        ::setOnscreenRumbleEnabled);
+    }
+
+    public static ControllerSettingsUpdate
             virtualControllerMotionEnabled(boolean enabled) {
         return single(
                 ControllerSettingKeys.VIRTUAL_CONTROLLER_MOTION,

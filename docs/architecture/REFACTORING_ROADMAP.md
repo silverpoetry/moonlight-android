@@ -521,6 +521,16 @@ targets.
   Surface to acquired media resources and the session controller. Accepted,
   rejected, and exceptional starts are unit-tested, including deterministic
   resource/UI rollback, while `Game` no longer implements the Surface host.
+- `AndroidGameMenuController` is the sole owner of the stream-menu Fragment
+  reference and its transient controller-input context. Restored Fragments,
+  repeated opens, dismissal, microphone-state invalidation, Activity stop,
+  and terminal destruction now share one lifecycle boundary instead of
+  nullable Activity fields.
+- `StreamSettingsSession` is the single transaction owner for settings changed
+  while streaming. Typed intents are persisted before their immutable snapshot
+  is published and runtime effects are notified; controller transition effects,
+  audio/UI reconfiguration, virtual-control reload, and onscreen-rumble writes
+  no longer duplicate persistence or change-detection policy in `Game`.
 - `StreamHdrRequestPolicy` owns HDR request eligibility and user-warning
   selection from immutable settings and device facts. The Android capability
   provider samples OS, firmware, and display HDR10 support once; `Game` no
