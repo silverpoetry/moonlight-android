@@ -15,7 +15,8 @@ import java.util.Objects;
  * the Activity's {@code onDestroy()} before releasing the menu's runtime
  * dependencies.</p>
  */
-public final class AndroidGameMenuController {
+public final class AndroidGameMenuController
+        implements StreamGameMenuHost.MenuSession {
     private static final int MENU_WIDTH_DP = 364;
 
     private final Activity activity;
@@ -59,6 +60,7 @@ public final class AndroidGameMenuController {
         return menu != null && menu.isVisible();
     }
 
+    @Override
     public void dismiss() {
         if (menu != null && menu.isVisible()) {
             menu.dismiss();
@@ -71,16 +73,19 @@ public final class AndroidGameMenuController {
         }
     }
 
+    @Override
     public boolean isMouseEmulationAvailable() {
         return session.isMouseEmulationAvailable();
     }
 
+    @Override
     public void toggleMouseEmulation() {
         if (!destroyed) {
             session.toggleMouseEmulation();
         }
     }
 
+    @Override
     public void onDismissed(GameMenuFragment dismissedMenu) {
         if (session.close(dismissedMenu) && menu == dismissedMenu) {
             menu = null;

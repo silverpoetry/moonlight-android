@@ -48,6 +48,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
 
     private final Handler mainHandler =
             new Handler(Looper.getMainLooper());
+    private GameMenuHostProvider hostProvider;
     private GameMenuHost host;
     private BackNavigationRegistration backNavigationRegistration;
 
@@ -62,17 +63,18 @@ public class GameMenuFragment extends BaseGameMenuDialog
     @Override
     public void onAttach(Activity activity) {
         super.onAttach(activity);
-        if (!(activity instanceof GameMenuHost)) {
+        if (!(activity instanceof GameMenuHostProvider)) {
             throw new IllegalStateException(
-                    "GameMenuFragment host must implement GameMenuHost");
+                    "GameMenuFragment host must provide GameMenuHost");
         }
-        host = (GameMenuHost) activity;
+        hostProvider = (GameMenuHostProvider) activity;
     }
 
     @Override
     public void onDetach() {
         mainHandler.removeCallbacksAndMessages(null);
         host = null;
+        hostProvider = null;
         super.onDetach();
     }
 
@@ -90,9 +92,10 @@ public class GameMenuFragment extends BaseGameMenuDialog
     }
 
     public void refreshMicrophoneState() {
-        if (btn_mic != null && host != null) {
+        GameMenuHost currentHost = resolveHost();
+        if (btn_mic != null && currentHost != null) {
             btn_mic.setBackgroundResource(
-                    host.isMicUplinkActive() ?
+                    currentHost.isMicUplinkActive() ?
                             R.drawable.ic_game_menu_btn_green_selector :
                             R.drawable.ic_game_menu_btn_selector);
         }
@@ -122,8 +125,9 @@ public class GameMenuFragment extends BaseGameMenuDialog
     }
 
     private void handleStreamBack() {
-        if (host != null) {
-            host.handleStreamBackPressed();
+        GameMenuHost currentHost = resolveHost();
+        if (currentHost != null) {
+            currentHost.handleStreamBackPressed();
         }
     }
 
@@ -142,8 +146,9 @@ public class GameMenuFragment extends BaseGameMenuDialog
             cardEditor.dismiss();
             cardEditor = null;
         }
-        if (host != null) {
-            host.onGameMenuDismissed(this);
+        GameMenuHost currentHost = resolveHost();
+        if (currentHost != null) {
+            currentHost.onGameMenuDismissed(this);
         }
         super.onDismiss(dialog);
     }
@@ -174,6 +179,11 @@ public class GameMenuFragment extends BaseGameMenuDialog
     @Override
     public void bindView(View v) {
         super.bindView(v);
+        host = resolveHost();
+        if (host == null) {
+            throw new IllegalStateException(
+                    "GameMenuHost is not initialized");
+        }
         actionGrid = v.findViewById(R.id.game_menu_action_grid);
         collectActionButtons(v);
         rebuildActionGrid();
@@ -799,6 +809,13 @@ public class GameMenuFragment extends BaseGameMenuDialog
             dismiss();
             host.pullRemoteClipboardFiles();
         }
+    }
+
+    private GameMenuHost resolveHost() {
+        if (host == null && hostProvider != null) {
+            host = hostProvider.getGameMenuHost();
+        }
+        return host;
     }
 
 

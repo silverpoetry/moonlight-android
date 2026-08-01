@@ -531,6 +531,13 @@ targets.
   is published and runtime effects are notified; controller transition effects,
   audio/UI reconfiguration, virtual-control reload, and onscreen-rumble writes
   no longer duplicate persistence or change-detection policy in `Game`.
+- `StreamGameMenuHost` terminates the menu's repositories and typed setting
+  intents at a session-scoped application boundary. Restored Fragments resolve
+  that host through `GameMenuHostProvider`; `Game` supplies only a platform-
+  action adapter and no longer implements the menu/display storage contract.
+  The existing app-list display editor retains its narrower direct host, and
+  fake menu-session/platform ports fixture ordering and ownership without an
+  Activity.
 - `StreamHdrRequestPolicy` owns HDR request eligibility and user-warning
   selection from immutable settings and device facts. The Android capability
   provider samples OS, firmware, and display HDR10 support once; `Game` no

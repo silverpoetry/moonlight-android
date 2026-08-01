@@ -53,15 +53,11 @@ import com.limelight.settings.android.AndroidSettingsRepository;
 import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.audio.StreamAudioSettingsLoader;
 import com.limelight.settings.audio.StreamAudioSettingsState;
-import com.limelight.settings.audio.StreamAudioSettingsUpdate;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsLoader;
 import com.limelight.settings.controller.ControllerSettingsState;
-import com.limelight.settings.controller.ControllerSettingsUpdate;
-import com.limelight.settings.input.InputSettings;
 import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.settings.input.InputSettingsState;
-import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.settings.runtime.StreamSettingsSession;
 import com.limelight.settings.stream.CustomResolutionRepository;
 import com.limelight.settings.stream.StreamDecoderSettings;
@@ -74,11 +70,8 @@ import com.limelight.settings.stream.StreamVideoSettingsState;
 import com.limelight.settings.stream.StreamVideoSettingsUpdate;
 import com.limelight.settings.transfer.TransferSettings;
 import com.limelight.settings.transfer.TransferSettingsLoader;
-import com.limelight.settings.ui.GameMenuCardLayout;
-import com.limelight.settings.ui.GameMenuCardLayoutLoadResult;
 import com.limelight.settings.ui.GameMenuCardLayoutRepository;
 import com.limelight.settings.ui.SettingsGameMenuCardLayoutRepository;
-import com.limelight.shortcuts.GameMenuShortcut;
 import com.limelight.shortcuts.GameMenuShortcutRepository;
 import com.limelight.shortcuts.android.SharedPreferencesGameMenuShortcutRepository;
 import com.limelight.settings.ui.StreamUiSettings;
@@ -90,10 +83,10 @@ import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsState;
 import com.limelight.virtualcontrols.layout.VirtualControlLayoutRepository;
 import com.limelight.virtualcontrols.layout.android.AndroidVirtualControlLayoutRepository;
-import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
-import com.limelight.ui.gamemenu.GameMenuFragment;
 import com.limelight.ui.gamemenu.GameMenuHost;
 import com.limelight.ui.gamemenu.AndroidGameMenuController;
+import com.limelight.ui.gamemenu.GameMenuHostProvider;
+import com.limelight.ui.gamemenu.StreamGameMenuHost;
 import com.limelight.ui.clipboard.RemoteClipboardFileTransferController;
 import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
 import com.limelight.ui.performance.PerformanceOverlayConfiguration;
@@ -193,7 +186,8 @@ import java.util.List;
 public class Game extends Activity implements OnGenericMotionListener,
         OnTouchListener, EvdevListener,
         GameGestures, StreamInputGateway,
-        StreamUiActions, GameMenuHost,
+        StreamUiActions, GameMenuHostProvider,
+        StreamGameMenuHost.Actions,
         UsbDriverService.UsbDriverStateListener, View.OnKeyListener {
     private static final long KEY_CHORD_UP_DELAY_MS = 25;
 
@@ -228,6 +222,7 @@ public class Game extends Activity implements OnGenericMotionListener,
     private GameMenuShortcutRepository
             gameMenuShortcutRepository;
     private AndroidGameMenuController gameMenuController;
+    private GameMenuHost gameMenuHost;
     private DecoderCrashTracker decoderCrashTracker;
 
     private NvConnection conn;
@@ -434,6 +429,13 @@ public class Game extends Activity implements OnGenericMotionListener,
         virtualControlLayoutRepository =
                 new AndroidVirtualControlLayoutRepository(this);
         streamSettingsSession = createStreamSettingsSession();
+        gameMenuHost = new StreamGameMenuHost(
+                streamSettingsSession,
+                customResolutionRepository,
+                gameMenuCardLayoutRepository,
+                gameMenuShortcutRepository,
+                gameMenuController,
+                this);
         decoderCrashTracker = new DecoderCrashTracker(
                 new AndroidDecoderCrashStore(this));
         backNavigationRegistration =
@@ -985,12 +987,14 @@ public class Game extends Activity implements OnGenericMotionListener,
     }
 
     //显示隐藏虚拟特殊按键
+    @Override
     public void toggleVirtualKeys(){
         if (virtualControlsController != null) {
             virtualControlsController.toggleVirtualKeys();
         }
     }
 
+    @Override
     public void toggleFullKeyboard(){
         if (virtualControlsController != null) {
             virtualControlsController.toggleFullKeyboard();
@@ -998,6 +1002,7 @@ public class Game extends Activity implements OnGenericMotionListener,
     }
 
     //显示隐藏虚拟手柄控制器
+    @Override
     public void toggleVirtualGamepad(){
         if (virtualControlsController != null) {
             virtualControlsController.toggleVirtualGamepad();
@@ -1214,6 +1219,7 @@ public class Game extends Activity implements OnGenericMotionListener,
             microphoneController.destroy();
             microphoneController = null;
         }
+        gameMenuHost = null;
         if (gameMenuController != null) {
             gameMenuController.destroy();
             gameMenuController = null;
@@ -1429,7 +1435,7 @@ public class Game extends Activity implements OnGenericMotionListener,
                         StreamVideoSettings
                                 .ScreenOnPolicy
                                 .CURRENT_SESSION) {
-            applyStreamVideoSettingsUpdate(
+            streamSettingsSession.applyVideo(
                     StreamVideoSettingsUpdate.screenOnPolicy(
                             StreamVideoSettings
                                     .ScreenOnPolicy
@@ -1867,6 +1873,7 @@ public class Game extends Activity implements OnGenericMotionListener,
     private static final long BACK_EXIT_INTERVAL_MS = 2000;
     private long lastBackPressedElapsedMs;
 
+    @Override
     public void cancelPendingStreamBackExit() {
         lastBackPressedElapsedMs = 0;
     }
@@ -1916,12 +1923,14 @@ public class Game extends Activity implements OnGenericMotionListener,
     }
 
     //本地鼠标光标切换
+    @Override
     public void switchMouseLocalCursor(){
         if (inputCaptureController != null) {
             inputCaptureController.toggleLocalCursorVisibility();
         }
     }
 
+    @Override
     public void switchMouseModel(int which){
         TouchInputMode mode = TouchInputMode.fromPreferenceValue(which);
         if (mode != null && streamInputController != null) {
@@ -1929,6 +1938,7 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
     }
 
+    @Override
     public boolean toggleAbsoluteMouseMode() {
         boolean enabled = !streamInputController
                 .getSettings()
@@ -1938,64 +1948,6 @@ public class Game extends Activity implements OnGenericMotionListener,
             conn.setAbsoluteMousePositionMode(enabled);
         }
         return enabled;
-    }
-
-    @Override
-    public InputSettings getInputSettings() {
-        return streamSettingsSession.getInputSettings();
-    }
-
-    @Override
-    public ControllerSettings getControllerSettings() {
-        return streamSettingsSession.getControllerSettings();
-    }
-
-    @Override
-    public void applyInputSettingsUpdate(
-            InputSettingsUpdate update) {
-        streamSettingsSession.applyInput(update);
-    }
-
-    @Override
-    public void applyControllerSettingsUpdate(
-            ControllerSettingsUpdate update) {
-        streamSettingsSession.applyController(update);
-    }
-
-    @Override
-    public StreamAudioSettings getStreamAudioSettings() {
-        return streamSettingsSession.getAudioSettings();
-    }
-
-    @Override
-    public StreamVideoSettings getStreamVideoSettings() {
-        return streamSettingsSession.getVideoSettings();
-    }
-
-    @Override
-    public void applyStreamVideoSettingsUpdate(
-            StreamVideoSettingsUpdate update) {
-        streamSettingsSession.applyVideo(update);
-    }
-
-    @Override
-    public void onDisplayConfigurationApplied() {
-        if (gameMenuController != null) {
-            gameMenuController.dismiss();
-        }
-        requestStreamDisconnect();
-    }
-
-    @Override
-    public CustomResolutionRepository
-            getCustomResolutionRepository() {
-        return customResolutionRepository;
-    }
-
-    @Override
-    public void applyStreamAudioSettingsUpdate(
-            StreamAudioSettingsUpdate update) {
-        streamSettingsSession.applyAudio(update);
     }
 
     private void applyStreamAudioSettingsEffects(
@@ -2008,11 +1960,6 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
     }
 
-    @Override
-    public StreamUiSettings getStreamUiSettings() {
-        return streamSettingsSession.getUiSettings();
-    }
-
     private boolean isGameModeIntegrationDisabled() {
         return streamUiSettingsState != null &&
                 streamUiSettingsState.get()
@@ -2023,12 +1970,6 @@ public class Game extends Activity implements OnGenericMotionListener,
         return streamVideoSettings != null &&
                 streamVideoSettings
                         .isHdrHighBrightnessEnabled();
-    }
-
-    @Override
-    public void applyStreamUiSettingsUpdate(
-            StreamUiSettingsUpdate update) {
-        streamSettingsSession.applyUi(update);
     }
 
     private void applyStreamUiSettingsEffects(
@@ -2101,12 +2042,14 @@ public class Game extends Activity implements OnGenericMotionListener,
                 controllerSettingsState.get());
     }
 
+    @Override
     public void showHUD(){
         if (performanceOverlayController != null) {
             performanceOverlayController.toggleVisibility();
         }
     }
 
+    @Override
     public void switchHUD(){
         if (performanceOverlayController != null) {
             performanceOverlayController.toggleExpandedMode();
@@ -2122,12 +2065,8 @@ public class Game extends Activity implements OnGenericMotionListener,
                 .setDirectTouchSensitivityEnabled(enabled);
     }
 
-    //更新虚拟布局视图
-    public void updateVirtualView(){
-        streamSettingsSession.reloadVirtualControls();
-    }
-
     //切换虚拟手柄模式
+    @Override
     public void setVirtualGamepadEditMode(VirtualControlEditMode mode){
         if (virtualControlsController == null ||
                 !virtualControlsController.setVirtualGamepadMode(mode)) {
@@ -2138,6 +2077,7 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
     }
     //返回虚拟手柄当前的状态
+    @Override
     public VirtualControlEditMode getVirtualGamepadEditMode(){
         return virtualControlsController == null
                 ? VirtualControlEditMode.NONE
@@ -2145,6 +2085,7 @@ public class Game extends Activity implements OnGenericMotionListener,
     }
 
     //切换虚拟手柄模式
+    @Override
     public void setVirtualKeysEditMode(VirtualControlEditMode mode){
         if (virtualControlsController == null ||
                 !virtualControlsController.setVirtualKeysMode(mode)) {
@@ -2155,6 +2096,7 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
     }
     //返回虚拟手柄当前的状态
+    @Override
     public VirtualControlEditMode getVirtualKeysEditMode(){
         return virtualControlsController == null
                 ? VirtualControlEditMode.NONE
@@ -2165,6 +2107,7 @@ public class Game extends Activity implements OnGenericMotionListener,
     public boolean isPortrait;
 
     //横竖屏切换
+    @Override
     public void switchLandscapePortraitScreen(){
         isPortrait = getResources().getConfiguration().orientation ==
                 Configuration.ORIENTATION_LANDSCAPE;
@@ -2172,6 +2115,7 @@ public class Game extends Activity implements OnGenericMotionListener,
     }
 
     //画面平移缩放
+    @Override
     public void screenMoveZoom(){
         if(!streamView.isEnableZoomAndPan()){
             streamInputController.setTouchInputSuspended(true);
@@ -2182,6 +2126,7 @@ public class Game extends Activity implements OnGenericMotionListener,
         streamView.setEnableZoomAndPan(false);
     }
 
+    @Override
     public boolean getScreenMoveZoom(){
         return streamView.isEnableZoomAndPan();
     }
@@ -2198,9 +2143,8 @@ public class Game extends Activity implements OnGenericMotionListener,
     }
 
     @Override
-    public boolean isGamepadMouseEmulationAvailable() {
-        return gameMenuController != null &&
-                gameMenuController.isMouseEmulationAvailable();
+    public GameMenuHost getGameMenuHost() {
+        return gameMenuHost;
     }
 
     @Override
@@ -2213,42 +2157,6 @@ public class Game extends Activity implements OnGenericMotionListener,
     public boolean isVirtualKeysVisible() {
         return virtualControlsController != null &&
                 virtualControlsController.isVirtualKeysVisible();
-    }
-
-    @Override
-    public GameMenuCardLayoutLoadResult
-            loadGameMenuCardLayout() {
-        return gameMenuCardLayoutRepository.load();
-    }
-
-    @Override
-    public void saveGameMenuCardLayout(
-            GameMenuCardLayout layout) {
-        gameMenuCardLayoutRepository.save(layout);
-    }
-
-    @Override
-    public List<GameMenuShortcut> loadGameMenuShortcuts() {
-        return gameMenuShortcutRepository.load();
-    }
-
-    @Override
-    public boolean saveGameMenuShortcut(
-            GameMenuShortcut shortcut) {
-        return gameMenuShortcutRepository.save(shortcut);
-    }
-
-    @Override
-    public boolean deleteGameMenuShortcut(
-            String shortcutId) {
-        return gameMenuShortcutRepository.delete(shortcutId);
-    }
-
-    @Override
-    public void toggleGamepadMouseEmulation() {
-        if (gameMenuController != null) {
-            gameMenuController.toggleMouseEmulation();
-        }
     }
 
     @Override
@@ -2269,38 +2177,6 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
         else {
             showSoftKeyboardWhenFocused = true;
-        }
-    }
-
-    @Override
-    public VirtualControlSettings getVirtualControlSettings() {
-        return streamSettingsSession.getVirtualControlSettings();
-    }
-
-    @Override
-    public boolean isOnscreenControllerRumbleEnabled() {
-        return controllerSettingsState
-                .get()
-                .isOnscreenRumbleEnabled();
-    }
-
-    @Override
-    public void applyVirtualControlSettingsUpdate(
-            VirtualControlSettingsUpdate<?> update) {
-        streamSettingsSession.applyVirtualControls(update);
-    }
-
-    @Override
-    public void setOnscreenControllerRumbleEnabled(
-            boolean enabled) {
-        streamSettingsSession.setOnscreenRumbleEnabled(enabled);
-    }
-
-    @Override
-    public void onGameMenuDismissed(GameMenuFragment menu) {
-        cancelPendingStreamBackExit();
-        if (gameMenuController != null) {
-            gameMenuController.onDismissed(menu);
         }
     }
 
@@ -2350,6 +2226,7 @@ public class Game extends Activity implements OnGenericMotionListener,
         return isSessionConnected();
     }
 
+    @Override
     public boolean isMicUplinkActive() {
         return microphoneController != null &&
                 microphoneController.isActive();
@@ -2369,7 +2246,7 @@ public class Game extends Activity implements OnGenericMotionListener,
                 (ViewGroup) getWindow().getDecorView(),
                 streamUiSettingsState,
                 (x, y, nearestLeft) ->
-                        applyStreamUiSettingsUpdate(
+                        streamSettingsSession.applyUi(
                                 StreamUiSettingsUpdate
                                         .floatingPosition(
                                                 x,
@@ -2392,6 +2269,7 @@ public class Game extends Activity implements OnGenericMotionListener,
                 });
     }
 
+    @Override
     public void sendClipboardText(){
         if(conn==null){
             return;
@@ -2404,6 +2282,7 @@ public class Game extends Activity implements OnGenericMotionListener,
         }
     }
 
+    @Override
     public void pullRemoteClipboardFiles() {
         if (clipboardFileTransferController != null) {
             clipboardFileTransferController.pullRemoteFiles();

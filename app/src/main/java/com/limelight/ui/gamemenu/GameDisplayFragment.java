@@ -35,6 +35,7 @@ public final class GameDisplayFragment
     private static final String ARG_SHOW_LOCK = "show_lock";
 
     private boolean showLock;
+    private GameMenuHostProvider hostProvider;
     private GameDisplayHost host;
     private StreamVideoSettings videoSettings;
     private StreamVideoSettings draft;
@@ -68,16 +69,23 @@ public final class GameDisplayFragment
     @Override
     public void onAttach(Activity activity) {
         super.onAttach(activity);
-        if (!(activity instanceof GameDisplayHost)) {
-            throw new IllegalStateException(
-                    "GameDisplayFragment host must implement GameDisplayHost");
+        if (activity instanceof GameMenuHostProvider) {
+            hostProvider = (GameMenuHostProvider) activity;
         }
-        host = (GameDisplayHost) activity;
+        else if (activity instanceof GameDisplayHost) {
+            host = (GameDisplayHost) activity;
+        }
+        else {
+            throw new IllegalStateException(
+                    "GameDisplayFragment host must provide " +
+                            "GameMenuHost or implement GameDisplayHost");
+        }
     }
 
     @Override
     public void onDetach() {
         host = null;
+        hostProvider = null;
         videoSettings = null;
         draft = null;
         audioSettings = null;
@@ -92,6 +100,9 @@ public final class GameDisplayFragment
     @Override
     public void bindView(View view) {
         super.bindView(view);
+        if (hostProvider != null) {
+            host = hostProvider.getGameMenuHost();
+        }
         requireHost();
         Bundle arguments = getArguments();
         showLock = arguments == null ||
