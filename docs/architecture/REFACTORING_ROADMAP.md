@@ -1293,6 +1293,10 @@ agree across all participants.
   rationale. A release gate rejects new unchecked suppressions outside those
   reviewed bridges and prevents the obsolete `MissingInflatedId` suppression
   from returning.
+- Normalized the inherited Git executable-bit pollution across Android source,
+  resources, manifests, and assets. All 184 non-script files are regular
+  `100644` entries; `gradlew` is the sole intentional executable tracked by
+  the repository, with file contents unchanged.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;
