@@ -12,6 +12,8 @@ import com.limelight.computers.ComputerManagerService;
 import com.limelight.computers.ComputerDetailsSnapshot;
 import com.limelight.computers.HostPollingClientLifecycle;
 import com.limelight.computers.LegacyHostRuntimeAdapter;
+import com.limelight.computers.apps.HiddenAppRepository;
+import com.limelight.computers.apps.android.SharedPreferencesHiddenAppRepository;
 import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
 import com.limelight.computers.model.HostId;
 import com.limelight.computers.model.HostRuntimeSnapshot;
@@ -60,7 +62,6 @@ import android.app.Service;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
@@ -117,6 +118,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             autoReconnectController;
     private AndroidDecoderCrashNotificationController
             decoderCrashNotificationController;
+    private HiddenAppRepository hiddenAppRepository;
     private SpinnerDialog hostOperationProgress;
     private final HostPollingClientLifecycle hostPollingLifecycle =
             new HostPollingClientLifecycle();
@@ -289,6 +291,8 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                 new AndroidDecoderCrashNotificationController(
                         this,
                         new AndroidDecoderCrashStore(this));
+        hiddenAppRepository =
+                new SharedPreferencesHiddenAppRepository(this);
 
         hostPairingController = HostPairingController.create(
                 this::runOnUiThread);
@@ -1351,11 +1355,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
 
         new DiskAssetLoader(this).deleteAssetsForComputer(details.uuid);
 
-        // Delete hidden games preference value
-        getSharedPreferences(AppView.HIDDEN_APPS_PREF_FILENAME, MODE_PRIVATE)
-                .edit()
-                .remove(details.uuid)
-                .apply();
+        hiddenAppRepository.delete(hostId);
 
         for (int i = 0; i < pcGridAdapter.getCount(); i++) {
             ComputerObject computer = (ComputerObject) pcGridAdapter.getItem(i);

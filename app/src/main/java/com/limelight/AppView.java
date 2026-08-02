@@ -10,6 +10,9 @@ import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.computers.HostPollingClientLifecycle;
 import com.limelight.computers.LegacyHostRuntimeAdapter;
+import com.limelight.computers.apps.HiddenAppRepository;
+import com.limelight.computers.apps.HiddenAppSelection;
+import com.limelight.computers.apps.android.SharedPreferencesHiddenAppRepository;
 import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
 import com.limelight.computers.model.HostId;
 import com.limelight.computers.model.HostRuntimeSnapshot;
@@ -59,7 +62,6 @@ import android.app.Service;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
@@ -81,6 +83,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
         GameDisplayHost {
     private AppGridAdapter appGridAdapter;
     private String uuidString;
+    private HostId hostId;
     private ShortcutHelper shortcutHelper;
 
     private ComputerDetails computer;
@@ -102,8 +105,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
             autoReconnectController;
     private AndroidDecoderCrashNotificationController
             decoderCrashNotificationController;
-
-    public final static String HIDDEN_APPS_PREF_FILENAME = "HiddenApps";
+    private HiddenAppRepository hiddenAppRepository;
 
     public final static String NAME_EXTRA = "Name";
     public final static String UUID_EXTRA = "UUID";
@@ -595,11 +597,11 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
 
         showHiddenApps = getIntent().getBooleanExtra(SHOW_HIDDEN_APPS_EXTRA, false);
         uuidString = getIntent().getStringExtra(UUID_EXTRA);
-
-        SharedPreferences hiddenAppsPrefs = getSharedPreferences(HIDDEN_APPS_PREF_FILENAME, MODE_PRIVATE);
-        for (String hiddenAppIdStr : hiddenAppsPrefs.getStringSet(uuidString, new HashSet<String>())) {
-            hiddenAppIds.add(Integer.parseInt(hiddenAppIdStr));
-        }
+        hostId = HostId.of(uuidString);
+        hiddenAppRepository =
+                new SharedPreferencesHiddenAppRepository(this);
+        hiddenAppIds.addAll(
+                hiddenAppRepository.load(hostId).getAppIds());
 
         String computerName = getIntent().getStringExtra(NAME_EXTRA);
 
@@ -696,16 +698,9 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
     }
 
     private void updateHiddenApps(boolean hideImmediately) {
-        HashSet<String> hiddenAppIdStringSet = new HashSet<>();
-
-        for (Integer hiddenAppId : hiddenAppIds) {
-            hiddenAppIdStringSet.add(hiddenAppId.toString());
-        }
-
-        getSharedPreferences(HIDDEN_APPS_PREF_FILENAME, MODE_PRIVATE)
-                .edit()
-                .putStringSet(uuidString, hiddenAppIdStringSet)
-                .apply();
+        hiddenAppRepository.save(
+                hostId,
+                HiddenAppSelection.of(hiddenAppIds));
 
         appGridAdapter.updateHiddenApps(hiddenAppIds, hideImmediately);
     }

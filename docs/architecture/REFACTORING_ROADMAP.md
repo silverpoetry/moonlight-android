@@ -1266,6 +1266,11 @@ agree across all participants.
   its persistence port distinguishes uninitialized state from a saved
   baseline, and the Android adapter alone owns the historical SharedPreferences
   keys and corruption handling.
+- Replaced Activity-owned hidden-app preference parsing with a host-scoped
+  repository and immutable bounded selection in `core:hosts`. The Android
+  adapter preserves the complete signed protocol app-ID range, isolates
+  malformed entries, migrates case-variant host keys with commit-before-cleanup
+  semantics, and owns host-removal cleanup.
 - Hardened Sunshine's Windows Release build and test environment: dependency
   audit is clean, local builds do not attempt Codecov uploads, expected
   dependency diagnostics and shader junctions are deterministic, coverage

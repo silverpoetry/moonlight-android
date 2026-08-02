@@ -846,6 +846,19 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void hiddenAppSelectionIsPlatformIndependent() {
+        noClasses()
+                .that()
+                .resideInAPackage("com.limelight.computers.apps")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..", "androidx..")
+                .because(
+                        "host-scoped hidden app selection crosses a repository port")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamHdrRequestPolicyIsPlatformIndependent() {
         noClasses()
                 .that()
