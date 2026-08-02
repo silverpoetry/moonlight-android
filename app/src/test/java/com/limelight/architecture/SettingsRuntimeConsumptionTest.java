@@ -89,12 +89,20 @@ public final class SettingsRuntimeConsumptionTest {
     }
 
     private static boolean startsWithQueryVerb(String name) {
-        return name.startsWith("get") ||
-                name.startsWith("is") ||
-                name.startsWith("are") ||
-                name.startsWith("has") ||
-                name.startsWith("should") ||
-                name.startsWith("uses");
+        return hasBeanStylePrefix(name, "get") ||
+                hasBeanStylePrefix(name, "is") ||
+                hasBeanStylePrefix(name, "are") ||
+                hasBeanStylePrefix(name, "has") ||
+                hasBeanStylePrefix(name, "should") ||
+                hasBeanStylePrefix(name, "uses");
+    }
+
+    private static boolean hasBeanStylePrefix(
+            String name,
+            String prefix) {
+        return name.length() > prefix.length() &&
+                name.startsWith(prefix) &&
+                Character.isUpperCase(name.charAt(prefix.length()));
     }
 
     private static boolean isConsumedOutsideSettings(JavaMethod method) {

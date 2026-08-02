@@ -126,6 +126,28 @@ public final class InputSettingsUpdateTest {
         assertEquals(1, repository.applyCount);
     }
 
+    @Test
+    public void touchpadLongPressUpdateIsTypedAndClamped() {
+        FakeRepository repository = new FakeRepository();
+        InputSettings original = representativeSettings();
+        InputSettingsUpdate update =
+                InputSettingsUpdate.touchpadLongPressDurationMs(
+                        Integer.MIN_VALUE);
+
+        InputSettings updated = update.applyTo(original);
+        update.persist(repository);
+
+        assertEquals(
+                InputSettingKeys.MIN_TOUCHPAD_LONG_PRESS_DURATION_MS,
+                updated.getTouchpadLongPressDurationMs());
+        assertEquals(
+                InputSettingKeys.MIN_TOUCHPAD_LONG_PRESS_DURATION_MS,
+                repository.values.get(
+                        InputSettingKeys.TOUCHPAD_LONG_PRESS_DURATION
+                                .getName()));
+        assertEquals(1, repository.applyCount);
+    }
+
     private static InputSettings representativeSettings() {
         return InputSettings.builder()
                 .setTouchModePreferenceValue(5)
@@ -133,6 +155,7 @@ public final class InputSettingsUpdateTest {
                 .setBarometerForcePressEnabled(true)
                 .setBarometerForcePressThresholdHpa(0.25f)
                 .setBarometerForcePressMinimumDurationMs(100)
+                .setTouchpadLongPressDurationMs(700)
                 .setSoftKeyboardGestureFingers(4)
                 .setTouchpadPointerSensitivity(130, 140)
                 .setVirtualTouchpadSensitivity(150, 160)

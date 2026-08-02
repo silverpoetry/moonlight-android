@@ -211,6 +211,17 @@
             seekbar:min="0"
             seekbar:step="10"
             seekbar:keyStep="10" />
+        <SeekBarPreference
+            android:key="input.touchpad.long_press_duration_ms"
+            android:title="@string/title_seekbar_touchpad_long_press_duration"
+            android:summary="@string/summary_seekbar_touchpad_long_press_duration"
+            android:dialogMessage="@string/summary_seekbar_touchpad_long_press_duration"
+            android:defaultValue="500"
+            android:max="1500"
+            android:text="@string/suffix_touchpad_long_press_duration"
+            seekbar:min="300"
+            seekbar:step="50"
+            seekbar:keyStep="50" />
         <CheckBoxPreference
             android:key="input.transport.disable_adaptive_throttling"
             android:title="@string/title_checkbox_disable_adaptive_input_throttling"

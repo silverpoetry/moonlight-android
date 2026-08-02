@@ -179,6 +179,11 @@ public final class StreamGameMenuHostTest {
         }
 
         @Override
+        public boolean isVideoHidden() {
+            return false;
+        }
+
+        @Override
         public boolean isVirtualControllerVisible() {
             return false;
         }
@@ -268,6 +273,10 @@ public final class StreamGameMenuHostTest {
 
         @Override
         public void screenMoveZoom() {
+        }
+
+        @Override
+        public void toggleVideoVisibility() {
         }
 
         @Override

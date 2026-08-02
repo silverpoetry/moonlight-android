@@ -85,6 +85,16 @@ public final class InputSettingsUpdate {
     }
 
     public static InputSettingsUpdate
+            touchpadLongPressDurationMs(int durationMs) {
+        return single(
+                InputSettingKeys.TOUCHPAD_LONG_PRESS_DURATION,
+                durationMs,
+                (settings, value) -> settings.toBuilder()
+                        .setTouchpadLongPressDurationMs(value)
+                        .build());
+    }
+
+    public static InputSettingsUpdate
             directTouchRecenterEnabled(boolean enabled) {
         return single(
                 InputSettingKeys.DIRECT_TOUCH_RECENTER,

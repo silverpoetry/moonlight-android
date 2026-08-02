@@ -3,14 +3,17 @@ package com.moonlight.buildlogic
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.nio.file.Path
 import java.util.regex.Pattern
 
 /** Enforces the debug-gated logging boundary for production application code. */
@@ -42,9 +45,13 @@ abstract class VerifyProductionLoggingPolicy extends DefaultTask {
     @PathSensitive(PathSensitivity.RELATIVE)
     abstract ConfigurableFileCollection getSourceFiles()
 
+    @Internal
+    abstract DirectoryProperty getRepositoryDirectory()
+
     @TaskAction
     void verifyPolicy() {
         List<String> violations = []
+        Path repositoryRoot = repositoryDirectory.get().asFile.toPath()
         sourceFiles.files
                 .findAll { it.isFile() }
                 .sort { first, second -> first.path <=> second.path }
@@ -68,7 +75,8 @@ abstract class VerifyProductionLoggingPolicy extends DefaultTask {
                                                 .matcher(line).find())
                         if (forbidden) {
                             violations.add(
-                                    project.relativePath(file) + ':' +
+                                    VerifyProductionLoggingPolicy.relativePath(
+                                            repositoryRoot, file) + ':' +
                                             (index + 1))
                         }
                     }
@@ -80,6 +88,12 @@ abstract class VerifyProductionLoggingPolicy extends DefaultTask {
                             'Java or native boundary:\n' +
                             violations.join('\n'))
         }
+    }
+
+    private static String relativePath(Path repositoryRoot, File file) {
+        return repositoryRoot.relativize(file.toPath())
+                .toString()
+                .replace('\\', '/')
     }
 
     private static boolean isAndroidLogBoundary(String path) {

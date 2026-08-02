@@ -43,6 +43,8 @@ public final class StreamGameMenuHost implements GameMenuHost {
 
         boolean getScreenMoveZoom();
 
+        boolean isVideoHidden();
+
         boolean isVirtualControllerVisible();
 
         boolean isVirtualKeysVisible();
@@ -85,6 +87,8 @@ public final class StreamGameMenuHost implements GameMenuHost {
 
         void screenMoveZoom();
 
+        void toggleVideoVisibility();
+
         void switchMic();
 
         void switchMouseLocalCursor();
@@ -111,6 +115,7 @@ public final class StreamGameMenuHost implements GameMenuHost {
                 menuSession.isMouseEmulationAvailable(),
                 actions.isVirtualControllerVisible(),
                 actions.isVirtualKeysVisible(),
+                actions.isVideoHidden(),
                 actions.getDeviceBatteryPercent(),
                 cardLayoutRepository.load(),
                 shortcutRepository.load(),
@@ -250,6 +255,11 @@ public final class StreamGameMenuHost implements GameMenuHost {
     @Override
     public void screenMoveZoom() {
         actions.screenMoveZoom();
+    }
+
+    @Override
+    public void toggleVideoVisibility() {
+        actions.toggleVideoVisibility();
     }
 
     @Override

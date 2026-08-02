@@ -46,6 +46,7 @@ public final class GameMenuStateTest {
                 true,
                 false,
                 false,
+                false,
                 batteryPercent,
                 GameMenuCardLayoutLoadResult.absent(),
                 shortcuts,

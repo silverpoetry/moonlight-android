@@ -42,6 +42,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     private final TouchpadDragPrimer dragPrimer;
     private final TouchpadButtonController buttonController;
     private final TouchpadHapticFeedback hapticFeedback;
+    private final InputSettingsState settingsState;
     private boolean nativeTouchpadPressHandlingEnabled;
 
     private final Runnable primaryClickHoldRunnable = new Runnable() {
@@ -103,7 +104,6 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     private static final int TAP_TIME_THRESHOLD = 250;
     // Keep the legacy click-release window independent from physical long-press detection.
     private static final int PRIMARY_CLICK_RELEASE_MS = 200;
-    static final int PHYSICAL_LONG_PRESS_MS = 300;
     private static final int DOUBLE_TAP_DRAG_HOLD_MS = 300;
 
     private static final int SCROLL_SPEED_FACTOR = 5;
@@ -135,6 +135,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
     {
         this.actionIndex = actionIndex;
         this.handler = new Handler(Looper.getMainLooper());
+        this.settingsState = Objects.requireNonNull(settingsState);
         this.gestureState = gestureState;
         this.motionSender = Objects.requireNonNull(motionSender);
         this.dragPrimer = new TouchpadDragPrimer(handler, motionSender, this);
@@ -225,6 +226,10 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         handler.removeCallbacks(secondaryButtonHoldRunnable);
     }
 
+    private int getLongPressDurationMs() {
+        return settingsState.get().getTouchpadLongPressDurationMs();
+    }
+
     private void cancelDoubleTapDragPrimerMove() {
         dragPrimer.cancel();
     }
@@ -251,7 +256,9 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
         primaryPressActive = true;
         handler.postDelayed(primaryClickHoldRunnable, PRIMARY_CLICK_RELEASE_MS);
         if (!nativeTouchpadPressHandlingEnabled) {
-            handler.postDelayed(primaryLongPressRunnable, PHYSICAL_LONG_PRESS_MS);
+            handler.postDelayed(
+                    primaryLongPressRunnable,
+                    getLongPressDurationMs());
         }
     }
 
@@ -395,7 +402,7 @@ public class RelativeTouchContext implements TouchContext, TouchpadDragPrimer.Li
                     SystemClock.uptimeMillis() - eventTime);
             handler.postDelayed(
                     secondaryButtonHoldRunnable,
-                    Math.max(0, PHYSICAL_LONG_PRESS_MS - elapsedMs));
+                    Math.max(0, getLongPressDurationMs() - elapsedMs));
         }
     }
 

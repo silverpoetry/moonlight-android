@@ -123,6 +123,7 @@ public final class SettingsScreenKeyCatalog {
                 InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD,
                 InputSettingKeys
                         .BAROMETER_FORCE_PRESS_MINIMUM_DURATION,
+                InputSettingKeys.TOUCHPAD_LONG_PRESS_DURATION,
                 InputSettingKeys.SOFT_KEYBOARD_GESTURE_FINGERS,
                 InputSettingKeys.TOUCHPAD_POINTER_SENSITIVITY_X,
                 InputSettingKeys.TOUCHPAD_POINTER_SENSITIVITY_Y,

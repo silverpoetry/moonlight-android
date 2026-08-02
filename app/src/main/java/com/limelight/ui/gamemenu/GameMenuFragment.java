@@ -97,7 +97,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
             menuState = currentHost.getState();
             btn_mic.setBackgroundResource(
                     menuState.isMicrophoneActive() ?
-                            R.drawable.ic_game_menu_btn_green_selector :
+                            R.drawable.ic_game_menu_btn_accent_selector :
                             R.drawable.ic_game_menu_btn_selector);
         }
     }
@@ -168,6 +168,8 @@ public class GameMenuFragment extends BaseGameMenuDialog
     private Button btn_mic;
 
     private Button btn_audio_mute;
+
+    private Button btn_video_visibility;
 
     private LinearLayout actionGrid;
     private final Map<Integer, Button> actionButtons = new HashMap<>();
@@ -361,6 +363,8 @@ public class GameMenuFragment extends BaseGameMenuDialog
         btn_screen_move = actionButtons.get(R.id.btn_screen_move);
         btn_mic = actionButtons.get(R.id.btn_mic);
         btn_audio_mute = actionButtons.get(R.id.btn_audio_mute);
+        btn_video_visibility =
+                actionButtons.get(R.id.btn_video_visibility);
         if (btn_performance != null) {
             btn_performance.setOnLongClickListener(view -> {
                 if (host != null) {
@@ -393,13 +397,16 @@ public class GameMenuFragment extends BaseGameMenuDialog
         setActionButtonActive(
                 btn_audio_mute,
                 menuState.getAudioSettings().isMuted());
+        setActionButtonActive(
+                btn_video_visibility,
+                menuState.isVideoHidden());
     }
 
     private void setActionButtonActive(Button button, boolean active) {
         if (button != null) {
             button.setBackgroundResource(
                     active ?
-                            R.drawable.ic_game_menu_btn_green_selector :
+                            R.drawable.ic_game_menu_btn_accent_selector :
                             R.drawable.ic_game_menu_btn_selector);
         }
     }
@@ -615,6 +622,15 @@ public class GameMenuFragment extends BaseGameMenuDialog
             setActionButtonActive(
                     btn_audio_mute,
                     menuState.getAudioSettings().isMuted());
+            return;
+        }
+
+        if (v.getId() == R.id.btn_video_visibility) {
+            host.toggleVideoVisibility();
+            menuState = host.getState();
+            setActionButtonActive(
+                    btn_video_visibility,
+                    menuState.isVideoHidden());
             return;
         }
 

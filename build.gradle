@@ -9,7 +9,7 @@ plugins {
 
 allprojects {
     group = 'com.limelight'
-    version = '12.1-260725'
+    version = '12.1-260803'
 }
 
 project(':app') {
@@ -17,7 +17,7 @@ project(':app') {
         projectType = Component.Type.APPLICATION
         componentGroup = 'com.limelight'
         componentName = 'moonlight-android'
-        componentVersion = '12.1-260725'
+        componentVersion = '12.1-260803'
         includeConfigs.set([
                 'nonRootReleaseRuntimeClasspath',
                 'rootReleaseRuntimeClasspath'

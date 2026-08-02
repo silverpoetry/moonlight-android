@@ -190,6 +190,9 @@
     <string name="title_seekbar_barometer_force_press_min_duration">Minimum touch duration</string>
     <string name="summary_seekbar_barometer_force_press_min_duration">Require the current contact set to remain down for this long before a force press can trigger, filtering pressure spikes caused by initial contact.</string>
     <string name="suffix_barometer_force_press_min_duration">ms</string>
+    <string name="title_seekbar_touchpad_long_press_duration">Touchpad long-press duration</string>
+    <string name="summary_seekbar_touchpad_long_press_duration">How long one or two fingers must remain down before a held click begins when barometer force press is disabled.</string>
+    <string name="suffix_touchpad_long_press_duration">ms</string>
     <string name="title_checkbox_gamepad_motion_sensors">Allow use of gamepad motion sensors</string>
     <string name="summary_checkbox_gamepad_motion_sensors">Enables supported hosts to request motion sensor data when emulating a gamepad with motion sensors. Disabling may slightly reduce power and network usage if motion sensors are not being used in game.</string>
     <string name="title_checkbox_gamepad_motion_fallback">Emulate gamepad motion sensor support</string>
@@ -273,6 +276,8 @@
     <string name="game_menu_action_display">显示器</string>
     <string name="game_menu_action_microphone">麦克风</string>
     <string name="game_menu_action_audio_mute">音频静音</string>
+    <string name="game_menu_action_hide_video">关闭画面</string>
+    <string name="game_menu_action_hide_video_description">隐藏本地串流画面，保持连接、音频和触控输入</string>
     <string name="game_menu_action_hdr">HDR开关</string>
     <string name="game_menu_action_gamepad_mouse">手柄键鼠</string>
     <string name="game_menu_gamepad_buttons">手柄按键</string>

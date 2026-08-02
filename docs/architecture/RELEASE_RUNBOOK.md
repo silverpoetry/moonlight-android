@@ -102,12 +102,12 @@ selected disposable device:
 
 ```powershell
 $adb = Join-Path $env:ANDROID_HOME 'platform-tools\adb.exe'
-& $adb -s $env:ANDROID_SERIAL uninstall com.limelight.unofficialA
+& $adb -s $env:ANDROID_SERIAL uninstall com.moonlight.android
 & $adb -s $env:ANDROID_SERIAL install $candidateApk
 & $adb -s $env:ANDROID_SERIAL logcat -c
 & $adb -s $env:ANDROID_SERIAL shell am start -W `
-    -n com.limelight.unofficialA/com.limelight.PcView
-& $adb -s $env:ANDROID_SERIAL shell pidof com.limelight.unofficialA
+    -n com.moonlight.android/com.limelight.PcView
+& $adb -s $env:ANDROID_SERIAL shell pidof com.moonlight.android
 & $adb -s $env:ANDROID_SERIAL logcat -d -v brief AndroidRuntime:E '*:S'
 ```
 
@@ -125,9 +125,9 @@ real settings and host state, then record `dataDir` and `firstInstallTime`:
 $previousApk = Resolve-Path 'path\to\reviewed-previous.apk'
 & $adb -s $env:ANDROID_SERIAL install $previousApk
 & $adb -s $env:ANDROID_SERIAL shell am start -W `
-    -n com.limelight.unofficialA/com.limelight.PcView
+    -n com.moonlight.android/com.limelight.PcView
 & $adb -s $env:ANDROID_SERIAL shell dumpsys package `
-    com.limelight.unofficialA
+    com.moonlight.android
 & $adb -s $env:ANDROID_SERIAL install -r $candidateApk
 ```
 

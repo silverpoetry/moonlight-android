@@ -1,6 +1,7 @@
 package com.limelight.settings;
 
 import com.limelight.settings.audio.StreamAudioSettingKeys;
+import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
@@ -359,6 +360,40 @@ public class SettingsMigrationRunnerTest {
                                 .getName()));
         assertFalse(repository.values.containsKey(
                 "checkbox_barometer_force_press"));
+    }
+
+    @Test
+    public void versionSixClearsFormerForkBrandFromHomeTitle() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put(SettingsSchema.VERSION.getName(), 5);
+        repository.values.put(
+                AppPresentationSettingKeys.HOST_LIST_LABEL.getName(),
+                "月光·阿西西");
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertFalse(repository.values.containsKey(
+                AppPresentationSettingKeys.HOST_LIST_LABEL.getName()));
+        assertEquals(
+                SettingsSchema.CURRENT_VERSION,
+                repository.values.get(SettingsSchema.VERSION.getName()));
+    }
+
+    @Test
+    public void versionSixPreservesUserDefinedHomeTitle() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put(SettingsSchema.VERSION.getName(), 5);
+        repository.values.put(
+                AppPresentationSettingKeys.HOST_LIST_LABEL.getName(),
+                "我的主机");
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertEquals(
+                "我的主机",
+                repository.values.get(
+                        AppPresentationSettingKeys.HOST_LIST_LABEL
+                                .getName()));
     }
 
     private static final class FakeRepository

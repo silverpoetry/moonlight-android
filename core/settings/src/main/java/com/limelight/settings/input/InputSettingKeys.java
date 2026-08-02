@@ -24,6 +24,12 @@ public final class InputSettingKeys {
             100;
     public static final int MAX_FORCE_PRESS_MINIMUM_DURATION_MS =
             500;
+    public static final int DEFAULT_TOUCHPAD_LONG_PRESS_DURATION_MS =
+            500;
+    public static final int MIN_TOUCHPAD_LONG_PRESS_DURATION_MS =
+            300;
+    public static final int MAX_TOUCHPAD_LONG_PRESS_DURATION_MS =
+            1_500;
 
     public static final SettingKey<String> TOUCH_MODE =
             SettingKey.stringSetKey(
@@ -89,6 +95,13 @@ public final class InputSettingKeys {
                     MAX_FORCE_PRESS_MINIMUM_DURATION_MS)
                     .renamedFrom(
                             "seekbar_barometer_force_press_min_duration");
+    public static final SettingKey<Integer>
+            TOUCHPAD_LONG_PRESS_DURATION =
+            SettingKey.integerKey(
+                    "input.touchpad.long_press_duration_ms",
+                    DEFAULT_TOUCHPAD_LONG_PRESS_DURATION_MS,
+                    MIN_TOUCHPAD_LONG_PRESS_DURATION_MS,
+                    MAX_TOUCHPAD_LONG_PRESS_DURATION_MS);
     public static final SettingKey<Integer>
             SOFT_KEYBOARD_GESTURE_FINGERS =
             SettingKey.integerSetKey(

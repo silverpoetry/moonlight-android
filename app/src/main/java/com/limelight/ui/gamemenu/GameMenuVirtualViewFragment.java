@@ -348,11 +348,11 @@ public class GameMenuVirtualViewFragment
     private void updateVibrationButtons() {
         keyboardVibrationButton.setBackgroundResource(
                 settings.isKeyboardHapticsEnabled() ?
-                        R.drawable.ic_game_menu_btn_green_selector :
+                        R.drawable.ic_game_menu_btn_accent_selector :
                         R.drawable.ic_game_menu_btn_selector);
         gamepadVibrationButton.setBackgroundResource(
                 onscreenControllerRumbleEnabled ?
-                        R.drawable.ic_game_menu_btn_green_selector :
+                        R.drawable.ic_game_menu_btn_accent_selector :
                         R.drawable.ic_game_menu_btn_selector);
     }
 

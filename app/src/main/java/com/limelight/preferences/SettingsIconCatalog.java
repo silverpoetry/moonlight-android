@@ -180,6 +180,7 @@ final class SettingsIconCatalog {
             return R.drawable.ic_touch_center;
         }
         if (key.contains("force_press") ||
+                key.contains("long_press") ||
                 key.contains("opacity_percent")) {
             return R.drawable.ic_touch_sensitivity;
         }

@@ -12,6 +12,7 @@ public final class InputSettings {
     private final boolean barometerForcePressEnabled;
     private final float barometerForcePressThresholdHpa;
     private final int barometerForcePressMinimumDurationMs;
+    private final int touchpadLongPressDurationMs;
     private final int softKeyboardGestureFingers;
     private final int touchpadPointerSensitivityX;
     private final int touchpadPointerSensitivityY;
@@ -52,6 +53,10 @@ public final class InputSettings {
                 0,
                 InputSettingKeys
                         .MAX_FORCE_PRESS_MINIMUM_DURATION_MS);
+        touchpadLongPressDurationMs = clamp(
+                builder.touchpadLongPressDurationMs,
+                InputSettingKeys.MIN_TOUCHPAD_LONG_PRESS_DURATION_MS,
+                InputSettingKeys.MAX_TOUCHPAD_LONG_PRESS_DURATION_MS);
         softKeyboardGestureFingers = normalizeGestureFingerCount(
                 builder.softKeyboardGestureFingers);
         touchpadPointerSensitivityX = clampSensitivity(
@@ -134,6 +139,10 @@ public final class InputSettings {
 
     public int getBarometerForcePressMinimumDurationMs() {
         return barometerForcePressMinimumDurationMs;
+    }
+
+    public int getTouchpadLongPressDurationMs() {
+        return touchpadLongPressDurationMs;
     }
 
     public int getSoftKeyboardGestureFingers() {
@@ -237,6 +246,9 @@ public final class InputSettings {
         private int barometerForcePressMinimumDurationMs =
                 InputSettingKeys
                         .DEFAULT_FORCE_PRESS_MINIMUM_DURATION_MS;
+        private int touchpadLongPressDurationMs =
+                InputSettingKeys
+                        .DEFAULT_TOUCHPAD_LONG_PRESS_DURATION_MS;
         private int softKeyboardGestureFingers;
         private int touchpadPointerSensitivityX =
                 InputSettingKeys.DEFAULT_SENSITIVITY_PERCENT;
@@ -281,6 +293,8 @@ public final class InputSettings {
                     settings.barometerForcePressThresholdHpa;
             barometerForcePressMinimumDurationMs =
                     settings.barometerForcePressMinimumDurationMs;
+            touchpadLongPressDurationMs =
+                    settings.touchpadLongPressDurationMs;
             softKeyboardGestureFingers =
                     settings.softKeyboardGestureFingers;
             touchpadPointerSensitivityX =
@@ -354,6 +368,12 @@ public final class InputSettings {
         public Builder setBarometerForcePressMinimumDurationMs(
                 int durationMs) {
             barometerForcePressMinimumDurationMs = durationMs;
+            return this;
+        }
+
+        public Builder setTouchpadLongPressDurationMs(
+                int durationMs) {
+            touchpadLongPressDurationMs = durationMs;
             return this;
         }
 

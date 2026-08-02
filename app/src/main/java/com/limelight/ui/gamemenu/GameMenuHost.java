@@ -57,6 +57,8 @@ public interface GameMenuHost extends GameDisplayHost {
 
     void screenMoveZoom();
 
+    void toggleVideoVisibility();
+
     void switchMic();
 
     void toggleGamepadMouseEmulation();

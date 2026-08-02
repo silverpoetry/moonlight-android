@@ -1,5 +1,6 @@
 package com.limelight.settings;
 
+import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.audio.StreamAudioSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
@@ -63,12 +64,51 @@ public final class SettingsMigrationRunner {
                 containsLegacyGameMenuLayout(repository)) {
             migrateToVersion4(repository, editor);
         }
+        if (storedVersion < 6) {
+            migrateToVersion6(repository, editor);
+        }
         if (storedVersion < SettingsSchema.CURRENT_VERSION) {
             editor.put(
                     SettingsSchema.VERSION,
                     SettingsSchema.CURRENT_VERSION);
         }
         editor.commit();
+    }
+
+    /**
+     * Removes the former fork's release label when it was persisted as the
+     * customizable home-screen title. Other user-provided titles are kept.
+     */
+    private static void migrateToVersion6(
+            SettingsRepository repository,
+            SettingsRepository.Editor editor) {
+        SettingKey<String> canonicalKey =
+                AppPresentationSettingKeys.HOST_LIST_LABEL;
+        if (isFormerForkHostListLabel(repository, canonicalKey)) {
+            editor.remove(canonicalKey);
+        }
+        for (String legacyName : AppPresentationSettingKeys
+                .HOST_LIST_LABEL.getLegacyNames()) {
+            SettingKey<String> legacyKey =
+                    canonicalKey.legacyAlias(legacyName);
+            if (!isFormerForkHostListLabel(repository, legacyKey)) {
+                continue;
+            }
+            editor.remove(legacyKey);
+            if (!repository.contains(canonicalKey) ||
+                    isFormerForkHostListLabel(
+                            repository,
+                            canonicalKey)) {
+                editor.remove(canonicalKey);
+            }
+        }
+    }
+
+    private static boolean isFormerForkHostListLabel(
+            SettingsRepository repository,
+            SettingKey<String> key) {
+        return repository.contains(key) &&
+                "月光·阿西西".equals(repository.get(key));
     }
 
     private static boolean containsRenamedValues(

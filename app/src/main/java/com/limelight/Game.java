@@ -290,6 +290,8 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     private AndroidStreamNativeCursorController nativeCursorController;
 
     private TextView notificationOverlayView;
+    private View videoBlankingOverlay;
+    private boolean videoHidden;
     private StreamOverlayVisibilityController
             overlayVisibilityController;
     private StreamPerformanceOverlayController
@@ -465,6 +467,8 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         UiHelper.configureStreamWindowInsets(this, useEntireDisplay);
         // Listen for non-touch events on the game surface
         streamView = findViewById(R.id.surfaceView);
+        videoBlankingOverlay = findViewById(
+                R.id.videoBlankingOverlay);
         streamView.setOnGenericMotionListener(this);
         streamView.setOnKeyListener(this);
         streamView.setInputGateway(this);
@@ -481,6 +485,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         // allows proper touch splitting, which the OSC relies upon.
         View backgroundTouchView = findViewById(R.id.backgroundTouchView);
         backgroundTouchView.setOnTouchListener(this);
+        videoBlankingOverlay.setOnTouchListener(this);
 
         rootView=streamView.getParent();
         nativeCursorController =
@@ -511,6 +516,9 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                     InputDevice.SOURCE_CLASS_POSITION | // Touchpads
                     InputDevice.SOURCE_CLASS_TRACKBALL // Mice (pointer capture)
             );
+            videoBlankingOverlay.requestUnbufferedDispatch(
+                    InputDevice.SOURCE_CLASS_POINTER |
+                    InputDevice.SOURCE_CLASS_POSITION);
         }
 
         notificationOverlayView = findViewById(R.id.notificationOverlay);
@@ -2187,6 +2195,20 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     @Override
     public boolean getScreenMoveZoom(){
         return streamView.isEnableZoomAndPan();
+    }
+
+    @Override
+    public boolean isVideoHidden() {
+        return videoHidden;
+    }
+
+    @Override
+    public void toggleVideoVisibility() {
+        videoHidden = !videoHidden;
+        if (videoBlankingOverlay != null) {
+            videoBlankingOverlay.setVisibility(
+                    videoHidden ? View.VISIBLE : View.GONE);
+        }
     }
 
     public void disconnect() {

@@ -24,6 +24,7 @@ public final class GameMenuState {
     private final boolean mouseEmulationAvailable;
     private final boolean virtualControllerVisible;
     private final boolean virtualKeysVisible;
+    private final boolean videoHidden;
     private final int batteryPercent;
     private final GameMenuCardLayoutLoadResult cardLayout;
     private final List<GameMenuShortcut> shortcuts;
@@ -42,6 +43,7 @@ public final class GameMenuState {
             boolean mouseEmulationAvailable,
             boolean virtualControllerVisible,
             boolean virtualKeysVisible,
+            boolean videoHidden,
             int batteryPercent,
             GameMenuCardLayoutLoadResult cardLayout,
             List<GameMenuShortcut> shortcuts,
@@ -58,6 +60,7 @@ public final class GameMenuState {
         this.mouseEmulationAvailable = mouseEmulationAvailable;
         this.virtualControllerVisible = virtualControllerVisible;
         this.virtualKeysVisible = virtualKeysVisible;
+        this.videoHidden = videoHidden;
         this.batteryPercent = normalizeBatteryPercent(batteryPercent);
         this.cardLayout = Objects.requireNonNull(
                 cardLayout, "cardLayout");
@@ -107,6 +110,10 @@ public final class GameMenuState {
 
     public boolean isVirtualKeysVisible() {
         return virtualKeysVisible;
+    }
+
+    public boolean isVideoHidden() {
+        return videoHidden;
     }
 
     public int getBatteryPercent() {

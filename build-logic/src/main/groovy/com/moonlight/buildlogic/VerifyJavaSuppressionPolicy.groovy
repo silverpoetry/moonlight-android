@@ -3,14 +3,17 @@ package com.moonlight.buildlogic
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.nio.file.Path
 import java.util.regex.Pattern
 
 /** Keeps unsafe Java warning suppressions narrow and reviewable. */
@@ -41,9 +44,13 @@ abstract class VerifyJavaSuppressionPolicy extends DefaultTask {
     @PathSensitive(PathSensitivity.RELATIVE)
     abstract ConfigurableFileCollection getSourceFiles()
 
+    @Internal
+    abstract DirectoryProperty getRepositoryDirectory()
+
     @TaskAction
     void verifyPolicy() {
         List<String> violations = []
+        Path repositoryRoot = repositoryDirectory.get().asFile.toPath()
         sourceFiles.files
                 .findAll { it.isFile() }
                 .sort { first, second -> first.path <=> second.path }
@@ -55,13 +62,15 @@ abstract class VerifyJavaSuppressionPolicy extends DefaultTask {
                     if (STALE_INFLATED_ID_SUPPRESSION
                             .matcher(source).find()) {
                         violations.add(
-                                project.relativePath(file) +
+                                VerifyJavaSuppressionPolicy.relativePath(
+                                        repositoryRoot, file) +
                                         ': stale MissingInflatedId suppression')
                     }
                     if (UNSAFE_RECEIVER_SUPPRESSION
                             .matcher(source).find()) {
                         violations.add(
-                                project.relativePath(file) +
+                                VerifyJavaSuppressionPolicy.relativePath(
+                                        repositoryRoot, file) +
                                         ': dynamic receivers must declare ' +
                                         'an exported state through the ' +
                                         'compatibility API')
@@ -70,7 +79,8 @@ abstract class VerifyJavaSuppressionPolicy extends DefaultTask {
                             .matcher(source).find() &&
                             !path.endsWith(APP_LOCALE_PATH)) {
                         violations.add(
-                                project.relativePath(file) +
+                                VerifyJavaSuppressionPolicy.relativePath(
+                                        repositoryRoot, file) +
                                         ': AppBundleLocaleChanges is allowed ' +
                                         'only at the reviewed locale adapter')
                     }
@@ -79,7 +89,8 @@ abstract class VerifyJavaSuppressionPolicy extends DefaultTask {
                                 path.endsWith(it)
                             }) {
                         violations.add(
-                                project.relativePath(file) +
+                                VerifyJavaSuppressionPolicy.relativePath(
+                                        repositoryRoot, file) +
                                         ': unchecked suppression outside ' +
                                         'the reviewed erasure bridges')
                     }
@@ -90,5 +101,11 @@ abstract class VerifyJavaSuppressionPolicy extends DefaultTask {
                     'Java suppressions must remain narrow and reviewed:\n' +
                             violations.join('\n'))
         }
+    }
+
+    private static String relativePath(Path repositoryRoot, File file) {
+        return repositoryRoot.relativize(file.toPath())
+                .toString()
+                .replace('\\', '/')
     }
 }

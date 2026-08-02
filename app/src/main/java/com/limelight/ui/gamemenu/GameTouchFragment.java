@@ -218,7 +218,7 @@ public final class GameTouchFragment
 
     private static int selector(boolean enabled) {
         return enabled
-                ? R.drawable.ic_game_menu_btn_green_selector
+                ? R.drawable.ic_game_menu_btn_accent_selector
                 : R.drawable.ic_game_menu_btn_selector;
     }
 

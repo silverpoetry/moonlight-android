@@ -64,6 +64,7 @@ public final class TouchscreenTouchpadHandler {
     private TouchpadMotionSender pressedPointerMotionSender;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final TouchpadHapticFeedback hapticFeedback;
+    private final InputSettingsState settingsState;
     private final float pressSlopSquared;
     private NativeGestureListener nativeGestureListener;
     private boolean nativePressHandlingEnabled;
@@ -118,6 +119,7 @@ public final class TouchscreenTouchpadHandler {
                                      int referenceWidth, int referenceHeight,
                                      InputSettingsState settingsState) {
         nativeSender = new NativeTouchpadSender(inputSink);
+        this.settingsState = Objects.requireNonNull(settingsState);
         remainderMotionSender = new TouchpadMotionSender(inputSink,
                 referenceWidth, referenceHeight,
                 targetView, settingsState);
@@ -408,7 +410,8 @@ public final class TouchscreenTouchpadHandler {
                     longPressRunnable,
                     Math.max(
                             0,
-                            RelativeTouchContext.PHYSICAL_LONG_PRESS_MS -
+                            settingsState.get()
+                                    .getTouchpadLongPressDurationMs() -
                                     elapsedMs));
         }
     }

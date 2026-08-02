@@ -256,6 +256,9 @@
     <string name="title_seekbar_barometer_force_press_min_duration">最短触摸时间</string>
     <string name="summary_seekbar_barometer_force_press_min_duration">当前触点组合至少保持该时长后才允许触发重按，用于过滤手指落屏时的瞬时气压尖峰。</string>
     <string name="suffix_barometer_force_press_min_duration">ms</string>
+    <string name="title_seekbar_touchpad_long_press_duration">触控板长按时间</string>
+    <string name="summary_seekbar_touchpad_long_press_duration">关闭气压计重按时，单指或双指保持多久后开始按住鼠标按键。</string>
+    <string name="suffix_touchpad_long_press_duration">ms</string>
     <string name="title_checkbox_gamepad_motion_sensors">允许使用手柄的运动传感器</string>
     <string name="summary_checkbox_gamepad_motion_sensors">使支持的主机能够在模拟具有运动传感器的游戏手柄时请求运动传感器数据。如果在游戏中未使用运动传感器，禁用可能会略微降低电源和网络使用量。</string>
     <string name="videoformat_av1always">首选 AV1（实验性）</string>

@@ -39,6 +39,8 @@ public final class InputSettingsLoader {
                         repository.get(
                                 InputSettingKeys
                                         .BAROMETER_FORCE_PRESS_MINIMUM_DURATION))
+                .setTouchpadLongPressDurationMs(repository.get(
+                        InputSettingKeys.TOUCHPAD_LONG_PRESS_DURATION))
                 .setSoftKeyboardGestureFingers(normalizeFingerCount(
                         repository.get(
                                 InputSettingKeys

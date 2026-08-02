@@ -22,6 +22,18 @@
         <requestFocus />
     </com.limelight.ui.StreamView>
 
+    <!-- Keeps the input surface active while locally hiding video. -->
+    <View
+        android:id="@+id/videoBlankingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        android:background="@android:color/black"
+        android:clickable="false"
+        android:focusable="false"
+        android:importantForAccessibility="no"
+        android:visibility="gone" />
+
 <!--    <com.limelight.ui.ApertureViewGroup-->
 <!--        android:layout_width="match_parent"-->
 <!--        android:layout_height="match_parent"-->

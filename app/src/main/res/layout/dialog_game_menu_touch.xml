@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="300dp"
     android:layout_height="match_parent"
-    android:background="@color/gameMenuBgColor"
+    android:background="@drawable/bg_game_menu_panel"
     android:orientation="vertical"
     android:paddingBottom="0dp"
     android:paddingStart="10dp"
@@ -84,7 +84,7 @@
                     android:layout_marginStart="5dp"
                     android:text="@string/game_menu_settings_persist"
                     android:textStyle="italic|bold"
-                    android:textColor="#FFC107"
+                    android:textColor="#CCD2CDE8"
                     android:textSize="11sp" />
 
             </LinearLayout>

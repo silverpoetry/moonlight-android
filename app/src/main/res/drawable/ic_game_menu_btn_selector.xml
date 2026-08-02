@@ -2,6 +2,6 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_pressed="true" android:drawable="@drawable/ic_game_menu_btn_press"/>
     <item android:state_focused="true" android:drawable="@drawable/ic_game_menu_btn_focused"/>
-    <item android:state_checked="true" android:drawable="@drawable/ic_game_menu_btn_green"/>
+    <item android:state_checked="true" android:drawable="@drawable/ic_game_menu_btn_selected"/>
     <item android:drawable="@drawable/ic_game_menu_btn_normal"/>
 </selector>

@@ -107,6 +107,13 @@ final class GameMenuActionCatalog {
                             R.drawable.ic_audio_mute,
                             false),
                     new Action(
+                            "video_visibility",
+                            R.id.btn_video_visibility,
+                            R.string.game_menu_action_hide_video,
+                            R.string.game_menu_action_hide_video_description,
+                            R.drawable.ic_video_hidden,
+                            false),
+                    new Action(
                             "hdr",
                             R.id.btn_hdr,
                             R.string.game_menu_action_hdr,

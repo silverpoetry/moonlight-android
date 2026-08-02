@@ -39,6 +39,10 @@ public class InputSettingsLoaderTest {
                 0.18f,
                 settings.getBarometerForcePressThresholdHpa(),
                 0f);
+        assertEquals(
+                InputSettingKeys
+                        .DEFAULT_TOUCHPAD_LONG_PRESS_DURATION_MS,
+                settings.getTouchpadLongPressDurationMs());
         assertTrue(settings.isDirectTouchRecenterEnabled());
     }
 
@@ -68,6 +72,10 @@ public class InputSettingsLoaderTest {
                 InputSettingKeys.MOUSE_WHEEL_SCROLL_AMOUNT
                         .getName(),
                 -500);
+        repository.values.put(
+                InputSettingKeys.TOUCHPAD_LONG_PRESS_DURATION
+                        .getName(),
+                Integer.MAX_VALUE);
 
         InputSettings settings =
                 InputSettingsLoader.load(repository);
@@ -86,6 +94,10 @@ public class InputSettingsLoaderTest {
         assertEquals(
                 InputSettingKeys.MIN_SCROLL_AMOUNT,
                 settings.getMouseWheelScrollAmount());
+        assertEquals(
+                InputSettingKeys
+                        .MAX_TOUCHPAD_LONG_PRESS_DURATION_MS,
+                settings.getTouchpadLongPressDurationMs());
     }
 
     @Test

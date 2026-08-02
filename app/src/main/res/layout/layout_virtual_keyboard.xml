@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- This opaque overlay is inflated inside the stream, not as an activity root. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="#212121"
     android:orientation="vertical"
-    android:padding="3dp">
+    android:padding="3dp"
+    tools:ignore="Overdraw">
 
     <RelativeLayout
         android:layout_width="match_parent"
