@@ -24,7 +24,7 @@ import java.util.List;
  * This is a digital button on screen element. It is used to get click and double click user input.
  */
 @android.annotation.SuppressLint("ViewConstructor")
-public class KeyBoardTouchPadButton extends keyBoardVirtualControllerElement {
+public class KeyBoardTouchPadButton extends KeyboardVirtualControllerElement {
 
     /**
      * Listener interface to update registered observers.
@@ -115,7 +115,7 @@ public class KeyBoardTouchPadButton extends keyBoardVirtualControllerElement {
     }
 
     private void checkMovementForAllButtons(float x, float y) {
-        for (keyBoardVirtualControllerElement element : virtualController.getElements()) {
+        for (KeyboardVirtualControllerElement element : virtualController.getElements()) {
             if (element != this && element instanceof KeyBoardTouchPadButton) {
                 ((KeyBoardTouchPadButton) element).checkMovement(x, y, this);
             }
@@ -171,9 +171,9 @@ public class KeyBoardTouchPadButton extends keyBoardVirtualControllerElement {
         float cornerRadius = minSide * 0.15f;
 
         // 3. 绘制背景
-        // 逻辑：按下时填充 pressedColor，常规时根据 isNomal() 决定填充或描边
+        // 按下时填充 pressedColor，常规时由当前编辑模式决定填充或描边。
         paint.setColor(isPressed() ? pressedColor : getDefaultColor());
-        paint.setStyle(isPressed() ? Paint.Style.FILL : (isNomal() ? Paint.Style.FILL : Paint.Style.STROKE));
+        paint.setStyle(isPressed() ? Paint.Style.FILL : (isNormal() ? Paint.Style.FILL : Paint.Style.STROKE));
         canvas.drawRoundRect(rect, cornerRadius, cornerRadius, paint);
 
         // 4. 绘制精致描边 (始终存在，提升边缘质感)
@@ -220,7 +220,6 @@ public class KeyBoardTouchPadButton extends keyBoardVirtualControllerElement {
     }
 
     private void onClickCallback() {
-        _DBG("clicked");
         // notify listeners
         for (DigitalButtonListener listener : listeners) {
             listener.onClick();
@@ -231,7 +230,6 @@ public class KeyBoardTouchPadButton extends keyBoardVirtualControllerElement {
     }
 
     private void onLongClickCallback() {
-        _DBG("long click");
         // notify listeners
         for (DigitalButtonListener listener : listeners) {
             listener.onLongClick();
@@ -239,7 +237,6 @@ public class KeyBoardTouchPadButton extends keyBoardVirtualControllerElement {
     }
 
     private void onMoveCallback(int x, int y) {
-        _DBG("long click");
         // notify listeners
         for (DigitalButtonListener listener : listeners) {
             listener.onMove(x, y);
@@ -247,7 +244,6 @@ public class KeyBoardTouchPadButton extends keyBoardVirtualControllerElement {
     }
 
     private void onReleaseCallback() {
-        _DBG("released");
         // notify listeners
         for (DigitalButtonListener listener : listeners) {
             listener.onRelease();

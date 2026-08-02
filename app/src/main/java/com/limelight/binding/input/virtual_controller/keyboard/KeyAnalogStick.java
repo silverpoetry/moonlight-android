@@ -12,7 +12,7 @@ import java.util.List;
  * This is a analog stick on screen element. It is used to get 2-Axis user input.
  */
 @android.annotation.SuppressLint("ViewConstructor")
-public class KeyAnalogStick extends keyBoardVirtualControllerElement {
+public class KeyAnalogStick extends KeyboardVirtualControllerElement {
 
     /**
      * outer radius size in percent of the ui element
@@ -29,12 +29,12 @@ public class KeyAnalogStick extends keyBoardVirtualControllerElement {
     /**
      * time frame for a double click
      */
-    public final static long timeoutDoubleClick = 350;
+    public static final long DOUBLE_TAP_TIMEOUT_MS = 350;
 
     /**
      * touch down time until the deadzone is lifted to allow precise movements with the analog sticks
      */
-    public final static long timeoutDeadzone = 150;
+    public static final long DEAD_ZONE_TIMEOUT_MS = 150;
 
     /**
      * Listener interface to update registered observers.
@@ -84,11 +84,6 @@ public class KeyAnalogStick extends keyBoardVirtualControllerElement {
     }
 
     /**
-     * configuration if the analog stick should be displayed as circle or square
-     */
-    private boolean circle_stick = true; // TODO: implement square sick for simulations
-
-    /**
      * outer radius, this size will be automatically updated on resize
      */
     private float radius_complete = 0;
@@ -123,7 +118,7 @@ public class KeyAnalogStick extends keyBoardVirtualControllerElement {
     private CLICK_STATE click_state = CLICK_STATE.SINGLE;
 
     private List<AnalogStickListener> listeners = new ArrayList<>();
-    private long timeLastClick = 0;
+    private long timeLastClick = -1;
 
     private static double getMovementRadius(float x, float y) {
         return Math.sqrt(x * x + y * y);
@@ -172,7 +167,6 @@ public class KeyAnalogStick extends keyBoardVirtualControllerElement {
     }
 
     private void notifyOnMovement(float x, float y) {
-        _DBG("movement x: " + x + " movement y: " + y);
         // notify listeners
         for (AnalogStickListener listener : listeners) {
             listener.onMovement(x, y);
@@ -180,7 +174,6 @@ public class KeyAnalogStick extends keyBoardVirtualControllerElement {
     }
 
     private void notifyOnClick() {
-        _DBG("click");
         // notify listeners
         for (AnalogStickListener listener : listeners) {
             listener.onClick();
@@ -188,7 +181,6 @@ public class KeyAnalogStick extends keyBoardVirtualControllerElement {
     }
 
     private void notifyOnDoubleClick() {
-        _DBG("double click");
         // notify listeners
         for (AnalogStickListener listener : listeners) {
             listener.onDoubleClick();
@@ -196,7 +188,6 @@ public class KeyAnalogStick extends keyBoardVirtualControllerElement {
     }
 
     private void notifyOnRevoke() {
-        _DBG("revoke");
         // notify listeners
         for (AnalogStickListener listener : listeners) {
             listener.onRevoke();
@@ -230,7 +221,7 @@ public class KeyAnalogStick extends keyBoardVirtualControllerElement {
 
         // 3. 绘制【背景填充圆】
         // 将 Style 改回填充或原本逻辑
-        paint.setStyle(isNomal() ? Paint.Style.FILL : Paint.Style.STROKE);
+        paint.setStyle(isNormal() ? Paint.Style.FILL : Paint.Style.STROKE);
         paint.setStrokeWidth(strokeW);
         if (!isPressed() || click_state == CLICK_STATE.SINGLE) {
             paint.setColor(getDefaultColor());
@@ -313,7 +304,7 @@ public class KeyAnalogStick extends keyBoardVirtualControllerElement {
         // We also release the deadzone if the user keeps the stick pressed for a bit to allow
         // them to make precise movements.
         stick_state = (stick_state == STICK_STATE.MOVED_ACTIVE ||
-                eventTime - timeLastClick > timeoutDeadzone ||
+                eventTime - timeLastClick > DEAD_ZONE_TIMEOUT_MS ||
                 movement_radius > radius_dead_zone) ?
                 STICK_STATE.MOVED_ACTIVE : STICK_STATE.MOVED_IN_DEAD_ZONE;
 
@@ -353,7 +344,10 @@ public class KeyAnalogStick extends keyBoardVirtualControllerElement {
                 stick_state = STICK_STATE.MOVED_IN_DEAD_ZONE;
                 // check for double click
                 if (lastClickState == CLICK_STATE.SINGLE &&
-                        event.getEventTime() - timeLastClick <= timeoutDoubleClick) {
+                        AnalogStickGestureTiming.isDoubleTap(
+                                timeLastClick,
+                                event.getEventTime(),
+                                DOUBLE_TAP_TIMEOUT_MS)) {
                     click_state = CLICK_STATE.DOUBLE;
                     notifyOnDoubleClick();
                 } else {

@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @android.annotation.SuppressLint("ViewConstructor")
-public class KeyboardDigitalPadButton extends keyBoardVirtualControllerElement{
+public class KeyboardDigitalPadButton extends KeyboardVirtualControllerElement {
 
     public final static int DIGITAL_PAD_DIRECTION_NO_DIRECTION = 0;
     int direction = DIGITAL_PAD_DIRECTION_NO_DIRECTION;
@@ -103,7 +103,7 @@ public class KeyboardDigitalPadButton extends keyBoardVirtualControllerElement{
                                 boolean isPressed, String label, float textOffset, float radius) {
         rect.set(l, t, r, b);
         // 1. 绘制按键背景
-        paint.setStyle(isNomal() ? Paint.Style.FILL : Paint.Style.STROKE);
+        paint.setStyle(isNormal() ? Paint.Style.FILL : Paint.Style.STROKE);
         paint.setStrokeWidth(getDefaultStrokeWidth());
         paint.setColor(isPressed ? pressedColor : getDefaultColor());
         canvas.drawRoundRect(rect, radius, radius, paint);
@@ -126,7 +126,6 @@ public class KeyboardDigitalPadButton extends keyBoardVirtualControllerElement{
     }
 
     private void newDirectionCallback(int direction) {
-        _DBG("direction: " + direction);
         // notify listeners
         for (DigitalPadListener listener : listeners) {
             listener.onDirectionChange(direction);

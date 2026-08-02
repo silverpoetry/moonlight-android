@@ -23,7 +23,7 @@ import java.util.List;
  * This is a digital button on screen element. It is used to get click and double click user input.
  */
 @android.annotation.SuppressLint("ViewConstructor")
-public class KeyBoardDigitalButton extends keyBoardVirtualControllerElement {
+public class KeyBoardDigitalButton extends KeyboardVirtualControllerElement {
 
     /**
      * Listener interface to update registered observers.
@@ -113,7 +113,7 @@ public class KeyBoardDigitalButton extends keyBoardVirtualControllerElement {
     }
 
     private void checkMovementForAllButtons(float x, float y) {
-        for (keyBoardVirtualControllerElement element : virtualController.getElements()) {
+        for (KeyboardVirtualControllerElement element : virtualController.getElements()) {
             if (element != this && element instanceof KeyBoardDigitalButton) {
                 ((KeyBoardDigitalButton) element).checkMovement(x, y, this);
             }
@@ -160,7 +160,7 @@ public class KeyBoardDigitalButton extends keyBoardVirtualControllerElement {
         // 3. 绘制背景 (Pressed / Normal)
         paint.setColor(isPressed() ? pressedColor : getDefaultColor());
         paint.setStyle(isPressed() ? Paint.Style.FILL_AND_STROKE :
-                isNomal() ? Paint.Style.FILL : Paint.Style.STROKE);
+                isNormal() ? Paint.Style.FILL : Paint.Style.STROKE);
 
         if (shapeType == 1) {
             canvas.drawRoundRect(rect, 42, 42, paint);
@@ -204,7 +204,6 @@ public class KeyBoardDigitalButton extends keyBoardVirtualControllerElement {
     }
 
     private void onClickCallback() {
-        _DBG("clicked");
         // notify listeners
         for (DigitalButtonListener listener : listeners) {
             listener.onClick();
@@ -215,7 +214,6 @@ public class KeyBoardDigitalButton extends keyBoardVirtualControllerElement {
     }
 
     private void onLongClickCallback() {
-        _DBG("long click");
         // notify listeners
         for (DigitalButtonListener listener : listeners) {
             listener.onLongClick();
@@ -223,7 +221,6 @@ public class KeyBoardDigitalButton extends keyBoardVirtualControllerElement {
     }
 
     private void onReleaseCallback() {
-        _DBG("released");
         // notify listeners
         for (DigitalButtonListener listener : listeners) {
             listener.onRelease();

@@ -39,7 +39,7 @@ public class GameKeyboardUpdateFragment
     private TextView chordContent;
     private GridView mouseButtonGrid;
     private GridView functionButtonGrid;
-    private Listener listener;
+    private SelectionListener listener;
 
     private final KeyChordSelection chordSelection =
             new KeyChordSelection(MAX_CHORD_KEYS);
@@ -284,16 +284,11 @@ public class GameKeyboardUpdateFragment
         this.keyFrom = keyFrom;
     }
 
-    public void setOnClick(onClick callback) {
-        listener = callback == null
-                ? null : callback::click;
+    public void setSelectionListener(SelectionListener listener) {
+        this.listener = listener;
     }
 
-    public interface onClick {
-        void click(GameMenuQuickBean item);
-    }
-
-    private interface Listener {
+    public interface SelectionListener {
         void onSelected(GameMenuQuickBean item);
     }
 

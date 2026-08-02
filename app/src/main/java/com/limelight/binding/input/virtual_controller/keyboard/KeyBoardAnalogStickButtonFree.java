@@ -4,7 +4,7 @@ import android.content.Context;
 
 
 @android.annotation.SuppressLint("ViewConstructor")
-public class KeyBoardAnalogStickButtonFree extends keyAnalogStickFree {
+public class KeyBoardAnalogStickButtonFree extends FreeAnalogStick {
 
     private final int MIN_CIRCLE_R = 10000;  //当摇杆移动的非常小时，不产生操作，摇杆范围-32765<x,y<32765
     private final float EIGHTH_PI = 0.4142f;  // y=tan(π/8)x 分界线

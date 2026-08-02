@@ -132,7 +132,7 @@ public class GameListQuickFragment extends BaseGameMenuDialog {
         fragment.setTitle(
                 R.string.keyboard_shortcut_setup_title);
         fragment.setKeyFrom(1);
-        fragment.setOnClick(bean -> {
+        fragment.setSelectionListener(bean -> {
             if (host == null) {
                 return;
             }

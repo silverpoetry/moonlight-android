@@ -10,10 +10,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 @android.annotation.SuppressLint("ViewConstructor")
-public class keyAnalogStickFree extends keyBoardVirtualControllerElement {
+public class FreeAnalogStick extends KeyboardVirtualControllerElement {
 
-    public final static long timeoutDoubleClick = 350;
-    public final static long timeoutDeadzone = 150;
+    public static final long DOUBLE_TAP_TIMEOUT_MS = 350;
+    public static final long DEAD_ZONE_TIMEOUT_MS = 150;
 
     private float radius_complete = 0;
     private float radius_analog_stick = 0;
@@ -34,7 +34,7 @@ public class keyAnalogStickFree extends keyBoardVirtualControllerElement {
     private CLICK_STATE click_state = CLICK_STATE.SINGLE;
 
     private List<AnalogStickListener> listeners = new ArrayList<>();
-    private long timeLastClick = 0;
+    private long timeLastClick = -1;
 
     private int touchID = -1;
     private float touchStartX;
@@ -53,14 +53,13 @@ public class keyAnalogStickFree extends keyBoardVirtualControllerElement {
         void onRevoke();
     }
 
-    public keyAnalogStickFree(KeyBoardController controller, Context context, String elementId) {
+    public FreeAnalogStick(KeyBoardController controller, Context context, String elementId) {
         super(controller, context, elementId);
         paint.setSubpixelText(true);
     }
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        float baseSize = getCorrectWidth() / 2f;
         // 严格遵循原版比例计算
         radius_complete = (getCorrectWidth() / 2f) * 0.6f - (2 * getDefaultStrokeWidth());
         radius_dead_zone = (getCorrectWidth() / 2f) * 0.3f;
@@ -83,7 +82,7 @@ public class keyAnalogStickFree extends keyBoardVirtualControllerElement {
     //未触摸状态是否绘制
     private boolean isDrawNormal=true;
 
-    public keyAnalogStickFree setDrawNormal(boolean drawNormal) {
+    public FreeAnalogStick setDrawNormal(boolean drawNormal) {
         isDrawNormal = drawNormal;
         return this;
     }
@@ -182,12 +181,15 @@ public class keyAnalogStickFree extends keyBoardVirtualControllerElement {
 
                     // 原版点击逻辑
                     stick_state = STICK_STATE.MOVED_IN_DEAD_ZONE;
-                    if (System.currentTimeMillis() - timeLastClick <= timeoutDoubleClick) {
+                    if (AnalogStickGestureTiming.isDoubleTap(
+                            timeLastClick,
+                            event.getEventTime(),
+                            DOUBLE_TAP_TIMEOUT_MS)) {
                         notifyOnDoubleClick();
                     } else {
                         notifyOnClick();
                     }
-                    timeLastClick = System.currentTimeMillis();
+                    timeLastClick = event.getEventTime();
                 }
                 break;
 
@@ -240,7 +242,7 @@ public class keyAnalogStickFree extends keyBoardVirtualControllerElement {
 
         // 5. 状态机切换
         stick_state = (stick_state == STICK_STATE.MOVED_ACTIVE ||
-                eventTime - timeLastClick > timeoutDeadzone ||
+                eventTime - timeLastClick > DEAD_ZONE_TIMEOUT_MS ||
                 movement_radius > radius_dead_zone) ?
                 STICK_STATE.MOVED_ACTIVE : STICK_STATE.MOVED_IN_DEAD_ZONE;
 
@@ -250,7 +252,7 @@ public class keyAnalogStickFree extends keyBoardVirtualControllerElement {
         }
     }
 
-    public keyAnalogStickFree setTextTipValues(String[] textTipValues) {
+    public FreeAnalogStick setTextTipValues(String[] textTipValues) {
         this.textTipValues = textTipValues;
         return this;
     }

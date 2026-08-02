@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 
-public class GamePadAddFragment extends BaseGameMenuDialog implements View.OnClickListener{
+public class GamePadAddFragment extends BaseGameMenuDialog {
     @Override
     public int getLayoutRes() {
         return R.layout.dialog_game_menu_game_pad_add;
@@ -125,7 +125,9 @@ public class GamePadAddFragment extends BaseGameMenuDialog implements View.OnCli
         rv_keyboard_gamepad.setOnItemClickListener((parent, view, position, id) -> {
             GameMenuQuickBean bean=beanGamePadList.get(position);
             bean.setId(VirtualControlElementIds.newId());
-            onClick.click(bean);
+            if (elementSelectionListener != null) {
+                elementSelectionListener.onGamepadElementSelected(bean);
+            }
             dismiss();
         });
     }
@@ -139,18 +141,14 @@ public class GamePadAddFragment extends BaseGameMenuDialog implements View.OnCli
         this.title = title;
     }
 
-    @Override
-    public void onClick(View v) {
+    private GamepadElementSelectionListener elementSelectionListener;
 
-    }
-    private onClick onClick;
-
-    public interface onClick{
-        void click(GameMenuQuickBean bean);
+    public interface GamepadElementSelectionListener {
+        void onGamepadElementSelected(GameMenuQuickBean bean);
     }
 
-    public void setOnClick(onClick onClick) {
-        this.onClick = onClick;
+    public void setElementSelectionListener(GamepadElementSelectionListener listener) {
+        this.elementSelectionListener = listener;
     }
 
     public class MyGridAdapter extends BaseAdapter {

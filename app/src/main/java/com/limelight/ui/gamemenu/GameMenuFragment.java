@@ -461,9 +461,9 @@ public class GameMenuFragment extends BaseGameMenuDialog
             GameFunctionFragment fragment=new GameFunctionFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle("操作");
-            fragment.setOnClick(new GameFunctionFragment.onClick() {
+            fragment.setActionSelectionListener(new GameFunctionFragment.ActionSelectionListener() {
                 @Override
-                public void click(String title, int index) {
+                public void onActionSelected(String title, int index) {
                     if (host == null ||
                             !host.getState().isInputReady()) {
                         return;
@@ -642,9 +642,9 @@ public class GameMenuFragment extends BaseGameMenuDialog
             GameListMouseFragment fragment=new GameListMouseFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle("鼠标与触控");
-            fragment.setOnClick(new GameListMouseFragment.onClick() {
+            fragment.setMouseModeSelectionListener(new GameListMouseFragment.MouseModeSelectionListener() {
                 @Override
-                public void click(String title, int index) {
+                public void onMouseModeSelected(String title, int index) {
                     if (host == null || index < 0) {
                         return;
                     }

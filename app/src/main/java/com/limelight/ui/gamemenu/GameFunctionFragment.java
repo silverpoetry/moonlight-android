@@ -61,82 +61,82 @@ public class GameFunctionFragment extends BaseGameMenuDialog implements View.OnC
         this.title = title;
     }
 
-    private onClick click;
+    private ActionSelectionListener actionSelectionListener;
 
     @Override
     public void onClick(View v) {
-        if(click==null){
+        if (actionSelectionListener == null) {
             return;
         }
         if(v.getId()==R.id.btn_logout){
-            click.click("注销",0);
+            actionSelectionListener.onActionSelected("注销",0);
             return;
         }
         if(v.getId()==R.id.btn_shutdown){
-            click.click("关机",1);
+            actionSelectionListener.onActionSelected("关机",1);
             return;
         }
         if(v.getId()==R.id.btn_sleep){
-            click.click("睡眠",2);
+            actionSelectionListener.onActionSelected("睡眠",2);
             return;
         }
         if(v.getId()==R.id.btn_reboot){
-            click.click("重启",3);
+            actionSelectionListener.onActionSelected("重启",3);
             return;
         }
         if(v.getId()==R.id.btn_task_manager){
-            click.click("任务管理器",4);
+            actionSelectionListener.onActionSelected("任务管理器",4);
             return;
         }
         if(v.getId()==R.id.btn_clipboard_send){
-            click.click("发送剪切板",5);
+            actionSelectionListener.onActionSelected("发送剪切板",5);
             return;
         }
         if(v.getId()==R.id.btn_clipboard_open){
-            click.click("打开剪切板",6);
+            actionSelectionListener.onActionSelected("打开剪切板",6);
             return;
         }
         if(v.getId()==R.id.btn_open_setting){
-            click.click("打开设置",7);
+            actionSelectionListener.onActionSelected("打开设置",7);
             return;
         }
         if(v.getId()==R.id.btn_computer){
-            click.click("我的电脑",8);
+            actionSelectionListener.onActionSelected("我的电脑",8);
             return;
         }
         if(v.getId()==R.id.btn_win_center){
-            click.click("移动中心",9);
+            actionSelectionListener.onActionSelected("移动中心",9);
             return;
         }
         if(v.getId()==R.id.btn_win_p){
-            click.click("win+p",10);
+            actionSelectionListener.onActionSelected("win+p",10);
             return;
         }
 
         if(v.getId()==R.id.btn_display_1){
-            click.click("显示器1",11);
+            actionSelectionListener.onActionSelected("显示器1",11);
             return;
         }
         if(v.getId()==R.id.btn_display_2){
-            click.click("显示器2",12);
+            actionSelectionListener.onActionSelected("显示器2",12);
             return;
         }
         if(v.getId()==R.id.btn_display_3){
-            click.click("显示器3",13);
+            actionSelectionListener.onActionSelected("显示器3",13);
             return;
         }
         if(v.getId()==R.id.btn_display_4){
-            click.click("显示器4",14);
+            actionSelectionListener.onActionSelected("显示器4",14);
             return;
         }
 
     }
 
-    public interface onClick{
-        void click(String title,int index);
+    public interface ActionSelectionListener {
+        void onActionSelected(String title, int index);
     }
 
-    public void setOnClick(onClick onClick) {
-        this.click = onClick;
+    public void setActionSelectionListener(ActionSelectionListener listener) {
+        this.actionSelectionListener = listener;
     }
 }

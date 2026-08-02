@@ -64,8 +64,9 @@ public class GameListMouseFragment extends BaseGameMenuDialog {
         lv_menu.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                if(onClick!=null){
-                    onClick.click(gameMenus.get(position).getName(),position);
+                if (mouseModeSelectionListener != null) {
+                    mouseModeSelectionListener.onMouseModeSelected(
+                            gameMenus.get(position).getName(), position);
                 }
             }
         });
@@ -80,13 +81,13 @@ public class GameListMouseFragment extends BaseGameMenuDialog {
         this.title = title;
     }
 
-    private onClick onClick;
+    private MouseModeSelectionListener mouseModeSelectionListener;
 
-    public interface onClick{
-        void click(String title,int index);
+    public interface MouseModeSelectionListener {
+        void onMouseModeSelected(String title, int index);
     }
 
-    public void setOnClick(onClick onClick) {
-        this.onClick = onClick;
+    public void setMouseModeSelectionListener(MouseModeSelectionListener listener) {
+        this.mouseModeSelectionListener = listener;
     }
 }

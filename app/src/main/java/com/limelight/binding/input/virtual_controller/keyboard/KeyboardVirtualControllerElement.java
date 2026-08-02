@@ -4,27 +4,20 @@
 
 package com.limelight.binding.input.virtual_controller.keyboard;
 
-import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.util.DisplayMetrics;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.FrameLayout;
 
-import com.limelight.ui.gamemenu.GameKeyboardUpdateFragment;
-import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
 import com.limelight.utils.UiHelper;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public abstract class keyBoardVirtualControllerElement extends View {
-    protected static boolean _PRINT_DEBUG_INFORMATION = false;
-
+public abstract class KeyboardVirtualControllerElement extends View {
     protected KeyBoardController virtualController;
     protected final String elementId;
 
@@ -36,11 +29,7 @@ public abstract class keyBoardVirtualControllerElement extends View {
     protected int strokeColor = 0xB3ADADAD;
     protected int strokeSwicthModeColor = 0xB3FFC107;
 
-    private int configMoveColor = 0xF0FF0000;
-    private int configResizeColor = 0xF0FF00FF;
     private int configSelectedColor = Color.parseColor("#FFABABFF");
-
-    private int configDisabledColor = 0xF0AAAAAA;
 
     protected int startSize_x;
     protected int startSize_y;
@@ -57,7 +46,7 @@ public abstract class keyBoardVirtualControllerElement extends View {
 
     protected Mode currentMode = Mode.Normal;
 
-    protected keyBoardVirtualControllerElement(KeyBoardController controller, Context context, String elementId) {
+    protected KeyboardVirtualControllerElement(KeyBoardController controller, Context context, String elementId) {
         super(context);
 
         this.virtualController = controller;
@@ -129,23 +118,13 @@ public abstract class keyBoardVirtualControllerElement extends View {
         }else{
             return normalColor;
         }
-//        if (virtualController.getControllerMode() == VirtualControlEditMode.MOVE_BUTTONS)
-//            return configMoveColor;
-//        else if (virtualController.getControllerMode() == VirtualControlEditMode.RESIZE_BUTTONS)
-//            return configResizeColor;
-//        else if (virtualController.getControllerMode() == VirtualControlEditMode.DISABLE_ENABLE_BUTTONS)
-//            return enabled ? configSelectedColor: configDisabledColor;
-//        else
-//            return normalColor;
     }
 
     protected int getDefaultStrokeWidth() {
-//        DisplayMetrics screen = getResources().getDisplayMetrics();
-//        return (int)(screen.heightPixels*0.004f);
         return UiHelper.dpToPx(getContext(),1);
     }
 
-    protected boolean isNomal(){
+    protected boolean isNormal() {
         return virtualController.getControllerMode() == VirtualControlEditMode.ACTIVE;
     }
 
@@ -164,8 +143,8 @@ public abstract class keyBoardVirtualControllerElement extends View {
             return onElementTouchEvent(event);
         }
 
-        if(onItem!=null){
-            onItem.click((TagInfo) this.getTag());
+        if (itemClickListener != null) {
+            itemClickListener.onItemClick((TagInfo) getTag());
         }
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN: {
@@ -217,14 +196,9 @@ public abstract class keyBoardVirtualControllerElement extends View {
         return true;
     }
 
-    abstract protected void onElementDraw(Canvas canvas);
+    protected abstract void onElementDraw(Canvas canvas);
 
-    abstract public boolean onElementTouchEvent(MotionEvent event);
-
-    protected static final void _DBG(String text) {
-        if (_PRINT_DEBUG_INFORMATION) {
-        }
-    }
+    public abstract boolean onElementTouchEvent(MotionEvent event);
 
     public void setColors(int normalColor, int pressedColor) {
         this.normalColor = normalColor;
@@ -241,7 +215,6 @@ public abstract class keyBoardVirtualControllerElement extends View {
         this.normalColor = (hexOpacity << 24) | (normalColor & 0x00FFFFFF);
         this.textColor=(textHexOpacity << 24) | (textColor & 0x00FFFFFF);
         this.strokeColor=(hexOpacity << 24) | (textColor & 0x00FFFFFF);
-//        this.pressedColor = (hexOpacity << 24) | (pressedColor & 0x00FFFFFF);
         invalidate();
     }
 
@@ -291,14 +264,14 @@ public abstract class keyBoardVirtualControllerElement extends View {
         this.shapeType = shapeType;
     }
 
-    private onItem onItem;
+    private ItemClickListener itemClickListener;
 
-    public interface onItem{
-        void click(TagInfo tag);
+    public interface ItemClickListener {
+        void onItemClick(TagInfo tag);
     }
 
-    public void setOnClick(onItem onItem) {
-        this.onItem = onItem;
+    public void setOnItemClickListener(ItemClickListener itemClickListener) {
+        this.itemClickListener = itemClickListener;
     }
 
 }

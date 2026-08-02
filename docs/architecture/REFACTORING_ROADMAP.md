@@ -1279,6 +1279,12 @@ agree across all participants.
   the approved module logging boundaries. Release-flavor JVM tests are explicitly
   enabled so suppression is executed against the generated Release
   `BuildConfig` for both product flavors rather than inferred from Debug.
+- Normalized the active virtual-control element hierarchy to Java type and
+  listener naming conventions, removed its inert debug hooks and never-used
+  square-stick placeholder, and made the element collection immutable by
+  identity. Analog-stick gesture timing now uses the monotonic input-event
+  clock throughout; a shared pure boundary rejects missing, reversed, and
+  out-of-window double taps and is fixture-locked at the timeout edge.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

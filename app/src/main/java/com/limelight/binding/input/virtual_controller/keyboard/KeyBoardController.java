@@ -74,7 +74,6 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
         public short leftStickY = 0x0000;
     }
 
-    private static final boolean _PRINT_DEBUG_INFORMATION = false;
 
     private final ControllerHandler controllerHandler;
     private final StreamInputGateway inputGateway;
@@ -100,7 +99,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
     private View buttonConfigure = null;
 
     private Vibrator vibrator;
-    private List<keyBoardVirtualControllerElement> elements = new ArrayList<>();
+    private final List<KeyboardVirtualControllerElement> elements = new ArrayList<>();
 
     private final InputSettingsState inputSettingsState;
     private final VirtualControlSettingsState virtualControlSettingsState;
@@ -215,7 +214,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
                     fragment.setWidth((context.getResources().getDisplayMetrics().heightPixels*2)/3);
                 }
                 fragment.setTitle("手柄按键");
-                fragment.setOnClick(bean -> {
+                fragment.setElementSelectionListener(bean -> {
                     addItem(bean);
                 });
                 fragment.show(context.getSupportFragmentManager());
@@ -234,7 +233,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
                 fragment.setWidth((context.getResources().getDisplayMetrics().heightPixels*2)/3);
             }
             fragment.setTitle(R.string.keyboard_chord_title);
-            fragment.setOnClick(bean -> {
+            fragment.setSelectionListener(bean -> {
                 addItem(bean);
             });
             fragment.show(context.getSupportFragmentManager());
@@ -270,7 +269,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
 
             cb_round.setChecked(isChecked);
             beanList.get(currentIndex).setShapeType(isChecked?1:0);
-            keyBoardVirtualControllerElement element=frame_layout.findViewWithTag(new TagInfo(currentIndex,isGamePadMode));
+            KeyboardVirtualControllerElement element=frame_layout.findViewWithTag(new TagInfo(currentIndex,isGamePadMode));
             element.setShapeType(beanList.get(currentIndex).getShapeType());
             element.invalidate();
         });
@@ -278,7 +277,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
         cb_switch_mode.setOnCheckedChangeListener((buttonView, isChecked) -> {
             cb_switch_mode.setChecked(isChecked);
             beanList.get(currentIndex).setSwitchMode(isChecked);
-            keyBoardVirtualControllerElement element=frame_layout.findViewWithTag(new TagInfo(currentIndex,isGamePadMode));
+            KeyboardVirtualControllerElement element=frame_layout.findViewWithTag(new TagInfo(currentIndex,isGamePadMode));
             if(element instanceof KeyBoardDigitalButton){
                 ((KeyBoardDigitalButton)element).setEnableSwitchDown(isChecked);
             }
@@ -509,7 +508,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
     }
 
     private void addView(GameMenuQuickBean bean,int i){
-        keyBoardVirtualControllerElement element = null;
+        KeyboardVirtualControllerElement element = null;
         //普通按钮
         if(bean.getBtnType()==4){
             //游戏按钮
@@ -603,7 +602,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
         if(element!=null){
             element.setShapeType(bean.getShapeType());
             element.setTag(new TagInfo(i,isGamePadMode));
-            element.setOnClick(tag -> {
+            element.setOnItemClickListener(tag -> {
                 updateItem(tag.index);
             });
             element.setOpacity(
@@ -707,7 +706,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
         buttonConfigure.setVisibility(View.GONE);
         lv_left_view.setVisibility(View.GONE);
         currentIndex=-1;
-        for (keyBoardVirtualControllerElement element : elements) {
+        for (KeyboardVirtualControllerElement element : elements) {
             element.invalidate();
         }
     }
@@ -731,7 +730,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
         if(TextUtils.isEmpty(message)){
             return;
         }
-        for (keyBoardVirtualControllerElement element : elements) {
+        for (KeyboardVirtualControllerElement element : elements) {
             element.invalidate();
         }
 
@@ -748,7 +747,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
     @Override
     public void hide() {
         handler.removeCallbacksAndMessages(null);
-        for (keyBoardVirtualControllerElement element : elements) {
+        for (KeyboardVirtualControllerElement element : elements) {
             element.setVisibility(View.GONE);
         }
         isShow=false;
@@ -786,7 +785,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
     }
 
     public void removeElements() {
-        for (keyBoardVirtualControllerElement element : elements) {
+        for (KeyboardVirtualControllerElement element : elements) {
             frame_layout.removeView(element);
         }
         elements.clear();
@@ -796,26 +795,20 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
     }
 
     public void setOpacity(int opacity) {
-        for (keyBoardVirtualControllerElement element : elements) {
+        for (KeyboardVirtualControllerElement element : elements) {
             element.setOpacity(opacity);
         }
     }
 
-    public void addElement(keyBoardVirtualControllerElement element, int x, int y, int width, int height) {
+    public void addElement(KeyboardVirtualControllerElement element, int x, int y, int width, int height) {
         elements.add(element);
         FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(width, height);
         layoutParams.setMargins(x, y, 0, 0);
         frame_layout.addView(element, layoutParams);
     }
 
-    public List<keyBoardVirtualControllerElement> getElements() {
+    public List<KeyboardVirtualControllerElement> getElements() {
         return elements;
-    }
-
-    private static final void _DBG(String text) {
-        if (_PRINT_DEBUG_INFORMATION) {
-            LimeLog.info("VirtualController: " + text);
-        }
     }
 
     public void initView(){
@@ -951,11 +944,6 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
     }
 
     private void sendControllerInputContextInternal() {
-        _DBG("INPUT_MAP + " + inputContext.inputMap);
-        _DBG("LEFT_TRIGGER " + inputContext.leftTrigger);
-        _DBG("RIGHT_TRIGGER " + inputContext.rightTrigger);
-        _DBG("LEFT STICK X: " + inputContext.leftStickX + " Y: " + inputContext.leftStickY);
-        _DBG("RIGHT STICK X: " + inputContext.rightStickX + " Y: " + inputContext.rightStickY);
 
         if (controllerHandler != null) {
             controllerHandler.reportOscState(
