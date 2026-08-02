@@ -9,6 +9,7 @@ import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvHTTP;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -71,6 +72,19 @@ public final class LegacyHostDetailsAdapter {
         return new PersistedHost(
                 toHostRecord(source),
                 source.serverCert);
+    }
+
+    public static List<PersistedHost> toPersistedHosts(
+            List<ComputerDetails> details) {
+        List<ComputerDetails> source = Objects.requireNonNull(
+                details,
+                "details");
+        ArrayList<PersistedHost> hosts = new ArrayList<>(source.size());
+        for (ComputerDetails item : source) {
+            hosts.add(toPersistedHost(
+                    Objects.requireNonNull(item, "details item")));
+        }
+        return Collections.unmodifiableList(hosts);
     }
 
     public static ComputerDetails toComputerDetails(

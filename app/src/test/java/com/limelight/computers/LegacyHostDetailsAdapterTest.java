@@ -12,6 +12,8 @@ import com.limelight.nvstream.http.ComputerDetails;
 import org.junit.Test;
 
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
+import java.util.List;
 
 public final class LegacyHostDetailsAdapterTest {
     @Test
@@ -74,6 +76,31 @@ public final class LegacyHostDetailsAdapterTest {
         assertEquals(
                 "Host",
                 record.getIdentity().getAdvertisedName());
+    }
+
+    @Test
+    public void migrationBatchConvertsToAnImmutableDomainSnapshot() {
+        ComputerDetails first = details();
+        ComputerDetails second = details();
+        second.uuid = "SECOND-HOST";
+        second.name = "Second";
+
+        List<PersistedHost> hosts = LegacyHostDetailsAdapter
+                .toPersistedHosts(Arrays.asList(first, second));
+        first.uuid = "mutated";
+        second.name = "Mutated";
+
+        assertEquals(
+                "host-id",
+                hosts.get(0).getRecord().getIdentity()
+                        .getId().getValue());
+        assertEquals(
+                "Second",
+                hosts.get(1).getRecord().getIdentity()
+                        .getAdvertisedName());
+        org.junit.Assert.assertThrows(
+                UnsupportedOperationException.class,
+                () -> hosts.add(hosts.get(0)));
     }
 
     private static ComputerDetails details() {

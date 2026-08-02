@@ -71,6 +71,7 @@ public class LegacyDatabaseReader2 {
         return LegacyHostDatabaseMigration.read(
                 context,
                 COMPUTER_DB_NAME,
-                LegacyDatabaseReader2::getAllComputers);
+                database -> LegacyHostDetailsAdapter.toPersistedHosts(
+                        getAllComputers(database)));
     }
 }

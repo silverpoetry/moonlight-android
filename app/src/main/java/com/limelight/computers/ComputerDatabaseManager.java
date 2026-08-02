@@ -11,7 +11,6 @@ import com.limelight.computers.model.HostId;
 import com.limelight.computers.model.HostIdentity;
 import com.limelight.computers.model.HostRecord;
 import com.limelight.computers.model.PersistedHost;
-import com.limelight.nvstream.http.ComputerDetails;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -281,7 +280,7 @@ public final class ComputerDatabaseManager implements HostRepository {
         }
 
         try {
-            importLegacyComputers(migration.getComputers());
+            importLegacyHosts(migration.getHosts());
         }
         catch (RuntimeException error) {
             LimeLog.warning(
@@ -291,11 +290,11 @@ public final class ComputerDatabaseManager implements HostRepository {
         migration.retire(context);
     }
 
-    private void importLegacyComputers(List<ComputerDetails> computers) {
+    private void importLegacyHosts(List<PersistedHost> hosts) {
         computerDb.beginTransaction();
         try {
-            for (ComputerDetails computer : computers) {
-                insertLegacyComputer(computer);
+            for (PersistedHost host : hosts) {
+                insertLegacyHost(host);
             }
             computerDb.setTransactionSuccessful();
         }
@@ -304,22 +303,23 @@ public final class ComputerDatabaseManager implements HostRepository {
         }
     }
 
-    private void insertLegacyComputer(ComputerDetails details) {
-        PersistedHost host = LegacyHostDetailsAdapter.toPersistedHost(
-                details);
+    private void insertLegacyHost(PersistedHost host) {
+        PersistedHost source = Objects.requireNonNull(host, "host");
+        String storedHostId = source.getRecord().getIdentity()
+                .getId().getValue();
         ContentValues metadata = createHostMetadata(
-                host.getRecord(),
-                details.uuid);
+                source.getRecord(),
+                storedHostId);
         computerDb.insertWithOnConflict(
                 COMPUTER_TABLE_NAME,
                 null,
                 metadata,
                 SQLiteDatabase.CONFLICT_IGNORE);
 
-        if (host.getPinnedCertificate() != null) {
+        if (source.getPinnedCertificate() != null) {
             ContentValues credential = createCredential(
-                    details.uuid,
-                    host.getPinnedCertificate());
+                    storedHostId,
+                    source.getPinnedCertificate());
             computerDb.insertWithOnConflict(
                     CREDENTIAL_TABLE_NAME,
                     null,

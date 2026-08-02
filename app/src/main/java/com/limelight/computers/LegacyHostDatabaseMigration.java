@@ -4,7 +4,7 @@ import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 
 import com.limelight.LimeLog;
-import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.computers.model.PersistedHost;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -22,19 +22,19 @@ import java.util.Objects;
  */
 final class LegacyHostDatabaseMigration {
     interface Reader {
-        List<ComputerDetails> read(SQLiteDatabase database);
+        List<PersistedHost> read(SQLiteDatabase database);
     }
 
     private final String databaseName;
-    private final List<ComputerDetails> computers;
+    private final List<PersistedHost> hosts;
     private final boolean ready;
 
     private LegacyHostDatabaseMigration(
             String databaseName,
-            List<ComputerDetails> computers,
+            List<PersistedHost> hosts,
             boolean ready) {
         this.databaseName = databaseName;
-        this.computers = computers;
+        this.hosts = hosts;
         this.ready = ready;
     }
 
@@ -60,7 +60,7 @@ final class LegacyHostDatabaseMigration {
                 databaseFile.getPath(),
                 null,
                 SQLiteDatabase.OPEN_READONLY)) {
-            List<ComputerDetails> records = Objects.requireNonNull(
+            List<PersistedHost> records = Objects.requireNonNull(
                     reader.read(database),
                     "legacy database reader result");
             return new LegacyHostDatabaseMigration(
@@ -87,8 +87,8 @@ final class LegacyHostDatabaseMigration {
         return ready;
     }
 
-    List<ComputerDetails> getComputers() {
-        return computers;
+    List<PersistedHost> getHosts() {
+        return hosts;
     }
 
     void retire(Context context) {

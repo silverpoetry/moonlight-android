@@ -2420,4 +2420,22 @@ public final class ArchitectureBoundaryTest {
                         "the upload adapter passes its immutable target directly to the protocol constructor")
                 .check(productionClasses);
     }
+
+    @Test
+    public void currentHostRepositoryDoesNotConsumeLegacyDtos() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.ComputerDatabaseManager")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.LegacyHostDatabaseMigration")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.http.ComputerDetails")
+                .because(
+                        "legacy readers convert records before they cross into the current repository migration transaction")
+                .check(productionClasses);
+    }
 }

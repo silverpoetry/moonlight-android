@@ -1370,6 +1370,10 @@ agree across all participants.
   removed the file-upload adapter's synthetic `ComputerDetails.AddressTuple`.
   File push now carries its immutable upload target directly to the protocol
   boundary without constructing a legacy host DTO fragment.
+- Moved legacy-database DTO conversion behind the versioned reader boundary.
+  The validated migration snapshot and current `ComputerDatabaseManager` now
+  exchange only immutable `PersistedHost` values, with canonical host identity
+  applied before the atomic import transaction.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;
