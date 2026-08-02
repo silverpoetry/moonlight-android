@@ -22,6 +22,7 @@ import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.nvstream.clipboard.ClipboardSyncCheckpoint;
 import com.limelight.nvstream.clipboard.ClipboardSyncCheckpointStore;
+import com.limelight.utils.concurrent.LatestTaskExecutor;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -36,8 +37,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -56,11 +55,10 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     private final ClipboardSyncCheckpointStore checkpointStore;
     private final NvHTTP nvHttp;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "ClipboardIO");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private final LatestTaskExecutor contentExecutor =
+            new LatestTaskExecutor("ClipboardContent");
+    private final LatestTaskExecutor fileTransferExecutor =
+            new LatestTaskExecutor("ClipboardFileTransfer");
     private final AtomicLong localGeneration = new AtomicLong();
     private final AtomicLong remoteGeneration = new AtomicLong();
     private final AtomicLong clipboardChangeSequence = new AtomicLong();
@@ -123,7 +121,8 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         if (fileDownload != null) {
             fileDownload.cancel();
         }
-        ioExecutor.shutdownNow();
+        contentExecutor.close();
+        fileTransferExecutor.close();
         pendingLocalKey = null;
         pendingRemoteKey = null;
         pendingRemoteKeyExpiresAt = 0;
@@ -179,7 +178,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_PNG) &&
                 isValidPngHeader(data, MAX_INLINE_PNG_BYTES)) {
             long generation = remoteGeneration.incrementAndGet();
-            ioExecutor.execute(() ->
+            contentExecutor.execute(() ->
                     applyInboundPng(originId, itemId, data, generation));
         }
         else if (mimeType == MoonBridge.LI_CLIPBOARD_MIME_FILE_OFFER &&
@@ -200,7 +199,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                     (reference.targetMime == MoonBridge.LI_CLIPBOARD_MIME_TEXT_UTF8 ||
                             reference.targetMime == MoonBridge.LI_CLIPBOARD_MIME_PNG)) {
                 long generation = remoteGeneration.incrementAndGet();
-                ioExecutor.execute(() ->
+                contentExecutor.execute(() ->
                         applyInboundBlob(originId, itemId, reference, generation));
             }
         }
@@ -225,7 +224,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         if (previous != null) {
             previous.cancel();
         }
-        ioExecutor.execute(() -> {
+        fileTransferExecutor.execute(() -> {
             long originId = 0;
             String transferId = null;
             Integer topLevelCount = null;
@@ -431,7 +430,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     private void dispatchLocalImage(Uri uri, String key) {
         long generation = localGeneration.incrementAndGet();
         pendingLocalKey = key;
-        ioExecutor.execute(() -> {
+        contentExecutor.execute(() -> {
             File pngFile = null;
             try {
                 pngFile = materializePng(uri);
@@ -480,6 +479,10 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 if (pngFile != null) {
                     pngFile.delete();
                 }
+            }
+        }, () -> {
+            if (key.equals(pendingLocalKey)) {
+                pendingLocalKey = null;
             }
         });
     }

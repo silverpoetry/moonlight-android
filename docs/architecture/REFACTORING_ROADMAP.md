@@ -1301,6 +1301,10 @@ agree across all participants.
   documented two-buffer limit. Saturation still releases the oldest decoded
   buffer, but queue capacity is now enforced by the data structure rather than
   a racy size check on an unbounded queue.
+- Split clipboard content processing and explicit file pulls into independent
+  bounded serial executors. Each channel retains only its running task and the
+  newest pending state, reports superseded work to its owner for cleanup, and
+  cannot accumulate an unbounded backlog behind slow image or file I/O.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;
