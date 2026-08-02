@@ -121,25 +121,23 @@ final class SettingsItem {
         return SettingsScreenIds.EDITOR_VIDEO_BITRATE_MBPS.equals(key);
     }
 
-    @SuppressWarnings("unchecked")
     SettingKey<Boolean> booleanKey() {
-        return (SettingKey<Boolean>) requireStorageType(
+        return requireStorageType(
                 SettingKey.StorageType.BOOLEAN);
     }
 
-    @SuppressWarnings("unchecked")
     SettingKey<Integer> integerKey() {
-        return (SettingKey<Integer>) requireStorageType(
+        return requireStorageType(
                 SettingKey.StorageType.INTEGER);
     }
 
-    @SuppressWarnings("unchecked")
     SettingKey<String> stringKey() {
-        return (SettingKey<String>) requireStorageType(
+        return requireStorageType(
                 SettingKey.StorageType.STRING);
     }
 
-    private SettingKey<?> requireStorageType(
+    @SuppressWarnings("unchecked")
+    private <T> SettingKey<T> requireStorageType(
             SettingKey.StorageType expected) {
         if (settingKey == null ||
                 settingKey.getStorageType() != expected) {
@@ -148,7 +146,9 @@ final class SettingsItem {
                             " requires " + expected +
                             " storage");
         }
-        return settingKey;
+        // StorageType has a one-to-one Java value type in SettingKey's
+        // factory API, and the schema registry is the only source of keys.
+        return (SettingKey<T>) settingKey;
     }
 
     private static boolean isEmpty(CharSequence value) {

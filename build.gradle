@@ -54,6 +54,7 @@ tasks.register('verifyLocal') {
     dependsOn verifyNoBidiControls,
             verifyNoLegacyBranding,
             verifyProductionLoggingPolicy,
+            verifyJavaSuppressionPolicy,
             verifyAndroidSecurityPolicy,
             verifyNoRepositorySecrets,
             verifyNativeDependencies,

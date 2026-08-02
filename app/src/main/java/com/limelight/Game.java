@@ -346,7 +346,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     private StreamInputGatewayRegistry.Registration inputGatewayRegistration;
     private boolean showSoftKeyboardWhenFocused;
 
-    @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

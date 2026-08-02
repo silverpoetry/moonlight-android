@@ -1285,6 +1285,14 @@ agree across all participants.
   identity. Analog-stick gesture timing now uses the monotonic input-event
   clock throughout; a shared pure boundary rejects missing, reversed, and
   out-of-window double taps and is fixture-locked at the timeout edge.
+- Removed stale and avoidable lint/compiler suppressions from stream startup,
+  app-grid binding, performance overlay lookup, and Android settings storage.
+  String-set persistence now validates every erased entry before crossing the
+  typed repository boundary; the two remaining unchecked casts are isolated
+  generic-erasure bridges with runtime type/schema validation and explicit
+  rationale. A release gate rejects new unchecked suppressions outside those
+  reviewed bridges and prevents the obsolete `MissingInflatedId` suppression
+  from returning.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

@@ -202,7 +202,6 @@ public final class SettingKey<T> {
      * Creates a defensive, immutable set-valued key for collections of
      * bounded strings.
      */
-    @SuppressWarnings({"unchecked", "rawtypes"})
     public static SettingKey<Set<String>>
             boundedStringCollectionKey(
                     String name,
@@ -213,8 +212,7 @@ public final class SettingKey<T> {
             throw new IllegalArgumentException(
                     "String-set bounds cannot be negative");
         }
-        Class<Set<String>> valueClass =
-                (Class) Set.class;
+        Class<Set<String>> valueClass = erasedClass(Set.class);
         Set<String> defaultValue = Collections.emptySet();
         return new SettingKey<>(
                 name,
@@ -238,6 +236,14 @@ public final class SettingKey<T> {
 
     public T getDefaultValue() {
         return defaultValue;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <ValueT> Class<ValueT> erasedClass(
+            Class<?> valueClass) {
+        // Java cannot express Class<Set<String>> because generic arguments
+        // are erased. Runtime element validation remains in the normalizer.
+        return (Class<ValueT>) valueClass;
     }
 
     /**

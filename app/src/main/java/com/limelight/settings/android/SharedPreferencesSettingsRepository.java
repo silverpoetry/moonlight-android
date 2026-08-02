@@ -166,8 +166,21 @@ public final class SharedPreferencesSettingsRepository
         }
     }
 
-    @SuppressWarnings("unchecked")
     private static Set<String> asStringSet(Object value) {
-        return (Set<String>) value;
+        if (!(value instanceof Set<?>)) {
+            throw new ClassCastException(
+                    "Expected a string set but found " +
+                            (value == null ? "null" :
+                                    value.getClass().getName()));
+        }
+        Set<String> strings = new HashSet<>();
+        for (Object entry : (Set<?>) value) {
+            if (!(entry instanceof String)) {
+                throw new ClassCastException(
+                        "String set contains a non-string entry");
+            }
+            strings.add((String) entry);
+        }
+        return strings;
     }
 }

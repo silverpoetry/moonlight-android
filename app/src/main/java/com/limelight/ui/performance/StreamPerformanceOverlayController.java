@@ -429,13 +429,12 @@ public final class StreamPerformanceOverlayController
                 null);
     }
 
-    @SuppressWarnings("unchecked")
     private <ViewT extends View> ViewT requireView(int id) {
-        View view = activity.findViewById(id);
+        ViewT view = activity.findViewById(id);
         if (view == null) {
             throw new IllegalStateException(
                     "Missing performance overlay view: " + id);
         }
-        return (ViewT) view;
+        return view;
     }
 }
