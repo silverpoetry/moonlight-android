@@ -152,15 +152,15 @@ public final class SettingsMutationControllerTest {
 
         controller.changeInteger(
                 item(InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD),
-                875);
+                4_875);
 
         InputSettings runtime = InputSettingsLoader.load(repository);
         assertEquals(
-                Integer.valueOf(875),
+                Integer.valueOf(4_875),
                 repository.get(
                         InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD));
         assertEquals(
-                0.875f,
+                4.875f,
                 runtime.getBarometerForcePressThresholdHpa(),
                 0.0001f);
     }

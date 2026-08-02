@@ -256,7 +256,7 @@
     <string name="title_checkbox_barometer_force_press">气压计重按</string>
     <string name="summary_checkbox_barometer_force_press">在触控板模式下，用气压计重按替代单指和双指长按；单指按住左键，双指按住右键，手指离开前保持按下。</string>
     <string name="title_seekbar_barometer_force_press_threshold">重按阈值</string>
-    <string name="summary_seekbar_barometer_force_press_threshold">当前触点组合稳定后的气压上升量。数值越小越容易触发。</string>
+    <string name="summary_seekbar_barometer_force_press_threshold">当前触点组合稳定后的气压上升量。不同设备的气压响应差异很大；数值越小越容易触发。</string>
     <string name="suffix_barometer_force_press_threshold">hPa</string>
     <string name="title_seekbar_barometer_force_press_min_duration">最短触摸时间</string>
     <string name="summary_seekbar_barometer_force_press_min_duration">当前触点组合至少保持该时长后才允许触发重按，用于过滤手指落屏时的瞬时气压尖峰。</string>

@@ -190,7 +190,7 @@
     <string name="title_checkbox_barometer_force_press">Barometer force press</string>
     <string name="summary_checkbox_barometer_force_press">In touchpad mode, replace one- and two-finger long presses with barometer force presses. One finger holds the left button and two fingers hold the right button until a finger is lifted.</string>
     <string name="title_seekbar_barometer_force_press_threshold">Force-press threshold</string>
-    <string name="summary_seekbar_barometer_force_press_threshold">Pressure rise after the current contact set has stabilized. Lower values trigger more easily.</string>
+    <string name="summary_seekbar_barometer_force_press_threshold">Pressure rise after the current contact set has stabilized. Device response varies widely; lower values trigger more easily.</string>
     <string name="suffix_barometer_force_press_threshold">hPa</string>
     <string name="title_seekbar_barometer_force_press_min_duration">Minimum touch duration</string>
     <string name="summary_seekbar_barometer_force_press_min_duration">Require the current contact set to remain down for this long before a force press can trigger, filtering pressure spikes caused by initial contact.</string>

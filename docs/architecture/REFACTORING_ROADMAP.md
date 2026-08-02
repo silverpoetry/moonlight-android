@@ -1242,7 +1242,9 @@ agree across all participants.
 - Added a runtime-consumption architecture gate for typed settings. Every
   persisted XML key resolves through the canonical schema and every public
   settings projection has a production consumer, preventing a visible but
-  ineffective setting from returning.
+  ineffective setting from returning. Connected registry tests also prove
+  that every slider endpoint survives typed normalization, including the
+  complete fixed barometer force-press threshold range.
 - Removed Axixi-derived names from production resources, launcher assets,
   virtual-control layouts, settings arrays, and menu identifiers. A release
   gate now rejects reintroduction of removed fork branding or resource

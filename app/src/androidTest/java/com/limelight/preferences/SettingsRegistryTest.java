@@ -11,6 +11,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.limelight.settings.SettingsScreenIds;
+import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
 
 import org.junit.Test;
@@ -70,5 +71,72 @@ public final class SettingsRegistryTest {
             }
         }
         assertArrayEquals(expectedIds, actualIds);
+    }
+
+    @Test
+    public void everySliderRangeIsAcceptedByItsTypedSchema() {
+        Context context = InstrumentationRegistry
+                .getInstrumentation()
+                .getTargetContext();
+
+        for (SettingsSection section : SettingsRegistry.load(context)) {
+            for (SettingsItem item : section.items) {
+                if (item.type != SettingsItem.Type.SLIDER) {
+                    continue;
+                }
+                assertEquals(
+                        "Schema rejects the lower endpoint of " +
+                                item.key,
+                        item.min,
+                        item.integerKey()
+                                .normalizeValue(item.min)
+                                .intValue());
+                assertEquals(
+                        "Schema rejects the upper endpoint of " +
+                                item.key,
+                        item.max,
+                        item.integerKey()
+                                .normalizeValue(item.max)
+                                .intValue());
+                assertEquals(
+                        "Slider step cannot represent the upper endpoint of " +
+                                item.key,
+                        item.max,
+                        item.round(item.max));
+            }
+        }
+    }
+
+    @Test
+    public void forcePressThresholdExposesItsCompleteTypedRange() {
+        Context context = InstrumentationRegistry
+                .getInstrumentation()
+                .getTargetContext();
+        SettingsItem threshold = findItem(
+                SettingsRegistry.load(context),
+                InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD
+                        .getName());
+
+        assertNotNull(threshold);
+        assertEquals(
+                InputSettingKeys.MIN_FORCE_PRESS_THRESHOLD_MILLI_HPA,
+                threshold.min);
+        assertEquals(
+                InputSettingKeys.MAX_FORCE_PRESS_THRESHOLD_MILLI_HPA,
+                threshold.max);
+        assertEquals(1_000, threshold.divisor);
+    }
+
+    private static SettingsItem findItem(
+            ArrayList<SettingsSection> sections,
+            String key) {
+        for (SettingsSection section : sections) {
+            for (SettingsItem item : section.items) {
+                if (key.equals(item.key)) {
+                    return item;
+                }
+            }
+        }
+        return null;
     }
 }

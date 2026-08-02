@@ -192,11 +192,11 @@
             android:summary="@string/summary_seekbar_barometer_force_press_threshold"
             android:dialogMessage="@string/summary_seekbar_barometer_force_press_threshold"
             android:defaultValue="180"
-            android:max="1000"
+            android:max="5000"
             android:text="@string/suffix_barometer_force_press_threshold"
             seekbar:min="50"
-            seekbar:step="5"
-            seekbar:keyStep="10"
+            seekbar:step="10"
+            seekbar:keyStep="50"
             seekbar:divisor="1000"
             seekbar:decimals="3" />
         <SeekBarPreference

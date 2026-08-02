@@ -85,6 +85,23 @@ public class BarometerForcePressDetectorTest {
     }
 
     @Test
+    public void configuredThresholdSeparatesTheSamePressureTrace() {
+        detector.setThresholdHpa(0.5f);
+        down(50);
+        pressure(1001.5f);
+        assertTrue(detector.isForcePressed());
+
+        detector.cancelTouchSession();
+        detector.setThresholdHpa(2.0f);
+        down(51);
+        pressure(1001.5f);
+        assertFalse(detector.isForcePressed());
+
+        pressure(1002.1f);
+        assertTrue(detector.isForcePressed());
+    }
+
+    @Test
     public void twoFingerForcePressReleasesWhenEitherFingerLeaves() {
         down(10);
         down(11);

@@ -19,7 +19,7 @@ public final class InputSettingKeys {
     public static final int MIN_FORCE_PRESS_THRESHOLD_MILLI_HPA =
             50;
     public static final int MAX_FORCE_PRESS_THRESHOLD_MILLI_HPA =
-            1_000;
+            5_000;
     public static final int DEFAULT_FORCE_PRESS_MINIMUM_DURATION_MS =
             100;
     public static final int MAX_FORCE_PRESS_MINIMUM_DURATION_MS =
