@@ -1321,6 +1321,10 @@ agree across all participants.
   declares rejection and cancellation policy directly. A production-wide
   architecture rule now rejects the `Executors` factory API so hidden
   unbounded queues cannot return.
+- Removed the file-share entry point's mutable host DTO round trip. It now
+  snapshots one immutable upload target from repository-owned host identity,
+  endpoint, and pinned credential, and creates the legacy address tuple only
+  at the `NvHTTP` protocol boundary.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

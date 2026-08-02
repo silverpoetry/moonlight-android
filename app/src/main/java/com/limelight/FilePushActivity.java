@@ -14,20 +14,22 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.activity.ComponentActivity;
 import androidx.core.content.IntentCompat;
-import com.limelight.utils.UiToast;
 
 import com.limelight.binding.PlatformBinding;
 import com.limelight.computers.ComputerDatabaseManager;
-import com.limelight.computers.LegacyHostDetailsAdapter;
-import com.limelight.computers.model.PersistedHost;
 import com.limelight.computers.IdentityManager;
+import com.limelight.computers.model.HostEndpoint;
+import com.limelight.computers.model.HostRecord;
+import com.limelight.computers.model.PersistedHost;
 import com.limelight.nvstream.filetransfer.DesktopFileUploader;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.UiHelper;
+import com.limelight.utils.UiToast;
 import com.limelight.utils.concurrent.LatestTaskExecutor;
 
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -146,7 +148,7 @@ public class FilePushActivity extends ComponentActivity {
         primaryAction.setText(R.string.file_push_cancel);
         primaryAction.setOnClickListener(view -> finish());
 
-        List<ComputerDetails> pairedHosts = loadPairedHosts();
+        List<UploadTarget> pairedHosts = loadPairedHosts();
         hostList.removeAllViews();
         if (pairedHosts.isEmpty()) {
             showTerminalError(getString(R.string.file_push_no_hosts));
@@ -155,23 +157,20 @@ public class FilePushActivity extends ComponentActivity {
 
         LayoutInflater inflater = LayoutInflater.from(this);
         for (int index = 0; index < pairedHosts.size(); index++) {
-            ComputerDetails computer = pairedHosts.get(index);
+            UploadTarget target = pairedHosts.get(index);
             View item = inflater.inflate(
                     R.layout.item_file_push_host, hostList, false);
             TextView name = item.findViewById(R.id.file_push_host_name);
             TextView detail = item.findViewById(R.id.file_push_host_detail);
-            ComputerDetails.AddressTuple address = selectAddress(computer);
 
-            String computerName = hostDisplayName(computer, address);
-            name.setText(computerName);
+            name.setText(target.displayName);
             detail.setText(getString(
-                    computer.state == ComputerDetails.State.ONLINE ?
-                            R.string.file_push_host_online :
-                            R.string.file_push_host_paired,
-                    address.address));
+                    R.string.file_push_host_paired,
+                    target.endpoint.getAddress()));
             item.setContentDescription(getString(
-                    R.string.file_push_host_content_description, computerName));
-            item.setOnClickListener(view -> beginUpload(computer));
+                    R.string.file_push_host_content_description,
+                    target.displayName));
+            item.setOnClickListener(view -> beginUpload(target));
 
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -187,48 +186,45 @@ public class FilePushActivity extends ComponentActivity {
         }
     }
 
-    private List<ComputerDetails> loadPairedHosts() {
-        List<ComputerDetails> pairedHosts = new ArrayList<>();
+    private List<UploadTarget> loadPairedHosts() {
+        List<UploadTarget> pairedHosts = new ArrayList<>();
         ComputerDatabaseManager database = new ComputerDatabaseManager(this);
         try {
             for (PersistedHost host : database.getAllHosts()) {
-                ComputerDetails computer = LegacyHostDetailsAdapter
-                        .toComputerDetails(host);
-                if (computer.serverCert != null &&
-                        selectAddress(computer) != null) {
-                    pairedHosts.add(computer);
+                HostEndpoint endpoint = selectEndpoint(
+                        host.getRecord());
+                if (host.getPinnedCertificate() != null &&
+                        endpoint != null) {
+                    pairedHosts.add(new UploadTarget(
+                            host.getRecord().getIdentity()
+                                    .getAdvertisedName(),
+                            endpoint,
+                            host.getPinnedCertificate()));
                 }
             }
         } finally {
             database.close();
         }
-        Collections.sort(pairedHosts, new Comparator<ComputerDetails>() {
+        Collections.sort(pairedHosts, new Comparator<UploadTarget>() {
             @Override
             public int compare(
-                    ComputerDetails left, ComputerDetails right) {
-                String leftName = left.name == null ? "" : left.name;
-                String rightName = right.name == null ? "" : right.name;
-                return leftName.compareToIgnoreCase(rightName);
+                    UploadTarget left, UploadTarget right) {
+                return left.displayName.compareToIgnoreCase(
+                        right.displayName);
             }
         });
         return pairedHosts;
     }
 
-    private void beginUpload(ComputerDetails computer) {
+    private void beginUpload(UploadTarget target) {
         if (uploadInProgress) {
-            return;
-        }
-        ComputerDetails.AddressTuple address = selectAddress(computer);
-        if (address == null) {
-            showUploadError(getString(R.string.file_push_no_hosts));
             return;
         }
 
         uploadInProgress = true;
         titleView.setText(R.string.file_push_uploading_title);
-        String computerName = hostDisplayName(computer, address);
         subtitleView.setText(getString(
-                R.string.file_push_uploading_to, computerName));
+                R.string.file_push_uploading_to, target.displayName));
         hostSection.setVisibility(View.GONE);
         errorView.setVisibility(View.GONE);
         progressPanel.setVisibility(View.VISIBLE);
@@ -241,15 +237,18 @@ public class FilePushActivity extends ComponentActivity {
         uploadTask = executor.submit(() -> {
             try {
                 NvHTTP http = new NvHTTP(
-                        address,
-                        computer.httpsPort,
+                        new ComputerDetails.AddressTuple(
+                                target.endpoint.getAddress(),
+                                target.endpoint.getPort()),
+                        0,
                         new IdentityManager(this).getUniqueId(),
-                        computer.serverCert,
+                        target.pinnedCertificate,
                         PlatformBinding.getCryptoProvider(this));
                 DesktopFileUploader.upload(this, http, sharedUris,
                         (transferred, total) -> runOnUiThread(() ->
                                 updateProgress(transferred, total)));
-                runOnUiThread(() -> showUploadComplete(computerName));
+                runOnUiThread(() -> showUploadComplete(
+                        target.displayName));
             } catch (Throwable error) {
                 LimeLog.warning(
                         "Desktop file upload failed: " + error.getMessage());
@@ -338,30 +337,38 @@ public class FilePushActivity extends ComponentActivity {
         primaryAction.requestFocus();
     }
 
-    private static ComputerDetails.AddressTuple selectAddress(
-            ComputerDetails computer) {
-        if (computer.activeAddress != null) {
-            return computer.activeAddress;
+    private static HostEndpoint selectEndpoint(
+            HostRecord record) {
+        HostEndpoint endpoint = record.getEndpoint(
+                HostEndpoint.Kind.MANUAL);
+        if (endpoint == null) {
+            endpoint = record.getEndpoint(
+                    HostEndpoint.Kind.LOCAL_IPV4);
         }
-        if (computer.manualAddress != null) {
-            return computer.manualAddress;
+        if (endpoint == null) {
+            endpoint = record.getEndpoint(
+                    HostEndpoint.Kind.LOCAL_IPV6);
         }
-        if (computer.localAddress != null) {
-            return computer.localAddress;
+        if (endpoint == null) {
+            endpoint = record.getEndpoint(
+                    HostEndpoint.Kind.REMOTE);
         }
-        if (computer.ipv6Address != null) {
-            return computer.ipv6Address;
-        }
-        return computer.remoteAddress;
+        return endpoint;
     }
 
-    private static String hostDisplayName(
-            ComputerDetails computer,
-            ComputerDetails.AddressTuple address) {
-        if (computer.name != null && !computer.name.trim().isEmpty()) {
-            return computer.name;
+    private static final class UploadTarget {
+        private final String displayName;
+        private final HostEndpoint endpoint;
+        private final X509Certificate pinnedCertificate;
+
+        private UploadTarget(
+                String displayName,
+                HostEndpoint endpoint,
+                X509Certificate pinnedCertificate) {
+            this.displayName = displayName;
+            this.endpoint = endpoint;
+            this.pinnedCertificate = pinnedCertificate;
         }
-        return address.address;
     }
 
     private static List<Uri> collectSharedUris(Intent intent) {

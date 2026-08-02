@@ -226,7 +226,6 @@
     <string name="file_push_selection_count">已选择 %1$d 个项目</string>
     <string name="file_push_selection_hint">选择主机后才会开始上传，文件将保存到主机桌面</string>
     <string name="file_push_host_section">可用主机</string>
-    <string name="file_push_host_online">在线 · %1$s</string>
     <string name="file_push_host_paired">已配对 · %1$s</string>
     <string name="file_push_host_content_description">推送至 %1$s</string>
     <string name="file_push_no_shared_items">没有收到可推送的文件</string>
