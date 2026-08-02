@@ -1331,9 +1331,9 @@ agree across all participants.
   the obsolete snapshot helper and its broad field-copy contract are deleted.
 - Migrated host-menu rendering, default actions, recent-session routing,
   pairing, app-list navigation, stream launch, and quit/restart callbacks to
-  immutable `HostRuntimeSnapshot` ownership. `PcView` now creates a mutable
-  transport DTO only at the launcher, NvHTTP, shortcut, and legacy detail
-  presentation edges; generic delete confirmation accepts only its title.
+  immutable `HostRuntimeSnapshot` ownership. Host screens, launchers,
+  shortcuts, and detail presentation no longer construct or consume the
+  mutable protocol DTO; generic delete confirmation accepts only its title.
 - Deleted the unreachable host-unpair UI branch, its dedicated use case,
   NvHTTP adapter, and self-contained tests. Historical inspection confirmed
   that neither the former native menu nor the replacement host menu exposed
@@ -1346,8 +1346,9 @@ agree across all participants.
 - Migrated app-grid, shortcut, automatic-reconnect, and shared stream-launch
   lifecycles to immutable `HostRuntimeSnapshot` values. Launches now consume
   the latest observed endpoint, HTTPS port, pinned certificate, and running-app
-  state without whole-object `ComputerDetails` copies; mutable protocol DTOs
-  remain only as short-lived adapters at app-asset and NvHTTP edges.
+  state without whole-object `ComputerDetails` copies. The mutable protocol DTO
+  is confined to host polling and connection internals, explicitly named
+  compatibility adapters, and the versioned read-only legacy database readers.
 - Replaced the legacy host DTO accepted by launcher shortcuts, pinned game
   shortcuts, launch reporting, and Android TV channels with the existing
   immutable `HostIdentity`. Shortcut infrastructure now receives exactly a
@@ -1377,6 +1378,10 @@ agree across all participants.
 - Removed the final mutable-host overload from the Android NvHTTP factory.
   App-list polling now passes its immutable runtime snapshot directly, and the
   Android composition boundary accepts only typed HTTP targets or snapshots.
+- Added an exact architecture allowlist for the remaining mutable host DTO
+  boundary. Any future direct dependency outside protocol internals, the host
+  polling service, named compatibility adapters, or versioned legacy readers
+  now fails the architecture test instead of silently widening the boundary.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

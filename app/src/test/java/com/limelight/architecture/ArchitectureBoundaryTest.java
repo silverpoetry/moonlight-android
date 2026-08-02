@@ -3,16 +3,23 @@ package com.limelight.architecture;
 import android.app.Activity;
 import android.content.Intent;
 
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.Dependency;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
+import static org.junit.Assert.fail;
 
 /**
  * Executable dependency rules for boundaries that have completed migration.
@@ -21,6 +28,16 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
  * are not broadly excluded or frozen behind a baseline.</p>
  */
 public final class ArchitectureBoundaryTest {
+    private static final String MUTABLE_HOST_DTO =
+            "com.limelight.nvstream.http.ComputerDetails";
+    private static final Set<String> MUTABLE_HOST_DTO_ADAPTERS = Set.of(
+            "com.limelight.computers.ComputerManagerService",
+            "com.limelight.computers.LegacyComputerDetailsMergePolicy",
+            "com.limelight.computers.LegacyDatabaseReader",
+            "com.limelight.computers.LegacyDatabaseReader2",
+            "com.limelight.computers.LegacyDatabaseReader3",
+            "com.limelight.computers.LegacyHostDetailsAdapter",
+            "com.limelight.computers.LegacyHostRuntimeAdapter");
     private static JavaClasses productionClasses;
 
     @BeforeClass
@@ -2452,5 +2469,45 @@ public final class ArchitectureBoundaryTest {
                 .because(
                         "Android HTTP composition accepts immutable targets and runtime snapshots only")
                 .check(productionClasses);
+    }
+
+    @Test
+    public void mutableHostDtoIsConfinedToApprovedBoundaries() {
+        List<String> violations = new ArrayList<>();
+
+        for (JavaClass originClass : productionClasses) {
+            for (Dependency dependency :
+                    originClass.getDirectDependenciesFromSelf()) {
+                String originName = originClass.getName();
+                String targetName = dependency.getTargetClass().getName();
+
+                if (targetName.equals(MUTABLE_HOST_DTO) ||
+                        targetName.startsWith(MUTABLE_HOST_DTO + "$")) {
+                    if (!isApprovedMutableHostDtoConsumer(originName)) {
+                        violations.add(dependency.getDescription());
+                    }
+                }
+            }
+        }
+
+        if (!violations.isEmpty()) {
+            fail("Mutable host DTO escaped its approved protocol/compatibility " +
+                    "boundary:\n" + String.join("\n", violations));
+        }
+    }
+
+    private static boolean isApprovedMutableHostDtoConsumer(String className) {
+        if (className.startsWith("com.limelight.nvstream.")) {
+            return true;
+        }
+
+        for (String adapterName : MUTABLE_HOST_DTO_ADAPTERS) {
+            if (className.equals(adapterName) ||
+                    className.startsWith(adapterName + "$")) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
