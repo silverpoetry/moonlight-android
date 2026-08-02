@@ -958,8 +958,8 @@ targets.
   and own one bounded worker instead of leaking a queue, thread, and separate
   executor. Manual subnet diagnostics reuse the verified most-significant-bit
   prefix policy rather than maintaining a divergent copy in the Activity.
-- Host quit and unpair now run through transport-independent state machines,
-  explicit NvHTTP adapters, and one lifecycle-owned foreground operation
+- Host quit now runs through a transport-independent state machine,
+  an explicit NvHTTP adapter, and one lifecycle-owned foreground operation
   controller. Duplicate actions are rejected, late Activity callbacks are
   suppressed, error 599 is a typed session-ownership outcome, and restart is
   attempted only after the host confirms that the previous session ended.
@@ -1334,6 +1334,10 @@ agree across all participants.
   immutable `HostRuntimeSnapshot` ownership. `PcView` now creates a mutable
   transport DTO only at the launcher, NvHTTP, shortcut, and legacy detail
   presentation edges; generic delete confirmation accepts only its title.
+- Deleted the unreachable host-unpair UI branch, its dedicated use case,
+  NvHTTP adapter, and self-contained tests. Historical inspection confirmed
+  that neither the former native menu nor the replacement host menu exposed
+  the operation; pairing's protocol-level cleanup remains intact.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

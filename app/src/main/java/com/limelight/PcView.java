@@ -25,16 +25,13 @@ import com.limelight.computers.pairing.HostPairingUseCase;
 import com.limelight.computers.pairing.NvHttpPairingBackend;
 import com.limelight.computers.reachability.ClientConnectivityEndpoint;
 import com.limelight.computers.session.HostQuitUseCase;
-import com.limelight.computers.session.HostUnpairUseCase;
 import com.limelight.computers.session.NvHttpHostQuitBackend;
-import com.limelight.computers.session.NvHttpHostUnpairBackend;
 import com.limelight.computers.wol.WakeOnLanTarget;
 import com.limelight.grid.PcGridAdapter;
 import com.limelight.grid.assets.DiskAssetLoader;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
-import com.limelight.nvstream.http.PairingManager;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.nvstream.wol.WakeOnLanSender;
 import com.limelight.preferences.AddComputerManually;
@@ -108,8 +105,6 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
     private HostPairingController hostPairingController;
     private final HostQuitUseCase hostQuitUseCase =
             new HostQuitUseCase();
-    private final HostUnpairUseCase hostUnpairUseCase =
-            new HostUnpairUseCase();
     private HostUiOperationController hostOperationController;
     private HostServiceBindingController hostBindingController;
     private AndroidStreamLauncher streamLauncher;
@@ -950,107 +945,6 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         if (progress != null) {
             progress.dismiss();
         }
-    }
-
-    private void doUnpair(final ComputerDetails computer) {
-        if (computer.state == ComputerDetails.State.OFFLINE || computer.activeAddress == null) {
-            UiToast.makeText(PcView.this, getResources().getString(R.string.error_pc_offline), UiToast.LENGTH_SHORT).show();
-            return;
-        }
-        ComputerManagerService.ComputerManagerBinder binder =
-                managerBinder;
-        HostUiOperationController controller =
-                hostOperationController;
-        if (binder == null || controller == null) {
-            UiToast.makeText(PcView.this, getResources().getString(R.string.error_manager_not_running), UiToast.LENGTH_LONG).show();
-            return;
-        }
-
-        final HostUnpairUseCase.Backend backend;
-        try {
-            backend = new NvHttpHostUnpairBackend(
-                    AndroidNvHttpClientFactory.create(
-                            this,
-                            computer,
-                            binder.getUniqueId()),
-                    DeviceUtils.getManufacturer() + "-" +
-                            DeviceUtils.getModel());
-        }
-        catch (IOException failure) {
-            showUnpairFailure(failure);
-            return;
-        }
-
-        HostUiOperationController.RequestStatus status =
-                controller.request(
-                        () -> hostUnpairUseCase.execute(backend),
-                        result -> onUnpairCompleted(computer, result));
-        if (status == HostUiOperationController.RequestStatus.ACCEPTED) {
-            UiToast.makeText(
-                    this,
-                    R.string.unpairing,
-                    UiToast.LENGTH_SHORT).show();
-        }
-        else {
-            showHostOperationRejection(status);
-        }
-    }
-
-    private void onUnpairCompleted(
-            ComputerDetails computer,
-            HostUiOperationController.Result<HostUnpairUseCase.Outcome>
-                    result) {
-        if (!result.isSuccessful()) {
-            showUnpairFailure(result.getFailure());
-            return;
-        }
-
-        int message;
-        switch (result.getValue()) {
-            case UNPAIRED:
-                message = R.string.unpair_success;
-                ComputerManagerService.ComputerManagerBinder binder =
-                        managerBinder;
-                if (binder != null) {
-                    binder.invalidateHostState(HostId.of(computer.uuid));
-                }
-                break;
-            case ALREADY_UNPAIRED:
-                message = R.string.unpair_error;
-                break;
-            case REJECTED:
-                message = R.string.unpair_fail;
-                break;
-            default:
-                throw new AssertionError(
-                        "Unhandled unpair outcome: " +
-                                result.getValue());
-        }
-        UiToast.makeText(
-                this,
-                message,
-                UiToast.LENGTH_LONG).show();
-    }
-
-    private void showUnpairFailure(Exception failure) {
-        CharSequence message;
-        if (failure instanceof UnknownHostException) {
-            message = getText(R.string.error_unknown_host);
-        }
-        else if (failure instanceof FileNotFoundException) {
-            message = getText(R.string.error_404);
-        }
-        else if (failure.getMessage() != null &&
-                !failure.getMessage().trim().isEmpty()) {
-            message = failure.getMessage();
-        }
-        else {
-            message = getText(R.string.unpair_fail);
-        }
-        UiToast.makeText(
-                this,
-                message,
-                UiToast.LENGTH_LONG).show();
     }
 
     private void doAppList(

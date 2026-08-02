@@ -502,12 +502,6 @@ public final class ArchitectureBoundaryTest {
                         "com\\.limelight\\.computers\\.session\\.HostQuitUseCase\\$.*")
                 .or()
                 .haveFullyQualifiedName(
-                        "com.limelight.computers.session.HostUnpairUseCase")
-                .or()
-                .haveNameMatching(
-                        "com\\.limelight\\.computers\\.session\\.HostUnpairUseCase\\$.*")
-                .or()
-                .haveFullyQualifiedName(
                         "com.limelight.computers.session.DeferredHostQuitController")
                 .or()
                 .haveNameMatching(
