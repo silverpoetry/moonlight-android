@@ -7,6 +7,10 @@ import java.net.UnknownHostException;
 
 import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.video.AndroidDecoderCrashStore;
+import com.limelight.binding.video.gl.GlDeviceSnapshot;
+import com.limelight.binding.video.gl.GlDeviceSnapshotStore;
+import com.limelight.binding.video.gl.android.AndroidGlRendererProbe;
+import com.limelight.binding.video.gl.android.SharedPreferencesGlDeviceSnapshotStore;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.computers.ComputerDetailsSnapshot;
@@ -34,7 +38,6 @@ import com.limelight.nvstream.http.PairingManager.PairState;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.nvstream.wol.WakeOnLanSender;
 import com.limelight.preferences.AddComputerManually;
-import com.limelight.preferences.GlPreferences;
 import com.limelight.preferences.StreamSettings;
 import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
 import com.limelight.settings.app.AppPresentationSettings;
@@ -65,7 +68,6 @@ import android.content.ServiceConnection;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
-import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -82,9 +84,6 @@ import android.widget.TextView;
 import com.limelight.utils.UiToast;
 
 import org.xmlpull.v1.XmlPullParserException;
-
-import javax.microedition.khronos.egl.EGLConfig;
-import javax.microedition.khronos.opengles.GL10;
 
 import com.limelight.input.diagnostics.InputDiagnosticsActivity;
 
@@ -118,6 +117,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             autoReconnectController;
     private AndroidDecoderCrashNotificationController
             decoderCrashNotificationController;
+    private AndroidGlRendererProbe glRendererProbe;
     private HiddenAppRepository hiddenAppRepository;
     private SpinnerDialog hostOperationProgress;
     private final HostPollingClientLifecycle hostPollingLifecycle =
@@ -312,46 +312,47 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         inForeground = true;
         hostPollingLifecycle.activate();
 
-        // Create a GLSurfaceView to fetch GLRenderer unless we have
-        // a cached result already.
-        final GlPreferences glPrefs = GlPreferences.readPreferences(this);
-        if (!glPrefs.savedFingerprint.equals(Build.FINGERPRINT) || glPrefs.glRenderer.isEmpty()) {
-            GLSurfaceView surfaceView = new GLSurfaceView(this);
-            surfaceView.setRenderer(new GLSurfaceView.Renderer() {
-                @Override
-                public void onSurfaceCreated(GL10 gl10, EGLConfig eglConfig) {
-                    // Save the GLRenderer string so we don't need to do this next time
-                    glPrefs.glRenderer = gl10.glGetString(GL10.GL_RENDERER);
-                    glPrefs.savedFingerprint = Build.FINGERPRINT;
-                    glPrefs.writePreferences();
-
-                    LimeLog.info("Fetched GL Renderer: " + glPrefs.glRenderer);
-
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            completeOnCreate();
-                        }
-                    });
-                }
-
-                @Override
-                public void onSurfaceChanged(GL10 gl10, int i, int i1) {
-                }
-
-                @Override
-                public void onDrawFrame(GL10 gl10) {
-                }
-            });
-            setContentView(surfaceView);
+        GlDeviceSnapshotStore glSnapshotStore =
+                new SharedPreferencesGlDeviceSnapshotStore(this);
+        GlDeviceSnapshot glSnapshot = glSnapshotStore.read();
+        if (!glSnapshot.isCurrentFor(Build.FINGERPRINT)) {
+            glRendererProbe = new AndroidGlRendererProbe(
+                    this,
+                    glSnapshotStore,
+                    Build.FINGERPRINT,
+                    this::onGlRendererProbeComplete);
+            setContentView(glRendererProbe.getView());
         }
         else {
-            LimeLog.info("Cached GL Renderer: " + glPrefs.glRenderer);
+            LimeLog.info(
+                    "Cached GL Renderer: " +
+                            glSnapshot.getRenderer());
             completeOnCreate();
         }
     }
 
+    private void onGlRendererProbeComplete(
+            GlDeviceSnapshot snapshot) {
+        if (glRendererProbe != null) {
+            glRendererProbe.destroy();
+            glRendererProbe = null;
+        }
+        if (snapshot.isAvailable()) {
+            LimeLog.info(
+                    "Fetched GL Renderer: " +
+                            snapshot.getRenderer());
+        }
+        else {
+            LimeLog.warning(
+                    "GL renderer probe unavailable; using conservative decoder policy");
+        }
+        completeOnCreate();
+    }
+
     private void completeOnCreate() {
+        if (completeOnCreateCalled || activityDestroyed) {
+            return;
+        }
         completeOnCreateCalled = true;
 
         shortcutHelper = new ShortcutHelper(this);
@@ -461,6 +462,10 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
     @Override
     public void onDestroy() {
         activityDestroyed = true;
+        if (glRendererProbe != null) {
+            glRendererProbe.destroy();
+            glRendererProbe = null;
+        }
         if (streamLauncher != null) {
             streamLauncher.onOwnerDestroyed();
         }

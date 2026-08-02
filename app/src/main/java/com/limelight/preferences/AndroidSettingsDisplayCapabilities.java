@@ -10,9 +10,12 @@ import android.view.DisplayCutout;
 
 import com.limelight.LimeLog;
 import com.limelight.binding.video.MediaCodecHelper;
+import com.limelight.binding.video.gl.GlDeviceSnapshot;
 import com.limelight.settings.android.AndroidHdrCompatibility;
 import com.limelight.platform.AndroidDeviceCategory;
 import com.limelight.platform.AndroidDisplayCompat;
+
+import java.util.Objects;
 
 /** Android adapter for display, cutout, decoder, and HDR capabilities. */
 final class AndroidSettingsDisplayCapabilities {
@@ -24,7 +27,9 @@ final class AndroidSettingsDisplayCapabilities {
 
     static SettingsDisplayCapabilities collect(
             Activity activity,
-            DisplayCutout androidPieCutout) {
+            DisplayCutout androidPieCutout,
+            GlDeviceSnapshot glDeviceSnapshot) {
+        Objects.requireNonNull(glDeviceSnapshot, "glDeviceSnapshot");
         Display display = AndroidDisplayCompat.getActivityDisplay(
                 activity);
         SettingsDisplayCapabilities.Builder capabilities =
@@ -64,7 +69,7 @@ final class AndroidSettingsDisplayCapabilities {
 
             MediaCodecHelper.initialize(
                     activity,
-                    GlPreferences.readPreferences(activity).glRenderer);
+                    glDeviceSnapshot.getRenderer());
             maximumPresetWidth = probeDecoderWidth(
                     maximumPresetWidth,
                     MIME_AVC);

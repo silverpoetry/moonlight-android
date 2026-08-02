@@ -8,7 +8,7 @@ import com.limelight.binding.video.DecoderCrashTracker;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.binding.video.PerfOverlayListener;
-import com.limelight.preferences.GlPreferences;
+import com.limelight.binding.video.gl.GlDeviceSnapshot;
 import com.limelight.settings.stream.StreamDecoderSettings;
 
 import java.util.Objects;
@@ -45,6 +45,7 @@ public final class AndroidStreamMediaRuntimeFactory {
     @MainThread
     public static Result create(
             Activity activity,
+            GlDeviceSnapshot glDeviceSnapshot,
             StreamDecoderSettings settings,
             DecoderCrashTracker crashTracker,
             boolean hdrRequested,
@@ -52,6 +53,9 @@ public final class AndroidStreamMediaRuntimeFactory {
             StreamMediaResourceOwner.AudioRendererFactory
                     audioRendererFactory) {
         Objects.requireNonNull(activity, "activity");
+        Objects.requireNonNull(
+                glDeviceSnapshot,
+                "glDeviceSnapshot");
         Objects.requireNonNull(settings, "settings");
         Objects.requireNonNull(crashTracker, "crashTracker");
         Objects.requireNonNull(
@@ -61,11 +65,9 @@ public final class AndroidStreamMediaRuntimeFactory {
                 audioRendererFactory,
                 "audioRendererFactory");
 
-        GlPreferences glPreferences =
-                GlPreferences.readPreferences(activity);
         MediaCodecHelper.initialize(
                 activity,
-                glPreferences.glRenderer);
+                glDeviceSnapshot.getRenderer());
         MediaCodecDecoderRenderer decoder =
                 new MediaCodecDecoderRenderer(
                         activity,
@@ -73,7 +75,7 @@ public final class AndroidStreamMediaRuntimeFactory {
                         crashTracker,
                         crashTracker.getInitialCrashCount(),
                         hdrRequested,
-                        glPreferences.glRenderer,
+                        glDeviceSnapshot.getRenderer(),
                         performanceListener);
         StreamDecoderCapabilities capabilities =
                 new StreamDecoderCapabilities(

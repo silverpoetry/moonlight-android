@@ -34,6 +34,7 @@ import com.limelight.binding.input.virtual_controller.keyboard.AndroidVirtualCon
 import com.limelight.binding.input.virtual_controller.keyboard.StreamVirtualControlsController;
 import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode;
 import com.limelight.binding.video.AndroidDecoderCrashStore;
+import com.limelight.binding.video.gl.android.SharedPreferencesGlDeviceSnapshotStore;
 import com.limelight.binding.video.DecoderCrashTracker;
 import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
 import com.limelight.computers.session.DeferredHostQuitController;
@@ -632,6 +633,8 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         AndroidStreamMediaRuntimeFactory.Result mediaRuntime =
                 AndroidStreamMediaRuntimeFactory.create(
                         this,
+                        new SharedPreferencesGlDeviceSnapshotStore(
+                                this).read(),
                         streamDecoderSettings,
                         decoderCrashTracker,
                         hdrRequested,

@@ -21,6 +21,8 @@ import com.limelight.AboutActivity;
 import com.limelight.BaseActivity;
 import com.limelight.PcView;
 import com.limelight.R;
+import com.limelight.binding.video.gl.GlDeviceSnapshotStore;
+import com.limelight.binding.video.gl.android.SharedPreferencesGlDeviceSnapshotStore;
 import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
 import com.limelight.platform.AndroidDisplayCompat;
 import com.limelight.settings.app.AppPresentationSettingKeys;
@@ -53,6 +55,7 @@ public class StreamSettings extends BaseActivity {
     private AppPresentationSettings previousPresentationSettings;
     private int previousDisplayPixelCount;
     private SettingsStore store;
+    private GlDeviceSnapshotStore glDeviceSnapshotStore;
     private ArrayList<SettingsSection> sections = new ArrayList<>();
     private SettingsScreenModel screenModel =
             new SettingsScreenModel(sections);
@@ -136,6 +139,8 @@ public class StreamSettings extends BaseActivity {
         }
         super.onCreate(savedInstanceState);
         store = new SettingsStore(this);
+        glDeviceSnapshotStore =
+                new SharedPreferencesGlDeviceSnapshotStore(this);
         AndroidVirtualControlLayoutRepository layoutRepository =
                 new AndroidVirtualControlLayoutRepository(this);
         mutationController = new SettingsMutationController(store);
@@ -678,7 +683,8 @@ public class StreamSettings extends BaseActivity {
                         new AndroidSettingsDisplayText(this))
                         .apply(AndroidSettingsDisplayCapabilities.collect(
                                 this,
-                                displayCutoutP));
+                                displayCutoutP,
+                                glDeviceSnapshotStore.read()));
         nativeFrameRateValue = result.getNativeFrameRateValue();
     }
 

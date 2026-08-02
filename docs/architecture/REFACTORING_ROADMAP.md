@@ -1271,6 +1271,11 @@ agree across all participants.
   adapter preserves the complete signed protocol app-ID range, isolates
   malformed entries, migrates case-variant host keys with commit-before-cleanup
   semantics, and owns host-removal cleanup.
+- Replaced the mutable `GlPreferences` bag with an immutable, bounded,
+  build-scoped GL device snapshot and one Android persistence adapter. The
+  historical fingerprint/renderer keys are replaced atomically, corrupt or
+  partial pairs fail closed, and the lifecycle-bound one-shot probe has a
+  bounded fallback instead of being able to stall host-screen startup.
 - Hardened Sunshine's Windows Release build and test environment: dependency
   audit is clean, local builds do not attempt Codecov uploads, expected
   dependency diagnostics and shader junctions are deterministic, coverage

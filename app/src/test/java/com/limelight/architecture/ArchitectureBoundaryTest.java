@@ -859,6 +859,39 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void glDeviceSnapshotHasOneAndroidPersistenceBoundary() {
+        noClasses()
+                .that()
+                .resideInAPackage(
+                        "com.limelight.binding.video.gl")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..", "androidx..")
+                .because(
+                        "the build-scoped GL identity is an immutable platform-independent snapshot")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.PcView")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.preferences." +
+                                "AndroidSettingsDisplayCapabilities")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream." +
+                                "AndroidStreamMediaRuntimeFactory")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.content.SharedPreferences")
+                .because(
+                        "GL consumers receive a snapshot or store port instead of addressing its cache")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamHdrRequestPolicyIsPlatformIndependent() {
         noClasses()
                 .that()
