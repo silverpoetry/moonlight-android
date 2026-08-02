@@ -1020,17 +1020,17 @@ targets.
 - App restart, endpoint change, failed pairing, and concurrent refresh preserve
   valid host data.
 - Sensitive material is not logged and is written atomically.
-- `verifyLocal --rerun-tasks --max-workers=1 --no-daemon` passes all 193
-  tasks. All four JVM variants pass 907 tests with no failures, errors, or
-  skips; every Lint variant and both unminified Release APKs pass.
-- API 34 connected verification passes all 149 NonRoot and 149 Root
+- `verifyLocal --rerun-tasks --max-workers=1 --no-daemon` passes all required
+  tasks. All four JVM variants pass their complete suites with no failures,
+  errors, or skips; every Lint variant and both unminified Release APKs pass.
+- API 34 connected verification passes all 153 NonRoot and 153 Root
   instrumentation tests with no failures, errors, or skips. A physical Xiaomi
   install cold-launches the immutable host-list path with its service bound and
   no application fatal exception or ANR.
 
 ## Phase 8 — Cross-client transfer and microphone contracts
 
-**Status:** in progress.
+**Status:** complete.
 
 This phase covers Android, Moonlight Qt, Sunshine, and the shared common-c
 protocol together. It is complete only when capability semantics and fixtures
@@ -1070,6 +1070,17 @@ agree across all participants.
 - Added microphone wire, lifecycle, replay, lost-BYE, queue, and format tests
   for the common-c SRTP uplink, Android capture controller, and Sunshine host
   receiver.
+- Removed the last Qt image-only and file-only preference aliases. Android and
+  Qt now expose and persist one clipboard switch, and every participant has
+  only the v4 production wire path.
+- Revalidated common-c SRTP and clipboard fixtures, Qt's byte-identical
+  manifest fixture, Sunshine's clipboard/microphone failure-injection suites,
+  and Android's microphone, transfer-session, and connected file-uploader
+  tests against the same committed common-c revision.
+- Completed the bidirectional Android/Qt text, image, file, and folder matrix
+  against Sunshine. Copy remains metadata-only until paste or pull, repeated
+  operations do not block input, and mono/stereo microphone capture produces
+  the negotiated host format without the former pitch/channel corruption.
 
 ### Exit evidence
 
@@ -1213,7 +1224,7 @@ agree across all participants.
   view/color/invalidation helpers. Clean root and non-root Java compilation now
   reports zero deprecation warnings; full Debug/Release lint remains warnings
   as errors with only documented API-21 dependency pins exempted.
-- Revalidated the slice with all app/core JVM tests, 149 connected tests per
+- Revalidated the slice with all app/core JVM tests, 153 connected tests per
   product flavor, both Release APKs, four native ABIs, and the complete
   `verifyLocal` governance gate.
 - Locked the reviewed Android security surface in
@@ -1223,6 +1234,26 @@ agree across all participants.
   has an explicit exported state, and every backup/transfer mode excludes host
   databases plus client identity. Connected fixtures prove both allowed and
   rejected file-sharing paths.
+- Replaced opaque and dynamically fetched Android dependencies with reviewed,
+  checksum-locked source or native artifacts; added complete native/vendored
+  manifests, license verification, runtime crypto self-tests, and one
+  application CycloneDX SBOM. The release repository no longer uses JitPack or
+  local AAR/JAR blobs.
+- Added a runtime-consumption architecture gate for typed settings. Every
+  persisted XML key resolves through the canonical schema and every public
+  settings projection has a production consumer, preventing a visible but
+  ineffective setting from returning.
+- Hardened Sunshine's Windows Release build and test environment: dependency
+  audit is clean, local builds do not attempt Codecov uploads, expected
+  dependency diagnostics and shader junctions are deterministic, coverage
+  data and test artifacts self-clean, and all non-hardware tests pass.
+- Passed the current Android `verifyConnected --rerun-tasks` gate with 437
+  executed tasks, 1,635 JVM tests, and 153 connected tests per flavor, all with
+  zero failures, errors, or skips. Clean install, same-signature upgrade from
+  commit `43d104a9`, rollback, restoration, and cold launch were crash-free on
+  the API 34 emulator with application data retained across replacement.
+- Documented the reproducible release, install, upgrade, rollback, evidence,
+  and rejection procedure in `RELEASE_RUNBOOK.md`.
 
 ### Exit evidence
 
