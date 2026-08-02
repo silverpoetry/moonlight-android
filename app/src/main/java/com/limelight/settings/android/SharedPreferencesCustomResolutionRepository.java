@@ -1,5 +1,6 @@
 package com.limelight.settings.android;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 
 import com.limelight.settings.stream.CustomResolution;
@@ -16,7 +17,7 @@ import java.util.Set;
  */
 public final class SharedPreferencesCustomResolutionRepository
         implements CustomResolutionRepository {
-    public static final String PREFERENCES_NAME =
+    private static final String PREFERENCES_NAME =
             "CustomResolutions";
     private static final String RESOLUTIONS_KEY = "resolutions";
     private static final int MAX_VISIBLE_RESOLUTIONS = 256;
@@ -24,10 +25,30 @@ public final class SharedPreferencesCustomResolutionRepository
     private final SharedPreferences preferences;
 
     public SharedPreferencesCustomResolutionRepository(
+            Context context) {
+        this(openPreferences(context));
+    }
+
+    public SharedPreferencesCustomResolutionRepository(
             SharedPreferences preferences) {
         this.preferences = Objects.requireNonNull(
                 preferences,
                 "preferences");
+    }
+
+    private static SharedPreferences openPreferences(
+            Context context) {
+        Context providedContext = Objects.requireNonNull(
+                context,
+                "context");
+        Context applicationContext =
+                providedContext.getApplicationContext();
+        Context storageContext = applicationContext != null
+                ? applicationContext
+                : providedContext;
+        return storageContext.getSharedPreferences(
+                PREFERENCES_NAME,
+                Context.MODE_PRIVATE);
     }
 
     @Override

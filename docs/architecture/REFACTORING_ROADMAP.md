@@ -1265,6 +1265,12 @@ agree across all participants.
   configured that dead implementation (skin, square buttons, Guide visibility,
   and free-stick mode, opacity, and fixation) were removed from the typed
   schema instead of being retained as ineffective UI or migration state.
+- Removed the last Activity-owned preference-file names. Custom-resolution and
+  stream-menu shortcut adapters now open their canonical and historical stores
+  internally; `Game` and `AppView` compose repositories without knowing
+  persistence formats. An architecture rule rejects direct
+  `SharedPreferences` dependencies from every Activity, and connected fixtures
+  lock the production store mapping and one-time shortcut migration.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

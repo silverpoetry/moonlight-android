@@ -381,18 +381,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                         settingsRepository);
         gameMenuShortcutRepository =
                 new SharedPreferencesGameMenuShortcutRepository(
-                        getSharedPreferences(
-                                SharedPreferencesGameMenuShortcutRepository
-                                        .PREFERENCES_NAME,
-                                Context.MODE_PRIVATE),
-                        getSharedPreferences(
-                                SharedPreferencesGameMenuShortcutRepository
-                                        .LEGACY_CUSTOM_PREFERENCES_NAME,
-                                Context.MODE_PRIVATE),
-                        getSharedPreferences(
-                                SharedPreferencesGameMenuShortcutRepository
-                                        .LEGACY_IMPORTED_PREFERENCES_NAME,
-                                Context.MODE_PRIVATE));
+                        this);
         gameMenuController = new AndroidGameMenuController(this);
         deviceBatteryProvider = new AndroidDeviceBatteryProvider(this);
         streamVideoSettings =
@@ -427,10 +416,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                 streamDecoderSettings.getFramePacing();
         customResolutionRepository =
                 new SharedPreferencesCustomResolutionRepository(
-                        getSharedPreferences(
-                                SharedPreferencesCustomResolutionRepository
-                                        .PREFERENCES_NAME,
-                                Context.MODE_PRIVATE));
+                        this);
         transferSettings =
                 TransferSettingsLoader.load(settingsRepository);
         inputSettingsState =

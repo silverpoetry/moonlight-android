@@ -20,6 +20,18 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public final class SharedPreferencesGameMenuShortcutRepositoryTest {
+    private static final String CANONICAL_PREFERENCES_NAME =
+            "game-menu-shortcut-repository-test";
+    private static final String LEGACY_CUSTOM_PREFERENCES_NAME =
+            "game-menu-shortcut-legacy-custom-test";
+    private static final String LEGACY_IMPORTED_PREFERENCES_NAME =
+            "game-menu-shortcut-legacy-imported-test";
+    private static final String DOCUMENT_KEY =
+            "game_menu_shortcuts_v2";
+    private static final String LEGACY_IMPORTED_KEY =
+            "special_key";
+
+    private Context context;
     private SharedPreferences canonicalPreferences;
     private SharedPreferences legacyCustomPreferences;
     private SharedPreferences importedPreferences;
@@ -27,20 +39,17 @@ public final class SharedPreferencesGameMenuShortcutRepositoryTest {
 
     @Before
     public void setUp() {
-        Context context = InstrumentationRegistry
+        context = InstrumentationRegistry
                 .getInstrumentation()
                 .getTargetContext();
         canonicalPreferences = context.getSharedPreferences(
-                SharedPreferencesGameMenuShortcutRepository
-                        .PREFERENCES_NAME,
+                CANONICAL_PREFERENCES_NAME,
                 Context.MODE_PRIVATE);
         legacyCustomPreferences = context.getSharedPreferences(
-                SharedPreferencesGameMenuShortcutRepository
-                        .LEGACY_CUSTOM_PREFERENCES_NAME,
+                LEGACY_CUSTOM_PREFERENCES_NAME,
                 Context.MODE_PRIVATE);
         importedPreferences = context.getSharedPreferences(
-                SharedPreferencesGameMenuShortcutRepository
-                        .LEGACY_IMPORTED_PREFERENCES_NAME,
+                LEGACY_IMPORTED_PREFERENCES_NAME,
                 Context.MODE_PRIVATE);
         clear();
         repository =
@@ -59,8 +68,7 @@ public final class SharedPreferencesGameMenuShortcutRepositoryTest {
     public void migratesBothLegacySourcesOnceInPriorOrder() {
         importedPreferences.edit()
                 .putString(
-                        SharedPreferencesGameMenuShortcutRepository
-                                .LEGACY_IMPORTED_KEY,
+                        LEGACY_IMPORTED_KEY,
                         "{\"data\":[{\"name\":\"Imported\"," +
                                 "\"data\":[\"0x1B\"]}]}")
                 .commit();
@@ -86,13 +94,11 @@ public final class SharedPreferencesGameMenuShortcutRepositoryTest {
         assertEquals("A", migrated.get(1).getName());
         assertEquals("B", migrated.get(2).getName());
         assertTrue(canonicalPreferences.contains(
-                SharedPreferencesGameMenuShortcutRepository
-                        .DOCUMENT_KEY));
+                DOCUMENT_KEY));
         assertEquals(1, canonicalPreferences.getAll().size());
         assertTrue(legacyCustomPreferences.getAll().isEmpty());
         assertFalse(importedPreferences.contains(
-                SharedPreferencesGameMenuShortcutRepository
-                        .LEGACY_IMPORTED_KEY));
+                LEGACY_IMPORTED_KEY));
 
         assertEquals(
                 migrated.get(0).getId(),
@@ -110,8 +116,7 @@ public final class SharedPreferencesGameMenuShortcutRepositoryTest {
                         true);
         assertTrue(legacyCustomPreferences.edit()
                 .putString(
-                        SharedPreferencesGameMenuShortcutRepository
-                                .DOCUMENT_KEY,
+                        DOCUMENT_KEY,
                         new GameMenuShortcutDocumentCodec()
                                 .encode(java.util.Collections.singletonList(
                                         shortcut)))
@@ -122,7 +127,7 @@ public final class SharedPreferencesGameMenuShortcutRepositoryTest {
         assertEquals(1, migrated.size());
         assertEquals(shortcut.getId(), migrated.get(0).getId());
         assertTrue(canonicalPreferences.contains(
-                SharedPreferencesGameMenuShortcutRepository.DOCUMENT_KEY));
+                DOCUMENT_KEY));
         assertTrue(legacyCustomPreferences.getAll().isEmpty());
     }
 
@@ -152,8 +157,7 @@ public final class SharedPreferencesGameMenuShortcutRepositoryTest {
         String invalidDocument = "not-json";
         canonicalPreferences.edit()
                 .putString(
-                        SharedPreferencesGameMenuShortcutRepository
-                                .DOCUMENT_KEY,
+                        DOCUMENT_KEY,
                         invalidDocument)
                 .putString(
                         "quick_assemble_key_old",
@@ -174,8 +178,7 @@ public final class SharedPreferencesGameMenuShortcutRepositoryTest {
         assertEquals(
                 invalidDocument,
                 canonicalPreferences.getString(
-                        SharedPreferencesGameMenuShortcutRepository
-                                .DOCUMENT_KEY,
+                        DOCUMENT_KEY,
                         null));
         assertFalse(canonicalPreferences.contains(
                 "quick_assemble_key_old"));
@@ -185,8 +188,7 @@ public final class SharedPreferencesGameMenuShortcutRepositoryTest {
     public void wrongPreferenceTypesAreIsolated() {
         importedPreferences.edit()
                 .putInt(
-                        SharedPreferencesGameMenuShortcutRepository
-                                .LEGACY_IMPORTED_KEY,
+                        LEGACY_IMPORTED_KEY,
                         7)
                 .commit();
         legacyCustomPreferences.edit()
@@ -205,16 +207,14 @@ public final class SharedPreferencesGameMenuShortcutRepositoryTest {
         assertEquals("Valid", loaded.get(0).getName());
         assertEquals(1, canonicalPreferences.getAll().size());
         assertFalse(importedPreferences.contains(
-                SharedPreferencesGameMenuShortcutRepository
-                        .LEGACY_IMPORTED_KEY));
+                LEGACY_IMPORTED_KEY));
     }
 
     @Test
     public void combinedLegacySourcesRespectCanonicalLimit() {
         importedPreferences.edit()
                 .putString(
-                        SharedPreferencesGameMenuShortcutRepository
-                                .LEGACY_IMPORTED_KEY,
+                        LEGACY_IMPORTED_KEY,
                         "{\"data\":[{\"name\":\"Imported\"," +
                                 "\"data\":[\"0x1B\"]}]}")
                 .commit();
@@ -244,15 +244,75 @@ public final class SharedPreferencesGameMenuShortcutRepositoryTest {
         assertEquals(1, canonicalPreferences.getAll().size());
     }
 
+    @Test
+    public void contextConstructorOwnsCanonicalAndMigrationStores() {
+        SharedPreferences productionCanonical =
+                context.getSharedPreferences(
+                        "game_menu_shortcuts",
+                        Context.MODE_PRIVATE);
+        SharedPreferences productionLegacyCustom =
+                context.getSharedPreferences(
+                        "quick_axi_keyAssemble",
+                        Context.MODE_PRIVATE);
+        SharedPreferences productionLegacyImported =
+                context.getSharedPreferences(
+                        "specialPrefs",
+                        Context.MODE_PRIVATE);
+        clear(
+                productionCanonical,
+                productionLegacyCustom,
+                productionLegacyImported);
+        try {
+            productionLegacyImported.edit()
+                    .putString(
+                            LEGACY_IMPORTED_KEY,
+                            "{\"data\":[{\"name\":\"Imported\"," +
+                                    "\"data\":[\"0x1B\"]}]}")
+                    .commit();
+            productionLegacyCustom.edit()
+                    .putString(
+                            "quick_assemble_key_context",
+                            legacyCustomJson(
+                                    "quick_assemble_key_context",
+                                    "Custom",
+                                    "1"))
+                    .commit();
+
+            SharedPreferencesGameMenuShortcutRepository
+                    contextRepository =
+                    new SharedPreferencesGameMenuShortcutRepository(
+                            context);
+            List<GameMenuShortcut> loaded =
+                    contextRepository.load();
+
+            assertEquals(2, loaded.size());
+            assertEquals("Imported", loaded.get(0).getName());
+            assertEquals("Custom", loaded.get(1).getName());
+            assertTrue(productionCanonical.contains(DOCUMENT_KEY));
+            assertTrue(productionLegacyCustom.getAll().isEmpty());
+            assertTrue(productionLegacyImported.getAll().isEmpty());
+        }
+        finally {
+            clear(
+                    productionCanonical,
+                    productionLegacyCustom,
+                    productionLegacyImported);
+        }
+    }
+
     private void clear() {
-        if (canonicalPreferences != null) {
-            canonicalPreferences.edit().clear().commit();
-        }
-        if (legacyCustomPreferences != null) {
-            legacyCustomPreferences.edit().clear().commit();
-        }
-        if (importedPreferences != null) {
-            importedPreferences.edit().clear().commit();
+        clear(
+                canonicalPreferences,
+                legacyCustomPreferences,
+                importedPreferences);
+    }
+
+    private static void clear(
+            SharedPreferences... stores) {
+        for (SharedPreferences store : stores) {
+            if (store != null) {
+                store.edit().clear().commit();
+            }
         }
     }
 

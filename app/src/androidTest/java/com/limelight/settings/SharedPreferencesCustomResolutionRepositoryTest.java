@@ -29,12 +29,13 @@ public final class SharedPreferencesCustomResolutionRepositoryTest {
             "custom-resolution-repository-test";
     private static final String RESOLUTIONS_KEY = "resolutions";
 
+    private Context context;
     private SharedPreferences preferences;
     private CustomResolutionRepository repository;
 
     @Before
     public void setUp() {
-        Context context = ApplicationProvider.getApplicationContext();
+        context = ApplicationProvider.getApplicationContext();
         preferences = context.getSharedPreferences(
                 PREFERENCES_NAME,
                 Context.MODE_PRIVATE);
@@ -99,5 +100,33 @@ public final class SharedPreferencesCustomResolutionRepositoryTest {
                         RESOLUTIONS_KEY,
                         new HashSet<>()));
         assertTrue(repository.load().isEmpty());
+    }
+
+    @Test
+    public void contextConstructorOwnsTheProductionStoreName() {
+        SharedPreferences productionPreferences =
+                context.getSharedPreferences(
+                        "CustomResolutions",
+                        Context.MODE_PRIVATE);
+        productionPreferences.edit().clear().commit();
+        try {
+            CustomResolution resolution =
+                    new CustomResolution(2560, 1600);
+            CustomResolutionRepository contextRepository =
+                    new SharedPreferencesCustomResolutionRepository(
+                            context);
+
+            contextRepository.add(resolution);
+
+            assertEquals(
+                    new HashSet<>(Arrays.asList("2560x1600")),
+                    productionPreferences.getStringSet(
+                            RESOLUTIONS_KEY,
+                            null));
+            assertTrue(contextRepository.load().contains(resolution));
+        }
+        finally {
+            productionPreferences.edit().clear().commit();
+        }
     }
 }

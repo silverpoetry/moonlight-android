@@ -42,6 +42,20 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void activitiesDoNotAddressSharedPreferences() {
+        noClasses()
+                .that()
+                .areAssignableTo(Activity.class)
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.content.SharedPreferences")
+                .because(
+                        "Activities compose persistence adapters but do not own storage names or migration formats")
+                .check(productionClasses);
+    }
+
+    @Test
     public void extractedStreamUiDoesNotDependOnGameActivity() {
         noClasses()
                 .that()

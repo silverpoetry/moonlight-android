@@ -1,5 +1,6 @@
 package com.limelight.shortcuts.android;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 
 import com.limelight.LimeLog;
@@ -26,15 +27,15 @@ import java.util.Objects;
  */
 public final class SharedPreferencesGameMenuShortcutRepository
         implements GameMenuShortcutRepository {
-    public static final String PREFERENCES_NAME =
+    private static final String PREFERENCES_NAME =
             "game_menu_shortcuts";
-    public static final String LEGACY_CUSTOM_PREFERENCES_NAME =
+    private static final String LEGACY_CUSTOM_PREFERENCES_NAME =
             "quick_axi_keyAssemble";
-    public static final String DOCUMENT_KEY =
+    private static final String DOCUMENT_KEY =
             "game_menu_shortcuts_v2";
-    public static final String LEGACY_IMPORTED_PREFERENCES_NAME =
+    private static final String LEGACY_IMPORTED_PREFERENCES_NAME =
             "specialPrefs";
-    public static final String LEGACY_IMPORTED_KEY =
+    private static final String LEGACY_IMPORTED_KEY =
             "special_key";
 
     private final SharedPreferences preferences;
@@ -42,6 +43,18 @@ public final class SharedPreferencesGameMenuShortcutRepository
     private final SharedPreferences legacyImportedPreferences;
     private final GameMenuShortcutDocumentCodec documentCodec;
     private final LegacyGameMenuShortcutCodec legacyCodec;
+
+    public SharedPreferencesGameMenuShortcutRepository(
+            Context context) {
+        this(
+                openPreferences(context, PREFERENCES_NAME),
+                openPreferences(
+                        context,
+                        LEGACY_CUSTOM_PREFERENCES_NAME),
+                openPreferences(
+                        context,
+                        LEGACY_IMPORTED_PREFERENCES_NAME));
+    }
 
     public SharedPreferencesGameMenuShortcutRepository(
             SharedPreferences preferences,
@@ -73,6 +86,22 @@ public final class SharedPreferencesGameMenuShortcutRepository
                 documentCodec, "documentCodec");
         this.legacyCodec = Objects.requireNonNull(
                 legacyCodec, "legacyCodec");
+    }
+
+    private static SharedPreferences openPreferences(
+            Context context,
+            String name) {
+        Context providedContext = Objects.requireNonNull(
+                context,
+                "context");
+        Context applicationContext =
+                providedContext.getApplicationContext();
+        Context storageContext = applicationContext != null
+                ? applicationContext
+                : providedContext;
+        return storageContext.getSharedPreferences(
+                name,
+                Context.MODE_PRIVATE);
     }
 
     @Override

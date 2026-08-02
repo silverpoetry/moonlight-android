@@ -627,10 +627,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                                 settingsRepository));
         customResolutionRepository =
                 new SharedPreferencesCustomResolutionRepository(
-                        getSharedPreferences(
-                                SharedPreferencesCustomResolutionRepository
-                                        .PREFERENCES_NAME,
-                                MODE_PRIVATE));
+                        this);
 
         ScreenBackgroundPresenter.apply(
                 this,
