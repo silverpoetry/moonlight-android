@@ -16,7 +16,7 @@
 <!--        android:layout_width="42dp"-->
 <!--        android:layout_height="42dp"-->
 <!--        android:indeterminate="true"-->
-<!--        android:indeterminateDrawable="@drawable/ic_axi_progress_bg" />-->
+<!--        android:indeterminateDrawable="@drawable/ic_progress_bg" />-->
 
     <com.limelight.ui.AxiCollisionLoadingView
         android:id="@+id/progress_spinner"

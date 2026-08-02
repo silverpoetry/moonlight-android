@@ -17,7 +17,7 @@
             android:layout_height="24dp"
             android:background="@drawable/ic_game_menu_btn_side_selector"
             android:contentDescription="@string/accessibility_back"
-            android:src="@drawable/ic_axi_back" />
+            android:src="@drawable/ic_back" />
 
         <TextView
             android:id="@+id/tx_title"
@@ -148,14 +148,14 @@
 
     <include
         android:id="@+id/lv_keyboard"
-        layout="@layout/item_layout_axixi_keyboard"
+        layout="@layout/item_keyboard_key"
         android:layout_width="match_parent"
         android:layout_height="@dimen/keyboard_view_height"
         android:visibility="visible" />
 
     <include
         android:id="@+id/lv_keyboard_digitpad"
-        layout="@layout/item_layout_axixi_keyboard_digitpad_add"
+        layout="@layout/item_keyboard_digitpad_add"
         android:layout_width="match_parent"
         android:layout_height="@dimen/keyboard_view_height"
         android:visibility="gone" />

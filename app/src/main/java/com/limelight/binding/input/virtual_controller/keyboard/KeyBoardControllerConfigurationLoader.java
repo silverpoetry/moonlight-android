@@ -157,31 +157,31 @@ public class KeyBoardControllerConfigurationLoader {
         if(type==1){
             switch ((Integer) keyShort){
                 case 1://左
-                    button.setIcon(R.drawable.ic_axi_mouse_left);
+                    button.setIcon(R.drawable.ic_mouse_left);
                     if(switchMode){
-                        button.setIcon(R.drawable.ic_axi_mouse_left_s);
+                        button.setIcon(R.drawable.ic_mouse_left_s);
                     }
-                    button.setIconPress(R.drawable.ic_axi_mouse_left_s);
+                    button.setIconPress(R.drawable.ic_mouse_left_s);
                     break;
                 case 3://右
-                    button.setIcon(R.drawable.ic_axi_mouse_right);
+                    button.setIcon(R.drawable.ic_mouse_right);
                     if(switchMode){
-                        button.setIcon(R.drawable.ic_axi_mouse_right_s);
+                        button.setIcon(R.drawable.ic_mouse_right_s);
                     }
-                    button.setIconPress(R.drawable.ic_axi_mouse_right_s);
+                    button.setIconPress(R.drawable.ic_mouse_right_s);
                     break;
                 case 2://中
-                    button.setIcon(R.drawable.ic_axi_mouse_middle);
+                    button.setIcon(R.drawable.ic_mouse_middle);
                     if(switchMode){
-                        button.setIcon(R.drawable.ic_axi_mouse_middle_s);
+                        button.setIcon(R.drawable.ic_mouse_middle_s);
                     }
-                    button.setIconPress(R.drawable.ic_axi_mouse_middle_s);
+                    button.setIconPress(R.drawable.ic_mouse_middle_s);
                     break;
                 case 4:
                 case 5://滚轮上下
 //                    button.setPadding(20,20,20,20);
-                    button.setIcon((Integer) keyShort==4?R.drawable.ic_axi_mouse_up:R.drawable.ic_axi_mouse_down);
-                    button.setIconPress((Integer) keyShort==4?R.drawable.ic_axi_mouse_up:R.drawable.ic_axi_mouse_down);
+                    button.setIcon((Integer) keyShort==4?R.drawable.ic_mouse_up:R.drawable.ic_mouse_down);
+                    button.setIconPress((Integer) keyShort==4?R.drawable.ic_mouse_up:R.drawable.ic_mouse_down);
                     break;
             }
         }

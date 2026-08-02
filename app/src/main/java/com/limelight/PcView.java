@@ -1180,13 +1180,13 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         final ComputerDetails details = computer.toComputerDetails();
         if (details.state == ComputerDetails.State.OFFLINE ||
                 details.state == ComputerDetails.State.UNKNOWN) {
-            actions.add(new MenuAction(R.string.pcview_menu_send_wol, R.drawable.ic_axi_sleep, new Runnable() {
+            actions.add(new MenuAction(R.string.pcview_menu_send_wol, R.drawable.ic_sleep, new Runnable() {
                 @Override
                 public void run() {
                     doWakeOnLan(details);
                 }
             }));
-            actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_axi_app_about, new Runnable() {
+            actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_app_about, new Runnable() {
                 @Override
                 public void run() {
                     HelpLauncher.launchGameStreamEolFaq(PcView.this);
@@ -1194,14 +1194,14 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             }));
         }
         else if (details.pairState != PairState.PAIRED) {
-            actions.add(new MenuAction(R.string.pcview_menu_pair_pc, R.drawable.ic_axi_app_add, new Runnable() {
+            actions.add(new MenuAction(R.string.pcview_menu_pair_pc, R.drawable.ic_app_add, new Runnable() {
                 @Override
                 public void run() {
                     doPair(details);
                 }
             }));
             if (details.nvidiaServer) {
-                actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_axi_app_about, new Runnable() {
+                actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_app_about, new Runnable() {
                     @Override
                     public void run() {
                         HelpLauncher.launchGameStreamEolFaq(PcView.this);
@@ -1225,7 +1225,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                         }
                     }
                 }));
-                actions.add(new MenuAction(R.string.applist_menu_restart, R.drawable.ic_axi_reboot, new Runnable() {
+                actions.add(new MenuAction(R.string.applist_menu_restart, R.drawable.ic_reboot, new Runnable() {
                     @Override
                     public void run() {
                         if (managerBinder != null) {
@@ -1236,7 +1236,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                         }
                     }
                 }));
-                actions.add(new MenuAction(R.string.applist_menu_quit, R.drawable.ic_axi_exit, new Runnable() {
+                actions.add(new MenuAction(R.string.applist_menu_quit, R.drawable.ic_exit, new Runnable() {
                     @Override
                     public void run() {
                         if (managerBinder != null) {
@@ -1250,7 +1250,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             }
 
             if (details.nvidiaServer) {
-                actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_axi_app_about, new Runnable() {
+                actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_app_about, new Runnable() {
                     @Override
                     public void run() {
                         HelpLauncher.launchGameStreamEolFaq(PcView.this);
@@ -1266,13 +1266,13 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             }));
         }
 
-        actions.add(new MenuAction(R.string.pcview_menu_test_network, R.drawable.ic_axi_performance, new Runnable() {
+        actions.add(new MenuAction(R.string.pcview_menu_test_network, R.drawable.ic_performance, new Runnable() {
             @Override
             public void run() {
                 runNetworkTest();
             }
         }));
-        actions.add(new MenuAction(R.string.pcview_menu_delete_pc, R.drawable.ic_axi_delete, new Runnable() {
+        actions.add(new MenuAction(R.string.pcview_menu_delete_pc, R.drawable.ic_delete, new Runnable() {
             @Override
             public void run() {
                 if (ActivityManager.isUserAMonkey()) {
@@ -1291,7 +1291,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                 }, null);
             }
         }));
-        actions.add(new MenuAction(R.string.pcview_menu_details, R.drawable.ic_axi_app_about, new Runnable() {
+        actions.add(new MenuAction(R.string.pcview_menu_details, R.drawable.ic_app_about, new Runnable() {
             @Override
             public void run() {
                 Dialog.displayDialog(

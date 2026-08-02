@@ -1981,7 +1981,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     }
 
     public void switchMouseModel(){
-        String[] strings=getResources().getStringArray(R.array.mouse_model_names_axi);
+        String[] strings=getResources().getStringArray(R.array.mouse_mode_names);
         String[] items =Arrays.copyOf(strings,strings.length+1);
         items[items.length-1]="切换本地鼠标(需外接物理鼠标)";
 //        {"多点触控模式","普通鼠标模式","触控板模式","禁用鼠标/触控","普通鼠标模式（左右键互换）","切换本地鼠标(需外接物理鼠标)"}

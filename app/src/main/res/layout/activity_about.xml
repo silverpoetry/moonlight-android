@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_gradient_axi_main"
+    android:background="@drawable/bg_gradient_main"
     android:fitsSystemWindows="true"
     android:orientation="vertical"
     tools:ignore="MissingDefaultResource">
@@ -17,7 +17,7 @@
         android:contentDescription="@string/accessibility_back"
         android:padding="10dp"
         android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:src="@drawable/ic_axi_back" />
+        android:src="@drawable/ic_back" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -41,7 +41,7 @@
                 android:layout_width="76dp"
                 android:layout_height="76dp"
                 android:contentDescription="@null"
-                android:src="@mipmap/ic_app_axi" />
+                android:src="@mipmap/ic_app" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -73,19 +73,19 @@
                 android:id="@+id/about_project"
                 style="@style/AboutActionRow"
                 android:layout_marginTop="28dp"
-                app:drawableStartCompat="@drawable/ic_github_axi"
+                app:drawableStartCompat="@drawable/ic_github"
                 android:text="@string/about_project" />
 
             <androidx.appcompat.widget.AppCompatTextView
                 android:id="@+id/about_documentation"
                 style="@style/AboutActionRow"
-                app:drawableStartCompat="@drawable/ic_axi_app_about"
+                app:drawableStartCompat="@drawable/ic_app_about"
                 android:text="@string/about_documentation" />
 
             <androidx.appcompat.widget.AppCompatTextView
                 android:id="@+id/about_license"
                 style="@style/AboutActionRow"
-                app:drawableStartCompat="@drawable/ic_axi_lock_screen"
+                app:drawableStartCompat="@drawable/ic_lock_screen"
                 android:text="@string/about_license" />
         </LinearLayout>
     </ScrollView>

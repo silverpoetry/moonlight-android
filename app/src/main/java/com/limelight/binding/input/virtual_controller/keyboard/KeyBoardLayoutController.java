@@ -84,7 +84,7 @@ public class KeyBoardLayoutController implements FullKeyboardOverlay {
                 virtualControlSettingsState,
                 "virtualControlSettingsState");
         this.keyboardView = (LinearLayout) LayoutInflater.from(context).inflate(
-                R.layout.layout_axixi_keyboard, layout, false);
+                R.layout.layout_virtual_keyboard, layout, false);
         initKeyboard();
     }
 
@@ -120,7 +120,7 @@ public class KeyBoardLayoutController implements FullKeyboardOverlay {
                             KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, code);
                             keyEvent.setSource(1);
                             sendKeyEvent(keyEvent);
-                            v.setBackgroundResource(R.drawable.bg_ax_keyboard_button_confirm);
+                            v.setBackgroundResource(R.drawable.bg_keyboard_key_confirm);
                             return true;
                         }
 
@@ -135,10 +135,10 @@ public class KeyBoardLayoutController implements FullKeyboardOverlay {
                                 case "60"://shift right
                                     if(!keyList.contains(tag)){
                                         keyList.add(tag);
-                                        v.setBackgroundResource(R.drawable.bg_ax_keyboard_button_press);
+                                        v.setBackgroundResource(R.drawable.bg_keyboard_key_pressed);
                                     }else{
                                         keyList.remove(tag);
-                                        v.setBackgroundResource(R.drawable.bg_ax_keyboard_button);
+                                        v.setBackgroundResource(R.drawable.bg_keyboard_key);
                                     }
                                     return true;
                             }
@@ -153,7 +153,7 @@ public class KeyBoardLayoutController implements FullKeyboardOverlay {
                         KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, Integer.parseInt(tag));
                         keyEvent.setSource(0);
                         sendKeyEvent(keyEvent);
-                        v.setBackgroundResource(R.drawable.bg_ax_keyboard_button_confirm);
+                        v.setBackgroundResource(R.drawable.bg_keyboard_key_confirm);
                         return true;
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
@@ -182,7 +182,7 @@ public class KeyBoardLayoutController implements FullKeyboardOverlay {
                             KeyEvent keyUP = new KeyEvent(KeyEvent.ACTION_UP, code);
                             keyUP.setSource(1);
                             sendKeyEvent(keyUP);
-                            v.setBackgroundResource(R.drawable.bg_ax_keyboard_button);
+                            v.setBackgroundResource(R.drawable.bg_keyboard_key);
                             return true;
                         }
                         if(isCombination){
@@ -201,8 +201,8 @@ public class KeyBoardLayoutController implements FullKeyboardOverlay {
                                     KeyEvent keyEvent2 = new KeyEvent(KeyEvent.ACTION_UP, Integer.parseInt(t));
                                     keyEvent2.setSource(0);
                                     sendKeyEvent(keyEvent2);
-                                    keyboardView.findViewById(R.id.lv_keyboard).findViewWithTag(t).setBackgroundResource(R.drawable.bg_ax_keyboard_button);
-                                    keyboardView.findViewById(R.id.lv_keyboard_digitpad).findViewWithTag(t).setBackgroundResource(R.drawable.bg_ax_keyboard_button);
+                                    keyboardView.findViewById(R.id.lv_keyboard).findViewWithTag(t).setBackgroundResource(R.drawable.bg_keyboard_key);
+                                    keyboardView.findViewById(R.id.lv_keyboard_digitpad).findViewWithTag(t).setBackgroundResource(R.drawable.bg_keyboard_key);
                                 }
                                 keyList.clear();
                             }
@@ -210,7 +210,7 @@ public class KeyBoardLayoutController implements FullKeyboardOverlay {
                         KeyEvent keyUP = new KeyEvent(KeyEvent.ACTION_UP, Integer.parseInt(tag2));
                         keyUP.setSource(0);
                         sendKeyEvent(keyUP);
-                        v.setBackgroundResource(R.drawable.bg_ax_keyboard_button);
+                        v.setBackgroundResource(R.drawable.bg_keyboard_key);
                         return true;
                 }
                 return false;
@@ -366,10 +366,10 @@ public class KeyBoardLayoutController implements FullKeyboardOverlay {
         String[] keys={"113","114","117","57","58","59","60"};
         for (String key:keys) {
             if(keyboardView.findViewById(R.id.lv_keyboard).findViewWithTag(key)!=null){
-                keyboardView.findViewById(R.id.lv_keyboard).findViewWithTag(key).setBackgroundResource(R.drawable.bg_ax_keyboard_button);
+                keyboardView.findViewById(R.id.lv_keyboard).findViewWithTag(key).setBackgroundResource(R.drawable.bg_keyboard_key);
             }
             if(keyboardView.findViewById(R.id.lv_keyboard_digitpad).findViewWithTag(key)!=null){
-                keyboardView.findViewById(R.id.lv_keyboard_digitpad).findViewWithTag(key).setBackgroundResource(R.drawable.bg_ax_keyboard_button);
+                keyboardView.findViewById(R.id.lv_keyboard_digitpad).findViewWithTag(key).setBackgroundResource(R.drawable.bg_keyboard_key);
             }
         }
     }

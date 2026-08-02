@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_gradient_axi_main"
+    android:background="@drawable/bg_gradient_main"
     android:orientation="vertical"
     tools:context=".preferences.AddComputerManually">
 
@@ -102,7 +102,7 @@
                 android:layout_height="wrap_content"
                 android:layout_below="@id/razerPort"
                 android:layout_marginTop="16dp"
-                android:text="@string/axi_add_computer_tips"
+                android:text="@string/manual_host_entry_help"
                 android:textSize="12sp" />
         </RelativeLayout>
     </ScrollView>

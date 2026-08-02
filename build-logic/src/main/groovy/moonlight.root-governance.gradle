@@ -2,6 +2,7 @@ import com.moonlight.buildlogic.VerifyAndroidSecurityPolicy
 import com.moonlight.buildlogic.VerifyForbiddenFiles
 import com.moonlight.buildlogic.VerifyNoBidiControls
 import com.moonlight.buildlogic.VerifyNativeDependencies
+import com.moonlight.buildlogic.VerifyNoLegacyBranding
 import com.moonlight.buildlogic.VerifyVendoredDependencies
 
 tasks.register('verifyNoBidiControls', VerifyNoBidiControls) {
@@ -22,6 +23,18 @@ tasks.register('verifyNoBidiControls', VerifyNoBidiControls) {
                 '**/CMakeLists.txt',
                 'gradle.properties'
         exclude '**/.gradle/**', '**/build/**', '**/.git/**'
+    })
+}
+
+tasks.register('verifyNoLegacyBranding', VerifyNoLegacyBranding) {
+    group = 'verification'
+    description = 'Rejects removed fork branding and resource prefixes.'
+    sourceFiles.from(fileTree(rootDir) {
+        include 'app/src/main/**', 'tools/**'
+        exclude 'app/src/main/jni/moonlight-core/**',
+                '**/.gradle/**',
+                '**/build/**',
+                '**/.git/**'
     })
 }
 

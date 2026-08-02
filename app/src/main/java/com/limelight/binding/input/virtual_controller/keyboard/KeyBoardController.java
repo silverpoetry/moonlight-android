@@ -159,12 +159,12 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
         this.vibrator = Objects.requireNonNull(
                 ContextCompat.getSystemService(context, Vibrator.class),
                 "vibrator");
-        buttonConfigure=View.inflate(context,R.layout.axi_keyboard_top_right_view,null);
+        buttonConfigure=View.inflate(context,R.layout.view_virtual_keyboard_top_right,null);
         buttonConfigure.setAlpha(
                 getSettings().getControlOpacityPercent() /
                         100.0f /
                         2f);
-        lv_left_view=View.inflate(context,R.layout.axi_keyboard_top_left_view,null);
+        lv_left_view=View.inflate(context,R.layout.view_virtual_keyboard_top_left,null);
         buttonWidth=UiHelper.dpToPx(context,50);
         buttonHeight=UiHelper.dpToPx(context,50);
         initTopView();
@@ -191,10 +191,10 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
 
         iv_game_virtual_pad.setOnClickListener(v -> {
             if(lv_right_view.getVisibility()==View.GONE){
-                iv_game_virtual_pad.setImageResource(R.drawable.ic_axi_game_pad_top_right);
+                iv_game_virtual_pad.setImageResource(R.drawable.ic_gamepad_top_right);
                 lv_right_view.setVisibility(View.VISIBLE);
             }else{
-                iv_game_virtual_pad.setImageResource(R.drawable.ic_axi_game_pad_top_left);
+                iv_game_virtual_pad.setImageResource(R.drawable.ic_gamepad_top_left);
                 lv_right_view.setVisibility(View.GONE);
             }
         });

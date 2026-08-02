@@ -155,8 +155,8 @@
             android:key="input.pointer.mode"
             android:title="触控与鼠标模式"
             android:summary="选择触屏、触控板或鼠标输入的处理方式。多点触控板模式需要主机端支持。"
-            android:entries="@array/mouse_model_names_axi"
-            android:entryValues="@array/mouse_model_values_axi"
+            android:entries="@array/mouse_mode_names"
+            android:entryValues="@array/mouse_mode_values"
             android:defaultValue="0" />
         <IntegerListPreference
             android:key="input.touch.keyboard_gesture_finger_count"
@@ -548,8 +548,8 @@
             android:key="input.virtual_gamepad.layout_id"
             android:title="虚拟手柄布局"
             android:summary="横屏和竖屏分别保存所选布局。"
-            android:entries="@array/gamepad_axi_names"
-            android:entryValues="@array/gamepad_axi_values"
+            android:entries="@array/gamepad_layout_names"
+            android:entryValues="@array/gamepad_layout_values"
             android:defaultValue="gamePad" />
         <CheckBoxPreference
             android:key="input.virtual_gamepad.haptics"
@@ -590,8 +590,8 @@
             android:key="input.virtual_keyboard.layout_id"
             android:title="虚拟按键布局"
             android:summary="横屏和竖屏分别保存所选布局。"
-            android:entries="@array/keyboard_axi_names"
-            android:entryValues="@array/keyboard_axi_values"
+            android:entries="@array/keyboard_layout_names"
+            android:entryValues="@array/keyboard_layout_values"
             android:defaultValue="OSC_Keyboard" />
         <SeekBarPreference
             android:key="input.virtual_keyboard.opacity_percent"

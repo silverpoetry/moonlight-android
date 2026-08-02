@@ -133,16 +133,16 @@ public class GameKeyboardUpdateFragment
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 view.setBackgroundResource(
-                        R.drawable.bg_ax_keyboard_button_confirm);
+                        R.drawable.bg_keyboard_key_confirm);
                 return true;
             case MotionEvent.ACTION_UP:
                 view.setBackgroundResource(
-                        R.drawable.bg_ax_keyboard_button);
+                        R.drawable.bg_keyboard_key);
                 view.performClick();
                 return true;
             case MotionEvent.ACTION_CANCEL:
                 view.setBackgroundResource(
-                        R.drawable.bg_ax_keyboard_button);
+                        R.drawable.bg_keyboard_key);
                 return true;
             default:
                 return true;

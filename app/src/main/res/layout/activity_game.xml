@@ -101,7 +101,7 @@
             android:paddingEnd="8dp"
             android:paddingTop="4dp"
             android:drawablePadding="2dp"
-            tools:drawableStart="@drawable/icon_axi_wifi"
+            tools:drawableStart="@drawable/ic_network_wifi"
             android:paddingBottom="4dp"
             android:gravity="center_vertical"
             android:visibility="gone"

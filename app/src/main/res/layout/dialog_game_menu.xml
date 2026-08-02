@@ -24,19 +24,19 @@
         <com.limelight.ui.gamemenu.GameMenuSideTabView
             android:id="@+id/btn_soft_keyboard"
             style="@style/GameMenuSideTabButton"
-            app:sideTabIcon="@drawable/ic_axi_keyboard"
+            app:sideTabIcon="@drawable/ic_keyboard"
             app:sideTabText="@string/game_menu_tab_keyboard" />
 
         <com.limelight.ui.gamemenu.GameMenuSideTabView
             android:id="@+id/btn_desktop"
             style="@style/GameMenuSideTabButton"
-            app:sideTabIcon="@drawable/ic_axi_desktop"
+            app:sideTabIcon="@drawable/ic_desktop"
             app:sideTabText="@string/game_menu_tab_desktop" />
 
         <com.limelight.ui.gamemenu.GameMenuSideTabView
             android:id="@+id/btn_window"
             style="@style/GameMenuSideTabButton"
-            app:sideTabIcon="@drawable/ic_axi_window"
+            app:sideTabIcon="@drawable/ic_window"
             app:sideTabText="@string/game_menu_tab_windows" />
     </LinearLayout>
 
@@ -95,7 +95,7 @@
                         android:textColor="@android:color/white"
                         android:textSize="11sp"
                         android:textStyle="bold"
-                        app:drawableStartCompat="@drawable/ic_axi_game_pad_battery"
+                        app:drawableStartCompat="@drawable/ic_gamepad_battery"
                         tools:text="100%" />
 
                     <TextClock
@@ -143,7 +143,7 @@
                     android:background="@drawable/ic_game_menu_btn_transparent"
                     android:contentDescription="@string/game_menu_customize"
                     android:padding="8dp"
-                    android:src="@drawable/ic_axi_edit" />
+                    android:src="@drawable/ic_edit" />
             </RelativeLayout>
 
             <LinearLayout
@@ -166,31 +166,31 @@
                 <Button
                     android:id="@+id/bt_touch_list"
                     style="@style/GameMenuNavigationButton"
-                    android:drawableStart="@drawable/ic_axi_touch"
+                    android:drawableStart="@drawable/ic_touch"
                     android:text="@string/game_menu_section_mouse_touch" />
 
                 <Button
                     android:id="@+id/bt_touch_sensitivity"
                     style="@style/GameMenuNavigationButton"
-                    android:drawableStart="@drawable/ic_axi_touch_sensitivity"
+                    android:drawableStart="@drawable/ic_touch_sensitivity"
                     android:text="@string/game_menu_section_touch_sensitivity" />
 
                 <Button
                     android:id="@+id/bt_quick_list"
                     style="@style/GameMenuNavigationButton"
-                    android:drawableStart="@drawable/ic_axi_quick"
+                    android:drawableStart="@drawable/ic_quick_actions"
                     android:text="@string/game_menu_section_shortcuts" />
 
                 <Button
                     android:id="@+id/bt_virtual_view"
                     style="@style/GameMenuNavigationButton"
-                    android:drawableStart="@drawable/ic_axi_game_pad"
+                    android:drawableStart="@drawable/ic_gamepad"
                     android:text="@string/game_menu_section_virtual_controls" />
 
                 <Button
                     android:id="@+id/bt_device"
                     style="@style/GameMenuNavigationButton"
-                    android:drawableStart="@drawable/ic_axi_game_pad_device"
+                    android:drawableStart="@drawable/ic_gamepad_device"
                     android:text="@string/game_menu_section_peripherals" />
             </LinearLayout>
 
@@ -208,7 +208,7 @@
                 <Button
                     android:id="@+id/bt_display"
                     style="@style/GameMenuNavigationButton"
-                    android:drawableStart="@drawable/ic_axi_game_pad_display"
+                    android:drawableStart="@drawable/ic_gamepad_display"
                     android:text="@string/game_menu_section_display" />
 
             </LinearLayout>

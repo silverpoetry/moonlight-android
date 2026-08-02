@@ -49,7 +49,7 @@ public class GameListMouseFragment extends BaseGameMenuDialog {
                 dismiss();
             }
         });
-        String[] strings=getResources().getStringArray(R.array.mouse_model_names_axi);
+        String[] strings=getResources().getStringArray(R.array.mouse_mode_names);
         List<GameMenuQuickBean> gameMenus=new ArrayList<>();
         for (int i = 0; i < strings.length; i++) {
             gameMenus.add(new GameMenuQuickBean(strings[i],null));

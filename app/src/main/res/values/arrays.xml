@@ -170,14 +170,14 @@
     </string-array>
 
 
-    <string-array name="keyboard_axi_names">
+    <string-array name="keyboard_layout_names">
         <item>方案1</item>
         <item>方案2</item>
         <item>方案3</item>
         <item>方案4</item>
         <item>方案5</item>
     </string-array>
-    <string-array name="keyboard_axi_values" translatable="false">
+    <string-array name="keyboard_layout_values" translatable="false">
         <item>OSC_Keyboard</item>
         <item>OSC_Keyboard_2</item>
         <item>OSC_Keyboard_3</item>
@@ -185,7 +185,7 @@
         <item>OSC_Keyboard_5</item>
     </string-array>
 
-    <string-array name="mouse_model_names_axi">
+    <string-array name="mouse_mode_names">
         <item>多点触控模式</item>
         <item>普通鼠标模式</item>
         <item>触控板模式</item>
@@ -195,7 +195,7 @@
         <item>触控板「移动+左键点击」</item>
     </string-array>
 
-    <string-array name="mouse_model_values_axi" translatable="false">
+    <string-array name="mouse_mode_values" translatable="false">
         <item>0</item>
         <item>1</item>
         <item>2</item>
@@ -226,14 +226,14 @@
         <item>6</item>
     </string-array>
 
-    <string-array name="gamepad_axi_names">
+    <string-array name="gamepad_layout_names">
         <item>方案1</item>
         <item>方案2</item>
         <item>方案3</item>
         <item>方案4</item>
         <item>方案5</item>
     </string-array>
-    <string-array name="gamepad_axi_values" translatable="false">
+    <string-array name="gamepad_layout_values" translatable="false">
         <item>gamePad</item>
         <item>gamePad_2</item>
         <item>gamePad_3</item>

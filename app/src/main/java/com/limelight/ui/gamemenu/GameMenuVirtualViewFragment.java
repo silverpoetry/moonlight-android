@@ -231,10 +231,10 @@ public class GameMenuVirtualViewFragment
     private void initializeSchemeSelections() {
         keySchemeValues =
                 getResources().getStringArray(
-                        R.array.keyboard_axi_values);
+                        R.array.keyboard_layout_values);
         gamepadSchemeValues =
                 getResources().getStringArray(
-                        R.array.gamepad_axi_values);
+                        R.array.gamepad_layout_values);
 
         String selectedKeyScheme = settings.getKeyboardLayoutId();
         checkSavedScheme(

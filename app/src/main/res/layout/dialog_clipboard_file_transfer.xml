@@ -30,7 +30,7 @@
                 android:layout_marginEnd="12dp"
                 android:alpha="0.9"
                 android:contentDescription="@null"
-                android:src="@drawable/ic_axi_clipboard_send" />
+                android:src="@drawable/ic_clipboard_send" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -64,7 +64,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:background="@drawable/bg_update_dialog_card"
-            app:drawableStartCompat="@drawable/ic_axi_folder"
+            app:drawableStartCompat="@drawable/ic_folder"
             android:drawablePadding="10dp"
             android:gravity="center_vertical"
             android:padding="13dp"

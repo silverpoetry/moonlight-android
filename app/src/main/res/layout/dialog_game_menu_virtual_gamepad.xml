@@ -161,13 +161,13 @@
                 <Button
                     android:id="@+id/btn_vibration"
                     style="@style/GameMenuTileButton"
-                    android:drawableTop="@drawable/ic_axi_vibrate"
+                    android:drawableTop="@drawable/ic_vibrate"
                     android:text="@string/game_menu_keyboard_vibration" />
 
                 <Button
                     android:id="@+id/btn_vibration_gamepad"
                     style="@style/GameMenuTileButton"
-                    android:drawableTop="@drawable/ic_axi_virtual_gamepad_rumble"
+                    android:drawableTop="@drawable/ic_virtual_gamepad_rumble"
                     android:text="@string/game_menu_virtual_gamepad_vibration" />
 
                 <Space

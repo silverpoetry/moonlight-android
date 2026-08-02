@@ -886,13 +886,13 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                         launchStream(app.app, computer);
                     }
                 }));
-                actions.add(new MenuAction(R.string.applist_menu_restart, R.drawable.ic_axi_reboot, new Runnable() {
+                actions.add(new MenuAction(R.string.applist_menu_restart, R.drawable.ic_reboot, new Runnable() {
                     @Override
                     public void run() {
                         restartCurrentApp(app);
                     }
                 }));
-                actions.add(new MenuAction(R.string.applist_menu_quit, R.drawable.ic_axi_exit, new Runnable() {
+                actions.add(new MenuAction(R.string.applist_menu_quit, R.drawable.ic_exit, new Runnable() {
                     @Override
                     public void run() {
                         quitCurrentApp(app, null);
@@ -900,7 +900,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                 }));
             }
             else {
-                actions.add(new MenuAction(R.string.applist_menu_quit_and_start, R.drawable.ic_axi_reboot, new Runnable() {
+                actions.add(new MenuAction(R.string.applist_menu_quit_and_start, R.drawable.ic_reboot, new Runnable() {
                     @Override
                     public void run() {
                         launchStream(app.app, computer);
@@ -911,7 +911,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
 
         if (lastRunningAppId != app.app.getAppId() || app.isHidden) {
             actions.add(new MenuAction(app.isHidden ? R.string.applist_menu_show_app : R.string.applist_menu_hide_app,
-                    app.isHidden ? R.drawable.ic_axi_desktop : R.drawable.ic_axi_unlink,
+                    app.isHidden ? R.drawable.ic_desktop : R.drawable.ic_unlink,
                     new Runnable() {
                         @Override
                         public void run() {
@@ -926,7 +926,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                     }));
         }
 
-        actions.add(new MenuAction(R.string.applist_menu_details, R.drawable.ic_axi_app_about, new Runnable() {
+        actions.add(new MenuAction(R.string.applist_menu_details, R.drawable.ic_app_about, new Runnable() {
             @Override
             public void run() {
                 Dialog.displayDialog(AppView.this, getResources().getString(R.string.title_details),
@@ -935,7 +935,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
         }));
 
         if (canCreatePinnedShortcut(targetView)) {
-            actions.add(new MenuAction(R.string.applist_menu_scut, R.drawable.ic_axi_app_add, new Runnable() {
+            actions.add(new MenuAction(R.string.applist_menu_scut, R.drawable.ic_app_add, new Runnable() {
                 @Override
                 public void run() {
                     Bitmap appBits = getAppBitmap(targetView);

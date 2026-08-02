@@ -10,7 +10,7 @@
         android:layout_height="24dp"
         android:background="@drawable/ic_game_menu_btn_side_selector"
         android:contentDescription="@string/accessibility_back"
-        android:src="@drawable/ic_axi_back" />
+        android:src="@drawable/ic_back" />
 
     <TextView
         android:id="@+id/tx_title"

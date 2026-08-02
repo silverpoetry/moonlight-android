@@ -27,7 +27,7 @@
             android:tag="111"
             android:textColor="@android:color/white"
             android:textSize="12sp"
-            android:background="@drawable/bg_ax_keyboard_button" />
+            android:background="@drawable/bg_keyboard_key" />
 
         <TextView
             android:layout_width="match_parent"
@@ -38,7 +38,7 @@
             android:tag="mouse_1"
             android:textColor="@android:color/white"
             android:textSize="12sp"
-            android:background="@drawable/bg_ax_keyboard_button" />
+            android:background="@drawable/bg_keyboard_key" />
         <TextView
             android:layout_width="match_parent"
             android:layout_height="0dp"
@@ -48,7 +48,7 @@
             android:tag="mouse_2"
             android:textColor="@android:color/white"
             android:textSize="12sp"
-            android:background="@drawable/bg_ax_keyboard_button" />
+            android:background="@drawable/bg_keyboard_key" />
 
         <TextView
             android:layout_width="match_parent"
@@ -59,7 +59,7 @@
             android:tag="mouse_3"
             android:textColor="@android:color/white"
             android:textSize="12sp"
-            android:background="@drawable/bg_ax_keyboard_button" />
+            android:background="@drawable/bg_keyboard_key" />
     </LinearLayout>
 
     <LinearLayout
@@ -85,7 +85,7 @@
                 android:tag="151"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -96,7 +96,7 @@
                 android:tag="152"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -107,7 +107,7 @@
                 android:tag="153"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -118,7 +118,7 @@
                 android:tag="154"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
         </LinearLayout>
 
         <!-- 第二行 -->
@@ -137,7 +137,7 @@
                 android:tag="148"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -148,7 +148,7 @@
                 android:tag="149"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -159,7 +159,7 @@
                 android:tag="150"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -170,7 +170,7 @@
                 android:tag="155"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
         </LinearLayout>
         <!-- 第三行 -->
         <LinearLayout
@@ -186,7 +186,7 @@
                 android:text="1"
                 android:tag="145"
                 android:textColor="@android:color/white"
-                android:background="@drawable/bg_ax_keyboard_button"
+                android:background="@drawable/bg_keyboard_key"
                 android:textSize="12sp"
                 />
             <TextView
@@ -198,7 +198,7 @@
                 android:tag="146"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -209,7 +209,7 @@
                 android:tag="147"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -220,7 +220,7 @@
                 android:tag="156"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
         </LinearLayout>
 
         <!-- 第四行 -->
@@ -239,7 +239,7 @@
                 android:tag="144"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -250,7 +250,7 @@
                 android:tag="158"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -261,7 +261,7 @@
                 android:tag="66"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -272,7 +272,7 @@
                 android:tag="157"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
         </LinearLayout>
 
 
@@ -302,7 +302,7 @@
                 android:tag="143"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -313,7 +313,7 @@
                 android:tag="116"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
 
             <TextView
@@ -325,7 +325,7 @@
                 android:tag="92"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -336,7 +336,7 @@
                 android:tag="93"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
         </LinearLayout>
         <LinearLayout
             android:layout_width="match_parent"
@@ -354,7 +354,7 @@
                 android:tag="117"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -365,7 +365,7 @@
                 android:tag="113"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -376,7 +376,7 @@
                 android:tag="59"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
 
             <TextView
                 android:layout_width="0dp"
@@ -387,7 +387,7 @@
                 android:tag="57"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:background="@drawable/bg_ax_keyboard_button" />
+                android:background="@drawable/bg_keyboard_key" />
         </LinearLayout>
 
         <LinearLayout
@@ -404,7 +404,7 @@
                     android:id="@+id/fv_keyboard_touch"
                     android:layout_width="0dp"
                     android:layout_weight="3"
-                    android:background="@drawable/bg_ax_keyboard_button"
+                    android:background="@drawable/bg_keyboard_key"
                     android:layout_height="match_parent" />
 
                 <LinearLayout
@@ -422,7 +422,7 @@
                         android:id="@+id/mouse_up"
                         android:textColor="@android:color/white"
                         android:textSize="12sp"
-                        android:background="@drawable/bg_ax_keyboard_button" />
+                        android:background="@drawable/bg_keyboard_key" />
 
                     <TextView
                         android:layout_width="match_parent"
@@ -433,7 +433,7 @@
                         android:id="@+id/mouse_down"
                         android:textColor="@android:color/white"
                         android:textSize="12sp"
-                        android:background="@drawable/bg_ax_keyboard_button" />
+                        android:background="@drawable/bg_keyboard_key" />
 
 
                 </LinearLayout>

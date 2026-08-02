@@ -77,18 +77,18 @@
             android:contentDescription="@string/accessibility_collapse_keyboard"
             android:paddingStart="10dp"
             android:paddingEnd="10dp"
-            android:src="@drawable/ic_axi_down" />
+            android:src="@drawable/ic_down" />
     </RelativeLayout>
 
     <include
         android:id="@+id/lv_keyboard"
-        layout="@layout/item_layout_axixi_keyboard"
+        layout="@layout/item_keyboard_key"
         android:layout_width="match_parent"
         android:layout_height="200dp" />
 
     <include
         android:id="@+id/lv_keyboard_digitpad"
-        layout="@layout/item_layout_axixi_keyboard_digitpad"
+        layout="@layout/item_keyboard_digitpad"
         android:layout_width="match_parent"
         android:layout_height="200dp"
         android:visibility="gone" />

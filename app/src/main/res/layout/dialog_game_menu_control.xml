@@ -41,19 +41,19 @@
                 <CheckBox
                     android:id="@+id/btn_game_usb"
                     style="@style/GameMenuToggleTile"
-                    android:drawableStart="@drawable/ic_axi_game_pad_xbox"
+                    android:drawableStart="@drawable/ic_gamepad_xbox"
                     android:text="@string/game_menu_enable_usb_gamepad_driver" />
 
                 <CheckBox
                     android:id="@+id/btn_game_grip"
                     style="@style/GameMenuToggleTile"
-                    android:drawableStart="@drawable/ic_axi_game_pad_pass"
+                    android:drawableStart="@drawable/ic_gamepad_pass"
                     android:text="@string/game_menu_flip_grip_rumble" />
 
                 <CheckBox
                     android:id="@+id/btn_game_trigger"
                     style="@style/GameMenuToggleTile"
-                    android:drawableStart="@drawable/ic_axi_game_pad_pass"
+                    android:drawableStart="@drawable/ic_gamepad_pass"
                     android:text="@string/game_menu_ignore_trigger_deadzone" />
             </LinearLayout>
 
@@ -68,19 +68,19 @@
                 <CheckBox
                     android:id="@+id/btn_game_battery"
                     style="@style/GameMenuToggleTile"
-                    android:drawableStart="@drawable/ic_axi_game_pad_pass"
+                    android:drawableStart="@drawable/ic_gamepad_pass"
                     android:text="@string/game_menu_report_gamepad_battery" />
 
                 <CheckBox
                     android:id="@+id/btn_game_usb_gyroscope"
                     style="@style/GameMenuToggleTile"
-                    android:drawableStart="@drawable/ic_axi_game_pad_pass"
+                    android:drawableStart="@drawable/ic_gamepad_pass"
                     android:text="@string/game_menu_enable_usb_gyroscope" />
 
                 <CheckBox
                     android:id="@+id/btn_game_trigger_rumble"
                     style="@style/GameMenuToggleTile"
-                    android:drawableStart="@drawable/ic_axi_game_pad_pass"
+                    android:drawableStart="@drawable/ic_gamepad_pass"
                     android:text="@string/game_menu_link_trigger_rumble" />
             </LinearLayout>
 
@@ -97,19 +97,19 @@
                 <CheckBox
                     android:id="@+id/btn_game_shake"
                     style="@style/GameMenuToggleTile"
-                    android:drawableStart="@drawable/ic_axi_game_pad_via"
+                    android:drawableStart="@drawable/ic_gamepad_via"
                     android:text="@string/game_menu_force_device_rumble" />
 
                 <CheckBox
                     android:id="@+id/btn_game_gyroscope"
                     style="@style/GameMenuToggleTile"
-                    android:drawableStart="@drawable/ic_axi_game_pad_senser"
+                    android:drawableStart="@drawable/ic_gamepad_sensor"
                     android:text="@string/game_menu_use_device_gyroscope" />
 
                 <CheckBox
                     android:id="@+id/btn_game_joycon"
                     style="@style/GameMenuToggleTile"
-                    android:drawableStart="@drawable/ic_axi_game_pad_joycon"
+                    android:drawableStart="@drawable/ic_gamepad_joycon"
                     android:text="@string/game_menu_joycon_compatibility" />
             </LinearLayout>
 

@@ -88,7 +88,7 @@ final class SettingsScreenRenderer {
         root.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
-        root.setBackgroundResource(R.drawable.bg_gradient_axi_main);
+        root.setBackgroundResource(R.drawable.bg_gradient_main);
 
         mainContainer = new FrameLayout(context);
         mainContainer.setId(R.id.settings_content_container);
@@ -313,7 +313,7 @@ final class SettingsScreenRenderer {
     private FrameLayout createScreenPage() {
         FrameLayout screenPage = new FrameLayout(context);
         screenPage.setBackgroundResource(
-                R.drawable.bg_gradient_axi_main);
+                R.drawable.bg_gradient_main);
         screenPage.setAlpha(1f);
 
         outerContainer = new LinearLayout(context);
@@ -335,7 +335,7 @@ final class SettingsScreenRenderer {
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
         ImageButton backButton = new ImageButton(context);
-        backButton.setImageResource(R.drawable.ic_axi_back);
+        backButton.setImageResource(R.drawable.ic_back);
         backButton.setBackgroundResource(
                 R.drawable.ic_game_menu_btn_transparent);
         backButton.setPadding(dp(9), dp(9), dp(9), dp(9));
@@ -638,7 +638,7 @@ final class SettingsScreenRenderer {
                 new SettingsScreenState.Section(
                 "featured_settings",
                 context.getText(R.string.settings_featured_settings),
-                R.drawable.ic_axi_quick,
+                R.drawable.ic_quick_actions,
                 state.getFeaturedRows());
         return createSectionRow(
                 section,

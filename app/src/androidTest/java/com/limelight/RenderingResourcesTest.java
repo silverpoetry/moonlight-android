@@ -31,7 +31,7 @@ public class RenderingResourcesTest {
     @SdkSuppress(minSdkVersion = 33)
     public void launcherProvidesSafeAdaptiveLayers() {
         Context context = ApplicationProvider.getApplicationContext();
-        Drawable launcher = context.getDrawable(R.mipmap.ic_app_axi);
+        Drawable launcher = context.getDrawable(R.mipmap.ic_app);
         assertTrue(launcher instanceof AdaptiveIconDrawable);
 
         AdaptiveIconDrawable adaptiveIcon = (AdaptiveIconDrawable) launcher;
@@ -40,7 +40,7 @@ public class RenderingResourcesTest {
         assertNotNull(adaptiveIcon.getMonochrome());
 
         Bitmap foreground = renderDrawable(
-                context.getDrawable(R.mipmap.ic_app_axi_foreground),
+                context.getDrawable(R.mipmap.ic_app_foreground),
                 108,
                 108);
         try {

@@ -177,7 +177,7 @@ public class GamePadAddFragment extends BaseGameMenuDialog implements View.OnCli
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
             if (convertView == null) {
-                convertView = LayoutInflater.from(context).inflate(R.layout.item_layout_axixi_keyboard_mouse, parent, false);
+                convertView = LayoutInflater.from(context).inflate(R.layout.item_keyboard_mouse, parent, false);
             }
             TextView name = convertView.findViewById(R.id.tv_name);
             TextView desc = convertView.findViewById(R.id.tv_desc);

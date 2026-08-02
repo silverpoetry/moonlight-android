@@ -704,7 +704,7 @@
     <string name="analogscroll_left">Left analog stick</string>
 
 
-    <string name="axi_add_computer_tips">温馨提示：\n1、PC端设备开启N卡GeForce Shield 服务或者安装Sunshine并启用串流服务\n
+    <string name="manual_host_entry_help">温馨提示：\n1、PC端设备开启N卡GeForce Shield 服务或者安装Sunshine并启用串流服务\n
         2、如果是默认端口[47989]，无需手动输入，自定义端口需要自行拼接\n
         3、支持ipv4和ipv6地址 例如：\n
         ipv4：192.168.1.123\n

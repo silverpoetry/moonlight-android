@@ -59,7 +59,7 @@
         the user's animation-scale accessibility setting.
     -->
     <style name="SettingsActivityTheme" parent="BaseActivityTheme">
-        <item name="android:windowBackground">@drawable/bg_gradient_axi_main</item>
+        <item name="android:windowBackground">@drawable/bg_gradient_main</item>
         <item name="android:windowAnimationStyle">@style/SettingsActivityAnimation</item>
     </style>
 
@@ -70,7 +70,7 @@
         root/detail window background and transition contract.
     -->
     <style name="SettingsActivityDarkTheme" parent="AppTheme">
-        <item name="android:windowBackground">@drawable/bg_gradient_axi_main</item>
+        <item name="android:windowBackground">@drawable/bg_gradient_main</item>
         <item name="android:windowAnimationStyle">@style/SettingsActivityAnimation</item>
     </style>
 
@@ -82,7 +82,7 @@
     </style>
 
     <style name="FilePushTheme" parent="BaseActivityTheme">
-        <item name="android:windowBackground">@drawable/bg_gradient_axi_main</item>
+        <item name="android:windowBackground">@drawable/bg_gradient_main</item>
         <item name="android:colorAccent">#80C342</item>
         <item name="android:windowNoTitle">true</item>
     </style>
@@ -157,7 +157,7 @@
         <item name="android:layout_height">48dp</item>
         <item name="android:layout_marginTop">0dp</item>
         <item name="android:layout_marginBottom">6dp</item>
-        <item name="android:drawableEnd">@drawable/ic_axi_arrow</item>
+        <item name="android:drawableEnd">@drawable/ic_arrow</item>
         <item name="android:drawablePadding">8dp</item>
         <item name="android:paddingStart">12dp</item>
         <item name="android:paddingEnd">12dp</item>

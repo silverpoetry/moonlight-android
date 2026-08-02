@@ -48,7 +48,7 @@ public class StreamSettingsRenderingTest {
                     windowBackground,
                     true));
             assertEquals(
-                    R.drawable.bg_gradient_axi_main,
+                    R.drawable.bg_gradient_main,
                     windowBackground.resourceId);
         });
     }

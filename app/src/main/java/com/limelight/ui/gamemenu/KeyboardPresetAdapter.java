@@ -44,7 +44,7 @@ final class KeyboardPresetAdapter extends BaseAdapter {
         ViewHolder holder;
         if (itemView == null) {
             itemView = inflater.inflate(
-                    R.layout.item_layout_axixi_keyboard_mouse,
+                    R.layout.item_keyboard_mouse,
                     parent,
                     false);
             holder = new ViewHolder(itemView);

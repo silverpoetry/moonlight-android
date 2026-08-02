@@ -16,7 +16,7 @@
         android:layout_marginStart="2dp"
         android:layout_marginEnd="4dp"
         android:contentDescription="@string/accessibility_virtual_controller"
-        android:src="@drawable/ic_axi_game_pad_top_right" />
+        android:src="@drawable/ic_gamepad_top_right" />
 
     <LinearLayout
         android:id="@+id/lv_right_view"

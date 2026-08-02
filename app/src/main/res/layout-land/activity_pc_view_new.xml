@@ -2,7 +2,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_gradient_axi_main"
+    android:background="@drawable/bg_gradient_main"
     tools:ignore="MissingDefaultResource">
 
     <ImageView
@@ -58,7 +58,7 @@
             <ImageButton
                 android:id="@+id/manuallyAddPc"
                 android:background="@drawable/ic_game_menu_btn_side_selector"
-                android:src="@drawable/ic_axi_app_add"
+                android:src="@drawable/ic_app_add"
                 android:layout_marginEnd="8dp"
                 android:contentDescription="@string/title_add_pc"
                 android:layout_width="48dp"
@@ -68,7 +68,7 @@
             <ImageButton
                 android:id="@+id/helpButton"
                 android:background="@drawable/ic_game_menu_btn_side_selector"
-                android:src="@drawable/ic_axi_app_about"
+                android:src="@drawable/ic_app_about"
                 android:layout_marginEnd="8dp"
                 android:contentDescription="@string/help"
                 android:scaleType="centerInside"
@@ -79,7 +79,7 @@
             <ImageButton
                 android:id="@+id/settingsButton"
                 android:background="@drawable/ic_game_menu_btn_side_selector"
-                android:src="@drawable/ic_axi_app_setting"
+                android:src="@drawable/ic_app_setting"
                 android:contentDescription="@string/settings_title"
                 android:scaleType="centerInside"
                 android:layout_width="48dp"
@@ -117,7 +117,7 @@
                 android:id="@+id/pcs_loading"
                 android:layout_width="75dp"
                 android:layout_height="75dp"
-                android:indeterminateDrawable="@drawable/ic_axi_progress_bg"
+                android:indeterminateDrawable="@drawable/ic_progress_bg"
                 android:indeterminate="true"/>
             <TextView
                 android:layout_width="wrap_content"

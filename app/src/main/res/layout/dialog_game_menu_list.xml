@@ -15,7 +15,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
         <ImageButton
-            android:src="@drawable/ic_axi_back"
+            android:src="@drawable/ic_back"
             android:background="@drawable/ic_game_menu_btn_side_selector"
             android:layout_width="24dp"
             android:id="@+id/ibtn_back"

@@ -252,7 +252,7 @@ function New-AdaptiveForeground {
     return $target
 }
 
-$launcherSourcePath = Join-Path $ProjectRoot 'app\src\main\artwork\ic_app_axi_source.png'
+$launcherSourcePath = Join-Path $ProjectRoot 'app\src\main\artwork\ic_app_source.png'
 $launcherSource = [System.Drawing.Bitmap]::new([string] $launcherSourcePath)
 try {
     $densityScales = [ordered]@{
@@ -268,7 +268,7 @@ try {
         $legacy = New-LegacyLauncherIcon -Source $launcherSource -Size $size
         try {
             Save-Png -Image $legacy -Path (
-                Join-Path $ProjectRoot "app\src\main\res\mipmap-$density\ic_app_axi.png"
+                Join-Path $ProjectRoot "app\src\main\res\mipmap-$density\ic_app.png"
             )
         }
         finally {
@@ -285,7 +285,7 @@ try {
                 $foreground = Resize-Image -Source $adaptiveMaster -Width $size -Height $size
                 try {
                     Save-Png -Image $foreground -Path (
-                        Join-Path $ProjectRoot "app\src\main\res\mipmap-$density\ic_app_axi_foreground.png"
+                        Join-Path $ProjectRoot "app\src\main\res\mipmap-$density\ic_app_foreground.png"
                     )
                 }
                 finally {
@@ -307,8 +307,8 @@ finally {
 
 $densityImages = @(
     @{
-        Source = 'app\src\main\res\drawable-xhdpi\atv_banner_axi.png'
-        Name = 'atv_banner_axi.png'
+        Source = 'app\src\main\res\drawable-xhdpi\atv_banner.png'
+        Name = 'atv_banner.png'
     },
     @{
         Source = 'app\src\main\res\drawable-xhdpi\no_app_image.png'

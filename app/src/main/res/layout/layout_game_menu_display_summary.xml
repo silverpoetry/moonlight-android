@@ -63,8 +63,8 @@
             android:id="@+id/bt_display_screen"
             style="@style/GameMenuOptionButton"
             android:layout_marginTop="0dp"
-            android:drawableStart="@drawable/ic_axi_game_pad_display"
-            android:drawableEnd="@drawable/ic_axi_arrow"
+            android:drawableStart="@drawable/ic_gamepad_display"
+            android:drawableEnd="@drawable/ic_arrow"
             android:text="@string/game_menu_resolution" />
 
         <LinearLayout
@@ -93,15 +93,15 @@
         <Button
             android:id="@+id/bt_display_bitrate"
             style="@style/GameMenuOptionButton"
-            android:drawableStart="@drawable/ic_axi_game_pad_bitrate"
-            android:drawableEnd="@drawable/ic_axi_arrow"
+            android:drawableStart="@drawable/ic_gamepad_bitrate"
+            android:drawableEnd="@drawable/ic_arrow"
             android:text="@string/game_menu_bitrate" />
 
         <Button
             android:id="@+id/bt_display_fps"
             style="@style/GameMenuOptionButton"
-            android:drawableStart="@drawable/ic_axi_game_pad_fps"
-            android:drawableEnd="@drawable/ic_axi_arrow"
+            android:drawableStart="@drawable/ic_gamepad_fps"
+            android:drawableEnd="@drawable/ic_arrow"
             android:text="@string/game_menu_fps" />
     </LinearLayout>
 

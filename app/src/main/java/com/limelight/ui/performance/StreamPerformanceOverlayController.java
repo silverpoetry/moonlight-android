@@ -411,8 +411,8 @@ public final class StreamPerformanceOverlayController
         }
 
         int icon = transport == AndroidNetworkTransport.CELLULAR ?
-                R.drawable.icon_axi_mobile :
-                R.drawable.icon_axi_wifi;
+                R.drawable.ic_network_mobile :
+                R.drawable.ic_network_wifi;
         Drawable drawable =
                 AppCompatResources.getDrawable(activity, icon);
         if (drawable == null) {

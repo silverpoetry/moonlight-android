@@ -119,7 +119,7 @@ public class VirtualController {
 //                }
 //            }
 //        });
-        buttonConfigure=View.inflate(context,R.layout.ax_gamepad_top_view,null);
+        buttonConfigure=View.inflate(context,R.layout.view_virtual_gamepad_top,null);
         initTopView();
     }
 
@@ -149,10 +149,10 @@ public class VirtualController {
             @Override
             public void onClick(View v) {
                 if(rg_game_virtual_pad.getVisibility()==View.GONE){
-                    iv_game_virtual_pad.setImageResource(R.drawable.ic_axi_game_pad_top_left);
+                    iv_game_virtual_pad.setImageResource(R.drawable.ic_gamepad_top_left);
                     rg_game_virtual_pad.setVisibility(View.VISIBLE);
                 }else{
-                    iv_game_virtual_pad.setImageResource(R.drawable.ic_axi_game_pad_top_right);
+                    iv_game_virtual_pad.setImageResource(R.drawable.ic_gamepad_top_right);
                     rg_game_virtual_pad.setVisibility(View.GONE);
                 }
 

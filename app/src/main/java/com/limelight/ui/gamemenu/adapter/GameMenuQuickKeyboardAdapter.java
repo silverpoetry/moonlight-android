@@ -92,10 +92,10 @@ public class GameMenuQuickKeyboardAdapter extends BaseAdapter {
         }
         int resId=-1;
         if(type==1){
-            resId=R.drawable.ic_axi_touch;
+            resId=R.drawable.ic_touch;
         }
         if(type==2){
-            resId=R.drawable.ic_axi_keyboard_list;
+            resId=R.drawable.ic_keyboard_list;
         }
         if(resId!=-1){
             Drawable drawable =
