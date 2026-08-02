@@ -7,7 +7,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 
 import org.jcodec.codecs.h264.H264Utils;
 import org.jcodec.codecs.h264.io.model.SeqParameterSet;
@@ -102,8 +103,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private final DecoderCapabilityProfile capabilityProfile;
 
     private long firstPerfStatsTimestamp;
-    private LinkedBlockingQueue<Integer> outputBufferQueue = new LinkedBlockingQueue<>();
     private static final int OUTPUT_BUFFER_QUEUE_LIMIT = 2;
+    private final BlockingQueue<Integer> outputBufferQueue =
+            new ArrayBlockingQueue<>(OUTPUT_BUFFER_QUEUE_LIMIT);
     private long lastRenderedFrameTimeNanos;
     private HandlerThread choreographerHandlerThread;
     private Handler choreographerHandler;
@@ -901,23 +903,20 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                 // For balanced frame pacing case, the Choreographer callback will handle rendering.
                                 // We just put all frames into the output buffer queue and let it handle things.
 
-                                // Discard the oldest buffer if we've exceeded our limit.
+                                // Discard the oldest buffer when the bounded queue is full.
                                 //
                                 // NB: We have to do this on the producer side because the consumer may not
                                 // run for a while (if there is a huge mismatch between stream FPS and display
                                 // refresh rate).
-                                if (outputBufferQueue.size() == OUTPUT_BUFFER_QUEUE_LIMIT) {
-                                    try {
-                                        videoDecoder.releaseOutputBuffer(outputBufferQueue.take(), false);
-                                    } catch (InterruptedException e) {
-                                        // We're shutting down, so we can just drop this buffer on the floor
-                                        // and it will be reclaimed when the codec is released.
-                                        return;
+                                while (!outputBufferQueue.offer(lastIndex)) {
+                                    Integer oldestOutputBuffer =
+                                            outputBufferQueue.poll();
+                                    if (oldestOutputBuffer != null) {
+                                        videoDecoder.releaseOutputBuffer(
+                                                oldestOutputBuffer,
+                                                false);
                                     }
                                 }
-
-                                // Add this buffer
-                                outputBufferQueue.add(lastIndex);
                             }
 
                             // Add delta time to the totals (excluding probable outliers)

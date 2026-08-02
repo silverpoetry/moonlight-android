@@ -1297,6 +1297,10 @@ agree across all participants.
   resources, manifests, and assets. All 184 non-script files are regular
   `100644` entries; `gradlew` is the sole intentional executable tracked by
   the repository, with file contents unchanged.
+- Made the balanced-frame-pacing decoder queue structurally bounded to its
+  documented two-buffer limit. Saturation still releases the oldest decoded
+  buffer, but queue capacity is now enforced by the data structure rather than
+  a racy size check on an unbounded queue.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;
