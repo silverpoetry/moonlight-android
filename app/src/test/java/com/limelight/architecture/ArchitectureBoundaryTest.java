@@ -1679,6 +1679,41 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void filePushActivityOnlyRendersControllerState() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.FilePushActivity")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "com.limelight.computers..",
+                        "com.limelight.nvstream.filetransfer..",
+                        "com.limelight.nvstream.http..",
+                        "com.limelight.utils.concurrent..")
+                .because(
+                        "file push database, protocol, and execution ownership belong to adapters and the controller")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void filePushPolicyIsPlatformAndTransportIndependent() {
+        noClasses()
+                .that()
+                .resideInAPackage(
+                        "com.limelight.ui.filepush")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..",
+                        "com.limelight.nvstream..")
+                .because(
+                        "file push lifecycle and target selection are pure application policy")
+                .check(productionClasses);
+    }
+
+    @Test
     public void touchSettingsUiUsesTypedSettingsIntents() {
         noClasses()
                 .that()

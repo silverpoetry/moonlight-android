@@ -1338,6 +1338,11 @@ agree across all participants.
   NvHTTP adapter, and self-contained tests. Historical inspection confirmed
   that neither the former native menu nor the replacement host menu exposed
   the operation; pairing's protocol-level cleanup remains intact.
+- Replaced `FilePushActivity`'s direct SQLite, executor, content-provider, and
+  NvHTTP ownership with a lifecycle-bound application controller and narrow
+  Android adapters. Host loading now runs off the main thread, upload progress
+  is coalesced to one pending UI callback, destruction rejects late results,
+  and architecture rules keep transport and database code out of the screen.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

@@ -15,35 +15,19 @@ import android.widget.TextView;
 import androidx.activity.ComponentActivity;
 import androidx.core.content.IntentCompat;
 
-import com.limelight.binding.PlatformBinding;
-import com.limelight.computers.ComputerDatabaseManager;
-import com.limelight.computers.IdentityManager;
-import com.limelight.computers.model.HostEndpoint;
-import com.limelight.computers.model.HostRecord;
-import com.limelight.computers.model.PersistedHost;
-import com.limelight.nvstream.filetransfer.DesktopFileUploader;
-import com.limelight.nvstream.http.ComputerDetails;
-import com.limelight.nvstream.http.NvHTTP;
+import com.limelight.ui.filepush.FilePushController;
+import com.limelight.ui.filepush.FilePushTarget;
+import com.limelight.ui.filepush.android.AndroidFilePushHostCatalog;
+import com.limelight.ui.filepush.android.AndroidFilePushUploader;
 import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.UiHelper;
 import com.limelight.utils.UiToast;
-import com.limelight.utils.concurrent.LatestTaskExecutor;
 
-import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 public class FilePushActivity extends ComponentActivity {
-    private final ExecutorService executor =
-            new LatestTaskExecutor("DesktopFileUpload");
-
-    private List<Uri> sharedUris;
-    private Future<?> uploadTask;
-    private boolean uploadInProgress;
+    private FilePushController controller;
     private BackNavigationRegistration backNavigationRegistration;
 
     private TextView titleView;
@@ -74,7 +58,7 @@ public class FilePushActivity extends ComponentActivity {
         bindViews();
         constrainPanelWidth();
 
-        sharedUris = collectSharedUris(getIntent());
+        List<Uri> sharedUris = collectSharedUris(getIntent());
         selectionTitleView.setText(getString(
                 R.string.file_push_selection_count, sharedUris.size()));
         selectionDetailView.setText(R.string.file_push_selection_hint);
@@ -83,6 +67,10 @@ public class FilePushActivity extends ComponentActivity {
             showTerminalError(getString(R.string.file_push_no_shared_items));
             return;
         }
+        controller = FilePushController.create(
+                new AndroidFilePushHostCatalog(this),
+                new AndroidFilePushUploader(this, sharedUris),
+                this::runOnUiThread);
         showHostPicker();
     }
 
@@ -92,15 +80,16 @@ public class FilePushActivity extends ComponentActivity {
             backNavigationRegistration.unregister();
             backNavigationRegistration = null;
         }
-        if (uploadTask != null && !uploadTask.isDone()) {
-            uploadTask.cancel(true);
+        if (controller != null) {
+            controller.destroy();
+            controller = null;
         }
-        executor.shutdownNow();
         super.onDestroy();
     }
 
     private void handleBackNavigation() {
-        if (uploadInProgress) {
+        if (controller != null &&
+                controller.isUploadInProgress()) {
             UiToast.makeText(this, R.string.file_push_in_progress,
                     UiToast.LENGTH_SHORT).show();
             return;
@@ -136,11 +125,15 @@ public class FilePushActivity extends ComponentActivity {
     }
 
     private void showHostPicker() {
-        uploadInProgress = false;
         titleView.setText(R.string.desktop_file_share_target);
         subtitleView.setText(R.string.file_push_choose_host);
         hostSection.setVisibility(View.VISIBLE);
-        progressPanel.setVisibility(View.GONE);
+        hostList.removeAllViews();
+        progressPanel.setVisibility(View.VISIBLE);
+        progressBar.setIndeterminate(true);
+        progressBar.setProgress(0);
+        progressStatusView.setText(R.string.file_push_preparing);
+        progressBytesView.setText(R.string.file_push_keep_open);
         errorView.setVisibility(View.GONE);
         actions.setVisibility(View.VISIBLE);
         secondaryAction.setVisibility(View.GONE);
@@ -148,7 +141,26 @@ public class FilePushActivity extends ComponentActivity {
         primaryAction.setText(R.string.file_push_cancel);
         primaryAction.setOnClickListener(view -> finish());
 
-        List<UploadTarget> pairedHosts = loadPairedHosts();
+        if (controller == null ||
+                controller.loadHosts(this::onHostsLoaded) !=
+                        FilePushController.RequestStatus.ACCEPTED) {
+            showTerminalError(getString(
+                    R.string.file_push_unknown_error));
+        }
+    }
+
+    private void onHostsLoaded(
+            FilePushController.Result<List<FilePushTarget>> result) {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        if (!result.isSuccessful()) {
+            showTerminalError(errorMessage(result.getFailure()));
+            return;
+        }
+
+        List<FilePushTarget> pairedHosts = result.getValue();
+        progressPanel.setVisibility(View.GONE);
         hostList.removeAllViews();
         if (pairedHosts.isEmpty()) {
             showTerminalError(getString(R.string.file_push_no_hosts));
@@ -157,19 +169,19 @@ public class FilePushActivity extends ComponentActivity {
 
         LayoutInflater inflater = LayoutInflater.from(this);
         for (int index = 0; index < pairedHosts.size(); index++) {
-            UploadTarget target = pairedHosts.get(index);
+            FilePushTarget target = pairedHosts.get(index);
             View item = inflater.inflate(
                     R.layout.item_file_push_host, hostList, false);
             TextView name = item.findViewById(R.id.file_push_host_name);
             TextView detail = item.findViewById(R.id.file_push_host_detail);
 
-            name.setText(target.displayName);
+            name.setText(target.getDisplayName());
             detail.setText(getString(
                     R.string.file_push_host_paired,
-                    target.endpoint.getAddress()));
+                    target.getAddress()));
             item.setContentDescription(getString(
                     R.string.file_push_host_content_description,
-                    target.displayName));
+                    target.getDisplayName()));
             item.setOnClickListener(view -> beginUpload(target));
 
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -186,45 +198,49 @@ public class FilePushActivity extends ComponentActivity {
         }
     }
 
-    private List<UploadTarget> loadPairedHosts() {
-        List<UploadTarget> pairedHosts = new ArrayList<>();
-        ComputerDatabaseManager database = new ComputerDatabaseManager(this);
-        try {
-            for (PersistedHost host : database.getAllHosts()) {
-                HostEndpoint endpoint = selectEndpoint(
-                        host.getRecord());
-                if (host.getPinnedCertificate() != null &&
-                        endpoint != null) {
-                    pairedHosts.add(new UploadTarget(
-                            host.getRecord().getIdentity()
-                                    .getAdvertisedName(),
-                            endpoint,
-                            host.getPinnedCertificate()));
-                }
-            }
-        } finally {
-            database.close();
+    private void beginUpload(FilePushTarget target) {
+        if (controller == null) {
+            return;
         }
-        Collections.sort(pairedHosts, new Comparator<UploadTarget>() {
-            @Override
-            public int compare(
-                    UploadTarget left, UploadTarget right) {
-                return left.displayName.compareToIgnoreCase(
-                        right.displayName);
-            }
-        });
-        return pairedHosts;
-    }
+        FilePushController.RequestStatus status = controller.upload(
+                target,
+                new FilePushController.UploadCallback() {
+                    @Override
+                    public void onProgress(
+                            long transferredBytes,
+                            long totalBytes) {
+                        updateProgress(
+                                transferredBytes,
+                                totalBytes);
+                    }
 
-    private void beginUpload(UploadTarget target) {
-        if (uploadInProgress) {
+                    @Override
+                    public void onCompleted(
+                            FilePushController.Result<FilePushTarget>
+                                    result) {
+                        if (result.isSuccessful()) {
+                            showUploadComplete(
+                                    result.getValue().getDisplayName());
+                        }
+                        else {
+                            LimeLog.warning(
+                                    "Desktop file upload failed: " +
+                                            result.getFailure()
+                                                    .getClass()
+                                                    .getSimpleName());
+                            showUploadError(errorMessage(
+                                    result.getFailure()));
+                        }
+                    }
+                });
+        if (status != FilePushController.RequestStatus.ACCEPTED) {
             return;
         }
 
-        uploadInProgress = true;
         titleView.setText(R.string.file_push_uploading_title);
         subtitleView.setText(getString(
-                R.string.file_push_uploading_to, target.displayName));
+                R.string.file_push_uploading_to,
+                target.getDisplayName()));
         hostSection.setVisibility(View.GONE);
         errorView.setVisibility(View.GONE);
         progressPanel.setVisibility(View.VISIBLE);
@@ -233,35 +249,12 @@ public class FilePushActivity extends ComponentActivity {
         progressStatusView.setText(R.string.file_push_preparing);
         progressBytesView.setText(R.string.file_push_keep_open);
         actions.setVisibility(View.GONE);
-
-        uploadTask = executor.submit(() -> {
-            try {
-                NvHTTP http = new NvHTTP(
-                        new ComputerDetails.AddressTuple(
-                                target.endpoint.getAddress(),
-                                target.endpoint.getPort()),
-                        0,
-                        new IdentityManager(this).getUniqueId(),
-                        target.pinnedCertificate,
-                        PlatformBinding.getCryptoProvider(this));
-                DesktopFileUploader.upload(this, http, sharedUris,
-                        (transferred, total) -> runOnUiThread(() ->
-                                updateProgress(transferred, total)));
-                runOnUiThread(() -> showUploadComplete(
-                        target.displayName));
-            } catch (Throwable error) {
-                LimeLog.warning(
-                        "Desktop file upload failed: " + error.getMessage());
-                runOnUiThread(() -> showUploadError(
-                        error.getMessage() == null ?
-                                getString(R.string.file_push_unknown_error) :
-                                error.getMessage()));
-            }
-        });
     }
 
     private void updateProgress(long transferred, long total) {
-        if (!uploadInProgress || isFinishing() || isDestroyed()) {
+        if (controller == null ||
+                !controller.isUploadInProgress() ||
+                isFinishing() || isDestroyed()) {
             return;
         }
         if (total > 0) {
@@ -284,7 +277,6 @@ public class FilePushActivity extends ComponentActivity {
         if (isFinishing() || isDestroyed()) {
             return;
         }
-        uploadInProgress = false;
         titleView.setText(R.string.file_push_complete_title);
         subtitleView.setText(getString(
                 R.string.file_push_complete_message, computerName));
@@ -303,7 +295,6 @@ public class FilePushActivity extends ComponentActivity {
         if (isFinishing() || isDestroyed()) {
             return;
         }
-        uploadInProgress = false;
         titleView.setText(R.string.file_push_failed_title);
         subtitleView.setText(R.string.file_push_choose_host);
         hostSection.setVisibility(View.GONE);
@@ -322,7 +313,6 @@ public class FilePushActivity extends ComponentActivity {
     }
 
     private void showTerminalError(String message) {
-        uploadInProgress = false;
         titleView.setText(R.string.file_push_failed_title);
         subtitleView.setText(R.string.desktop_file_share_target);
         hostSection.setVisibility(View.GONE);
@@ -337,38 +327,11 @@ public class FilePushActivity extends ComponentActivity {
         primaryAction.requestFocus();
     }
 
-    private static HostEndpoint selectEndpoint(
-            HostRecord record) {
-        HostEndpoint endpoint = record.getEndpoint(
-                HostEndpoint.Kind.MANUAL);
-        if (endpoint == null) {
-            endpoint = record.getEndpoint(
-                    HostEndpoint.Kind.LOCAL_IPV4);
-        }
-        if (endpoint == null) {
-            endpoint = record.getEndpoint(
-                    HostEndpoint.Kind.LOCAL_IPV6);
-        }
-        if (endpoint == null) {
-            endpoint = record.getEndpoint(
-                    HostEndpoint.Kind.REMOTE);
-        }
-        return endpoint;
-    }
-
-    private static final class UploadTarget {
-        private final String displayName;
-        private final HostEndpoint endpoint;
-        private final X509Certificate pinnedCertificate;
-
-        private UploadTarget(
-                String displayName,
-                HostEndpoint endpoint,
-                X509Certificate pinnedCertificate) {
-            this.displayName = displayName;
-            this.endpoint = endpoint;
-            this.pinnedCertificate = pinnedCertificate;
-        }
+    private String errorMessage(Exception failure) {
+        String message = failure == null ? null : failure.getMessage();
+        return message == null || message.trim().isEmpty()
+                ? getString(R.string.file_push_unknown_error)
+                : message;
     }
 
     private static List<Uri> collectSharedUris(Intent intent) {
