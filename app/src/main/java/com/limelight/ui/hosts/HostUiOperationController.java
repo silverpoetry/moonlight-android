@@ -1,14 +1,13 @@
 package com.limelight.ui.hosts;
 
 import com.limelight.LimeLog;
+import com.limelight.utils.concurrent.ExclusiveTaskExecutor;
 
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
-import java.util.concurrent.ThreadFactory;
 
 /**
  * Lifecycle owner for one foreground host operation on an Android screen.
@@ -56,12 +55,6 @@ public final class HostUiOperationController {
         }
     }
 
-    private static final ThreadFactory THREAD_FACTORY = command -> {
-        Thread thread = new Thread(command, "HostUiOperation");
-        thread.setDaemon(true);
-        return thread;
-    };
-
     private final Object stateLock = new Object();
     private final ExecutorService workerExecutor;
     private final Executor callbackExecutor;
@@ -73,7 +66,7 @@ public final class HostUiOperationController {
     public static HostUiOperationController create(
             Executor callbackExecutor) {
         return new HostUiOperationController(
-                Executors.newSingleThreadExecutor(THREAD_FACTORY),
+                new ExclusiveTaskExecutor("HostUiOperation"),
                 callbackExecutor);
     }
 

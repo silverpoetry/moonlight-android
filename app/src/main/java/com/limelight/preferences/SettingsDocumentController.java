@@ -19,6 +19,7 @@ import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.utils.FileUriUtils;
 import com.limelight.utils.UiToast;
+import com.limelight.utils.concurrent.ExclusiveTaskExecutor;
 import com.limelight.virtualcontrols.layout.VirtualControlLayoutKey;
 import com.limelight.virtualcontrols.layout.VirtualControlLayoutOrientation;
 import com.limelight.virtualcontrols.layout.android.AndroidVirtualControlLayoutRepository;
@@ -29,7 +30,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 
 /**
@@ -72,13 +72,7 @@ final class SettingsDocumentController {
     private final DocumentLauncher documentLauncher;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService ioExecutor =
-            Executors.newSingleThreadExecutor(runnable -> {
-                Thread thread = new Thread(
-                        runnable,
-                        "settings-document-io");
-                thread.setDaemon(true);
-                return thread;
-            });
+            new ExclusiveTaskExecutor("settings-document-io");
     private volatile Runnable settingsChanged;
     private volatile boolean destroyed;
     private final RequestState requestState;
@@ -555,7 +549,7 @@ final class SettingsDocumentController {
             });
         }
         catch (RejectedExecutionException ignored) {
-            // The Activity was destroyed between result dispatch and enqueue.
+            // The owner was destroyed or another document operation is active.
         }
     }
 

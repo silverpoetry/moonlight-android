@@ -1314,6 +1314,13 @@ agree across all participants.
   from the pending slot immediately instead of accumulating behind an
   uninterruptible running operation; single-operation controllers retain their
   simpler rejection state machines.
+- Replaced every remaining implicit executor factory with explicit scheduling
+  contracts. Settings documents, pairing, foreground host work, launch
+  reporting, and microphone transitions reject overlap with no pending queue;
+  file push retains at most the latest retry; the one-shot delayed host quit
+  declares rejection and cancellation policy directly. A production-wide
+  architecture rule now rejects the `Executors` factory API so hidden
+  unbounded queues cannot return.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

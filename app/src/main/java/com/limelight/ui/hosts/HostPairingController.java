@@ -5,14 +5,13 @@ import androidx.annotation.WorkerThread;
 
 import com.limelight.LimeLog;
 import com.limelight.computers.pairing.HostPairingUseCase;
+import com.limelight.utils.concurrent.ExclusiveTaskExecutor;
 
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
-import java.util.concurrent.ThreadFactory;
 
 /**
  * Lifecycle owner for the single host-pairing operation exposed by PcView.
@@ -70,12 +69,6 @@ public final class HostPairingController {
         }
     }
 
-    private static final ThreadFactory THREAD_FACTORY = command -> {
-        Thread thread = new Thread(command, "HostPairing");
-        thread.setDaemon(true);
-        return thread;
-    };
-
     private final Object lock = new Object();
     private final ExecutorService workerExecutor;
     private final Executor callbackExecutor;
@@ -88,7 +81,7 @@ public final class HostPairingController {
     public static HostPairingController create(
             Executor callbackExecutor) {
         return new HostPairingController(
-                Executors.newSingleThreadExecutor(THREAD_FACTORY),
+                new ExclusiveTaskExecutor("HostPairing"),
                 callbackExecutor);
     }
 

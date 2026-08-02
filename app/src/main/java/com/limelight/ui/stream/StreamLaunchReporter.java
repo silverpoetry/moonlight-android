@@ -4,12 +4,11 @@ import androidx.annotation.AnyThread;
 import androidx.annotation.WorkerThread;
 
 import com.limelight.LimeLog;
+import com.limelight.utils.concurrent.ExclusiveTaskExecutor;
 
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
-import java.util.concurrent.ThreadFactory;
 
 /**
  * Owns the bounded background work used to publish launch side effects for one
@@ -20,12 +19,6 @@ public final class StreamLaunchReporter {
         @WorkerThread
         void run();
     }
-
-    private static final ThreadFactory THREAD_FACTORY = command -> {
-        Thread thread = new Thread(command, "StreamLaunchReporter");
-        thread.setDaemon(true);
-        return thread;
-    };
 
     private final Object lock = new Object();
     private final ExecutorService workerExecutor;
@@ -39,7 +32,7 @@ public final class StreamLaunchReporter {
     public static StreamLaunchReporter create(
             ReportAction reportAction) {
         return new StreamLaunchReporter(
-                Executors.newSingleThreadExecutor(THREAD_FACTORY),
+                new ExclusiveTaskExecutor("StreamLaunchReporter"),
                 reportAction);
     }
 

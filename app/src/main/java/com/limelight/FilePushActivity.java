@@ -26,22 +26,18 @@ import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.UiHelper;
+import com.limelight.utils.concurrent.LatestTaskExecutor;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 public class FilePushActivity extends ComponentActivity {
     private final ExecutorService executor =
-            Executors.newSingleThreadExecutor(runnable -> {
-                Thread thread = new Thread(runnable, "DesktopFileUpload");
-                thread.setDaemon(true);
-                return thread;
-            });
+            new LatestTaskExecutor("DesktopFileUpload");
 
     private List<Uri> sharedUris;
     private Future<?> uploadTask;

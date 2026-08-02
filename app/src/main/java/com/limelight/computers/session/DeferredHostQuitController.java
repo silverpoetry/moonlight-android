@@ -3,10 +3,10 @@ package com.limelight.computers.session;
 import com.limelight.LimeLog;
 
 import java.util.Objects;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -70,9 +70,12 @@ public final class DeferredHostQuitController {
     private boolean requested;
 
     public static DeferredHostQuitController create() {
-        ScheduledExecutorService executor =
-                Executors.newSingleThreadScheduledExecutor(
-                        THREAD_FACTORY);
+        ScheduledThreadPoolExecutor executor =
+                new ScheduledThreadPoolExecutor(
+                        1,
+                        THREAD_FACTORY,
+                        new ThreadPoolExecutor.AbortPolicy());
+        executor.setRemoveOnCancelPolicy(true);
         return new DeferredHostQuitController(
                 new Scheduler() {
                     @Override

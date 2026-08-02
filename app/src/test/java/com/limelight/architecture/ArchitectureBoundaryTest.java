@@ -27,6 +27,13 @@ public final class ArchitectureBoundaryTest {
     public static void importProductionClasses() {
         productionClasses = new ClassFileImporter()
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                .withImportOption(location -> {
+                    String path = location.asURI().toString();
+                    return !path.contains("UnitTest") &&
+                            !path.contains("unit_test") &&
+                            !path.contains("androidTest") &&
+                            !path.contains("android_test");
+                })
                 .importPackages("com.limelight");
     }
 
@@ -553,23 +560,6 @@ public final class ArchitectureBoundaryTest {
                         "manual-host parsing, cancellation, and stale-callback policy are pure")
                 .check(productionClasses);
 
-        noClasses()
-                .that()
-                .haveFullyQualifiedName(
-                        "com.limelight.preferences.AddComputerManually")
-                .or()
-                .haveFullyQualifiedName(
-                        "com.limelight.AppView")
-                .or()
-                .haveFullyQualifiedName(
-                        "com.limelight.PcView")
-                .should()
-                .dependOnClassesThat()
-                .haveFullyQualifiedName(
-                        "java.util.concurrent.Executors")
-                .because(
-                        "host Activities delegate foreground worker ownership to HostUiOperationController")
-                .check(productionClasses);
     }
 
     @Test
@@ -866,7 +856,7 @@ public final class ArchitectureBoundaryTest {
                         "MediaCodecDecoderRenderer|ClipboardSyncController|" +
                         "NsdManagerDiscoveryAgent|" +
                         "HostServiceBindingController|" +
-                        "StreamFailureDiagnostics)";
+                        "StreamFailureDiagnostics)$";
 
         noClasses()
                 .that()
@@ -888,6 +878,18 @@ public final class ArchitectureBoundaryTest {
                         "java.util.concurrent.Executors")
                 .because(
                         "replaceable background work must not regain an implicit unbounded queue")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void productionRejectsImplicitUnboundedExecutorFactories() {
+        noClasses()
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "java.util.concurrent.Executors")
+                .because(
+                        "production executors must declare queue and saturation policy explicitly")
                 .check(productionClasses);
     }
 
