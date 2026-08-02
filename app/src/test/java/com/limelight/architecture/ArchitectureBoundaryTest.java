@@ -860,6 +860,38 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void boundedBackgroundPipelinesRejectUnboundedQueueFactories() {
+        String migratedPipelines =
+                "com\\.limelight\\..*\\.(" +
+                        "MediaCodecDecoderRenderer|ClipboardSyncController|" +
+                        "NsdManagerDiscoveryAgent|" +
+                        "HostServiceBindingController|" +
+                        "StreamFailureDiagnostics)";
+
+        noClasses()
+                .that()
+                .haveNameMatching(migratedPipelines)
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "java.util.concurrent.LinkedBlockingQueue")
+                .because(
+                        "migrated streaming and discovery pipelines enforce capacity structurally")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveNameMatching(migratedPipelines)
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "java.util.concurrent.Executors")
+                .because(
+                        "replaceable background work must not regain an implicit unbounded queue")
+                .check(productionClasses);
+    }
+
+    @Test
     public void hiddenAppSelectionIsPlatformIndependent() {
         noClasses()
                 .that()
