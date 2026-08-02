@@ -91,13 +91,10 @@ android {
         }
     }
 
-    bundle {
-        language {
-            // Avoid splitting by language, since we allow users
-            // to manually switch language in settings.
-            enableSplit = false
-        }
-    }
+    // Keep every locale in the base module because the app provides its own
+    // runtime language switcher. The finalized DSL invariant below prevents
+    // any variant or later configuration block from re-enabling the split.
+    bundle.language.enableSplit = false
 
     buildTypes {
         debug {
@@ -159,6 +156,14 @@ android {
 }
 
 androidComponents {
+    finalizeDsl { extension ->
+        if (extension.bundle.language.enableSplit) {
+            throw new GradleException(
+                    'Runtime locale switching requires language splits to ' +
+                            'remain disabled')
+        }
+    }
+
     // Release-only behavior such as logging suppression must be exercised
     // against the generated Release BuildConfig, not inferred from Debug.
     beforeVariants(selector().withBuildType('release')) { variantBuilder ->

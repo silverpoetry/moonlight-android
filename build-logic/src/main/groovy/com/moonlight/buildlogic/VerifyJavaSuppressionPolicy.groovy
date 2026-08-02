@@ -20,6 +20,9 @@ abstract class VerifyJavaSuppressionPolicy extends DefaultTask {
             '/core/settings/src/main/java/com/limelight/settings/SettingKey.java',
             '/app/src/main/java/com/limelight/preferences/SettingsItem.java'
     ] as Set<String>
+    private static final String APP_LOCALE_PATH =
+            '/app/src/main/java/com/limelight/settings/android/' +
+                    'AndroidAppLocale.java'
     private static final Pattern UNCHECKED_SUPPRESSION = Pattern.compile(
             '@SuppressWarnings\\s*\\([^)]*\\bunchecked\\b[^)]*\\)')
     private static final Pattern STALE_INFLATED_ID_SUPPRESSION =
@@ -29,6 +32,10 @@ abstract class VerifyJavaSuppressionPolicy extends DefaultTask {
             Pattern.compile(
                     '@SuppressLint\\s*\\(\\s*"' +
                             'UnspecifiedRegisterReceiverFlag"\\s*\\)')
+    private static final Pattern APP_BUNDLE_LOCALE_SUPPRESSION =
+            Pattern.compile(
+                    '@SuppressLint\\s*\\(\\s*"' +
+                            'AppBundleLocaleChanges"\\s*\\)')
 
     @InputFiles
     @PathSensitive(PathSensitivity.RELATIVE)
@@ -58,6 +65,14 @@ abstract class VerifyJavaSuppressionPolicy extends DefaultTask {
                                         ': dynamic receivers must declare ' +
                                         'an exported state through the ' +
                                         'compatibility API')
+                    }
+                    if (APP_BUNDLE_LOCALE_SUPPRESSION
+                            .matcher(source).find() &&
+                            !path.endsWith(APP_LOCALE_PATH)) {
+                        violations.add(
+                                project.relativePath(file) +
+                                        ': AppBundleLocaleChanges is allowed ' +
+                                        'only at the reviewed locale adapter')
                     }
                     if (UNCHECKED_SUPPRESSION.matcher(source).find() &&
                             !ALLOWED_UNCHECKED_CAST_PATHS.any {

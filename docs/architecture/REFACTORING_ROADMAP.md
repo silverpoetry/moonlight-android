@@ -1397,6 +1397,11 @@ agree across all participants.
   The gate now locks the final exported component/permission map and rejects
   Debug-only stream or transfer entry points, debuggable/test-only flags, and
   shell profiling after all application, flavor, and dependency overlays.
+- Expressed the existing no-language-split App Bundle contract through an
+  explicit Gradle property chain and a finalized-DSL invariant. Lint 32.3 does
+  not recognize AGP 9's bundle DSL in Debug analysis, so its false positive is
+  suppressed only at the reviewed locale adapter; the suppression allowlist
+  and independent DSL gate prevent the exception from hiding a real split.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

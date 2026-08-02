@@ -1,5 +1,6 @@
 package com.limelight.settings.android;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.LocaleManager;
 import android.content.Context;
@@ -22,6 +23,12 @@ public final class AndroidAppLocale {
     private AndroidAppLocale() {
     }
 
+    /**
+     * Lint 32.3 does not recognize the AGP 9 bundle-language DSL in Debug
+     * variants. The finalized Android DSL is independently release-gated to
+     * require {@code bundle.language.enableSplit == false}.
+     */
+    @SuppressLint("AppBundleLocaleChanges")
     public static Context wrapBaseContext(Context context) {
         Objects.requireNonNull(context, "context");
         AppPresentationSettings settings =
