@@ -4,7 +4,6 @@ import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -21,6 +20,8 @@ import com.limelight.platform.files.AndroidPrivateFileShare;
 import com.limelight.nvstream.filetransfer.ClipboardFileDownloader;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.jni.MoonBridge;
+import com.limelight.nvstream.clipboard.ClipboardSyncCheckpoint;
+import com.limelight.nvstream.clipboard.ClipboardSyncCheckpointStore;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -33,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -48,12 +50,10 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     private static final long CACHE_RETENTION_MS = 24L * 60L * 60L * 1000L;
     private static final long REMOTE_WRITE_SUPPRESSION_MS = 1500;
     private static final String SENSITIVE_EXTRA = "android.content.extra.IS_SENSITIVE";
-    private static final String STATE_PREFERENCES = "clipboard_sync_state";
-    private static final String LAST_HANDLED_KEY = "last_handled_key";
 
     private final Context context;
     private final ClipboardManager clipboardManager;
-    private final SharedPreferences statePreferences;
+    private final ClipboardSyncCheckpointStore checkpointStore;
     private final NvHTTP nvHttp;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor(runnable -> {
@@ -76,16 +76,18 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     private volatile String pendingRemoteKey;
     private volatile long pendingRemoteKeyExpiresAt;
 
-    ClipboardSyncController(Context context, NvHTTP nvHttp) {
+    ClipboardSyncController(
+            Context context,
+            NvHTTP nvHttp,
+            ClipboardSyncCheckpointStore checkpointStore) {
         this.context = context.getApplicationContext();
         this.nvHttp = nvHttp;
+        this.checkpointStore = Objects.requireNonNull(
+                checkpointStore, "checkpointStore");
         clipboardManager = (ClipboardManager) this.context.getSystemService(Context.CLIPBOARD_SERVICE);
-        statePreferences = this.context.getSharedPreferences(
-                STATE_PREFERENCES, Context.MODE_PRIVATE);
-        hasPersistentClipboardState =
-                statePreferences.contains(LAST_HANDLED_KEY);
-        lastObservedKey = statePreferences.getString(
-                LAST_HANDLED_KEY, null);
+        ClipboardSyncCheckpoint checkpoint = checkpointStore.read();
+        hasPersistentClipboardState = checkpoint.isInitialized();
+        lastObservedKey = checkpoint.getLastHandledFingerprint();
     }
 
     synchronized void start() {
@@ -418,9 +420,8 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         String fingerprint = fingerprintKey(key);
         lastObservedKey = fingerprint;
         hasPersistentClipboardState = true;
-        statePreferences.edit()
-                .putString(LAST_HANDLED_KEY, fingerprint)
-                .apply();
+        checkpointStore.write(
+                ClipboardSyncCheckpoint.initialized(fingerprint));
     }
 
     private String fingerprintKey(String key) {

@@ -1261,6 +1261,11 @@ agree across all participants.
   reset, while a dedicated Android presentation controller owns the dialog;
   Activities and generic UI utilities no longer duplicate tombstone keys or
   access decoder-crash storage directly.
+- Moved the clipboard loop-suppression checkpoint out of the connection state
+  machine. The immutable checkpoint validates canonical SHA-256 fingerprints,
+  its persistence port distinguishes uninitialized state from a saved
+  baseline, and the Android adapter alone owns the historical SharedPreferences
+  keys and corruption handling.
 - Hardened Sunshine's Windows Release build and test environment: dependency
   audit is clean, local builds do not attempt Codecov uploads, expected
   dependency diagnostics and shader junctions are deterministic, coverage

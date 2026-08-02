@@ -375,9 +375,12 @@ document tree remains an opaque, bounded string in the platform-independent
 snapshot and is parsed only by the Storage Access Framework UI adapter. Missing
 providers, revoked grants, and malformed URIs clear the typed key before asking
 the user to select a replacement. The named `clipboard_sync_state` store is not
-configuration: it is an operational loop-suppression checkpoint and is
-therefore tracked for the transfer architecture phase rather than folded into
-the global settings schema.
+configuration: it is an operational loop-suppression checkpoint behind
+`ClipboardSyncCheckpointStore`, not part of the global settings schema. The
+connection state machine consumes only a validated immutable SHA-256
+fingerprint snapshot; the Android adapter alone owns the historical preference
+name and key, and malformed or wrong-typed state fails closed as
+uninitialized.
 
 ## Editable layout documents
 
@@ -387,9 +390,10 @@ content crosses a separate `VirtualControlLayoutRepository` port.
 
 - `VirtualControlLayoutKey` accepts only the five canonical profile IDs for its
   keyboard or gamepad family and an explicit orientation.
-- The Android adapter alone maps that key to the historical
-  `axi_<profile>[_1].txt` name, preserving existing user layouts without
-  exposing a path-bearing API.
+- The Android adapter maps the key to a canonical, orientation-explicit JSON
+  filename. On first access it validates and atomically imports the historical
+  filename, commits the canonical document, and only then removes the legacy
+  file; runtime reads never fall back after canonical storage exists.
 - Documents are UTF-8, bounded to 1 MiB, and written with `AtomicFile`.
 - Imported documents must contain a JSON array before they replace the active
   file. A malformed existing document is isolated as an empty layout and

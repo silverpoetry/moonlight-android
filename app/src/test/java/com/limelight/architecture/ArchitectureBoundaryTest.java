@@ -820,6 +820,32 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void clipboardCheckpointHasOneAndroidPersistenceBoundary() {
+        noClasses()
+                .that()
+                .resideInAPackage(
+                        "com.limelight.nvstream.clipboard")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("android..", "androidx..")
+                .because(
+                        "clipboard loop-suppression state is an immutable platform-independent document")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.ClipboardSyncController")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.content.SharedPreferences")
+                .because(
+                        "the connection state machine persists checkpoints through its port")
+                .check(productionClasses);
+    }
+
+    @Test
     public void streamHdrRequestPolicyIsPlatformIndependent() {
         noClasses()
                 .that()

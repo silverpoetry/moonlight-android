@@ -31,6 +31,7 @@ import org.xmlpull.v1.XmlPullParserException;
 import com.limelight.LimeLog;
 import com.limelight.nvstream.av.audio.AudioRenderer;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
+import com.limelight.nvstream.clipboard.android.SharedPreferencesClipboardSyncCheckpointStore;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.HostHttpResponseException;
 import com.limelight.nvstream.http.LimelightCryptoProvider;
@@ -712,7 +713,10 @@ public class NvConnection implements StreamSessionConnection,
                             .getClipboardProtocolEnabled()) {
                         clipboardSyncController =
                                 new ClipboardSyncController(
-                                        appContext, sessionHttp);
+                                        appContext,
+                                        sessionHttp,
+                                        new SharedPreferencesClipboardSyncCheckpointStore(
+                                                appContext));
                         clipboardSyncController.start();
                     }
                     int result = MoonBridge.startConnection(
