@@ -1499,6 +1499,21 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void virtualControlRuntimeDoesNotAddressSharedPreferences() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.limelight.binding.input.virtual_controller..")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.content.SharedPreferences")
+                .because(
+                        "the active overlay consumes typed layout and settings repositories")
+                .check(productionClasses);
+    }
+
+    @Test
     public void controllerHandlerDoesNotReadPersistenceOrLegacySettings() {
         noClasses()
                 .that()

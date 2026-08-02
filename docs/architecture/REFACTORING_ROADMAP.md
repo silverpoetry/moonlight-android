@@ -1258,6 +1258,13 @@ agree across all participants.
   and local UI actions now have separate construction and dispatch paths; old
   saved action buttons are recognized only by an exact one-time document
   migration and are immediately rewritten in canonical form.
+- Deleted the unreachable classic virtual-controller implementation and its
+  independent `OSC` preference store. The active editable overlay now owns its
+  directional flags, consumes the canonical layout repository, and is guarded
+  from addressing `SharedPreferences` directly. Six settings that only
+  configured that dead implementation (skin, square buttons, Guide visibility,
+  and free-stick mode, opacity, and fixation) were removed from the typed
+  schema instead of being retained as ineffective UI or migration state.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

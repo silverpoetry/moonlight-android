@@ -99,12 +99,6 @@ public final class SettingsKeyCatalog {
 
         add(
                 keys,
-                VirtualControlSettingKeys.SQUARE_BUTTONS,
-                VirtualControlSettingKeys.SHOW_GUIDE_BUTTON,
-                VirtualControlSettingKeys.GAMEPAD_SKIN,
-                VirtualControlSettingKeys.FREE_STICKS,
-                VirtualControlSettingKeys.FREE_STICK_OPACITY_PERCENT,
-                VirtualControlSettingKeys.FIXED_FREE_STICKS,
                 VirtualControlSettingKeys.NORMAL_COLOR,
                 VirtualControlSettingKeys.GAMEPAD_SCALE_PERCENT);
 

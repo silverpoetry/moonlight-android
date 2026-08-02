@@ -13,8 +13,11 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -53,6 +56,7 @@ public final class SettingsRuntimeConsumptionTest {
 
     @Test
     public void everyRuntimeSettingsQueryHasAProductionConsumer() {
+        List<String> unconsumedQueries = new ArrayList<>();
         for (String modelName : SETTINGS_MODELS) {
             JavaClass model = productionClasses.get(modelName);
             for (JavaMethod method : model.getMethods()) {
@@ -60,12 +64,18 @@ public final class SettingsRuntimeConsumptionTest {
                     continue;
                 }
 
-                assertTrue(
-                        modelName + "#" + method.getName() +
-                                " has no production runtime consumer",
-                        isConsumedOutsideSettings(method));
+                if (!isConsumedOutsideSettings(method)) {
+                    unconsumedQueries.add(
+                            modelName + "#" + method.getName());
+                }
             }
         }
+
+        Collections.sort(unconsumedQueries);
+        assertTrue(
+                "Settings queries without a production runtime consumer: " +
+                        unconsumedQueries,
+                unconsumedQueries.isEmpty());
     }
 
     private static boolean isSettingsQuery(JavaMethod method) {

@@ -24,11 +24,9 @@ public final class VirtualControlSettingsLoaderTest {
         assertEquals(90, settings.getKeyboardOpacityPercent());
         assertEquals(200, settings.getKeyboardHeightDp());
         assertEquals(100, settings.getGamepadScalePercent());
-        assertEquals(20, settings.getFreeStickOpacityPercent());
         assertEquals(0xFF888888, settings.getNormalColor());
         assertEquals("OSC_Keyboard", settings.getKeyboardLayoutId());
         assertEquals("gamePad", settings.getGamepadLayoutId());
-        assertTrue(settings.isGuideButtonVisible());
         assertFalse(settings.isKeyboardHapticsEnabled());
         assertFalse(settings.shouldShowVirtualKeysOnStart());
         assertFalse(settings.isStickClickDisabled());
@@ -46,9 +44,6 @@ public final class VirtualControlSettingsLoaderTest {
         repository.values.put(
                 VirtualControlSettingKeys.KEYBOARD_HEIGHT_DP.getName(),
                 -10);
-        repository.values.put(
-                VirtualControlSettingKeys.GAMEPAD_SKIN.getName(),
-                99);
         repository.values.put(
                 VirtualControlSettingKeys
                         .GAMEPAD_SCALE_PERCENT.getName(),
@@ -70,7 +65,6 @@ public final class VirtualControlSettingsLoaderTest {
 
         assertEquals(100, settings.getControlOpacityPercent());
         assertEquals(100, settings.getKeyboardHeightDp());
-        assertEquals(0, settings.getGamepadSkin());
         assertEquals(20, settings.getGamepadScalePercent());
         assertEquals("gamePad", settings.getGamepadLayoutId());
         assertTrue(settings.shouldShowVirtualKeysOnStart());

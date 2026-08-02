@@ -29,7 +29,6 @@ import com.limelight.binding.input.pointer.ExternalPointerInputController;
 import com.limelight.binding.input.touch.DirectContactInputController;
 import com.limelight.binding.input.touch.TouchInputController;
 import com.limelight.binding.input.touch.TouchInputMode;
-import com.limelight.binding.input.virtual_controller.VirtualController;
 import com.limelight.binding.input.virtual_controller.keyboard.AndroidVirtualControlsFactory;
 import com.limelight.binding.input.virtual_controller.keyboard.StreamVirtualControlsController;
 import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode;

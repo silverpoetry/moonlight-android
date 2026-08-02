@@ -29,19 +29,6 @@ public final class VirtualControlSettingsLoader {
                 .setShowVirtualKeysOnStart(repository.get(
                         VirtualControlSettingKeys
                                 .SHOW_VIRTUAL_KEYS_ON_START))
-                .setGamepadSkin(repository.get(
-                        VirtualControlSettingKeys.GAMEPAD_SKIN))
-                .setSquareButtonsEnabled(repository.get(
-                        VirtualControlSettingKeys.SQUARE_BUTTONS))
-                .setGuideButtonVisible(repository.get(
-                        VirtualControlSettingKeys.SHOW_GUIDE_BUTTON))
-                .setFreeSticksEnabled(repository.get(
-                        VirtualControlSettingKeys.FREE_STICKS))
-                .setFreeStickOpacityPercent(repository.get(
-                        VirtualControlSettingKeys
-                                .FREE_STICK_OPACITY_PERCENT))
-                .setFixedFreeSticksEnabled(repository.get(
-                        VirtualControlSettingKeys.FIXED_FREE_STICKS))
                 .setNormalColor(repository.get(
                         VirtualControlSettingKeys.NORMAL_COLOR))
                 .setGamepadScalePercent(repository.get(
@@ -88,25 +75,6 @@ public final class VirtualControlSettingsLoader {
                         VirtualControlSettingKeys
                                 .SHOW_VIRTUAL_KEYS_ON_START,
                         settings.shouldShowVirtualKeysOnStart())
-                .put(
-                        VirtualControlSettingKeys.GAMEPAD_SKIN,
-                        settings.getGamepadSkin())
-                .put(
-                        VirtualControlSettingKeys.SQUARE_BUTTONS,
-                        settings.areSquareButtonsEnabled())
-                .put(
-                        VirtualControlSettingKeys.SHOW_GUIDE_BUTTON,
-                        settings.isGuideButtonVisible())
-                .put(
-                        VirtualControlSettingKeys.FREE_STICKS,
-                        settings.areFreeSticksEnabled())
-                .put(
-                        VirtualControlSettingKeys
-                                .FREE_STICK_OPACITY_PERCENT,
-                        settings.getFreeStickOpacityPercent())
-                .put(
-                        VirtualControlSettingKeys.FIXED_FREE_STICKS,
-                        settings.areFixedFreeSticksEnabled())
                 .put(
                         VirtualControlSettingKeys.NORMAL_COLOR,
                         settings.getNormalColor())

@@ -15,7 +15,6 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.FrameLayout;
 
-import com.limelight.binding.input.virtual_controller.VirtualController;
 import com.limelight.ui.gamemenu.GameKeyboardUpdateFragment;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
 import com.limelight.utils.UiHelper;

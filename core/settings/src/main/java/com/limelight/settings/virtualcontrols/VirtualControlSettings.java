@@ -15,12 +15,6 @@ public final class VirtualControlSettings {
     private final int keyboardHeightDp;
     private final boolean keyboardHapticsEnabled;
     private final boolean showVirtualKeysOnStart;
-    private final int gamepadSkin;
-    private final boolean squareButtonsEnabled;
-    private final boolean guideButtonVisible;
-    private final boolean freeSticksEnabled;
-    private final int freeStickOpacityPercent;
-    private final boolean fixedFreeSticksEnabled;
     private final int normalColor;
     private final int gamepadScalePercent;
     private final boolean stickClickDisabled;
@@ -41,13 +35,6 @@ public final class VirtualControlSettings {
         keyboardHapticsEnabled = builder.keyboardHapticsEnabled;
         showVirtualKeysOnStart =
                 builder.showVirtualKeysOnStart;
-        gamepadSkin = normalizeGamepadSkin(builder.gamepadSkin);
-        squareButtonsEnabled = builder.squareButtonsEnabled;
-        guideButtonVisible = builder.guideButtonVisible;
-        freeSticksEnabled = builder.freeSticksEnabled;
-        freeStickOpacityPercent = clampPercent(
-                builder.freeStickOpacityPercent);
-        fixedFreeSticksEnabled = builder.fixedFreeSticksEnabled;
         normalColor = builder.normalColor;
         gamepadScalePercent = clamp(
                 builder.gamepadScalePercent,
@@ -98,30 +85,6 @@ public final class VirtualControlSettings {
         return showVirtualKeysOnStart;
     }
 
-    public int getGamepadSkin() {
-        return gamepadSkin;
-    }
-
-    public boolean areSquareButtonsEnabled() {
-        return squareButtonsEnabled;
-    }
-
-    public boolean isGuideButtonVisible() {
-        return guideButtonVisible;
-    }
-
-    public boolean areFreeSticksEnabled() {
-        return freeSticksEnabled;
-    }
-
-    public int getFreeStickOpacityPercent() {
-        return freeStickOpacityPercent;
-    }
-
-    public boolean areFixedFreeSticksEnabled() {
-        return fixedFreeSticksEnabled;
-    }
-
     public int getNormalColor() {
         return normalColor;
     }
@@ -158,10 +121,6 @@ public final class VirtualControlSettings {
         return Math.max(minimum, Math.min(maximum, value));
     }
 
-    private static int normalizeGamepadSkin(int value) {
-        return value >= 0 && value <= 2 ? value : 0;
-    }
-
     private static String requireLayoutId(
             String value,
             VirtualControlLayoutKind kind,
@@ -181,14 +140,6 @@ public final class VirtualControlSettings {
                 VirtualControlSettingKeys.DEFAULT_KEYBOARD_HEIGHT_DP;
         private boolean keyboardHapticsEnabled;
         private boolean showVirtualKeysOnStart;
-        private int gamepadSkin;
-        private boolean squareButtonsEnabled;
-        private boolean guideButtonVisible = true;
-        private boolean freeSticksEnabled;
-        private int freeStickOpacityPercent =
-                VirtualControlSettingKeys
-                        .DEFAULT_FREE_STICK_OPACITY_PERCENT;
-        private boolean fixedFreeSticksEnabled;
         private int normalColor =
                 VirtualControlSettingKeys.DEFAULT_NORMAL_COLOR;
         private int gamepadScalePercent =
@@ -214,14 +165,6 @@ public final class VirtualControlSettings {
                     settings.keyboardHapticsEnabled;
             showVirtualKeysOnStart =
                     settings.showVirtualKeysOnStart;
-            gamepadSkin = settings.gamepadSkin;
-            squareButtonsEnabled = settings.squareButtonsEnabled;
-            guideButtonVisible = settings.guideButtonVisible;
-            freeSticksEnabled = settings.freeSticksEnabled;
-            freeStickOpacityPercent =
-                    settings.freeStickOpacityPercent;
-            fixedFreeSticksEnabled =
-                    settings.fixedFreeSticksEnabled;
             normalColor = settings.normalColor;
             gamepadScalePercent = settings.gamepadScalePercent;
             stickClickDisabled = settings.stickClickDisabled;
@@ -255,36 +198,6 @@ public final class VirtualControlSettings {
 
         public Builder setShowVirtualKeysOnStart(boolean show) {
             showVirtualKeysOnStart = show;
-            return this;
-        }
-
-        public Builder setGamepadSkin(int value) {
-            gamepadSkin = value;
-            return this;
-        }
-
-        public Builder setSquareButtonsEnabled(boolean enabled) {
-            squareButtonsEnabled = enabled;
-            return this;
-        }
-
-        public Builder setGuideButtonVisible(boolean visible) {
-            guideButtonVisible = visible;
-            return this;
-        }
-
-        public Builder setFreeSticksEnabled(boolean enabled) {
-            freeSticksEnabled = enabled;
-            return this;
-        }
-
-        public Builder setFreeStickOpacityPercent(int value) {
-            freeStickOpacityPercent = value;
-            return this;
-        }
-
-        public Builder setFixedFreeSticksEnabled(boolean enabled) {
-            fixedFreeSticksEnabled = enabled;
             return this;
         }
 

@@ -8,7 +8,6 @@ import android.content.Context;
 import android.view.KeyEvent;
 
 import com.limelight.R;
-import com.limelight.binding.input.virtual_controller.DigitalPad;
 import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.virtualcontrols.action.VirtualControlAction;
 
@@ -76,25 +75,25 @@ public class KeyBoardControllerConfigurationLoader {
                 KeyBoardController.ControllerInputContext inputContext =
                         controller.getControllerInputContext();
 
-                if ((direction & DigitalPad.DIGITAL_PAD_DIRECTION_LEFT) != 0) {
+                if ((direction & KeyboardDigitalPadButton.DIGITAL_PAD_DIRECTION_LEFT) != 0) {
                     inputContext.inputMap |= isABXY?ControllerPacket.X_FLAG:ControllerPacket.LEFT_FLAG;
                 }
                 else {
                     inputContext.inputMap &= ~(isABXY?ControllerPacket.X_FLAG:ControllerPacket.LEFT_FLAG);
                 }
-                if ((direction & DigitalPad.DIGITAL_PAD_DIRECTION_RIGHT) != 0) {
+                if ((direction & KeyboardDigitalPadButton.DIGITAL_PAD_DIRECTION_RIGHT) != 0) {
                     inputContext.inputMap |= isABXY?ControllerPacket.B_FLAG:ControllerPacket.RIGHT_FLAG;
                 }
                 else {
                     inputContext.inputMap &= ~(isABXY?ControllerPacket.B_FLAG:ControllerPacket.RIGHT_FLAG);
                 }
-                if ((direction & DigitalPad.DIGITAL_PAD_DIRECTION_UP) != 0) {
+                if ((direction & KeyboardDigitalPadButton.DIGITAL_PAD_DIRECTION_UP) != 0) {
                     inputContext.inputMap |= isABXY?ControllerPacket.Y_FLAG:ControllerPacket.UP_FLAG;
                 }
                 else {
                     inputContext.inputMap &= ~(isABXY?ControllerPacket.Y_FLAG:ControllerPacket.UP_FLAG);
                 }
-                if ((direction & DigitalPad.DIGITAL_PAD_DIRECTION_DOWN) != 0) {
+                if ((direction & KeyboardDigitalPadButton.DIGITAL_PAD_DIRECTION_DOWN) != 0) {
                     inputContext.inputMap |= isABXY?ControllerPacket.A_FLAG:ControllerPacket.DOWN_FLAG;
                 }
                 else {
