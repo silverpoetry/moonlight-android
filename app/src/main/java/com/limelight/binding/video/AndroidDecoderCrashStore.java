@@ -8,8 +8,8 @@ import java.util.Objects;
 
 /** SharedPreferences persistence adapter for decoder crash recovery. */
 public final class AndroidDecoderCrashStore
-        implements DecoderCrashTracker.Store {
-    public static final String PREFERENCES_NAME = "DecoderTombstone";
+        implements DecoderCrashStore {
+    static final String PREFERENCES_NAME = "DecoderTombstone";
 
     private static final String CRASH_COUNT = "CrashCount";
     private static final String LAST_NOTIFIED_CRASH_COUNT =
@@ -25,15 +25,19 @@ public final class AndroidDecoderCrashStore
     }
 
     @Override
-    public int getCrashCount() {
-        return preferences.getInt(CRASH_COUNT, 0);
+    public DecoderCrashState readState() {
+        return new DecoderCrashState(
+                preferences.getInt(CRASH_COUNT, 0),
+                preferences.getInt(LAST_NOTIFIED_CRASH_COUNT, 0));
     }
 
     @Override
     @SuppressLint("ApplySharedPref")
     public void recordCrashSynchronously() {
         preferences.edit()
-                .putInt(CRASH_COUNT, getCrashCount() + 1)
+                .putInt(
+                        CRASH_COUNT,
+                        readState().getCrashCount() + 1)
                 .commit();
     }
 
@@ -42,6 +46,15 @@ public final class AndroidDecoderCrashStore
         preferences.edit()
                 .putInt(CRASH_COUNT, 0)
                 .putInt(LAST_NOTIFIED_CRASH_COUNT, 0)
+                .apply();
+    }
+
+    @Override
+    public void acknowledgeCrashCount(int crashCount) {
+        preferences.edit()
+                .putInt(
+                        LAST_NOTIFIED_CRASH_COUNT,
+                        Math.max(0, crashCount))
                 .apply();
     }
 }

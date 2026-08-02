@@ -15,6 +15,7 @@ import com.limelight.computers.model.HostId;
 import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.computers.session.HostQuitUseCase;
 import com.limelight.computers.session.NvHttpHostQuitBackend;
+import com.limelight.binding.video.AndroidDecoderCrashStore;
 import com.limelight.grid.AppGridAdapter;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
@@ -44,6 +45,7 @@ import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.ui.gamemenu.GameDisplayFragment;
 import com.limelight.ui.gamemenu.GameDisplayHost;
 import com.limelight.ui.hosts.ScreenBackgroundPresenter;
+import com.limelight.ui.decoder.AndroidDecoderCrashNotificationController;
 import com.limelight.ui.hosts.HostQuitMessageResolver;
 import com.limelight.ui.hosts.HostServiceBindingController;
 import com.limelight.ui.hosts.HostUiOperationController;
@@ -98,6 +100,8 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
     private AndroidStreamLauncher streamLauncher;
     private AndroidStreamAutoReconnectController
             autoReconnectController;
+    private AndroidDecoderCrashNotificationController
+            decoderCrashNotificationController;
 
     public final static String HIDDEN_APPS_PREF_FILENAME = "HiddenApps";
 
@@ -556,6 +560,11 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        decoderCrashNotificationController =
+                new AndroidDecoderCrashNotificationController(
+                        this,
+                        new AndroidDecoderCrashStore(this));
+
         hostOperationController = HostUiOperationController.create(
                 this::runOnUiThread);
         hostBindingController = HostServiceBindingController.create(
@@ -744,7 +753,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
         }
 
         // Display a decoder crash notification if we've returned after a crash
-        UiHelper.showDecoderCrashDialog(this);
+        decoderCrashNotificationController.showIfNeeded();
 
         inForeground = true;
         hostPollingLifecycle.activate();

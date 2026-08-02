@@ -1256,6 +1256,11 @@ agree across all participants.
   and local UI actions now have separate construction and dispatch paths; old
   saved action buttons are recognized only by an exact one-time document
   migration and are immediately rewritten in canonical form.
+- Consolidated decoder-crash counters and notification acknowledgement behind
+  one persistence port. A pure policy selects no action, warning, or settings
+  reset, while a dedicated Android presentation controller owns the dialog;
+  Activities and generic UI utilities no longer duplicate tombstone keys or
+  access decoder-crash storage directly.
 - Hardened Sunshine's Windows Release build and test environment: dependency
   audit is clean, local builds do not attempt Codecov uploads, expected
   dependency diagnostics and shader junctions are deterministic, coverage

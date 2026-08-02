@@ -53,7 +53,7 @@ public final class DecoderCrashTrackerTest {
     }
 
     private static final class RecordingStore
-            implements DecoderCrashTracker.Store {
+            implements DecoderCrashStore {
         private int crashCount;
         private int recordCount;
         private int clearCount;
@@ -63,8 +63,8 @@ public final class DecoderCrashTrackerTest {
         }
 
         @Override
-        public int getCrashCount() {
-            return crashCount;
+        public DecoderCrashState readState() {
+            return new DecoderCrashState(crashCount, 0);
         }
 
         @Override
@@ -77,6 +77,10 @@ public final class DecoderCrashTrackerTest {
         public void clearCrashHistory() {
             clearCount++;
             crashCount = 0;
+        }
+
+        @Override
+        public void acknowledgeCrashCount(int acknowledgedCrashCount) {
         }
     }
 }

@@ -36,7 +36,7 @@ public final class AndroidDecoderCrashStoreTest {
 
         firstAttempt.notifyCrash(new RuntimeException("decoder"));
 
-        assertEquals(1, store.getCrashCount());
+        assertEquals(1, store.readState().getCrashCount());
         DecoderCrashTracker cleanAttempt =
                 new DecoderCrashTracker(
                         new AndroidDecoderCrashStore(context));
@@ -44,7 +44,29 @@ public final class AndroidDecoderCrashStoreTest {
 
         cleanAttempt.completeCleanly();
 
-        assertEquals(0, store.getCrashCount());
+        assertEquals(0, store.readState().getCrashCount());
+        assertEquals(
+                0,
+                store.readState().getAcknowledgedCrashCount());
+    }
+
+    @Test
+    public void acknowledgementPersistsUntilHistoryIsCleared() {
+        AndroidDecoderCrashStore store =
+                new AndroidDecoderCrashStore(context);
+        store.recordCrashSynchronously();
+        store.acknowledgeCrashCount(1);
+
+        DecoderCrashState persisted =
+                new AndroidDecoderCrashStore(context).readState();
+
+        assertEquals(1, persisted.getCrashCount());
+        assertEquals(1, persisted.getAcknowledgedCrashCount());
+
+        store.clearCrashHistory();
+        DecoderCrashState cleared = store.readState();
+        assertEquals(0, cleared.getCrashCount());
+        assertEquals(0, cleared.getAcknowledgedCrashCount());
     }
 
     private void clearPreferences() {

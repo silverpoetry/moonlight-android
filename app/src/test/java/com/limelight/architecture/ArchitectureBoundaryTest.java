@@ -783,6 +783,19 @@ public final class ArchitectureBoundaryTest {
                 .that()
                 .haveFullyQualifiedName(
                         "com.limelight.binding.video.DecoderCrashTracker")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.video.DecoderCrashState")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.video.DecoderCrashStore")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.binding.video.DecoderCrashNotificationPolicy")
+                .or()
+                .haveNameMatching(
+                        "com\\.limelight\\.binding\\.video\\." +
+                                "DecoderCrashNotificationPolicy\\$.*")
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage(
@@ -790,6 +803,19 @@ public final class ArchitectureBoundaryTest {
                         "androidx..")
                 .because(
                         "crash accounting runs through its persistence port")
+                .check(productionClasses);
+
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.decoder." +
+                                "AndroidDecoderCrashNotificationController")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "android.content.SharedPreferences")
+                .because(
+                        "decoder-crash presentation consumes the store port rather than its Android persistence")
                 .check(productionClasses);
     }
 

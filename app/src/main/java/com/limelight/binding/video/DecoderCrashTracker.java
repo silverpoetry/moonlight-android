@@ -10,22 +10,14 @@ import java.util.Objects;
  * only a clean attempt may clear historical crash state.</p>
  */
 public final class DecoderCrashTracker implements CrashListener {
-    public interface Store {
-        int getCrashCount();
-
-        void recordCrashSynchronously();
-
-        void clearCrashHistory();
-    }
-
-    private final Store store;
+    private final DecoderCrashStore store;
     private final int initialCrashCount;
     private boolean crashReported;
     private boolean completed;
 
-    public DecoderCrashTracker(Store store) {
+    public DecoderCrashTracker(DecoderCrashStore store) {
         this.store = Objects.requireNonNull(store, "store");
-        initialCrashCount = Math.max(0, store.getCrashCount());
+        initialCrashCount = store.readState().getCrashCount();
     }
 
     public int getInitialCrashCount() {
@@ -46,7 +38,8 @@ public final class DecoderCrashTracker implements CrashListener {
             return;
         }
         completed = true;
-        if (!crashReported && store.getCrashCount() != 0) {
+        if (!crashReported &&
+                store.readState().getCrashCount() != 0) {
             store.clearCrashHistory();
         }
     }

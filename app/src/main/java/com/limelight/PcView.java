@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.net.UnknownHostException;
 
 import com.limelight.binding.PlatformBinding;
+import com.limelight.binding.video.AndroidDecoderCrashStore;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.computers.ComputerDetailsSnapshot;
@@ -42,6 +43,7 @@ import com.limelight.stream.launch.android.AndroidStreamLauncher;
 import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.ui.hosts.ScreenBackgroundPresenter;
+import com.limelight.ui.decoder.AndroidDecoderCrashNotificationController;
 import com.limelight.ui.hosts.HostPairingController;
 import com.limelight.ui.hosts.HostQuitMessageResolver;
 import com.limelight.ui.hosts.HostServiceBindingController;
@@ -113,6 +115,8 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
     private AndroidStreamLauncher streamLauncher;
     private AndroidStreamAutoReconnectController
             autoReconnectController;
+    private AndroidDecoderCrashNotificationController
+            decoderCrashNotificationController;
     private SpinnerDialog hostOperationProgress;
     private final HostPollingClientLifecycle hostPollingLifecycle =
             new HostPollingClientLifecycle();
@@ -280,6 +284,11 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        decoderCrashNotificationController =
+                new AndroidDecoderCrashNotificationController(
+                        this,
+                        new AndroidDecoderCrashStore(this));
 
         hostPairingController = HostPairingController.create(
                 this::runOnUiThread);
@@ -484,7 +493,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         }
 
         // Display a decoder crash notification if we've returned after a crash
-        UiHelper.showDecoderCrashDialog(this);
+        decoderCrashNotificationController.showIfNeeded();
 
         inForeground = true;
         hostPollingLifecycle.activate();
