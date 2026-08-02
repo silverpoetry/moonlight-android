@@ -75,8 +75,9 @@ public class PairingManager {
                 CertificateFactory cf = CertificateFactory.getInstance("X.509");
                 return (X509Certificate)cf.generateCertificate(new ByteArrayInputStream(certBytes));
             } catch (CertificateException e) {
-                e.printStackTrace();
-                throw new RuntimeException(e);
+                throw new IllegalStateException(
+                        "Unable to parse the client certificate",
+                        e);
             }
         }
         else {
@@ -116,8 +117,9 @@ public class PairingManager {
             sig.update(data);
             return sig.verify(signature);
         } catch (NoSuchAlgorithmException | SignatureException | InvalidKeyException e) {
-            e.printStackTrace();
-            throw new RuntimeException(e);
+            throw new IllegalStateException(
+                    "Unable to verify pairing data",
+                    e);
         }
     }
     
@@ -128,8 +130,9 @@ public class PairingManager {
             sig.update(data);
             return sig.sign();
         } catch (NoSuchAlgorithmException | SignatureException | InvalidKeyException e) {
-            e.printStackTrace();
-            throw new RuntimeException(e);
+            throw new IllegalStateException(
+                    "Unable to sign pairing data",
+                    e);
         }
     }
 
@@ -301,8 +304,9 @@ public class PairingManager {
                 return md.digest(data);
             }
             catch (NoSuchAlgorithmException e) {
-                e.printStackTrace();
-                throw new RuntimeException(e);
+                throw new IllegalStateException(
+                        "SHA-1 is unavailable",
+                        e);
             }
         }
     }
@@ -318,8 +322,9 @@ public class PairingManager {
                 return md.digest(data);
             }
             catch (NoSuchAlgorithmException e) {
-                e.printStackTrace();
-                throw new RuntimeException(e);
+                throw new IllegalStateException(
+                        "SHA-256 is unavailable",
+                        e);
             }
         }
     }

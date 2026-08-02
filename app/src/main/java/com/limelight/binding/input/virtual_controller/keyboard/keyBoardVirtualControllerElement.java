@@ -223,7 +223,6 @@ public abstract class keyBoardVirtualControllerElement extends View {
 
     protected static final void _DBG(String text) {
         if (_PRINT_DEBUG_INFORMATION) {
-//            System.out.println(text);
         }
     }
 

@@ -97,7 +97,9 @@ public class TvChannelHelper {
             } catch (IllegalArgumentException e) {
                 // This can happen on HarmonyOS devices which report to
                 // support Leanback APIs, yet don't implement this URI
-                e.printStackTrace();
+                LimeLog.warning(
+                        "TV channel provider is unavailable",
+                        e);
                 return;
             }
 
@@ -118,8 +120,9 @@ public class TvChannelHelper {
                 logo.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
                 outputStream.flush();
             } catch (SQLiteException | IOException e) {
-                LimeLog.warning("Failed to store the logo to the system content provider.");
-                e.printStackTrace();
+                LimeLog.warning(
+                        "Failed to store the logo in the TV provider",
+                        e);
             }
         } finally {
             logo.recycle();
@@ -174,7 +177,9 @@ public class TvChannelHelper {
             } catch (IllegalArgumentException e) {
                 // This can happen on HarmonyOS devices which report to
                 // support Leanback APIs, yet don't implement this URI
-                e.printStackTrace();
+                LimeLog.warning(
+                        "TV preview-program provider is unavailable",
+                        e);
                 return;
             }
 

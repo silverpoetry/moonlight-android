@@ -587,7 +587,9 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                         .generateCertificate(new ByteArrayInputStream(derCertData));
             }
         } catch (CertificateException e) {
-            e.printStackTrace();
+            LimeLog.warning(
+                    "Unable to parse the pinned host certificate",
+                    e);
         }
 
         if (appId == StreamConfiguration.INVALID_APP_ID) {

@@ -452,7 +452,9 @@ public class MediaCodecHelper {
                 }
             } catch (Exception e) {
                 // Tolerate buggy codecs
-                e.printStackTrace();
+                LimeLog.warning(
+                        "Unable to query codec low-latency capabilities",
+                        e);
             }
         }
 
@@ -478,7 +480,9 @@ public class MediaCodecHelper {
                 }
             } catch (Exception e) {
                 // Tolerate buggy codecs
-                e.printStackTrace();
+                LimeLog.warning(
+                        "Unable to probe vendor codec low-latency options",
+                        e);
             } finally {
                 if (testCodec != null) {
                     testCodec.release();
@@ -659,7 +663,9 @@ public class MediaCodecHelper {
             }
         } catch (Exception e) {
             // Tolerate buggy codecs
-            e.printStackTrace();
+            LimeLog.warning(
+                    "Unable to query fused-IDR codec capability",
+                    e);
         }
 
         return false;
@@ -681,7 +687,9 @@ public class MediaCodecHelper {
             }
         } catch (Exception e) {
             // Tolerate buggy codecs
-            e.printStackTrace();
+            LimeLog.warning(
+                    "Unable to query adaptive-playback codec capability",
+                    e);
         }
 
         return false;
@@ -1049,7 +1057,9 @@ public class MediaCodecHelper {
                 return true;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LimeLog.warning(
+                    "Unable to inspect CPU information for Exynos 4",
+                    e);
         }
         
         try {
@@ -1064,7 +1074,9 @@ public class MediaCodecHelper {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LimeLog.warning(
+                    "Unable to inspect system devices for Exynos 4",
+                    e);
         }
         
         return false;

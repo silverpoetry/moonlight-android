@@ -372,7 +372,9 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                         .replace(R.id.appFragmentContainer, new AdapterFragment())
                         .commitAllowingStateLoss();
             } catch (IllegalStateException e) {
-                e.printStackTrace();
+                LimeLog.warning(
+                        "Unable to refresh the app grid after a layout change",
+                        e);
             }
         }
         if(dialogFragment!=null) {
@@ -492,7 +494,9 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                         blockingLoadSpinner = null;
                     }
                 } catch (XmlPullParserException | IOException e) {
-                    e.printStackTrace();
+                    LimeLog.warning(
+                            "Unable to refresh the host app list",
+                            e);
                 }
             }
                     });

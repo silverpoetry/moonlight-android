@@ -34,7 +34,6 @@ public class WakeOnLanSender {
                 sock.send(dp);
                 sentWolPacket = true;
             } catch (IOException e) {
-                e.printStackTrace();
                 lastException = e;
             }
         }
@@ -48,7 +47,6 @@ public class WakeOnLanSender {
                 sock.send(dp);
                 sentWolPacket = true;
             } catch (IOException e) {
-                e.printStackTrace();
                 lastException = e;
             }
         }
@@ -79,7 +77,6 @@ public class WakeOnLanSender {
                     sendPacketsForAddress(InetAddress.getByName("255.255.255.255"), address.port, sock, payload);
                     sentWolPacket = true;
                 } catch (IOException e) {
-                    e.printStackTrace();
                     lastException = e;
                 }
 
@@ -89,7 +86,6 @@ public class WakeOnLanSender {
                             sendPacketsForAddress(resolvedAddress, address.port, sock, payload);
                             sentWolPacket = true;
                         } catch (IOException e) {
-                            e.printStackTrace();
                             lastException = e;
                         }
                     }
@@ -97,7 +93,6 @@ public class WakeOnLanSender {
                     // We may have addresses that don't resolve on this subnet,
                     // but don't throw and exit the whole function if that happens.
                     // We'll throw it at the end if we didn't send a single packet.
-                    e.printStackTrace();
                     lastException = e;
                 }
             }

@@ -8,6 +8,7 @@ import android.widget.Toast;
 import com.limelight.LimeLog;
 import com.limelight.binding.input.capture.InputCaptureProvider;
 
+import java.io.Closeable;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -45,7 +46,9 @@ public class EvdevCaptureProvider extends InputCaptureProvider {
             try {
                 servSock = new ServerSocket(0, 1);
             } catch (IOException e) {
-                e.printStackTrace();
+                LimeLog.warning(
+                        "Unable to open the evdev reader socket",
+                        e);
                 return;
             }
 
@@ -59,7 +62,9 @@ public class EvdevCaptureProvider extends InputCaptureProvider {
                     su = new ProcessBuilder("su", "-c", evdevReaderCmd).start();
                 } catch (IOException e) {
                     reportDeviceNotRooted();
-                    e.printStackTrace();
+                    LimeLog.warning(
+                            "Unable to start the evdev reader through su",
+                            e);
                     return;
                 }
             }
@@ -72,7 +77,9 @@ public class EvdevCaptureProvider extends InputCaptureProvider {
                     su = builder.start();
                 } catch (IOException e) {
                     reportDeviceNotRooted();
-                    e.printStackTrace();
+                    LimeLog.warning(
+                            "Unable to start the root shell for evdev",
+                            e);
                     return;
                 }
 
@@ -82,7 +89,9 @@ public class EvdevCaptureProvider extends InputCaptureProvider {
                     suOut.writeChars(evdevReaderCmd+"\n");
                 } catch (IOException e) {
                     reportDeviceNotRooted();
-                    e.printStackTrace();
+                    LimeLog.warning(
+                            "Unable to launch the evdev reader",
+                            e);
                     return;
                 }
             }
@@ -94,7 +103,9 @@ public class EvdevCaptureProvider extends InputCaptureProvider {
                 evdevIn = evdevSock.getInputStream();
                 evdevOut = evdevSock.getOutputStream();
             } catch (IOException e) {
-                e.printStackTrace();
+                LimeLog.warning(
+                        "Unable to accept the evdev reader connection",
+                        e);
                 return;
             }
             LimeLog.info("EvdevReader connected from port "+evdevSock.getPort());
@@ -223,8 +234,10 @@ public class EvdevCaptureProvider extends InputCaptureProvider {
             try {
                 t.join();
             } catch (InterruptedException e) {
-                // The main thread should never be interrupted
-                e.printStackTrace();
+                LimeLog.warning(
+                        "Interrupted while serializing evdev state",
+                        e);
+                Thread.currentThread().interrupt();
             }
         }
         else {
@@ -244,7 +257,9 @@ public class EvdevCaptureProvider extends InputCaptureProvider {
                     try {
                         evdevOut.write(UNGRAB_REQUEST);
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        LimeLog.warning(
+                                "Unable to release the evdev device grab",
+                                e);
                     }
                 }
             }
@@ -263,7 +278,9 @@ public class EvdevCaptureProvider extends InputCaptureProvider {
                     try {
                         evdevOut.write(REGRAB_REQUEST);
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        LimeLog.warning(
+                                "Unable to restore the evdev device grab",
+                                e);
                     }
                 }
             }
@@ -303,35 +320,19 @@ public class EvdevCaptureProvider extends InputCaptureProvider {
             @Override
             public void run() {
                 if (servSock != null) {
-                    try {
-                        servSock.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                    closeQuietly(servSock, "evdev server socket");
                 }
 
                 if (evdevSock != null) {
-                    try {
-                        evdevSock.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                    closeQuietly(evdevSock, "evdev client socket");
                 }
 
                 if (evdevIn != null) {
-                    try {
-                        evdevIn.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                    closeQuietly(evdevIn, "evdev input stream");
                 }
 
                 if (evdevOut != null) {
-                    try {
-                        evdevOut.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                    closeQuietly(evdevOut, "evdev output stream");
                 }
             }
         });
@@ -343,5 +344,18 @@ public class EvdevCaptureProvider extends InputCaptureProvider {
         try {
             handlerThread.join();
         } catch (InterruptedException ignored) {}
+    }
+
+    private static void closeQuietly(
+            Closeable resource,
+            String description) {
+        try {
+            resource.close();
+        }
+        catch (IOException error) {
+            LimeLog.warning(
+                    "Unable to close " + description,
+                    error);
+        }
     }
 }

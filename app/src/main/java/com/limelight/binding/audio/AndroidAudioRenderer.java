@@ -199,7 +199,9 @@ public class AndroidAudioRenderer implements AudioRenderer {
                 break;
             } catch (Exception e) {
                 // Try to release the AudioTrack if we got far enough
-                e.printStackTrace();
+                LimeLog.warning(
+                        "AudioTrack configuration attempt failed",
+                        e);
                 try {
                     if (track != null) {
                         track.release();

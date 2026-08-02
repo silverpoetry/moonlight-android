@@ -5,6 +5,8 @@ import android.content.Context;
 import android.hardware.input.InputManager;
 import android.view.MotionEvent;
 
+import com.limelight.LimeLog;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -53,9 +55,13 @@ public class ShieldCaptureProvider extends InputCaptureProvider {
             methodSetCursorVisibility.invoke(context.getSystemService(Context.INPUT_SERVICE), visible);
             return true;
         } catch (InvocationTargetException e) {
-            e.printStackTrace();
+            LimeLog.warning(
+                    "NVIDIA cursor visibility extension failed",
+                    e);
         } catch (IllegalAccessException e) {
-            e.printStackTrace();
+            LimeLog.warning(
+                    "NVIDIA cursor visibility extension was inaccessible",
+                    e);
         }
 
         return false;

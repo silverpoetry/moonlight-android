@@ -156,8 +156,9 @@ public class NvConnection implements StreamSessionConnection,
 
             return keyGen.generateKey();
         } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-            throw new RuntimeException(e);
+            throw new IllegalStateException(
+                    "AES key generation is unavailable",
+                    e);
         }
     }
 
@@ -324,7 +325,9 @@ public class NvConnection implements StreamSessionConnection,
                 s.connect(new InetSocketAddress(addr, context.serverAddress.port), 1000);
                 return addr;
             } catch (IOException e) {
-                e.printStackTrace();
+                LimeLog.warning(
+                        "Resolved host address was unreachable",
+                        e);
             }
         }
 
@@ -364,7 +367,9 @@ public class NvConnection implements StreamSessionConnection,
                     try {
                         serverAddress = resolveServerAddress();
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        LimeLog.warning(
+                                "Unable to resolve the host for VPN detection",
+                                e);
 
                         // We can't decide without being able to resolve the server address
                         return StreamConfiguration.STREAM_CFG_AUTO;
@@ -656,7 +661,9 @@ public class NvConnection implements StreamSessionConnection,
                 context.connListener.stageComplete(appName);
             } catch (HostHttpResponseException error) {
                 if (!isStopRequested()) {
-                    error.printStackTrace();
+                    LimeLog.warning(
+                            "Host rejected the stream launch request",
+                            error);
                     context.connListener.displayMessage(error.getMessage());
                     context.connListener.stageFailed(
                             appName, 0, error.getErrorCode());
@@ -664,7 +671,9 @@ public class NvConnection implements StreamSessionConnection,
                 return;
             } catch (XmlPullParserException | IOException error) {
                 if (!isStopRequested()) {
-                    error.printStackTrace();
+                    LimeLog.warning(
+                            "Stream launch request failed",
+                            error);
                     context.connListener.displayMessage(error.getMessage());
                     context.connListener.stageFailed(
                             appName,

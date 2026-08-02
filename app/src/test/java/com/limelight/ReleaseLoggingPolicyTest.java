@@ -57,9 +57,13 @@ public class ReleaseLoggingPolicyTest {
         logger.setUseParentHandlers(false);
         logger.addHandler(handler);
         try {
+            RuntimeException error =
+                    new RuntimeException("not logged");
             LimeLog.info("info");
             LimeLog.warning("warning");
+            LimeLog.warning("warning", error);
             LimeLog.severe("severe");
+            LimeLog.severe("severe", error);
             assertEquals(0, publishedRecords.get());
         }
         finally {

@@ -124,7 +124,9 @@ public class DiskAssetLoader {
                 });
                 return scaledBitmap;
             } catch (IOException e) {
-                e.printStackTrace();
+                LimeLog.warning(
+                        "Unable to decode cached app artwork",
+                        e);
                 return null;
             }
         }
@@ -154,7 +156,9 @@ public class DiskAssetLoader {
             CacheHelper.writeInputStreamToOutputStream(input, out, MAX_ASSET_SIZE);
             success = true;
         } catch (IOException e) {
-            e.printStackTrace();
+            LimeLog.warning(
+                    "Unable to write app artwork to the cache",
+                    e);
         } finally {
             if (!success) {
                 LimeLog.warning("Unable to populate cache with tuple: "+tuple);

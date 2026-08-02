@@ -224,7 +224,9 @@ public class AndroidCryptoProvider implements LimelightCryptoProvider {
         } catch (IOException e) {
             // This isn't good because it means we'll have
             // to re-pair next time
-            e.printStackTrace();
+            LimeLog.warning(
+                    "Unable to persist the generated client key pair",
+                    e);
         }
     }
 

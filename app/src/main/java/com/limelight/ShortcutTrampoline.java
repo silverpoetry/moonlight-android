@@ -220,7 +220,9 @@ public class ShortcutTrampoline extends Activity {
             catch (IOException error) {
                 // Fall through to the terminal offline result when no Wake-on-
                 // LAN packet could be sent.
-                error.printStackTrace();
+                LimeLog.warning(
+                        "Unable to send Wake-on-LAN for shortcut launch",
+                        error);
             }
         }
 

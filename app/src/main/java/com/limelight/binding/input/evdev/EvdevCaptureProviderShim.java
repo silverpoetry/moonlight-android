@@ -17,8 +17,9 @@ public class EvdevCaptureProviderShim {
             Class providerClass = Class.forName("com.limelight.binding.input.evdev.EvdevCaptureProvider");
             return (InputCaptureProvider) providerClass.getConstructors()[0].newInstance(activity, listener);
         } catch (Exception e) {
-            e.printStackTrace();
-            throw new RuntimeException(e);
+            throw new IllegalStateException(
+                    "Unable to create the root input capture provider",
+                    e);
         }
     }
 }

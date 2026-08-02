@@ -1271,6 +1271,14 @@ agree across all participants.
   persistence formats. An architecture rule rejects direct
   `SharedPreferences` dependencies from every Activity, and connected fixtures
   lock the production store mapping and one-time shortcut migration.
+- Routed production diagnostics through the debug-gated logging boundary.
+  Direct stack-trace and standard-console output has been removed, including
+  the unused protocol-buffer hex dumper and unbounded file-handler hook;
+  throwable context is retained only in Debug builds. A release governance
+  task now rejects direct console, Android Log, or Java logging access outside
+  the approved module logging boundaries. Release-flavor JVM tests are explicitly
+  enabled so suppression is executed against the generated Release
+  `BuildConfig` for both product flavors rather than inferred from Debug.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

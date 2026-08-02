@@ -3,11 +3,7 @@ package org.cgutman.shieldcontrollerextensions;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.RemoteException;
-import android.util.Log;
-
 class IExposedControllerBinderWrapper {
-    private static final String TAG = "ShieldControllerExt";
-
     private final IBinder binder;
 
     IExposedControllerBinderWrapper(IBinder binder) {
@@ -163,7 +159,9 @@ class IExposedControllerBinderWrapper {
                 try {
                     return Integer.parseInt(batteryState.split(";")[0]);
                 } catch (NumberFormatException e) {
-                    Log.w(TAG, "Invalid SHIELD battery response", e);
+                    ShieldControllerLog.warning(
+                            "Invalid SHIELD battery response",
+                            e);
                 }
             }
 

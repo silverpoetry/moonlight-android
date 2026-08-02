@@ -12,6 +12,7 @@ import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
@@ -192,7 +193,9 @@ public class CachedAppAssetLoader {
             try {
                 Thread.sleep((int) (1000 + (Math.random() * 500)));
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                LimeLog.warning(
+                        "Interrupted while retrying app asset download",
+                        e);
 
                 // InterruptedException clears the thread's interrupt status. Since we can't
                 // handle that here, we will re-interrupt the thread to set the interrupt

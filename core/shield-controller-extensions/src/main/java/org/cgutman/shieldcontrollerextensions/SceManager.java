@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.util.Log;
 import android.view.InputDevice;
 
 import java.util.Map;
@@ -16,8 +15,6 @@ import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class SceManager {
-    private static final String TAG = "ShieldControllerExt";
-
     private final Context context;
 
     private volatile IExposedControllerBinderWrapper binder;
@@ -48,7 +45,9 @@ public class SceManager {
                     }
                 }
             } catch (RemoteException e) {
-                Log.w(TAG, "Unable to register SHIELD listener", e);
+                ShieldControllerLog.warning(
+                        "Unable to register SHIELD listener",
+                        e);
             }
         }
 
@@ -97,7 +96,9 @@ public class SceManager {
                     currentListener.onDeviceAdded(inputDeviceId);
                 }
             } catch (RemoteException e) {
-                Log.w(TAG, "Unable to add SHIELD controller", e);
+                ShieldControllerLog.warning(
+                        "Unable to add SHIELD controller",
+                        e);
             }
         }
 
@@ -166,7 +167,9 @@ public class SceManager {
                     }
                 }
             } catch (RemoteException e) {
-                Log.w(TAG, "Unable to update SHIELD controller", e);
+                ShieldControllerLog.warning(
+                        "Unable to update SHIELD controller",
+                        e);
             }
         }
 
@@ -259,7 +262,9 @@ public class SceManager {
                                         return;
                                     }
                                 } catch (RemoteException e) {
-                                    Log.w(TAG, "Unable to continue SHIELD rumble", e);
+                                    ShieldControllerLog.warning(
+                                            "Unable to continue SHIELD rumble",
+                                            e);
                                 }
 
                                 // If we made it here, the rumble failed so cancel our timer.
@@ -274,7 +279,9 @@ public class SceManager {
                     return true;
                 }
             } catch (RemoteException e) {
-                Log.w(TAG, "Unable to rumble SHIELD controller", e);
+                ShieldControllerLog.warning(
+                        "Unable to rumble SHIELD controller",
+                        e);
             }
         }
         return false;
@@ -292,7 +299,9 @@ public class SceManager {
             try {
                 return currentBinder.getCategory(controllerToken);
             } catch (RemoteException e) {
-                Log.w(TAG, "Unable to read SHIELD category", e);
+                ShieldControllerLog.warning(
+                        "Unable to read SHIELD category",
+                        e);
             }
         }
         return SceCategory.UNKNOWN;
@@ -310,7 +319,9 @@ public class SceManager {
             try {
                 return currentBinder.getBatteryPercentage(controllerToken);
             } catch (RemoteException e) {
-                Log.w(TAG, "Unable to read SHIELD battery", e);
+                ShieldControllerLog.warning(
+                        "Unable to read SHIELD battery",
+                        e);
             }
         }
         return -1;
@@ -328,7 +339,9 @@ public class SceManager {
             try {
                 return currentBinder.getChargingState(controllerToken);
             } catch (RemoteException e) {
-                Log.w(TAG, "Unable to read SHIELD charging state", e);
+                ShieldControllerLog.warning(
+                        "Unable to read SHIELD charging state",
+                        e);
             }
         }
         return SceChargingState.UNKNOWN;
@@ -346,7 +359,9 @@ public class SceManager {
             try {
                 return currentBinder.getConnectionState(controllerToken);
             } catch (RemoteException e) {
-                Log.w(TAG, "Unable to read SHIELD connection state", e);
+                ShieldControllerLog.warning(
+                        "Unable to read SHIELD connection state",
+                        e);
             }
         }
         return SceConnectionState.UNKNOWN;
@@ -364,7 +379,9 @@ public class SceManager {
             try {
                 return currentBinder.getConnectionType(controllerToken);
             } catch (RemoteException e) {
-                Log.w(TAG, "Unable to read SHIELD connection type", e);
+                ShieldControllerLog.warning(
+                        "Unable to read SHIELD connection type",
+                        e);
             }
         }
         return SceConnectionType.UNKNOWN;
@@ -382,7 +399,9 @@ public class SceManager {
             try {
                 return currentBinder.identify(controllerToken);
             } catch (RemoteException e) {
-                Log.w(TAG, "Unable to identify SHIELD controller", e);
+                ShieldControllerLog.warning(
+                        "Unable to identify SHIELD controller",
+                        e);
             }
         }
         return false;
@@ -400,7 +419,9 @@ public class SceManager {
             try {
                 return currentBinder.hasHeadset(controllerToken);
             } catch (RemoteException e) {
-                Log.w(TAG, "Unable to read SHIELD headset state", e);
+                ShieldControllerLog.warning(
+                        "Unable to read SHIELD headset state",
+                        e);
             }
         }
         return false;
@@ -437,7 +458,9 @@ public class SceManager {
         } catch (RuntimeException e) {
             started = false;
             bound = false;
-            Log.w(TAG, "Unable to bind SHIELD accessory service", e);
+            ShieldControllerLog.warning(
+                    "Unable to bind SHIELD accessory service",
+                    e);
             return false;
         }
     }
@@ -456,7 +479,9 @@ public class SceManager {
                 try {
                     activeBinder.rumble(entry.getKey(), 0, 0);
                 } catch (RemoteException e) {
-                    Log.w(TAG, "Unable to stop SHIELD rumble", e);
+                    ShieldControllerLog.warning(
+                            "Unable to stop SHIELD rumble",
+                            e);
                 }
             }
         }
@@ -489,7 +514,9 @@ public class SceManager {
             try {
                 currentBinder.unregisterListener(currentListenerId);
             } catch (RemoteException e) {
-                Log.w(TAG, "Unable to unregister SHIELD listener", e);
+                ShieldControllerLog.warning(
+                        "Unable to unregister SHIELD listener",
+                        e);
             }
         }
 
@@ -497,7 +524,9 @@ public class SceManager {
             try {
                 context.unbindService(serviceConnection);
             } catch (IllegalArgumentException e) {
-                Log.w(TAG, "SHIELD service was already unbound", e);
+                ShieldControllerLog.warning(
+                        "SHIELD service was already unbound",
+                        e);
             }
         }
     }
