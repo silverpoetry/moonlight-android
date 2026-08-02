@@ -2438,4 +2438,19 @@ public final class ArchitectureBoundaryTest {
                         "legacy readers convert records before they cross into the current repository migration transaction")
                 .check(productionClasses);
     }
+
+    @Test
+    public void androidHttpFactoryDoesNotExposeLegacyHostDtos() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.http.android.AndroidNvHttpClientFactory")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.http.ComputerDetails")
+                .because(
+                        "Android HTTP composition accepts immutable targets and runtime snapshots only")
+                .check(productionClasses);
+    }
 }

@@ -1374,6 +1374,9 @@ agree across all participants.
   The validated migration snapshot and current `ComputerDatabaseManager` now
   exchange only immutable `PersistedHost` values, with canonical host identity
   applied before the atomic import transaction.
+- Removed the final mutable-host overload from the Android NvHTTP factory.
+  App-list polling now passes its immutable runtime snapshot directly, and the
+  Android composition boundary accepts only typed HTTP targets or snapshots.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

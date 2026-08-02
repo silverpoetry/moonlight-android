@@ -5,7 +5,6 @@ import android.content.Context;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.computers.http.HostHttpTarget;
 import com.limelight.computers.model.HostRuntimeSnapshot;
-import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvHTTP;
 
 import java.io.IOException;
@@ -32,23 +31,6 @@ public final class AndroidNvHttpClientFactory {
             throw new IOException(error.getMessage(), error);
         }
         return create(context, target);
-    }
-
-    public static NvHTTP create(
-            Context context,
-            ComputerDetails computer,
-            String uniqueId) throws IOException {
-        Objects.requireNonNull(computer, "computer");
-        if (computer.activeAddress == null) {
-            throw new IOException("Host has no active address");
-        }
-        return create(
-                context,
-                computer.activeAddress.address,
-                computer.activeAddress.port,
-                computer.httpsPort,
-                uniqueId,
-                computer.serverCert);
     }
 
     public static NvHTTP create(

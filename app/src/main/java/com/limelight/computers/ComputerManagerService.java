@@ -1510,9 +1510,7 @@ public class ComputerManagerService extends Service {
                                 NvHTTP http =
                                         AndroidNvHttpClientFactory.create(
                                                 ComputerManagerService.this,
-                                                LegacyHostRuntimeAdapter
-                                                        .toComputerDetails(
-                                                                requestSnapshot),
+                                                requestSnapshot,
                                                 idManager.getUniqueId());
                                 appList = http.getAppListRaw();
                             }
