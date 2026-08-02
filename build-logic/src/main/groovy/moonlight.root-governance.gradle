@@ -53,6 +53,12 @@ tasks.register('verifyProductionLoggingPolicy',
             },
             fileTree('core/shield-controller-extensions/src/main/java') {
                 include '**/*.java'
+            },
+            fileTree('app/src/main/jni') {
+                include '**/*.c', '**/*.cc', '**/*.cpp', '**/*.h', '**/*.hpp'
+                exclude 'moonlight-core/moonlight-common-c/**',
+                        'moonlight-core/openssl/**',
+                        'moonlight-core/libopus/**'
             })
 }
 

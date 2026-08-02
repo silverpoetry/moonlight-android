@@ -1,11 +1,11 @@
 #include <Limelight.h>
 
 #include <jni.h>
-#include <android/log.h>
 
 #include <arpa/inet.h>
 #include <string.h>
 
+#include "../moonlight_native_log.h"
 #include "minisdl.h"
 #include "controller_type.h"
 #include "controller_list.h"
@@ -407,12 +407,20 @@ Java_com_limelight_nvstream_jni_MoonBridge_findExternalAddressIP4(JNIEnv *env, j
 
         inet_ntop(AF_INET, &wanAddr, addrStr, sizeof(addrStr));
 
-        __android_log_print(ANDROID_LOG_INFO, "moonlight-common-c", "Resolved WAN address to %s", addrStr);
+        MOONLIGHT_NATIVE_LOG(
+                ANDROID_LOG_INFO,
+                "moonlight-common-c",
+                "Resolved WAN address to %s",
+                addrStr);
 
         return (*env)->NewStringUTF(env, addrStr);
     }
     else {
-        __android_log_print(ANDROID_LOG_ERROR, "moonlight-common-c", "STUN failed to get WAN address: %d", err);
+        MOONLIGHT_NATIVE_LOG(
+                ANDROID_LOG_ERROR,
+                "moonlight-common-c",
+                "STUN failed to get WAN address: %d",
+                err);
         return NULL;
     }
 }

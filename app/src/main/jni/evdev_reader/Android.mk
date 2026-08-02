@@ -12,6 +12,9 @@ ifeq (root,$(PRODUCT_FLAVOR))
     LOCAL_SRC_FILES := evdev_reader.c
     LOCAL_LDLIBS    := -llog
 
+    ifeq ($(NDK_DEBUG),1)
+        LOCAL_CFLAGS += -DMOONLIGHT_DEBUG_LOGGING
+    endif
 
     # This next portion of the makefile is mostly copied from build-executable.mk but
     # creates a binary with the libXXX.so form so the APK will install and drop

@@ -17,7 +17,9 @@
 
 #include <arpa/inet.h>
 
-#include <android/log.h>
+#include "../moonlight_native_log.h"
+
+#define EVDEV_LOG(...) MOONLIGHT_NATIVE_LOG(__VA_ARGS__)
 
 #define EVDEV_MAX_EVENT_SIZE 24
 
@@ -83,13 +85,13 @@ void* pollThreadFunc(void* context) {
     int pollres, ret;
     char data[EVDEV_MAX_EVENT_SIZE];
 
-    __android_log_print(ANDROID_LOG_INFO, "EvdevReader", "Polling /dev/input/%s", device->devName);
+    EVDEV_LOG(ANDROID_LOG_INFO, "EvdevReader", "Polling /dev/input/%s", device->devName);
 
     if (grabbing) {
         // Exclusively grab the input device (required to make the Android cursor disappear)
         if (ioctl(device->fd, EVIOCGRAB, 1) < 0) {
-            __android_log_print(ANDROID_LOG_ERROR, "EvdevReader",
-                                "EVIOCGRAB failed for %s: %d", device->devName, errno);
+            EVDEV_LOG(ANDROID_LOG_ERROR, "EvdevReader",
+                      "EVIOCGRAB failed for %s: %d", device->devName, errno);
             goto cleanup;
         }
     }
@@ -108,13 +110,13 @@ void* pollThreadFunc(void* context) {
             // We'll have data available now
             ret = read(device->fd, data, EVDEV_MAX_EVENT_SIZE);
             if (ret < 0) {
-                __android_log_print(ANDROID_LOG_ERROR, "EvdevReader",
-                                    "read() failed: %d", errno);
+                EVDEV_LOG(ANDROID_LOG_ERROR, "EvdevReader",
+                          "read() failed: %d", errno);
                 goto cleanup;
             }
             else if (ret == 0) {
-                __android_log_print(ANDROID_LOG_ERROR, "EvdevReader",
-                                    "read() graceful EOF");
+                EVDEV_LOG(ANDROID_LOG_ERROR, "EvdevReader",
+                          "read() graceful EOF");
                 goto cleanup;
             }
             else if (grabbing) {
@@ -124,12 +126,12 @@ void* pollThreadFunc(void* context) {
         }
         else {
             if (pollres < 0) {
-                __android_log_print(ANDROID_LOG_ERROR, "EvdevReader",
-                                    "poll() failed: %d", errno);
+                EVDEV_LOG(ANDROID_LOG_ERROR, "EvdevReader",
+                          "poll() failed: %d", errno);
             }
             else {
-                __android_log_print(ANDROID_LOG_ERROR, "EvdevReader",
-                                    "Unexpected revents: %d", pollinfo.revents);
+                EVDEV_LOG(ANDROID_LOG_ERROR, "EvdevReader",
+                          "Unexpected revents: %d", pollinfo.revents);
             }
 
             // Terminate this thread
@@ -138,7 +140,7 @@ void* pollThreadFunc(void* context) {
     }
 
 cleanup:
-    __android_log_print(ANDROID_LOG_INFO, "EvdevReader", "Closing /dev/input/%s", device->devName);
+    EVDEV_LOG(ANDROID_LOG_INFO, "EvdevReader", "Closing /dev/input/%s", device->devName);
 
     // Remove the context from the linked list
     {
@@ -216,7 +218,7 @@ static void startPollForDevice(char* deviceName) {
     sprintf(fullPath, "/dev/input/%s", deviceName);
     fd = open(fullPath, O_RDWR);
     if (fd < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "EvdevReader", "Couldn't open %s: %d", fullPath, errno);
+        EVDEV_LOG(ANDROID_LOG_ERROR, "EvdevReader", "Couldn't open %s: %d", fullPath, errno);
         goto unlock;
     }
 
@@ -261,7 +263,7 @@ static int enumerateDevices(void) {
 
     inputDir = opendir("/dev/input");
     if (!inputDir) {
-        __android_log_print(ANDROID_LOG_ERROR, "EvdevReader", "Couldn't open /dev/input: %d", errno);
+        EVDEV_LOG(ANDROID_LOG_ERROR, "EvdevReader", "Couldn't open /dev/input: %d", errno);
         return -1;
     }
 
@@ -291,7 +293,7 @@ static int connectSocket(int port) {
 
     sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "EvdevReader", "socket() failed: %d", errno);
+        EVDEV_LOG(ANDROID_LOG_ERROR, "EvdevReader", "socket() failed: %d", errno);
         return -1;
     }
 
@@ -301,18 +303,18 @@ static int connectSocket(int port) {
     saddr.sin_addr.s_addr = inet_addr("127.0.0.1");
     ret = connect(sock, (struct sockaddr*)&saddr, sizeof(saddr));
     if (ret < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "EvdevReader", "connect() failed: %d", errno);
+        EVDEV_LOG(ANDROID_LOG_ERROR, "EvdevReader", "connect() failed: %d", errno);
         return -1;
     }
 
     val = 1;
     ret = setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (char*)&val, sizeof(val));
     if (ret < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "EvdevReader", "setsockopt() failed: %d", errno);
+        EVDEV_LOG(ANDROID_LOG_ERROR, "EvdevReader", "setsockopt() failed: %d", errno);
         // We can continue anyways
     }
 
-    __android_log_print(ANDROID_LOG_INFO, "EvdevReader", "Connection established to port %d", port);
+    EVDEV_LOG(ANDROID_LOG_INFO, "EvdevReader", "Connection established to port %d", port);
 
     return 0;
 }
@@ -326,10 +328,10 @@ int main(int argc, char* argv[]) {
     struct pollfd pollinfo;
     int port;
 
-    __android_log_print(ANDROID_LOG_INFO, "EvdevReader", "Entered main()");
+    EVDEV_LOG(ANDROID_LOG_INFO, "EvdevReader", "Entered main()");
 
     port = atoi(argv[1]);
-    __android_log_print(ANDROID_LOG_INFO, "EvdevReader", "Requested port number: %d", port);
+    EVDEV_LOG(ANDROID_LOG_INFO, "EvdevReader", "Requested port number: %d", port);
 
     // Connect to the app's socket
     ret = connectSocket(port);
@@ -365,12 +367,12 @@ int main(int argc, char* argv[]) {
             // We'll have data available now
             ret = recv(sock, &requestId, sizeof(requestId), 0);
             if (ret < sizeof(requestId)) {
-                __android_log_print(ANDROID_LOG_ERROR, "EvdevReader", "Short read on socket");
+                EVDEV_LOG(ANDROID_LOG_ERROR, "EvdevReader", "Short read on socket");
                 return errno;
             }
 
             if (requestId != UNGRAB_REQ && requestId != REGRAB_REQ) {
-                __android_log_print(ANDROID_LOG_ERROR, "EvdevReader", "Unknown request");
+                EVDEV_LOG(ANDROID_LOG_ERROR, "EvdevReader", "Unknown request");
                 return requestId;
             }
 
@@ -391,19 +393,19 @@ int main(int argc, char* argv[]) {
 
                 pthread_mutex_unlock(&DeviceListLock);
 
-                __android_log_print(ANDROID_LOG_INFO, "EvdevReader", "New grab status is: %s",
-                    grabbing ? "enabled" : "disabled");
+                EVDEV_LOG(ANDROID_LOG_INFO, "EvdevReader", "New grab status is: %s",
+                          grabbing ? "enabled" : "disabled");
             }
         }
         else {
             // Terminate this thread
             if (pollres < 0) {
-                __android_log_print(ANDROID_LOG_ERROR, "EvdevReader",
-                                    "Socket recv poll() failed: %d", errno);
+                EVDEV_LOG(ANDROID_LOG_ERROR, "EvdevReader",
+                          "Socket recv poll() failed: %d", errno);
             }
             else {
-                __android_log_print(ANDROID_LOG_ERROR, "EvdevReader",
-                                    "Socket poll unexpected revents: %d", pollinfo.revents);
+                EVDEV_LOG(ANDROID_LOG_ERROR, "EvdevReader",
+                          "Socket poll unexpected revents: %d", pollinfo.revents);
             }
 
             return -1;

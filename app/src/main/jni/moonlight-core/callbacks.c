@@ -6,9 +6,10 @@
 #include <Limelight.h>
 
 #include <opus_multistream.h>
-#include <android/log.h>
 
 #include <cpu-features.h>
+
+#include "../moonlight_native_log.h"
 
 static OpusMSDecoder* Decoder;
 static OPUS_MULTISTREAM_CONFIGURATION OpusConfig;
@@ -467,7 +468,8 @@ void BridgeClClipboardReady(uint8_t capabilities) {
 void BridgeClLogMessage(const char* format, ...) {
     va_list va;
     va_start(va, format);
-    __android_log_vprint(ANDROID_LOG_INFO, "moonlight-common-c", format, va);
+    MOONLIGHT_NATIVE_VLOG(
+            ANDROID_LOG_INFO, "moonlight-common-c", format, va);
     va_end(va);
 }
 

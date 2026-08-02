@@ -1382,6 +1382,10 @@ agree across all participants.
   boundary. Any future direct dependency outside protocol internals, the host
   polling service, named compatibility adapters, or versioned legacy readers
   now fails the architecture test instead of silently widening the boundary.
+- Extended the release logging boundary through first-party JNI code. Common-c
+  callbacks, STUN diagnostics, USB haptics, and the root input proxy now retain
+  Android logging in Debug builds while Release compiles the calls away; the
+  production logging gate rejects future direct native log calls.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

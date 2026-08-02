@@ -22,6 +22,8 @@ abstract class VerifyProductionLoggingPolicy extends DefaultTask {
             '/com/limelight/LimeLog.java'
     private static final String SHIELD_LOG_PATH =
             '/ShieldControllerLog.java'
+    private static final String NATIVE_LOG_PATH =
+            '/app/src/main/jni/moonlight_native_log.h'
     private static final Pattern STACK_TRACE = Pattern.compile(
             '\\.printStackTrace\\s*\\(')
     private static final Pattern STANDARD_CONSOLE = Pattern.compile(
@@ -32,6 +34,9 @@ abstract class VerifyProductionLoggingPolicy extends DefaultTask {
     private static final Pattern JAVA_LOGGING = Pattern.compile(
             '\\b(?:import\\s+java\\.util\\.logging\\.|' +
                     'java\\.util\\.logging\\.)')
+    private static final Pattern NATIVE_ANDROID_LOG = Pattern.compile(
+            '(?:#\\s*include\\s*<android/log\\.h>|' +
+                    '__android_log_(?:print|vprint|write)\\s*\\()')
 
     @InputFiles
     @PathSensitive(PathSensitivity.RELATIVE)
@@ -57,7 +62,10 @@ abstract class VerifyProductionLoggingPolicy extends DefaultTask {
                                         .isAndroidLogBoundary(path) &&
                                         ANDROID_LOG.matcher(line).find()) ||
                                 (!path.endsWith(LIME_LOG_PATH) &&
-                                        JAVA_LOGGING.matcher(line).find())
+                                        JAVA_LOGGING.matcher(line).find()) ||
+                                (!path.endsWith(NATIVE_LOG_PATH) &&
+                                        NATIVE_ANDROID_LOG
+                                                .matcher(line).find())
                         if (forbidden) {
                             violations.add(
                                     project.relativePath(file) + ':' +
@@ -68,8 +76,8 @@ abstract class VerifyProductionLoggingPolicy extends DefaultTask {
 
         if (!violations.isEmpty()) {
             throw new GradleException(
-                    'Production logging must use the debug-gated ' +
-                            'DebugLog or LimeLog boundary:\n' +
+                    'Production logging must use an approved debug-gated ' +
+                            'Java or native boundary:\n' +
                             violations.join('\n'))
         }
     }

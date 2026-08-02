@@ -1,5 +1,4 @@
 #include <jni.h>
-#include <android/log.h>
 
 #include <errno.h>
 #include <stdint.h>
@@ -10,9 +9,13 @@
 #include <sys/ioctl.h>
 #include <linux/usbdevice_fs.h>
 
+#include "../moonlight_native_log.h"
+
 #define HAPTIC_TAG "DS5Haptics"
-#define HLOGE(...) __android_log_print(ANDROID_LOG_ERROR, HAPTIC_TAG, __VA_ARGS__)
-#define HLOGI(...) __android_log_print(ANDROID_LOG_INFO, HAPTIC_TAG, __VA_ARGS__)
+#define HLOGE(...) \
+    MOONLIGHT_NATIVE_LOG(ANDROID_LOG_ERROR, HAPTIC_TAG, __VA_ARGS__)
+#define HLOGI(...) \
+    MOONLIGHT_NATIVE_LOG(ANDROID_LOG_INFO, HAPTIC_TAG, __VA_ARGS__)
 
 #define INPUT_CHANNELS 2
 #define OUTPUT_CHANNELS 4
