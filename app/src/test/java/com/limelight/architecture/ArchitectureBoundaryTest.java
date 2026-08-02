@@ -2341,4 +2341,21 @@ public final class ArchitectureBoundaryTest {
                         "launcher shortcuts and TV channels need only immutable host identity")
                 .check(productionClasses);
     }
+
+    @Test
+    public void appGridAndAssetPipelineUseImmutableHostSnapshots() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.AppView")
+                .or()
+                .resideInAnyPackage(
+                        "com.limelight.grid..")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.http.ComputerDetails")
+                .because(
+                        "app rendering and artwork loads snapshot immutable host identity and connectivity")
+                .check(productionClasses);
+    }
 }

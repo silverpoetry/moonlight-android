@@ -14,12 +14,14 @@ import android.widget.TextView;
 
 import com.limelight.LimeLog;
 import com.limelight.R;
-import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.computers.model.HostId;
+import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.nvstream.http.NvApp;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.WeakReference;
+import java.util.Objects;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
@@ -73,7 +75,8 @@ public class CachedAppAssetLoader {
             MAX_CONCURRENT_NETWORK_LOADS,
             MAX_PENDING_NETWORK_LOADS);
 
-    private final ComputerDetails computer;
+    private final HostId hostId;
+    private volatile HostRuntimeSnapshot host;
     private final double scalingDivider;
     private final NetworkAssetLoader networkLoader;
     private final MemoryAssetLoader memoryLoader;
@@ -82,16 +85,28 @@ public class CachedAppAssetLoader {
     private final Bitmap noAppImageBitmap;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    public CachedAppAssetLoader(ComputerDetails computer, double scalingDivider,
+    public CachedAppAssetLoader(HostRuntimeSnapshot host, double scalingDivider,
                                 NetworkAssetLoader networkLoader, MemoryAssetLoader memoryLoader,
                                 DiskAssetLoader diskLoader, Bitmap noAppImageBitmap) {
-        this.computer = computer;
+        this.host = Objects.requireNonNull(host, "host");
+        this.hostId = host.getRecord().getIdentity().getId();
         this.scalingDivider = scalingDivider;
         this.networkLoader = networkLoader;
         this.memoryLoader = memoryLoader;
         this.diskLoader = diskLoader;
         this.noAppImageBitmap = noAppImageBitmap;
         this.placeholderBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+    }
+
+    public void updateHost(HostRuntimeSnapshot currentHost) {
+        HostRuntimeSnapshot replacement = Objects.requireNonNull(
+                currentHost,
+                "currentHost");
+        if (!hostId.equals(replacement.getRecord().getIdentity().getId())) {
+            throw new IllegalArgumentException(
+                    "Cannot retarget an asset loader to another host");
+        }
+        host = replacement;
     }
 
     private static ThreadPoolExecutor createExecutor(
@@ -468,7 +483,7 @@ public class CachedAppAssetLoader {
     }
 
     public void queueCacheLoad(NvApp app) {
-        final LoaderTuple tuple = new LoaderTuple(computer, app);
+        final LoaderTuple tuple = new LoaderTuple(host, app);
 
         if (memoryLoader.loadBitmapFromCache(tuple) != null) {
             // It's in memory which means it must also be on disk
@@ -497,7 +512,7 @@ public class CachedAppAssetLoader {
     }
 
     public boolean populateImageView(NvApp app, ImageView imgView, TextView textView) {
-        LoaderTuple tuple = new LoaderTuple(computer, app);
+        LoaderTuple tuple = new LoaderTuple(host, app);
 
         // If there's already a task in progress for this view,
         // cancel it. If the task is already loading the same image,
@@ -536,12 +551,16 @@ public class CachedAppAssetLoader {
     }
 
     public static class LoaderTuple {
-        public final ComputerDetails computer;
+        public final HostRuntimeSnapshot host;
         public final NvApp app;
 
-        public LoaderTuple(ComputerDetails computer, NvApp app) {
-            this.computer = computer;
-            this.app = app;
+        public LoaderTuple(HostRuntimeSnapshot host, NvApp app) {
+            this.host = Objects.requireNonNull(host, "host");
+            this.app = Objects.requireNonNull(app, "app");
+        }
+
+        public String getHostId() {
+            return host.getRecord().getIdentity().getId().getValue();
         }
 
         @Override
@@ -551,12 +570,18 @@ public class CachedAppAssetLoader {
             }
 
             LoaderTuple other = (LoaderTuple) o;
-            return computer.uuid.equals(other.computer.uuid) && app.getAppId() == other.app.getAppId();
+            return getHostId().equals(other.getHostId()) &&
+                    app.getAppId() == other.app.getAppId();
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(getHostId(), app.getAppId());
         }
 
         @Override
         public String toString() {
-            return "("+computer.uuid+", "+app.getAppId()+")";
+            return "(" + getHostId() + ", " + app.getAppId() + ")";
         }
     }
 }

@@ -1353,6 +1353,11 @@ agree across all participants.
   immutable `HostIdentity`. Shortcut infrastructure now receives exactly a
   stable host ID and advertised name, and an architecture rule prevents the
   protocol DTO dependency from returning.
+- Migrated the app grid and box-art pipeline to immutable runtime snapshots.
+  Newly queued artwork requests atomically capture the latest observed host
+  endpoint and credential, while disk and memory cache identity remains the
+  stable host ID plus app ID. `AppView` no longer imports or constructs the
+  legacy mutable host DTO.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

@@ -33,7 +33,11 @@ public class DiskAssetLoader {
     }
 
     public boolean checkCacheExists(CachedAppAssetLoader.LoaderTuple tuple) {
-        return CacheHelper.cacheFileExists(cacheDir, "boxart", tuple.computer.uuid, tuple.app.getAppId() + ".png");
+        return CacheHelper.cacheFileExists(
+                cacheDir,
+                "boxart",
+                tuple.getHostId(),
+                tuple.app.getAppId() + ".png");
     }
 
     // https://developer.android.com/topic/performance/graphics/load-bitmap.html
@@ -59,7 +63,7 @@ public class DiskAssetLoader {
     }
 
     public ScaledBitmap loadBitmapFromCache(CachedAppAssetLoader.LoaderTuple tuple, int sampleSize) {
-        File file = getFile(tuple.computer.uuid, tuple.app.getAppId());
+        File file = getFile(tuple.getHostId(), tuple.app.getAppId());
 
         // Don't bother with anything if it doesn't exist
         if (!file.exists()) {
@@ -151,7 +155,10 @@ public class DiskAssetLoader {
     public void populateCacheWithStream(CachedAppAssetLoader.LoaderTuple tuple, InputStream input) {
         boolean success = false;
         try (final OutputStream out = CacheHelper.openCacheFileForOutput(
-                cacheDir, "boxart", tuple.computer.uuid, tuple.app.getAppId() + ".png")
+                cacheDir,
+                "boxart",
+                tuple.getHostId(),
+                tuple.app.getAppId() + ".png")
         ) {
             CacheHelper.writeInputStreamToOutputStream(input, out, MAX_ASSET_SIZE);
             success = true;
@@ -162,7 +169,11 @@ public class DiskAssetLoader {
         } finally {
             if (!success) {
                 LimeLog.warning("Unable to populate cache with tuple: "+tuple);
-                CacheHelper.deleteCacheFile(cacheDir, "boxart", tuple.computer.uuid, tuple.app.getAppId() + ".png");
+                CacheHelper.deleteCacheFile(
+                        cacheDir,
+                        "boxart",
+                        tuple.getHostId(),
+                        tuple.app.getAppId() + ".png");
             }
         }
     }

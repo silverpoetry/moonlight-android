@@ -29,7 +29,6 @@ import com.limelight.computers.session.NvHttpHostQuitBackend;
 import com.limelight.computers.wol.WakeOnLanTarget;
 import com.limelight.grid.PcGridAdapter;
 import com.limelight.grid.assets.DiskAssetLoader;
-import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.jni.MoonBridge;
@@ -625,8 +624,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
 
             NvHTTP http = AndroidNvHttpClientFactory.create(
                     this,
-                    LegacyHostRuntimeAdapter.toComputerDetails(
-                            snapshot),
+                    snapshot,
                     binder.getUniqueId());
             http.setClientName(
                     DeviceUtils.getManufacturer() + "-" +
@@ -779,8 +777,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             backend = new NvHttpHostQuitBackend(
                     AndroidNvHttpClientFactory.create(
                             this,
-                            LegacyHostRuntimeAdapter.toComputerDetails(
-                                    snapshot),
+                            snapshot,
                             binder.getUniqueId()));
         }
         catch (IOException failure) {

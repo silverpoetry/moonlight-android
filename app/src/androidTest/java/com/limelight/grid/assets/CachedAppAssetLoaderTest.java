@@ -9,7 +9,13 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.computers.model.HostConnectionState;
+import com.limelight.computers.model.HostEndpoint;
+import com.limelight.computers.model.HostId;
+import com.limelight.computers.model.HostIdentity;
+import com.limelight.computers.model.HostRecord;
+import com.limelight.computers.model.HostRuntimeSnapshot;
+import com.limelight.computers.model.PersistedHost;
 import com.limelight.nvstream.http.NvApp;
 
 import org.junit.After;
@@ -21,6 +27,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -47,14 +54,15 @@ public final class CachedAppAssetLoaderTest {
     public void setUp() throws IOException {
         Context context =
                 InstrumentationRegistry.getInstrumentation().getTargetContext();
-        ComputerDetails computer = new ComputerDetails();
-        computer.uuid = "asset-loader-test";
+        HostRuntimeSnapshot host = host("asset-loader-test");
         app = new NvApp("Cached test app", APP_ID, false);
 
         memoryLoader = new MemoryAssetLoader();
         memoryLoader.clearCache();
         DiskAssetLoader diskLoader = new DiskAssetLoader(context);
-        cachedPoster = diskLoader.getFile(computer.uuid, APP_ID);
+        cachedPoster = diskLoader.getFile(
+                host.getRecord().getIdentity().getId().getValue(),
+                APP_ID);
         File parent = cachedPoster.getParentFile();
         if (parent == null || (!parent.isDirectory() && !parent.mkdirs())) {
             throw new IOException("Unable to create cached poster directory");
@@ -72,7 +80,7 @@ public final class CachedAppAssetLoaderTest {
 
         noAppImageBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
         loader = new CachedAppAssetLoader(
-                computer,
+                host,
                 1.0,
                 new NetworkAssetLoader(context, "test"),
                 memoryLoader,
@@ -131,12 +139,12 @@ public final class CachedAppAssetLoaderTest {
             throws Exception {
         Context context =
                 InstrumentationRegistry.getInstrumentation().getTargetContext();
-        ComputerDetails computer = new ComputerDetails();
-        computer.uuid = "asset-loader-saturation-test";
+        HostRuntimeSnapshot host = host(
+                "asset-loader-saturation-test");
         BlockingDiskAssetLoader blockingDiskLoader =
                 new BlockingDiskAssetLoader(context, noAppImageBitmap);
         CachedAppAssetLoader saturatedLoader = new CachedAppAssetLoader(
-                computer,
+                host,
                 1.0,
                 new NetworkAssetLoader(context, "test"),
                 memoryLoader,
@@ -192,6 +200,33 @@ public final class CachedAppAssetLoaderTest {
                     blockingDiskLoader.awaitWorkersStopped());
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         }
+    }
+
+    private static HostRuntimeSnapshot host(String id) {
+        HostId hostId = HostId.of(id);
+        HostEndpoint endpoint = new HostEndpoint(
+                HostEndpoint.Kind.LOCAL_IPV4,
+                "192.0.2.10",
+                47989);
+        return new HostRuntimeSnapshot(
+                new PersistedHost(
+                        new HostRecord(
+                                new HostIdentity(
+                                        hostId,
+                                        "Asset host",
+                                        null),
+                                Collections.singletonList(endpoint),
+                                null),
+                        null),
+                new HostConnectionState(
+                        hostId,
+                        HostConnectionState.Reachability.ONLINE,
+                        HostConnectionState.PairingStatus.PAIRED,
+                        endpoint,
+                        0,
+                        0),
+                null,
+                false);
     }
 
     private static void queueLoad(

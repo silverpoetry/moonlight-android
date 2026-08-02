@@ -9,7 +9,6 @@ import java.util.List;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.computers.HostPollingClientLifecycle;
-import com.limelight.computers.LegacyHostRuntimeAdapter;
 import com.limelight.computers.apps.HiddenAppRepository;
 import com.limelight.computers.apps.HiddenAppSelection;
 import com.limelight.computers.apps.android.SharedPreferencesHiddenAppRepository;
@@ -22,7 +21,6 @@ import com.limelight.computers.session.HostQuitUseCase;
 import com.limelight.computers.session.NvHttpHostQuitBackend;
 import com.limelight.binding.video.AndroidDecoderCrashStore;
 import com.limelight.grid.AppGridAdapter;
-import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.settings.SettingsMigrationRunner;
@@ -166,13 +164,10 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
         if (loadedHost == null) {
             return AppBindingInitialization.missingHost();
         }
-        ComputerDetails loadedComputer =
-                LegacyHostRuntimeAdapter.toComputerDetails(loadedHost);
-
         AppGridAdapter loadedAdapter = new AppGridAdapter(
                 this,
                 appPresentationSettings.usesSmallAppIcons(),
-                loadedComputer,
+                loadedHost,
                 binder.getUniqueId(),
                 showHiddenApps);
         boolean transferred = false;
@@ -423,6 +418,10 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                 // certificate, and host state even while grid updates are
                 // temporarily suspended by a host operation.
                 hostSnapshot = snapshot;
+                AppGridAdapter currentAdapter = appGridAdapter;
+                if (currentAdapter != null) {
+                    currentAdapter.updateHost(snapshot);
+                }
                 if (suspendGridUpdates) {
                     return;
                 }
@@ -999,8 +998,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
             backend = new NvHttpHostQuitBackend(
                     AndroidNvHttpClientFactory.create(
                             this,
-                            LegacyHostRuntimeAdapter
-                                    .toComputerDetails(targetHost),
+                            targetHost,
                             binder.getUniqueId()));
         }
         catch (IOException failure) {

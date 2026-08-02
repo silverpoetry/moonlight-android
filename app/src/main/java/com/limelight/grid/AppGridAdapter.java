@@ -22,13 +22,15 @@ import com.limelight.grid.assets.CachedAppAssetLoader;
 import com.limelight.grid.assets.DiskAssetLoader;
 import com.limelight.grid.assets.MemoryAssetLoader;
 import com.limelight.grid.assets.NetworkAssetLoader;
-import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.computers.model.HostId;
+import com.limelight.computers.model.HostRuntimeSnapshot;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
@@ -36,23 +38,25 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
     private static final int SMALL_WIDTH_DP = 100;
     private static final int LARGE_WIDTH_DP = 150;
 
-    private final ComputerDetails computer;
+    private final HostId hostId;
+    private volatile HostRuntimeSnapshot host;
     private final String uniqueId;
     private final boolean showHiddenApps;
 
-    private CachedAppAssetLoader loader;
+    private volatile CachedAppAssetLoader loader;
     private Set<Integer> hiddenAppIds = new HashSet<>();
     private ArrayList<AppView.AppObject> allApps = new ArrayList<>();
 
     public AppGridAdapter(
             Context context,
             boolean smallIconMode,
-            ComputerDetails computer,
+            HostRuntimeSnapshot host,
             String uniqueId,
             boolean showHiddenApps) {
         super(context, getItemLayoutId());
 
-        this.computer = computer;
+        this.host = Objects.requireNonNull(host, "host");
+        this.hostId = host.getRecord().getIdentity().getId();
         this.uniqueId = uniqueId;
         this.showHiddenApps = showHiddenApps;
 
@@ -113,7 +117,7 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
             cancelQueuedOperations();
         }
 
-        this.loader = new CachedAppAssetLoader(computer, scalingDivisor,
+        this.loader = new CachedAppAssetLoader(host, scalingDivisor,
                 new NetworkAssetLoader(context, uniqueId),
                 new MemoryAssetLoader(),
                 new DiskAssetLoader(context),
@@ -121,6 +125,21 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
 
         // This will trigger the view to reload with the new layout
         setLayoutId(getItemLayoutId());
+    }
+
+    public void updateHost(HostRuntimeSnapshot currentHost) {
+        HostRuntimeSnapshot replacement = Objects.requireNonNull(
+                currentHost,
+                "currentHost");
+        if (!hostId.equals(replacement.getRecord().getIdentity().getId())) {
+            throw new IllegalArgumentException(
+                    "Cannot retarget an app grid to another host");
+        }
+        CachedAppAssetLoader currentLoader = loader;
+        if (currentLoader != null) {
+            currentLoader.updateHost(replacement);
+        }
+        host = replacement;
     }
 
     public void cancelQueuedOperations() {

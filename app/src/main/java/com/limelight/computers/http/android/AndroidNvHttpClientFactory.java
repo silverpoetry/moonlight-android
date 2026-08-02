@@ -4,6 +4,8 @@ import android.content.Context;
 
 import com.limelight.StreamReqBean;
 import com.limelight.binding.PlatformBinding;
+import com.limelight.computers.model.HostEndpoint;
+import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvHTTP;
 
@@ -14,6 +16,28 @@ import java.util.Objects;
 /** Creates credential-aware NvHTTP clients from detached Android inputs. */
 public final class AndroidNvHttpClientFactory {
     private AndroidNvHttpClientFactory() {
+    }
+
+    public static NvHTTP create(
+            Context context,
+            HostRuntimeSnapshot host,
+            String uniqueId) throws IOException {
+        HostRuntimeSnapshot source = Objects.requireNonNull(
+                host,
+                "host");
+        HostEndpoint activeEndpoint = source.getConnectionState()
+                .getActiveEndpoint();
+        if (activeEndpoint == null) {
+            throw new IOException("Host has no active endpoint");
+        }
+        return create(
+                context,
+                new ComputerDetails.AddressTuple(
+                        activeEndpoint.getAddress(),
+                        activeEndpoint.getPort()),
+                source.getConnectionState().getHttpsPort(),
+                uniqueId,
+                source.getPersistedHost().getPinnedCertificate());
     }
 
     public static NvHTTP create(

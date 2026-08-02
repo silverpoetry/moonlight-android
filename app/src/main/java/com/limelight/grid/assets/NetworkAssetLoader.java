@@ -23,7 +23,7 @@ public class NetworkAssetLoader {
         try {
             NvHTTP http = AndroidNvHttpClientFactory.create(
                     context,
-                    tuple.computer,
+                    tuple.host,
                     uniqueId);
             in = http.getBoxArt(tuple.app);
         } catch (IOException ignored) {}
