@@ -37,6 +37,11 @@ public class StreamSettingsRenderingTest {
     public void settingsActivityRendersWithoutCrashing() {
         withSettingsActivity(activity -> {
             assertFalse(activity.isFinishing());
+            assertEquals(
+                    R.style.SettingsActivityAnimation,
+                    activity.getWindow()
+                            .getAttributes()
+                            .windowAnimations);
             TypedValue windowBackground = new TypedValue();
             assertTrue(activity.getTheme().resolveAttribute(
                     android.R.attr.windowBackground,
@@ -75,6 +80,11 @@ public class StreamSettingsRenderingTest {
             assertEquals(
                     R.drawable.bg_gradient_main,
                     windowBackground.resourceId);
+            assertEquals(
+                    R.style.SettingsActivityAnimation,
+                    activity.getWindow()
+                            .getAttributes()
+                            .windowAnimations);
         }
         finally {
             if (activity != null) {
@@ -182,6 +192,14 @@ public class StreamSettingsRenderingTest {
                 if (wideLayout) {
                     View previousDetail =
                             wideDetailContainer.getChildAt(0);
+                    int originalPaddingLeft =
+                            sectionRow.getPaddingLeft();
+                    int originalPaddingTop =
+                            sectionRow.getPaddingTop();
+                    int originalPaddingRight =
+                            sectionRow.getPaddingRight();
+                    int originalPaddingBottom =
+                            sectionRow.getPaddingBottom();
                     instrumentation.runOnMainSync(
                             sectionRow::performClick);
                     assertEquals(1, contentContainer.getChildCount());
@@ -194,6 +212,15 @@ public class StreamSettingsRenderingTest {
                             wideDetailContainer.getChildCount());
                     assertNotSame(previousDetail,
                             wideDetailContainer.getChildAt(0));
+                    assertTrue(sectionRow.isSelected());
+                    assertEquals(originalPaddingLeft,
+                            sectionRow.getPaddingLeft());
+                    assertEquals(originalPaddingTop,
+                            sectionRow.getPaddingTop());
+                    assertEquals(originalPaddingRight,
+                            sectionRow.getPaddingRight());
+                    assertEquals(originalPaddingBottom,
+                            sectionRow.getPaddingBottom());
                     continue;
                 }
 

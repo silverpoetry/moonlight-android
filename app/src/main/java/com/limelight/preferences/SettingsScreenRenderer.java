@@ -424,9 +424,7 @@ final class SettingsScreenRenderer {
             Object tag = row.getTag();
             boolean selected = tag instanceof Integer &&
                     (Integer) tag == selectedSectionIndex;
-            row.setBackgroundResource(selected
-                    ? R.drawable.bg_settings_selected_card
-                    : R.drawable.ic_game_menu_btn_selector);
+            row.setSelected(selected);
         }
     }
 
@@ -578,9 +576,13 @@ final class SettingsScreenRenderer {
         row.setTag(index);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setBackgroundResource(selected
-                ? R.drawable.bg_settings_selected_card
-                : R.drawable.ic_game_menu_btn_selector);
+        // Selection is state, not a replacement background. Replacing the
+        // drawable after attachment also replaces its padding and can resize
+        // the section rail for one frame, which is visible near the end of a
+        // scrolled wide-layout list.
+        row.setBackgroundResource(
+                R.drawable.bg_settings_section_selector);
+        row.setSelected(selected);
         row.setPadding(dp(14), dp(12), dp(14), dp(12));
 
         ImageView icon = new ImageView(context);
