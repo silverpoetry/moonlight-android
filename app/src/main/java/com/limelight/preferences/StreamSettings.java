@@ -129,10 +129,9 @@ public class StreamSettings extends BaseActivity {
                 AndroidAppPresentationSettingsLoader.load(this);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
                 !previousPresentationSettings.usesLightTheme()) {
-            // Keep the settings-specific window contract when selecting the
-            // dark presentation. Falling back to the application theme here
-            // also drops the root/detail activity transition declared by the
-            // settings surface.
+            // Preserve the opaque settings launch background in dark mode.
+            // Both root and detail instances still inherit the same platform
+            // Activity motion from their presentation theme.
             setTheme(R.style.SettingsActivityDarkTheme);
         }
         super.onCreate(savedInstanceState);

@@ -37,11 +37,6 @@ public class StreamSettingsRenderingTest {
     public void settingsActivityRendersWithoutCrashing() {
         withSettingsActivity(activity -> {
             assertFalse(activity.isFinishing());
-            assertEquals(
-                    R.style.SettingsActivityAnimation,
-                    activity.getWindow()
-                            .getAttributes()
-                            .windowAnimations);
             TypedValue windowBackground = new TypedValue();
             assertTrue(activity.getTheme().resolveAttribute(
                     android.R.attr.windowBackground,
@@ -54,7 +49,7 @@ public class StreamSettingsRenderingTest {
     }
 
     @Test
-    public void darkSettingsActivityRetainsWindowTransitionContract() {
+    public void darkSettingsActivityRetainsOpaqueWindowBackground() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             return;
         }
@@ -72,11 +67,14 @@ public class StreamSettingsRenderingTest {
                     .put(AppPresentationSettingKeys.LIGHT_THEME, false)
                     .commit());
             activity = startSettingsActivity(instrumentation);
+            TypedValue windowBackground = new TypedValue();
+            assertTrue(activity.getTheme().resolveAttribute(
+                    android.R.attr.windowBackground,
+                    windowBackground,
+                    true));
             assertEquals(
-                    R.style.SettingsActivityAnimation,
-                    activity.getWindow()
-                            .getAttributes()
-                            .windowAnimations);
+                    R.drawable.bg_gradient_main,
+                    windowBackground.resourceId);
         }
         finally {
             if (activity != null) {
@@ -347,6 +345,13 @@ public class StreamSettingsRenderingTest {
 
             assertNotNull(detailActivity);
             assertNotSame(activity, detailActivity);
+            assertEquals(
+                    activity.getWindow()
+                            .getAttributes()
+                            .windowAnimations,
+                    detailActivity.getWindow()
+                            .getAttributes()
+                            .windowAnimations);
             assertSettled(contentContainer);
             assertSame(originalScreenPage,
                     contentContainer.getChildAt(0));

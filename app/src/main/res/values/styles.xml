@@ -53,32 +53,23 @@
     </style>
 
     <!--
-        Settings root and detail screens are separate activities on compact
-        displays. Owning their motion in one window theme keeps root and
-        detail navigation visually identical and lets the platform respect
-        the user's animation-scale accessibility setting.
+        Settings root and detail screens are separate instances of the same
+        activity on compact displays. Keep an opaque launch background here,
+        but inherit the platform Activity transition so opening the root,
+        opening a detail, and returning from either use one motion contract.
     -->
     <style name="SettingsActivityTheme" parent="BaseActivityTheme">
         <item name="android:windowBackground">@drawable/bg_gradient_main</item>
-        <item name="android:windowAnimationStyle">@style/SettingsActivityAnimation</item>
     </style>
 
     <!--
         API 29+ normally uses the light BaseActivityTheme. The user's dark
         appearance preference therefore needs a dark settings variant rather
-        than the generic AppTheme, so both presentations keep the identical
-        root/detail window background and transition contract.
+        than the generic AppTheme, so both presentations keep the same opaque
+        launch background while inheriting their platform Activity motion.
     -->
     <style name="SettingsActivityDarkTheme" parent="AppTheme">
         <item name="android:windowBackground">@drawable/bg_gradient_main</item>
-        <item name="android:windowAnimationStyle">@style/SettingsActivityAnimation</item>
-    </style>
-
-    <style name="SettingsActivityAnimation" parent="@android:style/Animation.Activity">
-        <item name="android:activityOpenEnterAnimation">@anim/settings_activity_open_enter</item>
-        <item name="android:activityOpenExitAnimation">@anim/settings_activity_open_exit</item>
-        <item name="android:activityCloseEnterAnimation">@anim/settings_activity_close_enter</item>
-        <item name="android:activityCloseExitAnimation">@anim/settings_activity_close_exit</item>
     </style>
 
     <style name="FilePushTheme" parent="BaseActivityTheme">
