@@ -232,6 +232,21 @@ public class NvHTTP {
         return new HttpUrl.Builder().scheme("https").host(baseUrlHttp.host()).port(httpsPort).build();
     }
     
+    public NvHTTP(
+            String address,
+            int port,
+            int httpsPort,
+            String uniqueId,
+            X509Certificate serverCert,
+            LimelightCryptoProvider cryptoProvider) throws IOException {
+        this(
+                new ComputerDetails.AddressTuple(address, port),
+                httpsPort,
+                uniqueId,
+                serverCert,
+                cryptoProvider);
+    }
+
     public NvHTTP(ComputerDetails.AddressTuple address, int httpsPort, String uniqueId, X509Certificate serverCert, LimelightCryptoProvider cryptoProvider) throws IOException {
         // Use the same UID for all Moonlight clients so we can quit games
         // started by other Moonlight clients.

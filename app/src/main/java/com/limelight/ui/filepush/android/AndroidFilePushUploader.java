@@ -6,7 +6,6 @@ import android.net.Uri;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.computers.IdentityManager;
 import com.limelight.nvstream.filetransfer.DesktopFileUploader;
-import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.ui.filepush.FilePushController;
 import com.limelight.ui.filepush.FilePushTarget;
@@ -49,9 +48,8 @@ public final class AndroidFilePushUploader
                 target,
                 "target");
         NvHTTP http = new NvHTTP(
-                new ComputerDetails.AddressTuple(
-                        destination.getEndpoint().getAddress(),
-                        destination.getEndpoint().getPort()),
+                destination.getEndpoint().getAddress(),
+                destination.getEndpoint().getPort(),
                 0,
                 new IdentityManager(context).getUniqueId(),
                 destination.getPinnedCertificate(),

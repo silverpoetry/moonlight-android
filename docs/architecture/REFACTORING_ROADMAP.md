@@ -1366,6 +1366,10 @@ agree across all participants.
   field. Active-stream host HTTP operations now retain one immutable,
   validated `HostHttpTarget`; `Game` passes primitive endpoint values into the
   connection protocol boundary and no longer imports `ComputerDetails`.
+- Added a primitive endpoint constructor at the `NvHTTP` protocol edge and
+  removed the file-upload adapter's synthetic `ComputerDetails.AddressTuple`.
+  File push now carries its immutable upload target directly to the protocol
+  boundary without constructing a legacy host DTO fragment.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

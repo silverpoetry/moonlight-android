@@ -2405,4 +2405,19 @@ public final class ArchitectureBoundaryTest {
                         "host HTTP operations cross Android and protocol boundaries through one immutable value")
                 .check(productionClasses);
     }
+
+    @Test
+    public void filePushAdapterDoesNotConstructLegacyHostDtos() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.filepush.android.AndroidFilePushUploader")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.http.ComputerDetails")
+                .because(
+                        "the upload adapter passes its immutable target directly to the protocol constructor")
+                .check(productionClasses);
+    }
 }

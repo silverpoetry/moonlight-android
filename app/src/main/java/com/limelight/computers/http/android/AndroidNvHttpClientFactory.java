@@ -44,7 +44,8 @@ public final class AndroidNvHttpClientFactory {
         }
         return create(
                 context,
-                computer.activeAddress,
+                computer.activeAddress.address,
+                computer.activeAddress.port,
                 computer.httpsPort,
                 uniqueId,
                 computer.serverCert);
@@ -56,9 +57,8 @@ public final class AndroidNvHttpClientFactory {
         HostHttpTarget source = Objects.requireNonNull(target, "target");
         return create(
                 context,
-                new ComputerDetails.AddressTuple(
-                        source.getAddress(),
-                        source.getPort()),
+                source.getAddress(),
+                source.getPort(),
                 source.getHttpsPort(),
                 source.getUniqueId(),
                 source.getPinnedCertificate());
@@ -66,15 +66,17 @@ public final class AndroidNvHttpClientFactory {
 
     private static NvHTTP create(
             Context context,
-            ComputerDetails.AddressTuple activeAddress,
+            String address,
+            int port,
             int httpsPort,
             String uniqueId,
             X509Certificate serverCertificate) throws IOException {
         Objects.requireNonNull(context, "context");
-        Objects.requireNonNull(activeAddress, "activeAddress");
+        Objects.requireNonNull(address, "address");
         Objects.requireNonNull(uniqueId, "uniqueId");
         return new NvHTTP(
-                activeAddress,
+                address,
+                port,
                 httpsPort,
                 uniqueId,
                 serverCertificate,
