@@ -1426,11 +1426,17 @@ agree across all participants.
   audit is clean, local builds do not attempt Codecov uploads, expected
   dependency diagnostics and shader junctions are deterministic, coverage
   data and test artifacts self-clean, and all non-hardware tests pass.
-- Passed the current Android `verifyConnected --rerun-tasks` gate with 437
-  executed tasks, 1,635 JVM tests, and 153 connected tests per flavor, all with
-  zero failures, errors, or skips. Clean install, same-signature upgrade from
-  commit `43d104a9`, rollback, restoration, and cold launch were crash-free on
-  the API 34 emulator with application data retained across replacement.
+- Passed the current Android `verifyLocal --rerun-tasks` gate with all 311
+  tasks executed, including both product flavors' JVM tests, lint, native
+  builds, Release APKs, security policy, dependency policy, and SBOM checks.
+  The API 34 emulator then passed 174 connected tests per product flavor plus
+  two controller-library tests, all with zero failures, errors, or skips.
+  Same-signature replacement and cold launch of both Release APKs preserved
+  each package's original install time and produced no AndroidRuntime crash.
+- Audited the Android, Moonlight Qt, Sunshine, and standalone common-c working
+  revisions as clean and synchronized with their tracked remotes. All three
+  products pin the same committed and pushed common-c `unified` revision,
+  `ac7f2345879070a924b5f8cb339cd0fe25230012`.
 - Documented the reproducible release, install, upgrade, rollback, evidence,
   and rejection procedure in `RELEASE_RUNBOOK.md`.
 
