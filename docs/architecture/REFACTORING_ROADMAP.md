@@ -1329,6 +1329,11 @@ agree across all participants.
   immutable operation target in `core:hosts`. Foreground and shortcut wake
   paths now capture only the MAC address and ordered endpoint values they send;
   the obsolete snapshot helper and its broad field-copy contract are deleted.
+- Migrated host-menu rendering, default actions, recent-session routing,
+  pairing, app-list navigation, stream launch, and quit/restart callbacks to
+  immutable `HostRuntimeSnapshot` ownership. `PcView` now creates a mutable
+  transport DTO only at the launcher, NvHTTP, shortcut, and legacy detail
+  presentation edges; generic delete confirmation accepts only its title.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

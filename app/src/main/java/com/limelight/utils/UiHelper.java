@@ -23,7 +23,6 @@ import android.view.WindowManager;
 
 import com.limelight.LimeLog;
 import com.limelight.R;
-import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.settings.android.AndroidStreamUiSettingsLoader;
 
 import java.util.Locale;
@@ -431,7 +430,11 @@ public class UiHelper {
                 .show();
     }
 
-    public static void displayDeletePcConfirmationDialog(Activity parent, ComputerDetails computer, final Runnable onYes, final Runnable onNo) {
+    public static void displayDeletePcConfirmationDialog(
+            Activity parent,
+            CharSequence hostName,
+            final Runnable onYes,
+            final Runnable onNo) {
         DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
@@ -453,7 +456,7 @@ public class UiHelper {
 
         AlertDialog.Builder builder = new AlertDialog.Builder(parent);
         builder.setMessage(parent.getResources().getString(R.string.delete_pc_msg))
-                .setTitle(computer.name)
+                .setTitle(hostName)
                 .setPositiveButton(parent.getResources().getString(R.string.yes), dialogClickListener)
                 .setNegativeButton(parent.getResources().getString(R.string.no), dialogClickListener)
                 .show();

@@ -35,7 +35,6 @@ import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
-import com.limelight.nvstream.http.PairingManager.PairState;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.nvstream.wol.WakeOnLanSender;
 import com.limelight.preferences.AddComputerManually;
@@ -401,9 +400,6 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                     @Override
                     public void notifyComputerUpdated(
                             HostRuntimeSnapshot snapshot) {
-                        final ComputerDetails details =
-                                LegacyHostRuntimeAdapter
-                                        .toComputerDetails(snapshot);
                         if (hostPollingLifecycle.owns(startToken) &&
                                 !freezeUpdates) {
                             final HostRuntimeSnapshot published = snapshot;
@@ -418,9 +414,13 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                             });
 
                             // Add a launcher shortcut for this PC (off the main thread to prevent ANRs)
-                            if (details.pairState == PairState.PAIRED) {
+                            if (snapshot.getConnectionState()
+                                    .getPairingStatus() ==
+                                    HostConnectionState.PairingStatus.PAIRED) {
                                 shortcutHelper.createAppViewShortcutForOnlineHost(
-                                        details);
+                                        LegacyHostRuntimeAdapter
+                                                .toComputerDetails(
+                                                        snapshot));
                             }
 
                             PcView.this.runOnUiThread(new Runnable() {
@@ -545,7 +545,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
 
     private void launchStream(
             NvApp app,
-            ComputerDetails targetComputer) {
+            HostRuntimeSnapshot targetHost) {
         ComputerManagerService.ComputerManagerBinder binder =
                 managerBinder;
         if (binder == null || streamLauncher == null) {
@@ -557,14 +557,18 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         }
 
         AndroidStreamLauncher.Result result = streamLauncher.launch(
-                targetComputer,
+                LegacyHostRuntimeAdapter.toComputerDetails(targetHost),
                 app,
                 binder.getUniqueId());
         AndroidStreamLaunchFeedback.showIfNeeded(this, result);
     }
 
-    private void doPair(final ComputerDetails computer) {
-        if (computer.state == ComputerDetails.State.OFFLINE || computer.activeAddress == null) {
+    private void doPair(HostRuntimeSnapshot snapshot) {
+        HostConnectionState connectionState =
+                snapshot.getConnectionState();
+        if (connectionState.getReachability() ==
+                HostConnectionState.Reachability.OFFLINE ||
+                connectionState.getActiveEndpoint() == null) {
             UiToast.makeText(PcView.this, getResources().getString(R.string.pair_pc_offline), UiToast.LENGTH_SHORT).show();
             return;
         }
@@ -578,11 +582,11 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         HostPairingController.RequestStatus requestStatus =
                 hostPairingController.request(
                         cancellation -> performPairing(
-                                computer,
+                                snapshot,
                                 binder,
                                 cancellation),
                         result -> handlePairingResult(
-                                computer,
+                                snapshot,
                                 result));
         if (requestStatus ==
                 HostPairingController.RequestStatus.ACCEPTED) {
@@ -608,7 +612,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
     }
 
     private HostPairingUseCase.Outcome performPairing(
-            ComputerDetails computer,
+            HostRuntimeSnapshot snapshot,
             ComputerManagerService.ComputerManagerBinder binder,
             HostPairingUseCase.CancellationSignal cancellation)
             throws Exception {
@@ -616,7 +620,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         // so a duplicate click cannot stop polling for the active operation.
         stopComputerUpdates(true);
 
-        HostId hostId = HostId.of(computer.uuid);
+        HostId hostId = snapshot.getRecord().getIdentity().getId();
         try (ComputerManagerService.HostCredentialWriteSession
                      credentialSession =
                      binder.openHostCredentialWriteSession(hostId)) {
@@ -627,14 +631,16 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
 
             NvHTTP http = AndroidNvHttpClientFactory.create(
                     this,
-                    computer,
+                    LegacyHostRuntimeAdapter.toComputerDetails(
+                            snapshot),
                     binder.getUniqueId());
             http.setClientName(
                     DeviceUtils.getManufacturer() + "-" +
                             DeviceUtils.getModel());
             return hostPairingUseCase.execute(
                     hostId,
-                    computer.runningGameId != 0,
+                    snapshot.getConnectionState()
+                            .getRunningAppId() != 0,
                     new NvHttpPairingBackend(http),
                     pin -> Dialog.displayDialog(
                             this,
@@ -663,7 +669,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
     }
 
     private void handlePairingResult(
-            ComputerDetails computer,
+            HostRuntimeSnapshot snapshot,
             HostPairingController.Result result) {
         Dialog.closeDialogs();
         if (result.isSuccessful()) {
@@ -671,7 +677,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             // completed pair and a host that reports it was already paired.
             // AppView must perform its post-pair refresh because PcView's
             // observed pair state may still be stale in either case.
-            doAppList(computer, true, false);
+            doAppList(snapshot, true, false);
             return;
         }
 
@@ -759,7 +765,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
     }
 
     private void quitHostApp(
-            ComputerDetails computer,
+            HostRuntimeSnapshot snapshot,
             NvApp app,
             boolean restartAfterQuit) {
         ComputerManagerService.ComputerManagerBinder binder =
@@ -779,7 +785,8 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             backend = new NvHttpHostQuitBackend(
                     AndroidNvHttpClientFactory.create(
                             this,
-                            computer,
+                            LegacyHostRuntimeAdapter.toComputerDetails(
+                                    snapshot),
                             binder.getUniqueId()));
         }
         catch (IOException failure) {
@@ -791,7 +798,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                 controller.request(
                         () -> hostQuitUseCase.execute(backend),
                         result -> onQuitCompleted(
-                                computer,
+                                snapshot,
                                 app,
                                 restartAfterQuit,
                                 result));
@@ -808,7 +815,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
     }
 
     private void onQuitCompleted(
-            ComputerDetails computer,
+            HostRuntimeSnapshot snapshot,
             NvApp app,
             boolean restartAfterQuit,
             HostUiOperationController.Result<HostQuitUseCase.Outcome>
@@ -835,9 +842,10 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         if (binder == null) {
             return;
         }
-        binder.invalidateHostState(HostId.of(computer.uuid));
+        binder.invalidateHostState(
+                snapshot.getRecord().getIdentity().getId());
         if (restartAfterQuit) {
-            launchStream(app, computer);
+            launchStream(app, snapshot);
         }
     }
 
@@ -1045,8 +1053,12 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                 UiToast.LENGTH_LONG).show();
     }
 
-    private void doAppList(ComputerDetails computer, boolean newlyPaired, boolean showHiddenGames) {
-        if (computer.state == ComputerDetails.State.OFFLINE) {
+    private void doAppList(
+            HostRuntimeSnapshot snapshot,
+            boolean newlyPaired,
+            boolean showHiddenGames) {
+        if (snapshot.getConnectionState().getReachability() ==
+                HostConnectionState.Reachability.OFFLINE) {
             UiToast.makeText(PcView.this, getResources().getString(R.string.error_pc_offline), UiToast.LENGTH_SHORT).show();
             return;
         }
@@ -1056,20 +1068,28 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         }
 
         Intent i = new Intent(this, AppView.class);
-        i.putExtra(AppView.NAME_EXTRA, computer.name);
-        i.putExtra(AppView.UUID_EXTRA, computer.uuid);
+        i.putExtra(
+                AppView.NAME_EXTRA,
+                snapshot.getRecord().getIdentity().getAdvertisedName());
+        i.putExtra(
+                AppView.UUID_EXTRA,
+                snapshot.getRecord().getIdentity().getId().getValue());
         i.putExtra(AppView.NEW_PAIR_EXTRA, newlyPaired);
         i.putExtra(AppView.SHOW_HIDDEN_APPS_EXTRA, showHiddenGames);
         startActivity(i);
     }
 
-    private void doRecentSession(ComputerDetails computer) {
-        if (computer.state == ComputerDetails.State.OFFLINE || computer.state == ComputerDetails.State.UNKNOWN) {
+    private void doRecentSession(HostRuntimeSnapshot snapshot) {
+        HostConnectionState connectionState =
+                snapshot.getConnectionState();
+        if (connectionState.getReachability() !=
+                HostConnectionState.Reachability.ONLINE) {
             UiToast.makeText(PcView.this, getResources().getString(R.string.error_pc_offline), UiToast.LENGTH_SHORT).show();
             return;
         }
-        if (computer.pairState != PairState.PAIRED) {
-            doPair(computer);
+        if (connectionState.getPairingStatus() !=
+                HostConnectionState.PairingStatus.PAIRED) {
+            doPair(snapshot);
             return;
         }
         if (managerBinder == null) {
@@ -1077,29 +1097,31 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             return;
         }
 
-        if (computer.runningGameId != 0) {
+        if (connectionState.getRunningAppId() != 0) {
             launchStream(
                     new NvApp(
                             "app",
-                            computer.runningGameId,
+                            connectionState.getRunningAppId(),
                             false),
-                    computer);
+                    snapshot);
             return;
         }
 
         RecentStreamSession recentSession = streamLauncher == null
                 ? null
-                : streamLauncher.findRecentSession(computer.uuid);
+                : streamLauncher.findRecentSession(
+                        snapshot.getRecord().getIdentity()
+                                .getId().getValue());
         if (recentSession != null) {
             launchStream(
                     new NvApp(
                             recentSession.getAppName(),
                             recentSession.getAppId(),
                             recentSession.supportsHdr()),
-                    computer);
+                    snapshot);
         }
         else {
-            doAppList(computer, false, false);
+            doAppList(snapshot, false, false);
         }
     }
 
@@ -1122,13 +1144,12 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         final LinearLayout actionList = dialogView.findViewById(R.id.layout_host_menu_actions);
         final TextView cancelButton = dialogView.findViewById(R.id.btn_host_menu_cancel);
 
-        ComputerDetails details = computer.toComputerDetails();
-        titleView.setText(details.name);
-        statusView.setText(getResources().getString(details.state == ComputerDetails.State.ONLINE
-                ? R.string.pcview_menu_header_online
-                : details.state == ComputerDetails.State.OFFLINE
-                ? R.string.pcview_menu_header_offline
-                : R.string.pcview_menu_header_unknown));
+        HostRuntimeSnapshot snapshot = computer.getSnapshot();
+        titleView.setText(snapshot.getRecord().getIdentity()
+                .getAdvertisedName());
+        statusView.setText(getResources().getString(
+                hostStatusResource(snapshot.getConnectionState()
+                        .getReachability())));
 
         final ArrayList<MenuAction> actions = buildHostMenuActions(computer);
         for (int i = 0; i < actions.size(); i++) {
@@ -1198,9 +1219,10 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
     private ArrayList<MenuAction> buildHostMenuActions(final ComputerObject computer) {
         ArrayList<MenuAction> actions = new ArrayList<>();
         final HostRuntimeSnapshot snapshot = computer.getSnapshot();
-        final ComputerDetails details = computer.toComputerDetails();
-        if (details.state == ComputerDetails.State.OFFLINE ||
-                details.state == ComputerDetails.State.UNKNOWN) {
+        final HostConnectionState connectionState =
+                snapshot.getConnectionState();
+        if (connectionState.getReachability() !=
+                HostConnectionState.Reachability.ONLINE) {
             actions.add(new MenuAction(R.string.pcview_menu_send_wol, R.drawable.ic_sleep, new Runnable() {
                 @Override
                 public void run() {
@@ -1214,14 +1236,15 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                 }
             }));
         }
-        else if (details.pairState != PairState.PAIRED) {
+        else if (connectionState.getPairingStatus() !=
+                HostConnectionState.PairingStatus.PAIRED) {
             actions.add(new MenuAction(R.string.pcview_menu_pair_pc, R.drawable.ic_app_add, new Runnable() {
                 @Override
                 public void run() {
-                    doPair(details);
+                    doPair(snapshot);
                 }
             }));
-            if (details.nvidiaServer) {
+            if (snapshot.isNvidiaServer()) {
                 actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_app_about, new Runnable() {
                     @Override
                     public void run() {
@@ -1231,10 +1254,10 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             }
         }
         else {
-            if (details.runningGameId != 0) {
+            if (connectionState.getRunningAppId() != 0) {
                 final NvApp runningApp = new NvApp(
                         "app",
-                        details.runningGameId,
+                        connectionState.getRunningAppId(),
                         false);
                 actions.add(new MenuAction(R.string.applist_menu_resume, R.drawable.ic_play, new Runnable() {
                     @Override
@@ -1242,7 +1265,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                         if (managerBinder != null) {
                             launchStream(
                                     runningApp,
-                                    details);
+                                    snapshot);
                         }
                     }
                 }));
@@ -1251,7 +1274,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                     public void run() {
                         if (managerBinder != null) {
                             quitHostApp(
-                                    details,
+                                    snapshot,
                                     runningApp,
                                     true);
                         }
@@ -1262,7 +1285,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                     public void run() {
                         if (managerBinder != null) {
                             quitHostApp(
-                                    details,
+                                    snapshot,
                                     runningApp,
                                     false);
                         }
@@ -1270,7 +1293,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                 }));
             }
 
-            if (details.nvidiaServer) {
+            if (snapshot.isNvidiaServer()) {
                 actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_app_about, new Runnable() {
                     @Override
                     public void run() {
@@ -1282,7 +1305,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             actions.add(new MenuAction(R.string.pcview_menu_app_list, R.drawable.ic_menu_grid, new Runnable() {
                 @Override
                 public void run() {
-                    doAppList(details, false, true);
+                    doAppList(snapshot, false, true);
                 }
             }));
         }
@@ -1300,16 +1323,22 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                     LimeLog.info("Ignoring delete PC request from monkey");
                     return;
                 }
-                UiHelper.displayDeletePcConfirmationDialog(PcView.this, details, new Runnable() {
-                    @Override
-                    public void run() {
-                        if (managerBinder == null) {
-                            UiToast.makeText(PcView.this, getResources().getString(R.string.error_manager_not_running), UiToast.LENGTH_LONG).show();
-                            return;
-                        }
-                        removeComputer(computer.getSnapshot());
-                    }
-                }, null);
+                UiHelper.displayDeletePcConfirmationDialog(
+                        PcView.this,
+                        snapshot.getRecord().getIdentity()
+                                .getAdvertisedName(),
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                if (managerBinder == null) {
+                                    UiToast.makeText(PcView.this, getResources().getString(R.string.error_manager_not_running), UiToast.LENGTH_LONG).show();
+                                    return;
+                                }
+                                removeComputer(
+                                        computer.getSnapshot());
+                            }
+                        },
+                        null);
             }
         }));
         actions.add(new MenuAction(R.string.pcview_menu_details, R.drawable.ic_app_about, new Runnable() {
@@ -1318,7 +1347,9 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                 Dialog.displayDialog(
                         PcView.this,
                         getResources().getString(R.string.title_details),
-                        details.toString(),
+                        LegacyHostRuntimeAdapter
+                                .toComputerDetails(snapshot)
+                                .toString(),
                         false);
             }
         }));
@@ -1337,21 +1368,37 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         }
     }
 
+    private static int hostStatusResource(
+            HostConnectionState.Reachability reachability) {
+        switch (reachability) {
+            case ONLINE:
+                return R.string.pcview_menu_header_online;
+            case OFFLINE:
+                return R.string.pcview_menu_header_offline;
+            case UNKNOWN:
+                return R.string.pcview_menu_header_unknown;
+            default:
+                throw new AssertionError(
+                        "Unhandled host reachability: " + reachability);
+        }
+    }
+
     private void performPcDefaultAction(
             AbsListView listView,
             View targetView,
             int position,
             long id,
             HostRuntimeSnapshot snapshot) {
-        ComputerDetails computer = LegacyHostRuntimeAdapter
-                .toComputerDetails(snapshot);
-        if (computer.state == ComputerDetails.State.UNKNOWN ||
-            computer.state == ComputerDetails.State.OFFLINE) {
+        HostConnectionState connectionState =
+                snapshot.getConnectionState();
+        if (connectionState.getReachability() !=
+                HostConnectionState.Reachability.ONLINE) {
             openPcContextMenu(position);
-        } else if (computer.pairState != PairState.PAIRED) {
-            doPair(computer);
+        } else if (connectionState.getPairingStatus() !=
+                HostConnectionState.PairingStatus.PAIRED) {
+            doPair(snapshot);
         } else {
-            doAppList(computer, false, false);
+            doAppList(snapshot, false, false);
         }
     }
 
@@ -1461,7 +1508,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             @Override
             public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
                 ComputerObject computer = (ComputerObject) pcGridAdapter.getItem(position);
-                doRecentSession(computer.toComputerDetails());
+                doRecentSession(computer.getSnapshot());
                 return true;
             }
         });
@@ -1539,10 +1586,6 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             this.snapshot = java.util.Objects.requireNonNull(
                     snapshot,
                     "snapshot");
-        }
-
-        public ComputerDetails toComputerDetails() {
-            return LegacyHostRuntimeAdapter.toComputerDetails(snapshot);
         }
 
         @Override
