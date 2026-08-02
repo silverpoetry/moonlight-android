@@ -59,6 +59,8 @@ public final class StreamGameMenuHost implements GameMenuHost {
 
         void requestStreamDisconnect();
 
+        void requestStreamRestart();
+
         void requestStreamQuit();
 
         void requestSoftKeyboard();
@@ -177,6 +179,11 @@ public final class StreamGameMenuHost implements GameMenuHost {
     @Override
     public void requestStreamDisconnect() {
         actions.requestStreamDisconnect();
+    }
+
+    @Override
+    public void requestStreamRestart() {
+        actions.requestStreamRestart();
     }
 
     @Override
@@ -354,6 +361,6 @@ public final class StreamGameMenuHost implements GameMenuHost {
     @Override
     public void onDisplayConfigurationApplied() {
         menuSession.dismiss();
-        actions.requestStreamDisconnect();
+        actions.requestStreamRestart();
     }
 }

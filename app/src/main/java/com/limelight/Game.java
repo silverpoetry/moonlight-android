@@ -49,8 +49,9 @@ import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.nvstream.mic.MicrophoneUplinkConfig;
 import com.limelight.settings.SettingsRepository;
+import com.limelight.settings.SettingsKeyCatalog;
+import com.limelight.settings.SettingsRepositorySnapshot;
 import com.limelight.settings.android.AndroidDisplayAspectProvider;
-import com.limelight.settings.android.AndroidSettingsGroupObserver;
 import com.limelight.settings.android.AndroidStreamSettingsBootstrap;
 import com.limelight.settings.android.SharedPreferencesCustomResolutionRepository;
 import com.limelight.settings.android.AndroidSettingsRepository;
@@ -61,7 +62,6 @@ import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsLoader;
 import com.limelight.settings.controller.ControllerSettingsState;
 import com.limelight.settings.input.InputSettings;
-import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.settings.input.InputSettingsState;
 import com.limelight.settings.runtime.StreamSettingsSession;
@@ -231,7 +231,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     private TransferSettings transferSettings;
     private SettingsRepository settingsRepository;
     private StreamSettingsSession streamSettingsSession;
-    private AndroidSettingsGroupObserver forcePressSettingsObserver;
+    private SettingsRepositorySnapshot settingsAtPause;
     private GameMenuCardLayoutRepository
             gameMenuCardLayoutRepository;
     private GameMenuShortcutRepository
@@ -433,15 +433,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         virtualControlLayoutRepository =
                 new AndroidVirtualControlLayoutRepository(this);
         streamSettingsSession = createStreamSettingsSession();
-        forcePressSettingsObserver = new AndroidSettingsGroupObserver(
-                this,
-                Arrays.asList(
-                        InputSettingKeys.BAROMETER_FORCE_PRESS,
-                        InputSettingKeys.BAROMETER_FORCE_PRESS_THRESHOLD,
-                        InputSettingKeys
-                                .BAROMETER_FORCE_PRESS_MINIMUM_DURATION),
-                streamSettingsSession::refreshForcePressSettings);
-        forcePressSettingsObserver.start();
         gameMenuHost = new StreamGameMenuHost(
                 streamSettingsSession,
                 customResolutionRepository,
@@ -1221,10 +1212,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     @Override
     protected void onDestroy() {
         sessionDependenciesReady = false;
-        if (forcePressSettingsObserver != null) {
-            forcePressSettingsObserver.close();
-            forcePressSettingsObserver = null;
-        }
         unregisterInputGateway();
         cancelPendingUiCallbacks();
         if (sessionController != null) {
@@ -1346,6 +1333,17 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     protected void onResume() {
         super.onResume();
 
+        if (streamSettingsSession != null && settingsAtPause != null) {
+            SettingsRepositorySnapshot currentSettings =
+                    SettingsRepositorySnapshot.capture(
+                            settingsRepository,
+                            SettingsKeyCatalog.all());
+            if (!settingsAtPause.equals(currentSettings)) {
+                streamSettingsSession.refreshRuntimeSettings();
+            }
+            settingsAtPause = null;
+        }
+
         if (inputLifecycleController != null) {
             inputLifecycleController.resume();
         }
@@ -1354,6 +1352,11 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
 
     @Override
     protected void onPause() {
+        if (settingsRepository != null) {
+            settingsAtPause = SettingsRepositorySnapshot.capture(
+                    settingsRepository,
+                    SettingsKeyCatalog.all());
+        }
         if (inputLifecycleController != null) {
             inputLifecycleController.pause(isFinishing());
         }
@@ -1462,6 +1465,9 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
 
             decoderCrashTracker.completeCleanly();
         }
+        if (streamRestartRequested || isChangingConfigurations()) {
+            return;
+        }
         if (streamVideoSettingsState
                 .get()
                 .getScreenOnPolicy() !=
@@ -1504,6 +1510,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     }
 
     private boolean isAutoLink=false;
+    private boolean streamRestartRequested;
 
     private PendingStreamReconnectStore
             getPendingStreamReconnectStore() {
@@ -2059,24 +2066,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         if (performanceOverlayController == null) {
             return;
         }
-        if (previous.isRumbleOverlayEnabled() !=
-                updated.isRumbleOverlayEnabled()) {
-            performanceOverlayController
-                    .applyRumbleVisibility();
-        }
-        if (previous.isCompactPerformanceInteractive() !=
-                updated.isCompactPerformanceInteractive()) {
-            performanceOverlayController
-                    .applyCompactInteractivity();
-        }
-        if (previous.getCompactPerformanceScalePercent() !=
-                updated.getCompactPerformanceScalePercent()) {
-            performanceOverlayController.applyCompactScale();
-        }
-        if (previous.getCompactPerformanceMarginTopDp() !=
-                updated.getCompactPerformanceMarginTopDp()) {
-            performanceOverlayController.applyCompactMargin();
-        }
+        performanceOverlayController.applyPreferences();
     }
 
     private PerformanceOverlayRuntimeState
@@ -2237,6 +2227,16 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     @Override
     public void requestStreamDisconnect() {
         finish();
+    }
+
+    @Override
+    public void requestStreamRestart() {
+        if (isFinishing() || streamRestartRequested) {
+            return;
+        }
+        streamRestartRequested = true;
+        getPendingStreamReconnectStore().clear();
+        recreate();
     }
 
     @Override

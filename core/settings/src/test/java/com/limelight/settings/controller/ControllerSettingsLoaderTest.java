@@ -28,6 +28,7 @@ public final class ControllerSettingsLoaderTest {
         assertTrue(settings.areMotionSensorsEnabled());
         assertEquals(100, settings.getMouseSensitivityPercent());
         assertTrue(settings.isMouseEmulationEnabled());
+        assertTrue(settings.doesMouseEmulationOpenGameMenu());
         assertEquals(
                 AnalogStickForScrolling.RIGHT,
                 settings.getAnalogStickForScrolling());

@@ -10,19 +10,24 @@ final class SettingsChangeEffectScheduler {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable reloadAction;
     private final Runnable refreshAction;
+    private final Runnable recreateAction;
     private Runnable pendingReload;
     private Runnable pendingRefresh;
     private boolean destroyed;
 
     SettingsChangeEffectScheduler(
             Runnable reloadAction,
-            Runnable refreshAction) {
+            Runnable refreshAction,
+            Runnable recreateAction) {
         this.reloadAction = Objects.requireNonNull(
                 reloadAction,
                 "reloadAction");
         this.refreshAction = Objects.requireNonNull(
                 refreshAction,
                 "refreshAction");
+        this.recreateAction = Objects.requireNonNull(
+                recreateAction,
+                "recreateAction");
     }
 
     void schedule(SettingsMutationController.ChangeEffect effect) {
@@ -36,6 +41,9 @@ final class SettingsChangeEffectScheduler {
                 break;
             case REFRESH:
                 scheduleRefresh(effect.getDelayMs());
+                break;
+            case RECREATE:
+                scheduleRecreate(effect.getDelayMs());
                 break;
             default:
                 throw new AssertionError("Unhandled settings change effect");
@@ -90,6 +98,27 @@ final class SettingsChangeEffectScheduler {
             }
         };
         dispatch(pendingRefresh, delayMs);
+    }
+
+    private void scheduleRecreate(long delayMs) {
+        if (pendingReload != null) {
+            handler.removeCallbacks(pendingReload);
+        }
+        if (pendingRefresh != null) {
+            handler.removeCallbacks(pendingRefresh);
+            pendingRefresh = null;
+        }
+        pendingReload = new Runnable() {
+            @Override
+            public void run() {
+                if (pendingReload != this || destroyed) {
+                    return;
+                }
+                pendingReload = null;
+                recreateAction.run();
+            }
+        };
+        dispatch(pendingReload, delayMs);
     }
 
     private void dispatch(Runnable action, long delayMs) {

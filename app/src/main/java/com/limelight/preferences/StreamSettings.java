@@ -154,6 +154,11 @@ public class StreamSettings extends BaseActivity {
                     if (!isFinishing()) {
                         refreshAfterItemChanged();
                     }
+                },
+                () -> {
+                    if (!isFinishing()) {
+                        recreate();
+                    }
                 });
         dialogPresenter = createDialogPresenter();
         int pendingDocumentRequest = savedInstanceState == null
@@ -297,6 +302,15 @@ public class StreamSettings extends BaseActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        AppPresentationSettings currentPresentationSettings =
+                AndroidAppPresentationSettingsLoader.load(this);
+        if (previousPresentationSettings.usesLightTheme() !=
+                        currentPresentationSettings.usesLightTheme() ||
+                !previousPresentationSettings.getLanguage().equals(
+                        currentPresentationSettings.getLanguage())) {
+            recreate();
+            return;
+        }
         sectionLaunchPending = false;
         if (reloadAfterPause &&
                 screenRenderer != null &&

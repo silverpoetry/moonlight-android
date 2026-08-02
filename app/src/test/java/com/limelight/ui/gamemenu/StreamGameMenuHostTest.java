@@ -53,14 +53,14 @@ public final class StreamGameMenuHostTest {
     }
 
     @Test
-    public void displayApplyDismissesMenuBeforeDisconnecting() {
+    public void displayApplyDismissesMenuBeforeRestarting() {
         Fixture fixture = new Fixture();
         fixture.menuSession.actions = fixture.actions;
 
         fixture.host.onDisplayConfigurationApplied();
 
         assertTrue(fixture.menuSession.dismissedBeforeDisconnect);
-        assertEquals(1, fixture.actions.disconnectCount);
+        assertEquals(1, fixture.actions.restartCount);
     }
 
     private static final class Fixture {
@@ -161,6 +161,7 @@ public final class StreamGameMenuHostTest {
             implements StreamGameMenuHost.Actions {
         private int cancelBackCount;
         private int disconnectCount;
+        private int restartCount;
 
         @Override
         public boolean isInputReady() {
@@ -214,6 +215,11 @@ public final class StreamGameMenuHostTest {
         @Override
         public void requestStreamDisconnect() {
             disconnectCount++;
+        }
+
+        @Override
+        public void requestStreamRestart() {
+            restartCount++;
         }
 
         @Override

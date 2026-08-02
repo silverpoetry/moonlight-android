@@ -163,7 +163,7 @@ public final class ControllerSettingKeys {
             MOUSE_EMULATION_OPENS_GAME_MENU =
             SettingKey.booleanKey(
                     "input.controller.mouse_emulation.opens_game_menu",
-                    false)
+                    true)
                     .renamedFrom("checkbox_enable_quit_dialog");
     public static final SettingKey<Boolean> USB_GYROSCOPE_REPORTING =
             SettingKey.booleanKey(

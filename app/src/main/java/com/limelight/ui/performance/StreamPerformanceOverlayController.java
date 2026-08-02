@@ -99,7 +99,7 @@ public final class StreamPerformanceOverlayController
                 this.compactOverlayAction.run();
             }
         });
-        applyAllPreferences();
+        applyPreferences();
     }
 
     @Override
@@ -239,7 +239,8 @@ public final class StreamPerformanceOverlayController
         compactOverlay.setOnClickListener(null);
     }
 
-    private void applyAllPreferences() {
+    /** Applies the current UI settings snapshot without rebuilding the view. */
+    public void applyPreferences() {
         applyOverlayVisibility();
         applyRumbleVisibility();
         applyCompactInteractivity();

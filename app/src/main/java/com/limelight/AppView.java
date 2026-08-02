@@ -572,6 +572,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
     private GameDisplayFragment dialogFragment;
 
     private AppPresentationSettings appPresentationSettings;
+    private ImageView backgroundView;
     private SettingsRepository settingsRepository;
     private StreamVideoSettingsState streamVideoSettingsState;
     private StreamAudioSettingsState streamAudioSettingsState;
@@ -628,7 +629,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
         setTitle(computerName);
         label.setText(computerName);
 
-        ImageView imageView=findViewById(R.id.iv_root_view);
+        backgroundView = findViewById(R.id.iv_root_view);
 
         appPresentationSettings =
                 AndroidAppPresentationSettingsLoader.load(this);
@@ -650,7 +651,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
 
         ScreenBackgroundPresenter.apply(
                 this,
-                imageView,
+                backgroundView,
                 appPresentationSettings);
 
         findViewById(R.id.settingsButton).setOnClickListener(new View.OnClickListener() {
@@ -759,6 +760,10 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
     protected void onResume() {
         super.onResume();
 
+        if (refreshSettingsAfterResume()) {
+            return;
+        }
+
         if (streamLauncher != null) {
             streamLauncher.onOwnerResumed();
         }
@@ -770,6 +775,48 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
         hostPollingLifecycle.activate();
         startComputerUpdates();
         tryAutoReconnect();
+    }
+
+    private boolean refreshSettingsAfterResume() {
+        if (settingsRepository == null) {
+            return false;
+        }
+        AppPresentationSettings updatedPresentation =
+                AndroidAppPresentationSettingsLoader.load(this);
+        boolean presentationChanged =
+                !updatedPresentation.equals(appPresentationSettings);
+        if (appPresentationSettings != null &&
+                hasStructuralPresentationChange(
+                        appPresentationSettings,
+                        updatedPresentation)) {
+            recreate();
+            return true;
+        }
+        appPresentationSettings = updatedPresentation;
+        if (presentationChanged && backgroundView != null) {
+            ScreenBackgroundPresenter.apply(
+                    this,
+                    backgroundView,
+                    updatedPresentation);
+        }
+        streamVideoSettingsState.replace(
+                StreamVideoSettingsLoader.load(
+                        settingsRepository,
+                        AndroidDisplayAspectProvider.get(this)));
+        streamAudioSettingsState.replace(
+                StreamAudioSettingsLoader.load(settingsRepository));
+        return false;
+    }
+
+    private static boolean hasStructuralPresentationChange(
+            AppPresentationSettings previous,
+            AppPresentationSettings current) {
+        return previous.usesSmallAppIcons() !=
+                        current.usesSmallAppIcons() ||
+                previous.usesLightTheme() !=
+                        current.usesLightTheme() ||
+                !previous.getLanguage().equals(
+                        current.getLanguage());
     }
 
     @Override

@@ -713,6 +713,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
                         public void onApplyAdaptiveTrigger() {
                             if (host != null) {
                                 host.applyDualSenseTriggerSettings();
+                                host.requestStreamRestart();
                             }
                         }
 

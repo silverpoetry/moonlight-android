@@ -69,4 +69,36 @@ public final class AppPresentationSettings {
     public String getHostListLabel() {
         return hostListLabel;
     }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (!(other instanceof AppPresentationSettings)) {
+            return false;
+        }
+        AppPresentationSettings settings =
+                (AppPresentationSettings) other;
+        return smallAppIcons == settings.smallAppIcons &&
+                lightTheme == settings.lightTheme &&
+                backgroundEnabled == settings.backgroundEnabled &&
+                backgroundBlurEnabled ==
+                        settings.backgroundBlurEnabled &&
+                language.equals(settings.language) &&
+                backgroundFile.equals(settings.backgroundFile) &&
+                hostListLabel.equals(settings.hostListLabel);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                language,
+                smallAppIcons,
+                lightTheme,
+                backgroundEnabled,
+                backgroundBlurEnabled,
+                backgroundFile,
+                hostListLabel);
+    }
 }

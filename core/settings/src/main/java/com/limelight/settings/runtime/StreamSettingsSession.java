@@ -2,9 +2,11 @@ package com.limelight.settings.runtime;
 
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.audio.StreamAudioSettings;
+import com.limelight.settings.audio.StreamAudioSettingsLoader;
 import com.limelight.settings.audio.StreamAudioSettingsState;
 import com.limelight.settings.audio.StreamAudioSettingsUpdate;
 import com.limelight.settings.controller.ControllerSettings;
+import com.limelight.settings.controller.ControllerSettingsLoader;
 import com.limelight.settings.controller.ControllerSettingsState;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettings;
@@ -15,6 +17,7 @@ import com.limelight.settings.stream.StreamVideoSettings;
 import com.limelight.settings.stream.StreamVideoSettingsState;
 import com.limelight.settings.stream.StreamVideoSettingsUpdate;
 import com.limelight.settings.ui.StreamUiSettings;
+import com.limelight.settings.ui.StreamUiSettingsLoader;
 import com.limelight.settings.ui.StreamUiSettingsState;
 import com.limelight.settings.ui.StreamUiSettingsUpdate;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
@@ -119,6 +122,51 @@ public final class StreamSettingsSession {
     }
 
     /**
+     * Reconciles settings edited outside the in-stream menu with the active
+     * runtime.
+     *
+     * <p>The Activity invokes this method at its foreground lifecycle
+     * boundary. Every domain is rebuilt atomically from the canonical
+     * repository, then published before its runtime effect is dispatched.
+     * Stream-negotiation settings are deliberately excluded because changing
+     * them requires rebuilding the connection rather than mutating an active
+     * decoder or transport in place.</p>
+     */
+    public void refreshRuntimeSettings() {
+        InputSettings previousInput = inputState.get();
+        InputSettings currentInput =
+                InputSettingsLoader.load(repository);
+        inputState.replace(currentInput);
+        effects.onInputSettingsChanged(
+                previousInput,
+                currentInput);
+
+        ControllerSettings previousController =
+                controllerState.get();
+        ControllerSettings currentController =
+                ControllerSettingsLoader.load(repository);
+        controllerState.replace(currentController);
+        publishControllerEffects(
+                previousController,
+                currentController);
+
+        StreamAudioSettings currentAudio =
+                StreamAudioSettingsLoader.load(repository);
+        audioState.replace(currentAudio);
+        effects.onAudioSettingsChanged(currentAudio);
+
+        StreamUiSettings previousUi = uiState.get();
+        StreamUiSettings currentUi =
+                StreamUiSettingsLoader.load(repository);
+        uiState.replace(currentUi);
+        effects.onUiSettingsChanged(previousUi, currentUi);
+
+        virtualControlState.replace(
+                VirtualControlSettingsLoader.load(repository));
+        effects.onVirtualControlSettingsReloaded();
+    }
+
+    /**
      * Reconciles externally edited force-press values into the active stream.
      *
      * <p>Only the three settings that the touch controller can apply safely
@@ -149,7 +197,12 @@ public final class StreamSettingsSession {
         ControllerSettings current = update.applyTo(previous);
         update.persist(repository);
         controllerState.replace(current);
+        publishControllerEffects(previous, current);
+    }
 
+    private void publishControllerEffects(
+            ControllerSettings previous,
+            ControllerSettings current) {
         if (previous.isBatteryReportingEnabled() !=
                 current.isBatteryReportingEnabled()) {
             effects.onBatteryReportingChanged();
@@ -193,6 +246,7 @@ public final class StreamSettingsSession {
                 update.applyTo(virtualControlState.get());
         update.persist(repository);
         virtualControlState.replace(current);
+        effects.onVirtualControlSettingsReloaded();
     }
 
     public void setOnscreenRumbleEnabled(boolean enabled) {

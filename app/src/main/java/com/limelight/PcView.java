@@ -114,6 +114,9 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
     private AndroidGlRendererProbe glRendererProbe;
     private HiddenAppRepository hiddenAppRepository;
     private SpinnerDialog hostOperationProgress;
+    private ImageView backgroundView;
+    private TextView hostListLabelView;
+    private AppPresentationSettings presentationSettings;
     private final HostPollingClientLifecycle hostPollingLifecycle =
             new HostPollingClientLifecycle();
     private ComputerObject pendingHostMenuComputer;
@@ -211,19 +214,9 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             setShouldDockBigOverlays(false);
         }
-        ImageView imageView=findViewById(R.id.iv_root_view);
-
-        AppPresentationSettings presentationSettings =
-                AndroidAppPresentationSettingsLoader.load(this);
-        ScreenBackgroundPresenter.apply(
-                this,
-                imageView,
-                presentationSettings);
-        TextView tx_label=findViewById(R.id.tx_label);
-        if (!presentationSettings.getHostListLabel().isEmpty()) {
-            tx_label.setText(
-                    presentationSettings.getHostListLabel());
-        }
+        backgroundView = findViewById(R.id.iv_root_view);
+        hostListLabelView = findViewById(R.id.tx_label);
+        applyPresentationSettings(false);
         // Setup the list view
         ImageButton settingsButton = findViewById(R.id.settingsButton);
         ImageButton addComputerButton = findViewById(R.id.manuallyAddPc);
@@ -491,6 +484,10 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
     protected void onResume() {
         super.onResume();
 
+        if (completeOnCreateCalled && applyPresentationSettings(true)) {
+            return;
+        }
+
         if (streamLauncher != null) {
             streamLauncher.onOwnerResumed();
         }
@@ -502,6 +499,50 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         hostPollingLifecycle.activate();
         startComputerUpdates();
         tryAutoReconnect();
+    }
+
+    /**
+     * Refreshes presentation-only settings when returning from the settings
+     * Activity. Structural resource changes recreate this Activity; background
+     * and label changes are applied directly to the existing view hierarchy.
+     */
+    private boolean applyPresentationSettings(
+            boolean recreateForStructuralChange) {
+        if (backgroundView == null || hostListLabelView == null) {
+            return false;
+        }
+        AppPresentationSettings updated =
+                AndroidAppPresentationSettingsLoader.load(this);
+        if (updated.equals(presentationSettings)) {
+            return false;
+        }
+        if (recreateForStructuralChange &&
+                presentationSettings != null &&
+                hasStructuralPresentationChange(
+                        presentationSettings,
+                        updated)) {
+            recreate();
+            return true;
+        }
+        presentationSettings = updated;
+        ScreenBackgroundPresenter.apply(
+                this,
+                backgroundView,
+                updated);
+        hostListLabelView.setText(
+                updated.getHostListLabel().isEmpty()
+                        ? getString(R.string.app_label)
+                        : updated.getHostListLabel());
+        return false;
+    }
+
+    private static boolean hasStructuralPresentationChange(
+            AppPresentationSettings previous,
+            AppPresentationSettings current) {
+        return previous.usesLightTheme() !=
+                        current.usesLightTheme() ||
+                !previous.getLanguage().equals(
+                        current.getLanguage());
     }
 
     @Override

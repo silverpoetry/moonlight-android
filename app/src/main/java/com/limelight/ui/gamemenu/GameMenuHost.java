@@ -29,6 +29,8 @@ public interface GameMenuHost extends GameDisplayHost {
 
     void requestStreamDisconnect();
 
+    void requestStreamRestart();
+
     void requestStreamQuit();
 
     void requestSoftKeyboard();

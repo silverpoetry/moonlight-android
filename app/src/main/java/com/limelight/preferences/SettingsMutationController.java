@@ -2,6 +2,7 @@ package com.limelight.preferences;
 
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.input.InputSettingKeys;
+import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.stream.StreamResolutionCodec;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
@@ -110,6 +111,16 @@ final class SettingsMutationController {
             SettingsItem item,
             boolean allowSwitchAnimation) {
         Objects.requireNonNull(item, "item");
+        if (AppPresentationSettingKeys.LIGHT_THEME
+                .getName()
+                .equals(item.key) ||
+                AppPresentationSettingKeys.LANGUAGE
+                        .getName()
+                        .equals(item.key)) {
+            return ChangeEffect.recreate(allowSwitchAnimation
+                    ? SWITCH_ANIMATION_DELAY_MS
+                    : 0);
+        }
         if (InputSettingKeys.BAROMETER_FORCE_PRESS
                 .getName()
                 .equals(item.key)) {
@@ -187,7 +198,8 @@ final class SettingsMutationController {
     static final class ChangeEffect {
         enum Type {
             REFRESH,
-            RELOAD
+            RELOAD,
+            RECREATE
         }
 
         private final Type type;
@@ -204,6 +216,10 @@ final class SettingsMutationController {
 
         static ChangeEffect reload(long delayMs) {
             return new ChangeEffect(Type.RELOAD, delayMs);
+        }
+
+        static ChangeEffect recreate(long delayMs) {
+            return new ChangeEffect(Type.RECREATE, delayMs);
         }
 
         Type getType() {

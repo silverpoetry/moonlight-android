@@ -378,7 +378,7 @@
     <string name="game_menu_bitrate_invalid">码率必须是 1–99999 之间的整数</string>
     <string name="game_menu_apply_configuration">应用配置</string>
     <string name="game_menu_video_information">视频信息</string>
-    <string name="game_menu_apply_restart_notice">应用后将关闭当前页面，重新进入串流后生效。</string>
+    <string name="game_menu_apply_restart_notice">应用后将自动重连当前串流。</string>
     <string name="game_menu_options">选项</string>
     <string name="game_menu_resolution_summary">分辨率：%1$d × %2$d</string>
     <string name="game_menu_bitrate_summary">码率：%1$d Mbps</string>
@@ -399,7 +399,7 @@
     <string name="game_menu_codec_hevc" translatable="false">HEVC</string>
     <string name="game_menu_codec_av1" translatable="false">AV1</string>
     <string name="game_menu_hdr" translatable="false">HDR</string>
-    <string name="game_menu_restart_stream_notice">重新进入串流后生效。</string>
+    <string name="game_menu_restart_stream_notice">点击应用后将自动重连当前串流。</string>
     <string name="game_menu_enabled">开启</string>
     <string name="game_menu_disabled">关闭</string>
     <string name="game_menu_hdr_high_brightness">HDR 满亮度</string>
@@ -460,7 +460,7 @@
     <string name="game_menu_report_gamepad_battery">上报手柄\n电池状态</string>
     <string name="game_menu_enable_usb_gyroscope">启用 USB 驱动\n手柄陀螺仪</string>
     <string name="game_menu_link_trigger_rumble">握把震动联动\n扳机震动</string>
-    <string name="game_menu_stream_restart_required">以下设置需要重新进入串流后生效。</string>
+    <string name="game_menu_stream_restart_required">点击应用后将自动重连，使以下设置生效。</string>
     <string name="game_menu_force_device_rumble">强制使用\n机身震动</string>
     <string name="game_menu_use_device_gyroscope">无手柄时使用\n设备陀螺仪</string>
     <string name="game_menu_joycon_compatibility">兼容 NS\n手柄按键</string>
