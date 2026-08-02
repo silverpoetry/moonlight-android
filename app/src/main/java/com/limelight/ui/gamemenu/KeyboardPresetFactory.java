@@ -6,6 +6,7 @@ import android.view.KeyEvent;
 
 import com.limelight.R;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
+import com.limelight.virtualcontrols.action.VirtualControlAction;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +17,24 @@ final class KeyboardPresetFactory {
     private static final int BUTTON_TYPE_JOYSTICK = 3;
     private static final int BUTTON_TYPE_KEYBOARD = 4;
     private static final int BUTTON_TYPE_DIRECTION_PAD = 5;
+    private static final int[] FUNCTION_NAME_RESOURCES = {
+            R.string.game_menu_soft_keyboard,
+            R.string.game_menu_virtual_keys,
+            R.string.keyboard_virtual_full_keyboard,
+            R.string.game_menu_virtual_gamepad,
+            R.string.game_menu_floating_ball,
+            R.string.game_menu_action_performance,
+            R.string.game_menu_game_menu
+    };
+    private static final VirtualControlAction[] FUNCTION_ACTIONS = {
+            VirtualControlAction.TOGGLE_SOFT_KEYBOARD,
+            VirtualControlAction.TOGGLE_VIRTUAL_KEYS,
+            VirtualControlAction.TOGGLE_FULL_KEYBOARD,
+            VirtualControlAction.TOGGLE_VIRTUAL_GAMEPAD,
+            VirtualControlAction.TOGGLE_FLOATING_BUTTON,
+            VirtualControlAction.TOGGLE_PERFORMANCE_OVERLAY,
+            VirtualControlAction.OPEN_STREAM_MENU
+    };
 
     private KeyboardPresetFactory() {
     }
@@ -139,23 +158,19 @@ final class KeyboardPresetFactory {
     static List<GameMenuQuickBean> createFunctionItems(
             Context context) {
         List<GameMenuQuickBean> items = new ArrayList<>();
-        items.add(functionItem(
-                context, R.string.game_menu_soft_keyboard, 0));
-        items.add(functionItem(
-                context, R.string.game_menu_virtual_keys, 1));
-        items.add(functionItem(
-                context,
-                R.string.keyboard_virtual_full_keyboard,
-                2));
-        items.add(functionItem(
-                context, R.string.game_menu_virtual_gamepad, 3));
-        items.add(functionItem(
-                context, R.string.game_menu_floating_ball, 4));
-        items.add(functionItem(
-                context, R.string.game_menu_action_performance, 5));
-        items.add(functionItem(
-                context, R.string.game_menu_game_menu, 6));
+        for (int index = 0;
+                index < FUNCTION_ACTIONS.length;
+                index++) {
+            items.add(functionItem(
+                    context,
+                    FUNCTION_NAME_RESOURCES[index],
+                    FUNCTION_ACTIONS[index]));
+        }
         return items;
+    }
+
+    static VirtualControlAction[] functionActions() {
+        return FUNCTION_ACTIONS.clone();
     }
 
     private static void addMouseButtonPair(
@@ -195,26 +210,14 @@ final class KeyboardPresetFactory {
     private static GameMenuQuickBean functionItem(
             Context context,
             @StringRes int nameRes,
-            int suffix) {
+            VirtualControlAction action) {
+        String name = context.getString(nameRes);
         return new GameMenuQuickBean(
-                context.getString(nameRes),
-                functionKeyCodes(suffix),
-                "AXIX" + suffix,
+                name,
+                (String) null,
+                name,
                 BUTTON_TYPE_KEYBOARD,
-                false);
-    }
-
-    static String functionKeyCodes(int suffix) {
-        if (suffix < 0 || suffix > 9) {
-            throw new IllegalArgumentException(
-                    "suffix must be between 0 and 9");
-        }
-        return keyCodes(
-                KeyEvent.KEYCODE_A,
-                KeyEvent.KEYCODE_X,
-                KeyEvent.KEYCODE_I,
-                KeyEvent.KEYCODE_X,
-                KeyEvent.KEYCODE_0 + suffix);
+                false).setLocalAction(action);
     }
 
     private static String keyCodes(int... keyCodes) {

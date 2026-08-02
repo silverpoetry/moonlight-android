@@ -26,6 +26,10 @@ abstract class VerifyNoLegacyBranding extends DefaultTask {
                     'keyboard_axi_|gamepad_axi_|' +
                     'mouse_model_(?:names|values)_axi|' +
                     'axi_add_computer)')
+    private static final Pattern LEGACY_SHORTCUT_MARKER = Pattern.compile(
+            '(?i)(?:\\baxix\\b|axi->)')
+    private static final String LEGACY_ACTION_MIGRATION =
+            '/LegacyVirtualControlActionMigration.java'
     private static final Set<String> TEXT_EXTENSIONS = [
             'java', 'kt', 'xml', 'gradle', 'groovy', 'json',
             'properties', 'txt', 'md', 'ps1', 'c', 'h', 'cpp',
@@ -82,8 +86,20 @@ abstract class VerifyNoLegacyBranding extends DefaultTask {
             String path,
             int line,
             String value) {
-        if (!LEGACY_BRAND.matcher(value).find() &&
-                !LEGACY_RESOURCE.matcher(value).find()) {
+        boolean hasLegacyBrand = LEGACY_BRAND.matcher(value).find()
+        boolean hasLegacyResource = LEGACY_RESOURCE.matcher(value).find()
+        boolean hasLegacyShortcutMarker =
+                LEGACY_SHORTCUT_MARKER.matcher(value).find()
+        if (!hasLegacyBrand &&
+                !hasLegacyResource &&
+                !hasLegacyShortcutMarker) {
+            return
+        }
+        if (!hasLegacyBrand &&
+                !hasLegacyResource &&
+                hasLegacyShortcutMarker &&
+                path.replace('\\', '/').endsWith(
+                        LEGACY_ACTION_MIGRATION)) {
             return
         }
         violations.add(line == 0

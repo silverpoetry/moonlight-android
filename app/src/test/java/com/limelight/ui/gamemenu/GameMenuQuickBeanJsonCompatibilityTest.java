@@ -2,12 +2,14 @@ package com.limelight.ui.gamemenu;
 
 import com.google.gson.Gson;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
+import com.limelight.virtualcontrols.action.VirtualControlAction;
 
 import org.junit.Test;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public final class GameMenuQuickBeanJsonCompatibilityTest {
@@ -69,5 +71,33 @@ public final class GameMenuQuickBeanJsonCompatibilityTest {
         assertEquals(original.isGamePad(), restored.isGamePad());
         assertEquals(original.isFixedStrokeFreeStick(), restored.isFixedStrokeFreeStick());
         assertEquals(original.isFreeeStickDrawNormal(), restored.isFreeeStickDrawNormal());
+    }
+
+    @Test
+    public void roundTripUsesStableIdForLocalAction() {
+        GameMenuQuickBean original = new GameMenuQuickBean(
+                "Menu", (String) null, "Menu", 4, false)
+                .setLocalAction(VirtualControlAction.OPEN_STREAM_MENU);
+
+        String json = gson.toJson(original);
+        GameMenuQuickBean restored = gson.fromJson(
+                json, GameMenuQuickBean.class);
+
+        assertTrue(json.contains("\"localActionId\":\"open_stream_menu\""));
+        assertFalse(json.contains("\"codes\""));
+        assertEquals(
+                VirtualControlAction.OPEN_STREAM_MENU,
+                restored.getLocalAction());
+    }
+
+    @Test
+    public void keyChordAndLocalActionRemainMutuallyExclusive() {
+        GameMenuQuickBean control = new GameMenuQuickBean();
+        control.setLocalAction(VirtualControlAction.OPEN_STREAM_MENU);
+
+        control.setCodes("29,31");
+
+        assertNull(control.getLocalAction());
+        assertEquals("29,31", control.getCodes());
     }
 }

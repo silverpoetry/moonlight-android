@@ -41,10 +41,12 @@ import com.limelight.settings.virtualcontrols.VirtualControlSettingsState;
 import com.limelight.ui.StreamUiActions;
 import com.limelight.ui.gamemenu.GameKeyboardUpdateFragment;
 import com.limelight.ui.gamemenu.GamePadAddFragment;
+import com.limelight.ui.gamemenu.LegacyVirtualControlActionMigration;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
 import com.limelight.utils.SeekBarValueRange;
 import com.limelight.utils.AndroidVibratorCompat;
 import com.limelight.utils.UiHelper;
+import com.limelight.virtualcontrols.action.VirtualControlAction;
 import com.limelight.virtualcontrols.layout.VirtualControlLayoutDocument;
 import com.limelight.virtualcontrols.layout.VirtualControlLayoutKey;
 import com.limelight.virtualcontrols.layout.VirtualControlLayoutOrientation;
@@ -214,7 +216,6 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
                 }
                 fragment.setTitle("手柄按键");
                 fragment.setOnClick(bean -> {
-                    LimeLog.info("axi->组合键:"+new Gson().toJson(bean));
                     addItem(bean);
                 });
                 fragment.show(context.getSupportFragmentManager());
@@ -234,7 +235,6 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
             }
             fragment.setTitle(R.string.keyboard_chord_title);
             fragment.setOnClick(bean -> {
-                LimeLog.info("axi->组合键:"+new Gson().toJson(bean));
                 addItem(bean);
             });
             fragment.show(context.getSupportFragmentManager());
@@ -400,8 +400,6 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
     private void addItem(GameMenuQuickBean bean){
         int w=context.getResources().getDisplayMetrics().widthPixels;
         int h=context.getResources().getDisplayMetrics().heightPixels;
-        LimeLog.info("axi->宽度:"+w);
-        LimeLog.info("axi->高度:"+h);
         bean.setmLeft(w/2);
         bean.setmTop(h/2);
         switch(bean.getBtnType()){
@@ -452,6 +450,10 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
                                     GameMenuQuickBean[].class);
                     if (beans != null) {
                         Collections.addAll(beanList, beans);
+                        if (LegacyVirtualControlActionMigration
+                                .migrate(beanList)) {
+                            persistMigratedLayout();
+                        }
                     }
                 }
                 catch (RuntimeException error) {
@@ -470,7 +472,6 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
                             ": " +
                             error.getMessage());
         }
-        LimeLog.info("axi->"+getControllerMode());
         if(getControllerMode()==VirtualControlEditMode.ACTIVE&& beanList.isEmpty()){
             if (layoutKey.getOrientation() ==
                             VirtualControlLayoutOrientation.PORTRAIT &&
@@ -491,8 +492,23 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
         }
     }
 
+    private void persistMigratedLayout() {
+        try {
+            layoutRepository.save(
+                    layoutKey,
+                    VirtualControlLayoutDocument.fromJson(
+                            new Gson().toJson(beanList)));
+        }
+        catch (IOException | IllegalArgumentException error) {
+            LimeLog.warning(
+                    "Unable to persist migrated virtual-control layout " +
+                            layoutKey +
+                            ": " +
+                            error.getMessage());
+        }
+    }
+
     private void addView(GameMenuQuickBean bean,int i){
-        LimeLog.info("axi->addView:"+i);
         keyBoardVirtualControllerElement element = null;
         //普通按钮
         if(bean.getBtnType()==4){
@@ -505,12 +521,44 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
                     element=KeyBoardControllerConfigurationLoader.createDigitalButtonGamePad(bean.getId(),bean.getCode(),0,1,bean.getName(),-1,bean.isSwitchMode(),this,context);
                 }
             }else{
-                element=KeyBoardControllerConfigurationLoader.createDigitalButton(bean.getId(),bean.getCodes(),bean.getBtnType(),1,bean.getName(),-1,bean.isSwitchMode(),this,context);
+                VirtualControlAction localAction = bean.getLocalAction();
+                if (localAction != null) {
+                    element = KeyBoardControllerConfigurationLoader
+                            .createLocalActionButton(
+                                    bean.getId(),
+                                    localAction,
+                                    1,
+                                    bean.getName(),
+                                    -1,
+                                    this,
+                                    context);
+                }
+                else if (!TextUtils.isEmpty(bean.getCodes())) {
+                    element = KeyBoardControllerConfigurationLoader
+                            .createKeyChordButton(
+                                    bean.getId(),
+                                    bean.getCodes(),
+                                    1,
+                                    bean.getName(),
+                                    -1,
+                                    bean.isSwitchMode(),
+                                    this,
+                                    context);
+                }
             }
         }
         //鼠标
         if(bean.getBtnType()==1){
-            element=KeyBoardControllerConfigurationLoader.createDigitalButton(bean.getId(),bean.getCode(),bean.getBtnType(),1,bean.getName(),-1,bean.isSwitchMode(),this,context);
+            element = KeyBoardControllerConfigurationLoader
+                    .createMouseButton(
+                            bean.getId(),
+                            bean.getCode(),
+                            1,
+                            bean.getName(),
+                            -1,
+                            bean.isSwitchMode(),
+                            this,
+                            context);
         }
         //触控板
         if(bean.getBtnType()==2){
@@ -556,7 +604,6 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
             element.setShapeType(bean.getShapeType());
             element.setTag(new TagInfo(i,isGamePadMode));
             element.setOnClick(tag -> {
-//                LimeLog.info("axi->当前："+new Gson().toJson(beanList.get(tag)));
                 updateItem(tag.index);
             });
             element.setOpacity(
@@ -596,13 +643,12 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
 
             cb_switch_mode.setChecked(beanList.get(index).isSwitchMode());
             if(beanList.get(index).getBtnType()==4){
-                //排除功能按钮
-                String codes=beanList.get(index).getCodes();
-                if(!TextUtils.isEmpty(codes)&&!codes.startsWith("29,52,37,52")){
-                    cb_switch_mode.setVisibility(View.VISIBLE);
-                }else{
-                    cb_switch_mode.setVisibility(View.GONE);
-                }
+                cb_switch_mode.setVisibility(
+                        beanList.get(index).getLocalAction() == null &&
+                                !TextUtils.isEmpty(
+                                        beanList.get(index).getCodes())
+                                ? View.VISIBLE
+                                : View.GONE);
             }else{
                 cb_switch_mode.setVisibility(View.GONE);
             }
@@ -760,7 +806,6 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
         FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(width, height);
         layoutParams.setMargins(x, y, 0, 0);
         frame_layout.addView(element, layoutParams);
-        LimeLog.info("axi->addElement:"+width+","+height+",x:"+x+",y:"+y);
     }
 
     public List<keyBoardVirtualControllerElement> getElements() {
@@ -860,54 +905,44 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
         inputGateway.sendHighResolutionScroll(up);
     }
 
-    public void sendAssembleKey(String codes,int action){
+    public void sendKeyChord(String codes, int action) {
         if (getSettings().isKeyboardHapticsEnabled() &&
                 vibrator.hasVibrator()) {
             AndroidVibratorCompat.vibrateOneShot(vibrator, 10);
         }
-        String[] keys=codes.split(",");
-        // Custom shortcut actions.
-        if(codes.startsWith("29,52,37,52")&&keys.length==5){
-            if(action==KeyEvent.ACTION_DOWN){
-                return;
+        if (TextUtils.isEmpty(codes)) {
+            return;
+        }
+        String[] keys = codes.split(",");
+        int[] keyCodes = new int[keys.length];
+        try {
+            for (int index = 0; index < keys.length; index++) {
+                keyCodes[index] = Integer.parseInt(keys[index]);
             }
-            int value= Integer.parseInt(keys[4]);
-            switch (value){
-                case 7://0 软键盘
-                    uiActions.performStreamUiAction(
-                            StreamUiActions.Action.TOGGLE_SOFT_KEYBOARD);
-                    break;
-                case 8://1 虚拟按键
-                    uiActions.performStreamUiAction(
-                            StreamUiActions.Action.TOGGLE_VIRTUAL_KEYS);
-                    break;
-                case 9://2 全键盘
-                    uiActions.performStreamUiAction(
-                            StreamUiActions.Action.TOGGLE_FULL_KEYBOARD);
-                    break;
-                case 10://3 虚拟手柄
-                    uiActions.performStreamUiAction(
-                            StreamUiActions.Action.TOGGLE_VIRTUAL_GAMEPAD);
-                    break;
-                case 11://4 悬浮球
-                    uiActions.performStreamUiAction(
-                            StreamUiActions.Action.TOGGLE_FLOATING_BUTTON);
-                    break;
-                case 12://5 性能信息
-                    uiActions.performStreamUiAction(
-                            StreamUiActions.Action.TOGGLE_PERFORMANCE_OVERLAY);
-                    break;
-                case 13://6 快捷菜单
-                    uiActions.performStreamUiAction(
-                            StreamUiActions.Action.OPEN_STREAM_MENU);
-                    break;
+        }
+        catch (NumberFormatException error) {
+            LimeLog.warning("Ignoring malformed virtual key chord");
+            return;
+        }
+        for (int keyCode : keyCodes) {
+            KeyEvent keyEvent = new KeyEvent(action, keyCode);
+            keyEvent.setSource(0);
+            inputGateway.sendKeyEvent(keyEvent);
+        }
+    }
+
+    public void sendLocalAction(
+            VirtualControlAction localAction,
+            int action) {
+        if (action == KeyEvent.ACTION_DOWN) {
+            if (getSettings().isKeyboardHapticsEnabled() &&
+                    vibrator.hasVibrator()) {
+                AndroidVibratorCompat.vibrateOneShot(vibrator, 10);
             }
             return;
         }
-        for (int i = 0; i < keys.length; i++) {
-            KeyEvent keyEvent = new KeyEvent(action,Integer.parseInt(keys[i]));
-            keyEvent.setSource(0);
-            inputGateway.sendKeyEvent(keyEvent);
+        if (action == KeyEvent.ACTION_UP) {
+            uiActions.performStreamUiAction(localAction);
         }
     }
 
@@ -922,10 +957,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
         _DBG("LEFT STICK X: " + inputContext.leftStickX + " Y: " + inputContext.leftStickY);
         _DBG("RIGHT STICK X: " + inputContext.rightStickX + " Y: " + inputContext.rightStickY);
 
-        LimeLog.info("axi->gamepad:"+inputContext.inputMap);
         if (controllerHandler != null) {
-            LimeLog.info("axi->gamepad:end");
-
             controllerHandler.reportOscState(
                     inputContext.inputMap,
                     inputContext.leftStickX,

@@ -1251,6 +1251,11 @@ agree across all participants.
   with an immutable in-memory snapshot refreshed by a file observer. Shortcut,
   key-remapping, and virtual-control layout stores now migrate their historical
   names into bounded canonical documents using commit-before-cleanup semantics.
+- Replaced virtual-control function buttons that masqueraded as synthetic key
+  chords with stable typed local-action IDs. Mouse buttons, remote key chords,
+  and local UI actions now have separate construction and dispatch paths; old
+  saved action buttons are recognized only by an exact one-time document
+  migration and are immediately rewritten in canonical form.
 - Hardened Sunshine's Windows Release build and test environment: dependency
   audit is clean, local builds do not attempt Codecov uploads, expected
   dependency diagnostics and shader junctions are deterministic, coverage

@@ -15,8 +15,6 @@ import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 
-import com.google.gson.Gson;
-import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
@@ -127,7 +125,6 @@ public class GamePadAddFragment extends BaseGameMenuDialog implements View.OnCli
         rv_keyboard_gamepad.setOnItemClickListener((parent, view, position, id) -> {
             GameMenuQuickBean bean=beanGamePadList.get(position);
             bean.setId(VirtualControlElementIds.newId());
-            LimeLog.info("axi->rv:"+new Gson().toJson(bean));
             onClick.click(bean);
             dismiss();
         });

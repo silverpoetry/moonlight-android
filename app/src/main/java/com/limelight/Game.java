@@ -89,6 +89,7 @@ import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsState;
 import com.limelight.virtualcontrols.layout.VirtualControlLayoutRepository;
 import com.limelight.virtualcontrols.layout.android.AndroidVirtualControlLayoutRepository;
+import com.limelight.virtualcontrols.action.VirtualControlAction;
 import com.limelight.ui.gamemenu.GameMenuHost;
 import com.limelight.ui.gamemenu.AndroidGameMenuController;
 import com.limelight.ui.gamemenu.AndroidDeviceBatteryProvider;
@@ -1069,7 +1070,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     }
 
     @Override
-    public void performStreamUiAction(StreamUiActions.Action action) {
+    public void performStreamUiAction(VirtualControlAction action) {
         switch (action) {
             case TOGGLE_SOFT_KEYBOARD:
                 if (!hasWindowFocus()) {
@@ -2411,7 +2412,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                             break;
                         case FULL_KEYBOARD:
                             performStreamUiAction(
-                                    StreamUiActions.Action
+                                    VirtualControlAction
                                             .TOGGLE_FULL_KEYBOARD);
                             break;
                     }

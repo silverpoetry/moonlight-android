@@ -1,5 +1,7 @@
 package com.limelight.ui.gamemenu.bean;
 
+import com.limelight.virtualcontrols.action.VirtualControlAction;
+
 /**
  * Description
  * Date: 2024-10-20
@@ -12,6 +14,9 @@ public class GameMenuQuickBean {
     private int code;
 
     private String codes;
+
+    /** Stable ID for a client-local action; mutually exclusive with codes. */
+    private String localActionId;
 
     private String desc;
 
@@ -113,6 +118,29 @@ public class GameMenuQuickBean {
 
     public void setCodes(String codes) {
         this.codes = codes;
+        if (codes != null) {
+            localActionId = null;
+        }
+    }
+
+    public String getLocalActionId() {
+        return localActionId;
+    }
+
+    public VirtualControlAction getLocalAction() {
+        return VirtualControlAction.fromPersistentId(localActionId);
+    }
+
+    public GameMenuQuickBean setLocalAction(
+            VirtualControlAction localAction) {
+        localActionId = localAction == null
+                ? null
+                : localAction.getPersistentId();
+        if (localAction != null) {
+            codes = null;
+            switchMode = false;
+        }
+        return this;
     }
 
     public String getDesc() {

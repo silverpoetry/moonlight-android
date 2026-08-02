@@ -145,15 +145,6 @@ public class Dualshock4Controller extends AbstractDualSenseController {
       accelX = accelX_ms2;
       accelY = accelY_ms2;
       accelZ = accelZ_ms2;
-//      LimeLog.info("axi->accelx:"+accelX);
-//      LimeLog.info("axi->accely:"+accelY);
-//      LimeLog.info("axi->accelz:"+accelZ);
-//
-//      LimeLog.info("axi->gyroz:"+gyroZ);
-//      LimeLog.info("axi->gyrox:"+gyroX);
-//      LimeLog.info("axi->gyroy:"+gyroY);
-
-
       int touch00 = buffer.get(33) & 0xFF;
       int touch01 = buffer.get(34) & 0xFF;
       int touch02 = buffer.get(35) & 0xFF;

@@ -18,13 +18,13 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 
-import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.StreamInputGateway;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsState;
 import com.limelight.ui.StreamUiActions;
+import com.limelight.virtualcontrols.action.VirtualControlAction;
 import com.limelight.ui.gamemenu.TouchPadView;
 
 import java.util.ArrayList;
@@ -250,7 +250,6 @@ public class KeyBoardLayoutController implements FullKeyboardOverlay {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 isCombination=isChecked;
-                LimeLog.info("axi-2-"+isCombination);
                 resetView();
             }
         });
@@ -264,7 +263,7 @@ public class KeyBoardLayoutController implements FullKeyboardOverlay {
 
         keyboardView.findViewById(R.id.iv_game_menu).setOnClickListener(v ->
                 uiActions.performStreamUiAction(
-                        StreamUiActions.Action.OPEN_STREAM_MENU));
+                        VirtualControlAction.OPEN_STREAM_MENU));
 
         rg_keyboard=keyboardView.findViewById(R.id.rg_keyboard);
         rg_keyboard.check(R.id.rbt_keyboard_1);
@@ -312,7 +311,7 @@ public class KeyBoardLayoutController implements FullKeyboardOverlay {
             @Override
             public void onClick(View v) {
                 uiActions.performStreamUiAction(
-                        StreamUiActions.Action.TOGGLE_SOFT_KEYBOARD);
+                        VirtualControlAction.TOGGLE_SOFT_KEYBOARD);
             }
         });
 
