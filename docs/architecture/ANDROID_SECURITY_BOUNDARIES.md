@@ -75,10 +75,12 @@ both product flavors before replacing the current workspace signing identity.
 ## Enforcement
 
 `verifyAndroidSecurityPolicy`, included in `verifyLocal`, parses the source
-manifest and security XML. It fails when:
+manifest, both fully merged Release manifests, and security XML. It fails when:
 
 - a component omits an explicit exported state or the exported allowlist
   changes;
+- a Debug-only stream/provider entry point, debuggable/test-only flag, or
+  shell-profileable declaration enters either Release flavor;
 - a broad or unknown `FileProvider` path appears;
 - any backup mode can move settings, host databases, or client identity;
 - the network trust-anchor surface changes;

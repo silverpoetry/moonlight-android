@@ -1,3 +1,6 @@
+import com.android.build.api.artifact.SingleArtifact
+import com.moonlight.buildlogic.VerifyReleaseManifestPolicy
+
 plugins {
     alias(libs.plugins.android.application)
 }
@@ -160,6 +163,24 @@ androidComponents {
     // against the generated Release BuildConfig, not inferred from Debug.
     beforeVariants(selector().withBuildType('release')) { variantBuilder ->
         variantBuilder.enableUnitTest = true
+    }
+
+    onVariants(selector().withBuildType('release')) { variant ->
+        String taskSuffix = variant.name.substring(0, 1).toUpperCase() +
+                variant.name.substring(1)
+        def manifestPolicyTask = tasks.register(
+                "verify${taskSuffix}ManifestSecurity",
+                VerifyReleaseManifestPolicy) {
+            group = 'verification'
+            description = "Verifies the merged ${variant.name} manifest."
+            variantName.set(variant.name)
+            manifestFile.set(
+                    variant.artifacts.get(
+                            SingleArtifact.MERGED_MANIFEST.INSTANCE))
+        }
+        rootProject.tasks.named('verifyAndroidSecurityPolicy').configure {
+            dependsOn(manifestPolicyTask)
+        }
     }
 }
 

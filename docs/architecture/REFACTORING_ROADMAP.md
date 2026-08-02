@@ -1392,6 +1392,11 @@ agree across all participants.
   obsolete dependency ignore; the suppression gate rejects receiver-flag
   bypasses from returning. Release lint also removed the four retired unpair
   messages and their 100 translations left behind by the deleted UI flow.
+- Extended Android security verification from the source manifest to the
+  Android Gradle Plugin's merged manifest artifact for both Release flavors.
+  The gate now locks the final exported component/permission map and rejects
+  Debug-only stream or transfer entry points, debuggable/test-only flags, and
+  shell profiling after all application, flavor, and dependency overlays.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;
