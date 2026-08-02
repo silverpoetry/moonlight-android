@@ -5,7 +5,7 @@ import android.content.Intent;
 
 import com.limelight.AppView;
 import com.limelight.ShortcutTrampoline;
-import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.computers.model.HostIdentity;
 import com.limelight.nvstream.http.NvApp;
 
 import java.util.Objects;
@@ -17,21 +17,25 @@ public final class AndroidShortcutIntentFactory {
 
     public static Intent createHostIntent(
             Context context,
-            ComputerDetails computer) {
+            HostIdentity host) {
         Objects.requireNonNull(context, "context");
-        Objects.requireNonNull(computer, "computer");
+        HostIdentity target = Objects.requireNonNull(host, "host");
         Intent intent = new Intent(context, ShortcutTrampoline.class);
-        intent.putExtra(AppView.NAME_EXTRA, computer.name);
-        intent.putExtra(AppView.UUID_EXTRA, computer.uuid);
+        intent.putExtra(
+                AppView.NAME_EXTRA,
+                target.getAdvertisedName());
+        intent.putExtra(
+                AppView.UUID_EXTRA,
+                target.getId().getValue());
         intent.setAction(Intent.ACTION_DEFAULT);
         return intent;
     }
 
     public static Intent createAppIntent(
             Context context,
-            ComputerDetails computer,
+            HostIdentity host,
             NvApp app) {
-        Intent intent = createHostIntent(context, computer);
+        Intent intent = createHostIntent(context, host);
         Objects.requireNonNull(app, "app");
         intent.putExtra(
                 AndroidStreamLaunchContract.EXTRA_APP_NAME,

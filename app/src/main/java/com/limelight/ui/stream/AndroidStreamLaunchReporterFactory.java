@@ -2,7 +2,8 @@ package com.limelight.ui.stream;
 
 import android.content.Context;
 
-import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.computers.model.HostId;
+import com.limelight.computers.model.HostIdentity;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.utils.ShortcutHelper;
 
@@ -23,19 +24,20 @@ public final class AndroidStreamLaunchReporterFactory {
                         context,
                         "context")
                 .getApplicationContext();
-        ComputerDetails computerSnapshot = new ComputerDetails();
-        computerSnapshot.name = computerName;
-        computerSnapshot.uuid = computerUuid;
+        HostIdentity hostSnapshot = new HostIdentity(
+                HostId.of(computerUuid),
+                computerName,
+                null);
         NvApp appSnapshot = snapshotApp(launchedApp);
         ShortcutHelper shortcutHelper =
                 new ShortcutHelper(applicationContext);
 
         return StreamLaunchReporter.create(() -> {
             shortcutHelper.reportComputerShortcutUsed(
-                    computerSnapshot);
+                    hostSnapshot);
             if (reportGameLaunch) {
                 shortcutHelper.reportGameLaunched(
-                        computerSnapshot,
+                        hostSnapshot,
                         appSnapshot);
             }
         });

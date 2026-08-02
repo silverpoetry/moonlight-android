@@ -413,9 +413,8 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                                     .getPairingStatus() ==
                                     HostConnectionState.PairingStatus.PAIRED) {
                                 shortcutHelper.createAppViewShortcutForOnlineHost(
-                                        LegacyHostRuntimeAdapter
-                                                .toComputerDetails(
-                                                        snapshot));
+                                        snapshot.getRecord()
+                                                .getIdentity());
                             }
 
                             PcView.this.runOnUiThread(new Runnable() {
@@ -1298,11 +1297,10 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
 
     private void removeComputer(HostRuntimeSnapshot snapshot) {
         HostId hostId = snapshot.getRecord().getIdentity().getId();
-        ComputerDetails details = LegacyHostRuntimeAdapter
-                .toComputerDetails(snapshot);
         managerBinder.removeHost(hostId);
 
-        new DiskAssetLoader(this).deleteAssetsForComputer(details.uuid);
+        new DiskAssetLoader(this).deleteAssetsForComputer(
+                hostId.getValue());
 
         hiddenAppRepository.delete(hostId);
 
@@ -1312,7 +1310,8 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             if (hostId.equals(computer.getSnapshot().getRecord()
                     .getIdentity().getId())) {
                 // Disable or delete shortcuts referencing this PC
-                shortcutHelper.disableComputerShortcut(details,
+                shortcutHelper.disableComputerShortcut(
+                        snapshot.getRecord().getIdentity(),
                         getResources().getString(R.string.scut_deleted_pc));
 
                 pcGridAdapter.removeComputer(computer);

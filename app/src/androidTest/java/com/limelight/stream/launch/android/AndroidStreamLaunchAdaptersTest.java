@@ -16,7 +16,8 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import com.limelight.Game;
 import com.limelight.MoonlightApplication;
 import com.limelight.ShortcutTrampoline;
-import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.computers.model.HostId;
+import com.limelight.computers.model.HostIdentity;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.stream.launch.PendingStreamReconnect;
 import com.limelight.stream.launch.RecentStreamSession;
@@ -105,14 +106,15 @@ public final class AndroidStreamLaunchAdaptersTest {
     @Test
     public void shortcutIntentRetainsTheEstablishedStringAppIdContract() {
         Context context = targetContext();
-        ComputerDetails computer = new ComputerDetails();
-        computer.uuid = "host-id";
-        computer.name = "host-name";
+        HostIdentity host = new HostIdentity(
+                HostId.of("host-id"),
+                "host-name",
+                null);
         NvApp app = new NvApp("Desktop", 7, true);
 
         Intent intent = AndroidShortcutIntentFactory.createAppIntent(
                 context,
-                computer,
+                host,
                 app);
 
         assertEquals(

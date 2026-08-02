@@ -22,7 +22,7 @@ import androidx.appcompat.content.res.AppCompatResources;
 import com.limelight.LimeLog;
 import com.limelight.PosterContentProvider;
 import com.limelight.R;
-import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.computers.model.HostIdentity;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.stream.launch.android.AndroidShortcutIntentFactory;
 
@@ -42,19 +42,21 @@ public class TvChannelHelper {
         this.context = context;
     }
 
-    void requestChannelOnHomeScreen(ComputerDetails computer) {
+    void requestChannelOnHomeScreen(HostIdentity host) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!isAndroidTV()) {
                 return;
             }
 
-            Long channelId = getChannelId(computer.uuid);
+            Long channelId = getChannelId(host.getId().getValue());
             if (channelId == null) {
                 return;
             }
 
             Intent intent = new Intent(TvContract.ACTION_REQUEST_CHANNEL_BROWSABLE);
-            intent.putExtra(TvContract.EXTRA_CHANNEL_ID, getChannelId(computer.uuid));
+            intent.putExtra(
+                    TvContract.EXTRA_CHANNEL_ID,
+                    channelId);
             if (!(context instanceof Activity)) {
                 return;
             }
@@ -69,7 +71,7 @@ public class TvChannelHelper {
         }
     }
 
-    void createTvChannel(ComputerDetails computer) {
+    void createTvChannel(HostIdentity host) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!isAndroidTV()) {
                 return;
@@ -77,12 +79,12 @@ public class TvChannelHelper {
 
             ChannelBuilder builder = new ChannelBuilder()
                     .setType(TvContract.Channels.TYPE_PREVIEW)
-                    .setDisplayName(computer.name)
-                    .setInternalProviderId(computer.uuid)
+                    .setDisplayName(host.getAdvertisedName())
+                    .setInternalProviderId(host.getId().getValue())
                     .setAppLinkIntent(AndroidShortcutIntentFactory
-                            .createHostIntent(context, computer));
+                            .createHostIntent(context, host));
 
-            Long channelId = getChannelId(computer.uuid);
+            Long channelId = getChannelId(host.getId().getValue());
             if (channelId != null) {
                 context.getContentResolver().update(TvContract.buildChannelUri(channelId),
                         builder.toContentValues(), null, null);
@@ -140,14 +142,15 @@ public class TvChannelHelper {
         return bitmap;
     }
 
-    void addGameToChannel(ComputerDetails computer, NvApp app) {
+    void addGameToChannel(HostIdentity host, NvApp app) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!isAndroidTV()) {
                 return;
             }
 
 
-            Long channelId = getChannelId(computer.uuid);
+            String hostId = host.getId().getValue();
+            Long channelId = getChannelId(hostId);
             if (channelId == null) {
                 return;
             }
@@ -157,9 +160,12 @@ public class TvChannelHelper {
                     .setType(TYPE_GAME)
                     .setTitle(app.getAppName())
                     .setPosterArtAspectRatio(ASPECT_RATIO_MOVIE_POSTER)
-                    .setPosterArtUri(PosterContentProvider.createBoxArtUri(context, computer.uuid, ""+app.getAppId()))
+                    .setPosterArtUri(PosterContentProvider.createBoxArtUri(
+                            context,
+                            hostId,
+                            "" + app.getAppId()))
                     .setIntent(AndroidShortcutIntentFactory
-                            .createAppIntent(context, computer, app))
+                            .createAppIntent(context, host, app))
                     .setInternalProviderId(""+app.getAppId())
                     // Weight should increase each time we run the game
                     .setWeight((int)((System.currentTimeMillis() - 1500000000000L) / 1000));
@@ -187,13 +193,13 @@ public class TvChannelHelper {
         }
     }
 
-    void deleteChannel(ComputerDetails computer) {
+    void deleteChannel(HostIdentity host) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!isAndroidTV()) {
                 return;
             }
 
-            Long channelId = getChannelId(computer.uuid);
+            Long channelId = getChannelId(host.getId().getValue());
             if (channelId == null) {
                 return;
             }
@@ -202,13 +208,13 @@ public class TvChannelHelper {
         }
     }
 
-    void deleteProgram(ComputerDetails computer, NvApp app) {
+    void deleteProgram(HostIdentity host, NvApp app) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!isAndroidTV()) {
                 return;
             }
 
-            Long channelId = getChannelId(computer.uuid);
+            Long channelId = getChannelId(host.getId().getValue());
             if (channelId == null) {
                 return;
             }

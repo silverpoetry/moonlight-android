@@ -1347,7 +1347,12 @@ agree across all participants.
   lifecycles to immutable `HostRuntimeSnapshot` values. Launches now consume
   the latest observed endpoint, HTTPS port, pinned certificate, and running-app
   state without whole-object `ComputerDetails` copies; mutable protocol DTOs
-  remain only as short-lived adapters at legacy shortcut and NvHTTP edges.
+  remain only as short-lived adapters at app-asset and NvHTTP edges.
+- Replaced the legacy host DTO accepted by launcher shortcuts, pinned game
+  shortcuts, launch reporting, and Android TV channels with the existing
+  immutable `HostIdentity`. Shortcut infrastructure now receives exactly a
+  stable host ID and advertised name, and an architecture rule prevents the
+  protocol DTO dependency from returning.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

@@ -16,6 +16,7 @@ import com.limelight.computers.apps.android.SharedPreferencesHiddenAppRepository
 import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
 import com.limelight.computers.model.HostConnectionState;
 import com.limelight.computers.model.HostId;
+import com.limelight.computers.model.HostIdentity;
 import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.computers.session.HostQuitUseCase;
 import com.limelight.computers.session.NvHttpHostQuitBackend;
@@ -206,13 +207,13 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
             // Shortcut persistence may perform disk I/O, so keep it on the
             // binding worker after the connection has won cancellation.
             shortcutHelper.createAppViewShortcut(
-                    loadedComputer,
+                    loadedHost.getRecord().getIdentity(),
                     true,
                     getIntent().getBooleanExtra(
                             NEW_PAIR_EXTRA,
                             false));
             shortcutHelper.reportComputerShortcutUsed(
-                    loadedComputer);
+                    loadedHost.getRecord().getIdentity());
             if (cancellation.isCanceled()) {
                 return null;
             }
@@ -459,8 +460,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                             }
                             // Disable shortcuts referencing this PC for now
                             shortcutHelper.disableComputerShortcut(
-                                    LegacyHostRuntimeAdapter
-                                            .toComputerDetails(snapshot),
+                                    snapshot.getRecord().getIdentity(),
                                     getResources().getString(R.string.scut_not_paired));
 
                             // Display a toast to the user and quit the activity
@@ -964,8 +964,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                     HostRuntimeSnapshot targetHost = hostSnapshot;
                     if (targetHost == null ||
                             !shortcutHelper.createPinnedGameShortcut(
-                                    LegacyHostRuntimeAdapter
-                                            .toComputerDetails(targetHost),
+                                    targetHost.getRecord().getIdentity(),
                                     app.app,
                                     appBits)) {
                         UiToast.makeText(AppView.this, getResources().getString(R.string.unable_to_pin_shortcut),
@@ -1166,10 +1165,10 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
             public void run() {
                 boolean updated = false;
                 HostRuntimeSnapshot currentHost = hostSnapshot;
-                ComputerDetails shortcutComputer = currentHost == null
+                HostIdentity shortcutHost =
+                        currentHost == null
                         ? null
-                        : LegacyHostRuntimeAdapter.toComputerDetails(
-                                currentHost);
+                        : currentHost.getRecord().getIdentity();
 
                 // First handle app updates and additions
                 for (NvApp app : appList) {
@@ -1197,9 +1196,9 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                         // We could have a leftover shortcut from last time this PC was paired
                         // or if this app was removed then added again. Enable those shortcuts
                         // again if present.
-                        if (shortcutComputer != null) {
+                        if (shortcutHost != null) {
                             shortcutHelper.enableAppShortcut(
-                                    shortcutComputer,
+                                    shortcutHost,
                                     app);
                         }
 
@@ -1223,9 +1222,9 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
 
                     // This app was removed in the latest app list
                     if (!foundExistingApp) {
-                        if (shortcutComputer != null) {
+                        if (shortcutHost != null) {
                             shortcutHelper.disableAppShortcut(
-                                    shortcutComputer,
+                                    shortcutHost,
                                     existingApp.app,
                                     "App removed from PC");
                         }

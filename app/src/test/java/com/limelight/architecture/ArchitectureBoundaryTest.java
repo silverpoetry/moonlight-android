@@ -2317,4 +2317,28 @@ public final class ArchitectureBoundaryTest {
                         "stream launch and shortcut lifecycles consume immutable host snapshots")
                 .check(productionClasses);
     }
+
+    @Test
+    public void shortcutInfrastructureUsesImmutableHostIdentity() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.utils.ShortcutHelper")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.utils.TvChannelHelper")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.stream.launch.android.AndroidShortcutIntentFactory")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.stream.AndroidStreamLaunchReporterFactory")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.http.ComputerDetails")
+                .because(
+                        "launcher shortcuts and TV channels need only immutable host identity")
+                .check(productionClasses);
+    }
 }
