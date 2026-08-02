@@ -4,15 +4,14 @@ import androidx.annotation.AnyThread;
 import androidx.annotation.WorkerThread;
 
 import com.limelight.LimeLog;
+import com.limelight.utils.concurrent.LatestTaskExecutor;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
-import java.util.concurrent.ThreadFactory;
 
 /**
  * Owns the bounded background work used to diagnose one stream failure.
@@ -61,14 +60,6 @@ public final class StreamFailureDiagnostics {
         }
     }
 
-    private static final ThreadFactory THREAD_FACTORY = command -> {
-        Thread thread = new Thread(
-                command,
-                "StreamFailureDiagnostics");
-        thread.setDaemon(true);
-        return thread;
-    };
-
     private final Object lock = new Object();
     private final ExecutorService workerExecutor;
     private final Executor callbackExecutor;
@@ -83,7 +74,8 @@ public final class StreamFailureDiagnostics {
             Probe probe,
             Executor callbackExecutor) {
         return new StreamFailureDiagnostics(
-                Executors.newSingleThreadExecutor(THREAD_FACTORY),
+                new LatestTaskExecutor(
+                        "StreamFailureDiagnostics"),
                 callbackExecutor,
                 probe);
     }

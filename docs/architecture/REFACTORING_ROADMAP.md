@@ -1309,6 +1309,11 @@ agree across all participants.
   thread timeout, and a discovery-generation gate. Service updates already
   queued when discovery stops or restarts can no longer resurrect stale hosts,
   and repeated callbacks cannot grow an unbounded executor backlog.
+- Applied the same bounded latest-task contract to replaceable host-service
+  binding and stream-failure diagnosis. Cancelled predecessors are removed
+  from the pending slot immediately instead of accumulating behind an
+  uninterruptible running operation; single-operation controllers retain their
+  simpler rejection state machines.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

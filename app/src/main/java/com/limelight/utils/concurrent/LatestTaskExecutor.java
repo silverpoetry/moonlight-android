@@ -2,8 +2,8 @@ package com.limelight.utils.concurrent;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -18,7 +18,8 @@ import java.util.concurrent.TimeUnit;
  * explicit and prevents an unavailable or slow endpoint from creating an
  * unbounded backlog.</p>
  */
-public final class LatestTaskExecutor implements Executor, AutoCloseable {
+public final class LatestTaskExecutor extends AbstractExecutorService
+        implements AutoCloseable {
     private static final int PENDING_CAPACITY = 1;
 
     private final ThreadPoolExecutor executor;
@@ -67,11 +68,39 @@ public final class LatestTaskExecutor implements Executor, AutoCloseable {
     }
 
     @Override
-    public synchronized void close() {
+    public synchronized void shutdown() {
+        executor.shutdown();
+    }
+
+    @Override
+    public synchronized List<Runnable> shutdownNow() {
         List<Runnable> discarded = executor.shutdownNow();
         for (Runnable task : discarded) {
             discard(task);
         }
+        return discarded;
+    }
+
+    @Override
+    public synchronized boolean isShutdown() {
+        return executor.isShutdown();
+    }
+
+    @Override
+    public synchronized boolean isTerminated() {
+        return executor.isTerminated();
+    }
+
+    @Override
+    public boolean awaitTermination(
+            long timeout,
+            TimeUnit unit) throws InterruptedException {
+        return executor.awaitTermination(timeout, unit);
+    }
+
+    @Override
+    public void close() {
+        shutdownNow();
     }
 
     private static final class ReplacePendingTaskPolicy

@@ -1,14 +1,13 @@
 package com.limelight.ui.hosts;
 
 import com.limelight.LimeLog;
+import com.limelight.utils.concurrent.LatestTaskExecutor;
 
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
-import java.util.concurrent.ThreadFactory;
 
 /**
  * Lifecycle owner for asynchronous host-service binding initialization.
@@ -63,14 +62,6 @@ public final class HostServiceBindingController {
         }
     }
 
-    private static final ThreadFactory THREAD_FACTORY = command -> {
-        Thread thread = new Thread(
-                command,
-                "HostServiceBinding");
-        thread.setDaemon(true);
-        return thread;
-    };
-
     private final Object lock = new Object();
     private final ExecutorService workerExecutor;
     private final Executor callbackExecutor;
@@ -82,7 +73,7 @@ public final class HostServiceBindingController {
     public static HostServiceBindingController create(
             Executor callbackExecutor) {
         return new HostServiceBindingController(
-                Executors.newSingleThreadExecutor(THREAD_FACTORY),
+                new LatestTaskExecutor("HostServiceBinding"),
                 callbackExecutor);
     }
 
