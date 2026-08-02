@@ -13,21 +13,26 @@ import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 @RequiresApi(api = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 public class NsdManagerDiscoveryAgent extends MdnsDiscoveryAgent {
     private static final String SERVICE_TYPE = "_nvstream._tcp";
+    private static final int CALLBACK_QUEUE_CAPACITY = 64;
+    private static final long CALLBACK_THREAD_IDLE_SECONDS = 30;
     private final NsdManager nsdManager;
     private final Object listenerLock = new Object();
     private NsdManager.DiscoveryListener pendingListener;
     private NsdManager.DiscoveryListener activeListener;
     private final HashMap<String, NsdManager.ServiceInfoCallback> serviceCallbacks = new HashMap<>();
-    private final ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
+    private final ThreadPoolExecutor callbackExecutor =
+            createCallbackExecutor();
+    private long discoveryGeneration;
 
-    private NsdManager.DiscoveryListener createDiscoveryListener() {
+    private NsdManager.DiscoveryListener createDiscoveryListener(
+            long generation) {
         return new NsdManager.DiscoveryListener() {
             @Override
             public void onStartDiscoveryFailed(String serviceType, int errorCode) {
@@ -97,17 +102,30 @@ public class NsdManagerDiscoveryAgent extends MdnsDiscoveryAgent {
                         return;
                     }
 
-                    LimeLog.info("NSD: Machine appeared: " + nsdServiceInfo.getServiceName());
+                    String serviceName = nsdServiceInfo.getServiceName();
+                    LimeLog.info("NSD: Machine appeared: " + serviceName);
 
                     NsdManager.ServiceInfoCallback serviceInfoCallback = new NsdManager.ServiceInfoCallback() {
                         @Override
                         public void onServiceInfoCallbackRegistrationFailed(int errorCode) {
+                            if (!removeCurrentServiceCallback(
+                                    serviceName,
+                                    this,
+                                    generation)) {
+                                return;
+                            }
                             LimeLog.severe("NSD: Service info callback registration failed: " + errorCode);
                             listener.notifyDiscoveryFailure(new RuntimeException("onServiceInfoCallbackRegistrationFailed(): " + errorCode));
                         }
 
                         @Override
                         public void onServiceUpdated(NsdServiceInfo nsdServiceInfo) {
+                            if (!isCurrentServiceCallback(
+                                    serviceName,
+                                    this,
+                                    generation)) {
+                                return;
+                            }
                             LimeLog.info("NSD: Machine resolved: " + nsdServiceInfo.getServiceName());
                             reportNewComputer(nsdServiceInfo.getServiceName(), nsdServiceInfo.getPort(),
                                     getV4Addrs(nsdServiceInfo.getHostAddresses()),
@@ -123,8 +141,33 @@ public class NsdManagerDiscoveryAgent extends MdnsDiscoveryAgent {
                         }
                     };
 
-                    nsdManager.registerServiceInfoCallback(nsdServiceInfo, executor, serviceInfoCallback);
-                    serviceCallbacks.put(nsdServiceInfo.getServiceName(), serviceInfoCallback);
+                    NsdManager.ServiceInfoCallback previousCallback =
+                            serviceCallbacks.put(
+                                    serviceName,
+                                    serviceInfoCallback);
+                    try {
+                        nsdManager.registerServiceInfoCallback(
+                                nsdServiceInfo,
+                                callbackExecutor,
+                                serviceInfoCallback);
+                    }
+                    catch (RuntimeException error) {
+                        if (previousCallback == null) {
+                            serviceCallbacks.remove(
+                                    serviceName,
+                                    serviceInfoCallback);
+                        }
+                        else {
+                            serviceCallbacks.put(
+                                    serviceName,
+                                    previousCallback);
+                        }
+                        throw error;
+                    }
+                    if (previousCallback != null) {
+                        nsdManager.unregisterServiceInfoCallback(
+                                previousCallback);
+                    }
                 }
             }
 
@@ -158,7 +201,8 @@ public class NsdManagerDiscoveryAgent extends MdnsDiscoveryAgent {
         synchronized (listenerLock) {
             // Register a new service discovery listener if there's not already one starting or running
             if (pendingListener == null && activeListener == null) {
-                pendingListener = createDiscoveryListener();
+                long generation = ++discoveryGeneration;
+                pendingListener = createDiscoveryListener(generation);
                 nsdManager.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, pendingListener);
             }
         }
@@ -168,6 +212,8 @@ public class NsdManagerDiscoveryAgent extends MdnsDiscoveryAgent {
     public void stopDiscovery() {
         // Protect against racing ServiceInfoCallback and DiscoveryListener callbacks
         synchronized (listenerLock) {
+            discoveryGeneration++;
+
             // Clear any pending listener to ensure the discoverStarted() callback
             // will realize it's gone and stop itself.
             pendingListener = null;
@@ -190,6 +236,52 @@ public class NsdManagerDiscoveryAgent extends MdnsDiscoveryAgent {
             }
             serviceCallbacks.clear();
         }
+    }
+
+    private boolean isCurrentServiceCallback(
+            String serviceName,
+            NsdManager.ServiceInfoCallback callback,
+            long generation) {
+        synchronized (listenerLock) {
+            return generation == discoveryGeneration &&
+                    activeListener != null &&
+                    serviceCallbacks.get(serviceName) == callback;
+        }
+    }
+
+    private boolean removeCurrentServiceCallback(
+            String serviceName,
+            NsdManager.ServiceInfoCallback callback,
+            long generation) {
+        synchronized (listenerLock) {
+            if (!isCurrentServiceCallback(
+                    serviceName,
+                    callback,
+                    generation)) {
+                return false;
+            }
+            serviceCallbacks.remove(serviceName);
+            return true;
+        }
+    }
+
+    private static ThreadPoolExecutor createCallbackExecutor() {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                1,
+                1,
+                CALLBACK_THREAD_IDLE_SECONDS,
+                TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(CALLBACK_QUEUE_CAPACITY),
+                runnable -> {
+                    Thread thread = new Thread(
+                            runnable,
+                            "NsdServiceCallbacks");
+                    thread.setDaemon(true);
+                    return thread;
+                },
+                new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
     }
 
     private static Inet4Address[] getV4Addrs(List<InetAddress> addrs) {

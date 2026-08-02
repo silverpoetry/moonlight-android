@@ -1305,6 +1305,10 @@ agree across all participants.
   bounded serial executors. Each channel retains only its running task and the
   newest pending state, reports superseded work to its owner for cleanup, and
   cannot accumulate an unbounded backlog behind slow image or file I/O.
+- Bounded Android 14 NSD callback delivery with explicit backpressure, an idle
+  thread timeout, and a discovery-generation gate. Service updates already
+  queued when discovery stops or restarts can no longer resurrect stale hosts,
+  and repeated callbacks cannot grow an unbounded executor backlog.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;
