@@ -13,6 +13,7 @@ import java.io.*;
 import java.security.*;
 import java.security.cert.*;
 import java.util.Arrays;
+import java.util.Objects;
 
 public class PairingManager {
 
@@ -30,6 +31,11 @@ public class PairingManager {
         PIN_WRONG,
         FAILED,
         ALREADY_IN_PROGRESS
+    }
+
+    @FunctionalInterface
+    interface PairingChallengeProbe {
+        boolean isPaired() throws IOException, XmlPullParserException;
     }
     
     public PairingManager(NvHTTP http, LimelightCryptoProvider cryptoProvider) {
@@ -176,6 +182,56 @@ public class PairingManager {
     public X509Certificate getPairedCert() {
         return serverCert;
     }
+
+    /**
+     * Resolves the ambiguous commit boundary where the host may have accepted
+     * the client certificate even though the final HTTP response was lost.
+     *
+     * <p>The probe is mutually authenticated with the newly received server
+     * certificate and the client's private key. A successful challenge is
+     * therefore authoritative evidence that the host committed pairing. The
+     * original transport or XML failure remains primary when confirmation is
+     * unavailable, with any confirmation failure attached for diagnostics.</p>
+     */
+    static void confirmAmbiguousFinalExchange(
+            Exception finalExchangeFailure,
+            PairingChallengeProbe challengeProbe)
+            throws IOException, XmlPullParserException {
+        Objects.requireNonNull(finalExchangeFailure,
+                "finalExchangeFailure");
+        Objects.requireNonNull(challengeProbe, "challengeProbe");
+        if (!(finalExchangeFailure instanceof IOException) &&
+                !(finalExchangeFailure instanceof
+                        XmlPullParserException)) {
+            throw new IllegalArgumentException(
+                    "Unsupported final exchange failure",
+                    finalExchangeFailure);
+        }
+
+        try {
+            if (challengeProbe.isPaired()) {
+                return;
+            }
+        }
+        catch (IOException | XmlPullParserException
+                confirmationFailure) {
+            finalExchangeFailure.addSuppressed(confirmationFailure);
+        }
+
+        if (finalExchangeFailure instanceof IOException) {
+            throw (IOException) finalExchangeFailure;
+        }
+        throw (XmlPullParserException) finalExchangeFailure;
+    }
+
+    private boolean executePairingChallengeIsAccepted()
+            throws IOException, XmlPullParserException {
+        String pairChallenge = http.executePairingChallenge();
+        return NvHTTP.getXmlString(
+                pairChallenge,
+                "paired",
+                true).equals("1");
+    }
     
     public PairState pair(String serverInfo, String pin) throws IOException, XmlPullParserException {
         PairingHashAlgorithm hashAlgo;
@@ -272,15 +328,29 @@ public class PairingManager {
         
         // Send the server our signed secret
         byte[] clientPairingSecret = concatBytes(clientSecret, signData(clientSecret, pk));
-        String clientSecretResp = http.executePairingCommand("clientpairingsecret="+bytesToHex(clientPairingSecret), true);
-        if (!NvHTTP.getXmlString(clientSecretResp, "paired", true).equals("1")) {
-            http.unpair();
-            return PairState.FAILED;
+        try {
+            String clientSecretResp = http.executePairingCommand(
+                    "clientpairingsecret=" +
+                            bytesToHex(clientPairingSecret),
+                    true);
+            if (!NvHTTP.getXmlString(
+                    clientSecretResp,
+                    "paired",
+                    true).equals("1")) {
+                http.unpair();
+                return PairState.FAILED;
+            }
         }
-        
+        catch (IOException | XmlPullParserException
+                finalExchangeFailure) {
+            confirmAmbiguousFinalExchange(
+                    finalExchangeFailure,
+                    this::executePairingChallengeIsAccepted);
+            return PairState.PAIRED;
+        }
+
         // Do the initial challenge (seems necessary for us to show as paired)
-        String pairChallenge = http.executePairingChallenge();
-        if (!NvHTTP.getXmlString(pairChallenge, "paired", true).equals("1")) {
+        if (!executePairingChallengeIsAccepted()) {
             http.unpair();
             return PairState.FAILED;
         }

@@ -519,14 +519,25 @@ public class NvHTTP {
             resp.close();
 
             if (verbose && !path.equals("serverinfo")) {
-                LimeLog.info(getCompleteUrl(baseUrl, path, query)+" -> "+respString);
+                HttpUrl completeUrl = getCompleteUrl(
+                        baseUrl,
+                        path,
+                        query);
+                LimeLog.info(formatRequestForVerboseLog(
+                        completeUrl,
+                        path) + " -> " +
+                        formatResponseForVerboseLog(path, respString));
             }
 
             return respString;
         } catch (IOException e) {
             if (verbose && !path.equals("serverinfo")) {
+                HttpUrl completeUrl = getCompleteUrl(
+                        baseUrl,
+                        path,
+                        query);
                 LimeLog.warning(
-                        getCompleteUrl(baseUrl, path, query) +
+                        formatRequestForVerboseLog(completeUrl, path) +
                                 " request failed",
                         e);
             }
@@ -899,6 +910,29 @@ public class NvHTTP {
             this.size = size;
             this.sha256 = sha256;
         }
+    }
+
+    static String formatRequestForVerboseLog(
+            HttpUrl completeUrl,
+            String path) {
+        if (!"pair".equals(path)) {
+            return completeUrl.toString();
+        }
+
+        return completeUrl.newBuilder()
+                .query(null)
+                .build() + "?<pairing parameters redacted>";
+    }
+
+    static String formatResponseForVerboseLog(
+            String path,
+            String responseBody) {
+        if (!"pair".equals(path)) {
+            return responseBody;
+        }
+
+        return "<pairing response redacted; " +
+                responseBody.length() + " bytes>";
     }
 
     public ClipboardBlobUploadResult uploadClipboardBlob(String mime, File source,
