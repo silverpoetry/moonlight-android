@@ -29,11 +29,6 @@
     <string name="wol_no_mac">Nu s-a putut porni PC-ul deoarece GFE nu a comunicat o adresa MAC</string>
     <string name="wol_waking_msg">Poate dura puțin până PC-ul pornește. Dacă nu pornește, verifică dacă este configurat corect pentru Wake-On-LAN.</string>
     <string name="wol_fail">Nu s-au putut trimite pachetele Wake-On-LAN</string>
-    <!-- Unpair messages -->
-    <string name="unpairing">Desperecherechere…</string>
-    <string name="unpair_success">Desperecherechere efectuată cu succes</string>
-    <string name="unpair_fail">Desperecherea a eșuat</string>
-    <string name="unpair_error">Dispozitivul nu este împerecheat</string>
     <!-- Errors -->
     <string name="error_pc_offline">PC-ul este inaccesibil</string>
     <string name="error_manager_not_running">Serviciul ComputerManager nu este pornit. Te rugăm să aștepți câteva secunde sau să repornești aplicația.</string>

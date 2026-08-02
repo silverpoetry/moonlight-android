@@ -31,9 +31,6 @@
     <string name="wol_pc_online">Komputer tersedia</string>
     <string name="wol_no_mac">Tidak bisa membangunkan komputer karena GFE tidak mengirimkan alamat MAC</string>
     <string name="wol_waking_msg">Membangunkan komputer mungkin akan membutuhkan beberapa saat. Jika tidak bisa, pastikan konfigurasi Wake-On-LAN sudah benar.</string>
-    <string name="unpairing">Memutuskan pemasangan…</string>
-    <string name="unpair_success">Pemutusan pemasangan berhasil</string>
-    <string name="unpair_fail">Gagal memutuskan pemasangan</string>
     <string name="error_pc_offline">Komputer tidak tersedia</string>
     <string name="title_decoding_error">Dekoder video berhenti bekerja</string>
     <string name="message_decoding_error">Moonlight telah berhenti bekerja dikarenakan inkompatibilitas dengan dekoder video perangkat ini. Pastikan GeForce Experience sudah diperbarui ke versi terkini pada komputer Anda. Coba ganti pengaturan stream jika masih berlanjut.</string>
@@ -77,7 +74,6 @@
 \nJika anda mencoba stream lewat internet, install Moonlight Internet Hosting Tool pada komputer anda dan jalankan Internet Streaming Tester untuk mengecek koneksi Internet komputer Anda.</string>
     <string name="pair_pc_ingame">Komputer sedang ada di game. Anda harus menutupnya terlebih dahulu.</string>
     <string name="wol_fail">Gagal mengirim paket Wake-On-LAN</string>
-    <string name="unpair_error">Perangkat tidak terpasang</string>
     <string name="error_manager_not_running">ComputerManager tidak berjalan. Mohon tunggu beberapa saat atau mulai ulang aplikasi.</string>
     <string name="error_404">GFE memberikan eror HTTP 404. Pastikan komputer anda menggunakan kartu grafis yang didukung. Penggunaan aplikasi remote desktop juga dapat menyebabakan eror ini. Coba mulai ulang perangkat Anda atau install ulang GFE.</string>
     <string name="unable_to_pin_shortcut">Peluncur Anda tidak memperbolehkan pembuatan shortcut yang disematkan.</string>

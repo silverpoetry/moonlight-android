@@ -10,7 +10,6 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.ConfigurationInfo;
@@ -830,8 +829,6 @@ public class MediaCodecHelper {
         return false;
     }
 
-    @SuppressWarnings("deprecation")
-    @SuppressLint("NewApi")
     private static LinkedList<MediaCodecInfo> getMediaCodecList() {
         LinkedList<MediaCodecInfo> infoList = new LinkedList<>();
 

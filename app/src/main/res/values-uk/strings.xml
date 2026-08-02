@@ -18,11 +18,6 @@
     <string name="wol_no_mac">Не вдається розбудити ПК, оскільки немає збереженої MAC-адреси</string>
     <string name="wol_waking_msg">Пробудження пристрою може зайняти кілька секунд. Якщо цього не відбувається, упевніться що Wake-On-LAN налаштований правильно.</string>
     <string name="wol_fail">Помилка при відправці Wake-On-LAN пакетів</string>
-    <!-- Unpair messages -->
-    <string name="unpairing">Розрив пари…</string>
-    <string name="unpair_success">Розрив пари закінчився успішно</string>
-    <string name="unpair_fail">Розрив пари не вдався</string>
-    <string name="unpair_error">Пристрій не було спарено</string>
     <!-- Errors -->
     <string name="error_pc_offline">Пристрій вимкнено чи знаходиться поза мережею</string>
     <string name="error_manager_not_running">Сервіс ComputerManager не запущено. Будь ласка, зачекайте кілька секунд або перезапустіть застосунок.</string>

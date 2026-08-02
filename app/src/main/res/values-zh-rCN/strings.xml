@@ -29,11 +29,6 @@
     <string name="wol_no_mac">无法唤醒电脑，因为没有存储的 MAC 地址</string>
     <string name="wol_waking_msg">唤醒电脑需要一些时间。如果电脑没有唤醒，请确保 Wake-On-LAN 设置无误。</string>
     <string name="wol_fail"> 无法发送Wake-On-LAN数据包 </string>
-    <!-- Unpair messages -->
-    <string name="unpairing"> 取消配对中…… </string>
-    <string name="unpair_success"> 成功取消配对 </string>
-    <string name="unpair_fail"> 无法配对 </string>
-    <string name="unpair_error"> 设备没有配对过 </string>
     <!-- Errors -->
     <string name="error_pc_offline"> 电脑离线中 </string>
     <string name="error_manager_not_running">ComputerManager 服务未运行。请稍等几秒或重启App。</string>

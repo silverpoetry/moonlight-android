@@ -127,10 +127,6 @@
     <string name="lost_connection">Đã mất kết nối đến PC</string>
     <string name="no">Không</string>
     <string name="conn_establishing_msg">Đang bắt đầu kết nối</string>
-    <string name="unpair_error">Thiết bị đã không được ghép đôi</string>
-    <string name="unpair_fail">Huỷ ghép đôi thất bại</string>
-    <string name="unpair_success">Huỷ ghép đôi thành công</string>
-    <string name="unpairing">Đang huỷ ghép đôi…</string>
     <string name="wol_fail">Gửi các gói Wake-On-LAN thất bại</string>
     <string name="wol_waking_msg">PC của bạn có thể sẽ mất một vài giây để thức giấc. Nếu nó không thức giấc, hãy chắc chắn là nó được thiết lập đúng cho Wake-On-LAN.</string>
     <string name="wol_no_mac">Không thể đánh thức PC vì GFE đã không gửi một địa chỉ MAC</string>

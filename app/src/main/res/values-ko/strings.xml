@@ -25,11 +25,6 @@
     <string name="wol_no_mac">저장된 MAC 주소가 없기 때문에 PC를 켤 수 없습니다.</string>
     <string name="wol_waking_msg">PC를 켜는 데에 약간의 시간이 걸립니다. PC가 켜지지 않으면, Wake-On-Lan이 설정되어있는지 확인하세요.</string>
     <string name="wol_fail">Wake-On-LAN 패킷을 보내는 데에 실패했습니다</string>
-    <!-- Unpair messages -->
-    <string name="unpairing">페어링 해제중…</string>
-    <string name="unpair_success">페어링 해제 완료</string>
-    <string name="unpair_fail">페어링 해제 실패</string>
-    <string name="unpair_error">장치가 페어링되지 않음</string>
     <!-- Errors -->
     <string name="error_pc_offline">컴퓨터가 오프라인 상태입니다</string>
     <string name="error_manager_not_running">ComputerManager 서비스가 실행되지 않고 있습니다. 잠시 기다리거나 앱을 다시 시작하세요.</string>

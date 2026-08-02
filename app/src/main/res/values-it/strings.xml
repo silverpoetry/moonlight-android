@@ -27,11 +27,6 @@
         Se non succede niente, assicurati che l\'opzione Wake-On-LAN sia configurata correttamente.
     </string>
     <string name="wol_fail">Invio pacchetti Wake-On-LAN fallito</string>
-    <!-- Unpair messages -->
-    <string name="unpairing">Disaccoppiamento…</string>
-    <string name="unpair_success">Disaccoppiato con successo</string>
-    <string name="unpair_fail">Disaccoppiamento fallito</string>
-    <string name="unpair_error">Il dispositivo non è stato accoppiato</string>
     <!-- Errors -->
     <string name="error_pc_offline">PC offline</string>
     <string name="error_manager_not_running">Il servizio ComputerManager non è avviato. Attendi qualche secondo o riavvia l\'applicazione.</string>

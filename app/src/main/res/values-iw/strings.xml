@@ -37,10 +37,6 @@
     <string name="pair_fail">חיבור נכשל</string>
     <string name="wol_pc_online">מחשב פעיל</string>
     <string name="wol_fail">נכשל לשלוח פקודת Wake-On-LAN</string>
-    <string name="unpairing">מנתק חיבור…</string>
-    <string name="unpair_success">ניתוק הושלם</string>
-    <string name="unpair_fail">ניתוק נכשל</string>
-    <string name="unpair_error">המחשב לא חובר</string>
     <string name="error_pc_offline">המחשב לא פעיל</string>
     <string name="error_unknown_host">נכשל לאתר את המארח</string>
     <string name="title_decoding_error">מפענח וידיאו קרס</string>

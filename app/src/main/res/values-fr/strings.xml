@@ -44,11 +44,6 @@
     <string name="wol_no_mac">Impossible de réveiller le PC car il n\'y a pas d\'addresse MAC enregistrée pour ce PC</string>
     <string name="wol_waking_msg">Votre PC peut prendre quelques secondes pour démarrer. S\'il ne démarre toujours pas, assurez-vous qu\'il est correctement configuré pour le Wake-On-LAN.</string>
     <string name="wol_fail">Échec de l\'envoi des paquets Wake-On-LAN</string>
-    <!-- Unpair messages -->
-    <string name="unpairing">Désappariage…</string>
-    <string name="unpair_success">Désapparié avec succès</string>
-    <string name="unpair_fail">Échec du désappairage</string>
-    <string name="unpair_error">Le périphérique n\'est appareillé</string>
     <!-- Errors -->
     <string name="error_pc_offline">L\'ordinateur est hors ligne</string>
     <string name="error_manager_not_running">Le service ComputerManager n\'est pas en cours d\'exécution. Veuillez attendre quelques secondes ou redémarrez l\'application.</string>

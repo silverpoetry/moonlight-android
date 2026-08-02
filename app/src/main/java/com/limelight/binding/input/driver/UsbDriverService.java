@@ -1,6 +1,5 @@
 package com.limelight.binding.input.driver;
 
-import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
@@ -16,8 +15,9 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.view.InputDevice;
+
+import androidx.core.content.ContextCompat;
 import androidx.core.content.IntentCompat;
-import com.limelight.utils.UiToast;
 
 import com.limelight.LimeLog;
 import com.limelight.R;
@@ -25,6 +25,7 @@ import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.audio.StreamAudioSettingsState;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsState;
+import com.limelight.utils.UiToast;
 
 import java.util.ArrayList;
 import java.util.Objects;
@@ -438,7 +439,6 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                 ((!isRecognizedInputDevice(device) || claimAllAvailable) && Dualshock4Controller.canClaimDevice(device));
     }
 
-    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     private void start() {
         if (started || usbManager == null) {
             return;
@@ -454,12 +454,11 @@ public class UsbDriverService extends Service implements UsbDriverListener {
         IntentFilter filter = new IntentFilter();
         filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
         filter.addAction(ACTION_USB_PERMISSION);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED);
-        }
-        else {
-            registerReceiver(receiver, filter);
-        }
+        ContextCompat.registerReceiver(
+                this,
+                receiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED);
 
         // Enumerate existing devices
         for (UsbDevice dev : usbManager.getDeviceList().values()) {

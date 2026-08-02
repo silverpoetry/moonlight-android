@@ -132,8 +132,6 @@
     <string name="wol_pc_online">Komputer jest online</string>
     <string name="wol_no_mac">Nie można wybudzić komputera, ponieważ nie ma zapisanego adresu MAC</string>
     <string name="wol_waking_msg">Uruchomienie komputera może potrwać kilka sekund. Jeśli tak się nie stanie, upewnij się, że jest prawidłowo skonfigurowany do Wake-On-LAN.</string>
-    <string name="unpair_fail">Rozparowanie nie powiodło się</string>
-    <string name="unpair_error">Urządzenie nie zostało sparowane</string>
     <string name="error_pc_offline">Komputer jest offline</string>
     <string name="error_unknown_host">Nie udało się zlokalizować hosta</string>
     <string name="message_decoding_error">Moonlight uległ awarii z powodu niezgodności z dekoderem wideo tego urządzenia. Spróbuj dostosować ustawienia przesyłania strumieniowego jeśli awarie będą się powtarzać.</string>
@@ -158,8 +156,6 @@
     <string name="resolution_480p">480p</string>
     <string name="pair_pairing_msg">Wprowadź następujący kod PIN na komputerze docelowym:</string>
     <string name="pair_pairing_help">Jeśli na komputerze hosta działa Sunshine, przejdź do interfejsu użytkownika Sunshine aby wprowadzić kod PIN.</string>
-    <string name="unpairing">Rozparowywanie…</string>
-    <string name="unpair_success">Rozparowano z powodzeniem</string>
     <string name="unable_to_pin_shortcut">Obecny program uruchamiający nie pozwala na tworzenie przypiętych skrótów.</string>
     <string name="conn_client_latency">Średnie opóźnienie dekodowania ramki:</string>
     <string name="conn_client_latency_hw">opóźnienie dekodera sprzętowego:</string>

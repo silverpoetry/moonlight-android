@@ -52,11 +52,6 @@
     </string>
     <string name="wol_fail">Failed to send Wake-On-LAN packets</string>
 
-    <!-- Unpair messages -->
-    <string name="unpairing">Unpairing…</string>
-    <string name="unpair_success">Unpaired successfully</string>
-    <string name="unpair_fail">Failed to unpair</string>
-    <string name="unpair_error">Device was not paired</string>
 
     <!-- Errors -->
     <string name="error_pc_offline">Computer is offline</string>

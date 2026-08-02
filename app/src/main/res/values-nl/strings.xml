@@ -20,11 +20,6 @@
     Als dit niet gebeurt controleer de Wake-On-LAN instellingen.
   </string>
     <string name="wol_fail">Wake-On-LAN packets versturen mislukt</string>
-    <!-- Unpair messages -->
-    <string name="unpairing">Ontkoppelen…</string>
-    <string name="unpair_success">Ontkoppeling succesvol</string>
-    <string name="unpair_fail">Ontkoppeling mislukt</string>
-    <string name="unpair_error">Apparaat niet gekoppeld</string>
     <!-- Errors -->
     <string name="error_pc_offline">Computer is offline</string>
     <string name="error_manager_not_running">De ComputerManager service is niet gestart. Wacht een ogenblik of herstart de app.</string>

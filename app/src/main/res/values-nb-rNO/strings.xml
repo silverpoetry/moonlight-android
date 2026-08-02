@@ -25,10 +25,6 @@
     <string name="unable_to_pin_shortcut">Din nåværende oppstarter tillater ikke opprettelse av festede snarveier.</string>
     <string name="title_decoding_error">Videodekoderen krasjet</string>
     <string name="error_unknown_host">Klarte ikke å utlede vertsadresse</string>
-    <string name="unpair_error">Enheten ble ikke parret</string>
-    <string name="unpair_fail">Klarte ikke å oppheve parring</string>
-    <string name="unpair_success">Parring opphevet</string>
-    <string name="unpairing">Opphever parring …</string>
     <string name="wol_fail">Klarte ikke å sende Wake-On-LAN-pakker</string>
     <string name="wol_waking_msg">Det kan ta et par sekunder før PC-en din våkner. Hvis den ikke gjør det må du sjekke at den er satt opp riktig for Wake-On-LAN.</string>
     <string name="wol_no_mac">Kunne ikke vekke opp PC fordi GFE ikke sendte en MAC-adresse</string>

@@ -27,11 +27,6 @@
 	    Если этого не происходит, удостоверьтесь что Wake-On-LAN настроен правильно.
     </string>
     <string name="wol_fail">Ошибка при отправке Wake-On-LAN пакетов</string>
-    <!-- Unpair messages -->
-    <string name="unpairing">Разрыв пары…</string>
-    <string name="unpair_success">Разрыв пары закончился успешно</string>
-    <string name="unpair_fail">Разрыв пары не удался</string>
-    <string name="unpair_error">Устройство не было спарено</string>
     <!-- Errors -->
     <string name="error_pc_offline">Компьютер выключен или находится не в сети</string>
     <string name="error_manager_not_running">Сервис ComputerManager не запущен. Пожалуйста, подождите несколько секунд или перезапустите приложение.</string>

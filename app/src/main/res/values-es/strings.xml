@@ -20,11 +20,6 @@
 	    Si no se inicia asegúrate que está configurado correctamente para Wake-On-LAN.
     </string>
     <string name="wol_fail">Fallo al enviar paquetes Wake-On-LAN</string>
-    <!-- Unpair messages -->
-    <string name="unpairing">Desemparejando…</string>
-    <string name="unpair_success">Desemparejado con éxito</string>
-    <string name="unpair_fail">Error al desemparejar</string>
-    <string name="unpair_error">El dispositivo no estaba emparejado</string>
     <!-- Errors -->
     <string name="error_pc_offline">El ordenador está apagado</string>
     <string name="error_manager_not_running">El servicio "ComputerManager" no está en ejecución. Por favor, espera unos segundos o reinicia la aplicación.</string>

@@ -25,6 +25,10 @@ abstract class VerifyJavaSuppressionPolicy extends DefaultTask {
     private static final Pattern STALE_INFLATED_ID_SUPPRESSION =
             Pattern.compile(
                     '@SuppressLint\\s*\\(\\s*"MissingInflatedId"\\s*\\)')
+    private static final Pattern UNSAFE_RECEIVER_SUPPRESSION =
+            Pattern.compile(
+                    '@SuppressLint\\s*\\(\\s*"' +
+                            'UnspecifiedRegisterReceiverFlag"\\s*\\)')
 
     @InputFiles
     @PathSensitive(PathSensitivity.RELATIVE)
@@ -46,6 +50,14 @@ abstract class VerifyJavaSuppressionPolicy extends DefaultTask {
                         violations.add(
                                 project.relativePath(file) +
                                         ': stale MissingInflatedId suppression')
+                    }
+                    if (UNSAFE_RECEIVER_SUPPRESSION
+                            .matcher(source).find()) {
+                        violations.add(
+                                project.relativePath(file) +
+                                        ': dynamic receivers must declare ' +
+                                        'an exported state through the ' +
+                                        'compatibility API')
                     }
                     if (UNCHECKED_SUPPRESSION.matcher(source).find() &&
                             !ALLOWED_UNCHECKED_CAST_PATHS.any {

@@ -11,8 +11,6 @@
     <string name="title_checkbox_host_audio">Sesleri bilgisayarda çal</string>
     <string name="suffix_seekbar_bitrate_mbps">Mbps</string>
     <string name="error_pc_offline">Bilgisayar çevrimdışı</string>
-    <string name="unpair_success">Eşleştirme başarıyla kaldırıldı</string>
-    <string name="unpairing">Eşleştirme kaldırılıyor…</string>
     <string name="pair_fail">Eşleştirme başarısız</string>
     <string name="pair_incorrect_pin">Yanlış PIN</string>
     <string name="pair_pairing_title">Eşleştiriliyor</string>
@@ -51,8 +49,6 @@
     <string name="wol_no_mac">GFE bir MAC adresi göndermediği için bilgisayar uyandırılamıyor</string>
     <string name="wol_fail">Yerel Ağda Uyandırma paketleri gönderilemedi</string>
     <string name="wol_waking_msg">Bilgisayarınızın uyanması birkaç saniye sürebilir. Eğer uyanmazsa, Yerel Ağda Uyandırma için doğru şekilde yapılandırıldığından emin olun.</string>
-    <string name="unpair_fail">Eşleşme kaldırılamadı</string>
-    <string name="unpair_error">Cihaz eşleştirilmedi</string>
     <string name="nettest_text_success">Ağınız Moonlight\'ı engelliyor gibi görünmüyor. Bağlanmakta hala sorun yaşıyorsanız, bilgisayarınızın güvenlik duvarı ayarlarını kontrol edin.
 \n
 \nİnternet üzerinden yayın yapmaya çalışıyorsanız, Moonlight İnternet Barındırma Aracını bilgisayarınıza yükleyin ve bilgisayarınızın internet bağlantısını kontrol etmek için birlikte verilen İnternet Akış Test Cihazını çalıştırın.</string>

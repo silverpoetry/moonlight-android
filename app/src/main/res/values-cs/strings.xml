@@ -22,12 +22,8 @@
     <string name="nettest_title_waiting">Testování připojení k síti</string>
     <string name="pairing">Párování…</string>
     <string name="pair_pc_offline">Počítač je offline</string>
-    <string name="unpairing">Rušení párování…</string>
-    <string name="unpair_success">Párování úspěšně zrušeno</string>
-    <string name="unpair_error">Zařízení nebylo spárováno</string>
     <string name="error_manager_not_running">Služba ComputerManager neběží. Vyčkejte prosím chvíli nebo restartujte aplikaci.</string>
     <string name="error_pc_offline">Počítač je offline</string>
-    <string name="unpair_fail">Zrušení párování se nezdařilo</string>
     <string name="error_404">GFE vrátilo HTTP chybu 404. Ujistěte se, že vaše PC má podporované GPU. Tato chyba může být způsobena i použitím softwaru pro vzdálenou plochu. Zkuste restartovat počítač, nebo přeinstalujte GFE.</string>
     <string name="title_decoding_error">Dekodér videa spadnul</string>
     <string name="error_usb_prohibited">Správce zařízení neumožňuje přístup k USB. Zkontrolujte nastavení Knoxu nebo MDM.</string>

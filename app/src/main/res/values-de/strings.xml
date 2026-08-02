@@ -45,11 +45,6 @@
     <string name="wol_no_mac">Host konnte nicht aufgeweckt werden, da GFE keine MAC-Adresse gesendet hat</string>
     <string name="wol_waking_msg">Es kann einige Momente dauern deinen Host aufzuwecken. Sollte dies fehlschlagen, stelle bitte sicher, dass Wake-On-LAN korrekt konfiguriert ist.</string>
     <string name="wol_fail">Senden der Wake-On-LAN Pakete ist fehlgeschlagen</string>
-    <!-- Unpair messages -->
-    <string name="unpairing">Trenne Kopplung…</string>
-    <string name="unpair_success">Kopplung erfolgreich getrennt</string>
-    <string name="unpair_fail">Trennung der Kopplung fehlgeschlagen</string>
-    <string name="unpair_error">Gerät wurde nicht gekoppelt</string>
     <!-- Errors -->
     <string name="error_pc_offline">Host ist offline</string>
     <string name="error_manager_not_running">Der ComputerManager Dienst läuft nicht. Bitte warte ein paar Sekunden oder starte die App neu.</string>

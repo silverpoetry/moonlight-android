@@ -33,8 +33,6 @@
     <string name="nettest_text_blocked">A conexão de rede atual do seu aparelho está a bloquear o Moonlight. A transmissão pela Internet pode não funcionar enquanto estiver conectado a esta rede.</string>
     <string name="wol_waking_msg">Pode levar alguns segundos até o seu PC acordar. Se isso não acontecer, verifique se ele está configurado corretamente para Wake-On-LAN.</string>
     <string name="wol_fail">Falha ao enviar pacotes Wake-On-LAN</string>
-    <string name="unpair_success">Despareado com sucesso</string>
-    <string name="unpair_fail">Falha ao desparear</string>
     <string name="title_decoding_error">Decodificador de Vídeo Crashou</string>
     <string name="title_decoding_reset">Resetar Configurações de Vídeo</string>
     <string name="message_decoding_error">Moonlight crashou devido a uma incompatibilidade com o decodificador de vídeo deste aparelho. Certifique-se de que o GeForce Experience esteja atualizado à versão mais recente no seu PC. Tente ajustar as configurações de transmissão se as falhas continuarem.</string>
@@ -185,8 +183,6 @@
     <string name="pair_already_in_progress">Pareamento já em andamento</string>
     <string name="wol_pc_online">Esse computador está disponível</string>
     <string name="wol_no_mac">Não foi possível acordar o PC porque o GFE não enviou um endereço MAC</string>
-    <string name="unpairing">Despareando…</string>
-    <string name="unpair_error">Aparelho não pareado</string>
     <string name="error_pc_offline">Esse computador está indisponível</string>
     <string name="error_manager_not_running">O serviço ComputerManager não está em execução. Aguarde alguns segundos ou reinicie a app..</string>
     <string name="error_unknown_host">Falha ao encontrar o host</string>

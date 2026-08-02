@@ -7,9 +7,6 @@
         <ignore regexp="androidx\.activity:activity.*1\.11\.0"/>
         <ignore regexp="androidx\.core:core.*1\.16\.0"/>
     </issue>
-    <issue id="InvalidPackage">
-        <ignore path="**/bcpkix-jdk15on-*.jar"/>
-    </issue>
     <!-- Glide 3 ships an optional NotificationTarget class, but this app only uses image
          targets. Keep the notification permission check active for every real app call site. -->
     <issue id="NotificationPermission">

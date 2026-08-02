@@ -39,7 +39,6 @@
     <string name="applist_quit_fail">Αποτυχία διακοπής</string>
     <string name="applist_quit_confirmation">Είστε σίγουροι ότι θέλετε να τερματίσετε την τρέχουσα εφαρμογή; Όλα τα μη αποθηκευμένα δεδομένα θα χαθούν.</string>
     <string name="title_enable_perf_overlay">Εμφάνιση στατιστικών στοιχείων απόδοσης κατά τη ροή</string>
-    <string name="unpair_error">Η συσκευή δεν είχε συζευξηθεί</string>
     <string name="error_pc_offline">Ο υπολογιστής είναι εκτός σύνδεσης</string>
     <string name="error_unknown_host">Αποτυχία επίλυσης ονόματος κεντρικού υπολογιστή</string>
     <string name="title_decoding_error">Ο αποκωδικοποιητής βίντεο κατέρρευσε</string>
@@ -102,9 +101,6 @@
     <string name="pair_fail">Η σύζευξη απέτυχε</string>
     <string name="wol_no_mac">Δεν είναι δυνατή η αφύπνιση του υπολογιστή επειδή το GFE δεν έστειλε διεύθυνση MAC</string>
     <string name="wol_fail">Απέτυχε η αποστολή πακέτων Wake-On-LAN</string>
-    <string name="unpairing">Κατάργηση σύζευξης…</string>
-    <string name="unpair_success">Καταργήθηκε η σύζευξη με επιτυχία</string>
-    <string name="unpair_fail">Αποτυχία κατάργησης σύζευξης</string>
     <string name="summary_checkbox_small_icon_mode">Το μικρότερο box art στο πλέγμα εφαρμογών επιτρέπει σε περισσότερες εφαρμογές να είναι ορατές στην οθόνη</string>
     <string name="title_checkbox_host_audio">Αναπαραγωγή ήχου στον υπολογιστή</string>
     <string name="summary_checkbox_host_audio">Αναπαραγωγή ήχου από τον υπολογιστή και αυτή τη συσκευή</string>

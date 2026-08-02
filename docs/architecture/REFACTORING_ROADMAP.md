@@ -1386,6 +1386,12 @@ agree across all participants.
   callbacks, STUN diagnostics, USB haptics, and the root input proxy now retain
   Android logging in Debug builds while Release compiles the calls away; the
   production logging gate rejects future direct native log calls.
+- Replaced the USB service's SDK-conditional dynamic-receiver registration and
+  lint suppression with the AndroidX compatibility API and an explicit
+  non-exported contract. Removed the now-stale codec API suppression and an
+  obsolete dependency ignore; the suppression gate rejects receiver-flag
+  bypasses from returning. Release lint also removed the four retired unpair
+  messages and their 100 translations left behind by the deleted UI flow.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

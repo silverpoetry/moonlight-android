@@ -33,10 +33,6 @@
     <string name="wol_no_mac">Det går inte att väcka datorn eftersom det inte finns någon lagrad MAC-adress</string>
     <string name="wol_waking_msg">Det kan ta några sekunder innan datorn vaknar upp. Om den inte gör det, kontrollera att den är korrekt konfigurerad för Wake-On-LAN.</string>
     <string name="wol_fail">Misslyckades med att skicka Wake-On-LAN-paket</string>
-    <string name="unpairing">Bortkopplar…</string>
-    <string name="unpair_success">Bortkoppling framgångsrik</string>
-    <string name="unpair_fail">Misslyckad bortkoppling</string>
-    <string name="unpair_error">Enheten blev inte fogad</string>
     <string name="error_pc_offline">Dator är offline</string>
     <string name="error_unknown_host">Misslyckades med att lösa värd</string>
     <string name="title_decoding_error">Videoavkodare brakade</string>

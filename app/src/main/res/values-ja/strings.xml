@@ -18,11 +18,6 @@
     <string name="wol_no_mac">GFEがMACアドレスを送信しなかったため、コンピュータを起動することができません</string>
     <string name="wol_waking_msg">コンピュータが起動するまで数秒かかる可能性があります。Wake-On-LANが正しく構成されているか確認してください</string>
     <string name="wol_fail">Wake-On-LANパケットの送信に失敗しました</string>
-    <!-- Unpair messages -->
-    <string name="unpairing">ペアリングの解除中</string>
-    <string name="unpair_success">ペアリングの解除に成功しました</string>
-    <string name="unpair_fail">ペアリングの解除に失敗しました</string>
-    <string name="unpair_error">このデバイスはペアリングされませんでした</string>
     <!-- Errors -->
     <string name="error_pc_offline">コンピュータはオフラインです</string>
     <string name="error_manager_not_running">ComputerManagerサービスが動作していません。しばらく待つか、Moonlightを再起動してください</string>

@@ -93,10 +93,6 @@
     <string name="pair_already_in_progress">Pareamento já em andamento</string>
     <string name="wol_pc_online">Esse computador está disponível</string>
     <string name="wol_fail">Falha ao enviar pacotes Wake-On-LAN</string>
-    <string name="unpairing">Despareando…</string>
-    <string name="unpair_success">Despareado com sucesso</string>
-    <string name="unpair_fail">Falha ao desparear</string>
-    <string name="unpair_error">Dispositivo não pareado</string>
     <string name="error_pc_offline">Esse computador está indisponível</string>
     <string name="error_manager_not_running">O serviço ComputerManager não está em execução. Aguarde alguns segundos ou reinicie o aplicativo.</string>
     <string name="error_unknown_host">Falha ao encontrar o host</string>
