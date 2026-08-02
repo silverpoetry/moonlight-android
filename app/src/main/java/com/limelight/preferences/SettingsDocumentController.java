@@ -10,6 +10,7 @@ import android.util.AtomicFile;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.computers.ComputerDatabaseManager;
+import com.limelight.input.accessibility.KeyboardRemappingFileStore;
 import com.limelight.platform.files.AndroidPrivateFileShare;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.app.AppPresentationSettingKeys;
@@ -52,8 +53,6 @@ final class SettingsDocumentController {
 
     private static final String CERTIFICATE_FILE_NAME = "client.crt";
     private static final String PRIVATE_KEY_FILE_NAME = "client.key";
-    private static final String ACCESSIBILITY_FILE_NAME =
-            "axi_switch_keyboard.json";
     private static final String HOST_SNAPSHOT_DIRECTORY =
             "host-backups";
     private static final String HOST_SNAPSHOT_FILE =
@@ -212,7 +211,7 @@ final class SettingsDocumentController {
                 runOnIo(() -> importFile(uri, PRIVATE_KEY_FILE_NAME));
                 break;
             case REQUEST_ACCESSIBILITY_IMPORT:
-                runOnIo(() -> importFile(uri, ACCESSIBILITY_FILE_NAME));
+                runOnIo(() -> importAccessibilityConfiguration(uri));
                 break;
             case REQUEST_BACKGROUND:
                 runOnIo(() -> importBackground(uri));
@@ -470,6 +469,23 @@ final class SettingsDocumentController {
         }
         catch (Exception error) {
             showImportError(displayName, error);
+        }
+    }
+
+    private void importAccessibilityConfiguration(Uri uri) {
+        try {
+            File destination =
+                    KeyboardRemappingFileStore.resolve(activity);
+            replaceFileFromUri(
+                    uri,
+                    destination,
+                    KeyboardRemappingFileStore.MAXIMUM_BYTES);
+            showToast(
+                    R.string.settings_import_succeeded,
+                    UiToast.LENGTH_SHORT);
+        }
+        catch (Exception error) {
+            showImportError("accessibility key mapping", error);
         }
     }
 

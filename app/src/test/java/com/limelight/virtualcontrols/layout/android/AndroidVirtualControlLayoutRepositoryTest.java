@@ -10,23 +10,33 @@ import static org.junit.Assert.assertThrows;
 
 public final class AndroidVirtualControlLayoutRepositoryTest {
     @Test
-    public void retainsLegacyLandscapeFileMapping() {
+    public void usesCanonicalLandscapeFileMapping() {
         assertEquals(
-                "axi_OSC_Keyboard_2.txt",
-                AndroidVirtualControlLayoutRepository.legacyFileName(
+                "virtual_control_keyboard_OSC_Keyboard_2_landscape.json",
+                AndroidVirtualControlLayoutRepository.canonicalFileName(
                         VirtualControlLayoutKey.keyboard(
                                 "OSC_Keyboard_2",
                                 VirtualControlLayoutOrientation.LANDSCAPE)));
     }
 
     @Test
-    public void retainsLegacyPortraitFileMapping() {
+    public void usesCanonicalPortraitFileMapping() {
         assertEquals(
-                "axi_gamePad_4_1.txt",
-                AndroidVirtualControlLayoutRepository.legacyFileName(
+                "virtual_control_gamepad_gamePad_4_portrait.json",
+                AndroidVirtualControlLayoutRepository.canonicalFileName(
                         VirtualControlLayoutKey.gamepad(
                                 "gamePad_4",
                         VirtualControlLayoutOrientation.PORTRAIT)));
+    }
+
+    @Test
+    public void retainsHistoricalFileMappingOnlyForMigration() {
+        assertEquals(
+                "axi_OSC_Keyboard_2.txt",
+                AndroidVirtualControlLayoutRepository.legacyFileName(
+                        VirtualControlLayoutKey.keyboard(
+                                "OSC_Keyboard_2",
+                                VirtualControlLayoutOrientation.LANDSCAPE)));
     }
 
     @Test

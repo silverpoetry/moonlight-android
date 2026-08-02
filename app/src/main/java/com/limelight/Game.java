@@ -386,6 +386,10 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                                 Context.MODE_PRIVATE),
                         getSharedPreferences(
                                 SharedPreferencesGameMenuShortcutRepository
+                                        .LEGACY_CUSTOM_PREFERENCES_NAME,
+                                Context.MODE_PRIVATE),
+                        getSharedPreferences(
+                                SharedPreferencesGameMenuShortcutRepository
                                         .LEGACY_IMPORTED_PREFERENCES_NAME,
                                 Context.MODE_PRIVATE));
         gameMenuController = new AndroidGameMenuController(this);

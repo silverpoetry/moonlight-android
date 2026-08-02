@@ -27,6 +27,8 @@ import java.util.Objects;
 public final class SharedPreferencesGameMenuShortcutRepository
         implements GameMenuShortcutRepository {
     public static final String PREFERENCES_NAME =
+            "game_menu_shortcuts";
+    public static final String LEGACY_CUSTOM_PREFERENCES_NAME =
             "quick_axi_keyAssemble";
     public static final String DOCUMENT_KEY =
             "game_menu_shortcuts_v2";
@@ -36,15 +38,18 @@ public final class SharedPreferencesGameMenuShortcutRepository
             "special_key";
 
     private final SharedPreferences preferences;
+    private final SharedPreferences legacyCustomPreferences;
     private final SharedPreferences legacyImportedPreferences;
     private final GameMenuShortcutDocumentCodec documentCodec;
     private final LegacyGameMenuShortcutCodec legacyCodec;
 
     public SharedPreferencesGameMenuShortcutRepository(
             SharedPreferences preferences,
+            SharedPreferences legacyCustomPreferences,
             SharedPreferences legacyImportedPreferences) {
         this(
                 preferences,
+                legacyCustomPreferences,
                 legacyImportedPreferences,
                 new GameMenuShortcutDocumentCodec(),
                 new LegacyGameMenuShortcutCodec());
@@ -52,11 +57,15 @@ public final class SharedPreferencesGameMenuShortcutRepository
 
     SharedPreferencesGameMenuShortcutRepository(
             SharedPreferences preferences,
+            SharedPreferences legacyCustomPreferences,
             SharedPreferences legacyImportedPreferences,
             GameMenuShortcutDocumentCodec documentCodec,
             LegacyGameMenuShortcutCodec legacyCodec) {
         this.preferences = Objects.requireNonNull(
                 preferences, "preferences");
+        this.legacyCustomPreferences = Objects.requireNonNull(
+                legacyCustomPreferences,
+                "legacyCustomPreferences");
         this.legacyImportedPreferences = Objects.requireNonNull(
                 legacyImportedPreferences,
                 "legacyImportedPreferences");
@@ -80,28 +89,7 @@ public final class SharedPreferencesGameMenuShortcutRepository
 
     private GameMenuShortcutDecodeResult
             loadCanonicalDocument() {
-        Object storedDocument =
-                preferences.getAll().get(DOCUMENT_KEY);
-        if (storedDocument == null) {
-            return null;
-        }
-        if (!(storedDocument instanceof String)) {
-            LimeLog.warning(
-                    "Ignoring shortcut document with invalid storage type");
-            return null;
-        }
-        try {
-            GameMenuShortcutDecodeResult decoded =
-                    documentCodec.decode(
-                            (String) storedDocument);
-            logRejected("canonical", decoded);
-            return decoded;
-        }
-        catch (IllegalArgumentException error) {
-            LimeLog.warning(
-                    "Ignoring invalid shortcut document");
-            return null;
-        }
+        return loadDocument(preferences, "canonical");
     }
 
     @Override
@@ -157,6 +145,20 @@ public final class SharedPreferencesGameMenuShortcutRepository
 
     private boolean migrateIfRequired() {
         if (preferences.contains(DOCUMENT_KEY)) {
+            cleanupLegacyValues();
+            return true;
+        }
+
+        GameMenuShortcutDecodeResult existingDocument =
+                loadDocument(
+                        legacyCustomPreferences,
+                        "migrated canonical");
+        if (existingDocument != null) {
+            if (!write(existingDocument.getShortcuts())) {
+                LimeLog.warning(
+                        "Unable to move shortcut document to canonical storage");
+                return false;
+            }
             cleanupLegacyValues();
             return true;
         }
@@ -223,7 +225,7 @@ public final class SharedPreferencesGameMenuShortcutRepository
             Map<String, GameMenuShortcut> destination) {
         List<Map.Entry<String, ?>> entries =
                 new ArrayList<>(
-                        preferences.getAll().entrySet());
+                        legacyCustomPreferences.getAll().entrySet());
         Collections.sort(
                 entries,
                 (left, right) -> left.getKey()
@@ -261,16 +263,21 @@ public final class SharedPreferencesGameMenuShortcutRepository
 
     private void cleanupLegacyValues() {
         SharedPreferences.Editor editor = preferences.edit();
-        boolean hasCustomLegacyValues = false;
+        boolean hasUnexpectedValues = false;
         for (String key : preferences.getAll().keySet()) {
             if (!DOCUMENT_KEY.equals(key)) {
                 editor.remove(key);
-                hasCustomLegacyValues = true;
+                hasUnexpectedValues = true;
             }
         }
-        if (hasCustomLegacyValues && !editor.commit()) {
+        if (hasUnexpectedValues && !editor.commit()) {
             LimeLog.warning(
-                    "Unable to clean legacy custom shortcuts");
+                    "Unable to clean unexpected canonical shortcut values");
+        }
+        if (!legacyCustomPreferences.getAll().isEmpty() &&
+                !legacyCustomPreferences.edit().clear().commit()) {
+            LimeLog.warning(
+                    "Unable to clean legacy custom shortcut storage");
         }
         if (legacyImportedPreferences
                 .contains(LEGACY_IMPORTED_KEY) &&
@@ -293,6 +300,33 @@ public final class SharedPreferencesGameMenuShortcutRepository
                         DOCUMENT_KEY,
                         documentCodec.encode(document))
                 .commit();
+    }
+
+    private GameMenuShortcutDecodeResult loadDocument(
+            SharedPreferences source,
+            String sourceName) {
+        Object storedDocument = source.getAll().get(DOCUMENT_KEY);
+        if (storedDocument == null) {
+            return null;
+        }
+        if (!(storedDocument instanceof String)) {
+            LimeLog.warning(
+                    "Ignoring " + sourceName +
+                            " shortcut document with invalid storage type");
+            return null;
+        }
+        try {
+            GameMenuShortcutDecodeResult decoded =
+                    documentCodec.decode((String) storedDocument);
+            logRejected(sourceName, decoded);
+            return decoded;
+        }
+        catch (IllegalArgumentException error) {
+            LimeLog.warning(
+                    "Ignoring invalid " + sourceName +
+                            " shortcut document");
+            return null;
+        }
     }
 
     private static LinkedHashMap<String, GameMenuShortcut> index(

@@ -16,6 +16,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -26,7 +28,8 @@ public final class AndroidVirtualControlLayoutRepositoryTest {
     private Context context;
     private AndroidVirtualControlLayoutRepository repository;
     private VirtualControlLayoutKey key;
-    private File persistedFile;
+    private File canonicalFile;
+    private File legacyFile;
 
     @Before
     public void setUp() {
@@ -36,19 +39,22 @@ public final class AndroidVirtualControlLayoutRepositoryTest {
         key = VirtualControlLayoutKey.keyboard(
                 "OSC_Keyboard_5",
                 VirtualControlLayoutOrientation.LANDSCAPE);
-        persistedFile = new File(
+        canonicalFile = new File(
                 context.getFilesDir(),
-                "axi_OSC_Keyboard_5.txt");
-        assertTrue(
-                "Unable to prepare isolated layout fixture",
-                !persistedFile.exists() || persistedFile.delete());
+                AndroidVirtualControlLayoutRepository
+                        .canonicalFileName(key));
+        legacyFile = new File(
+                context.getFilesDir(),
+                AndroidVirtualControlLayoutRepository
+                        .legacyFileName(key));
+        removeFixture(canonicalFile);
+        removeFixture(legacyFile);
     }
 
     @After
     public void tearDown() {
-        assertTrue(
-                "Unable to remove isolated layout fixture",
-                !persistedFile.exists() || persistedFile.delete());
+        removeFixture(canonicalFile);
+        removeFixture(legacyFile);
     }
 
     @Test
@@ -60,6 +66,8 @@ public final class AndroidVirtualControlLayoutRepositoryTest {
                 key,
                 VirtualControlLayoutDocument.fromJson(
                         "[{\"name\":\"按键一\"}]"));
+        assertTrue(canonicalFile.isFile());
+        assertFalse(legacyFile.exists());
         VirtualControlLayoutReadResult first = repository.load(key);
         assertTrue(first.isFound());
         assertEquals(
@@ -72,5 +80,27 @@ public final class AndroidVirtualControlLayoutRepositoryTest {
         assertEquals(
                 "[]",
                 repository.load(key).getDocument().getJson());
+    }
+
+    @Test
+    public void validatedLegacyLayoutMigratesOnce() throws Exception {
+        try (FileOutputStream output =
+                     new FileOutputStream(legacyFile)) {
+            output.write(
+                    "[{\"name\":\"旧布局\"}]"
+                            .getBytes(StandardCharsets.UTF_8));
+        }
+
+        assertEquals(
+                "[{\"name\":\"旧布局\"}]",
+                repository.load(key).getDocument().getJson());
+        assertTrue(canonicalFile.isFile());
+        assertFalse(legacyFile.exists());
+    }
+
+    private static void removeFixture(File file) {
+        assertTrue(
+                "Unable to remove isolated layout fixture",
+                !file.exists() || file.delete());
     }
 }

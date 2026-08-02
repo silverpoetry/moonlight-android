@@ -2,32 +2,24 @@ package com.limelight;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
-import android.text.TextUtils;
+import android.os.FileObserver;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.accessibility.AccessibilityEvent;
 
 import com.limelight.binding.input.StreamInputGateway;
 import com.limelight.binding.input.StreamInputGatewayRegistry;
+import com.limelight.input.accessibility.KeyboardRemappingFileStore;
 import com.limelight.settings.android.AndroidSettingObserver;
 import com.limelight.settings.input.InputSettingKeys;
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 public class KeyboardAccessibilityService extends AccessibilityService {
-    private static final String KEY_REMAP_FILE_NAME =
-            "axi_switch_keyboard.json";
-    private static final int MAX_KEY_REMAP_CHARACTERS = 4 * 1024 * 1024;
-
     //不屏蔽的按键列表
     private static final List<Integer> PASSTHROUGH_KEYS = Arrays.asList(
             KeyEvent.KEYCODE_VOLUME_UP,
@@ -36,6 +28,9 @@ public class KeyboardAccessibilityService extends AccessibilityService {
     );
     private AndroidSettingObserver<Boolean> keyLoggingObserver;
     private volatile boolean accessibilityKeyLoggingEnabled;
+    private volatile Map<Integer, Integer> keyRemappings =
+            Collections.emptyMap();
+    private FileObserver keyRemappingObserver;
 
     @Override
     public boolean onKeyEvent(KeyEvent event) {
@@ -85,64 +80,14 @@ public class KeyboardAccessibilityService extends AccessibilityService {
             return KeyEvent.KEYCODE_ESCAPE;
         }
 
-        File mappingFile = new File(getFilesDir(), KEY_REMAP_FILE_NAME);
-        String mappingJson = readMappingFile(mappingFile);
-        if (TextUtils.isEmpty(mappingJson)) {
-            return null;
-        }
-
-        try {
-            JSONArray mappings =
-                    new JSONObject(mappingJson).getJSONArray("data");
-            for (int i = 0; i < mappings.length(); i++) {
-                JSONObject mapping = mappings.getJSONObject(i);
-                if (scanCode == mapping.getInt("scancode")) {
-                    return mapping.getInt("code");
-                }
-            }
-        }
-        catch (Exception error) {
-            LimeLog.warning(
-                    "Unable to parse accessibility key mapping: " +
-                            error.getMessage());
-        }
-        return null;
-    }
-
-    private static String readMappingFile(File file) {
-        if (!file.isFile()) {
-            return "";
-        }
-
-        StringBuilder contents = new StringBuilder();
-        try (Reader input = new InputStreamReader(
-                new FileInputStream(file),
-                StandardCharsets.UTF_8)) {
-            char[] buffer = new char[4096];
-            int count;
-            while ((count = input.read(buffer)) != -1) {
-                if (contents.length() + count >
-                        MAX_KEY_REMAP_CHARACTERS) {
-                    LimeLog.warning(
-                            "Accessibility key mapping exceeds size limit");
-                    return "";
-                }
-                contents.append(buffer, 0, count);
-            }
-            return contents.toString();
-        }
-        catch (IOException error) {
-            LimeLog.warning(
-                    "Unable to read accessibility key mapping: " +
-                            error.getMessage());
-            return "";
-        }
+        return keyRemappings.get(scanCode);
     }
 
     @Override
     public void onServiceConnected() {
         LimeLog.info("Keyboard service is connected");
         observeInputSettings();
+        observeKeyRemappingFile();
         AccessibilityServiceInfo info = new AccessibilityServiceInfo();
         info.packageNames = new String[] { getApplicationContext().getPackageName() };
         info.eventTypes = AccessibilityEvent.TYPES_ALL_MASK;
@@ -163,12 +108,54 @@ public class KeyboardAccessibilityService extends AccessibilityService {
         keyLoggingObserver.start();
     }
 
+    private void observeKeyRemappingFile() {
+        if (keyRemappingObserver != null) {
+            return;
+        }
+        reloadKeyRemappings();
+        keyRemappingObserver = createKeyRemappingObserver(getFilesDir());
+        keyRemappingObserver.startWatching();
+    }
+
+    @SuppressWarnings("deprecation")
+    private FileObserver createKeyRemappingObserver(File directory) {
+        return new FileObserver(
+                directory.getAbsolutePath(),
+                FileObserver.CLOSE_WRITE |
+                        FileObserver.MOVED_TO |
+                        FileObserver.DELETE |
+                        FileObserver.MOVED_FROM) {
+            @Override
+            public void onEvent(int event, String path) {
+                if (KeyboardRemappingFileStore.isManagedFileName(path)) {
+                    reloadKeyRemappings();
+                }
+            }
+        };
+    }
+
+    private void reloadKeyRemappings() {
+        try {
+            keyRemappings = KeyboardRemappingFileStore.load(this);
+        }
+        catch (IOException | RuntimeException error) {
+            LimeLog.warning(
+                    "Unable to load accessibility key mapping: " +
+                            error.getMessage());
+        }
+    }
+
     @Override
     public void onDestroy() {
         if (keyLoggingObserver != null) {
             keyLoggingObserver.close();
             keyLoggingObserver = null;
         }
+        if (keyRemappingObserver != null) {
+            keyRemappingObserver.stopWatching();
+            keyRemappingObserver = null;
+        }
+        keyRemappings = Collections.emptyMap();
         super.onDestroy();
     }
 

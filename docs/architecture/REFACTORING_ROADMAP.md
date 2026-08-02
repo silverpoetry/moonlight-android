@@ -1243,6 +1243,14 @@ agree across all participants.
   persisted XML key resolves through the canonical schema and every public
   settings projection has a production consumer, preventing a visible but
   ineffective setting from returning.
+- Removed Axixi-derived names from production resources, launcher assets,
+  virtual-control layouts, settings arrays, and menu identifiers. A release
+  gate now rejects reintroduction of removed fork branding or resource
+  prefixes while allowing only explicit, one-time storage migration keys.
+- Replaced the accessibility key-remapping input-path file read and JSON parse
+  with an immutable in-memory snapshot refreshed by a file observer. Shortcut,
+  key-remapping, and virtual-control layout stores now migrate their historical
+  names into bounded canonical documents using commit-before-cleanup semantics.
 - Hardened Sunshine's Windows Release build and test environment: dependency
   audit is clean, local builds do not attempt Codecov uploads, expected
   dependency diagnostics and shader junctions are deterministic, coverage

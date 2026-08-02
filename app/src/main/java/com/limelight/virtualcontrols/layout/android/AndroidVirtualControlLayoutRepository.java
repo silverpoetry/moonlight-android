@@ -9,6 +9,7 @@ import androidx.annotation.Nullable;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
+import com.limelight.LimeLog;
 import com.limelight.platform.files.AndroidPrivateFileShare;
 import com.limelight.virtualcontrols.layout.VirtualControlLayoutDocument;
 import com.limelight.virtualcontrols.layout.VirtualControlLayoutKey;
@@ -24,14 +25,16 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Objects;
 
 /**
  * Android internal-storage adapter for virtual-control layouts.
  *
- * <p>Historical file names are retained as an implementation detail. Writes
- * use {@link AtomicFile}, so a process death cannot publish a partial layout.
- * All I/O is expected to run off latency-sensitive input callbacks.</p>
+ * <p>Writes use a canonical JSON file and {@link AtomicFile}, so a process
+ * death cannot publish a partial layout. A validated historical document is
+ * migrated once on first access. All I/O is expected to run off
+ * latency-sensitive input callbacks.</p>
  */
 public final class AndroidVirtualControlLayoutRepository
         implements VirtualControlLayoutRepository {
@@ -51,15 +54,13 @@ public final class AndroidVirtualControlLayoutRepository
     @Override
     public VirtualControlLayoutReadResult load(
             VirtualControlLayoutKey key) throws IOException {
-        File file = resolveFile(key);
+        File file = ensureCanonicalFile(key);
         if (!file.isFile()) {
             return VirtualControlLayoutReadResult.missing();
         }
-        try (InputStream input = new FileInputStream(file)) {
-            return VirtualControlLayoutReadResult.found(
-                    VirtualControlLayoutDocument.fromJson(
-                            readUtf8(input)));
-        }
+        VirtualControlLayoutDocument document = readDocument(file);
+        removeLegacyFile(key);
+        return VirtualControlLayoutReadResult.found(document);
     }
 
     @Override
@@ -67,9 +68,15 @@ public final class AndroidVirtualControlLayoutRepository
             VirtualControlLayoutKey key,
             VirtualControlLayoutDocument document) throws IOException {
         Objects.requireNonNull(document, "document");
-        byte[] bytes =
-                document.getJson().getBytes(StandardCharsets.UTF_8);
-        AtomicFile atomicFile = new AtomicFile(resolveFile(key));
+        writeDocument(resolveCanonicalFile(key), document);
+        removeLegacyFile(key);
+    }
+
+    private static void writeDocument(
+            File file,
+            VirtualControlLayoutDocument document) throws IOException {
+        byte[] bytes = document.getJson().getBytes(StandardCharsets.UTF_8);
+        AtomicFile atomicFile = new AtomicFile(file);
         FileOutputStream output = null;
         try {
             output = atomicFile.startWrite();
@@ -105,13 +112,24 @@ public final class AndroidVirtualControlLayoutRepository
     @Nullable
     public Uri getShareUri(
             VirtualControlLayoutKey key) throws IOException {
-        File file = resolveFile(key);
+        File file = ensureCanonicalFile(key);
         if (!file.isFile()) {
             return null;
         }
         return AndroidPrivateFileShare.stageReadOnly(
                 applicationContext,
                 file);
+    }
+
+    static String canonicalFileName(VirtualControlLayoutKey key) {
+        return "virtual_control_" +
+                key.getKind().name().toLowerCase(Locale.ROOT) +
+                "_" + key.getProfileId() +
+                (key.getOrientation() ==
+                        VirtualControlLayoutOrientation.PORTRAIT
+                        ? "_portrait"
+                        : "_landscape") +
+                ".json";
     }
 
     static String legacyFileName(VirtualControlLayoutKey key) {
@@ -143,9 +161,49 @@ public final class AndroidVirtualControlLayoutRepository
         }
     }
 
-    private File resolveFile(VirtualControlLayoutKey key) {
+    private File ensureCanonicalFile(
+            VirtualControlLayoutKey key) throws IOException {
+        Objects.requireNonNull(key, "key");
+        File canonicalFile = resolveCanonicalFile(key);
+        if (canonicalFile.isFile()) {
+            return canonicalFile;
+        }
+
+        File legacyFile = resolveLegacyFile(key);
+        if (!legacyFile.isFile()) {
+            return canonicalFile;
+        }
+
+        VirtualControlLayoutDocument legacyDocument =
+                readDocument(legacyFile);
+        writeDocument(canonicalFile, legacyDocument);
+        removeLegacyFile(key);
+        return canonicalFile;
+    }
+
+    private File resolveCanonicalFile(VirtualControlLayoutKey key) {
+        Objects.requireNonNull(key, "key");
+        return new File(filesDirectory, canonicalFileName(key));
+    }
+
+    private File resolveLegacyFile(VirtualControlLayoutKey key) {
         Objects.requireNonNull(key, "key");
         return new File(filesDirectory, legacyFileName(key));
+    }
+
+    private void removeLegacyFile(VirtualControlLayoutKey key) {
+        File legacyFile = resolveLegacyFile(key);
+        if (legacyFile.exists() && !legacyFile.delete()) {
+            LimeLog.warning(
+                    "Unable to remove migrated virtual-control layout");
+        }
+    }
+
+    private static VirtualControlLayoutDocument readDocument(File file)
+            throws IOException {
+        try (InputStream input = new FileInputStream(file)) {
+            return VirtualControlLayoutDocument.fromJson(readUtf8(input));
+        }
     }
 
     private static String readUtf8(InputStream input)
