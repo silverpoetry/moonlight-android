@@ -1,6 +1,7 @@
 package com.limelight.stream.launch.android;
 
-import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.computers.model.HostEndpoint;
+import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.stream.launch.StreamLaunchRequest;
 
@@ -13,29 +14,35 @@ public final class AndroidStreamLaunchRequestFactory {
     }
 
     public static StreamLaunchRequest create(
-            ComputerDetails computer,
+            HostRuntimeSnapshot host,
             NvApp app,
             String uniqueId) throws CertificateEncodingException {
-        Objects.requireNonNull(computer, "computer");
+        HostRuntimeSnapshot source = Objects.requireNonNull(
+                host,
+                "host");
         Objects.requireNonNull(app, "app");
-        if (computer.activeAddress == null) {
+        HostEndpoint activeEndpoint = source.getConnectionState()
+                .getActiveEndpoint();
+        if (activeEndpoint == null) {
             throw new IllegalArgumentException(
-                    "computer has no active address");
+                    "host has no active endpoint");
         }
 
-        byte[] encodedCertificate = computer.serverCert == null
+        byte[] encodedCertificate =
+                source.getPersistedHost().getPinnedCertificate() == null
                 ? null
-                : computer.serverCert.getEncoded();
+                : source.getPersistedHost().getPinnedCertificate()
+                        .getEncoded();
         return new StreamLaunchRequest(
-                computer.activeAddress.address,
-                computer.activeAddress.port,
-                computer.httpsPort,
+                activeEndpoint.getAddress(),
+                activeEndpoint.getPort(),
+                source.getConnectionState().getHttpsPort(),
                 app.getAppName(),
                 app.getAppId(),
                 app.isHdrSupported(),
                 uniqueId,
-                computer.uuid,
-                computer.name,
+                source.getRecord().getIdentity().getId().getValue(),
+                source.getRecord().getIdentity().getAdvertisedName(),
                 encodedCertificate);
     }
 }

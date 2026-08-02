@@ -11,14 +11,12 @@ import android.os.IBinder;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.computers.HostPollingClientLifecycle;
-import com.limelight.computers.LegacyHostRuntimeAdapter;
+import com.limelight.computers.model.HostConnectionState;
 import com.limelight.computers.model.HostId;
 import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.computers.wol.WakeOnLanTarget;
-import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
-import com.limelight.nvstream.http.PairingManager;
 import com.limelight.nvstream.wol.WakeOnLanSender;
 import com.limelight.stream.launch.StreamLaunchRequest;
 import com.limelight.stream.launch.android.AndroidStreamLaunchIntentFactory;
@@ -104,14 +102,13 @@ public class ShortcutTrampoline extends Activity {
         HostRuntimeSnapshot loadedHost = uuidString != null
                 ? localBinder.getHost(HostId.of(uuidString))
                 : localBinder.getHostByName(requestedHostName);
-        ComputerDetails loadedComputer = loadedHost == null
-                ? null
-                : LegacyHostRuntimeAdapter.toComputerDetails(loadedHost);
-        if (loadedComputer == null) {
+        if (loadedHost == null) {
             return BindingOutcome.MISSING_HOST;
         }
 
-        uuidString = loadedComputer.uuid;
+        HostId loadedHostId = loadedHost.getRecord().getIdentity()
+                .getId();
+        uuidString = loadedHostId.getValue();
         if (app == null && requestedAppName != null) {
             app = findCachedAppByName(
                     uuidString,
@@ -149,8 +146,8 @@ public class ShortcutTrampoline extends Activity {
                     snapshot -> handleComputerUpdate(
                             localBinder,
                             startToken,
-                            LegacyHostRuntimeAdapter.toComputerDetails(
-                                    snapshot)));
+                            loadedHostId,
+                            snapshot));
         }
         catch (RuntimeException | Error error) {
             hostPollingLifecycle.failStart(startToken);
@@ -202,22 +199,26 @@ public class ShortcutTrampoline extends Activity {
     private void handleComputerUpdate(
             ComputerManagerService.ComputerManagerBinder localBinder,
             HostPollingClientLifecycle.StartToken startToken,
-            ComputerDetails details) {
+            HostId targetHostId,
+            HostRuntimeSnapshot snapshot) {
         if (!hostPollingLifecycle.owns(startToken) ||
-                details.uuid == null ||
-                !details.uuid.equalsIgnoreCase(uuidString)) {
+                !snapshot.getRecord().getIdentity().getId()
+                        .equals(targetHostId)) {
             return;
         }
 
+        HostConnectionState connectionState =
+                snapshot.getConnectionState();
         WakeOnLanTarget target = wakeOnLanTarget;
-        if (details.state == ComputerDetails.State.OFFLINE &&
+        if (connectionState.getReachability() ==
+                HostConnectionState.Reachability.OFFLINE &&
                 target != null &&
                 wakeHostTries.getAndDecrement() > 0) {
             try {
                 WakeOnLanSender.sendWolPacket(target);
                 if (hostPollingLifecycle.owns(startToken)) {
                     localBinder.invalidateHostState(
-                            HostId.of(details.uuid));
+                            snapshot.getRecord().getIdentity().getId());
                 }
                 return;
             }
@@ -230,18 +231,19 @@ public class ShortcutTrampoline extends Activity {
             }
         }
 
-        if (details.state != ComputerDetails.State.UNKNOWN) {
+        if (connectionState.getReachability() !=
+                HostConnectionState.Reachability.UNKNOWN) {
             runOnUiThread(() -> handleTerminalComputerState(
                     localBinder,
                     startToken,
-                    details));
+                    snapshot));
         }
     }
 
     private void handleTerminalComputerState(
             ComputerManagerService.ComputerManagerBinder localBinder,
             HostPollingClientLifecycle.StartToken startToken,
-            ComputerDetails details) {
+            HostRuntimeSnapshot snapshot) {
         if (!hostPollingLifecycle.owns(startToken) ||
                 managerBinder != localBinder ||
                 activityDestroyed) {
@@ -249,18 +251,24 @@ public class ShortcutTrampoline extends Activity {
         }
 
         dismissBlockingSpinner();
-        if (details.state == ComputerDetails.State.ONLINE &&
-                details.pairState == PairingManager.PairState.PAIRED) {
-            launchRequestedTarget(details, localBinder);
+        HostConnectionState connectionState =
+                snapshot.getConnectionState();
+        if (connectionState.getReachability() ==
+                HostConnectionState.Reachability.ONLINE &&
+                connectionState.getPairingStatus() ==
+                        HostConnectionState.PairingStatus.PAIRED) {
+            launchRequestedTarget(snapshot, localBinder);
         }
-        else if (details.state == ComputerDetails.State.OFFLINE) {
+        else if (connectionState.getReachability() ==
+                HostConnectionState.Reachability.OFFLINE) {
             Dialog.displayDialog(
                     this,
                     getString(R.string.conn_error_title),
                     getString(R.string.error_pc_offline),
                     true);
         }
-        else if (details.pairState != PairingManager.PairState.PAIRED) {
+        else if (connectionState.getPairingStatus() !=
+                HostConnectionState.PairingStatus.PAIRED) {
             Dialog.displayDialog(
                     this,
                     getString(R.string.conn_error_title),
@@ -271,13 +279,15 @@ public class ShortcutTrampoline extends Activity {
     }
 
     private void launchRequestedTarget(
-            ComputerDetails details,
+            HostRuntimeSnapshot snapshot,
             ComputerManagerService.ComputerManagerBinder localBinder) {
+        int runningAppId = snapshot.getConnectionState()
+                .getRunningAppId();
         if (app != null) {
-            if (details.runningGameId == 0 ||
-                    details.runningGameId == app.getAppId()) {
+            if (runningAppId == 0 ||
+                    runningAppId == app.getAppId()) {
                 Intent streamIntent = createStreamIntent(
-                        details,
+                        snapshot,
                         app,
                         localBinder);
                 if (streamIntent == null) {
@@ -290,7 +300,7 @@ public class ShortcutTrampoline extends Activity {
             }
 
             Intent startIntent = createStreamIntent(
-                    details,
+                    snapshot,
                     app,
                     localBinder);
             if (startIntent == null) {
@@ -309,12 +319,12 @@ public class ShortcutTrampoline extends Activity {
         }
 
         Intent runningStreamIntent = null;
-        if (details.runningGameId != 0) {
+        if (runningAppId != 0) {
             runningStreamIntent = createStreamIntent(
-                    details,
+                    snapshot,
                     new NvApp(
                             null,
-                            details.runningGameId,
+                            runningAppId,
                             false),
                     localBinder);
             if (runningStreamIntent == null) {
@@ -330,7 +340,10 @@ public class ShortcutTrampoline extends Activity {
         intentStack.add(pcIntent);
 
         Intent appIntent = new Intent(getIntent())
-                .putExtra(AppView.UUID_EXTRA, details.uuid);
+                .putExtra(
+                        AppView.UUID_EXTRA,
+                        snapshot.getRecord().getIdentity()
+                                .getId().getValue());
         appIntent.setClass(this, AppView.class);
         intentStack.add(appIntent);
         if (runningStreamIntent != null) {
@@ -341,13 +354,13 @@ public class ShortcutTrampoline extends Activity {
     }
 
     private Intent createStreamIntent(
-            ComputerDetails details,
+            HostRuntimeSnapshot snapshot,
             NvApp targetApp,
             ComputerManagerService.ComputerManagerBinder binder) {
         try {
             StreamLaunchRequest request =
                     AndroidStreamLaunchRequestFactory.create(
-                            details,
+                            snapshot,
                             targetApp,
                             binder.getUniqueId());
             return AndroidStreamLaunchIntentFactory.create(

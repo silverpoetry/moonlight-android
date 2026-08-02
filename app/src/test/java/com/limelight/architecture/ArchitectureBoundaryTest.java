@@ -2293,4 +2293,28 @@ public final class ArchitectureBoundaryTest {
                         "the launch contract and platform adapters must not depend on the destination Activity")
                 .check(productionClasses);
     }
+
+    @Test
+    public void launchApplicationBoundaryDoesNotUseMutableHostDtos() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.stream.launch.android.AndroidStreamLauncher")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.stream.launch.android.AndroidStreamLaunchRequestFactory")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.stream.launch.android.AndroidStreamAutoReconnectController")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ShortcutTrampoline")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.http.ComputerDetails")
+                .because(
+                        "stream launch and shortcut lifecycles consume immutable host snapshots")
+                .check(productionClasses);
+    }
 }

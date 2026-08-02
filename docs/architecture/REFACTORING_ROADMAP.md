@@ -1343,6 +1343,11 @@ agree across all participants.
   Android adapters. Host loading now runs off the main thread, upload progress
   is coalesced to one pending UI callback, destruction rejects late results,
   and architecture rules keep transport and database code out of the screen.
+- Migrated app-grid, shortcut, automatic-reconnect, and shared stream-launch
+  lifecycles to immutable `HostRuntimeSnapshot` values. Launches now consume
+  the latest observed endpoint, HTTPS port, pinned certificate, and running-app
+  state without whole-object `ComputerDetails` copies; mutable protocol DTOs
+  remain only as short-lived adapters at legacy shortcut and NvHTTP edges.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

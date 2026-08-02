@@ -1,10 +1,9 @@
 package com.limelight.stream.launch.android;
 
 import com.limelight.computers.ComputerManagerService;
-import com.limelight.computers.LegacyHostRuntimeAdapter;
+import com.limelight.computers.model.HostConnectionState;
 import com.limelight.computers.model.HostId;
 import com.limelight.computers.model.HostRuntimeSnapshot;
-import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.stream.launch.PendingStreamReconnect;
 import com.limelight.stream.launch.PendingStreamReconnectResolver;
@@ -47,25 +46,26 @@ public final class AndroidStreamAutoReconnectController {
         HostRuntimeSnapshot host = binder == null || pending == null
                 ? null
                 : binder.getHost(HostId.of(pending.getHostId()));
-        ComputerDetails computer = host == null
-                ? null
-                : LegacyHostRuntimeAdapter.toComputerDetails(host);
-        boolean hostAvailable = computer != null &&
-                computer.state == ComputerDetails.State.ONLINE &&
-                computer.activeAddress != null;
+        boolean hostAvailable = host != null &&
+                host.getConnectionState().getReachability() ==
+                        HostConnectionState.Reachability.ONLINE &&
+                host.getConnectionState().getActiveEndpoint() != null;
         PendingStreamReconnectResolver.Resolution resolution =
                 resolver.resolve(
                         pending,
                         currentHostId,
                         hostAvailable,
-                        computer == null ? 0 : computer.runningGameId);
+                        host == null
+                                ? 0
+                                : host.getConnectionState()
+                                        .getRunningAppId());
         if (resolution.getOutcome() !=
                 PendingStreamReconnectResolver.Outcome.READY) {
             return map(resolution.getOutcome());
         }
 
         AndroidStreamLauncher.Result result = launcher.launch(
-                computer,
+                host,
                 new NvApp(
                         pending.getAppName() == null
                                 ? "app"

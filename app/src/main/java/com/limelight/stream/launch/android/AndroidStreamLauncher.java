@@ -3,7 +3,8 @@ package com.limelight.stream.launch.android;
 import android.app.Activity;
 
 import com.limelight.LimeLog;
-import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.computers.model.HostConnectionState;
+import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.stream.launch.RecentStreamSession;
 import com.limelight.stream.launch.RecentStreamSessionRepository;
@@ -67,12 +68,13 @@ public final class AndroidStreamLauncher {
     }
 
     public Result launch(
-            ComputerDetails computer,
+            HostRuntimeSnapshot host,
             NvApp app,
             String uniqueId) {
-        if (computer == null ||
-                computer.state == ComputerDetails.State.OFFLINE ||
-                computer.activeAddress == null) {
+        if (host == null ||
+                host.getConnectionState().getReachability() ==
+                        HostConnectionState.Reachability.OFFLINE ||
+                host.getConnectionState().getActiveEndpoint() == null) {
             return result(Outcome.HOST_UNAVAILABLE);
         }
         if (app == null) {
@@ -85,7 +87,7 @@ public final class AndroidStreamLauncher {
         final StreamLaunchRequest request;
         try {
             request = AndroidStreamLaunchRequestFactory.create(
-                    computer,
+                    host,
                     app,
                     uniqueId);
         }

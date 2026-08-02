@@ -552,7 +552,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         }
 
         AndroidStreamLauncher.Result result = streamLauncher.launch(
-                LegacyHostRuntimeAdapter.toComputerDetails(targetHost),
+                targetHost,
                 app,
                 binder.getUniqueId());
         AndroidStreamLaunchFeedback.showIfNeeded(this, result);

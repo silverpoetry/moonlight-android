@@ -14,6 +14,7 @@ import com.limelight.computers.apps.HiddenAppRepository;
 import com.limelight.computers.apps.HiddenAppSelection;
 import com.limelight.computers.apps.android.SharedPreferencesHiddenAppRepository;
 import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
+import com.limelight.computers.model.HostConnectionState;
 import com.limelight.computers.model.HostId;
 import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.computers.session.HostQuitUseCase;
@@ -23,7 +24,6 @@ import com.limelight.grid.AppGridAdapter;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
-import com.limelight.nvstream.http.PairingManager;
 import com.limelight.settings.SettingsMigrationRunner;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
@@ -86,7 +86,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
     private HostId hostId;
     private ShortcutHelper shortcutHelper;
 
-    private ComputerDetails computer;
+    private volatile HostRuntimeSnapshot hostSnapshot;
     private volatile ComputerManagerService.ApplistPoller poller;
     private SpinnerDialog blockingLoadSpinner;
     private String lastRawApplist;
@@ -161,13 +161,12 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
         }
 
         HostRuntimeSnapshot loadedHost = binder.getHost(
-                HostId.of(uuidString));
-        ComputerDetails loadedComputer = loadedHost == null
-                ? null
-                : LegacyHostRuntimeAdapter.toComputerDetails(loadedHost);
-        if (loadedComputer == null) {
+                hostId);
+        if (loadedHost == null) {
             return AppBindingInitialization.missingHost();
         }
+        ComputerDetails loadedComputer =
+                LegacyHostRuntimeAdapter.toComputerDetails(loadedHost);
 
         AppGridAdapter loadedAdapter = new AppGridAdapter(
                 this,
@@ -221,7 +220,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
             AppBindingInitialization result =
                     AppBindingInitialization.ready(
                             binder,
-                            loadedComputer,
+                            loadedHost,
                             loadedAdapter,
                             cachedRawAppList,
                             cachedApps);
@@ -261,7 +260,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                 return;
             }
             previousAdapter = appGridAdapter;
-            computer = initialization.computer;
+            hostSnapshot = initialization.host;
             appGridAdapter = initialization.adapter;
             managerBinder = initialization.binder;
         }
@@ -300,19 +299,19 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
 
     private static final class AppBindingInitialization {
         private final ComputerManagerService.ComputerManagerBinder binder;
-        private final ComputerDetails computer;
+        private final HostRuntimeSnapshot host;
         private final AppGridAdapter adapter;
         private final String cachedRawAppList;
         private final List<NvApp> cachedApps;
 
         private AppBindingInitialization(
                 ComputerManagerService.ComputerManagerBinder binder,
-                ComputerDetails computer,
+                HostRuntimeSnapshot host,
                 AppGridAdapter adapter,
                 String cachedRawAppList,
                 List<NvApp> cachedApps) {
             this.binder = binder;
-            this.computer = computer;
+            this.host = host;
             this.adapter = adapter;
             this.cachedRawAppList = cachedRawAppList;
             this.cachedApps = cachedApps;
@@ -329,20 +328,20 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
 
         static AppBindingInitialization ready(
                 ComputerManagerService.ComputerManagerBinder binder,
-                ComputerDetails computer,
+                HostRuntimeSnapshot host,
                 AppGridAdapter adapter,
                 String cachedRawAppList,
                 List<NvApp> cachedApps) {
             return new AppBindingInitialization(
                     binder,
-                    computer,
+                    host,
                     adapter,
                     cachedRawAppList,
                     cachedApps);
         }
 
         boolean hasHost() {
-            return computer != null;
+            return host != null;
         }
 
         void discard() {
@@ -409,20 +408,28 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                     new ComputerManagerListener() {
             @Override
             public void notifyComputerUpdated(HostRuntimeSnapshot snapshot) {
-                final ComputerDetails details = LegacyHostRuntimeAdapter
-                        .toComputerDetails(snapshot);
-                // Do nothing if updates are suspended
-                if (!hostPollingLifecycle.owns(startToken) ||
-                        suspendGridUpdates) {
+                if (!hostPollingLifecycle.owns(startToken)) {
                     return;
                 }
 
                 // Don't care about other computers
-                if (!details.uuid.equalsIgnoreCase(uuidString)) {
+                if (!snapshot.getRecord().getIdentity().getId()
+                        .equals(hostId)) {
                     return;
                 }
 
-                if (details.state == ComputerDetails.State.OFFLINE) {
+                // Keep every action on the latest immutable endpoint,
+                // certificate, and host state even while grid updates are
+                // temporarily suspended by a host operation.
+                hostSnapshot = snapshot;
+                if (suspendGridUpdates) {
+                    return;
+                }
+
+                HostConnectionState connectionState =
+                        snapshot.getConnectionState();
+                if (connectionState.getReachability() ==
+                        HostConnectionState.Reachability.OFFLINE) {
                     // The PC is unreachable now
                     AppView.this.runOnUiThread(new Runnable() {
                         @Override
@@ -440,7 +447,10 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                 }
 
                 // Close immediately if the PC is no longer paired
-                if (details.state == ComputerDetails.State.ONLINE && details.pairState != PairingManager.PairState.PAIRED) {
+                if (connectionState.getReachability() ==
+                        HostConnectionState.Reachability.ONLINE &&
+                        connectionState.getPairingStatus() !=
+                                HostConnectionState.PairingStatus.PAIRED) {
                     AppView.this.runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -448,7 +458,9 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                                 return;
                             }
                             // Disable shortcuts referencing this PC for now
-                            shortcutHelper.disableComputerShortcut(details,
+                            shortcutHelper.disableComputerShortcut(
+                                    LegacyHostRuntimeAdapter
+                                            .toComputerDetails(snapshot),
                                     getResources().getString(R.string.scut_not_paired));
 
                             // Display a toast to the user and quit the activity
@@ -469,25 +481,29 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                     }
                 });
 
+                String rawAppList = snapshot.getRawAppList();
+                int runningAppId = connectionState.getRunningAppId();
                 // App list is the same or empty
-                if (details.rawAppList == null || details.rawAppList.equals(lastRawApplist)) {
+                if (rawAppList == null ||
+                        rawAppList.equals(lastRawApplist)) {
 
                     // Let's check if the running app ID changed
-                    if (details.runningGameId != lastRunningAppId) {
+                    if (runningAppId != lastRunningAppId) {
                         // Update the currently running game using the app ID
-                        lastRunningAppId = details.runningGameId;
-                        updateUiWithServerinfo(details);
+                        lastRunningAppId = runningAppId;
+                        updateUiWithServerinfo(runningAppId);
                     }
 
                     return;
                 }
 
-                lastRunningAppId = details.runningGameId;
-                lastRawApplist = details.rawAppList;
+                lastRunningAppId = runningAppId;
+                lastRawApplist = rawAppList;
 
                 try {
-                    updateUiWithAppList(NvHTTP.getAppListByReader(new StringReader(details.rawAppList)));
-                    updateUiWithServerinfo(details);
+                    updateUiWithAppList(NvHTTP.getAppListByReader(
+                            new StringReader(rawAppList)));
+                    updateUiWithServerinfo(runningAppId);
 
                     if (blockingLoadSpinner != null) {
                         blockingLoadSpinner.dismiss();
@@ -509,7 +525,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
         ComputerManagerService.ApplistPoller newPoller;
         try {
             newPoller = newSubscription.startAppListPolling(
-                    HostId.of(computer.uuid));
+                    hostId);
             if (newPoller == null) {
                 newSubscription.close();
                 hostPollingLifecycle.failStart(startToken);
@@ -782,11 +798,12 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
     }
 
     private void launchStream(
-            NvApp app,
-            ComputerDetails targetComputer) {
+            NvApp app) {
         ComputerManagerService.ComputerManagerBinder binder =
                 managerBinder;
-        if (binder == null || streamLauncher == null) {
+        HostRuntimeSnapshot targetHost = hostSnapshot;
+        if (binder == null || streamLauncher == null ||
+                targetHost == null) {
             UiToast.makeText(
                     this,
                     R.string.error_manager_not_running,
@@ -795,7 +812,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
         }
 
         AndroidStreamLauncher.Result result = streamLauncher.launch(
-                targetComputer,
+                targetHost,
                 app,
                 binder.getUniqueId());
         AndroidStreamLaunchFeedback.showIfNeeded(this, result);
@@ -888,7 +905,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                 actions.add(new MenuAction(R.string.applist_menu_resume, R.drawable.ic_play, new Runnable() {
                     @Override
                     public void run() {
-                        launchStream(app.app, computer);
+                        launchStream(app.app);
                     }
                 }));
                 actions.add(new MenuAction(R.string.applist_menu_restart, R.drawable.ic_reboot, new Runnable() {
@@ -908,7 +925,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                 actions.add(new MenuAction(R.string.applist_menu_quit_and_start, R.drawable.ic_reboot, new Runnable() {
                     @Override
                     public void run() {
-                        launchStream(app.app, computer);
+                        launchStream(app.app);
                     }
                 }));
             }
@@ -944,7 +961,13 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                 @Override
                 public void run() {
                     Bitmap appBits = getAppBitmap(targetView);
-                    if (!shortcutHelper.createPinnedGameShortcut(computer, app.app, appBits)) {
+                    HostRuntimeSnapshot targetHost = hostSnapshot;
+                    if (targetHost == null ||
+                            !shortcutHelper.createPinnedGameShortcut(
+                                    LegacyHostRuntimeAdapter
+                                            .toComputerDetails(targetHost),
+                                    app.app,
+                                    appBits)) {
                         UiToast.makeText(AppView.this, getResources().getString(R.string.unable_to_pin_shortcut),
                                 UiToast.LENGTH_LONG).show();
                     }
@@ -962,7 +985,9 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                 managerBinder;
         HostUiOperationController controller =
                 hostOperationController;
-        if (binder == null || controller == null) {
+        HostRuntimeSnapshot targetHost = hostSnapshot;
+        if (binder == null || controller == null ||
+                targetHost == null) {
             UiToast.makeText(
                     this,
                     R.string.error_manager_not_running,
@@ -975,7 +1000,8 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
             backend = new NvHttpHostQuitBackend(
                     AndroidNvHttpClientFactory.create(
                             this,
-                            computer,
+                            LegacyHostRuntimeAdapter
+                                    .toComputerDetails(targetHost),
                             binder.getUniqueId()));
         }
         catch (IOException failure) {
@@ -1070,7 +1096,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
             ComputerManagerService.ComputerManagerBinder binder =
                     managerBinder;
             if (binder != null) {
-                launchStream(app.app, computer);
+                launchStream(app.app);
             }
         });
     }
@@ -1096,7 +1122,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
         return null;
     }
 
-    private void updateUiWithServerinfo(final ComputerDetails details) {
+    private void updateUiWithServerinfo(final int runningAppId) {
         AppView.this.runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -1108,11 +1134,11 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
 
                     // There can only be one or zero apps running.
                     if (existingApp.isRunning &&
-                            existingApp.app.getAppId() == details.runningGameId) {
+                            existingApp.app.getAppId() == runningAppId) {
                         // This app was running and still is, so we're done now
                         return;
                     }
-                    else if (existingApp.app.getAppId() == details.runningGameId) {
+                    else if (existingApp.app.getAppId() == runningAppId) {
                         // This app wasn't running but now is
                         existingApp.isRunning = true;
                         updated = true;
@@ -1139,6 +1165,11 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
             @Override
             public void run() {
                 boolean updated = false;
+                HostRuntimeSnapshot currentHost = hostSnapshot;
+                ComputerDetails shortcutComputer = currentHost == null
+                        ? null
+                        : LegacyHostRuntimeAdapter.toComputerDetails(
+                                currentHost);
 
                 // First handle app updates and additions
                 for (NvApp app : appList) {
@@ -1166,7 +1197,11 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                         // We could have a leftover shortcut from last time this PC was paired
                         // or if this app was removed then added again. Enable those shortcuts
                         // again if present.
-                        shortcutHelper.enableAppShortcut(computer, app);
+                        if (shortcutComputer != null) {
+                            shortcutHelper.enableAppShortcut(
+                                    shortcutComputer,
+                                    app);
+                        }
 
                         updated = true;
                     }
@@ -1188,7 +1223,12 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
 
                     // This app was removed in the latest app list
                     if (!foundExistingApp) {
-                        shortcutHelper.disableAppShortcut(computer, existingApp.app, "App removed from PC");
+                        if (shortcutComputer != null) {
+                            shortcutHelper.disableAppShortcut(
+                                    shortcutComputer,
+                                    existingApp.app,
+                                    "App removed from PC");
+                        }
                         appGridAdapter.removeApp(existingApp);
                         updated = true;
 
@@ -1221,7 +1261,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
             public void onItemClick(AdapterView<?> arg0, View arg1, int pos,
                                     long id) {
                 AppObject app = (AppObject) appGridAdapter.getItem(pos);
-                launchStream(app.app, computer);
+                launchStream(app.app);
             }
         });
         listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
