@@ -1358,6 +1358,10 @@ agree across all participants.
   endpoint and credential, while disk and memory cache identity remains the
   stable host ID plus app ID. `AppView` no longer imports or constructs the
   legacy mutable host DTO.
+- Replaced the host-details dialog's protocol-DTO round trip with a dedicated
+  immutable snapshot formatter that preserves its established diagnostic text
+  contract. Both host screens are now architecture-locked against mutable
+  `ComputerDetails` dependencies.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

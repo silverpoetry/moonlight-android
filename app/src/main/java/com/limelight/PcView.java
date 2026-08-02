@@ -14,7 +14,6 @@ import com.limelight.binding.video.gl.android.SharedPreferencesGlDeviceSnapshotS
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.computers.HostPollingClientLifecycle;
-import com.limelight.computers.LegacyHostRuntimeAdapter;
 import com.limelight.computers.apps.HiddenAppRepository;
 import com.limelight.computers.apps.android.SharedPreferencesHiddenAppRepository;
 import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
@@ -47,6 +46,7 @@ import com.limelight.ui.hosts.ScreenBackgroundPresenter;
 import com.limelight.ui.decoder.AndroidDecoderCrashNotificationController;
 import com.limelight.ui.hosts.HostPairingController;
 import com.limelight.ui.hosts.HostQuitMessageResolver;
+import com.limelight.ui.hosts.HostDetailsTextFormatter;
 import com.limelight.ui.hosts.HostServiceBindingController;
 import com.limelight.ui.hosts.HostUiOperationController;
 import com.limelight.utils.DeviceUtils;
@@ -1237,9 +1237,7 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
                 Dialog.displayDialog(
                         PcView.this,
                         getResources().getString(R.string.title_details),
-                        LegacyHostRuntimeAdapter
-                                .toComputerDetails(snapshot)
-                                .toString(),
+                        HostDetailsTextFormatter.format(snapshot),
                         false);
             }
         }));

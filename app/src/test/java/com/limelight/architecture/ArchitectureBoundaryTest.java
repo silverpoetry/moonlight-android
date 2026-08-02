@@ -2358,4 +2358,20 @@ public final class ArchitectureBoundaryTest {
                         "app rendering and artwork loads snapshot immutable host identity and connectivity")
                 .check(productionClasses);
     }
+
+    @Test
+    public void hostScreensDoNotDependOnMutableHostDtos() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.AppView")
+                .or()
+                .haveFullyQualifiedName("com.limelight.PcView")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.http.ComputerDetails")
+                .because(
+                        "host screens render immutable snapshots and invoke typed application boundaries")
+                .check(productionClasses);
+    }
 }
