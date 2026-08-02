@@ -2,9 +2,8 @@ package com.limelight.computers.http.android;
 
 import android.content.Context;
 
-import com.limelight.StreamReqBean;
 import com.limelight.binding.PlatformBinding;
-import com.limelight.computers.model.HostEndpoint;
+import com.limelight.computers.http.HostHttpTarget;
 import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvHTTP;
@@ -25,19 +24,14 @@ public final class AndroidNvHttpClientFactory {
         HostRuntimeSnapshot source = Objects.requireNonNull(
                 host,
                 "host");
-        HostEndpoint activeEndpoint = source.getConnectionState()
-                .getActiveEndpoint();
-        if (activeEndpoint == null) {
-            throw new IOException("Host has no active endpoint");
+        final HostHttpTarget target;
+        try {
+            target = HostHttpTarget.from(source, uniqueId);
         }
-        return create(
-                context,
-                new ComputerDetails.AddressTuple(
-                        activeEndpoint.getAddress(),
-                        activeEndpoint.getPort()),
-                source.getConnectionState().getHttpsPort(),
-                uniqueId,
-                source.getPersistedHost().getPinnedCertificate());
+        catch (IllegalArgumentException | NullPointerException error) {
+            throw new IOException(error.getMessage(), error);
+        }
+        return create(context, target);
     }
 
     public static NvHTTP create(
@@ -58,14 +52,16 @@ public final class AndroidNvHttpClientFactory {
 
     public static NvHTTP create(
             Context context,
-            StreamReqBean request) throws IOException {
-        Objects.requireNonNull(request, "request");
+            HostHttpTarget target) throws IOException {
+        HostHttpTarget source = Objects.requireNonNull(target, "target");
         return create(
                 context,
-                request.getActiveAddress(),
-                request.getHttpsPort(),
-                request.getUniqueId(),
-                request.getServerCert());
+                new ComputerDetails.AddressTuple(
+                        source.getAddress(),
+                        source.getPort()),
+                source.getHttpsPort(),
+                source.getUniqueId(),
+                source.getPinnedCertificate());
     }
 
     private static NvHTTP create(

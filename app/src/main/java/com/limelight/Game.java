@@ -42,7 +42,7 @@ import com.limelight.computers.session.NvHttpHostQuitBackend;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.StreamConfiguration;
 import com.limelight.nvstream.StreamSessionController;
-import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.computers.http.HostHttpTarget;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.input.MouseButtonPacket;
@@ -337,7 +337,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
 
     private ViewParent rootView;
 
-    private StreamReqBean streamReqBean;
+    private HostHttpTarget streamHttpTarget;
     private HostQuitUseCase.Backend pendingHostQuitBackend;
     private boolean hostQuitRequested;
     private ConnectivityManager connManager;
@@ -696,16 +696,16 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                             config.getRefreshRate());
         }
 
-        streamReqBean=new StreamReqBean();
-        streamReqBean.setAppName(appName);
-        streamReqBean.setServerCert(serverCert);
-        streamReqBean.setHttpsPort(httpsPort);
-        streamReqBean.setUniqueId(uniqueId);
-        streamReqBean.setActiveAddress(new ComputerDetails.AddressTuple(host, port));
-        streamReqBean.setCryptoProvider(PlatformBinding.getCryptoProvider(this));
+        streamHttpTarget = new HostHttpTarget(
+                host,
+                port,
+                httpsPort,
+                uniqueId,
+                serverCert);
         // Initialize the connection
         conn = new NvConnection(getApplicationContext(),
-                new ComputerDetails.AddressTuple(host, port),
+                host,
+                port,
                 httpsPort, uniqueId, config,
                 PlatformBinding.getCryptoProvider(this),
                 serverCert,
@@ -1409,7 +1409,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                 if (backend != null) {
                     scheduleDeferredHostQuit(
                             backend,
-                            streamReqBean.getAppName());
+                            appName);
                 }
             }
             if (streamUiSettingsState
@@ -2248,7 +2248,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                     UiToast.LENGTH_SHORT).show();
             return;
         }
-        if (streamReqBean == null) {
+        if (streamHttpTarget == null) {
             UiToast.makeText(
                     this,
                     R.string.host_operation_unavailable,
@@ -2261,12 +2261,12 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                     new NvHttpHostQuitBackend(
                             AndroidNvHttpClientFactory.create(
                                     getApplicationContext(),
-                                    streamReqBean));
+                                    streamHttpTarget));
             hostQuitRequested = true;
             UiToast.makeText(
                     this,
                     getText(R.string.applist_quit_app) + " " +
-                            streamReqBean.getAppName() + "...",
+                            appName + "...",
                     UiToast.LENGTH_SHORT).show();
         }
         catch (IOException failure) {
@@ -2276,7 +2276,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                     this,
                     HostQuitMessageResolver.resolveFailure(
                             this,
-                            streamReqBean.getAppName(),
+                            appName,
                             failure),
                     UiToast.LENGTH_LONG).show();
         }

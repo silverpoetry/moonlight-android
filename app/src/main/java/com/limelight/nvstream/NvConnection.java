@@ -98,7 +98,8 @@ public class NvConnection implements StreamSessionConnection,
 
     public NvConnection(
             Context appContext,
-            ComputerDetails.AddressTuple host,
+            String host,
+            int port,
             int httpsPort,
             String uniqueId,
             StreamConfiguration config,
@@ -112,7 +113,8 @@ public class NvConnection implements StreamSessionConnection,
         this.uniqueId = uniqueId;
 
         this.context = new ConnectionContext();
-        this.context.serverAddress = host;
+        this.context.serverAddress =
+                new ComputerDetails.AddressTuple(host, port);
         this.context.httpsPort = httpsPort;
         this.context.streamConfig = config;
         this.context.serverCert = serverCert;

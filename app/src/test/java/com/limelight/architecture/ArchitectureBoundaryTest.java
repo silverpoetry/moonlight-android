@@ -2374,4 +2374,35 @@ public final class ArchitectureBoundaryTest {
                         "host screens render immutable snapshots and invoke typed application boundaries")
                 .check(productionClasses);
     }
+
+    @Test
+    public void streamActivityDoesNotOwnProtocolHostDtos() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName("com.limelight.Game")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.nvstream.http.ComputerDetails")
+                .because(
+                        "the stream Activity passes an immutable HTTP target and primitive endpoint values to protocol boundaries")
+                .check(productionClasses);
+    }
+
+    @Test
+    public void hostHttpTargetIsPlatformAndProtocolIndependent() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.computers.http.HostHttpTarget")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "android..",
+                        "androidx..",
+                        "com.limelight.nvstream..")
+                .because(
+                        "host HTTP operations cross Android and protocol boundaries through one immutable value")
+                .check(productionClasses);
+    }
 }

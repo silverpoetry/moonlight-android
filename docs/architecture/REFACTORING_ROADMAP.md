@@ -1362,6 +1362,10 @@ agree across all participants.
   immutable snapshot formatter that preserves its established diagnostic text
   contract. Both host screens are now architecture-locked against mutable
   `ComputerDetails` dependencies.
+- Deleted the mutable `StreamReqBean` request bag and its unused crypto-provider
+  field. Active-stream host HTTP operations now retain one immutable,
+  validated `HostHttpTarget`; `Game` passes primitive endpoint values into the
+  connection protocol boundary and no longer imports `ComputerDetails`.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;
