@@ -608,9 +608,6 @@ public final class ArchitectureBoundaryTest {
                         "com\\.limelight\\.computers\\.HostPollingOwnership\\$.*")
                 .or()
                 .haveFullyQualifiedName(
-                        "com.limelight.computers.ComputerDetailsSnapshot")
-                .or()
-                .haveFullyQualifiedName(
                         "com.limelight.computers.InFlightOperationTracker")
                 .or()
                 .haveNameMatching(

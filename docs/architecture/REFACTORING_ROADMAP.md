@@ -1325,6 +1325,10 @@ agree across all participants.
   snapshots one immutable upload target from repository-owned host identity,
   endpoint, and pinned credential, and creates the legacy address tuple only
   at the `NvHTTP` protocol boundary.
+- Replaced the whole-object mutable DTO copy used by Wake-on-LAN with one
+  immutable operation target in `core:hosts`. Foreground and shortcut wake
+  paths now capture only the MAC address and ordered endpoint values they send;
+  the obsolete snapshot helper and its broad field-copy contract are deleted.
 - Consolidated decoder-crash counters and notification acknowledgement behind
   one persistence port. A pure policy selects no action, warning, or settings
   reset, while a dedicated Android presentation controller owns the dialog;

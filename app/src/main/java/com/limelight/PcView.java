@@ -13,12 +13,12 @@ import com.limelight.binding.video.gl.android.AndroidGlRendererProbe;
 import com.limelight.binding.video.gl.android.SharedPreferencesGlDeviceSnapshotStore;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
-import com.limelight.computers.ComputerDetailsSnapshot;
 import com.limelight.computers.HostPollingClientLifecycle;
 import com.limelight.computers.LegacyHostRuntimeAdapter;
 import com.limelight.computers.apps.HiddenAppRepository;
 import com.limelight.computers.apps.android.SharedPreferencesHiddenAppRepository;
 import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
+import com.limelight.computers.model.HostConnectionState;
 import com.limelight.computers.model.HostId;
 import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.computers.pairing.HostPairingUseCase;
@@ -28,6 +28,7 @@ import com.limelight.computers.session.HostQuitUseCase;
 import com.limelight.computers.session.HostUnpairUseCase;
 import com.limelight.computers.session.NvHttpHostQuitBackend;
 import com.limelight.computers.session.NvHttpHostUnpairBackend;
+import com.limelight.computers.wol.WakeOnLanTarget;
 import com.limelight.grid.PcGridAdapter;
 import com.limelight.grid.assets.DiskAssetLoader;
 import com.limelight.nvstream.http.ComputerDetails;
@@ -718,13 +719,14 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
         }
     }
 
-    private void doWakeOnLan(final ComputerDetails computer) {
-        if (computer.state == ComputerDetails.State.ONLINE) {
+    private void doWakeOnLan(HostRuntimeSnapshot snapshot) {
+        if (snapshot.getConnectionState().getReachability() ==
+                HostConnectionState.Reachability.ONLINE) {
             UiToast.makeText(PcView.this, getResources().getString(R.string.wol_pc_online), UiToast.LENGTH_SHORT).show();
             return;
         }
 
-        if (computer.macAddress == null) {
+        if (snapshot.getRecord().getMacAddress() == null) {
             UiToast.makeText(PcView.this, getResources().getString(R.string.wol_no_mac), UiToast.LENGTH_SHORT).show();
             return;
         }
@@ -739,12 +741,12 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
             return;
         }
 
-        ComputerDetails snapshot =
-                ComputerDetailsSnapshot.copyOf(computer);
+        WakeOnLanTarget target = WakeOnLanTarget.from(
+                snapshot.getRecord());
         HostUiOperationController.RequestStatus status =
                 controller.request(
                         () -> {
-                            WakeOnLanSender.sendWolPacket(snapshot);
+                            WakeOnLanSender.sendWolPacket(target);
                             return null;
                         },
                         result -> UiToast.makeText(
@@ -1195,13 +1197,14 @@ public class PcView extends BaseActivity implements AdapterFragmentCallbacks {
 
     private ArrayList<MenuAction> buildHostMenuActions(final ComputerObject computer) {
         ArrayList<MenuAction> actions = new ArrayList<>();
+        final HostRuntimeSnapshot snapshot = computer.getSnapshot();
         final ComputerDetails details = computer.toComputerDetails();
         if (details.state == ComputerDetails.State.OFFLINE ||
                 details.state == ComputerDetails.State.UNKNOWN) {
             actions.add(new MenuAction(R.string.pcview_menu_send_wol, R.drawable.ic_sleep, new Runnable() {
                 @Override
                 public void run() {
-                    doWakeOnLan(details);
+                    doWakeOnLan(snapshot);
                 }
             }));
             actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_app_about, new Runnable() {

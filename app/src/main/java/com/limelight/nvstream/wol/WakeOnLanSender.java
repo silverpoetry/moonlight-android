@@ -7,7 +7,8 @@ import java.net.InetAddress;
 import java.util.Scanner;
 
 import com.limelight.LimeLog;
-import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.computers.model.HostEndpoint;
+import com.limelight.computers.wol.WakeOnLanTarget;
 
 public class WakeOnLanSender {
     // These ports will always be tried as-is.
@@ -56,8 +57,8 @@ public class WakeOnLanSender {
         }
     }
     
-    public static void sendWolPacket(ComputerDetails computer) throws IOException {
-        byte[] payload = createWolPayload(computer);
+    public static void sendWolPacket(WakeOnLanTarget target) throws IOException {
+        byte[] payload = createWolPayload(target);
         IOException lastException = null;
         boolean sentWolPacket = false;
 
@@ -65,25 +66,22 @@ public class WakeOnLanSender {
             // Try all resolved remote and local addresses and broadcast addresses.
             // The broadcast address is required to avoid stale ARP cache entries
             // making the sleeping machine unreachable.
-            for (ComputerDetails.AddressTuple address : new ComputerDetails.AddressTuple[] {
-                    computer.localAddress, computer.remoteAddress,
-                    computer.manualAddress, computer.ipv6Address,
-            }) {
-                if (address == null) {
-                    continue;
-                }
-
+            for (HostEndpoint endpoint : target.getEndpoints()) {
                 try {
-                    sendPacketsForAddress(InetAddress.getByName("255.255.255.255"), address.port, sock, payload);
+                    sendPacketsForAddress(InetAddress.getByName("255.255.255.255"), endpoint.getPort(), sock, payload);
                     sentWolPacket = true;
                 } catch (IOException e) {
                     lastException = e;
                 }
 
                 try {
-                    for (InetAddress resolvedAddress : InetAddress.getAllByName(address.address)) {
+                    for (InetAddress resolvedAddress : InetAddress.getAllByName(endpoint.getAddress())) {
                         try {
-                            sendPacketsForAddress(resolvedAddress, address.port, sock, payload);
+                            sendPacketsForAddress(
+                                    resolvedAddress,
+                                    endpoint.getPort(),
+                                    sock,
+                                    payload);
                             sentWolPacket = true;
                         } catch (IOException e) {
                             lastException = e;
@@ -123,9 +121,9 @@ public class WakeOnLanSender {
         }
     }
     
-    private static byte[] createWolPayload(ComputerDetails computer) {
+    private static byte[] createWolPayload(WakeOnLanTarget target) {
         byte[] payload = new byte[102];
-        byte[] macAddress = macStringToBytes(computer.macAddress);
+        byte[] macAddress = macStringToBytes(target.getMacAddress());
         int i;
         
         // 6 bytes of FF

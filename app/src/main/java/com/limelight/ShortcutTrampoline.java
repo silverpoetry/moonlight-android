@@ -14,6 +14,7 @@ import com.limelight.computers.HostPollingClientLifecycle;
 import com.limelight.computers.LegacyHostRuntimeAdapter;
 import com.limelight.computers.model.HostId;
 import com.limelight.computers.model.HostRuntimeSnapshot;
+import com.limelight.computers.wol.WakeOnLanTarget;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
@@ -46,7 +47,7 @@ public class ShortcutTrampoline extends Activity {
     private final ArrayList<Intent> intentStack = new ArrayList<>();
 
     private final AtomicInteger wakeHostTries = new AtomicInteger(10);
-    private ComputerDetails computer;
+    private volatile WakeOnLanTarget wakeOnLanTarget;
     private SpinnerDialog blockingLoadSpinner;
 
     private volatile ComputerManagerService.ComputerManagerBinder managerBinder;
@@ -127,7 +128,9 @@ public class ShortcutTrampoline extends Activity {
             if (activityDestroyed || cancellation.isCanceled()) {
                 return BindingOutcome.CANCELED;
             }
-            computer = loadedComputer;
+            wakeOnLanTarget = loadedHost.getRecord().getMacAddress() == null
+                    ? null
+                    : WakeOnLanTarget.from(loadedHost.getRecord());
             managerBinder = localBinder;
         }
 
@@ -206,14 +209,15 @@ public class ShortcutTrampoline extends Activity {
             return;
         }
 
+        WakeOnLanTarget target = wakeOnLanTarget;
         if (details.state == ComputerDetails.State.OFFLINE &&
-                details.macAddress != null &&
+                target != null &&
                 wakeHostTries.getAndDecrement() > 0) {
             try {
-                WakeOnLanSender.sendWolPacket(computer);
+                WakeOnLanSender.sendWolPacket(target);
                 if (hostPollingLifecycle.owns(startToken)) {
                     localBinder.invalidateHostState(
-                            HostId.of(computer.uuid));
+                            HostId.of(details.uuid));
                 }
                 return;
             }
