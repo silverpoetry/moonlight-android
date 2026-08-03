@@ -88,16 +88,13 @@
     <string name="applist_menu_resume">Oturumu sürdür</string>
     <string name="applist_menu_quit">Oturumu sonlandır</string>
     <string name="applist_menu_quit_and_start">Mevcut oyundan çık ve başla</string>
-    <string name="applist_menu_cancel">İptal</string>
     <string name="applist_menu_details">Detayları göster</string>
     <string name="applist_menu_scut">Kısayol oluştur</string>
     <string name="applist_menu_hide_app">Uygulamayı gizle</string>
-    <string name="applist_refresh_title">Uygulama listesi</string>
     <string name="applist_quit_success">Başarıyla çıkıldı</string>
     <string name="applist_quit_app">Çıkılıyor</string>
     <string name="applist_quit_fail">Çıkılamadı</string>
     <string name="applist_quit_confirmation">Çalışan uygulamadan çıkmak istediğinizden emin misiniz\? Kaydedilmemiş tüm veriler kaybolacaktır.</string>
-    <string name="msg_add_pc">Bilgisayara bağlanıyor…</string>
     <string name="addpc_fail">Belirtilen bilgisayara bağlanılamıyor. Gerekli bağlantı noktalarına güvenlik duvarı üzerinden izin verildiğinden emin olun.</string>
     <string name="addpc_unknown_host">Bilgisayar adresi çözümlenemiyor. Adreste yazım hatası yapmadığınızdan emin olun.</string>
     <string name="addpc_enter_ip">Bir IP adresi girmelisiniz</string>

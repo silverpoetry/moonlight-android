@@ -1,7 +1,6 @@
 package com.limelight.settings;
 
 import com.limelight.settings.audio.StreamAudioSettingKeys;
-import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
@@ -363,37 +362,25 @@ public class SettingsMigrationRunnerTest {
     }
 
     @Test
-    public void versionSixClearsFormerForkBrandFromHomeTitle() {
+    public void versionSevenRemovesRetiredAppearanceSettings() {
         FakeRepository repository = new FakeRepository();
-        repository.values.put(SettingsSchema.VERSION.getName(), 5);
-        repository.values.put(
-                AppPresentationSettingKeys.HOST_LIST_LABEL.getName(),
-                "月光·阿西西");
+        repository.values.put(SettingsSchema.VERSION.getName(), 6);
+        repository.values.put("app.appearance.background.enabled", true);
+        repository.values.put("app.appearance.background.blur", true);
+        repository.values.put("app.appearance.background.file", "custom.png");
+        repository.values.put("app.appearance.host_list_label", "我的主机");
+        repository.values.put("change_screen_label_key", "旧标题");
 
         SettingsMigrationRunner.migrate(repository);
 
-        assertFalse(repository.values.containsKey(
-                AppPresentationSettingKeys.HOST_LIST_LABEL.getName()));
+        assertFalse(repository.values.containsKey("app.appearance.background.enabled"));
+        assertFalse(repository.values.containsKey("app.appearance.background.blur"));
+        assertFalse(repository.values.containsKey("app.appearance.background.file"));
+        assertFalse(repository.values.containsKey("app.appearance.host_list_label"));
+        assertFalse(repository.values.containsKey("change_screen_label_key"));
         assertEquals(
                 SettingsSchema.CURRENT_VERSION,
                 repository.values.get(SettingsSchema.VERSION.getName()));
-    }
-
-    @Test
-    public void versionSixPreservesUserDefinedHomeTitle() {
-        FakeRepository repository = new FakeRepository();
-        repository.values.put(SettingsSchema.VERSION.getName(), 5);
-        repository.values.put(
-                AppPresentationSettingKeys.HOST_LIST_LABEL.getName(),
-                "我的主机");
-
-        SettingsMigrationRunner.migrate(repository);
-
-        assertEquals(
-                "我的主机",
-                repository.values.get(
-                        AppPresentationSettingKeys.HOST_LIST_LABEL
-                                .getName()));
     }
 
     private static final class FakeRepository

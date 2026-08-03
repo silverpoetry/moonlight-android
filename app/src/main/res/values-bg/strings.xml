@@ -27,7 +27,6 @@
     <string name="conn_terminated_title">Връзката е прекратена</string>
     <string name="yes">Да</string>
     <string name="applist_menu_hide_app">Скриване на приложението</string>
-    <string name="applist_refresh_title">Списък с приложения</string>
     <string name="summary_resolution_list">Увеличете, за да подобрите яснотата на изображението. Намалете за по-добра производителност на устройства от по-нисък клас и по-бавни мрежи.</string>
     <string name="title_fps_list">Кадрова честота на видео</string>
     <string name="scut_deleted_pc">Компютърът е изтрит</string>
@@ -91,10 +90,8 @@
     <string name="poor_connection_msg">Лоша връзка с компютъра</string>
     <string name="applist_connect_msg">Свързване с компютъра…</string>
     <string name="applist_menu_quit">Прекратяване на сесията</string>
-    <string name="msg_add_pc">Свързване към компютъра…</string>
     <string name="applist_menu_resume">Възобновяване на сесията</string>
     <string name="applist_menu_quit_and_start">Изключване на текущата игра и стартиране</string>
-    <string name="applist_menu_cancel">Отказ</string>
     <string name="applist_menu_details">Виж детайлите</string>
     <string name="applist_menu_scut">Създаване на пряк път</string>
     <string name="applist_quit_success">Успешно изключване</string>

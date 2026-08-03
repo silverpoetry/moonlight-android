@@ -1,6 +1,6 @@
 # ADR 0002: Preserve Java and the Existing View Stack During Core Refactoring
 
-- Status: Accepted
+- Status: Superseded by ADR 0004
 - Date: 2026-07-31
 
 ## Context

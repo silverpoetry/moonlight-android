@@ -22,7 +22,7 @@ public final class AndroidVibratorCompat {
         }
     }
 
-    /** API 21-25 compatibility path; VibrationEffect starts at API 26. */
+    /** API 23-25 compatibility path; VibrationEffect starts at API 26. */
     @SuppressWarnings("deprecation")
     private static void vibrateBeforeOreo(
             Vibrator vibrator,

@@ -45,8 +45,6 @@
     <string name="applist_menu_resume">セッションを続ける</string>
     <string name="applist_menu_quit">セッションを終了する</string>
     <string name="applist_menu_quit_and_start">現在のゲームを終了して新しいゲームを始める</string>
-    <string name="applist_menu_cancel">キャンセル</string>
-    <string name="applist_refresh_title">ゲームリスト</string>
     <string name="applist_refresh_msg">ゲームリストを更新中</string>
     <string name="applist_quit_app">終了中</string>
     <string name="applist_quit_success">ゲームを終了しました</string>
@@ -54,7 +52,6 @@
     <string name="applist_quit_confirmation">本当にゲームを終了しますか?  保存されていないデータは破棄されます</string>
     <!-- Add computer manually activity -->
     <string name="title_add_pc">手動でコンピュータを追加する</string>
-    <string name="msg_add_pc">コンピュータに接続中</string>
     <string name="addpc_fail">指定されたコンピュータに接続できませんでした。ファイアーウォールの設定を確認してください</string>
     <string name="addpc_unknown_host">コンピュータのアドレスが解決できません。コンピュータのアドレスを確認してください</string>
     <string name="addpc_enter_ip">IPアドレスを入力してください</string>
@@ -77,8 +74,6 @@
     <string name="summary_checkbox_show_onscreen_controls">タッチスクリーン上にオンスクリーンコントローラを表示します</string>
     <string name="title_language_list">言語</string>
     <string name="summary_language_list">Moonlightで使用する言語</string>
-    <string name="title_checkbox_small_icon_mode">小さなアイコン</string>
-    <string name="summary_checkbox_small_icon_mode">グリッドで小さなアイコンを使用します</string>
     <string name="title_checkbox_enable_sops">ゲーム設定の最適化</string>
     <string name="summary_checkbox_enable_sops">GFEがゲームの設定を最適化します</string>
     <string name="title_checkbox_host_audio">コンピュータで音声を再生</string>

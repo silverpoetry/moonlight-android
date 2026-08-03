@@ -14,8 +14,6 @@
     <string name="title_unlock_fps">Mở khoá tất cả tốc độ khung hình có thể có</string>
     <string name="summary_checkbox_host_audio">Phát âm thanh từ máy tính và thiết bị này</string>
     <string name="title_checkbox_host_audio">Phát âm thanh trên PC</string>
-    <string name="summary_checkbox_small_icon_mode">Bìa nhỏ trong lưới ứng dụng cho phép hiển thị nhiều ứng dụng hơn trên màn hình</string>
-    <string name="title_checkbox_small_icon_mode">Sử dụng bìa nhỏ</string>
     <string name="summary_language_list">Ngôn ngữ để sử dụng cho Moonlight</string>
     <string name="title_language_list">Ngôn ngữ</string>
     <string name="summary_checkbox_enable_pip">Cho phép stream được xem (nhưng không được điều khiển) trong khi đa nhiệm</string>
@@ -66,18 +64,15 @@
     <string name="addpc_enter_ip">Bạn phải nhập một địa chỉ IP</string>
     <string name="addpc_unknown_host">Không thể xử lý địa chỉ PC. Hãy chắc chắn là bạn không mắc lỗi chính tả trong địa chỉ.</string>
     <string name="addpc_fail">Không thể kết nối đến máy tính được chỉ định. Hãy chắc chắn là các cổng được yêu cầu được cho phép qua tường lửa.</string>
-    <string name="msg_add_pc">Đang kết nối đến PC…</string>
     <string name="title_add_pc">Thêm PC thủ công</string>
     <string name="applist_quit_confirmation">Bạn có chắc bạn muốn thoát ứng dụng đang chạy không\? Tất cả dữ liệu chưa được lưu sẽ bị mất.</string>
     <string name="applist_quit_fail">Thoát thất bại</string>
     <string name="applist_quit_success">Thoát thành công</string>
     <string name="applist_quit_app">Đang thoát</string>
     <string name="applist_refresh_msg">Đang làm mới các ứng dụng…</string>
-    <string name="applist_refresh_title">Danh sách ứng dụng</string>
     <string name="applist_menu_hide_app">Ẩn ứng dụng</string>
     <string name="applist_menu_scut">Tạo lối tắt</string>
     <string name="applist_menu_details">Xem chi tiết</string>
-    <string name="applist_menu_cancel">Huỷ</string>
     <string name="applist_menu_quit_and_start">Thoát trò chơi hiện tại và bắt đầu</string>
     <string name="applist_menu_quit">Thoát phiên làm việc</string>
     <string name="applist_menu_resume">Tiếp tục phiên làm việc</string>

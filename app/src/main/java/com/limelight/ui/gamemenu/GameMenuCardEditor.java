@@ -223,7 +223,7 @@ final class GameMenuCardEditor {
         return tile;
     }
 
-    /** API 21-23 compatibility path; startDragAndDrop starts at API 24. */
+    /** API 23 compatibility path; startDragAndDrop starts at API 24. */
     @SuppressWarnings("deprecation")
     private static boolean startLegacyDrag(
             View view,

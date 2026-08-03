@@ -51,8 +51,6 @@
     <string name="applist_menu_resume">Reanudar sesión</string>
     <string name="applist_menu_quit">Cerrar sesión</string>
     <string name="applist_menu_quit_and_start">Cerrar juego actual e iniciar</string>
-    <string name="applist_menu_cancel">Cancelar</string>
-    <string name="applist_refresh_title">Lista de aplicaciones</string>
     <string name="applist_refresh_msg">Actualizando lista de aplicaciones…</string>
     <string name="applist_quit_app">Cerrando</string>
     <string name="applist_quit_success">Cerrado satisfactoriamente</string>
@@ -60,7 +58,6 @@
     <string name="applist_quit_confirmation">¿Estás seguro que deseas quitar la aplicación en ejecución? Todo dato sin salvar se perderá.</string>
     <!-- Add computer manually activity -->
     <string name="title_add_pc">Añadir PC manualmente</string>
-    <string name="msg_add_pc">Conectando al PC…</string>
     <string name="addpc_fail">Imposible conectar al ordenador indicado. Asegurate que los puertos necesarios están permitidos a través del firewall.</string>
     <string name="addpc_unknown_host">Imposible resolver la dirección del PC. Asegúrate que no hay ningún error en la dirección.</string>
     <string name="addpc_enter_ip">Debes introducir una dirección IP</string>
@@ -83,8 +80,6 @@
     <string name="summary_checkbox_show_onscreen_controls">Muestra controles virtuales superpuestos en la pantalla táctil</string>
     <string name="title_language_list">Idioma</string>
     <string name="summary_language_list">Idioma a usar por Moonlight</string>
-    <string name="title_checkbox_small_icon_mode">Usar iconos pequeños</string>
-    <string name="summary_checkbox_small_icon_mode">Usar iconos pequeños en las entradas de cuadrículas para permitir más entradas en la pantalla</string>
     <string name="title_checkbox_enable_sops">Optimizar configuración del juego</string>
     <string name="summary_checkbox_enable_sops">Permitir que GFE modifique la configuración del juego para una transmisión óptima</string>
     <string name="title_checkbox_host_audio">Reproducir audio en PC</string>

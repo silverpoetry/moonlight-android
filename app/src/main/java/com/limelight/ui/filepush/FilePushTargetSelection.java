@@ -2,7 +2,7 @@ package com.limelight.ui.filepush;
 
 import java.util.Objects;
 
-/** API-21-safe explicit result of selecting a usable upload target. */
+/** Explicit result of selecting a usable upload target. */
 public final class FilePushTargetSelection {
     private static final FilePushTargetSelection MISSING =
             new FilePushTargetSelection(null);

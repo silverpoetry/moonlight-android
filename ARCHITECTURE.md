@@ -91,6 +91,40 @@ The realtime input, audio, and video paths are exceptions to UI state flow.
 They use explicit low-overhead ports and state machines described in
 `docs/architecture/REALTIME_THREADING.md`.
 
+## Android presentation architecture
+
+The application shell uses Jetpack Compose and the standard Material 3 design
+system. `MoonlightTheme` is the single owner of color, typography, shape, dark
+mode, and Android 12+ dynamic-color policy. Feature renderers consume immutable
+screen state and emit semantic events; they do not read or write preferences,
+perform network work, or own stream objects.
+
+The primary presentation surfaces are organized by feature rather than by
+widget type:
+
+- `ui.compose.hosts`: host discovery snapshots and the explicit Stream, Apps,
+  and host-actions entry points.
+- `ui.compose.apps`: application/library presentation and artwork binding.
+- `ui.compose.settings`: settings groups, rows, value dialogs, and adaptive
+  compact/two-pane navigation.
+- `ui.compose.transfer`: clipboard/file-transfer state and destination choices.
+- `ui.gamemenu`: the stream control sheet; realtime video and input remain in
+  the existing Surface/native path beneath it.
+
+Activities remain thin Android composition roots while migration is in
+progress. They own lifecycle registration and adapt existing controllers into
+Compose state. A Compose renderer may retain an existing Java controller or
+adapter as a temporary data source, but it must not duplicate its policy. Once
+the final caller is migrated, the old XML renderer and compatibility adapter
+are deleted in the same change.
+
+Navigation follows platform semantics: the home screen has one Settings action,
+host cards expose their three distinct destinations, settings categories are
+secondary pages (or an adaptive second pane), short enumerations use selection
+dialogs, and edit-heavy values use dedicated Material 3 dialogs. Stream controls
+are presented as a right-side sheet without changing the latency-sensitive
+stream surface.
+
 ## Lifecycle and resource ownership
 
 Stateful components expose an explicit lifecycle appropriate to their scope:
@@ -135,6 +169,15 @@ Every migration slice follows this sequence:
 
 Move-only commits and behavior-changing commits are separate. A phase cannot
 finish with two production implementations of the same behavior.
+
+## Platform baseline
+
+- Android 6.0 (API 23) is the minimum supported platform; `compileSdk` and
+  `targetSdk` are API 37.
+- Kotlin 2.4.10, Compose BOM 2026.06.01, Activity 1.13.0, and Core 1.19.0
+  are centrally owned by the version catalog.
+- Root and non-root product flavors remain supported, signed for upgrade
+  compatibility, and unminified by product policy.
 
 ## Verification gates
 

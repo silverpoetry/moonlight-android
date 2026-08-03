@@ -1,6 +1,5 @@
 package com.limelight.binding.input;
 
-import android.os.Build;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 
@@ -62,12 +61,8 @@ final class AndroidControllerTouchpadAdapter {
                 ControllerTouchpadEventPolicy.resolve(
                         event.getActionMasked(),
                         event.getFlags(),
-                        Build.VERSION.SDK_INT >=
-                                Build.VERSION_CODES.M
-                                ? event.getActionButton()
-                                : 0,
-                        Build.VERSION.SDK_INT >=
-                                Build.VERSION_CODES.M);
+                        event.getActionButton(),
+                        true);
         if (dispatch ==
                 ControllerTouchpadEventPolicy.Dispatch.UNHANDLED) {
             return false;

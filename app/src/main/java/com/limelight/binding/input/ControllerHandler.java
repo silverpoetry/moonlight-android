@@ -1357,7 +1357,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         return getLegacyActivityDisplay(activity);
     }
 
-    /** API 21-29 compatibility path; Activity.getDisplay() starts at API 30. */
+    /** API 23-29 compatibility path; Activity.getDisplay() starts at API 30. */
     @SuppressWarnings("deprecation")
     private static Display getLegacyActivityDisplay(Activity activity) {
         return activity.getWindowManager().getDefaultDisplay();

@@ -72,10 +72,8 @@
     <string name="applist_menu_resume">Continuă Sesiunea</string>
     <string name="applist_menu_quit">Închide Sesiunea</string>
     <string name="applist_menu_quit_and_start">Închide Jocul Curent si Pornește</string>
-    <string name="applist_menu_cancel">Anulează</string>
     <string name="applist_menu_details">Vezi detalii</string>
     <string name="applist_menu_scut">Creează o scurtătură</string>
-    <string name="applist_refresh_title">Lista de aplicații</string>
     <string name="applist_refresh_msg">Reîmprospătare aplicații…</string>
     <string name="applist_quit_app">Închidere în curs</string>
     <string name="applist_quit_success">Închis cu succes</string>
@@ -83,7 +81,6 @@
     <string name="applist_quit_confirmation">Sigur dorești să închizi aplicația curentă? Toate datele nesalvate vor fi pierdute.</string>
     <!-- Add computer manually activity -->
     <string name="title_add_pc">Adaugă PC manual</string>
-    <string name="msg_add_pc">Conectare în curs…</string>
     <string name="addpc_fail">Nu s-a putut efectua conectarea la adresa introdusă. Asigurăte ca porturile nu sunt blocate in firewall.</string>
     <string name="addpc_unknown_host">Nu am putut identifica adresa PC-ului. Asigură-te că ai introdus-o corect.</string>
     <string name="addpc_enter_ip">Trebuie să introduci o adresa IP</string>
@@ -128,8 +125,6 @@
     <string name="suffix_osc_opacity">%</string>
     <string name="title_language_list">Limba (Language)</string>
     <string name="summary_language_list">Limba folosită de către Moonlight</string>
-    <string name="title_checkbox_small_icon_mode">Folosește iconițe mici</string>
-    <string name="summary_checkbox_small_icon_mode">Iconițele folosite în grile vor fi mici pentru a încăpea mai multe odata</string>
     <string name="title_checkbox_enable_sops">Optimizarea setărilor de joc</string>
     <string name="summary_checkbox_enable_sops">Permite GFE să modifice setările jocurilor pentru experiența optimă</string>
     <string name="title_checkbox_host_audio">Redă audio si pe PC</string>

@@ -42,7 +42,7 @@ public final class SettingsKeyCatalog {
 
         add(
                 keys,
-                AppPresentationSettingKeys.BACKGROUND_FILE,
+                AppPresentationSettingKeys.SMALL_APP_ICONS,
                 StreamAudioSettingKeys.MUTED,
                 StreamResolutionSettingKeys.SELECTION,
                 StreamVideoSettingKeys.HDR_HIGH_BRIGHTNESS,

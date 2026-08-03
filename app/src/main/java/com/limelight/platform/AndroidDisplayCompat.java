@@ -39,13 +39,10 @@ public final class AndroidDisplayCompat {
         Display display = context instanceof Activity
                 ? getActivityDisplay((Activity) context)
                 : getDefaultDisplay(context);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Display.Mode mode = display.getMode();
-            return new Point(
-                    mode.getPhysicalWidth(),
-                    mode.getPhysicalHeight());
-        }
-        return getLegacyRealSize(display);
+        Display.Mode mode = display.getMode();
+        return new Point(
+                mode.getPhysicalWidth(),
+                mode.getPhysicalHeight());
     }
 
     /** Returns the drawable size of the Activity window. */
@@ -97,13 +94,6 @@ public final class AndroidDisplayCompat {
     @SuppressWarnings("deprecation")
     private static Display getLegacyActivityDisplay(Activity activity) {
         return activity.getWindowManager().getDefaultDisplay();
-    }
-
-    @SuppressWarnings("deprecation")
-    private static Point getLegacyRealSize(Display display) {
-        Point size = new Point();
-        display.getRealSize(size);
-        return size;
     }
 
     @SuppressWarnings("deprecation")

@@ -100,12 +100,9 @@
     <string name="help">עזרה</string>
     <string name="applist_menu_hide_app">הסתר אפליקציה</string>
     <string name="applist_menu_quit">הפסק שידור</string>
-    <string name="applist_menu_cancel">בטל</string>
     <string name="applist_quit_fail">יציאה נכשלה</string>
-    <string name="applist_refresh_title">רשימת אפליקציות</string>
     <string name="applist_refresh_msg">מרענן אפליקציות…</string>
     <string name="applist_quit_confirmation">אתה בטוח שאתה רוצה לסגור את האפליקציה הנוכחית\? מידע שלא נשמר ייאבד.</string>
-    <string name="msg_add_pc">מתחבר למחשב…</string>
     <string name="addpc_unknown_host">נכשל לאתר כתובת מחשב. נא לוודא שאין שגיאה בכתובת.</string>
     <string name="addpc_fail">לא ניתן להתחבר למחשב שנבחר. נא לבדוק שהפורטים הנחוצים פתוחים בחומת האש.</string>
     <string name="addpc_wrong_sitelocal">הכתובת לא נראת נכונה. צריך להשתמש בכתובת IP הציבורית בכדי להתחבר דרך האינטרנט.</string>

@@ -20,16 +20,6 @@ public final class AppPresentationSettingsLoader {
                 repository.get(
                         AppPresentationSettingKeys.SMALL_APP_ICONS),
                 repository.get(
-                        AppPresentationSettingKeys.LIGHT_THEME),
-                repository.get(
-                        AppPresentationSettingKeys
-                                .BACKGROUND_ENABLED),
-                repository.get(
-                        AppPresentationSettingKeys
-                                .BACKGROUND_BLUR_ENABLED),
-                repository.get(
-                        AppPresentationSettingKeys.BACKGROUND_FILE),
-                repository.get(
-                        AppPresentationSettingKeys.HOST_LIST_LABEL));
+                        AppPresentationSettingKeys.LIGHT_THEME));
     }
 }

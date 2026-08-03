@@ -90,11 +90,9 @@
     <string name="applist_menu_resume">Sitzung wiederherstellen</string>
     <string name="applist_menu_quit">Sitzung beenden</string>
     <string name="applist_menu_quit_and_start">Aktuelle App beenden und starten</string>
-    <string name="applist_menu_cancel">Abbrechen</string>
     <string name="applist_menu_details">Details anzeigen</string>
     <string name="applist_menu_scut">Shortcut erstellen</string>
     <string name="applist_menu_hide_app">App ausblenden</string>
-    <string name="applist_refresh_title">App Liste</string>
     <string name="applist_refresh_msg">Apps aktualisieren…</string>
     <string name="applist_quit_app">Beenden</string>
     <string name="applist_quit_success">Erfolgreich beendet</string>
@@ -102,7 +100,6 @@
     <string name="applist_quit_confirmation">Bist du sicher, dass du die laufende App schließen möchtest\? Ungespeicherte Daten gehen verloren.</string>
     <!-- Add computer manually activity -->
     <string name="title_add_pc">Host manuell hinzufügen</string>
-    <string name="msg_add_pc">Verbinde zum Host…</string>
     <string name="addpc_fail">Verbindung fehlgeschlagen. Stelle sicher, dass die benötigten Ports von deiner Firewall nicht gesperrt sind.</string>
     <string name="addpc_unknown_host">Auflösen der Hostadresse fehlgeschlagen. Stelle sicher, dass die Adresse keine Tippfehler beinhaltet.</string>
     <string name="addpc_enter_ip">Du musst eine IP-Adresse eingeben</string>
@@ -146,8 +143,6 @@
     <string name="summary_checkbox_enable_pip">Ermöglicht die Anzeige (aber nicht die Steuerung) des Streams während des Multitasking</string>
     <string name="title_language_list">Sprache</string>
     <string name="summary_language_list">Sprache die Moonlight verwenden soll</string>
-    <string name="title_checkbox_small_icon_mode">Verwende kleine Cover</string>
-    <string name="summary_checkbox_small_icon_mode">Verwende kleine Cover in der Rasteransicht, um mehr gleichzeitig anzeigen zu können</string>
     <string name="title_checkbox_enable_sops">Spieleinstellungen optimieren</string>
     <string name="summary_checkbox_enable_sops">GFE erlauben, die Spieleinstellungen für ein optimales Streaming zu ändern</string>
     <string name="title_checkbox_host_audio">Audio auf dem Host wiedergeben</string>

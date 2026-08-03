@@ -244,17 +244,6 @@ final class SettingsIconCatalog {
         if (key.startsWith("action_") && key.endsWith("_export")) {
             return R.drawable.ic_clipboard_send;
         }
-        if (key.endsWith("background.enabled") ||
-                SettingsScreenIds.ACTION_APP_BACKGROUND_SELECT
-                        .equals(key)) {
-            return R.drawable.ic_desktop;
-        }
-        if (key.endsWith("background.blur")) {
-            return R.drawable.ic_zoom;
-        }
-        if (key.endsWith("host_list_label")) {
-            return R.drawable.ic_keyboard;
-        }
         return 0;
     }
 }

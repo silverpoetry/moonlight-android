@@ -3,6 +3,7 @@ import com.moonlight.buildlogic.VerifyReleaseManifestPolicy
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
@@ -13,7 +14,7 @@ android {
     namespace = 'com.limelight'
 
     defaultConfig {
-        minSdk = 21
+        minSdk = 23
         targetSdk = 37
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -27,6 +28,7 @@ android {
 
     buildFeatures {
         buildConfig = true
+        compose = true
         resValues = true
     }
 
@@ -67,10 +69,10 @@ android {
     }
 
     lint {
-        // AGP 9.3's BidiSpoofing detector calls the JDK 21 List.removeLast()
-        // API while AGP officially runs on JDK 17. The root build replaces
-        // only that crashing detector with the mandatory verifyNoBidiControls
-        // source scan; all other lint checks remain warnings-as-errors.
+        // AGP 9.3's BidiSpoofing detector crashes before reporting on the
+        // supported build JDK. The root build replaces only that detector with
+        // the mandatory verifyNoBidiControls source scan; all other lint checks
+        // remain warnings-as-errors.
         disable 'MissingTranslation', 'BidiSpoofing'
         lintConfig = file('lint.xml')
         abortOnError = true
@@ -183,10 +185,22 @@ dependencies {
     implementation libs.jmdns
     implementation libs.gson
     implementation libs.androidx.activity
+    implementation libs.androidx.activity.compose
     implementation libs.androidx.appcompat
     implementation libs.androidx.core
     implementation libs.androidx.documentfile
     implementation libs.androidx.fragment
     implementation libs.glide.runtime
     annotationProcessor libs.glide.compiler
+
+    implementation platform(libs.compose.bom)
+    implementation libs.compose.foundation
+    implementation libs.compose.material3
+    implementation libs.compose.material3.window.size
+    implementation libs.compose.ui
+    implementation libs.compose.ui.tooling.preview
+    debugImplementation libs.compose.ui.tooling
+    debugImplementation libs.compose.ui.test.manifest
+    androidTestImplementation platform(libs.compose.bom)
+    androidTestImplementation libs.compose.ui.test.junit4
 }

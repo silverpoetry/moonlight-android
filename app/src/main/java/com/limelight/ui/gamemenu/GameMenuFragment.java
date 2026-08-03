@@ -7,14 +7,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.ViewParent;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.Space;
-import android.widget.TextView;
 import androidx.activity.ComponentDialog;
 import androidx.annotation.NonNull;
+import androidx.compose.ui.platform.ComposeView;
 
 import com.limelight.R;
 import com.limelight.binding.input.KeyboardTranslator;
@@ -29,9 +24,7 @@ import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.UiHelper;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Description
@@ -50,6 +43,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
     private GameMenuHost host;
     private GameMenuState menuState;
     private BackNavigationRegistration backNavigationRegistration;
+    private GameMenuComposeRenderer composeRenderer;
 
     public static GameMenuFragment newInstance(int widthPx) {
         GameMenuFragment fragment = new GameMenuFragment();
@@ -72,6 +66,10 @@ public class GameMenuFragment extends BaseGameMenuDialog
     @Override
     public void onDetach() {
         mainHandler.removeCallbacksAndMessages(null);
+        if (composeRenderer != null) {
+            composeRenderer.destroy();
+            composeRenderer = null;
+        }
         host = null;
         menuState = null;
         hostProvider = null;
@@ -93,12 +91,9 @@ public class GameMenuFragment extends BaseGameMenuDialog
 
     public void refreshMicrophoneState() {
         GameMenuHost currentHost = resolveHost();
-        if (btn_mic != null && currentHost != null) {
+        if (currentHost != null) {
             menuState = currentHost.getState();
-            btn_mic.setBackgroundResource(
-                    menuState.isMicrophoneActive() ?
-                            R.drawable.ic_game_menu_btn_accent_selector :
-                            R.drawable.ic_game_menu_btn_selector);
+            refreshComposeMenu();
         }
     }
 
@@ -150,29 +145,9 @@ public class GameMenuFragment extends BaseGameMenuDialog
 
     @Override
     public int getLayoutRes() {
-        return R.layout.dialog_game_menu;
+        return R.layout.dialog_game_menu_compose;
     }
 
-    private Button btn_performance;
-
-    private Button btn_game_pad;
-
-    private Button btn_v_keyboard;
-
-    private Button btn_gamepad_mouse;
-
-    private Button btn_screen_move;
-
-    private TextView tx_title_battery;
-
-    private Button btn_mic;
-
-    private Button btn_audio_mute;
-
-    private Button btn_video_visibility;
-
-    private LinearLayout actionGrid;
-    private final Map<Integer, Button> actionButtons = new HashMap<>();
     private GameMenuCardEditor cardEditor;
 
     @Override
@@ -184,111 +159,48 @@ public class GameMenuFragment extends BaseGameMenuDialog
                     "GameMenuHost is not initialized");
         }
         menuState = host.getState();
-        actionGrid = v.findViewById(R.id.game_menu_action_grid);
-        createActionButtons();
-        rebuildActionGrid();
+        ComposeView composeView = v.findViewById(R.id.game_menu_compose);
+        composeRenderer = new GameMenuComposeRenderer(
+                composeView,
+                new GameMenuComposeRenderer.Listener() {
+                    @Override
+                    public void onActionRequested(
+                            int viewId,
+                            Object shortcutEntry) {
+                        View actionView = new View(requireContext());
+                        actionView.setId(viewId);
+                        actionView.setTag(shortcutEntry);
+                        onClick(actionView);
+                        refreshComposeMenu();
+                    }
 
-        v.findViewById(R.id.bt_touch_sensitivity).setOnClickListener(this);
-        v.findViewById(R.id.bt_quick_list).setOnClickListener(this);
-        v.findViewById(R.id.bt_touch_list).setOnClickListener(this);
-        v.findViewById(R.id.btn_soft_keyboard).setOnClickListener(this);
-        v.findViewById(R.id.btn_desktop).setOnClickListener(this);
-        v.findViewById(R.id.btn_window).setOnClickListener(this);
-        v.findViewById(R.id.bt_touch_sensitivity).setOnClickListener(this);
-        v.findViewById(R.id.bt_virtual_view).setOnClickListener(this);
-        v.findViewById(R.id.bt_display).setOnClickListener(this);
-        v.findViewById(R.id.bt_device).setOnClickListener(this);
-        v.findViewById(R.id.btn_soft_function).setOnClickListener(this);
-        v.findViewById(R.id.btn_customize_actions)
-                .setOnClickListener(view -> showCardEditor());
+                    @Override
+                    public void onActionLongPressed(int viewId) {
+                        if (viewId == R.id.btn_performance && host != null) {
+                            host.switchHUD();
+                            refreshComposeMenu();
+                        }
+                    }
 
-        tx_title_battery=v.findViewById(R.id.tx_title_battery);
-        int batteryPercent = menuState.getBatteryPercent();
-        tx_title_battery.setText(
-                batteryPercent == GameMenuState.UNKNOWN_BATTERY_PERCENT ?
-                        getString(R.string.game_menu_battery_unknown) :
-                        getString(
-                                R.string.game_menu_battery_percent,
-                                batteryPercent));
+                    @Override
+                    public void onCustomizeRequested() {
+                        showCardEditor();
+                    }
+                });
+        refreshComposeMenu();
     }
 
-    private void createActionButtons() {
-        actionButtons.clear();
-        for (GameMenuActionCatalog.Action action :
-                GameMenuActionCatalog.all()) {
-            Button button = inflateCardButton(
-                    getString(action.labelRes),
-                    getString(action.contentDescriptionRes),
-                    action.iconRes);
-            button.setId(action.viewId);
-            button.setOnClickListener(this);
-            actionButtons.put(action.viewId, button);
+    private void refreshComposeMenu() {
+        if (composeRenderer == null || host == null) {
+            return;
         }
-    }
-
-    private void rebuildActionGrid() {
         menuState = host.getState();
-        // Buttons are reused so their active state and listeners remain
-        // attached. Detach them from the old row before removing that row.
-        // Removing the row alone does not clear each button's parent pointer.
-        for (Button button : actionButtons.values()) {
-            detachFromParent(button);
-        }
-        actionGrid.removeAllViews();
         List<GameMenuCardCatalog.Card> catalog = loadCardCatalog();
         GameMenuCardConfiguration.State configuration =
                 GameMenuCardConfiguration.load(
                         menuState.getCardLayout(),
                         catalog);
-        LinearLayout row = null;
-        int column = 0;
-        int displayedCount = 0;
-        for (GameMenuCardCatalog.Card card : configuration.visible) {
-            if (card.requiresGamepad() &&
-                    !menuState.isMouseEmulationAvailable()) {
-                continue;
-            }
-            Button button = card.action != null ?
-                    actionButtons.get(card.action.viewId) :
-                    createShortcutButton(card);
-            if (button == null) {
-                continue;
-            }
-            if (column == 0) {
-                row = createActionRow();
-                actionGrid.addView(row);
-            }
-            row.addView(button, createActionCellParams(column));
-            column++;
-            displayedCount++;
-            if (column == 4) {
-                column = 0;
-            }
-        }
-        if (row != null && column != 0) {
-            while (column < 4) {
-                row.addView(new Space(getActivity()),
-                        createActionCellParams(column));
-                column++;
-            }
-        }
-        if (displayedCount == 0) {
-            TextView empty = new TextView(getActivity());
-            empty.setText(R.string.game_menu_customize_no_visible);
-            empty.setTextColor(0xBFFFFFFF);
-            empty.setTextSize(12);
-            empty.setGravity(android.view.Gravity.CENTER);
-            empty.setPadding(
-                    UiHelper.dpToPx(getActivity(), 12),
-                    UiHelper.dpToPx(getActivity(), 18),
-                    UiHelper.dpToPx(getActivity(), 12),
-                    UiHelper.dpToPx(getActivity(), 18));
-            actionGrid.addView(empty, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT));
-        }
-        bindActionButtonFields();
-        refreshActionButtonStates();
+        composeRenderer.update(menuState, configuration.visible);
     }
 
     private List<GameMenuCardCatalog.Card> loadCardCatalog() {
@@ -299,116 +211,6 @@ public class GameMenuFragment extends BaseGameMenuDialog
                 getActivity(),
                 menuState.getShortcuts(),
                 includeBuiltInShortcuts);
-    }
-
-    private Button createShortcutButton(
-            GameMenuCardCatalog.Card card) {
-        Button button = inflateCardButton(
-                card.label,
-                card.contentDescription,
-                card.iconRes);
-        button.setTag(card.shortcut);
-        button.setOnClickListener(this);
-        return button;
-    }
-
-    private Button inflateCardButton(
-            CharSequence label,
-            CharSequence contentDescription,
-            int iconRes) {
-        Button button = (Button) getActivity()
-                .getLayoutInflater()
-                .inflate(R.layout.item_game_menu_card, actionGrid, false);
-        button.setText(label);
-        button.setContentDescription(contentDescription);
-        button.setCompoundDrawablesWithIntrinsicBounds(
-                0, iconRes, 0, 0);
-        return button;
-    }
-
-    private static void detachFromParent(View view) {
-        ViewParent parent = view.getParent();
-        if (parent instanceof ViewGroup) {
-            ((ViewGroup) parent).removeView(view);
-        }
-    }
-
-    private LinearLayout createActionRow() {
-        LinearLayout row = new LinearLayout(getActivity());
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                UiHelper.dpToPx(getActivity(), 54));
-        int margin = UiHelper.dpToPx(getActivity(), 5);
-        params.setMargins(margin, margin, margin, margin);
-        row.setLayoutParams(params);
-        return row;
-    }
-
-    private LinearLayout.LayoutParams createActionCellParams(
-            int column) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
-        if (column < 3) {
-            params.setMarginEnd(UiHelper.dpToPx(getActivity(), 5));
-        }
-        return params;
-    }
-
-    private void bindActionButtonFields() {
-        btn_performance = actionButtons.get(R.id.btn_performance);
-        btn_game_pad = actionButtons.get(R.id.btn_game_pad);
-        btn_v_keyboard = actionButtons.get(R.id.btn_v_keyboard);
-        btn_gamepad_mouse = actionButtons.get(R.id.btn_gamepad_mouse);
-        btn_screen_move = actionButtons.get(R.id.btn_screen_move);
-        btn_mic = actionButtons.get(R.id.btn_mic);
-        btn_audio_mute = actionButtons.get(R.id.btn_audio_mute);
-        btn_video_visibility =
-                actionButtons.get(R.id.btn_video_visibility);
-        if (btn_performance != null) {
-            btn_performance.setOnLongClickListener(view -> {
-                if (host != null) {
-                    host.switchHUD();
-                }
-                return true;
-            });
-        }
-    }
-
-    private void refreshActionButtonStates() {
-        if (host == null) {
-            return;
-        }
-        menuState = host.getState();
-        setActionButtonActive(
-                btn_performance,
-                menuState.getUiSettings()
-                        .isPerformanceOverlayEnabled());
-        setActionButtonActive(
-                btn_game_pad,
-                menuState.isVirtualControllerVisible());
-        setActionButtonActive(
-                btn_v_keyboard,
-                menuState.isVirtualKeysVisible());
-        setActionButtonActive(
-                btn_screen_move, menuState.isScreenMoveZoom());
-        setActionButtonActive(
-                btn_mic, menuState.isMicrophoneActive());
-        setActionButtonActive(
-                btn_audio_mute,
-                menuState.getAudioSettings().isMuted());
-        setActionButtonActive(
-                btn_video_visibility,
-                menuState.isVideoHidden());
-    }
-
-    private void setActionButtonActive(Button button, boolean active) {
-        if (button != null) {
-            button.setBackgroundResource(
-                    active ?
-                            R.drawable.ic_game_menu_btn_accent_selector :
-                            R.drawable.ic_game_menu_btn_selector);
-        }
     }
 
     private void showCardEditor() {
@@ -432,7 +234,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
                             GameMenuCardLayout layout) {
                         if (host != null) {
                             host.saveGameMenuCardLayout(layout);
-                            rebuildActionGrid();
+                            refreshComposeMenu();
                         }
                     }
 
@@ -551,29 +353,16 @@ public class GameMenuFragment extends BaseGameMenuDialog
         }
         if(v.getId()==R.id.btn_game_pad){
             host.toggleVirtualGamepad();
-            menuState = host.getState();
-            setActionButtonActive(
-                    btn_game_pad,
-                    menuState.isVirtualControllerVisible());
             return;
         }
 
         if(v.getId()==R.id.btn_performance){
             host.showHUD();
-            menuState = host.getState();
-            setActionButtonActive(
-                    btn_performance,
-                    menuState.getUiSettings()
-                            .isPerformanceOverlayEnabled());
             return;
         }
 
         if(v.getId()==R.id.btn_v_keyboard){
             host.toggleVirtualKeys();
-            menuState = host.getState();
-            setActionButtonActive(
-                    btn_v_keyboard,
-                    menuState.isVirtualKeysVisible());
             return;
         }
 
@@ -618,19 +407,11 @@ public class GameMenuFragment extends BaseGameMenuDialog
             boolean muted = !menuState.getAudioSettings().isMuted();
             host.applyStreamAudioSettingsUpdate(
                     StreamAudioSettingsUpdate.muted(muted));
-            menuState = host.getState();
-            setActionButtonActive(
-                    btn_audio_mute,
-                    menuState.getAudioSettings().isMuted());
             return;
         }
 
         if (v.getId() == R.id.btn_video_visibility) {
             host.toggleVideoVisibility();
-            menuState = host.getState();
-            setActionButtonActive(
-                    btn_video_visibility,
-                    menuState.isVideoHidden());
             return;
         }
 
@@ -650,7 +431,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
             fragment.setOnShortcutSelectedListener(
                     this::executeShortcut);
             fragment.setOnShortcutsChangedListener(
-                    this::rebuildActionGrid);
+                    this::refreshComposeMenu);
             fragment.show(getParentFragmentManager());
             return;
         }

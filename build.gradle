@@ -4,6 +4,7 @@ import org.cyclonedx.model.Component
 plugins {
     id 'moonlight.root-governance'
     alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.compose.compiler) apply false
     alias(libs.plugins.cyclonedx.bom)
 }
 

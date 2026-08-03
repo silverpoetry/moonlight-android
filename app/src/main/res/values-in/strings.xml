@@ -103,7 +103,6 @@
     <string name="suffix_seekbar_deadzone">%</string>
     <string name="summary_checkbox_absolute_mouse_mode">Ini dapat membuat akselerasi mouse berperilaku lebih alami untuk penggunaan desktop jarak jauh, tetapi tidak kompatibel dengan banyak game.</string>
     <string name="title_checkbox_show_onscreen_controls">Tampilkan kontrol di layar</string>
-    <string name="summary_checkbox_small_icon_mode">Seni kotak yang lebih kecil di kisi aplikasi memungkinkan lebih banyak aplikasi terlihat di layar</string>
     <string name="title_checkbox_host_audio">Putar audio di PC</string>
     <string name="title_checkbox_enable_sops">Optimalkan pengaturan game</string>
     <string name="title_checkbox_disable_warnings">Nonaktifkan pesan peringatan</string>
@@ -112,15 +111,12 @@
     <string name="frame_conversion_error">PC host melaporkan kesalahan penyandian video yang fatal.
 \n
 \nCoba nonaktifkan mode HDR, ubah resolusi streaming, atau ubah resolusi tampilan PC host Anda.</string>
-    <string name="applist_menu_cancel">Membatalkan</string>
     <string name="applist_menu_details">Melihat rincian</string>
     <string name="applist_menu_scut">Buat Pintasan</string>
     <string name="applist_menu_hide_app">Sembunyikan Aplikasi</string>
-    <string name="applist_refresh_title">Daftar Aplikasi</string>
     <string name="applist_refresh_msg">Menyegarkan aplikasi…</string>
     <string name="applist_quit_fail">Gagal untuk keluar</string>
     <string name="title_add_pc">Tambahkan PC Secara Manual</string>
-    <string name="msg_add_pc">Menghubungkan ke PC…</string>
     <string name="addpc_fail">Tidak dapat terhubung ke komputer yang ditentukan. Pastikan port yang diperlukan diizinkan melalui firewall.</string>
     <string name="addpc_enter_ip">Anda harus memasukkan alamat IP</string>
     <string name="title_resolution_list">Resolusi video</string>
@@ -150,7 +146,6 @@
     <string name="suffix_osc_opacity">%</string>
     <string name="summary_checkbox_enable_pip">Mengizinkan streaming untuk dilihat (tetapi tidak dikontrol) saat melakukan banyak tugas</string>
     <string name="title_language_list">Bahasa</string>
-    <string name="title_checkbox_small_icon_mode">Gunakan seni kotak kecil</string>
     <string name="summary_checkbox_host_audio">Putar audio dari komputer dan perangkat ini</string>
     <string name="title_unlock_fps">Buka kunci semua frekuensi gambar yang memungkinkan</string>
     <string name="summary_unlock_fps">Streaming pada 90 atau 120 FPS dapat mengurangi latensi pada perangkat kelas atas, tetapi dapat menyebabkan kelambatan atau ketidakstabilan pada perangkat yang tidak dapat mendukungnya</string>

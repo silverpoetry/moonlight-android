@@ -53,16 +53,13 @@
     <string name="category_audio_settings">Lydinnstillinger</string>
     <string name="title_resolution_list">Videooppløsning</string>
     <string name="addpc_enter_ip">Du må skrive inn en IP-adresse</string>
-    <string name="msg_add_pc">Kobler til PC-en …</string>
     <string name="title_add_pc">Legg til PC manuelt</string>
     <string name="applist_quit_fail">Klarte ikke å avslutte</string>
     <string name="applist_quit_success">Avsluttet</string>
     <string name="applist_quit_app">Avslutter …</string>
-    <string name="applist_refresh_title">Programliste</string>
     <string name="applist_menu_hide_app">Skjul prgram</string>
     <string name="applist_menu_scut">Opprett snarvei</string>
     <string name="applist_menu_details">Vis detaljer</string>
-    <string name="applist_menu_cancel">Avbryt</string>
     <string name="applist_menu_quit_and_start">Avslutt nåværende spill og start</string>
     <string name="applist_menu_quit">Avslutt økt</string>
     <string name="applist_menu_resume">Fortsett økt</string>
@@ -144,8 +141,6 @@
     <string name="summary_unlock_fps">Strømming i 90 eller 120 BPS kan redusere latens på flaggskipsenheter, men kan forårsake forsinkelser eller ustabilitet på enheter som ikke klarer det.</string>
     <string name="summary_checkbox_host_audio">Spill lyd fra datamaskinen og denne enheten</string>
     <string name="summary_checkbox_enable_sops">Tillat GFE å endre spill-innstillinger for optimal strømming</string>
-    <string name="summary_checkbox_small_icon_mode">Mindre bilder for omslagskunst i programrutenettet lar deg se flere programmer på skjermen</string>
-    <string name="title_checkbox_small_icon_mode">Bruk liten omslagskunst</string>
     <string name="summary_osc_opacity">Gjør innstillingskontroller som vises på skjermen mer/mindre gjennomsiktige</string>
     <string name="summary_checkbox_mouse_nav_buttons">Å skru på dette ødelegger for høyreklikking på noen enheter</string>
     <string name="title_checkbox_mouse_nav_buttons">Skru på museknapper for forover og tilbake</string>

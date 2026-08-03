@@ -1,10 +1,8 @@
 package com.limelight.binding.input;
 
-import android.os.Build;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 
-import androidx.annotation.RequiresApi;
 
 /**
  * Centralizes pointer-input API values and calls that are unavailable on the
@@ -27,14 +25,6 @@ public final class PointerInputCompat {
     }
 
     public static int getActionButton(MotionEvent event) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            return 0;
-        }
-        return getActionButtonApi23(event);
-    }
-
-    @RequiresApi(Build.VERSION_CODES.M)
-    private static int getActionButtonApi23(MotionEvent event) {
         return event.getActionButton();
     }
 }

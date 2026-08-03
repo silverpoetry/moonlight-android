@@ -389,7 +389,7 @@ final class ControllerVibrationRenderer {
         vibrator.vibrate(effect, attributes);
     }
 
-    /** API 21-25 compatibility path; VibrationEffect starts at API 26. */
+    /** API 23-25 compatibility path; VibrationEffect starts at API 26. */
     @SuppressWarnings("deprecation")
     private static void vibrateStrongBeforeOreo(
             Vibrator vibrator,
@@ -397,7 +397,7 @@ final class ControllerVibrationRenderer {
         vibrator.vibrate(durationMs);
     }
 
-    /** API 21-25 compatibility path for repeating PWM vibration. */
+    /** API 23-25 compatibility path for repeating PWM vibration. */
     @SuppressWarnings("deprecation")
     private static void vibrateWaveformBeforeOreo(
             Vibrator vibrator,

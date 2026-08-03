@@ -35,7 +35,6 @@
 \nΟι ακόλουθες θύρες δικτύου αποκλείστηκαν:
 \n</string>
     <string name="applist_menu_hide_app">Απόκρυψη εφαρμογής</string>
-    <string name="applist_refresh_title">Λίστα εφαρμογών</string>
     <string name="applist_quit_fail">Αποτυχία διακοπής</string>
     <string name="applist_quit_confirmation">Είστε σίγουροι ότι θέλετε να τερματίσετε την τρέχουσα εφαρμογή; Όλα τα μη αποθηκευμένα δεδομένα θα χαθούν.</string>
     <string name="title_enable_perf_overlay">Εμφάνιση στατιστικών στοιχείων απόδοσης κατά τη ροή</string>
@@ -58,7 +57,6 @@
     <string name="conn_terminated_msg">Η σύνδεση τερματίστηκε</string>
     <string name="ip_hint">Διεύθυνση IP του υπολογιστή GeForce</string>
     <string name="yes">Ναί</string>
-    <string name="applist_menu_cancel">Ακύρωση</string>
     <string name="applist_refresh_msg">Ανανέωση εφαρμογών…</string>
     <string name="addpc_unknown_host">Αδυναμία επίλυσης διεύθυνσης υπολογιστή. Βεβαιωθείτε ότι δεν κάνατε τυπογραφικό λάθος στη διεύθυνση.</string>
     <string name="title_fps_list">Ρυθμός καρέ βίντεο</string>
@@ -90,7 +88,6 @@
     <string name="summary_checkbox_enable_pip">Επιτρέπει την προβολή της ροής (αλλά όχι τον έλεγχο) κατά την εκτέλεση πολλαπλών εργασιών</string>
     <string name="title_language_list">Γλώσσα</string>
     <string name="summary_language_list">Γλώσσα που χρησιμοποιείται για το Moonlight</string>
-    <string name="title_checkbox_small_icon_mode">Χρησιμοποιήστε μικρά κουτιά</string>
     <string name="scut_not_paired">Ο υπολογιστής δεν έχει συζευχθεί</string>
     <string name="pcview_menu_header_offline">Εκτός σύνδεσης</string>
     <string name="pcview_menu_test_network">Δοκιμή σύνδεσης δικτύου</string>
@@ -101,7 +98,6 @@
     <string name="pair_fail">Η σύζευξη απέτυχε</string>
     <string name="wol_no_mac">Δεν είναι δυνατή η αφύπνιση του υπολογιστή επειδή το GFE δεν έστειλε διεύθυνση MAC</string>
     <string name="wol_fail">Απέτυχε η αποστολή πακέτων Wake-On-LAN</string>
-    <string name="summary_checkbox_small_icon_mode">Το μικρότερο box art στο πλέγμα εφαρμογών επιτρέπει σε περισσότερες εφαρμογές να είναι ορατές στην οθόνη</string>
     <string name="title_checkbox_host_audio">Αναπαραγωγή ήχου στον υπολογιστή</string>
     <string name="summary_checkbox_host_audio">Αναπαραγωγή ήχου από τον υπολογιστή και αυτή τη συσκευή</string>
     <string name="title_checkbox_disable_warnings">Απενεργοποίηση προειδοποιητικών μηνυμάτων</string>
@@ -120,7 +116,6 @@
     <string name="conn_terminated_title">Η σύνδεση τερματίστηκε</string>
     <string name="help">Βοήθεια</string>
     <string name="applist_quit_app">Εγκατάλειψη</string>
-    <string name="msg_add_pc">Σύνδεση στον υπολογιστή…</string>
     <string name="error_404">Το GFE επέστρεψε ένα σφάλμα HTTP 404. Βεβαιωθείτε ότι ο υπολογιστής σας χρησιμοποιεί μια υποστηριζόμενη κάρτα γραφικών. Η χρήση λογισμικού απομακρυσμένης επιφάνειας εργασίας μπορεί επίσης να προκαλέσει αυτό το σφάλμα. Δοκιμάστε την επανεκκίνηση του υπολογιστή σας ή την επανεγκατάσταση του GFE.</string>
     <string name="video_decoder_init_failed">Απέτυχε η προετοιμασία του αποκωδικοποιητή βίντεο. Η συσκευή σας ενδέχεται να μην υποστηρίζει την επιλεγμένη ανάλυση ή ρυθμό καρέ.</string>
     <string name="title_add_pc">Προσθήκη υπολογιστή χειροκίνητα</string>

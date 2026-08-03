@@ -17,13 +17,15 @@ public final class SettingsChangeEffectSchedulerTest {
             throws InterruptedException {
         AtomicInteger reloads = new AtomicInteger();
         AtomicInteger refreshes = new AtomicInteger();
+        AtomicInteger recreates = new AtomicInteger();
         SettingsChangeEffectScheduler[] scheduler =
                 new SettingsChangeEffectScheduler[1];
 
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
             scheduler[0] = new SettingsChangeEffectScheduler(
                     reloads::incrementAndGet,
-                    refreshes::incrementAndGet);
+                    refreshes::incrementAndGet,
+                    recreates::incrementAndGet);
             scheduler[0].schedule(
                     SettingsMutationController.ChangeEffect.refresh(0));
             scheduler[0].schedule(
@@ -35,5 +37,6 @@ public final class SettingsChangeEffectSchedulerTest {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         assertEquals(1, refreshes.get());
         assertEquals(0, reloads.get());
+        assertEquals(0, recreates.get());
     }
 }

@@ -16,6 +16,9 @@
     <string name="pcview_menu_header_offline">Offline</string>
     <string name="pcview_menu_header_unknown">Refreshing</string>
     <string name="pcview_menu_app_list">View All Apps</string>
+    <string name="host_action_stream">Stream</string>
+    <string name="host_action_apps">Apps</string>
+    <string name="host_empty_state">No hosts yet. Add a PC to get started.</string>
     <string name="pcview_menu_pair_pc">Pair with PC</string>
     <string name="pcview_menu_send_wol">Send Wake-On-LAN request</string>
     <string name="pcview_menu_delete_pc">Delete PC</string>
@@ -106,16 +109,13 @@
     <string name="applist_menu_restart">Restart Stream</string>
     <string name="applist_menu_quit">Quit Session</string>
     <string name="applist_menu_quit_and_start">Quit Current Game and Start</string>
-    <string name="applist_menu_cancel">Cancel</string>
     <string name="applist_menu_details">View Details</string>
     <string name="applist_menu_scut">Create Shortcut</string>
     <string name="applist_menu_hide_app">Hide App</string>
     <string name="applist_menu_show_app">Show App</string>
     <string name="applist_menu_status_running">Streaming now</string>
     <string name="applist_menu_status_available">Ready to stream</string>
-    <string name="app_list_long_press_hint">Long press an app for more options</string>
     <string name="appview_menu_options">App options</string>
-    <string name="applist_refresh_title">App List</string>
     <string name="applist_refresh_msg">Refreshing apps…</string>
     <string name="applist_quit_app">Quitting</string>
     <string name="applist_quit_success">Successfully quit</string>
@@ -127,12 +127,10 @@
 
     <!-- Add computer manually activity -->
     <string name="title_add_pc">Add PC Manually</string>
-    <string name="msg_add_pc">Connecting to the PC…</string>
     <string name="addpc_fail">Unable to connect to the specified computer. Make sure the required ports are allowed through the firewall.</string>
     <string name="addpc_unknown_host">Unable to resolve PC address. Make sure you didn\'t make a typo in the address.</string>
     <string name="addpc_enter_ip">You must enter an IP address</string>
     <string name="addpc_wrong_sitelocal">That address doesn\'t look right. You must use your router\'s public IP address for streaming over the Internet.</string>
-    <string name="addpc_get_from_svr">Get address from the SVR record</string>
     <string name="addpc_append_razer_port">Append the Razer PC Remote Play port</string>
     <string name="addpc_srv_not_found">No _limelightax._tcp SRV record was found</string>
 
@@ -225,7 +223,6 @@
     <string name="file_push_selection_hint">选择主机后才会开始上传，文件将保存到主机桌面</string>
     <string name="file_push_host_section">可用主机</string>
     <string name="file_push_host_paired">已配对 · %1$s</string>
-    <string name="file_push_host_content_description">推送至 %1$s</string>
     <string name="file_push_no_shared_items">没有收到可推送的文件</string>
     <string name="file_push_no_hosts">没有已配对且可连接的主机</string>
     <string name="file_push_cancel">取消</string>
@@ -237,7 +234,6 @@
     <string name="file_push_complete_title">推送完成</string>
     <string name="file_push_complete_message">文件已保存到 %1$s 的桌面</string>
     <string name="file_push_failed_title">推送失败</string>
-    <string name="file_push_failed_message">%1$s</string>
     <string name="file_push_unknown_error">未知错误</string>
     <string name="file_push_in_progress">文件正在推送，请稍候</string>
     <string name="file_transfer_close">关闭</string>
@@ -614,8 +610,6 @@
     <string name="summary_checkbox_enable_pip">Allows the stream to be viewed (but not controlled) while multitasking</string>
     <string name="title_language_list">Language</string>
     <string name="summary_language_list">Language to use for Moonlight</string>
-    <string name="title_checkbox_small_icon_mode">Use small box art</string>
-    <string name="summary_checkbox_small_icon_mode">Smaller box art in the app grid allows more apps to be visible on screen</string>
 
     <string name="title_checkbox_enable_sops">Optimize game settings</string>
     <string name="summary_checkbox_enable_sops">Allow GFE to modify game settings for optimal streaming</string>

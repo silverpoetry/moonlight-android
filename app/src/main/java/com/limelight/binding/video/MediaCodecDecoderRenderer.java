@@ -120,7 +120,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         this.renderTarget = renderTarget;
 
         MediaCodec decoder = videoDecoder;
-        if (decoder == null || renderTarget == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+        if (decoder == null || renderTarget == null) {
             return;
         }
 
@@ -236,10 +236,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private MediaFormat createBaseMediaFormat(String mimeType) {
         MediaFormat videoFormat = MediaFormat.createVideoFormat(mimeType, initialWidth, initialHeight);
 
-        // Avoid setting KEY_FRAME_RATE on Lollipop and earlier to reduce compatibility risk
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            videoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, refreshRate);
-        }
+        videoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, refreshRate);
 
         // Populate keys for adaptive playback
         if (adaptivePlayback) {
@@ -468,7 +465,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             }
         }
 
-        if (USE_FRAME_RENDER_TIME && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (USE_FRAME_RENDER_TIME) {
             videoDecoder.setOnFrameRenderedListener(new MediaCodec.OnFrameRenderedListener() {
                 @Override
                 public void onFrameRendered(MediaCodec mediaCodec, long presentationTimeUs, long renderTimeNanos) {
@@ -1713,37 +1710,31 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             if (renderer.avcDecoder != null) {
                 Range<Integer> avcWidthRange = renderer.avcDecoder.getCapabilitiesForType("video/avc").getVideoCapabilities().getSupportedWidths();
                 str += "AVC supported width range: "+avcWidthRange+DELIMITER;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    try {
-                        Range<Double> avcFpsRange = renderer.avcDecoder.getCapabilitiesForType("video/avc").getVideoCapabilities().getAchievableFrameRatesFor(renderer.initialWidth, renderer.initialHeight);
-                        str += "AVC achievable FPS range: "+avcFpsRange+DELIMITER;
-                    } catch (IllegalArgumentException e) {
-                        str += "AVC achievable FPS range: UNSUPPORTED!"+DELIMITER;
-                    }
+                try {
+                    Range<Double> avcFpsRange = renderer.avcDecoder.getCapabilitiesForType("video/avc").getVideoCapabilities().getAchievableFrameRatesFor(renderer.initialWidth, renderer.initialHeight);
+                    str += "AVC achievable FPS range: "+avcFpsRange+DELIMITER;
+                } catch (IllegalArgumentException e) {
+                    str += "AVC achievable FPS range: UNSUPPORTED!"+DELIMITER;
                 }
             }
             if (renderer.hevcDecoder != null) {
                 Range<Integer> hevcWidthRange = renderer.hevcDecoder.getCapabilitiesForType("video/hevc").getVideoCapabilities().getSupportedWidths();
                 str += "HEVC supported width range: "+hevcWidthRange+DELIMITER;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    try {
-                        Range<Double> hevcFpsRange = renderer.hevcDecoder.getCapabilitiesForType("video/hevc").getVideoCapabilities().getAchievableFrameRatesFor(renderer.initialWidth, renderer.initialHeight);
-                        str += "HEVC achievable FPS range: " + hevcFpsRange + DELIMITER;
-                    } catch (IllegalArgumentException e) {
-                        str += "HEVC achievable FPS range: UNSUPPORTED!"+DELIMITER;
-                    }
+                try {
+                    Range<Double> hevcFpsRange = renderer.hevcDecoder.getCapabilitiesForType("video/hevc").getVideoCapabilities().getAchievableFrameRatesFor(renderer.initialWidth, renderer.initialHeight);
+                    str += "HEVC achievable FPS range: " + hevcFpsRange + DELIMITER;
+                } catch (IllegalArgumentException e) {
+                    str += "HEVC achievable FPS range: UNSUPPORTED!"+DELIMITER;
                 }
             }
             if (renderer.av1Decoder != null) {
                 Range<Integer> av1WidthRange = renderer.av1Decoder.getCapabilitiesForType("video/av01").getVideoCapabilities().getSupportedWidths();
                 str += "AV1 supported width range: "+av1WidthRange+DELIMITER;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    try {
-                        Range<Double> av1FpsRange = renderer.av1Decoder.getCapabilitiesForType("video/av01").getVideoCapabilities().getAchievableFrameRatesFor(renderer.initialWidth, renderer.initialHeight);
-                        str += "AV1 achievable FPS range: " + av1FpsRange + DELIMITER;
-                    } catch (IllegalArgumentException e) {
-                        str += "AV1 achievable FPS range: UNSUPPORTED!"+DELIMITER;
-                    }
+                try {
+                    Range<Double> av1FpsRange = renderer.av1Decoder.getCapabilitiesForType("video/av01").getVideoCapabilities().getAchievableFrameRatesFor(renderer.initialWidth, renderer.initialHeight);
+                    str += "AV1 achievable FPS range: " + av1FpsRange + DELIMITER;
+                } catch (IllegalArgumentException e) {
+                    str += "AV1 achievable FPS range: UNSUPPORTED!"+DELIMITER;
                 }
             }
             str += "Configured format: "+renderer.configuredFormat+DELIMITER;
@@ -1794,9 +1785,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 str += "Recoverable: "+ce.isRecoverable()+DELIMITER;
                 str += "Transient: "+ce.isTransient()+DELIMITER;
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    str += "Codec Error Code: "+ce.getErrorCode()+DELIMITER;
-                }
+                str += "Codec Error Code: "+ce.getErrorCode()+DELIMITER;
             }
 
             str += originalException.toString();

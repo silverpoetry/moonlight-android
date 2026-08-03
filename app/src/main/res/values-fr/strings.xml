@@ -85,10 +85,8 @@
     <string name="applist_menu_resume">Reprendre la session</string>
     <string name="applist_menu_quit">Quitter la session</string>
     <string name="applist_menu_quit_and_start">Quitter le jeu actuel et démarrer</string>
-    <string name="applist_menu_cancel">Annuler</string>
     <string name="applist_menu_details">Voir les détails</string>
     <string name="applist_menu_scut">Créer un raccourci</string>
-    <string name="applist_refresh_title">Liste des applications</string>
     <string name="applist_refresh_msg">Actualisation des applications…</string>
     <string name="applist_quit_app">Fermeture</string>
     <string name="applist_quit_success">Application fermée avec succès</string>
@@ -96,7 +94,6 @@
     <string name="applist_quit_confirmation">Voulez-vous vraiment quitter l\'application en cours d\'exécution \? Toutes les données non enregistrées seront perdues.</string>
     <!-- Add computer manually activity -->
     <string name="title_add_pc">Ajouter un PC manuellement</string>
-    <string name="msg_add_pc">Connexion au PC…</string>
     <string name="addpc_fail">Impossible de se connecter à l\'ordinateur spécifié. Assurez-vous que les ports requis sont autorisés via le pare-feu.</string>
     <string name="addpc_unknown_host">Impossible de résoudre l\'adresse du PC. Assurez-vous que vous n\'avez pas fait de faute de frappe dans l\'adresse.</string>
     <string name="addpc_enter_ip">Vous devez entrer une adresse IP</string>
@@ -140,8 +137,6 @@
     <string name="suffix_osc_opacity">%</string>
     <string name="title_language_list">Langue</string>
     <string name="summary_language_list">Langue à utiliser pour Moonlight</string>
-    <string name="title_checkbox_small_icon_mode">Utiliser des petites icônes</string>
-    <string name="summary_checkbox_small_icon_mode">Des icônes plus petites permettent d\'afficher plus d\'applications en même temps</string>
     <string name="title_checkbox_enable_sops">Optimiser les paramètres du jeu</string>
     <string name="summary_checkbox_enable_sops">Autoriser GFE à modifier les paramètres du jeu pour un streaming optimal</string>
     <string name="title_checkbox_host_audio">Jouer l\'audio sur le PC</string>

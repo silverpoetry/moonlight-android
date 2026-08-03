@@ -23,13 +23,11 @@
     <string name="poor_connection_msg">Słabe połączenie z komputerem</string>
     <string name="applist_menu_quit_and_start">Zakończ bieżącą grę i uruchom</string>
     <string name="applist_menu_scut">Utwórz skrót</string>
-    <string name="applist_refresh_title">Lista aplikacji</string>
     <string name="applist_quit_app">Rezygnacja</string>
     <string name="applist_quit_success">Zakończono z powodzeniem</string>
     <string name="applist_quit_fail">Nie udało się zakończyć</string>
     <string name="applist_quit_confirmation">Czy na pewno chcesz zamknąć uruchomioną aplikację? Wszystkie niezapisane dane zostaną utracone.</string>
     <string name="title_add_pc">Dodaj komputer ręcznie</string>
-    <string name="msg_add_pc">Podłączanie do komputera…</string>
     <string name="addpc_unknown_host">Nie można określić adresu komputera. Upewnij się, że nie popełniłeś literówki w adresie.</string>
     <string name="addpc_wrong_sitelocal">Ten adres nie wygląda prawidłowo. Do przesyłania strumieniowego przez Internet należy używać publicznego adresu IP routera.</string>
     <string name="title_resolution_list">Rozdzielczość wideo</string>
@@ -78,7 +76,6 @@
     <string name="title_checkbox_enable_pip">Włącz tryb obserwatora obrazu w obrazie</string>
     <string name="title_language_list">Język</string>
     <string name="summary_language_list">Język używany w Moonlight</string>
-    <string name="summary_checkbox_small_icon_mode">Mniejsze ramki w siatce aplikacji pozwalają na wyświetlanie większej liczby aplikacji na ekranie</string>
     <string name="title_checkbox_enable_sops">Optymalizacja ustawień gry</string>
     <string name="summary_checkbox_enable_sops">Zezwalanie GFE na modyfikowanie ustawień gry w celu optymalnego streamowania</string>
     <string name="title_checkbox_host_audio">Odtwarzanie dźwięku na komputerze</string>
@@ -165,7 +162,6 @@
     <string name="conn_error_title">Błąd połączenia</string>
     <string name="lost_connection">Utrata połączenia z komputerem</string>
     <string name="summary_checkbox_enable_pip">Umożliwia wyświetlanie strumienia (ale nie sterowanie nim) podczas pracy wielozadaniowej</string>
-    <string name="title_checkbox_small_icon_mode">Używaj małe ramki</string>
     <string name="title_enable_perf_overlay">Wyświetlanie statystyk wydajności podczas przesyłania strumieniowego</string>
     <string name="audioconf_51surround">5.1 Surround Sound</string>
     <string name="audioconf_71surround">7.1 Surround Sound</string>
@@ -207,7 +203,6 @@
 \nSpróbuj wyłączyć tryb HDR, zmienić rozdzielczość przesyłania strumieniowego lub rozdzielczość wyświetlacza komputera hosta.</string>
     <string name="conn_terminated_title">Połączenie zakończone</string>
     <string name="ip_hint">Adres IP komputera hosta</string>
-    <string name="applist_menu_cancel">Anuluj</string>
     <string name="applist_menu_hide_app">Ukryj aplikację</string>
     <string name="applist_menu_details">Wyświetl szczegóły</string>
     <string name="addpc_fail">Nie można połączyć się z określonym komputerem. Upewnij się, że wymagane porty są dozwolone przez zaporę sieciową.</string>

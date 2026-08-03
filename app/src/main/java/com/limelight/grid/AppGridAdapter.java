@@ -189,6 +189,30 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
 
     @Override
     public void populateView(View parentView, ImageView imgView, ProgressBar prgView, TextView txtView, ImageView overlayView, AppView.AppObject obj) {
+        populateArtwork(imgView, txtView, obj);
+
+        if (obj.isRunning) {
+            // Show the play button overlay
+            overlayView.setImageResource(R.drawable.ic_play);
+            overlayView.setVisibility(View.VISIBLE);
+        }
+        else {
+            overlayView.setVisibility(View.GONE);
+        }
+
+        if (obj.isHidden) {
+            parentView.setAlpha(0.40f);
+        }
+        else {
+            parentView.setAlpha(1.0f);
+        }
+    }
+
+    /** Binds artwork without coupling the Compose app browser to asset I/O. */
+    public void populateArtwork(
+            ImageView imgView,
+            TextView txtView,
+            AppView.AppObject obj) {
         // Let the cached asset loader handle it
         if(!TextUtils.isEmpty(obj.app.getCustomImagePath())&&(obj.app.getCustomImagePath().startsWith("http")||obj.app.getCustomImagePath().startsWith("HTTP"))){
             Glide.with(context)
@@ -221,22 +245,6 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
             txtView.setText(obj.app.getAppName());
         }else{
             loader.populateImageView(obj.app, imgView, txtView);
-        }
-
-        if (obj.isRunning) {
-            // Show the play button overlay
-            overlayView.setImageResource(R.drawable.ic_play);
-            overlayView.setVisibility(View.VISIBLE);
-        }
-        else {
-            overlayView.setVisibility(View.GONE);
-        }
-
-        if (obj.isHidden) {
-            parentView.setAlpha(0.40f);
-        }
-        else {
-            parentView.setAlpha(1.0f);
         }
     }
 }

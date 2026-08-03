@@ -501,8 +501,7 @@ public class MediaCodecHelper {
         //
         // NB: Even on Android 10, this optimization still provides significant
         // performance gains on Pixel 2.
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
-                isDecoderInList(qualcommDecoderPrefixes, decoderName) &&
+        return isDecoderInList(qualcommDecoderPrefixes, decoderName) &&
                 !isAdreno620;
     }
 
@@ -543,7 +542,7 @@ public class MediaCodecHelper {
             setNewOption = true;
         }
 
-        if (tryNumber < 3 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (tryNumber < 3) {
             if (decoderSupportsMaxOperatingRate(decoderInfo.getName())) {
                 videoFormat.setInteger(MediaFormat.KEY_OPERATING_RATE, Short.MAX_VALUE);
             }

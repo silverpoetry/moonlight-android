@@ -86,7 +86,7 @@ same window geometry after any inset or windowing change.
 
 ### Exit gate
 
-- API 21/28 compatibility smoke tests.
+- API 23/28 compatibility smoke tests.
 - API 34 comparison tests.
 - API 35 and 36 lifecycle/layout tests.
 - Real-device stream, input, microphone, and clipboard regression.

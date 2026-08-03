@@ -56,10 +56,10 @@ public class RenderingResourcesTest {
     }
 
     @Test
-    public void compactControllerRetainsTransparentControlCutouts() {
+    public void gamepadPassIconRetainsTransparentControlCutouts() {
         Context context = ApplicationProvider.getApplicationContext();
         Bitmap controller = renderDrawable(
-                context.getDrawable(R.drawable.ic_game_controller),
+                context.getDrawable(R.drawable.ic_gamepad_pass),
                 1024,
                 1024);
         try {

@@ -31,9 +31,6 @@ public final class SettingsDocumentActionRouterTest {
                 SettingsDocumentAction
                         .IMPORT_ACCESSIBILITY_CONFIGURATION);
         assertRoute(
-                SettingsScreenIds.ACTION_APP_BACKGROUND_SELECT,
-                SettingsDocumentAction.SELECT_BACKGROUND);
-        assertRoute(
                 TransferSettingKeys.CLIPBOARD_FILE_DIRECTORY_URI
                         .getName(),
                 SettingsDocumentAction.SELECT_CLIPBOARD_DIRECTORY);

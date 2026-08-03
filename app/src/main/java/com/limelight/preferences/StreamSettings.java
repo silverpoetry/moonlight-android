@@ -91,13 +91,11 @@ public class StreamSettings extends BaseActivity {
     void reloadSettings() {
         captureNavigationScroll();
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Display.Mode mode = AndroidDisplayCompat
-                    .getActivityDisplay(this)
-                    .getMode();
-            previousDisplayPixelCount =
-                    mode.getPhysicalWidth() * mode.getPhysicalHeight();
-        }
+        Display.Mode mode = AndroidDisplayCompat
+                .getActivityDisplay(this)
+                .getMode();
+        previousDisplayPixelCount =
+                mode.getPhysicalWidth() * mode.getPhysicalHeight();
 
         sections = SettingsRegistry.load(this);
         screenModel = new SettingsScreenModel(sections);
@@ -329,16 +327,14 @@ public class StreamSettings extends BaseActivity {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Display.Mode mode = AndroidDisplayCompat
-                    .getActivityDisplay(this)
-                    .getMode();
-            int displayPixelCount =
-                    mode.getPhysicalWidth() * mode.getPhysicalHeight();
-            if (displayPixelCount != previousDisplayPixelCount) {
-                reloadSettings();
-                return;
-            }
+        Display.Mode mode = AndroidDisplayCompat
+                .getActivityDisplay(this)
+                .getMode();
+        int displayPixelCount =
+                mode.getPhysicalWidth() * mode.getPhysicalHeight();
+        if (displayPixelCount != previousDisplayPixelCount) {
+            reloadSettings();
+            return;
         }
         if (screenRenderer != null) {
             captureNavigationScroll();

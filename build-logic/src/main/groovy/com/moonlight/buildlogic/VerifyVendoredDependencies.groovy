@@ -164,21 +164,19 @@ abstract class VerifyVendoredDependencies extends DefaultTask {
     private static String treeSha256(Path root, List<Path> files) {
         MessageDigest digest = MessageDigest.getInstance('SHA-256')
         files.each { Path file ->
-            String line = "${fileSha256(file)}  ${relativePath(root, file)}\n"
+            String line = "${canonicalTextSha256(file)}  ${relativePath(root, file)}\n"
             digest.update(line.getBytes(StandardCharsets.UTF_8))
         }
         return hex(digest.digest())
     }
 
-    private static String fileSha256(Path file) {
+    /** Hashes vendored source in the canonical LF form used by Git. */
+    private static String canonicalTextSha256(Path file) {
         MessageDigest digest = MessageDigest.getInstance('SHA-256')
-        file.withInputStream { stream ->
-            byte[] buffer = new byte[64 * 1024]
-            int count
-            while ((count = stream.read(buffer)) != -1) {
-                digest.update(buffer, 0, count)
-            }
-        }
+        String text = Files.readString(file, StandardCharsets.UTF_8)
+                .replace('\r\n', '\n')
+                .replace('\r', '\n')
+        digest.update(text.getBytes(StandardCharsets.UTF_8))
         return hex(digest.digest())
     }
 

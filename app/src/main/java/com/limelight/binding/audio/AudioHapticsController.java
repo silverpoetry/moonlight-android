@@ -265,7 +265,7 @@ public final class AudioHapticsController {
         vibrator.vibrate(effect, attributes);
     }
 
-    /** API 21-25 compatibility path; VibrationEffect starts at API 26. */
+    /** API 23-25 compatibility path; VibrationEffect starts at API 26. */
     @SuppressWarnings("deprecation")
     private void vibrateBeforeOreo(long durationMs) {
         vibrator.vibrate(durationMs);

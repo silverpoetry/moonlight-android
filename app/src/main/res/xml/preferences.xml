@@ -776,31 +776,6 @@
             android:entries="@array/language_names"
             android:entryValues="@array/language_values"
             android:defaultValue="default" />
-        <SmallIconCheckboxPreference
-            android:key="app.appearance.small_icons"
-            android:title="@string/title_checkbox_small_icon_mode"
-            android:summary="@string/summary_checkbox_small_icon_mode" />
-        <CheckBoxPreference
-            android:key="app.appearance.background.enabled"
-            android:title="使用自定义主屏幕背景"
-            android:summary="关闭时使用默认背景。"
-            android:defaultValue="false" />
-        <Preference
-            android:key="action_app_background_select"
-            android:title="选择主屏幕背景图"
-            android:summary="选择一张本地图片作为主屏幕背景。" />
-        <CheckBoxPreference
-            android:key="app.appearance.background.blur"
-            android:title="背景图模糊"
-            android:summary="对自定义背景图应用系统模糊效果；需要 Android 12 或更高版本。"
-            android:defaultValue="true" />
-        <EditTextPreference
-            android:key="app.appearance.host_list_label"
-            android:title="主屏幕标题"
-            android:summary="自定义主机列表左侧显示的标题。"
-            android:dialogTitle="设置主屏幕标题"
-            android:dialogMessage="输入希望显示的文本。"
-            android:singleLine="true" />
     </PreferenceCategory>
 
     <PreferenceCategory

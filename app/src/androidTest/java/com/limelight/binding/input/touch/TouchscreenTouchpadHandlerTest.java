@@ -277,7 +277,8 @@ public final class TouchscreenTouchpadHandlerTest {
 
         assertFalse(handler.handleMotionEvent(eventView,
                 event(0, MotionEvent.ACTION_DOWN, 0, 100, 100)));
-        SystemClock.sleep(RelativeTouchContext.PHYSICAL_LONG_PRESS_MS + 100);
+        SystemClock.sleep(
+                settingsState.get().getTouchpadLongPressDurationMs() + 100L);
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
         assertEquals(2, connection.frames.size());

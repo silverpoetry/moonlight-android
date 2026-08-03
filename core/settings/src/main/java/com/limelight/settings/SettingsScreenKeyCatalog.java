@@ -156,12 +156,7 @@ public final class SettingsScreenKeyCatalog {
                 VirtualControlSettingKeys.KEYBOARD_LAYOUT_ID,
                 VirtualControlSettingKeys.KEYBOARD_HAPTICS);
 
-        builder.add(
-                AppPresentationSettingKeys.LANGUAGE,
-                AppPresentationSettingKeys.SMALL_APP_ICONS,
-                AppPresentationSettingKeys.BACKGROUND_ENABLED,
-                AppPresentationSettingKeys.BACKGROUND_BLUR_ENABLED,
-                AppPresentationSettingKeys.HOST_LIST_LABEL);
+        builder.add(AppPresentationSettingKeys.LANGUAGE);
 
         builder.add(
                 StreamVideoSettingKeys.OPTIMIZE_GAME_SETTINGS,

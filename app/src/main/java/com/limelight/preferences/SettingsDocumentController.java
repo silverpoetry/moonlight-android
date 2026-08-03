@@ -13,7 +13,6 @@ import com.limelight.computers.ComputerDatabaseManager;
 import com.limelight.input.accessibility.KeyboardRemappingFileStore;
 import com.limelight.platform.files.AndroidPrivateFileShare;
 import com.limelight.settings.SettingsRepository;
-import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
@@ -48,7 +47,6 @@ final class SettingsDocumentController {
     static final int REQUEST_CERTIFICATE_IMPORT = 1004;
     static final int REQUEST_PRIVATE_KEY_IMPORT = 1005;
     static final int REQUEST_ACCESSIBILITY_IMPORT = 1007;
-    static final int REQUEST_BACKGROUND = 1008;
     static final int REQUEST_CLIPBOARD_DIRECTORY = 1009;
 
     private static final String CERTIFICATE_FILE_NAME = "client.crt";
@@ -61,8 +59,6 @@ final class SettingsDocumentController {
             "application/vnd.sqlite3";
     private static final long MAX_DATA_IMPORT_BYTES = 4L * 1024L * 1024L;
     private static final long MAX_HOST_DATABASE_BYTES =
-            64L * 1024L * 1024L;
-    private static final long MAX_BACKGROUND_BYTES =
             64L * 1024L * 1024L;
 
     private final Activity activity;
@@ -136,9 +132,6 @@ final class SettingsDocumentController {
                         "application/json",
                         REQUEST_ACCESSIBILITY_IMPORT);
                 break;
-            case SELECT_BACKGROUND:
-                openDocument("image/*", REQUEST_BACKGROUND);
-                break;
             case SELECT_CLIPBOARD_DIRECTORY:
                 openClipboardDirectory();
                 break;
@@ -206,9 +199,6 @@ final class SettingsDocumentController {
                 break;
             case REQUEST_ACCESSIBILITY_IMPORT:
                 runOnIo(() -> importAccessibilityConfiguration(uri));
-                break;
-            case REQUEST_BACKGROUND:
-                runOnIo(() -> importBackground(uri));
                 break;
             default:
                 throw new AssertionError(
@@ -483,28 +473,6 @@ final class SettingsDocumentController {
         }
     }
 
-    private void importBackground(Uri uri) {
-        try {
-            String displayName =
-                    "settings_background_" +
-                            System.currentTimeMillis() +
-                            ".png";
-            replaceFileFromUri(
-                    uri,
-                    new File(activity.getFilesDir(), displayName),
-                    MAX_BACKGROUND_BYTES);
-            repository.edit()
-                    .put(
-                            AppPresentationSettingKeys.BACKGROUND_FILE,
-                            displayName)
-                    .apply();
-            notifySettingsChanged();
-        }
-        catch (Exception error) {
-            showImportError("background", error);
-        }
-    }
-
     private void showImportError(String subject, Exception error) {
         String detail = error.getMessage();
         if (detail == null || detail.trim().isEmpty()) {
@@ -650,7 +618,6 @@ final class SettingsDocumentController {
             case REQUEST_CERTIFICATE_IMPORT:
             case REQUEST_PRIVATE_KEY_IMPORT:
             case REQUEST_ACCESSIBILITY_IMPORT:
-            case REQUEST_BACKGROUND:
             case REQUEST_CLIPBOARD_DIRECTORY:
                 return true;
             default:

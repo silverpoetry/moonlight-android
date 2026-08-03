@@ -1,12 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <lint>
-    <!-- Activity 1.12+ and Core 1.17+ raise their minSdk from 21 to 23. Keep
-         reporting every other stale dependency while preserving the root
-         flavor's API 21/22 compatibility contract. -->
-    <issue id="GradleDependency">
-        <ignore regexp="androidx\.activity:activity.*1\.11\.0"/>
-        <ignore regexp="androidx\.core:core.*1\.16\.0"/>
-    </issue>
     <!-- Glide 3 ships an optional NotificationTarget class, but this app only uses image
          targets. Keep the notification permission check active for every real app call site. -->
     <issue id="NotificationPermission">

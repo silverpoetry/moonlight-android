@@ -37,54 +37,44 @@ final class AndroidSettingsDisplayCapabilities {
         float maximumRefreshRate = display.getRefreshRate();
         int maximumPresetWidth = 0;
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            boolean hasInsets = addInsetAdjustedResolution(
-                    capabilities,
-                    display,
-                    androidPieCutout);
-            boolean television = AndroidDeviceCategory.isTelevision(
-                    activity);
+        boolean hasInsets = addInsetAdjustedResolution(
+                capabilities,
+                display,
+                androidPieCutout);
+        boolean television = AndroidDeviceCategory.isTelevision(
+                activity);
 
-            for (Display.Mode mode : display.getSupportedModes()) {
-                int width = Math.max(
-                        mode.getPhysicalWidth(),
-                        mode.getPhysicalHeight());
-                int height = Math.min(
-                        mode.getPhysicalWidth(),
-                        mode.getPhysicalHeight());
+        for (Display.Mode mode : display.getSupportedModes()) {
+            int width = Math.max(
+                    mode.getPhysicalWidth(),
+                    mode.getPhysicalHeight());
+            int height = Math.min(
+                    mode.getPhysicalWidth(),
+                    mode.getPhysicalHeight());
 
-                if (!television || width > 3840 || height > 2160) {
-                    capabilities.addNativeResolution(
-                            width,
-                            height,
-                            hasInsets);
-                }
-                maximumPresetWidth = Math.max(
-                        maximumPresetWidth,
-                        standardPresetWidth(width, height));
-                maximumRefreshRate = Math.max(
-                        maximumRefreshRate,
-                        mode.getRefreshRate());
+            if (!television || width > 3840 || height > 2160) {
+                capabilities.addNativeResolution(
+                        width,
+                        height,
+                        hasInsets);
             }
+            maximumPresetWidth = Math.max(
+                    maximumPresetWidth,
+                    standardPresetWidth(width, height));
+            maximumRefreshRate = Math.max(
+                    maximumRefreshRate,
+                    mode.getRefreshRate());
+        }
 
-            MediaCodecHelper.initialize(
-                    activity,
-                    glDeviceSnapshot.getRenderer());
-            maximumPresetWidth = probeDecoderWidth(
-                    maximumPresetWidth,
-                    MIME_AVC);
-            maximumPresetWidth = probeDecoderWidth(
-                    maximumPresetWidth,
-                    MIME_HEVC);
-        }
-        else {
-            Point size = AndroidDisplayCompat.getPhysicalDisplaySize(
-                    activity);
-            capabilities.addNativeResolution(
-                    Math.max(size.x, size.y),
-                    Math.min(size.x, size.y),
-                    false);
-        }
+        MediaCodecHelper.initialize(
+                activity,
+                glDeviceSnapshot.getRenderer());
+        maximumPresetWidth = probeDecoderWidth(
+                maximumPresetWidth,
+                MIME_AVC);
+        maximumPresetWidth = probeDecoderWidth(
+                maximumPresetWidth,
+                MIME_HEVC);
 
         return capabilities
                 .maximumSupportedPresetWidth(maximumPresetWidth)

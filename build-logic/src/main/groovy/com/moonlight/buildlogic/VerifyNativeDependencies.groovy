@@ -263,21 +263,34 @@ abstract class VerifyNativeDependencies extends DefaultTask {
     private static String treeSha256(Path root, List<Path> files) {
         MessageDigest digest = MessageDigest.getInstance('SHA-256')
         files.each { Path file ->
-            String line = "${fileSha256(file)}  ${relativePath(root, file)}\n"
+            String line = "${canonicalFileSha256(file)}  ${relativePath(root, file)}\n"
             digest.update(line.getBytes(StandardCharsets.UTF_8))
         }
         return hex(digest.digest())
     }
 
-    private static String fileSha256(Path file) {
+    /**
+     * Git may materialize tracked text files with CRLF on Windows. Native
+     * archives remain byte-exact, while source and provenance text use a
+     * platform-independent LF representation for the tree digest.
+     */
+    private static String canonicalFileSha256(Path file) {
         MessageDigest digest = MessageDigest.getInstance('SHA-256')
-        file.withInputStream { stream ->
-            byte[] buffer = new byte[64 * 1024]
-            int count
-            while ((count = stream.read(buffer)) != -1) {
-                digest.update(buffer, 0, count)
+        if (file.fileName.toString().endsWith('.a')) {
+            file.withInputStream { stream ->
+                byte[] buffer = new byte[64 * 1024]
+                int count
+                while ((count = stream.read(buffer)) != -1) {
+                    digest.update(buffer, 0, count)
+                }
             }
+            return hex(digest.digest())
         }
+
+        String text = Files.readString(file, StandardCharsets.UTF_8)
+                .replace('\r\n', '\n')
+                .replace('\r', '\n')
+        digest.update(text.getBytes(StandardCharsets.UTF_8))
         return hex(digest.digest())
     }
 

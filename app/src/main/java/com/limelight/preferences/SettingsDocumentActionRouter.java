@@ -34,10 +34,6 @@ final class SettingsDocumentActionRouter {
             return SettingsDocumentAction
                     .IMPORT_ACCESSIBILITY_CONFIGURATION;
         }
-        if (SettingsScreenIds.ACTION_APP_BACKGROUND_SELECT
-                .equals(key)) {
-            return SettingsDocumentAction.SELECT_BACKGROUND;
-        }
         if (TransferSettingKeys.CLIPBOARD_FILE_DIRECTORY_URI
                 .getName()
                 .equals(key)) {

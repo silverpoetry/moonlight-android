@@ -4,8 +4,6 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
-import android.net.NetworkInfo;
-import android.os.Build;
 
 import java.util.Objects;
 
@@ -23,42 +21,23 @@ public enum AndroidNetworkTransport {
         if (manager == null) {
             return NONE;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Network network = manager.getActiveNetwork();
-            if (network == null) {
-                return NONE;
-            }
-            NetworkCapabilities capabilities =
-                    manager.getNetworkCapabilities(network);
-            if (capabilities == null) {
-                return NONE;
-            }
-            if (capabilities.hasTransport(
-                    NetworkCapabilities.TRANSPORT_VPN) ||
-                    !capabilities.hasCapability(
-                            NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
-                return VPN;
-            }
-            if (capabilities.hasTransport(
-                    NetworkCapabilities.TRANSPORT_CELLULAR)) {
-                return CELLULAR;
-            }
-            return OTHER;
-        }
-        return getLegacyActive(manager);
-    }
-
-    @SuppressWarnings("deprecation")
-    private static AndroidNetworkTransport getLegacyActive(
-            ConnectivityManager manager) {
-        NetworkInfo info = manager.getActiveNetworkInfo();
-        if (info == null || !info.isConnected()) {
+        Network network = manager.getActiveNetwork();
+        if (network == null) {
             return NONE;
         }
-        if (info.getType() == ConnectivityManager.TYPE_VPN) {
+        NetworkCapabilities capabilities =
+                manager.getNetworkCapabilities(network);
+        if (capabilities == null) {
+            return NONE;
+        }
+        if (capabilities.hasTransport(
+                NetworkCapabilities.TRANSPORT_VPN) ||
+                !capabilities.hasCapability(
+                        NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
             return VPN;
         }
-        if (info.getType() == ConnectivityManager.TYPE_MOBILE) {
+        if (capabilities.hasTransport(
+                NetworkCapabilities.TRANSPORT_CELLULAR)) {
             return CELLULAR;
         }
         return OTHER;

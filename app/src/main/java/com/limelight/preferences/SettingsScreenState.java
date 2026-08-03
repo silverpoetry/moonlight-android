@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /** Immutable presentation snapshot consumed by the settings renderer. */
-final class SettingsScreenState {
+public final class SettingsScreenState {
     private final List<Section> sections;
     private final List<Row> featuredRows;
     private final Map<String, Row> rowsById;

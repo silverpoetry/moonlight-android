@@ -2,6 +2,11 @@
 
 Captured on 2026-07-30 before the API 36 quality migration.
 
+> Historical baseline: the current application contract has since moved to
+> `compileSdk`/`targetSdk` 37 and `minSdk` 23 as part of the Compose Material 3
+> presentation migration. Values below describe the recorded pre-migration
+> release and are intentionally not rewritten.
+
 ## Source and Toolchain
 
 - Source commit: `bb9dac548dc7c9864a9b076c836e33ab1c9a5f9d`

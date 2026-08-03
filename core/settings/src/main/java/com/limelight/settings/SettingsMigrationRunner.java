@@ -1,6 +1,5 @@
 package com.limelight.settings;
 
-import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.audio.StreamAudioSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
@@ -21,6 +20,29 @@ import java.util.Set;
  * Runs ordered, idempotent migrations for default application preferences.
  */
 public final class SettingsMigrationRunner {
+    private static final SettingKey<Boolean> REMOVED_BACKGROUND_ENABLED =
+            SettingKey.booleanKey(
+                    "app.appearance.background.enabled",
+                    false)
+                    .renamedFrom("checkbox_enable_screen_bg");
+    private static final SettingKey<Boolean> REMOVED_BACKGROUND_BLUR =
+            SettingKey.booleanKey(
+                    "app.appearance.background.blur",
+                    true)
+                    .renamedFrom("checkbox_enable_screen_obscure");
+    private static final SettingKey<String> REMOVED_BACKGROUND_FILE =
+            SettingKey.boundedStringKey(
+                    "app.appearance.background.file",
+                    "axi_screen_bg.png",
+                    255)
+                    .renamedFrom("screen_bg_file_name");
+    private static final SettingKey<String> REMOVED_HOST_LIST_LABEL =
+            SettingKey.boundedStringKey(
+                    "app.appearance.host_list_label",
+                    "",
+                    256)
+                    .renamedFrom("change_screen_label_key");
+
     private SettingsMigrationRunner() {
     }
 
@@ -32,9 +54,12 @@ public final class SettingsMigrationRunner {
                 containsLegacyValues(repository);
         boolean hasRenamedValues =
                 containsRenamedValues(repository);
+        boolean hasRemovedAppearanceValues =
+                containsRemovedAppearanceValues(repository);
         if (storedVersion >= SettingsSchema.CURRENT_VERSION &&
                 !hasLateLegacyValues &&
-                !hasRenamedValues) {
+                !hasRenamedValues &&
+                !hasRemovedAppearanceValues) {
             return;
         }
 
@@ -64,8 +89,8 @@ public final class SettingsMigrationRunner {
                 containsLegacyGameMenuLayout(repository)) {
             migrateToVersion4(repository, editor);
         }
-        if (storedVersion < 6) {
-            migrateToVersion6(repository, editor);
+        if (storedVersion < 7 || hasRemovedAppearanceValues) {
+            migrateToVersion7(editor);
         }
         if (storedVersion < SettingsSchema.CURRENT_VERSION) {
             editor.put(
@@ -75,40 +100,30 @@ public final class SettingsMigrationRunner {
         editor.commit();
     }
 
-    /**
-     * Removes the former fork's release label when it was persisted as the
-     * customizable home-screen title. Other user-provided titles are kept.
-     */
-    private static void migrateToVersion6(
-            SettingsRepository repository,
+    /** Removes presentation options retired by the Material 3 UI. */
+    private static void migrateToVersion7(
             SettingsRepository.Editor editor) {
-        SettingKey<String> canonicalKey =
-                AppPresentationSettingKeys.HOST_LIST_LABEL;
-        if (isFormerForkHostListLabel(repository, canonicalKey)) {
-            editor.remove(canonicalKey);
-        }
-        for (String legacyName : AppPresentationSettingKeys
-                .HOST_LIST_LABEL.getLegacyNames()) {
-            SettingKey<String> legacyKey =
-                    canonicalKey.legacyAlias(legacyName);
-            if (!isFormerForkHostListLabel(repository, legacyKey)) {
-                continue;
-            }
-            editor.remove(legacyKey);
-            if (!repository.contains(canonicalKey) ||
-                    isFormerForkHostListLabel(
-                            repository,
-                            canonicalKey)) {
-                editor.remove(canonicalKey);
-            }
-        }
+        removeWithAliases(editor, REMOVED_BACKGROUND_ENABLED);
+        removeWithAliases(editor, REMOVED_BACKGROUND_BLUR);
+        removeWithAliases(editor, REMOVED_BACKGROUND_FILE);
+        removeWithAliases(editor, REMOVED_HOST_LIST_LABEL);
     }
 
-    private static boolean isFormerForkHostListLabel(
-            SettingsRepository repository,
-            SettingKey<String> key) {
-        return repository.contains(key) &&
-                "月光·阿西西".equals(repository.get(key));
+    private static boolean containsRemovedAppearanceValues(
+            SettingsRepository repository) {
+        return containsCanonicalOrAlias(repository, REMOVED_BACKGROUND_ENABLED) ||
+                containsCanonicalOrAlias(repository, REMOVED_BACKGROUND_BLUR) ||
+                containsCanonicalOrAlias(repository, REMOVED_BACKGROUND_FILE) ||
+                containsCanonicalOrAlias(repository, REMOVED_HOST_LIST_LABEL);
+    }
+
+    private static <T> void removeWithAliases(
+            SettingsRepository.Editor editor,
+            SettingKey<T> key) {
+        editor.remove(key);
+        for (String legacyName : key.getLegacyNames()) {
+            editor.remove(key.legacyAlias(legacyName));
+        }
     }
 
     private static boolean containsRenamedValues(

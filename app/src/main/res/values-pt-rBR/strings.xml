@@ -13,7 +13,6 @@
     <string name="summary_frame_pacing">Especifique o equilíbrio entre latência e suavidade do vídeo</string>
     <string name="title_checkbox_disable_warnings">Desabilitar mensagens de alerta</string>
     <string name="title_checkbox_enable_pip">Habilitar modo Picture-in-Picture</string>
-    <string name="summary_checkbox_small_icon_mode">Diminui o tamanho dos ícones permitindo que mais aplicativos sejam visíveis na tela</string>
     <string name="summary_checkbox_xb1_driver">Habilita um driver USB integrado para dispositivos sem suporte nativo aos controles Xbox</string>
     <string name="title_checkbox_mouse_nav_buttons">Habilitar os botões de voltar e avançar do mouse</string>
     <string name="addpc_fail">Não foi possível conectar ao computador especificado. Certifique-se de que as portas necessárias sejam permitidas pelo firewall.</string>
@@ -119,18 +118,15 @@
     <string name="applist_menu_resume">Retornar ao Jogo</string>
     <string name="applist_menu_quit">Sair do Jogo</string>
     <string name="applist_menu_quit_and_start">Sair do Jogo Atual e Iniciar</string>
-    <string name="applist_menu_cancel">Cancelar</string>
     <string name="applist_menu_details">Ver Detalhes</string>
     <string name="applist_menu_scut">Criar Atalho</string>
     <string name="applist_menu_hide_app">Esconder Jogo</string>
-    <string name="applist_refresh_title">Lista de Aplicativos</string>
     <string name="applist_quit_app">Saindo</string>
     <string name="applist_quit_success">Saiu com sucesso</string>
     <string name="applist_quit_fail">Falha ao sair</string>
     <string name="applist_refresh_msg">Recarregando aplicativos…</string>
     <string name="applist_quit_confirmation">Tem certeza de que deseja sair do aplicativo em execução\? Todos os dados não salvos serão perdidos.</string>
     <string name="title_add_pc">Adicionar PC Manualmente</string>
-    <string name="msg_add_pc">Conectando ao PC…</string>
     <string name="addpc_unknown_host">Não foi possível encontrar o PC. Certifique-se de que não cometeu um erro de digitação no endereço.</string>
     <string name="addpc_enter_ip">Você deve inserir um endereço de IP</string>
     <string name="title_resolution_list">Resolução</string>
@@ -181,7 +177,6 @@
     <string name="summary_checkbox_enable_pip">Permite que a transmissão seja visualizada (mas não controlada) enquanto usa outros apps</string>
     <string name="suffix_osc_opacity">%</string>
     <string name="dialog_title_osc_opacity">Mudar opacidade</string>
-    <string name="title_checkbox_small_icon_mode">Mostrar ícones menores</string>
     <string name="summary_osc_opacity">Deixe os controles de tela mais/menos transparentes</string>
     <string name="title_video_format">Mudar configurações do HEVC</string>
     <string name="summary_video_format">HEVC reduz os requisitos de largura de banda de vídeo, mas requer um dispositivo mais atual</string>

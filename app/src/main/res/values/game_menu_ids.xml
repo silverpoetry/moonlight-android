@@ -15,4 +15,15 @@
     <item name="btn_hdr" type="id" />
     <item name="btn_pull_clipboard_files" type="id" />
     <item name="btn_gamepad_mouse" type="id" />
+    <!-- Stable commands rendered by the Compose menu instead of XML views. -->
+    <item name="bt_touch_list" type="id" />
+    <item name="bt_touch_sensitivity" type="id" />
+    <item name="bt_quick_list" type="id" />
+    <item name="bt_virtual_view" type="id" />
+    <item name="bt_device" type="id" />
+    <item name="bt_display" type="id" />
+    <item name="btn_soft_function" type="id" />
+    <item name="btn_soft_keyboard" type="id" />
+    <item name="btn_desktop" type="id" />
+    <item name="btn_window" type="id" />
 </resources>

@@ -65,8 +65,6 @@
     <string name="applist_menu_resume">Riprendi sessione</string>
     <string name="applist_menu_quit">Chiudi sessione</string>
     <string name="applist_menu_quit_and_start">Chiudi sessione corrente e avvia</string>
-    <string name="applist_menu_cancel">Annulla</string>
-    <string name="applist_refresh_title">Lista applicazioni</string>
     <string name="applist_refresh_msg">Aggiornamento lista in corso…</string>
     <string name="applist_quit_app">Chiusura in corso</string>
     <string name="applist_quit_success">Sessione chiusa con successo</string>
@@ -74,7 +72,6 @@
     <string name="applist_quit_confirmation">Sei sicuro di voler chiudere l\'applicazione avviata? Tutti i dati non salvati saranno persi.</string>
     <!-- Add computer manually activity -->
     <string name="title_add_pc">Aggiungi PC manualmente</string>
-    <string name="msg_add_pc">Connessione al PC in corso…</string>
     <string name="addpc_fail">Impossibile connettersi al PC specificato. Assicurati che le porte nel firewall del PC siano configurate correttamente.</string>
     <string name="addpc_unknown_host">Impossibile risovere l\'indirizzo del PC. Assicurati di aver scritto correttamente l\'indirizzo.</string>
     <string name="addpc_enter_ip">Devi inserire un indirizzo IP</string>
@@ -104,8 +101,6 @@
     <string name="summary_checkbox_show_onscreen_controls">Mostra l\'overlay virtuale del controller su schermo</string>
     <string name="title_language_list">Lingua</string>
     <string name="summary_language_list">Lingua da usare in Moonlight</string>
-    <string name="title_checkbox_small_icon_mode">Usa icone piccole</string>
-    <string name="summary_checkbox_small_icon_mode">Usa icone piccole nella griglia per avere più oggetti a schermo</string>
     <string name="title_checkbox_enable_sops">Ottimizza le impostazioni dei giochi</string>
     <string name="summary_checkbox_enable_sops">Permetti a GFE di modificare le impostazioni dei giochi per uno streaming ottimale</string>
     <string name="title_checkbox_host_audio">Riproduci audio sul PC</string>

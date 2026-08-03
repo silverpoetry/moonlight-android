@@ -342,7 +342,6 @@ final class AndroidDecoderDiscovery {
         }
 
         @Override
-        @RequiresApi(Build.VERSION_CODES.M)
         public Double getAchievableFrameRateUpper(
                 int width,
                 int height) {

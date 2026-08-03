@@ -3,8 +3,8 @@ package com.limelight.settings.ui;
 import java.util.Objects;
 
 /**
- * API-21-safe result that distinguishes an absent layout from an explicitly
- * configured empty layout.
+ * Result that distinguishes an absent layout from an explicitly configured
+ * empty layout.
  */
 public final class GameMenuCardLayoutLoadResult {
     private static final GameMenuCardLayoutLoadResult ABSENT =

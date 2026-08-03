@@ -91,7 +91,6 @@
     <string name="suffix_osc_opacity">%</string>
     <string name="title_checkbox_enable_pip">Ativar modo Picture-in-Picture</string>
     <string name="summary_checkbox_enable_pip">Permite que a transmissão seja visualizada (mas não controlada) enquanto usa outros apps</string>
-    <string name="summary_checkbox_small_icon_mode">Diminui o tamanho dos ícones permitindo que mais apps sejam visíveis no ecrã</string>
     <string name="summary_checkbox_host_audio">Reproduz o áudio do computador e deste aparelho</string>
     <string name="title_unlock_fps">Liberar todas as taxas de quadros possíveis</string>
     <string name="summary_unlock_fps">Transmitir a 90 ou 120 FPS pode reduzir a latência em aparelhos de última geração, mas pode causar atraso ou instabilidade em aparelhos que não suportam</string>
@@ -139,13 +138,10 @@
     <string name="applist_menu_resume">Retomar Sessão</string>
     <string name="applist_menu_quit">Sair da Sessão</string>
     <string name="applist_menu_quit_and_start">Sair do Jogo Atual e Iniciar</string>
-    <string name="applist_menu_cancel">Cancelar</string>
     <string name="applist_menu_details">Ver Detalhes</string>
     <string name="applist_menu_hide_app">Esconder app</string>
-    <string name="applist_refresh_title">Lista de apps</string>
     <string name="applist_quit_confirmation">Tem certeza de que deseja sair da app em execução\? Todos os dados não salvos serão perdidos.</string>
     <string name="title_add_pc">Adicionar PC Manualmente</string>
-    <string name="msg_add_pc">Conectando ao PC…</string>
     <string name="addpc_unknown_host">Não foi possível encontrar o PC. Certifique-se de que não cometeu um erro de digitação no endereço.</string>
     <string name="addpc_enter_ip">Deve inserir um endereço de IP</string>
     <string name="addpc_wrong_sitelocal">Esse endereço não parece certo. Deve usar o endereço de IP público do seu roteador para transmitir pela Internet.</string>
@@ -166,7 +162,6 @@
     <string name="summary_osc_opacity">Deixe os controles de ecrã mais/menos transparentes</string>
     <string name="title_language_list">Idioma</string>
     <string name="summary_language_list">Idioma para ser usado no Moonlight</string>
-    <string name="title_checkbox_small_icon_mode">Mostrar ícones menores</string>
     <string name="summary_checkbox_enable_sops">Permitir que o GFE modifique as configurações do jogo para otimizar a transmissão</string>
     <string name="title_checkbox_host_audio">Reproduzir áudio no PC</string>
     <string name="title_checkbox_disable_warnings">Desativar mensagens de alerta</string>

@@ -22,13 +22,6 @@ public final class AppPresentationSettingsLoaderTest {
         assertTrue(settings.usesSystemLanguage());
         assertFalse(settings.usesSmallAppIcons());
         assertTrue(settings.usesLightTheme());
-        assertFalse(settings.isBackgroundEnabled());
-        assertTrue(settings.isBackgroundBlurEnabled());
-        assertEquals(
-                AppPresentationSettingKeys
-                        .DEFAULT_BACKGROUND_FILE,
-                settings.getBackgroundFile());
-        assertEquals("", settings.getHostListLabel());
     }
 
     @Test
@@ -43,20 +36,6 @@ public final class AppPresentationSettingsLoaderTest {
         repository.put(
                 AppPresentationSettingKeys.LIGHT_THEME,
                 false);
-        repository.put(
-                AppPresentationSettingKeys.BACKGROUND_ENABLED,
-                true);
-        repository.put(
-                AppPresentationSettingKeys
-                        .BACKGROUND_BLUR_ENABLED,
-                false);
-        repository.put(
-                AppPresentationSettingKeys.BACKGROUND_FILE,
-                "background.png");
-        repository.put(
-                AppPresentationSettingKeys.HOST_LIST_LABEL,
-                "My hosts");
-
         AppPresentationSettings settings =
                 AppPresentationSettingsLoader.load(repository);
 
@@ -64,12 +43,6 @@ public final class AppPresentationSettingsLoaderTest {
         assertFalse(settings.usesSystemLanguage());
         assertTrue(settings.usesSmallAppIcons());
         assertFalse(settings.usesLightTheme());
-        assertTrue(settings.isBackgroundEnabled());
-        assertFalse(settings.isBackgroundBlurEnabled());
-        assertEquals(
-                "background.png",
-                settings.getBackgroundFile());
-        assertEquals("My hosts", settings.getHostListLabel());
     }
 
     @Test
@@ -78,26 +51,10 @@ public final class AppPresentationSettingsLoaderTest {
         repository.values.put(
                 AppPresentationSettingKeys.LANGUAGE.getName(),
                 repeat('x', 65));
-        repository.values.put(
-                AppPresentationSettingKeys
-                        .BACKGROUND_FILE
-                        .getName(),
-                repeat('x', 256));
-        repository.values.put(
-                AppPresentationSettingKeys
-                        .HOST_LIST_LABEL
-                        .getName(),
-                repeat('x', 257));
-
         AppPresentationSettings settings =
                 AppPresentationSettingsLoader.load(repository);
 
         assertTrue(settings.usesSystemLanguage());
-        assertEquals(
-                AppPresentationSettingKeys
-                        .DEFAULT_BACKGROUND_FILE,
-                settings.getBackgroundFile());
-        assertEquals("", settings.getHostListLabel());
     }
 
     private static String repeat(char value, int count) {

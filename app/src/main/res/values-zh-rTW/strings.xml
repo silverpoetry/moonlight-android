@@ -71,10 +71,8 @@
     <string name="applist_menu_resume">繼續工作階段</string>
     <string name="applist_menu_quit">結束工作階段</string>
     <string name="applist_menu_quit_and_start">結束目前遊戲並開始這個遊戲</string>
-    <string name="applist_menu_cancel"> 取消 </string>
     <string name="applist_menu_details">檢視詳細資料</string>
     <string name="applist_menu_scut">建立捷徑</string>
-    <string name="applist_refresh_title">遊戲清單</string>
     <string name="applist_refresh_msg">正在重新整理…</string>
     <string name="applist_quit_app">正在結束</string>
     <string name="applist_quit_success">成功結束</string>
@@ -85,7 +83,6 @@
     <string name="applist_quit_confirmation">您確定要結束執行中的遊戲？所有未儲存的資料將丟失。</string>
     <!-- Add computer manually activity -->
     <string name="title_add_pc">手動新增電腦</string>
-    <string name="msg_add_pc">正在連線電腦…</string>
     <string name="addpc_fail">無法連線至指定電腦。請確保必要通訊埠未被防火牆封鎖。</string>
     <string name="addpc_unknown_host">無法解析電腦的 IP 位址，請確保 IP 位址輸入無誤。</string>
     <string name="addpc_enter_ip">請輸入一個 IP 位址</string>
@@ -129,8 +126,6 @@
     <string name="summary_checkbox_vibrate_osc">使用螢幕控制按鈕時震動裝置以仿真遊戲低頻音</string>
     <string name="title_language_list"> 語言 </string>
     <string name="summary_language_list">選擇 Moonlight 顯示的語言</string>
-    <string name="title_checkbox_small_icon_mode"> 使用小圖示 </string>
-    <string name="summary_checkbox_small_icon_mode">使用小圖示以在螢幕上顯示更多應用程式</string>
     <string name="title_checkbox_enable_sops">最佳化遊戲設定</string>
     <string name="summary_checkbox_enable_sops">允許 GFE 為最佳串流效果自動更改遊戲設定</string>
     <string name="title_checkbox_host_audio">在電腦上播放音訊</string>
@@ -232,9 +227,7 @@
     <string name="summary_checkbox_gamepad_motion_fallback">如果您連線的手把或 Android 版本不支援手把感測器，請使用裝置內建的動態感測器。
 \n注意：啟用此選項可能會導致您的手把在主機被辨識為 PlayStation 控制器。</string>
     <string name="title_checkbox_gamepad_motion_fallback">模擬手把動態感測器支援</string>
-    <string name="app_list_long_press_hint">長按應用程式可查看更多選項</string>
     <string name="appview_menu_options">應用程式選項</string>
-    <string name="addpc_get_from_svr">根據 SVR 記錄取得位址</string>
     <string name="addpc_append_razer_port">附加 Razer 雷遊連接埠號碼</string>
     <string name="addpc_srv_not_found">找不到 _limelightax._tcp SRV 記錄</string>
     <string name="accessibility_virtual_controller">虛擬手把</string>

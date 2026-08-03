@@ -1,13 +1,11 @@
 package com.limelight.ui.stream;
 
 import android.app.Activity;
-import android.graphics.Point;
 import android.os.Build;
 import android.view.Display;
 import android.view.WindowManager;
 
 import androidx.annotation.MainThread;
-import androidx.annotation.RequiresApi;
 
 import com.limelight.LimeLog;
 import com.limelight.settings.stream.StreamDecoderSettings;
@@ -95,9 +93,6 @@ public final class AndroidStreamDisplayController {
             int width,
             int height) {
         Objects.requireNonNull(activity, "activity");
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            return false;
-        }
         Display display = AndroidDisplayCompat.getActivityDisplay(
                 activity);
         for (Display.Mode candidate : display.getSupportedModes()) {
@@ -124,21 +119,12 @@ public final class AndroidStreamDisplayController {
                         framePacing,
                         decoderSettings
                                 .isRefreshRateReductionEnabled());
-        float selectedRefreshRate;
+        float selectedRefreshRate = prepareDisplayMode(
+                display,
+                windowLayoutParams,
+                mayReduceRefreshRate);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            selectedRefreshRate = prepareDisplayMode(
-                    display,
-                    windowLayoutParams,
-                    mayReduceRefreshRate);
-        }
-        else {
-            selectedRefreshRate = prepareLegacyRefreshRate(
-                    display,
-                    windowLayoutParams);
-        }
-
-        configureRenderSurface(display);
+        configureRenderSurface();
         float effectiveRefreshRate = television
                 ? selectedRefreshRate
                 : Math.min(
@@ -150,7 +136,6 @@ public final class AndroidStreamDisplayController {
                 systemManagedRefreshRate);
     }
 
-    @RequiresApi(Build.VERSION_CODES.M)
     private float prepareDisplayMode(
             Display display,
             WindowManager.LayoutParams windowLayoutParams,
@@ -227,50 +212,8 @@ public final class AndroidStreamDisplayController {
         return bestMode.getRefreshRate();
     }
 
-    private float prepareLegacyRefreshRate(
-            Display display,
-            WindowManager.LayoutParams windowLayoutParams) {
-        float bestRefreshRate = display.getRefreshRate();
-        for (float candidate : display.getSupportedRefreshRates()) {
-            LimeLog.info("Examining refresh rate: " + candidate);
-            if (candidate <= bestRefreshRate) {
-                continue;
-            }
-            if (decoderSettings.getFps() <= 60 && candidate >= 63) {
-                continue;
-            }
-            bestRefreshRate = candidate;
-        }
-
-        LimeLog.info("Selected refresh rate: " + bestRefreshRate);
-        if (!systemManagedRefreshRate) {
-            windowLayoutParams.preferredRefreshRate =
-                    bestRefreshRate;
-            activity.getWindow().setAttributes(windowLayoutParams);
-        }
-        return bestRefreshRate;
-    }
-
-    private void configureRenderSurface(Display display) {
-        boolean aspectRatioMatch = false;
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            Point screenSize = AndroidDisplayCompat.getWindowSize(
-                    activity);
-            aspectRatioMatch =
-                    StreamLayoutGeometry.hasCompatibleAspectRatio(
-                            screenSize.x,
-                            screenSize.y,
-                            decoderSettings.getWidth(),
-                            decoderSettings.getHeight(),
-                            0.001);
-            if (aspectRatioMatch) {
-                LimeLog.info(
-                        "Stream has compatible aspect ratio with " +
-                                "output display");
-            }
-        }
-
-        if (displaySettings.isStretchVideo() || aspectRatioMatch) {
+    private void configureRenderSurface() {
+        if (displaySettings.isStretchVideo()) {
             streamView.getHolder().setFixedSize(
                     decoderSettings.getWidth(),
                     decoderSettings.getHeight());
@@ -285,7 +228,6 @@ public final class AndroidStreamDisplayController {
         LimeLog.info("surfaceChanged-->" + desiredAspectRatio);
     }
 
-    @RequiresApi(Build.VERSION_CODES.M)
     private static Display.Mode findPlatformMode(
             Display.Mode currentMode,
             List<Display.Mode> platformModes,
@@ -298,7 +240,6 @@ public final class AndroidStreamDisplayController {
         return currentMode;
     }
 
-    @RequiresApi(Build.VERSION_CODES.M)
     private static StreamDisplayModeSelector.Mode toSelectorMode(
             Display.Mode mode) {
         return new StreamDisplayModeSelector.Mode(

@@ -1,0 +1,329 @@
+package com.limelight.ui.compose.hosts
+
+import android.content.Context
+import android.view.View
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.limelight.R
+import com.limelight.computers.model.HostConnectionState
+import com.limelight.computers.model.HostEndpoint
+import com.limelight.computers.model.HostRuntimeSnapshot
+import com.limelight.ui.compose.components.MoonlightScreen
+import com.limelight.ui.compose.theme.MoonlightThemeFromSettings
+
+/** Material 3 host browser. Host discovery and operations stay in PcView. */
+class HostScreenRenderer(
+    private val context: Context,
+    private var listener: Listener?,
+) {
+    interface Listener {
+        fun onSettingsRequested()
+        fun onAddComputerRequested()
+        fun onStreamRequested(host: HostRuntimeSnapshot)
+        fun onAppsRequested(host: HostRuntimeSnapshot)
+        fun onHostMenuRequested(host: HostRuntimeSnapshot)
+    }
+
+    private data class State(
+        val title: String,
+        val hosts: List<HostRuntimeSnapshot>,
+        val showSearching: Boolean,
+    )
+
+    private var state: State by mutableStateOf(
+        State(context.getString(R.string.app_label), emptyList(), false),
+    )
+    private var composeView: ComposeView? = null
+
+    fun createRootView(): View {
+        composeView?.let { return it }
+        return ComposeView(context).also { view ->
+            composeView = view
+            view.setViewCompositionStrategy(
+                ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed,
+            )
+            view.setContent {
+                MoonlightThemeFromSettings {
+                    HostScreen(state)
+                }
+            }
+        }
+    }
+
+    fun updateTitle(title: CharSequence) {
+        state = state.copy(title = title.toString())
+    }
+
+    fun updateHosts(
+        hosts: List<HostRuntimeSnapshot>,
+        showSearching: Boolean,
+    ) {
+        state = state.copy(
+            hosts = hosts.toList(),
+            showSearching = showSearching,
+        )
+    }
+
+    fun destroy() {
+        listener = null
+        composeView?.disposeComposition()
+        composeView = null
+    }
+
+    @Composable
+    private fun HostScreen(state: State) {
+        MoonlightScreen(
+            title = state.title,
+            actions = {
+                IconButton(onClick = { listener?.onSettingsRequested() }) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_app_setting),
+                        contentDescription = stringResource(R.string.settings_title),
+                    )
+                }
+            },
+            floatingActionButton = {
+                ExtendedFloatingActionButton(
+                    onClick = { listener?.onAddComputerRequested() },
+                    icon = {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_app_add),
+                            contentDescription = null,
+                        )
+                    },
+                    text = { Text(stringResource(R.string.title_add_pc)) },
+                )
+            },
+        ) { padding ->
+            if (state.hosts.isEmpty()) {
+                EmptyHostState(
+                    showSearching = state.showSearching,
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                )
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(300.dp),
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    items(
+                        items = state.hosts,
+                        key = { it.record.identity.id.value },
+                    ) { host ->
+                        HostCard(host)
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun EmptyHostState(
+        showSearching: Boolean,
+        modifier: Modifier,
+    ) {
+        Box(modifier = modifier, contentAlignment = Alignment.Center) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.padding(32.dp).widthIn(max = 420.dp),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_computer),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(64.dp),
+                )
+                Text(
+                    text = if (showSearching) {
+                        stringResource(R.string.searching_pc)
+                    } else {
+                        stringResource(R.string.host_empty_state)
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun HostCard(host: HostRuntimeSnapshot) {
+        val connection = host.connectionState
+        val online = connection.reachability == HostConnectionState.Reachability.ONLINE
+        val hostName = host.record.identity.displayName
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { listener?.onStreamRequested(host) },
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            ),
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_computer),
+                        contentDescription = null,
+                        tint = if (online) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(36.dp),
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = hostName,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(statusColor(connection), CircleShape),
+                            )
+                            Text(
+                                text = stringResource(statusText(connection)),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    }
+                    IconButton(onClick = { listener?.onHostMenuRequested(host) }) {
+                        Text(
+                            text = "⋮",
+                            style = MaterialTheme.typography.headlineSmall,
+                        )
+                    }
+                }
+
+                displayEndpoint(host)?.let { address ->
+                    Text(
+                        text = address,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Button(
+                        onClick = { listener?.onStreamRequested(host) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_play),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            text = stringResource(R.string.host_action_stream),
+                            modifier = Modifier.padding(start = 8.dp),
+                            maxLines = 1,
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = { listener?.onAppsRequested(host) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_menu_grid),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            text = stringResource(R.string.host_action_apps),
+                            modifier = Modifier.padding(start = 8.dp),
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun statusColor(connection: HostConnectionState): Color = when (
+        connection.reachability
+    ) {
+        HostConnectionState.Reachability.ONLINE -> MaterialTheme.colorScheme.primary
+        HostConnectionState.Reachability.OFFLINE -> MaterialTheme.colorScheme.outline
+        HostConnectionState.Reachability.UNKNOWN -> MaterialTheme.colorScheme.tertiary
+    }
+
+    private fun statusText(connection: HostConnectionState): Int = when (
+        connection.reachability
+    ) {
+        HostConnectionState.Reachability.ONLINE -> R.string.pcview_menu_header_online
+        HostConnectionState.Reachability.OFFLINE -> R.string.pcview_menu_header_offline
+        HostConnectionState.Reachability.UNKNOWN -> R.string.pcview_menu_header_unknown
+    }
+
+    private fun displayEndpoint(host: HostRuntimeSnapshot): String? {
+        val record = host.record
+        return sequenceOf(
+            HostEndpoint.Kind.LOCAL_IPV4,
+            HostEndpoint.Kind.LOCAL_IPV6,
+            HostEndpoint.Kind.REMOTE,
+            HostEndpoint.Kind.MANUAL,
+        ).mapNotNull(record::getEndpoint).firstOrNull()?.address
+    }
+}

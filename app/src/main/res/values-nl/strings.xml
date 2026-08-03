@@ -51,8 +51,6 @@
     <string name="applist_menu_resume">Hervat Sessie</string>
     <string name="applist_menu_quit">Stop Sessie</string>
     <string name="applist_menu_quit_and_start">Stop Huidige Spel en Start</string>
-    <string name="applist_menu_cancel">Annuleer</string>
-    <string name="applist_refresh_title">App Lijst</string>
     <string name="applist_refresh_msg">Apps Verversen…</string>
     <string name="applist_quit_app">Stoppen</string>
     <string name="applist_quit_success">Succesvol gestopt</string>
@@ -60,7 +58,6 @@
     <string name="applist_quit_confirmation">Weet je het zeker dat je de app wilt sluiten? Alle niet-opgeslagen gegevens gaan verloren.</string>
     <!-- Add computer manually activity -->
     <string name="title_add_pc">Voeg handmatig PC toe</string>
-    <string name="msg_add_pc">Verbinding maken met PC…</string>
     <string name="addpc_fail">Verbinden mislukt. Controleer of de benodigde poorten openstaan in de firewall.</string>
     <string name="addpc_unknown_host">Adres achterhalen is mislukt. Controleer het ingevoerde adres op typfouten.</string>
     <string name="addpc_enter_ip">IP-adres invoeren is verplicht</string>
@@ -83,8 +80,6 @@
     <string name="summary_checkbox_show_onscreen_controls">Geeft een virtuele controller weer op het touchscreen</string>
     <string name="title_language_list">Taal</string>
     <string name="summary_language_list">Taal te gebruiken in Moonlight</string>
-    <string name="title_checkbox_small_icon_mode">Gebruik kleine iconen</string>
-    <string name="summary_checkbox_small_icon_mode">Gebruik kleine iconen in kolom onderdelen zodat meer items tegelijk zichtbaar worden</string>
     <string name="title_checkbox_enable_sops">Optimaliseer spel instellingen</string>
     <string name="summary_checkbox_enable_sops">Sta GFE toe om spel instellingen te veranderen voor een optimale stream</string>
     <string name="title_checkbox_host_audio">Speel audio af op PC</string>

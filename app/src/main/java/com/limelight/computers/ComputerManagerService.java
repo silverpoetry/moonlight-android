@@ -555,8 +555,7 @@ public class ComputerManagerService extends Service {
 
     /**
      * Performs one synchronous non-VPN network snapshot for native STUN.
-     * Android exposes no replacement that both enumerates every current
-     * network synchronously and supports API 21-22 process binding.
+     * The callback API cannot provide the required point-in-time enumeration.
      */
     @SuppressWarnings("deprecation")
     private void populateExternalAddress(ComputerDetails details) {
@@ -580,14 +579,7 @@ public class ComputerManagerService extends Service {
                                     NetworkCapabilities.TRANSPORT_CELLULAR) &&
                             !netCaps.hasTransport(
                                     NetworkCapabilities.TRANSPORT_VPN)) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            if (connMgr.bindProcessToNetwork(net)) {
-                                boundToNetwork = true;
-                                break;
-                            }
-                        }
-                        else if (ConnectivityManager
-                                .setProcessDefaultNetwork(net)) {
+                        if (connMgr.bindProcessToNetwork(net)) {
                             boundToNetwork = true;
                             break;
                         }
@@ -610,12 +602,7 @@ public class ComputerManagerService extends Service {
         }
         finally {
             if (boundToNetwork) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    connMgr.bindProcessToNetwork(null);
-                }
-                else {
-                    ConnectivityManager.setProcessDefaultNetwork(null);
-                }
+                connMgr.bindProcessToNetwork(null);
             }
             if (activeNetworkIsVpn) {
                 defaultNetworkLock.unlock();

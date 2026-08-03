@@ -102,7 +102,7 @@ public final class StreamWifiLockController {
     @SuppressWarnings("deprecation")
     private static int legacyHighPerformanceMode() {
         // LOW_LATENCY is not available before Android 10. Keep the old mode
-        // isolated here for supported API 21-28 devices and as an independent
+        // isolated here for supported API 23-28 devices and as an independent
         // fallback on vendor implementations where the newer lock fails.
         return WifiManager.WIFI_MODE_FULL_HIGH_PERF;
     }

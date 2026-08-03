@@ -67,17 +67,14 @@
     <string name="applist_menu_resume">Återuppta session</string>
     <string name="applist_menu_quit">Avsluta session</string>
     <string name="applist_menu_quit_and_start">Avsluta aktuellt spel och starta</string>
-    <string name="applist_menu_cancel">Avbryt</string>
     <string name="applist_menu_details">Visa detaljer</string>
     <string name="applist_menu_scut">Skapa genväg</string>
     <string name="applist_menu_hide_app">Dölj appen</string>
-    <string name="applist_refresh_title">Applista</string>
     <string name="applist_refresh_msg">Friskar upp appar…</string>
     <string name="applist_quit_app">Avslutar</string>
     <string name="applist_quit_success">Framgångsrikt avslutad</string>
     <string name="applist_quit_confirmation">Är du säker på att du vill avsluta den pågående appen\? Alla osparade datamatrial kommer att gå förlorade.</string>
     <string name="title_add_pc">Lägg till en dator manuellt</string>
-    <string name="msg_add_pc">Fogar till datorn…</string>
     <string name="addpc_fail">Det går inte att foga till den angivna datorn. Kontrollera att de nödvändiga portarna tillåts genom brandväggen.</string>
     <string name="addpc_unknown_host">Det går inte att lösa PC-adressen. Kontrollera att du inte har skrivit fel i adressen.</string>
     <string name="addpc_enter_ip">Du måste ange en IP-adress</string>
@@ -117,8 +114,6 @@
     <string name="title_checkbox_enable_pip">Sätt på bild-i-bild-observatörsläge</string>
     <string name="title_language_list">Språk</string>
     <string name="summary_language_list">Språk att använda för Moonlight</string>
-    <string name="title_checkbox_small_icon_mode">Använd liten omslagskonst</string>
-    <string name="summary_checkbox_small_icon_mode">Mindre lådor i appgallret gör att fler appar syns på skärmen</string>
     <string name="title_checkbox_enable_sops">Optimera spelinställningarna</string>
     <string name="summary_checkbox_enable_sops">Tillåt GFE att ändra spelinställningar för optimal strömning</string>
     <string name="title_checkbox_host_audio">Spela upp ljud på datorn</string>

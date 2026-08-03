@@ -40,8 +40,6 @@
 \nUjistěte se, že je GameStream povolen v záložce SHIELD v nastavení GeForce Experience.</string>
     <string name="applist_menu_quit">Ukončit</string>
     <string name="applist_menu_quit_and_start">Ukončit současnou hru a spustit</string>
-    <string name="applist_menu_cancel">Zrušit</string>
-    <string name="applist_refresh_title">Seznam aplikací</string>
     <string name="applist_menu_resume">Pokračovat</string>
     <string name="applist_menu_details">Zobrazit detaily</string>
     <string name="applist_menu_scut">Vytvořit zkratku</string>
@@ -136,7 +134,6 @@
     <string name="applist_quit_success">Úspěšně ukončeno</string>
     <string name="applist_quit_fail">Ukončení se nezdařilo</string>
     <string name="applist_quit_confirmation">Určitě chcete ukončit běžící aplikaci\? Neuložená data budou ztracena.</string>
-    <string name="msg_add_pc">Připojování k PC…</string>
     <string name="addpc_unknown_host">Nezdařilo se připojit k adrese PC. Ujistěte se, že v adrese není překlep.</string>
     <string name="addpc_wrong_sitelocal">Tahle adresa nevypadá správně. Musíte zadat veřejnou IP vašeho routeru, pokud chcete streamovat přes Internet.</string>
     <string name="title_resolution_list">Rozlišení videa</string>
@@ -192,8 +189,6 @@
     <string name="summary_checkbox_enable_pip">Umožní, aby byl stream sledován (ale ne ovládá) během multitaskingu</string>
     <string name="title_language_list">Jazyk</string>
     <string name="summary_language_list">Jazyk, který bude Moonlight používat</string>
-    <string name="title_checkbox_small_icon_mode">Použít malý box art</string>
-    <string name="summary_checkbox_small_icon_mode">Díky menšímu box artu v seznamu aplikací uvidíte na obrazovce více aplikací naráz</string>
     <string name="title_checkbox_enable_sops">Optimalizovat herní nastavení</string>
     <string name="title_video_format">Změnit nastavení HEVC</string>
     <string name="summary_video_format">HEVC sníží datový přenos, ale vyžaduje novější zařízení</string>

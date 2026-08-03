@@ -3,7 +3,6 @@ package com.limelight.ui.stream;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
-import android.os.Build;
 
 import androidx.annotation.MainThread;
 
@@ -37,23 +36,18 @@ public final class AndroidStreamMicrophoneControllerFactory {
                 new StreamMicrophoneController.PermissionGateway() {
                     @Override
                     public boolean isGranted() {
-                        return Build.VERSION.SDK_INT <
-                                Build.VERSION_CODES.M ||
-                                activity.checkSelfPermission(
+                        return activity.checkSelfPermission(
                                         Manifest.permission.RECORD_AUDIO) ==
                                         PackageManager.PERMISSION_GRANTED;
                     }
 
                     @Override
                     public void requestPermission() {
-                        if (Build.VERSION.SDK_INT >=
-                                Build.VERSION_CODES.M) {
-                            activity.requestPermissions(
-                                    new String[] {
-                                        Manifest.permission.RECORD_AUDIO
-                                    },
-                                    REQUEST_RECORD_AUDIO_PERMISSION);
-                        }
+                        activity.requestPermissions(
+                                new String[] {
+                                    Manifest.permission.RECORD_AUDIO
+                                },
+                                REQUEST_RECORD_AUDIO_PERMISSION);
                     }
                 },
                 new StreamMicrophoneController.Feedback() {

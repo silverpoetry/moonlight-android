@@ -10,13 +10,13 @@ public final class SettingsDocumentRequestStateTest {
     public void validRestoredRequestSurvivesRecreationUntilConsumed() {
         SettingsDocumentController.RequestState state =
                 new SettingsDocumentController.RequestState(
-                        SettingsDocumentController.REQUEST_BACKGROUND);
+                        SettingsDocumentController.REQUEST_CLIPBOARD_DIRECTORY);
 
         assertEquals(
-                SettingsDocumentController.REQUEST_BACKGROUND,
+                SettingsDocumentController.REQUEST_CLIPBOARD_DIRECTORY,
                 state.peek());
         assertEquals(
-                SettingsDocumentController.REQUEST_BACKGROUND,
+                SettingsDocumentController.REQUEST_CLIPBOARD_DIRECTORY,
                 state.consume());
         assertEquals(
                 SettingsDocumentController.NO_PENDING_REQUEST,

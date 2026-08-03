@@ -11,6 +11,9 @@
     <string name="help_loading_msg"> 正在加载帮助页面…… </string>
     <!-- PC view menu entries -->
     <string name="pcview_menu_app_list"> 浏览游戏列表 </string>
+    <string name="host_action_stream">串流</string>
+    <string name="host_action_apps">应用</string>
+    <string name="host_empty_state">还没有主机，添加电脑后即可开始。</string>
     <string name="pcview_menu_pair_pc"> 和电脑配对 </string>
     <string name="pcview_menu_send_wol"> 发送 Wake-On-LAN 请求 </string>
     <string name="pcview_menu_delete_pc"> 删除电脑 </string>
@@ -71,10 +74,8 @@
     <string name="applist_menu_restart"> 重启串流 </string>
     <string name="applist_menu_quit"> 退出串流 </string>
     <string name="applist_menu_quit_and_start"> 退出当前游戏并开始这个游戏 </string>
-    <string name="applist_menu_cancel"> 取消 </string>
     <string name="applist_menu_details"> 查看详情 </string>
     <string name="applist_menu_scut"> 创建快捷方式 </string>
-    <string name="applist_refresh_title"> 游戏列表 </string>
     <string name="applist_refresh_msg"> 刷新中…… </string>
     <string name="applist_quit_app"> 退出中 </string>
     <string name="applist_quit_success"> 成功退出串流 </string>
@@ -85,7 +86,6 @@
     <string name="applist_quit_confirmation">您确定要退出当前游戏？所有未保存的数据将丢失。</string>
     <!-- Add computer manually activity -->
     <string name="title_add_pc"> 手动添加电脑 </string>
-    <string name="msg_add_pc"> 正在连接电脑…… </string>
     <string name="addpc_fail">无法连接至指定电脑。请确保所需端口没有被防火墙阻止。</string>
     <string name="addpc_unknown_host">无法解析电脑的IP地址，请确保IP地址输入无误。</string>
     <string name="addpc_enter_ip">请输入一个IP地址</string>
@@ -131,8 +131,6 @@
     <string name="summary_checkbox_vibrate_osc"> 使用屏幕控制按钮时震动设备以模拟游戏震动效果 </string>
     <string name="title_language_list"> 语言 </string>
     <string name="summary_language_list"> 选择Moonlight显示的语言 </string>
-    <string name="title_checkbox_small_icon_mode"> 使用小图标 </string>
-    <string name="summary_checkbox_small_icon_mode"> 使用小图标以在屏幕上显示更多项目 </string>
     <string name="title_checkbox_enable_sops"> 优化游戏设置 </string>
     <string name="summary_checkbox_enable_sops"> 允许GFE为最佳串流效果自动更改游戏设置 </string>
     <string name="title_checkbox_host_audio"> 在电脑上播放声音 </string>
@@ -278,9 +276,7 @@
 
     <string name="mic_uplink_not_supported">主机未启用麦克风上行，或未检测到兼容的虚拟麦克风设备。</string>
     <string name="mic_uplink_permission_denied">麦克风许可被拒绝了。</string>
-    <string name="app_list_long_press_hint">长按应用可查看更多选项</string>
     <string name="appview_menu_options">应用选项</string>
-    <string name="addpc_get_from_svr">根据 SVR 记录获取地址</string>
     <string name="addpc_append_razer_port">追加 Razer 雷游端口号</string>
     <string name="addpc_srv_not_found">未找到 _limelightax._tcp SRV 记录</string>
     <string name="accessibility_virtual_controller">虚拟手柄</string>

@@ -1,7 +1,7 @@
 # Application.mk for Moonlight
 
-# Our minimum version is Android 5.0
-APP_PLATFORM := android-21
+# Match the AndroidX runtime baseline used by the application.
+APP_PLATFORM := android-23
 
 # We support 16KB pages
 APP_SUPPORT_FLEXIBLE_PAGE_SIZES := true

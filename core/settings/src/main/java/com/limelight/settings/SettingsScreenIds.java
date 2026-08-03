@@ -39,8 +39,6 @@ public final class SettingsScreenIds {
             "action_virtual_keyboard_import";
     public static final String ACTION_VIRTUAL_KEYBOARD_EXPORT =
             "action_virtual_keyboard_export";
-    public static final String ACTION_APP_BACKGROUND_SELECT =
-            "action_app_background_select";
     public static final String ACTION_ACCESSIBILITY_CONFIG_IMPORT =
             "action_accessibility_config_import";
     public static final String ACTION_BACKUP_HOSTS_EXPORT =

@@ -1,7 +1,6 @@
 package com.limelight.binding.input.pointer;
 
 import android.graphics.Matrix;
-import android.os.Build;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
@@ -198,7 +197,6 @@ public final class ExternalPointerInputController {
         // button. Promote only that action to a secondary click.
         if (source == InputDevice.SOURCE_TOUCHPAD &&
                 pointerCount == 2 &&
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
                 actionButton == MotionEvent.BUTTON_PRIMARY) {
             if (actionMasked ==
                     MotionEvent.ACTION_BUTTON_PRESS) {

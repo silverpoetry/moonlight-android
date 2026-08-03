@@ -52,7 +52,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
     }
 
     // FLAG_LOW_LATENCY is a compile-time integer flag. It was publicized in API 24,
-    // but AudioAttributes.Builder#setFlags() safely accepts it on our API 21 minimum.
+    // but AudioAttributes.Builder#setFlags() safely accepts it on our API 23 minimum.
     @SuppressLint("InlinedApi")
     @SuppressWarnings("deprecation")
     private AudioTrack createAudioTrack(int channelConfig, int sampleRate, int bufferSize, boolean lowLatency) {
@@ -111,10 +111,7 @@ public class AndroidAudioRenderer implements AudioRenderer {
                 channelConfig = AudioFormat.CHANNEL_OUT_5POINT1;
                 break;
             case 8:
-                // AudioFormat.CHANNEL_OUT_7POINT1_SURROUND isn't available until Android 6.0,
-                // yet the CHANNEL_OUT_SIDE_LEFT and CHANNEL_OUT_SIDE_RIGHT constants were added
-                // in 5.0, so just hardcode the constant so we can work on Lollipop.
-                channelConfig = 0x000018fc; // AudioFormat.CHANNEL_OUT_7POINT1_SURROUND
+                channelConfig = AudioFormat.CHANNEL_OUT_7POINT1_SURROUND;
                 break;
             default:
                 LimeLog.severe("Decoder returned unhandled channel count");

@@ -42,15 +42,14 @@ import com.limelight.settings.stream.StreamVideoSettingsUpdate;
 import com.limelight.stream.launch.android.AndroidStreamAutoReconnectController;
 import com.limelight.stream.launch.android.AndroidStreamLaunchFeedback;
 import com.limelight.stream.launch.android.AndroidStreamLauncher;
-import com.limelight.ui.AdapterFragment;
-import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.ui.gamemenu.GameDisplayFragment;
 import com.limelight.ui.gamemenu.GameDisplayHost;
-import com.limelight.ui.hosts.ScreenBackgroundPresenter;
 import com.limelight.ui.decoder.AndroidDecoderCrashNotificationController;
 import com.limelight.ui.hosts.HostQuitMessageResolver;
 import com.limelight.ui.hosts.HostServiceBindingController;
 import com.limelight.ui.hosts.HostUiOperationController;
+import com.limelight.ui.compose.apps.ApplicationScreenRenderer;
+import com.limelight.ui.compose.components.ActionMenuPresenter;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.ShortcutHelper;
@@ -63,23 +62,14 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
-import android.graphics.drawable.BitmapDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.view.View;
-import android.widget.AbsListView;
-import android.widget.AdapterView;
-import android.widget.AdapterView.OnItemClickListener;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 import com.limelight.utils.UiToast;
 
 import org.xmlpull.v1.XmlPullParserException;
 
-public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
-        GameDisplayHost {
+public class AppView extends BaseActivity implements GameDisplayHost {
     private AppGridAdapter appGridAdapter;
     private String uuidString;
     private HostId hostId;
@@ -94,7 +84,6 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
     private volatile boolean inForeground;
     private boolean showHiddenApps;
     private HashSet<Integer> hiddenAppIds = new HashSet<>();
-    private android.app.AlertDialog pendingAppMenuDialog;
     private final HostQuitUseCase hostQuitUseCase =
             new HostQuitUseCase();
     private HostUiOperationController hostOperationController;
@@ -105,6 +94,8 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
     private AndroidDecoderCrashNotificationController
             decoderCrashNotificationController;
     private HiddenAppRepository hiddenAppRepository;
+    private ApplicationScreenRenderer applicationScreenRenderer;
+    private ActionMenuPresenter actionMenuPresenter;
 
     public final static String NAME_EXTRA = "Name";
     public final static String UUID_EXTRA = "UUID";
@@ -281,16 +272,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
 
         startComputerUpdates();
         tryAutoReconnect();
-        if (isFinishing() ||
-                isChangingConfigurations() ||
-                getSupportFragmentManager().isDestroyed()) {
-            return;
-        }
-        getSupportFragmentManager().beginTransaction()
-                .replace(
-                        R.id.appFragmentContainer,
-                        new AdapterFragment())
-                .commitAllowingStateLoss();
+        refreshApplicationScreen();
     }
 
     private static final class AppBindingInitialization {
@@ -360,17 +342,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
             appGridAdapter.updateLayout(
                     this,
                     appPresentationSettings.usesSmallAppIcons());
-
-            try {
-                // Reinflate the app grid itself to pick up the layout change
-                getSupportFragmentManager().beginTransaction()
-                        .replace(R.id.appFragmentContainer, new AdapterFragment())
-                        .commitAllowingStateLoss();
-            } catch (IllegalStateException e) {
-                LimeLog.warning(
-                        "Unable to refresh the app grid after a layout change",
-                        e);
-            }
+            refreshApplicationScreen();
         }
         if(dialogFragment!=null) {
             dialogFragment.dismiss();
@@ -572,7 +544,6 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
     private GameDisplayFragment dialogFragment;
 
     private AppPresentationSettings appPresentationSettings;
-    private ImageView backgroundView;
     private SettingsRepository settingsRepository;
     private StreamVideoSettingsState streamVideoSettingsState;
     private StreamAudioSettingsState streamAudioSettingsState;
@@ -586,6 +557,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                 new AndroidDecoderCrashNotificationController(
                         this,
                         new AndroidDecoderCrashStore(this));
+        actionMenuPresenter = new ActionMenuPresenter(this);
 
         hostOperationController = HostUiOperationController.create(
                 this::runOnUiThread);
@@ -605,15 +577,45 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
 
         shortcutHelper = new ShortcutHelper(this);
 
-        setContentView(R.layout.activity_app_view_new);
+        applicationScreenRenderer = new ApplicationScreenRenderer(
+                this,
+                new ApplicationScreenRenderer.Listener() {
+                    @Override
+                    public void onBackRequested() {
+                        finish();
+                    }
+
+                    @Override
+                    public void onDisplayOptionsRequested() {
+                        if (dialogFragment != null) {
+                            dialogFragment.dismiss();
+                            dialogFragment = null;
+                        }
+                        dialogFragment =
+                                GameDisplayFragment.newInstance(false);
+                        dialogFragment.setWidth(
+                                UiHelper.dpToPx(AppView.this, 364));
+                        dialogFragment.show(getSupportFragmentManager());
+                    }
+
+                    @Override
+                    public void onAppRequested(AppObject app) {
+                        launchStream(app.app);
+                    }
+
+                    @Override
+                    public void onAppMenuRequested(
+                            AppObject app,
+                            Bitmap artwork) {
+                        showAppOptionsDialog(app, artwork);
+                    }
+                });
+        setContentView(applicationScreenRenderer.createRootView());
 
         // Allow floating expanded PiP overlays while browsing apps
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             setShouldDockBigOverlays(false);
         }
-
-        UiHelper.notifyNewEdgeToEdgeRootView(
-                this, R.id.rv_top_view, R.id.appFragmentContainer);
 
         showHiddenApps = getIntent().getBooleanExtra(SHOW_HIDDEN_APPS_EXTRA, false);
         uuidString = getIntent().getStringExtra(UUID_EXTRA);
@@ -625,11 +627,8 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
 
         String computerName = getIntent().getStringExtra(NAME_EXTRA);
 
-        TextView label = findViewById(R.id.appListText);
         setTitle(computerName);
-        label.setText(computerName);
-
-        backgroundView = findViewById(R.id.iv_root_view);
+        applicationScreenRenderer.updateTitle(computerName);
 
         appPresentationSettings =
                 AndroidAppPresentationSettingsLoader.load(this);
@@ -648,25 +647,6 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
         customResolutionRepository =
                 new SharedPreferencesCustomResolutionRepository(
                         this);
-
-        ScreenBackgroundPresenter.apply(
-                this,
-                backgroundView,
-                appPresentationSettings);
-
-        findViewById(R.id.settingsButton).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(dialogFragment!=null){
-                    dialogFragment.dismiss();
-                    dialogFragment=null;
-                }
-                dialogFragment =
-                        GameDisplayFragment.newInstance(false);
-                dialogFragment.setWidth(UiHelper.dpToPx(AppView.this,364));
-                dialogFragment.show(getSupportFragmentManager());
-            }
-                });
 
         // Bind to the computer manager service
         managerServiceBound = bindService(
@@ -720,11 +700,17 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
                 HiddenAppSelection.of(hiddenAppIds));
 
         appGridAdapter.updateHiddenApps(hiddenAppIds, hideImmediately);
+        refreshApplicationScreen();
     }
 
     private void loadAppsBlocking() {
-        blockingLoadSpinner = SpinnerDialog.displayDialog(this, getResources().getString(R.string.applist_refresh_title),
-                getResources().getString(R.string.applist_refresh_msg), true);
+        if (applicationScreenRenderer != null) {
+            applicationScreenRenderer.showLoading();
+        }
+        if (actionMenuPresenter != null) {
+            actionMenuPresenter.destroy();
+            actionMenuPresenter = null;
+        }
     }
 
     @Override
@@ -741,6 +727,10 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
         if (hostBindingController != null) {
             hostBindingController.destroy();
             hostBindingController = null;
+        }
+        if (applicationScreenRenderer != null) {
+            applicationScreenRenderer.destroy();
+            applicationScreenRenderer = null;
         }
 
         SpinnerDialog.closeDialogs(this);
@@ -793,11 +783,8 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
             return true;
         }
         appPresentationSettings = updatedPresentation;
-        if (presentationChanged && backgroundView != null) {
-            ScreenBackgroundPresenter.apply(
-                    this,
-                    backgroundView,
-                    updatedPresentation);
+        if (presentationChanged) {
+            refreshApplicationScreen();
         }
         streamVideoSettingsState.replace(
                 StreamVideoSettingsLoader.load(
@@ -864,86 +851,32 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
         AndroidStreamLaunchFeedback.showIfNeeded(this, result);
     }
 
-    private void showAppOptionsDialog(final AppObject app, final View targetView) {
-        if (app == null) {
+    private void showAppOptionsDialog(
+            final AppObject app,
+            final Bitmap artwork) {
+        if (app == null || actionMenuPresenter == null) {
             return;
         }
-
-        final View dialogView = getLayoutInflater().inflate(R.layout.dialog_host_options, null, false);
-        final TextView titleView = dialogView.findViewById(R.id.tv_host_menu_title);
-        final TextView statusView = dialogView.findViewById(R.id.tv_host_menu_status);
-        final LinearLayout actionList = dialogView.findViewById(R.id.layout_host_menu_actions);
-        final TextView cancelButton = dialogView.findViewById(R.id.btn_host_menu_cancel);
-
-        titleView.setText(app.app.getAppName());
-        statusView.setText(getResources().getString(app.isRunning
-                ? R.string.applist_menu_status_running
-                : R.string.applist_menu_status_available));
-
-        final ArrayList<MenuAction> actions = buildAppMenuActions(app, targetView);
-        for (int i = 0; i < actions.size(); i++) {
-            View item = createAppOptionView(actionList, actions.get(i));
-            LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT);
-            if (i > 0) {
-                itemParams.topMargin = UiHelper.dpToPx(this, 6);
-            }
-            actionList.addView(item, itemParams);
+        ArrayList<ActionMenuPresenter.Action> presentedActions =
+                new ArrayList<>();
+        for (MenuAction action : buildAppMenuActions(app, artwork)) {
+            presentedActions.add(new ActionMenuPresenter.Action(
+                    getText(action.labelResId),
+                    action.iconResId,
+                    action.runnable));
         }
-
-        pendingAppMenuDialog = new android.app.AlertDialog.Builder(this)
-                .setView(dialogView)
-                .create();
-        pendingAppMenuDialog.setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
-            @Override
-            public void onDismiss(android.content.DialogInterface dialog) {
-                pendingAppMenuDialog = null;
-            }
-        });
-        cancelButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (pendingAppMenuDialog != null) {
-                    pendingAppMenuDialog.dismiss();
-                }
-            }
-        });
-        pendingAppMenuDialog.show();
-        if (pendingAppMenuDialog.getWindow() != null) {
-            pendingAppMenuDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-        }
+        actionMenuPresenter.show(
+                app.app.getAppName(),
+                getText(app.isRunning
+                        ? R.string.applist_menu_status_running
+                        : R.string.applist_menu_status_available),
+                presentedActions,
+                null);
     }
 
-    private View createAppOptionView(
-            LinearLayout parent, final MenuAction action) {
-        View item = getLayoutInflater().inflate(
-                R.layout.item_host_option, parent, false);
-        TextView label = item.findViewById(R.id.tv_host_option);
-        ImageView icon = item.findViewById(R.id.iv_host_option_icon);
-
-        label.setText(action.labelResId);
-        if (action.iconResId != 0) {
-            icon.setImageResource(action.iconResId);
-        }
-        else {
-            icon.setVisibility(View.GONE);
-        }
-        item.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (pendingAppMenuDialog != null) {
-                    pendingAppMenuDialog.dismiss();
-                }
-                if (action.runnable != null) {
-                    action.runnable.run();
-                }
-            }
-        });
-        return item;
-    }
-
-    private ArrayList<MenuAction> buildAppMenuActions(final AppObject app, final View targetView) {
+    private ArrayList<MenuAction> buildAppMenuActions(
+            final AppObject app,
+            final Bitmap artwork) {
         ArrayList<MenuAction> actions = new ArrayList<>();
 
         if (lastRunningAppId != 0) {
@@ -1002,17 +935,16 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
             }
         }));
 
-        if (canCreatePinnedShortcut(targetView)) {
+        if (canCreatePinnedShortcut(artwork)) {
             actions.add(new MenuAction(R.string.applist_menu_scut, R.drawable.ic_app_add, new Runnable() {
                 @Override
                 public void run() {
-                    Bitmap appBits = getAppBitmap(targetView);
                     HostRuntimeSnapshot targetHost = hostSnapshot;
                     if (targetHost == null ||
                             !shortcutHelper.createPinnedGameShortcut(
                                     targetHost.getRecord().getIdentity(),
                                     app.app,
-                                    appBits)) {
+                                    artwork)) {
                         UiToast.makeText(AppView.this, getResources().getString(R.string.unable_to_pin_shortcut),
                                 UiToast.LENGTH_LONG).show();
                     }
@@ -1145,25 +1077,9 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
         });
     }
 
-    private boolean canCreatePinnedShortcut(View targetView) {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && getAppBitmap(targetView) != null;
-    }
-
-    private Bitmap getAppBitmap(View targetView) {
-        if (targetView == null) {
-            return null;
-        }
-
-        ImageView appImageView = targetView.findViewById(R.id.grid_image);
-        if (appImageView == null) {
-            return null;
-        }
-
-        if (appImageView.getDrawable() instanceof BitmapDrawable) {
-            BitmapDrawable drawable = (BitmapDrawable) appImageView.getDrawable();
-            return drawable.getBitmap();
-        }
-        return null;
+    private boolean canCreatePinnedShortcut(Bitmap artwork) {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                artwork != null;
     }
 
     private void updateUiWithServerinfo(final int runningAppId) {
@@ -1199,6 +1115,7 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
 
                 if (updated) {
                     appGridAdapter.notifyDataSetChanged();
+                    refreshApplicationScreen();
                 }
             }
         });
@@ -1287,37 +1204,21 @@ public class AppView extends BaseActivity implements AdapterFragmentCallbacks,
 
                 if (updated) {
                     appGridAdapter.notifyDataSetChanged();
+                    refreshApplicationScreen();
                 }
             }
         });
     }
 
-    @Override
-    public int getAdapterFragmentLayoutId() {
-        return R.layout.app_grid_view_new;
-    }
-
-    @Override
-    public void receiveAbsListView(AbsListView listView) {
-        listView.setAdapter(appGridAdapter);
-        listView.setOnItemClickListener(new OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> arg0, View arg1, int pos,
-                                    long id) {
-                AppObject app = (AppObject) appGridAdapter.getItem(pos);
-                launchStream(app.app);
-            }
-        });
-        listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
-            @Override
-            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
-                AppObject app = (AppObject) appGridAdapter.getItem(position);
-                showAppOptionsDialog(app, view);
-                return true;
-            }
-        });
-        UiHelper.applyStatusBarPadding(listView);
-        listView.requestFocus();
+    private void refreshApplicationScreen() {
+        if (applicationScreenRenderer == null || appGridAdapter == null) {
+            return;
+        }
+        ArrayList<AppObject> apps = new ArrayList<>();
+        for (int index = 0; index < appGridAdapter.getCount(); index++) {
+            apps.add((AppObject) appGridAdapter.getItem(index));
+        }
+        applicationScreenRenderer.updateApps(appGridAdapter, apps);
     }
 
     private static final class MenuAction {

@@ -12,7 +12,7 @@
       "license": "LICENSE.txt",
       "packagedLicense": "app/src/main/assets/third_party_licenses/shield-controller-extensions-1.0.1.txt",
       "metadata": "UPSTREAM-METADATA.txt",
-      "treeSha256": "c117dc4f3abfab72032556bb7e37acbaccc34c843974717b31f293181d5262fb"
+      "treeSha256": "1bb57bb2ca7753150fce0442ad26145c63855440ba191cb35ef8a258f050b9f3"
     }
   ]
 }
