@@ -274,12 +274,12 @@ class HostScreenRenderer(
                         modifier = Modifier.weight(1f),
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_m3_play_arrow),
+                            painter = painterResource(primaryActionIcon(connection)),
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
                         Text(
-                            text = stringResource(R.string.host_action_stream),
+                            text = stringResource(primaryActionText(connection)),
                             modifier = Modifier.padding(start = 8.dp),
                             maxLines = 1,
                         )
@@ -319,6 +319,26 @@ class HostScreenRenderer(
         HostConnectionState.Reachability.ONLINE -> R.string.pcview_menu_header_online
         HostConnectionState.Reachability.OFFLINE -> R.string.pcview_menu_header_offline
         HostConnectionState.Reachability.UNKNOWN -> R.string.pcview_menu_header_unknown
+    }
+
+    private fun primaryActionText(connection: HostConnectionState): Int = when {
+        connection.reachability != HostConnectionState.Reachability.ONLINE ->
+            R.string.pcview_menu_header_offline
+        connection.pairingStatus != HostConnectionState.PairingStatus.PAIRED ->
+            R.string.pcview_menu_pair_pc
+        connection.runningAppId != 0 ->
+            R.string.applist_menu_resume
+        else ->
+            R.string.host_action_stream
+    }
+
+    private fun primaryActionIcon(connection: HostConnectionState): Int = when {
+        connection.reachability != HostConnectionState.Reachability.ONLINE ->
+            R.drawable.ic_m3_link_off
+        connection.pairingStatus != HostConnectionState.PairingStatus.PAIRED ->
+            R.drawable.ic_m3_key
+        else ->
+            R.drawable.ic_m3_play_arrow
     }
 
     private fun displayEndpoint(host: HostRuntimeSnapshot): String? {

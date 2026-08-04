@@ -16,7 +16,7 @@
     <string name="pcview_menu_header_offline">Offline</string>
     <string name="pcview_menu_header_unknown">Refreshing</string>
     <string name="pcview_menu_app_list">View All Apps</string>
-    <string name="host_action_stream">Stream</string>
+    <string name="host_action_stream">Start stream</string>
     <string name="host_action_apps">Apps</string>
     <string name="host_active_endpoint">Active connection address</string>
     <string name="host_empty_state">No hosts yet. Add a PC to get started.</string>

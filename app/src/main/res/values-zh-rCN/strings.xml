@@ -16,7 +16,7 @@
     <string name="help_loading_msg"> 正在加载帮助页面…… </string>
     <!-- PC view menu entries -->
     <string name="pcview_menu_app_list"> 浏览游戏列表 </string>
-    <string name="host_action_stream">串流</string>
+    <string name="host_action_stream">启动串流</string>
     <string name="host_action_apps">应用</string>
     <string name="host_active_endpoint">当前连接地址</string>
     <string name="host_empty_state">还没有主机，添加电脑后即可开始。</string>
