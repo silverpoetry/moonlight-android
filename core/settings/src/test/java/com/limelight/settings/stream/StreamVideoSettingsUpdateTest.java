@@ -96,9 +96,9 @@ public final class StreamVideoSettingsUpdateTest {
                         StreamVideoSettingKeys.BITRATE_KBPS
                                 .getName()));
         assertEquals(
-                "3440x1440",
+                java.util.Collections.singleton("3440x1440"),
                 repository.values.get(
-                        StreamVideoSettingKeys.CUSTOM_RESOLUTION_TEXT
+                        StreamResolutionSettingKeys.CUSTOM_RESOLUTIONS
                                 .getName()));
         assertEquals(7, repository.values.size());
         assertEquals(1, repository.applyCount);

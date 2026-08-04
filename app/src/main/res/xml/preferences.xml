@@ -44,13 +44,6 @@
             android:dialogTitle="输入视频码率（Mbps）"
             android:dialogMessage="支持整数或一位小数。"
             android:singleLine="true" />
-        <EditTextPreference
-            android:key="stream.video.custom_resolution"
-            android:title="自定义分辨率"
-            android:summary="使用宽x高格式添加自定义分辨率，例如 1920x1080。"
-            android:dialogTitle="输入自定义分辨率"
-            android:dialogMessage="格式：宽x高"
-            android:singleLine="true" />
         <CheckBoxPreference
             android:key="stream.display.portrait"
             android:title="竖屏显示模式"
@@ -101,7 +94,8 @@
             android:defaultValue="false" />
         <CheckBoxPreference
             android:key="stream.display.use_cutout_area"
-            android:title="填充刘海区域"
+            android:title="@string/settings_title_cutout_area"
+            android:summary="@string/settings_summary_cutout_area"
             android:defaultValue="false" />
         <CheckBoxPreference
             android:key="stream.display.automatic_orientation"

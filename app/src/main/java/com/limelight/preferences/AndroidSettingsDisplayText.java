@@ -15,6 +15,15 @@ final class AndroidSettingsDisplayText implements SettingsDisplayText {
     }
 
     @Override
+    public CharSequence customResolutionName(
+            SettingsDisplayPolicy.ResolutionOption option) {
+        return context.getString(
+                R.string.settings_custom_resolution_entry,
+                option.getWidth(),
+                option.getHeight());
+    }
+
+    @Override
     public CharSequence nativeResolutionName(
             SettingsDisplayPolicy.ResolutionOption option) {
         StringBuilder name = new StringBuilder(

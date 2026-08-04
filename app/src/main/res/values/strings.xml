@@ -446,6 +446,16 @@
     <string name="settings_action_open">Open</string>
     <string name="settings_cancel">Cancel</string>
     <string name="settings_ok">OK</string>
+    <string name="settings_add">Add</string>
+    <string name="settings_custom_resolution_entry">Custom (%1$dx%2$d)</string>
+    <string name="settings_custom_resolution_add">Add custom resolution</string>
+    <string name="settings_custom_resolution_input_label">Width x height</string>
+    <string name="settings_custom_resolution_invalid">Enter a resolution in width x height format, with each dimension between 1 and 99999.</string>
+    <string name="settings_custom_resolution_duplicate">This resolution is already available.</string>
+    <string name="settings_custom_resolution_limit">You can save up to 32 custom resolutions.</string>
+    <string name="settings_custom_resolution_remove">Remove custom resolution</string>
+    <string name="settings_title_cutout_area">Fill display cutout area</string>
+    <string name="settings_summary_cutout_area">Allow non-native stream resolutions to extend into the notch or cutout area. A native full-screen resolution that matches the display always uses the entire screen.</string>
     <string name="settings_no_items">No available settings</string>
     <string name="settings_current_profile">%1$s · %2$s · %3$s</string>
     <string name="settings_featured_settings">Common settings</string>

@@ -16,6 +16,7 @@ import com.limelight.settings.stream.StreamVideoSettingKeys;
 
 import org.junit.Test;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -163,6 +164,85 @@ public final class SettingsMutationControllerTest {
                 4.875f,
                 runtime.getBarometerForcePressThresholdHpa(),
                 0.0001f);
+    }
+
+    @Test
+    public void customResolutionCatalogChangesAreAtomic() {
+        FakeRepository repository = new FakeRepository();
+        SettingsMutationController controller =
+                new SettingsMutationController(
+                        new SettingsStore(repository));
+        SettingsItem resolution = item(
+                StreamResolutionSettingKeys.RESOLUTION);
+        resolution.entryValues = new CharSequence[] {
+                StreamResolutionCodec.RESOLUTION_720P,
+                StreamResolutionCodec.RESOLUTION_1080P,
+        };
+
+        SettingsMutationController.ChangeResult added =
+                controller.addCustomResolution(
+                        resolution,
+                        " 3440x1440 ");
+
+        assertTrue(added.isAccepted());
+        assertEquals(
+                Collections.singleton("3440x1440"),
+                repository.get(
+                        StreamResolutionSettingKeys.CUSTOM_RESOLUTIONS));
+        assertEquals(
+                "3440x1440",
+                repository.get(StreamResolutionSettingKeys.RESOLUTION));
+        assertEquals(
+                StreamResolutionCodec.SELECTION_CUSTOM_OR_NATIVE,
+                repository.get(StreamResolutionSettingKeys.SELECTION));
+
+        SettingsMutationController.ChangeResult duplicate =
+                controller.addCustomResolution(
+                        resolution,
+                        "3440x1440");
+        assertFalse(duplicate.isAccepted());
+        assertEquals(
+                SettingsMutationController.ValidationError
+                        .DUPLICATE_CUSTOM_RESOLUTION,
+                duplicate.getValidationError());
+
+        assertTrue(controller.removeCustomResolution("3440x1440")
+                .isAccepted());
+        assertTrue(repository.get(
+                StreamResolutionSettingKeys.CUSTOM_RESOLUTIONS).isEmpty());
+        assertEquals(
+                StreamResolutionCodec.DEFAULT_RESOLUTION,
+                repository.get(StreamResolutionSettingKeys.RESOLUTION));
+        assertEquals(
+                StreamResolutionCodec.SELECTION_PRESET,
+                repository.get(StreamResolutionSettingKeys.SELECTION));
+    }
+
+    @Test
+    public void customResolutionValidationRejectsMalformedAndPresetValues() {
+        SettingsMutationController controller =
+                new SettingsMutationController(
+                        new SettingsStore(new FakeRepository()));
+        SettingsItem resolution = item(
+                StreamResolutionSettingKeys.RESOLUTION);
+        resolution.entryValues = new CharSequence[] {
+                StreamResolutionCodec.RESOLUTION_1080P,
+        };
+
+        assertEquals(
+                SettingsMutationController.ValidationError
+                        .INVALID_CUSTOM_RESOLUTION,
+                controller.addCustomResolution(
+                                resolution,
+                                "invalid")
+                        .getValidationError());
+        assertEquals(
+                SettingsMutationController.ValidationError
+                        .DUPLICATE_CUSTOM_RESOLUTION,
+                controller.addCustomResolution(
+                                resolution,
+                                StreamResolutionCodec.RESOLUTION_1080P)
+                        .getValidationError());
     }
 
     @Test

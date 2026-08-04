@@ -36,10 +36,7 @@ public final class InputSettingKeys {
                     "0",
                     "1",
                     "2",
-                    "3",
-                    "4",
-                    "5",
-                    "6")
+                    "3")
                     .renamedFrom("mouse_model_list_axi");
     public static final SettingKey<Boolean> MOUSE_NAVIGATION_BUTTONS =
             SettingKey.booleanKey(

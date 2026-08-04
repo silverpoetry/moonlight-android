@@ -6,7 +6,9 @@ import com.limelight.settings.stream.StreamDecoderSettings.VideoFormat;
 import com.limelight.settings.stream.StreamVideoSettings.ScreenOnPolicy;
 import com.limelight.settings.stream.StreamVideoSettings.VirtualDisplayMode;
 
+import java.util.LinkedHashSet;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * One type-safe stream-video settings intent.
@@ -17,7 +19,9 @@ public final class StreamVideoSettingsUpdate {
     }
 
     private interface Persister {
-        void persist(SettingsRepository.Editor editor);
+        void persist(
+                SettingsRepository repository,
+                SettingsRepository.Editor editor);
     }
 
     private final Applier applier;
@@ -41,7 +45,7 @@ public final class StreamVideoSettingsUpdate {
                 settings -> settings.toBuilder()
                         .setVideoFormat(normalized)
                         .build(),
-                editor -> editor.put(
+                (repository, editor) -> editor.put(
                         StreamVideoSettingKeys.VIDEO_FORMAT,
                         stored));
     }
@@ -103,7 +107,7 @@ public final class StreamVideoSettingsUpdate {
                                 ScreenOnPolicy
                                         .fromStorageValue(stored))
                         .build(),
-                editor -> editor.put(
+                (repository, editor) -> editor.put(
                         StreamVideoSettingKeys.SCREEN_ON_POLICY,
                         stored));
     }
@@ -121,7 +125,7 @@ public final class StreamVideoSettingsUpdate {
                                 VirtualDisplayMode
                                         .fromStorageValue(stored))
                         .build(),
-                editor -> editor.put(
+                (repository, editor) -> editor.put(
                         StreamVideoSettingKeys
                                 .VIRTUAL_DISPLAY_MODE,
                         stored));
@@ -151,7 +155,8 @@ public final class StreamVideoSettingsUpdate {
                         .setExternalDisplay(
                                 normalized.isExternalDisplay())
                         .build(),
-                editor -> editor
+                (repository, editor) -> {
+                    editor
                         .put(
                                 StreamResolutionSettingKeys
                                         .RESOLUTION,
@@ -169,15 +174,16 @@ public final class StreamVideoSettingsUpdate {
                                 normalized.getBitrateKbps())
                         .put(
                                 StreamVideoSettingKeys
-                                        .CUSTOM_RESOLUTION_TEXT,
-                                resolution)
-                        .put(
-                                StreamVideoSettingKeys
                                         .EXTERNAL_DISPLAY,
                                 normalized.isExternalDisplay())
                         .put(
                                 StreamVideoSettingKeys.PORTRAIT,
-                                normalized.isPortrait()));
+                                normalized.isPortrait());
+                    addCustomResolutionIfRequired(
+                            repository,
+                            editor,
+                            resolution);
+                });
     }
 
     public StreamVideoSettings applyTo(
@@ -190,7 +196,7 @@ public final class StreamVideoSettingsUpdate {
         SettingsRepository.Editor editor =
                 Objects.requireNonNull(repository, "repository")
                         .edit();
-        persister.persist(editor);
+        persister.persist(repository, editor);
         editor.apply();
     }
 
@@ -210,6 +216,28 @@ public final class StreamVideoSettingsUpdate {
                                 settings.toBuilder(),
                                 normalized)
                         .build(),
-                editor -> editor.put(key, normalized));
+                (repository, editor) -> editor.put(key, normalized));
+    }
+
+    private static void addCustomResolutionIfRequired(
+            SettingsRepository repository,
+            SettingsRepository.Editor editor,
+            String value) {
+        if (StreamResolutionCodec.isStandardResolutionPreset(value) ||
+                CustomResolution.parse(value) == null) {
+            return;
+        }
+        Set<String> customResolutions = new LinkedHashSet<>(
+                repository.get(
+                        StreamResolutionSettingKeys.CUSTOM_RESOLUTIONS));
+        if (customResolutions.size() >=
+                StreamResolutionSettingKeys.MAX_CUSTOM_RESOLUTIONS &&
+                !customResolutions.contains(value)) {
+            return;
+        }
+        customResolutions.add(value);
+        editor.put(
+                StreamResolutionSettingKeys.CUSTOM_RESOLUTIONS,
+                customResolutions);
     }
 }

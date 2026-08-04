@@ -7,10 +7,7 @@ public enum TouchInputMode {
     MULTI_TOUCH(0),
     ABSOLUTE_MOUSE(1),
     NATIVE_TOUCHPAD(2),
-    DISABLED(3),
-    ABSOLUTE_MOUSE_SWAPPED(4),
-    TOUCHPAD_MOVE_ONLY(5),
-    TOUCHPAD_MOVE_AND_CLICK(6);
+    DISABLED(3);
 
     private final int preferenceValue;
 

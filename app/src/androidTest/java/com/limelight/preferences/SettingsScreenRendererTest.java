@@ -162,6 +162,12 @@ public final class SettingsScreenRendererTest {
                 String itemId,
                 String value) {
         }
+
+        @Override
+        public void onInlineSliderChanged(
+                String itemId,
+                int value) {
+        }
     }
 
     private static final class FalseValues

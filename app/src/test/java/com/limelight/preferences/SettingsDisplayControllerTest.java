@@ -13,6 +13,7 @@ import com.limelight.settings.stream.StreamVideoSettingKeys;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,8 +22,8 @@ public final class SettingsDisplayControllerTest {
     public void controllerAppliesOnePlanAndRepairsStoredFallbacks() {
         FakeRepository repository = new FakeRepository();
         repository.putInitial(
-                StreamVideoSettingKeys.CUSTOM_RESOLUTION_TEXT,
-                "2000x1000");
+                StreamResolutionSettingKeys.CUSTOM_RESOLUTIONS,
+                Collections.singleton("2000x1000"));
         repository.putInitial(StreamVideoSettingKeys.UNLOCK_FPS, false);
         repository.putInitial(
                 StreamResolutionSettingKeys.RESOLUTION,
@@ -139,6 +140,12 @@ public final class SettingsDisplayControllerTest {
     }
 
     private static final class FakeText implements SettingsDisplayText {
+        @Override
+        public CharSequence customResolutionName(
+                SettingsDisplayPolicy.ResolutionOption option) {
+            return "custom:" + option.getValue();
+        }
+
         @Override
         public CharSequence nativeResolutionName(
                 SettingsDisplayPolicy.ResolutionOption option) {

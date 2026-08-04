@@ -18,6 +18,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -40,10 +44,12 @@ import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.limelight.R
+import com.limelight.settings.stream.CustomResolution
 import com.limelight.ui.compose.components.MoonlightDialogSurface
 import com.limelight.ui.compose.components.MoonlightStepSlider
 import com.limelight.ui.compose.theme.MoonlightThemeFromSettings
@@ -70,6 +76,10 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
     fun interface TextSubmissionListener {
         /** Returns a validation error, or null when the dialog may close. */
         fun onSubmitted(value: String): CharSequence?
+    }
+
+    fun interface TextRemovalListener {
+        fun onRemoved(value: String)
     }
 
     fun showList(
@@ -106,6 +116,158 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
                             },
                     )
                 }
+            }
+        }
+    }
+
+    fun showResolutionList(
+        title: CharSequence,
+        entries: Array<CharSequence>,
+        values: Array<CharSequence>,
+        currentValue: String,
+        customValues: Set<String>,
+        fallbackValue: String,
+        selectionListener: ListSelectionListener,
+        addListener: TextSubmissionListener,
+        removeListener: TextRemovalListener,
+    ): Dialog = showDialog { dialog ->
+        val options = remember(entries, values, customValues) {
+            mutableStateListOf<ResolutionDialogEntry>().apply {
+                entries.indices.forEach { index ->
+                    val value = values[index].toString()
+                    add(
+                        ResolutionDialogEntry(
+                            label = entries[index].toString(),
+                            value = value,
+                            custom = customValues.contains(value),
+                        ),
+                    )
+                }
+            }
+        }
+        var selectedValue by remember(currentValue) {
+            mutableStateOf(currentValue)
+        }
+        var input by remember { mutableStateOf("") }
+        var validationError by remember {
+            mutableStateOf<CharSequence?>(null)
+        }
+
+        SettingsDialogCard(title = title) {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                options.forEach { option ->
+                    ListItem(
+                        headlineContent = { Text(option.label) },
+                        leadingContent = {
+                            RadioButton(
+                                selected = option.value == selectedValue,
+                                onClick = null,
+                            )
+                        },
+                        trailingContent = if (option.custom) {
+                            {
+                                IconButton(
+                                    onClick = {
+                                        removeListener.onRemoved(option.value)
+                                        options.remove(option)
+                                        if (selectedValue == option.value) {
+                                            selectedValue = fallbackValue
+                                        }
+                                    },
+                                ) {
+                                    Icon(
+                                        painter = painterResource(
+                                            R.drawable.ic_m3_delete,
+                                        ),
+                                        contentDescription = activity.getString(
+                                            R.string.settings_custom_resolution_remove,
+                                        ),
+                                    )
+                                }
+                            }
+                        } else {
+                            null
+                        },
+                        colors = ListItemDefaults.colors(
+                            containerColor = ComposeColor.Transparent,
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectionListener.onSelected(option.value)
+                                dialog.dismiss()
+                            },
+                    )
+                }
+            }
+            HorizontalDivider()
+            OutlinedTextField(
+                value = input,
+                onValueChange = {
+                    input = it
+                    validationError = null
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = {
+                    Text(
+                        activity.getString(
+                            R.string.settings_custom_resolution_input_label,
+                        ),
+                    )
+                },
+                singleLine = true,
+                isError = validationError != null,
+                supportingText = validationError?.let { error ->
+                    { Text(error.toString()) }
+                },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Ascii,
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        addCustomResolution(
+                            input,
+                            options,
+                            addListener,
+                            onError = { validationError = it },
+                            onAdded = {
+                                selectedValue = it
+                                input = ""
+                            },
+                        )
+                    },
+                ),
+            )
+            Button(
+                onClick = {
+                    addCustomResolution(
+                        input,
+                        options,
+                        addListener,
+                        onError = { validationError = it },
+                        onAdded = {
+                            selectedValue = it
+                            input = ""
+                        },
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_m3_add),
+                    contentDescription = null,
+                )
+                Text(
+                    text = activity.getString(
+                        R.string.settings_custom_resolution_add,
+                    ),
+                    modifier = Modifier.padding(start = 8.dp),
+                )
             }
         }
     }
@@ -314,6 +476,40 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
         }
         return dialog
     }
+
+    private fun addCustomResolution(
+        input: String,
+        options: MutableList<ResolutionDialogEntry>,
+        listener: TextSubmissionListener,
+        onError: (CharSequence?) -> Unit,
+        onAdded: (String) -> Unit,
+    ) {
+        val error = listener.onSubmitted(input)
+        onError(error)
+        if (error != null) {
+            return
+        }
+        val resolution = CustomResolution.parse(input) ?: return
+        val value = resolution.toStorageValue()
+        options.add(
+            ResolutionDialogEntry(
+                label = activity.getString(
+                    R.string.settings_custom_resolution_entry,
+                    resolution.width,
+                    resolution.height,
+                ),
+                value = value,
+                custom = true,
+            ),
+        )
+        onAdded(value)
+    }
+
+    private data class ResolutionDialogEntry(
+        val label: String,
+        val value: String,
+        val custom: Boolean,
+    )
 
     @Composable
     private fun SettingsDialogCard(

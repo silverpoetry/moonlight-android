@@ -100,10 +100,10 @@ public final class StreamVideoSettingKeys {
                     2)
                     .renamedFrom("enable_screen_on_auto");
     public static final SettingKey<String>
-            CUSTOM_RESOLUTION_TEXT =
+            LEGACY_CUSTOM_RESOLUTION_TEXT =
             SettingKey.boundedStringKey(
                     "stream.video.custom_resolution",
-                    StreamResolutionCodec.RESOLUTION_1080P,
+                    "",
                     32)
                     .renamedFrom("edit_diy_w_h");
 

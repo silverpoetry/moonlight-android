@@ -144,7 +144,7 @@ public final class InputSettingsUpdateTest {
 
     private static InputSettings representativeSettings() {
         return InputSettings.builder()
-                .setTouchModePreferenceValue(5)
+                .setTouchModePreferenceValue(2)
                 .setAbsoluteMouseMode(true)
                 .setBarometerForcePressEnabled(true)
                 .setBarometerForcePressThresholdHpa(0.25f)

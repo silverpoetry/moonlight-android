@@ -194,7 +194,6 @@ public final class TouchInputController {
                 break;
 
             case ABSOLUTE_MOUSE:
-            case ABSOLUTE_MOUSE_SWAPPED:
                 nativeTouchpadInputEnabled = true;
                 break;
 
@@ -207,11 +206,6 @@ public final class TouchInputController {
                 disabled = true;
                 applyForcePressSettings(settingsState.get());
                 return;
-
-            case TOUCHPAD_MOVE_ONLY:
-            case TOUCHPAD_MOVE_AND_CLICK:
-                legacyTouchpadInputEnabled = true;
-                break;
 
             default:
                 throw new AssertionError("Unhandled touch input mode: " + mode);
@@ -227,8 +221,7 @@ public final class TouchInputController {
                                 settingsState)
                         : null;
         nativeTouchpadHandler.setSinglePointerRemainderMode(
-                mode == TouchInputMode.ABSOLUTE_MOUSE ||
-                        mode == TouchInputMode.ABSOLUTE_MOUSE_SWAPPED
+                mode == TouchInputMode.ABSOLUTE_MOUSE
                         ? TouchscreenTouchpadHandler
                                 .SinglePointerRemainderMode.SUPPRESS
                         : TouchscreenTouchpadHandler
@@ -309,29 +302,10 @@ public final class TouchInputController {
             TouchpadGestureState gestureState,
             TouchpadMotionSender pressedPointerMotionSender) {
         if (!legacyTouchpadInputEnabled) {
-            if (mode == TouchInputMode.ABSOLUTE_MOUSE_SWAPPED) {
-                return new AbsoluteTouchSwitchContext(
-                        inputSink,
-                        actionIndex,
-                        streamView);
-            }
             return new AbsoluteTouchContext(
                     inputSink,
                     actionIndex,
                     streamView);
-        }
-
-        if (mode == TouchInputMode.TOUCHPAD_MOVE_ONLY ||
-                mode == TouchInputMode.TOUCHPAD_MOVE_AND_CLICK) {
-            return new RelativeTouchSwitchContext(
-                    inputSink,
-                    actionIndex,
-                    REFERENCE_WIDTH,
-                    REFERENCE_HEIGHT,
-                    streamView,
-                    settingsState,
-                    mode == TouchInputMode.TOUCHPAD_MOVE_AND_CLICK,
-                    gestureState);
         }
 
         RelativeTouchContext touchContext;

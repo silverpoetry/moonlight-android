@@ -12,11 +12,8 @@ public final class TouchInputModeTest {
         assertMode(1, TouchInputMode.ABSOLUTE_MOUSE);
         assertMode(2, TouchInputMode.NATIVE_TOUCHPAD);
         assertMode(3, TouchInputMode.DISABLED);
-        assertMode(4, TouchInputMode.ABSOLUTE_MOUSE_SWAPPED);
-        assertMode(5, TouchInputMode.TOUCHPAD_MOVE_ONLY);
-        assertMode(6, TouchInputMode.TOUCHPAD_MOVE_AND_CLICK);
         assertNull(TouchInputMode.fromPreferenceValue(-1));
-        assertNull(TouchInputMode.fromPreferenceValue(7));
+        assertNull(TouchInputMode.fromPreferenceValue(4));
     }
 
     private static void assertMode(

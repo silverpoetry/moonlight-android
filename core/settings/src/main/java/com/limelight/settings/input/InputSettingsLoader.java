@@ -78,7 +78,7 @@ public final class InputSettingsLoader {
     private static int parseTouchMode(String value) {
         try {
             int parsed = Integer.parseInt(value);
-            return parsed >= 0 && parsed <= 6 ? parsed : 0;
+            return parsed >= 0 && parsed <= 3 ? parsed : 0;
         }
         catch (NumberFormatException invalidValue) {
             return 0;

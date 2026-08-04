@@ -50,8 +50,7 @@ final class SettingsPresentationCatalog {
                 R.string.settings_group_stream_format, 10,
                 "stream.video.resolution",
                 "stream.video.aspect_ratio",
-                "stream.video.frame_rate",
-                "stream.video.custom_resolution");
+                "stream.video.frame_rate");
         group("section_video_display", "bitrate",
                 R.string.settings_group_bitrate, 20,
                 "stream.video.bitrate_kbps",

@@ -249,6 +249,29 @@ public class StreamSettings extends BaseActivity {
                             String value) {
                         return handleTextValueSubmitted(item, value);
                     }
+
+                    @Override
+                    public CharSequence onCustomResolutionSubmitted(
+                            SettingsItem item,
+                            String value) {
+                        SettingsMutationController.ChangeResult result =
+                                mutationController.addCustomResolution(
+                                        item,
+                                        value);
+                        if (!result.isAccepted()) {
+                            return customResolutionError(
+                                    result.getValidationError());
+                        }
+                        applyChangeResult(result);
+                        return null;
+                    }
+
+                    @Override
+                    public void onCustomResolutionRemoved(String value) {
+                        applyChangeResult(
+                                mutationController
+                                        .removeCustomResolution(value));
+                    }
                 });
     }
 
@@ -646,6 +669,24 @@ public class StreamSettings extends BaseActivity {
         }
         applyChangeResult(result);
         return null;
+    }
+
+    private CharSequence customResolutionError(
+            SettingsMutationController.ValidationError error) {
+        switch (error) {
+            case INVALID_CUSTOM_RESOLUTION:
+                return getText(
+                        R.string.settings_custom_resolution_invalid);
+            case DUPLICATE_CUSTOM_RESOLUTION:
+                return getText(
+                        R.string.settings_custom_resolution_duplicate);
+            case CUSTOM_RESOLUTION_LIMIT:
+                return getText(
+                        R.string.settings_custom_resolution_limit);
+            default:
+                throw new IllegalArgumentException(
+                        "Unexpected custom resolution error: " + error);
+        }
     }
 
     private void applyChangeResult(

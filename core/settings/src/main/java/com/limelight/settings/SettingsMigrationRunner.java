@@ -2,7 +2,11 @@ package com.limelight.settings;
 
 import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.audio.StreamAudioSettingKeys;
+import com.limelight.settings.input.InputSettingKeys;
+import com.limelight.settings.stream.CustomResolution;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
+import com.limelight.settings.stream.StreamResolutionCodec;
+import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
 import com.limelight.settings.ui.GameMenuCardIds;
@@ -21,6 +25,18 @@ import java.util.Set;
  * Runs ordered, idempotent migrations for default application preferences.
  */
 public final class SettingsMigrationRunner {
+    private static final SettingKey<String> RETIRED_TOUCH_MODE =
+            SettingKey.stringSetKey(
+                    "input.pointer.mode",
+                    "0",
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                    "6")
+                    .renamedFrom("mouse_model_list_axi");
     private static final SettingKey<Boolean> REMOVED_BACKGROUND_ENABLED =
             SettingKey.booleanKey(
                     "app.appearance.background.enabled",
@@ -150,12 +166,21 @@ public final class SettingsMigrationRunner {
                         AppPresentationSettingKeys.LEGACY_LIGHT_THEME);
         boolean hasRetiredInputOrVibrationValues =
                 containsRetiredInputOrVibrationValues(repository);
+        boolean hasRetiredTouchMode =
+                containsRetiredTouchMode(repository);
+        boolean hasLegacyCustomResolution =
+                containsCanonicalOrAlias(
+                        repository,
+                        StreamVideoSettingKeys
+                                .LEGACY_CUSTOM_RESOLUTION_TEXT);
         if (storedVersion >= SettingsSchema.CURRENT_VERSION &&
                 !hasLateLegacyValues &&
                 !hasRenamedValues &&
                 !hasRemovedAppearanceValues &&
                 !hasLegacyThemePreference &&
-                !hasRetiredInputOrVibrationValues) {
+                !hasRetiredInputOrVibrationValues &&
+                !hasRetiredTouchMode &&
+                !hasLegacyCustomResolution) {
             return;
         }
 
@@ -196,6 +221,14 @@ public final class SettingsMigrationRunner {
         }
         if (storedVersion < 9 || hasRetiredInputOrVibrationValues) {
             migrateToVersion9(editor);
+        }
+        if (storedVersion < 10 ||
+                hasRetiredTouchMode ||
+                hasLegacyCustomResolution) {
+            migrateToVersion10(
+                    repository,
+                    editor,
+                    storedVersion < 5);
         }
         if (storedVersion < SettingsSchema.CURRENT_VERSION) {
             editor.put(
@@ -254,11 +287,97 @@ public final class SettingsMigrationRunner {
         return false;
     }
 
+    private static boolean containsRetiredTouchMode(
+            SettingsRepository repository) {
+        if (repository.contains(RETIRED_TOUCH_MODE) &&
+                isRetiredTouchMode(
+                        repository.get(RETIRED_TOUCH_MODE))) {
+            return true;
+        }
+        for (String legacyName : RETIRED_TOUCH_MODE.getLegacyNames()) {
+            SettingKey<String> legacyKey =
+                    RETIRED_TOUCH_MODE.legacyAlias(legacyName);
+            if (repository.contains(legacyKey) &&
+                    isRetiredTouchMode(repository.get(legacyKey))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isRetiredTouchMode(String value) {
+        return "4".equals(value) ||
+                "5".equals(value) ||
+                "6".equals(value);
+    }
+
     /** Removes retired input scaling and audio-reactive vibration preferences. */
     private static void migrateToVersion9(
             SettingsRepository.Editor editor) {
         for (SettingKey<?> key : RETIRED_INPUT_AND_VIBRATION_KEYS) {
             removeWithAliases(editor, key);
+        }
+    }
+
+    /**
+     * Consolidates retired pointer modes and the single-value custom
+     * resolution editor into their current canonical settings.
+     */
+    private static void migrateToVersion10(
+            SettingsRepository repository,
+            SettingsRepository.Editor editor,
+            boolean legacyValuesAreAuthoritative) {
+        String legacyTouchMode = getCanonicalOrAlias(
+                repository,
+                RETIRED_TOUCH_MODE,
+                legacyValuesAreAuthoritative);
+        switch (legacyTouchMode) {
+            case "4":
+                editor.put(InputSettingKeys.TOUCH_MODE, "1");
+                break;
+            case "5":
+            case "6":
+                editor.put(InputSettingKeys.TOUCH_MODE, "2");
+                break;
+            default:
+                break;
+        }
+        for (String legacyName : RETIRED_TOUCH_MODE.getLegacyNames()) {
+            editor.remove(RETIRED_TOUCH_MODE.legacyAlias(legacyName));
+        }
+
+        if (containsCanonicalOrAlias(
+                repository,
+                StreamVideoSettingKeys
+                        .LEGACY_CUSTOM_RESOLUTION_TEXT)) {
+            CustomResolution legacyResolution = CustomResolution.parse(
+                    getCanonicalOrAlias(
+                            repository,
+                            StreamVideoSettingKeys
+                                    .LEGACY_CUSTOM_RESOLUTION_TEXT,
+                            legacyValuesAreAuthoritative));
+            if (legacyResolution != null &&
+                    !StreamResolutionCodec.isStandardResolutionPreset(
+                            legacyResolution.toStorageValue())) {
+                Set<String> customResolutions = new LinkedHashSet<>(
+                        repository.get(
+                                StreamResolutionSettingKeys
+                                        .CUSTOM_RESOLUTIONS));
+                if (customResolutions.size() <
+                        StreamResolutionSettingKeys
+                                .MAX_CUSTOM_RESOLUTIONS) {
+                    customResolutions.add(
+                            legacyResolution.toStorageValue());
+                    editor.put(
+                            StreamResolutionSettingKeys
+                                    .CUSTOM_RESOLUTIONS,
+                            customResolutions);
+                }
+            }
+            removeWithAliases(
+                    editor,
+                    StreamVideoSettingKeys
+                            .LEGACY_CUSTOM_RESOLUTION_TEXT);
         }
     }
 
@@ -577,6 +696,21 @@ public final class SettingsMigrationRunner {
     private static <T> T getCanonicalOrAlias(
             SettingsRepository repository,
             SettingKey<T> key) {
+        return getCanonicalOrAlias(repository, key, false);
+    }
+
+    private static <T> T getCanonicalOrAlias(
+            SettingsRepository repository,
+            SettingKey<T> key,
+            boolean legacyValuesAreAuthoritative) {
+        if (legacyValuesAreAuthoritative) {
+            for (String legacyName : key.getLegacyNames()) {
+                SettingKey<T> legacyKey = key.legacyAlias(legacyName);
+                if (repository.contains(legacyKey)) {
+                    return repository.get(legacyKey);
+                }
+            }
+        }
         if (repository.contains(key)) {
             return repository.get(key);
         }

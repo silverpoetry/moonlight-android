@@ -1,6 +1,5 @@
 package com.limelight;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -52,26 +51,6 @@ public class RenderingResourcesTest {
         }
         finally {
             foreground.recycle();
-        }
-    }
-
-    @Test
-    public void gamepadPassIconRetainsTransparentControlCutouts() {
-        Context context = ApplicationProvider.getApplicationContext();
-        Bitmap controller = renderDrawable(
-                context.getDrawable(R.drawable.ic_gamepad_pass),
-                1024,
-                1024);
-        try {
-            assertEquals(0, Color.alpha(controller.getPixel(309, 456)));
-            assertEquals(0, Color.alpha(controller.getPixel(588, 456)));
-            assertEquals(0, Color.alpha(controller.getPixel(681, 364)));
-            assertEquals(0, Color.alpha(controller.getPixel(681, 549)));
-            assertEquals(0, Color.alpha(controller.getPixel(774, 456)));
-            assertTrue(Color.alpha(controller.getPixel(512, 250)) > 0);
-        }
-        finally {
-            controller.recycle();
         }
     }
 

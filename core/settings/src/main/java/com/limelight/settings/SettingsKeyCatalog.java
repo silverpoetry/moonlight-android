@@ -45,6 +45,7 @@ public final class SettingsKeyCatalog {
                 AppPresentationSettingKeys.SMALL_APP_ICONS,
                 StreamAudioSettingKeys.MUTED,
                 StreamResolutionSettingKeys.SELECTION,
+                StreamResolutionSettingKeys.CUSTOM_RESOLUTIONS,
                 StreamVideoSettingKeys.HDR_HIGH_BRIGHTNESS,
                 StreamVideoSettingKeys.IGNORE_HDR_CAPABILITY,
                 StreamVideoSettingKeys.VIRTUAL_DISPLAY_MODE,

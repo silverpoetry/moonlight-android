@@ -8,6 +8,7 @@ import com.limelight.settings.stream.StreamResolutionCodec;
 
 import org.junit.Test;
 
+import java.util.Collections;
 import java.util.List;
 
 public final class SettingsDisplayPolicyTest {
@@ -27,17 +28,18 @@ public final class SettingsDisplayPolicyTest {
         SettingsDisplayPolicy.Result result =
                 SettingsDisplayPolicy.evaluate(
                         capabilities,
-                        "1000x1000",
+                        Collections.singleton("1000x1000"),
                         false);
 
         List<SettingsDisplayPolicy.ResolutionOption> options =
-                result.getNativeResolutions();
+                result.getResolutionOptions();
         assertEquals(4, options.size());
         assertOption(
                 options.get(0),
                 "1000x1000",
                 false,
-                SettingsDisplayPolicy.OrientationLabel.PORTRAIT);
+                SettingsDisplayPolicy.OrientationLabel.NONE);
+        assertTrue(options.get(0).isCustom());
         assertOption(
                 options.get(1),
                 "1800x2200",
@@ -78,7 +80,7 @@ public final class SettingsDisplayPolicyTest {
                         SettingsDisplayCapabilities.builder()
                                 .maximumRefreshRate(30)
                                 .build(),
-                        "1920x1080",
+                        Collections.singleton("1920x1080"),
                         true);
 
         assertTrue(result.getFrameRateRemovals().isEmpty());
@@ -101,11 +103,11 @@ public final class SettingsDisplayPolicyTest {
         SettingsDisplayPolicy.Result result =
                 SettingsDisplayPolicy.evaluate(
                         SettingsDisplayCapabilities.builder().build(),
-                        "1920-by-1080",
+                        Collections.singleton("1920-by-1080"),
                         false);
 
         assertTrue(result.hasInvalidCustomResolution());
-        assertTrue(result.getNativeResolutions().isEmpty());
+        assertTrue(result.getResolutionOptions().isEmpty());
     }
 
     @Test

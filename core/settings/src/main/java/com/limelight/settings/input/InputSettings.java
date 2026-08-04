@@ -161,7 +161,7 @@ public final class InputSettings {
     }
 
     private static int normalizeTouchMode(int value) {
-        return value >= 0 && value <= 6 ? value : 0;
+        return value >= 0 && value <= 3 ? value : 0;
     }
 
     private static int normalizeGestureFingerCount(int value) {

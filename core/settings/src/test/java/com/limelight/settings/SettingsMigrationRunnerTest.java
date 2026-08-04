@@ -4,6 +4,7 @@ import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.audio.StreamAudioSettingKeys;
 import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
+import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
 import com.limelight.settings.ui.GameMenuCardSettingKeys;
@@ -12,10 +13,10 @@ import com.limelight.settings.virtualcontrols.VirtualControlSettingKeys;
 
 import org.junit.Test;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Arrays;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -435,6 +436,70 @@ public class SettingsMigrationRunnerTest {
         assertEquals(
                 SettingsSchema.CURRENT_VERSION,
                 repository.values.get(SettingsSchema.VERSION.getName()));
+    }
+
+    @Test
+    public void versionTenMigratesRetiredInputModesAndCustomResolution() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put(SettingsSchema.VERSION.getName(), 9);
+        repository.values.put(InputSettingKeys.TOUCH_MODE.getName(), "4");
+        repository.values.put(
+                StreamVideoSettingKeys
+                        .LEGACY_CUSTOM_RESOLUTION_TEXT.getName(),
+                "3440x1440");
+        repository.values.put(
+                StreamResolutionSettingKeys.CUSTOM_RESOLUTIONS.getName(),
+                new LinkedHashSet<>(
+                        java.util.Collections.singleton("2560x1600")));
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertEquals(
+                "1",
+                repository.values.get(
+                        InputSettingKeys.TOUCH_MODE.getName()));
+        assertEquals(
+                new LinkedHashSet<>(java.util.Arrays.asList(
+                        "2560x1600",
+                        "3440x1440")),
+                repository.values.get(
+                        StreamResolutionSettingKeys
+                                .CUSTOM_RESOLUTIONS.getName()));
+        assertFalse(repository.values.containsKey(
+                StreamVideoSettingKeys
+                        .LEGACY_CUSTOM_RESOLUTION_TEXT.getName()));
+        assertEquals(
+                SettingsSchema.CURRENT_VERSION,
+                repository.values.get(SettingsSchema.VERSION.getName()));
+    }
+
+    @Test
+    public void lateLegacyVersionTenValuesAreMigratedIdempotently() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put(
+                SettingsSchema.VERSION.getName(),
+                SettingsSchema.CURRENT_VERSION);
+        repository.values.put("mouse_model_list_axi", "6");
+        repository.values.put("edit_diy_w_h", "2400x1080");
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertEquals(
+                "2",
+                repository.values.get(
+                        InputSettingKeys.TOUCH_MODE.getName()));
+        assertEquals(
+                java.util.Collections.singleton("2400x1080"),
+                repository.values.get(
+                        StreamResolutionSettingKeys
+                                .CUSTOM_RESOLUTIONS.getName()));
+        assertFalse(repository.values.containsKey(
+                "mouse_model_list_axi"));
+        assertFalse(repository.values.containsKey("edit_diy_w_h"));
+        assertEquals(1, repository.commitCount);
+
+        SettingsMigrationRunner.migrate(repository);
+        assertEquals(1, repository.commitCount);
     }
 
     private static final class FakeRepository

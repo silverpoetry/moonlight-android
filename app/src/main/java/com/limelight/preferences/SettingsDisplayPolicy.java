@@ -1,5 +1,6 @@
 package com.limelight.preferences;
 
+import com.limelight.settings.stream.CustomResolution;
 import com.limelight.settings.stream.StreamDisplayGeometry;
 import com.limelight.settings.stream.StreamResolutionCodec;
 
@@ -7,6 +8,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /** Pure policy that turns device capabilities into settings-list changes. */
 final class SettingsDisplayPolicy {
@@ -15,20 +18,21 @@ final class SettingsDisplayPolicy {
 
     static Result evaluate(
             SettingsDisplayCapabilities capabilities,
-            String customResolution,
+            Set<String> customResolutions,
             boolean unlockFrameRates) {
         LinkedHashMap<String, ResolutionOption> resolutions =
                 new LinkedHashMap<>();
-        boolean invalidCustomResolution = !appendCustomResolution(
+        boolean invalidCustomResolution = !appendCustomResolutions(
                 resolutions,
-                customResolution);
+                customResolutions);
         for (SettingsDisplayCapabilities.NativeResolution candidate :
                 capabilities.getNativeResolutions()) {
             appendResolutionPair(
                     resolutions,
                     candidate.getWidth(),
                     candidate.getHeight(),
-                    candidate.isFullscreen());
+                    candidate.isFullscreen(),
+                    false);
         }
 
         ArrayList<ValueRemoval> resolutionRemovals = new ArrayList<>();
@@ -72,52 +76,57 @@ final class SettingsDisplayPolicy {
                 invalidCustomResolution);
     }
 
-    private static boolean appendCustomResolution(
+    private static boolean appendCustomResolutions(
             LinkedHashMap<String, ResolutionOption> resolutions,
-            String customResolution) {
-        if (customResolution == null || customResolution.isEmpty()) {
+            Set<String> customResolutions) {
+        if (customResolutions == null || customResolutions.isEmpty()) {
             return true;
         }
-        String[] dimensions = customResolution.split("x");
-        if (dimensions.length != 2) {
-            return false;
-        }
-        try {
-            int width = Integer.parseInt(dimensions[0]);
-            int height = Integer.parseInt(dimensions[1]);
-            if (width <= 0 || height <= 0) {
-                return false;
+        boolean valid = true;
+        TreeSet<CustomResolution> sorted = new TreeSet<>();
+        for (String value : customResolutions) {
+            CustomResolution resolution = CustomResolution.parse(value);
+            if (resolution == null) {
+                valid = false;
             }
-            appendResolutionPair(
+            else if (!StreamResolutionCodec.isStandardResolutionPreset(
+                    resolution.toStorageValue())) {
+                sorted.add(resolution);
+            }
+        }
+        for (CustomResolution resolution : sorted) {
+            appendResolution(
                     resolutions,
-                    width,
-                    height,
-                    false);
-            return true;
+                    resolution.getWidth(),
+                    resolution.getHeight(),
+                    false,
+                    OrientationLabel.NONE,
+                    true);
         }
-        catch (NumberFormatException error) {
-            return false;
-        }
+        return valid;
     }
 
     private static void appendResolutionPair(
             LinkedHashMap<String, ResolutionOption> resolutions,
             int width,
             int height,
-            boolean fullscreen) {
+            boolean fullscreen,
+            boolean custom) {
         if (StreamDisplayGeometry.isSquarish(width, height)) {
             appendResolution(
                     resolutions,
                     height,
                     width,
                     fullscreen,
-                    OrientationLabel.PORTRAIT);
+                    OrientationLabel.PORTRAIT,
+                    custom);
             appendResolution(
                     resolutions,
                     width,
                     height,
                     fullscreen,
-                    OrientationLabel.LANDSCAPE);
+                    OrientationLabel.LANDSCAPE,
+                    custom);
         }
         else {
             appendResolution(
@@ -125,7 +134,8 @@ final class SettingsDisplayPolicy {
                     width,
                     height,
                     fullscreen,
-                    OrientationLabel.NONE);
+                    OrientationLabel.NONE,
+                    custom);
         }
     }
 
@@ -134,12 +144,14 @@ final class SettingsDisplayPolicy {
             int width,
             int height,
             boolean fullscreen,
-            OrientationLabel orientationLabel) {
+            OrientationLabel orientationLabel,
+            boolean custom) {
         ResolutionOption option = new ResolutionOption(
                 width,
                 height,
                 fullscreen,
-                orientationLabel);
+                orientationLabel,
+                custom);
         if (!resolutions.containsKey(option.getValue())) {
             resolutions.put(option.getValue(), option);
         }
@@ -156,16 +168,19 @@ final class SettingsDisplayPolicy {
         private final int height;
         private final boolean fullscreen;
         private final OrientationLabel orientationLabel;
+        private final boolean custom;
 
         private ResolutionOption(
                 int width,
                 int height,
                 boolean fullscreen,
-                OrientationLabel orientationLabel) {
+                OrientationLabel orientationLabel,
+                boolean custom) {
             this.width = width;
             this.height = height;
             this.fullscreen = fullscreen;
             this.orientationLabel = orientationLabel;
+            this.custom = custom;
         }
 
         int getWidth() {
@@ -186,6 +201,10 @@ final class SettingsDisplayPolicy {
 
         OrientationLabel getOrientationLabel() {
             return orientationLabel;
+        }
+
+        boolean isCustom() {
+            return custom;
         }
     }
 
@@ -208,7 +227,7 @@ final class SettingsDisplayPolicy {
     }
 
     static final class Result {
-        private final List<ResolutionOption> nativeResolutions;
+        private final List<ResolutionOption> resolutionOptions;
         private final List<ValueRemoval> resolutionRemovals;
         private final List<ValueRemoval> frameRateRemovals;
         private final int nativeFrameRate;
@@ -216,14 +235,14 @@ final class SettingsDisplayPolicy {
         private final boolean invalidCustomResolution;
 
         private Result(
-                List<ResolutionOption> nativeResolutions,
+                List<ResolutionOption> resolutionOptions,
                 List<ValueRemoval> resolutionRemovals,
                 List<ValueRemoval> frameRateRemovals,
                 int nativeFrameRate,
                 SettingsDisplayCapabilities.HdrState hdrState,
                 boolean invalidCustomResolution) {
-            this.nativeResolutions = Collections.unmodifiableList(
-                    new ArrayList<>(nativeResolutions));
+            this.resolutionOptions = Collections.unmodifiableList(
+                    new ArrayList<>(resolutionOptions));
             this.resolutionRemovals = Collections.unmodifiableList(
                     new ArrayList<>(resolutionRemovals));
             this.frameRateRemovals = Collections.unmodifiableList(
@@ -233,8 +252,8 @@ final class SettingsDisplayPolicy {
             this.invalidCustomResolution = invalidCustomResolution;
         }
 
-        List<ResolutionOption> getNativeResolutions() {
-            return nativeResolutions;
+        List<ResolutionOption> getResolutionOptions() {
+            return resolutionOptions;
         }
 
         List<ValueRemoval> getResolutionRemovals() {

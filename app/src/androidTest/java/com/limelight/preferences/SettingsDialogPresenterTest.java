@@ -136,5 +136,16 @@ public final class SettingsDialogPresenterTest {
                 String value) {
             return null;
         }
+
+        @Override
+        public CharSequence onCustomResolutionSubmitted(
+                SettingsItem item,
+                String value) {
+            return null;
+        }
+
+        @Override
+        public void onCustomResolutionRemoved(String value) {
+        }
     }
 }

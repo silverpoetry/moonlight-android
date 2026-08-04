@@ -26,21 +26,20 @@ final class SettingsDisplayController {
     }
 
     Result apply(SettingsDisplayCapabilities capabilities) {
-        String customResolution = store.get(
-                StreamVideoSettingKeys.CUSTOM_RESOLUTION_TEXT);
         boolean unlockFrameRates = store.repository.get(
                 StreamVideoSettingKeys.UNLOCK_FPS);
         SettingsDisplayPolicy.Result policy =
                 SettingsDisplayPolicy.evaluate(
                         capabilities,
-                        customResolution,
+                        store.get(StreamResolutionSettingKeys
+                                .CUSTOM_RESOLUTIONS),
                         unlockFrameRates);
         if (policy.hasInvalidCustomResolution()) {
             LimeLog.warning(
                     "Ignoring invalid custom resolution setting");
         }
 
-        applyNativeResolutions(policy);
+        applyResolutionOptions(policy);
         for (SettingsDisplayPolicy.ValueRemoval removal :
                 policy.getResolutionRemovals()) {
             removeValue(
@@ -59,7 +58,7 @@ final class SettingsDisplayController {
         return new Result(nativeFrameRateValue);
     }
 
-    private void applyNativeResolutions(
+    private void applyResolutionOptions(
             SettingsDisplayPolicy.Result policy) {
         SettingsItem item = screenModel.findItem(
                 StreamResolutionSettingKeys.RESOLUTION.getName());
@@ -67,13 +66,15 @@ final class SettingsDisplayController {
             return;
         }
         for (SettingsDisplayPolicy.ResolutionOption option :
-                policy.getNativeResolutions()) {
+                policy.getResolutionOptions()) {
             if (containsValue(item, option.getValue())) {
                 continue;
             }
 
             item.appendEntry(
-                    text.nativeResolutionName(option),
+                    option.isCustom()
+                            ? text.customResolutionName(option)
+                            : text.nativeResolutionName(option),
                     option.getValue());
         }
     }

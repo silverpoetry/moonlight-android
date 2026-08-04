@@ -155,7 +155,6 @@ public final class SettingsScreenKeyCatalog {
                 StreamVideoSettingKeys.HDR_ENABLED,
                 StreamVideoSettingKeys.PORTRAIT,
                 StreamVideoSettingKeys.EXTERNAL_DISPLAY,
-                StreamVideoSettingKeys.CUSTOM_RESOLUTION_TEXT,
                 StreamDecoderSettingKeys.REDUCE_REFRESH_RATE,
                 StreamDecoderSettingKeys.FULL_RANGE);
 

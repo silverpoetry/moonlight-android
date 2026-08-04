@@ -3,6 +3,8 @@ package com.limelight.preferences;
 import android.app.Activity;
 import android.app.Dialog;
 
+import com.limelight.settings.stream.StreamResolutionCodec;
+import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.ui.compose.settings.MaterialSettingsDialogFactory;
 
 import java.util.Objects;
@@ -16,6 +18,13 @@ final class SettingsDialogPresenter {
 
         /** Returns a user-facing validation error, or {@code null}. */
         CharSequence onTextValueSubmitted(SettingsItem item, String value);
+
+        /** Returns a user-facing validation error, or {@code null}. */
+        CharSequence onCustomResolutionSubmitted(
+                SettingsItem item,
+                String value);
+
+        void onCustomResolutionRemoved(String value);
     }
 
     private final SettingsStore store;
@@ -42,6 +51,25 @@ final class SettingsDialogPresenter {
         String current = item.type == SettingsItem.Type.INTEGER_LIST
                 ? Integer.toString(store.getInt(item))
                 : store.getString(item);
+        if (StreamResolutionSettingKeys.RESOLUTION
+                .getName()
+                .equals(item.key)) {
+            activeDialog = dialogFactory.showResolutionList(
+                    item.title,
+                    item.entries,
+                    item.entryValues,
+                    current,
+                    store.get(StreamResolutionSettingKeys
+                            .CUSTOM_RESOLUTIONS),
+                    StreamResolutionCodec.DEFAULT_RESOLUTION,
+                    value -> listener.onListValueSelected(item, value),
+                    value -> listener.onCustomResolutionSubmitted(
+                            item,
+                            value),
+                    listener::onCustomResolutionRemoved);
+            trackDismissal(activeDialog);
+            return;
+        }
         switch (SettingsEditorCatalog.forItem(item)) {
             case DISCRETE_SLIDER:
                 activeDialog = dialogFactory.showDiscreteListSlider(

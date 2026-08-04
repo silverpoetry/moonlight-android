@@ -1,14 +1,17 @@
 package com.limelight.preferences;
 
 import com.limelight.settings.SettingsRepository;
-import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.app.AppPresentationSettingKeys;
+import com.limelight.settings.input.InputSettingKeys;
+import com.limelight.settings.stream.CustomResolution;
 import com.limelight.settings.stream.StreamResolutionCodec;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashSet;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Single use-case boundary for settings writes and their presentation effects.
@@ -107,6 +110,95 @@ final class SettingsMutationController {
         }
     }
 
+    ChangeResult addCustomResolution(
+            SettingsItem resolutionItem,
+            String rawValue) {
+        Objects.requireNonNull(resolutionItem, "resolutionItem");
+        CustomResolution resolution = CustomResolution.parse(rawValue);
+        if (resolution == null) {
+            return ChangeResult.rejected(
+                    ValidationError.INVALID_CUSTOM_RESOLUTION);
+        }
+        String value = resolution.toStorageValue();
+        if (containsValue(resolutionItem, value)) {
+            return ChangeResult.rejected(
+                    ValidationError.DUPLICATE_CUSTOM_RESOLUTION);
+        }
+
+        Set<String> customResolutions = new LinkedHashSet<>(
+                store.get(StreamResolutionSettingKeys
+                        .CUSTOM_RESOLUTIONS));
+        if (customResolutions.contains(value)) {
+            return ChangeResult.rejected(
+                    ValidationError.DUPLICATE_CUSTOM_RESOLUTION);
+        }
+        if (customResolutions.size() >=
+                StreamResolutionSettingKeys.MAX_CUSTOM_RESOLUTIONS) {
+            return ChangeResult.rejected(
+                    ValidationError.CUSTOM_RESOLUTION_LIMIT);
+        }
+        customResolutions.add(value);
+        store.repository.edit()
+                .put(
+                        StreamResolutionSettingKeys.CUSTOM_RESOLUTIONS,
+                        customResolutions)
+                .put(StreamResolutionSettingKeys.RESOLUTION, value)
+                .put(
+                        StreamResolutionSettingKeys.SELECTION,
+                        StreamResolutionCodec
+                                .SELECTION_CUSTOM_OR_NATIVE)
+                .apply();
+        return ChangeResult.accepted(
+                ChangeEffect.reload(0),
+                false);
+    }
+
+    ChangeResult removeCustomResolution(String rawValue) {
+        CustomResolution resolution = CustomResolution.parse(rawValue);
+        if (resolution == null) {
+            return ChangeResult.rejected(
+                    ValidationError.INVALID_CUSTOM_RESOLUTION);
+        }
+        String value = resolution.toStorageValue();
+        Set<String> customResolutions = new LinkedHashSet<>(
+                store.get(StreamResolutionSettingKeys
+                        .CUSTOM_RESOLUTIONS));
+        if (!customResolutions.remove(value)) {
+            return ChangeResult.accepted(
+                    ChangeEffect.refresh(0),
+                    false);
+        }
+
+        SettingsRepository.Editor editor = store.repository.edit()
+                .put(
+                        StreamResolutionSettingKeys.CUSTOM_RESOLUTIONS,
+                        customResolutions);
+        if (value.equals(store.get(
+                StreamResolutionSettingKeys.RESOLUTION))) {
+            editor.put(
+                            StreamResolutionSettingKeys.RESOLUTION,
+                            StreamResolutionCodec.DEFAULT_RESOLUTION)
+                    .put(
+                            StreamResolutionSettingKeys.SELECTION,
+                            StreamResolutionCodec.SELECTION_PRESET);
+        }
+        editor.apply();
+        return ChangeResult.accepted(
+                ChangeEffect.reload(0),
+                false);
+    }
+
+    private static boolean containsValue(
+            SettingsItem item,
+            String value) {
+        for (CharSequence candidate : item.entryValues) {
+            if (value.equals(candidate.toString())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private ChangeEffect effectAfterChange(
             SettingsItem item,
             boolean allowSwitchAnimation) {
@@ -142,6 +234,9 @@ final class SettingsMutationController {
     enum ValidationError {
         NONE,
         INVALID_BITRATE,
+        INVALID_CUSTOM_RESOLUTION,
+        DUPLICATE_CUSTOM_RESOLUTION,
+        CUSTOM_RESOLUTION_LIMIT,
     }
 
     static final class ChangeResult {
@@ -168,10 +263,15 @@ final class SettingsMutationController {
         }
 
         static ChangeResult invalidBitrate() {
-            return new ChangeResult(
-                    ValidationError.INVALID_BITRATE,
-                    null,
-                    false);
+            return rejected(ValidationError.INVALID_BITRATE);
+        }
+
+        static ChangeResult rejected(ValidationError error) {
+            if (error == ValidationError.NONE) {
+                throw new IllegalArgumentException(
+                        "A rejected change requires an error");
+            }
+            return new ChangeResult(error, null, false);
         }
 
         boolean isAccepted() {
