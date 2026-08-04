@@ -1,6 +1,7 @@
 package com.limelight;
 
 import android.content.Context;
+import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import androidx.activity.EdgeToEdge;
@@ -43,5 +44,15 @@ public class BaseActivity extends FragmentActivity {
     /** Streaming owns a separate system-bar and coordinate-space policy. */
     protected boolean shouldEnableEdgeToEdge() {
         return true;
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (shouldEnableEdgeToEdge()) {
+            // Refresh system-bar icon contrast when a system-following theme
+            // changes without Activity recreation.
+            EdgeToEdge.enable(this);
+        }
     }
 }

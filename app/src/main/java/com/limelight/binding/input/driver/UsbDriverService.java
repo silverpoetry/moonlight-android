@@ -21,8 +21,6 @@ import androidx.core.content.IntentCompat;
 
 import com.limelight.LimeLog;
 import com.limelight.R;
-import com.limelight.settings.audio.StreamAudioSettings;
-import com.limelight.settings.audio.StreamAudioSettingsState;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsState;
 import com.limelight.utils.UiToast;
@@ -37,7 +35,6 @@ public class UsbDriverService extends Service implements UsbDriverListener {
 
     private UsbManager usbManager;
     private ControllerSettingsState settingsState;
-    private StreamAudioSettingsState audioSettingsState;
     private boolean started;
 
     private final UsbEventReceiver receiver = new UsbEventReceiver();
@@ -188,17 +185,12 @@ public class UsbDriverService extends Service implements UsbDriverListener {
     public class UsbDriverBinder extends Binder {
         public long attachSession(
                 ControllerSettingsState settingsState,
-                StreamAudioSettingsState audioSettingsState,
                 UsbDriverListener listener,
                 UsbDriverStateListener stateListener) {
             UsbDriverService.this.settingsState =
                     Objects.requireNonNull(
                             settingsState,
                             "settingsState");
-            UsbDriverService.this.audioSettingsState =
-                    Objects.requireNonNull(
-                            audioSettingsState,
-                            "audioSettingsState");
             boolean wasStarted = started;
             long leaseId = callbackRegistry.acquire(
                     listener,
@@ -222,22 +214,9 @@ public class UsbDriverService extends Service implements UsbDriverListener {
         }
     }
 
-    private boolean shouldUseRazerKishiController(
-            UsbDevice device,
-            StreamAudioSettings audioSettings) {
-        return audioSettings.areAudioHapticsEnabled() &&
-                audioSettings.isControllerHapticsTarget() &&
-                RazerKishiHapticsDevice.canUseDevice(device);
-    }
-
     private boolean shouldClaimDeviceForCurrentMode(
             UsbDevice device,
-            ControllerSettings settings,
-            StreamAudioSettings audioSettings) {
-        if (shouldUseRazerKishiController(device, audioSettings)) {
-            return true;
-        }
-
+            ControllerSettings settings) {
         return shouldClaimDevice(
                 device,
                 settings.shouldClaimAllUsbDevices());
@@ -248,12 +227,10 @@ public class UsbDriverService extends Service implements UsbDriverListener {
             return;
         }
         ControllerSettings settings = getSettings();
-        StreamAudioSettings audioSettings = getAudioSettings();
         // Are we able to operate it?
         if (shouldClaimDeviceForCurrentMode(
                 device,
-                settings,
-                audioSettings)) {
+                settings)) {
             // Do we have permission yet?
             if (!usbManager.hasPermission(device)) {
                 // Let's ask for permission
@@ -302,12 +279,6 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                                 .onUsbPermissionPromptCompleted();
                     }
                 }
-                return;
-            }
-
-            if (shouldUseRazerKishiController(
-                    device,
-                    audioSettings)) {
                 return;
             }
 
@@ -443,7 +414,7 @@ public class UsbDriverService extends Service implements UsbDriverListener {
         if (started || usbManager == null) {
             return;
         }
-        if (settingsState == null || audioSettingsState == null) {
+        if (settingsState == null) {
             throw new IllegalStateException(
                     "USB driver started before settings were configured");
         }
@@ -494,7 +465,6 @@ public class UsbDriverService extends Service implements UsbDriverListener {
 
         callbackRegistry.clear();
         settingsState = null;
-        audioSettingsState = null;
     }
 
     @Override
@@ -508,14 +478,6 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                     "USB driver settings are not configured");
         }
         return settingsState.get();
-    }
-
-    private StreamAudioSettings getAudioSettings() {
-        if (audioSettingsState == null) {
-            throw new IllegalStateException(
-                    "USB audio settings are not configured");
-        }
-        return audioSettingsState.get();
     }
 
     public interface UsbDriverStateListener {

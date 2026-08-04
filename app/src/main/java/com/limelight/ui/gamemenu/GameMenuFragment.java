@@ -13,12 +13,8 @@ import androidx.compose.ui.platform.ComposeView;
 
 import com.limelight.R;
 import com.limelight.binding.input.KeyboardTranslator;
-import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode;
 import com.limelight.settings.audio.StreamAudioSettingsUpdate;
-import com.limelight.settings.controller.ControllerSettingsUpdate;
-import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.settings.ui.GameMenuCardLayout;
-import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 import com.limelight.shortcuts.GameMenuShortcut;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 import com.limelight.utils.BackNavigationRegistration;
@@ -132,10 +128,6 @@ public class GameMenuFragment extends BaseGameMenuDialog
 
     @Override
     public void onDismiss(DialogInterface dialog) {
-        if (cardEditor != null) {
-            cardEditor.dismiss();
-            cardEditor = null;
-        }
         GameMenuHost currentHost = resolveHost();
         if (currentHost != null) {
             currentHost.onGameMenuDismissed(this);
@@ -147,8 +139,6 @@ public class GameMenuFragment extends BaseGameMenuDialog
     public int getLayoutRes() {
         return R.layout.dialog_game_menu_compose;
     }
-
-    private GameMenuCardEditor cardEditor;
 
     @Override
     public void bindView(View v) {
@@ -177,17 +167,36 @@ public class GameMenuFragment extends BaseGameMenuDialog
                     @Override
                     public void onActionLongPressed(int viewId) {
                         if (viewId == R.id.btn_performance && host != null) {
+                            host.cancelPendingStreamBackExit();
                             host.switchHUD();
                             refreshComposeMenu();
                         }
                     }
 
                     @Override
-                    public void onCustomizeRequested() {
-                        showCardEditor();
+                    public void onCardLayoutChanged(
+                            GameMenuCardLayout layout) {
+                        if (host != null) {
+                            host.cancelPendingStreamBackExit();
+                            host.saveGameMenuCardLayout(layout);
+                            refreshComposeMenu();
+                        }
+                    }
+
+                    @Override
+                    public void onDismissRequested() {
+                        if (host != null) {
+                            host.cancelPendingStreamBackExit();
+                        }
+                        dismiss();
                     }
                 });
         refreshComposeMenu();
+    }
+
+    @Override
+    protected boolean usesLegacyViewChrome() {
+        return false;
     }
 
     private void refreshComposeMenu() {
@@ -200,7 +209,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
                 GameMenuCardConfiguration.load(
                         menuState.getCardLayout(),
                         catalog);
-        composeRenderer.update(menuState, configuration.visible);
+        composeRenderer.update(menuState, configuration);
     }
 
     private List<GameMenuCardCatalog.Card> loadCardCatalog() {
@@ -211,39 +220,6 @@ public class GameMenuFragment extends BaseGameMenuDialog
                 getActivity(),
                 menuState.getShortcuts(),
                 includeBuiltInShortcuts);
-    }
-
-    private void showCardEditor() {
-        if (cardEditor != null || getActivity() == null) {
-            return;
-        }
-        menuState = host.getState();
-        List<GameMenuCardCatalog.Card> catalog =
-                loadCardCatalog();
-        GameMenuCardConfiguration.State configuration =
-                GameMenuCardConfiguration.load(
-                        menuState.getCardLayout(),
-                        catalog);
-        cardEditor = new GameMenuCardEditor(
-                getActivity(),
-                catalog,
-                configuration,
-                new GameMenuCardEditor.Listener() {
-                    @Override
-                    public void onSave(
-                            GameMenuCardLayout layout) {
-                        if (host != null) {
-                            host.saveGameMenuCardLayout(layout);
-                            refreshComposeMenu();
-                        }
-                    }
-
-                    @Override
-                    public void onDismissed() {
-                        cardEditor = null;
-                    }
-                });
-        cardEditor.show();
     }
 
     @Override
@@ -266,7 +242,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
         }
 
         //操作 或 显示器
-        if(v.getId()==R.id.btn_soft_function || v.getId()==R.id.btn_display_1){
+        if(v.getId()==R.id.btn_soft_function || v.getId()==R.id.btn_windows_actions){
             GameFunctionFragment fragment=new GameFunctionFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
             fragment.setTitle("操作");
@@ -436,94 +412,17 @@ public class GameMenuFragment extends BaseGameMenuDialog
             return;
         }
         if(v.getId()==R.id.bt_touch_list){
-            GameListMouseFragment fragment=new GameListMouseFragment();
+            GameMouseTouchFragment fragment =
+                    new GameMouseTouchFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle("鼠标与触控");
-            fragment.setMouseModeSelectionListener(new GameListMouseFragment.MouseModeSelectionListener() {
-                @Override
-                public void onMouseModeSelected(String title, int index) {
-                    if (host == null || index < 0) {
-                        return;
-                    }
-                    if(index==7){
-                        host.switchMouseLocalCursor();
-                        return;
-                    }
-                    if(index==8){
-                        host.toggleAbsoluteMouseMode();
-                        return;
-                    }
-                    if(index==9){
-                        sendKeyboardChord(new short[]{KeyboardTranslator.VK_LCONTROL,KeyboardTranslator.VK_LMENU, KeyboardTranslator.VK_LSHIFT, KeyboardTranslator.VK_N});
-                        return;
-                    }
-                    host.switchMouseModel(index);
-                }
-            });
             fragment.show(getParentFragmentManager());
             return;
         }
 
         if(v.getId()==R.id.bt_touch_sensitivity){
-            GameTouchFragment fragment=new GameTouchFragment();
+            GameTouchSensitivityFragment fragment =
+                    new GameTouchSensitivityFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle("触控灵敏度");
-            fragment.setSettings(
-                    menuState.getInputSettings(),
-                    menuState.getControllerSettings());
-            fragment.setListener(new GameTouchFragment.Listener() {
-                @Override
-                public void onInputSettingsUpdate(
-                        InputSettingsUpdate update) {
-                    if (host != null) {
-                        host.applyInputSettingsUpdate(update);
-                    }
-                }
-
-                @Override
-                public void onControllerSettingsUpdate(
-                        ControllerSettingsUpdate update) {
-                    if (host != null) {
-                        host.applyControllerSettingsUpdate(update);
-                    }
-                }
-            });
-            fragment.show(getParentFragmentManager());
-            return;
-        }
-
-        if(v.getId()==R.id.bt_display){
-            GameDisplayFragment fragment =
-                    GameDisplayFragment.newInstance(true);
-            fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.show(getParentFragmentManager());
-            return;
-        }
-
-        if(v.getId()==R.id.bt_device){
-            GameDisplayDeviceFragment fragment=new GameDisplayDeviceFragment();
-            fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle(R.string.game_menu_devices_title);
-            fragment.setListener(
-                    new GameDisplayDeviceFragment.Listener() {
-                        @Override
-                        public void onApplyAdaptiveTrigger() {
-                            if (host != null) {
-                                host.applyDualSenseTriggerSettings();
-                                host.requestStreamRestart();
-                            }
-                        }
-
-                        @Override
-                        public void onControllerSettingsUpdate(
-                                ControllerSettingsUpdate update) {
-                            if (host != null) {
-                                host.applyControllerSettingsUpdate(
-                                        update);
-                            }
-                        }
-                    });
-            fragment.setSettings(menuState.getControllerSettings());
             fragment.show(getParentFragmentManager());
             return;
         }
@@ -531,61 +430,6 @@ public class GameMenuFragment extends BaseGameMenuDialog
         if(v.getId()==R.id.bt_virtual_view){
             GameMenuVirtualViewFragment fragment=new GameMenuVirtualViewFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle(R.string.game_menu_virtual_controls_title);
-            fragment.setGamePadMode(
-                    menuState.getVirtualGamepadEditMode());
-            fragment.setGameKeyMode(
-                    menuState.getVirtualKeysEditMode());
-            fragment.setSettings(
-                    menuState.getVirtualControlSettings());
-            fragment.setOnscreenControllerRumbleEnabled(
-                    menuState.getControllerSettings()
-                            .isOnscreenRumbleEnabled());
-            fragment.setListener(new GameMenuVirtualViewFragment.Listener() {
-                @Override
-                public void onRefreshRequested() {
-                    if (host == null) {
-                        return;
-                    }
-                    host.updateVirtualView();
-                }
-
-                @Override
-                public void onVirtualControlSettingsUpdate(
-                        VirtualControlSettingsUpdate<?> update) {
-                    if (host != null) {
-                        host.applyVirtualControlSettingsUpdate(
-                                update);
-                    }
-                }
-
-                @Override
-                public void onOnscreenControllerRumbleChanged(
-                        boolean enabled) {
-                    if (host != null) {
-                        host.setOnscreenControllerRumbleEnabled(
-                                enabled);
-                    }
-                }
-
-                @Override
-                public void onGamepadModeSelected(
-                        VirtualControlEditMode mode) {
-                    if (host == null) {
-                        return;
-                    }
-                    host.setVirtualGamepadEditMode(mode);
-                }
-
-                @Override
-                public void onVirtualKeyModeSelected(
-                        VirtualControlEditMode mode) {
-                    if (host == null) {
-                        return;
-                    }
-                    host.setVirtualKeysEditMode(mode);
-                }
-            });
             fragment.show(getParentFragmentManager());
             return;
         }

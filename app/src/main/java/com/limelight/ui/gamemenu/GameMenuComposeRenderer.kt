@@ -1,18 +1,17 @@
 package com.limelight.ui.gamemenu
 
-import android.content.res.Configuration
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
@@ -27,32 +26,41 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.ViewCompositionStrategy
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.limelight.R
+import com.limelight.settings.ui.GameMenuCardLayout
 import com.limelight.ui.compose.theme.MoonlightThemeFromSettings
+import kotlin.math.roundToInt
 
 /** Compose presentation shell for the in-stream command menu. */
-class GameMenuComposeRenderer(
+internal class GameMenuComposeRenderer(
     private val composeView: ComposeView,
     private var listener: Listener?,
 ) {
     interface Listener {
         fun onActionRequested(viewId: Int, shortcutEntry: Any?)
         fun onActionLongPressed(viewId: Int)
-        fun onCustomizeRequested()
+        fun onCardLayoutChanged(layout: GameMenuCardLayout)
+        fun onDismissRequested()
     }
 
     private data class MenuCard(
@@ -61,14 +69,18 @@ class GameMenuComposeRenderer(
         val contentDescription: String,
         val iconRes: Int,
         val shortcutEntry: Any?,
+        val source: GameMenuCardCatalog.Card,
+        val available: Boolean,
     )
 
     private data class RenderState(
         val menuState: GameMenuState,
         val cards: List<MenuCard>,
+        val hiddenCards: List<MenuCard>,
     )
 
     private var state: RenderState? by mutableStateOf(null)
+    private var editing by mutableStateOf(false)
 
     init {
         composeView.setViewCompositionStrategy(
@@ -83,60 +95,51 @@ class GameMenuComposeRenderer(
         }
     }
 
-    fun update(menuState: GameMenuState, sourceCards: List<*>) {
-        val cards = sourceCards.mapNotNull { value ->
-            val card = value as? GameMenuCardCatalog.Card ?: return@mapNotNull null
-            if (card.requiresGamepad() && !menuState.isMouseEmulationAvailable) {
-                return@mapNotNull null
-            }
-            MenuCard(
-                viewId = card.action?.viewId ?: 0,
-                label = card.label,
-                contentDescription = card.contentDescription,
-                iconRes = card.iconRes,
-                shortcutEntry = card.shortcut,
-            )
+    fun update(
+        menuState: GameMenuState,
+        configuration: GameMenuCardConfiguration.State,
+    ) {
+        if (editing) {
+            state = state?.copy(menuState = menuState)
+            return
         }
-        state = RenderState(menuState, cards)
+        state = RenderState(
+            menuState = menuState,
+            cards = mapCards(menuState, configuration.visible),
+            hiddenCards = mapCards(menuState, configuration.hidden),
+        )
+    }
+
+    private fun mapCards(
+        menuState: GameMenuState,
+        sourceCards: List<GameMenuCardCatalog.Card>,
+    ): List<MenuCard> = sourceCards.map { card ->
+        MenuCard(
+            viewId = card.action?.viewId ?: 0,
+            label = card.label,
+            contentDescription = card.contentDescription,
+            iconRes = card.iconRes,
+            shortcutEntry = card.shortcut,
+            source = card,
+            available = !card.requiresGamepad() ||
+                menuState.isMouseEmulationAvailable,
+        )
     }
 
     fun destroy() {
         listener = null
+        editing = false
         state = null
         composeView.disposeComposition()
     }
 
     @Composable
     private fun GameMenuSurface(state: RenderState) {
-        val landscape = LocalConfiguration.current.orientation ==
-            Configuration.ORIENTATION_LANDSCAPE
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        ) {
-            if (landscape) {
-                Row(modifier = Modifier.fillMaxSize()) {
-                    MenuContent(
-                        state = state,
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                    )
-                    SideActions(
-                        modifier = Modifier.width(76.dp).fillMaxHeight(),
-                        vertical = true,
-                    )
-                }
-            } else {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    MenuContent(
-                        state = state,
-                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                    )
-                    SideActions(
-                        modifier = Modifier.fillMaxWidth(),
-                        vertical = false,
-                    )
-                }
-            }
+        DraggableGameMenuPanel(
+            onDismiss = { listener?.onDismissRequested() },
+            dragEnabled = !editing,
+        ) { contentModifier ->
+            MenuContent(state = state, modifier = contentModifier)
         }
     }
 
@@ -145,8 +148,8 @@ class GameMenuComposeRenderer(
         Column(
             modifier = modifier
                 .verticalScroll(rememberScrollState())
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -155,13 +158,8 @@ class GameMenuComposeRenderer(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.game_menu_title),
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = stringResource(R.string.game_menu_session_only),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Text(
@@ -188,14 +186,49 @@ class GameMenuComposeRenderer(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = { listener?.onCustomizeRequested() }) {
+                IconButton(
+                    onClick = {
+                        if (editing) {
+                            listener?.onCardLayoutChanged(
+                                GameMenuCardConfiguration.toLayout(
+                                    state.cards.map { it.source },
+                                    state.hiddenCards.map { it.source },
+                                ),
+                            )
+                        }
+                        editing = !editing
+                    },
+                    modifier = Modifier.size(40.dp),
+                ) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_edit),
+                        painter = painterResource(
+                            if (editing) R.drawable.ic_m3_check
+                            else R.drawable.ic_m3_edit,
+                        ),
                         contentDescription = stringResource(R.string.game_menu_customize),
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
-            ActionGrid(state)
+            ActionGrid(
+                state = state,
+                cards = if (editing) {
+                    state.cards
+                } else {
+                    state.cards.filter { it.available }
+                },
+                visible = true,
+            )
+            if (editing) {
+                GameMenuSectionLabel(
+                    stringResource(R.string.game_menu_customize_hidden),
+                )
+                ActionGrid(
+                    state = state,
+                    cards = state.hiddenCards,
+                    visible = false,
+                )
+            }
 
             Text(
                 text = stringResource(R.string.game_menu_input_controls_title),
@@ -203,96 +236,49 @@ class GameMenuComposeRenderer(
             )
             NavigationGroup(
                 entries = listOf(
-                    NavigationEntry(R.id.bt_touch_list, R.string.game_menu_section_mouse_touch, R.drawable.ic_touch),
-                    NavigationEntry(R.id.bt_touch_sensitivity, R.string.game_menu_section_touch_sensitivity, R.drawable.ic_touch_sensitivity),
-                    NavigationEntry(R.id.bt_quick_list, R.string.game_menu_section_shortcuts, R.drawable.ic_quick_actions),
-                    NavigationEntry(R.id.bt_virtual_view, R.string.game_menu_section_virtual_controls, R.drawable.ic_gamepad),
-                    NavigationEntry(R.id.bt_device, R.string.game_menu_section_peripherals, R.drawable.ic_gamepad_device),
+                    NavigationEntry(R.id.bt_touch_list, R.string.game_menu_section_mouse_touch, R.drawable.ic_m3_mouse),
+                    NavigationEntry(R.id.bt_touch_sensitivity, R.string.game_menu_section_touch_sensitivity, R.drawable.ic_m3_tune),
+                    NavigationEntry(R.id.bt_quick_list, R.string.game_menu_section_shortcuts, R.drawable.ic_m3_keyboard),
+                    NavigationEntry(R.id.bt_virtual_view, R.string.game_menu_section_virtual_controls, R.drawable.ic_m3_gamepad),
                 ),
             )
 
-            Text(
-                text = stringResource(R.string.game_menu_stream_experience_title),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            NavigationGroup(
-                entries = listOf(
-                    NavigationEntry(R.id.bt_display, R.string.game_menu_section_display, R.drawable.ic_gamepad_display),
-                ),
-            )
         }
     }
 
     @Composable
-    private fun ActionGrid(state: RenderState) {
-        if (state.cards.isEmpty()) {
+    private fun ActionGrid(
+        state: RenderState,
+        cards: List<MenuCard>,
+        visible: Boolean,
+    ) {
+        if (cards.isEmpty()) {
             Text(
-                text = stringResource(R.string.game_menu_customize_no_visible),
+                text = stringResource(
+                    if (visible) R.string.game_menu_customize_visible_empty
+                    else R.string.game_menu_customize_hidden_empty,
+                ),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             return
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            state.cards.chunked(3).forEach { rowCards ->
+            cards.chunked(ACTION_COLUMN_COUNT).forEachIndexed { rowIndex, rowCards ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    rowCards.forEach { card ->
-                        val active = isCardActive(state.menuState, card.viewId)
-                        Card(
-                            modifier = Modifier
-                                .weight(1f)
-                                .combinedClickable(
-                                    onClick = {
-                                        listener?.onActionRequested(
-                                            card.viewId,
-                                            card.shortcutEntry,
-                                        )
-                                    },
-                                    onLongClick = if (card.viewId == R.id.btn_performance) {
-                                        { listener?.onActionLongPressed(card.viewId) }
-                                    } else {
-                                        null
-                                    },
-                                ),
-                            shape = RoundedCornerShape(18.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (active) {
-                                    MaterialTheme.colorScheme.primaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceContainer
-                                },
-                            ),
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp, vertical = 14.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Icon(
-                                    painter = painterResource(card.iconRes),
-                                    contentDescription = card.contentDescription,
-                                    tint = if (active) {
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    },
-                                    modifier = Modifier.size(28.dp),
-                                )
-                                Text(
-                                    text = card.label,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
+                    rowCards.forEachIndexed { columnIndex, card ->
+                        ActionTile(
+                            state = state,
+                            card = card,
+                            visible = visible,
+                            index = rowIndex * ACTION_COLUMN_COUNT + columnIndex,
+                            itemCount = cards.size,
+                            modifier = Modifier.weight(1f),
+                        )
                     }
-                    repeat(3 - rowCards.size) {
+                    repeat(ACTION_COLUMN_COUNT - rowCards.size) {
                         androidx.compose.foundation.layout.Spacer(
                             modifier = Modifier.weight(1f),
                         )
@@ -300,6 +286,169 @@ class GameMenuComposeRenderer(
                 }
             }
         }
+    }
+
+    @Composable
+    private fun ActionTile(
+        state: RenderState,
+        card: MenuCard,
+        visible: Boolean,
+        index: Int,
+        itemCount: Int,
+        modifier: Modifier,
+    ) {
+        var dragX by remember(card.source.id) { mutableFloatStateOf(0f) }
+        var dragY by remember(card.source.id) { mutableFloatStateOf(0f) }
+        var dragTarget by remember(card.source.id) { mutableIntStateOf(index) }
+        val haptics = LocalHapticFeedback.current
+        val editGesture = if (editing && visible) {
+            Modifier.pointerInput(card.source.id, index, itemCount) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = {
+                        haptics.performHapticFeedback(
+                            androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress,
+                        )
+                    },
+                    onDragEnd = {
+                        if (dragTarget != index) {
+                            moveVisibleCard(index, dragTarget)
+                            haptics.performHapticFeedback(
+                                androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove,
+                            )
+                        }
+                        dragX = 0f
+                        dragY = 0f
+                        dragTarget = index
+                    },
+                    onDragCancel = {
+                        dragX = 0f
+                        dragY = 0f
+                        dragTarget = index
+                    },
+                    onDrag = { change, amount ->
+                        change.consume()
+                        dragX += amount.x
+                        dragY += amount.y
+                        val columnDelta = (dragX / size.width.coerceAtLeast(1))
+                            .roundToInt()
+                        val rowDelta = (dragY / size.height.coerceAtLeast(1))
+                            .roundToInt()
+                        val target = (index + columnDelta +
+                            rowDelta * ACTION_COLUMN_COUNT)
+                            .coerceIn(0, itemCount - 1)
+                        if (target != dragTarget) {
+                            dragTarget = target
+                            haptics.performHapticFeedback(
+                                androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove,
+                            )
+                        }
+                    },
+                )
+            }
+        } else {
+            Modifier
+        }
+        val active = isCardActive(state.menuState, card.viewId)
+        Column(
+            modifier = modifier
+                .padding(horizontal = 2.dp)
+                .zIndex(if (dragX != 0f || dragY != 0f) 1f else 0f)
+                .graphicsLayer {
+                    translationX = dragX
+                    translationY = dragY
+                }
+                .then(editGesture),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Box {
+                Surface(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .combinedClickable(
+                            onClick = {
+                                if (editing) {
+                                    toggleCardVisibility(card, visible)
+                                } else {
+                                    listener?.onActionRequested(
+                                        card.viewId,
+                                        card.shortcutEntry,
+                                    )
+                                }
+                            },
+                            onLongClick = if (!editing && card.viewId == R.id.btn_performance) {
+                                { listener?.onActionLongPressed(card.viewId) }
+                            } else null,
+                        ),
+                    shape = CircleShape,
+                    color = if (active && !editing) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainerHighest
+                    },
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(card.iconRes),
+                            contentDescription = card.contentDescription,
+                            tint = if (active && !editing) {
+                                MaterialTheme.colorScheme.onPrimary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                }
+                if (editing) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.TopEnd).size(18.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Icon(
+                            painter = painterResource(
+                                if (visible) R.drawable.ic_m3_remove_circle
+                                else R.drawable.ic_m3_add,
+                            ),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(2.dp),
+                        )
+                    }
+                }
+            }
+            Text(
+                text = card.label,
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+
+    private fun toggleCardVisibility(card: MenuCard, visible: Boolean) {
+        val current = state ?: return
+        state = if (visible) {
+            current.copy(
+                cards = current.cards - card,
+                hiddenCards = current.hiddenCards + card,
+            )
+        } else {
+            current.copy(
+                cards = current.cards + card,
+                hiddenCards = current.hiddenCards - card,
+            )
+        }
+    }
+
+    private fun moveVisibleCard(from: Int, to: Int) {
+        val current = state ?: return
+        if (from !in current.cards.indices || to !in current.cards.indices) return
+        val reordered = current.cards.toMutableList()
+        reordered.add(to, reordered.removeAt(from))
+        state = current.copy(cards = reordered)
     }
 
     private data class NavigationEntry(
@@ -328,7 +477,7 @@ class GameMenuComposeRenderer(
                     },
                     trailingContent = {
                         Icon(
-                            painter = painterResource(R.drawable.ic_arrow),
+                            painter = painterResource(R.drawable.ic_m3_chevron_right),
                             contentDescription = null,
                         )
                     },
@@ -347,62 +496,6 @@ class GameMenuComposeRenderer(
         }
     }
 
-    @Composable
-    private fun SideActions(modifier: Modifier, vertical: Boolean) {
-        val actions = listOf(
-            NavigationEntry(R.id.btn_soft_function, R.string.game_menu_tab_actions, R.drawable.ic_menu_grid),
-            NavigationEntry(R.id.btn_soft_keyboard, R.string.game_menu_tab_keyboard, R.drawable.ic_keyboard),
-            NavigationEntry(R.id.btn_desktop, R.string.game_menu_tab_desktop, R.drawable.ic_desktop),
-            NavigationEntry(R.id.btn_window, R.string.game_menu_tab_windows, R.drawable.ic_window),
-        )
-        val container: @Composable (@Composable () -> Unit) -> Unit = { content ->
-            Surface(
-                modifier = modifier,
-                color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                content = content,
-            )
-        }
-        container {
-            if (vertical) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(vertical = 8.dp),
-                    verticalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    actions.forEach { entry -> SideAction(entry) }
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    actions.forEach { entry -> SideAction(entry) }
-                }
-            }
-        }
-    }
-
-    @Composable
-    private fun SideAction(entry: NavigationEntry) {
-        Column(
-            modifier = Modifier
-                .clickable { listener?.onActionRequested(entry.viewId, null) }
-                .padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Icon(
-                painter = painterResource(entry.iconRes),
-                contentDescription = null,
-                modifier = Modifier.size(26.dp),
-            )
-            Text(
-                text = stringResource(entry.titleRes),
-                style = MaterialTheme.typography.labelSmall,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-
     private fun isCardActive(state: GameMenuState, viewId: Int): Boolean = when (viewId) {
         R.id.btn_performance -> state.uiSettings.isPerformanceOverlayEnabled
         R.id.btn_game_pad -> state.isVirtualControllerVisible
@@ -412,5 +505,9 @@ class GameMenuComposeRenderer(
         R.id.btn_audio_mute -> state.audioSettings.isMuted
         R.id.btn_video_visibility -> state.isVideoHidden
         else -> false
+    }
+
+    private companion object {
+        const val ACTION_COLUMN_COUNT = 4
     }
 }

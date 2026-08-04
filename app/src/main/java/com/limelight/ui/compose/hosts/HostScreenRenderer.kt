@@ -114,7 +114,7 @@ class HostScreenRenderer(
             actions = {
                 IconButton(onClick = { listener?.onSettingsRequested() }) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_app_setting),
+                        painter = painterResource(R.drawable.ic_m3_settings),
                         contentDescription = stringResource(R.string.settings_title),
                     )
                 }
@@ -124,7 +124,7 @@ class HostScreenRenderer(
                     onClick = { listener?.onAddComputerRequested() },
                     icon = {
                         Icon(
-                            painter = painterResource(R.drawable.ic_app_add),
+                            painter = painterResource(R.drawable.ic_m3_add),
                             contentDescription = null,
                         )
                     },
@@ -168,7 +168,7 @@ class HostScreenRenderer(
                 modifier = Modifier.padding(32.dp).widthIn(max = 420.dp),
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_computer),
+                    painter = painterResource(R.drawable.ic_m3_computer),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(64.dp),
@@ -210,7 +210,7 @@ class HostScreenRenderer(
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_computer),
+                        painter = painterResource(R.drawable.ic_m3_computer),
                         contentDescription = null,
                         tint = if (online) {
                             MaterialTheme.colorScheme.primary
@@ -270,7 +270,7 @@ class HostScreenRenderer(
                         modifier = Modifier.weight(1f),
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_play),
+                            painter = painterResource(R.drawable.ic_m3_play_arrow),
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
@@ -285,7 +285,7 @@ class HostScreenRenderer(
                         modifier = Modifier.weight(1f),
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_menu_grid),
+                            painter = painterResource(R.drawable.ic_m3_more_vert),
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )

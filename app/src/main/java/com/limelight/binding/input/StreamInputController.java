@@ -114,15 +114,6 @@ public final class StreamInputController
                         .build());
     }
 
-    public void setDirectTouchSensitivityEnabled(
-            boolean enabled) {
-        replaceLiveSettings(
-                settingsState.get()
-                        .toBuilder()
-                        .setDirectTouchSensitivityEnabled(enabled)
-                        .build());
-    }
-
     public void setTouchInputSuspended(boolean suspended) {
         touchInputController.setInputSuspended(suspended);
     }

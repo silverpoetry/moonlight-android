@@ -8,7 +8,6 @@ import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.nvstream.av.audio.AudioRenderer;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
-import com.limelight.settings.audio.StreamAudioSettings;
 
 import java.util.Objects;
 
@@ -49,8 +48,6 @@ public final class StreamMediaResourceOwner {
 
     interface AudioResource {
         AudioRenderer getTransportRenderer();
-
-        void updateAudioSettings(StreamAudioSettings settings);
     }
 
     interface AudioResourceFactory {
@@ -209,16 +206,6 @@ public final class StreamMediaResourceOwner {
     }
 
     @MainThread
-    public void updateAudioSettings(
-            StreamAudioSettings settings) {
-        Objects.requireNonNull(settings, "settings");
-        if (destroyed || activeAudioResource == null) {
-            return;
-        }
-        activeAudioResource.updateAudioSettings(settings);
-    }
-
-    @MainThread
     public void destroy() {
         if (destroyed) {
             return;
@@ -307,12 +294,6 @@ public final class StreamMediaResourceOwner {
         @Override
         public AudioRenderer getTransportRenderer() {
             return renderer;
-        }
-
-        @Override
-        public void updateAudioSettings(
-                StreamAudioSettings settings) {
-            renderer.updateAudioSettings(settings);
         }
     }
 

@@ -518,8 +518,8 @@ public class PcView extends BaseActivity {
     private static boolean hasStructuralPresentationChange(
             AppPresentationSettings previous,
             AppPresentationSettings current) {
-        return previous.usesLightTheme() !=
-                        current.usesLightTheme() ||
+        return !previous.getThemeMode().equals(
+                        current.getThemeMode()) ||
                 !previous.getLanguage().equals(
                         current.getLanguage());
     }
@@ -1083,13 +1083,13 @@ public class PcView extends BaseActivity {
                 snapshot.getConnectionState();
         if (connectionState.getReachability() !=
                 HostConnectionState.Reachability.ONLINE) {
-            actions.add(new MenuAction(R.string.pcview_menu_send_wol, R.drawable.ic_sleep, new Runnable() {
+            actions.add(new MenuAction(R.string.pcview_menu_send_wol, R.drawable.ic_m3_power, new Runnable() {
                 @Override
                 public void run() {
                     doWakeOnLan(snapshot);
                 }
             }));
-            actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_app_about, new Runnable() {
+            actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_m3_info, new Runnable() {
                 @Override
                 public void run() {
                     HelpLauncher.launchGameStreamEolFaq(PcView.this);
@@ -1098,14 +1098,14 @@ public class PcView extends BaseActivity {
         }
         else if (connectionState.getPairingStatus() !=
                 HostConnectionState.PairingStatus.PAIRED) {
-            actions.add(new MenuAction(R.string.pcview_menu_pair_pc, R.drawable.ic_app_add, new Runnable() {
+            actions.add(new MenuAction(R.string.pcview_menu_pair_pc, R.drawable.ic_m3_key, new Runnable() {
                 @Override
                 public void run() {
                     doPair(snapshot);
                 }
             }));
             if (snapshot.isNvidiaServer()) {
-                actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_app_about, new Runnable() {
+                actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_m3_info, new Runnable() {
                     @Override
                     public void run() {
                         HelpLauncher.launchGameStreamEolFaq(PcView.this);
@@ -1119,7 +1119,7 @@ public class PcView extends BaseActivity {
                         "app",
                         connectionState.getRunningAppId(),
                         false);
-                actions.add(new MenuAction(R.string.applist_menu_resume, R.drawable.ic_play, new Runnable() {
+                actions.add(new MenuAction(R.string.applist_menu_resume, R.drawable.ic_m3_play_arrow, new Runnable() {
                     @Override
                     public void run() {
                         if (managerBinder != null) {
@@ -1129,7 +1129,7 @@ public class PcView extends BaseActivity {
                         }
                     }
                 }));
-                actions.add(new MenuAction(R.string.applist_menu_restart, R.drawable.ic_reboot, new Runnable() {
+                actions.add(new MenuAction(R.string.applist_menu_restart, R.drawable.ic_m3_restart, new Runnable() {
                     @Override
                     public void run() {
                         if (managerBinder != null) {
@@ -1140,7 +1140,7 @@ public class PcView extends BaseActivity {
                         }
                     }
                 }));
-                actions.add(new MenuAction(R.string.applist_menu_quit, R.drawable.ic_exit, new Runnable() {
+                actions.add(new MenuAction(R.string.applist_menu_quit, R.drawable.ic_m3_logout, new Runnable() {
                     @Override
                     public void run() {
                         if (managerBinder != null) {
@@ -1154,7 +1154,7 @@ public class PcView extends BaseActivity {
             }
 
             if (snapshot.isNvidiaServer()) {
-                actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_app_about, new Runnable() {
+                actions.add(new MenuAction(R.string.pcview_menu_eol, R.drawable.ic_m3_info, new Runnable() {
                     @Override
                     public void run() {
                         HelpLauncher.launchGameStreamEolFaq(PcView.this);
@@ -1162,7 +1162,7 @@ public class PcView extends BaseActivity {
                 }));
             }
 
-            actions.add(new MenuAction(R.string.pcview_menu_app_list, R.drawable.ic_menu_grid, new Runnable() {
+            actions.add(new MenuAction(R.string.pcview_menu_app_list, R.drawable.ic_m3_apps, new Runnable() {
                 @Override
                 public void run() {
                     doAppList(snapshot, false, true);
@@ -1170,13 +1170,13 @@ public class PcView extends BaseActivity {
             }));
         }
 
-        actions.add(new MenuAction(R.string.pcview_menu_test_network, R.drawable.ic_performance, new Runnable() {
+        actions.add(new MenuAction(R.string.pcview_menu_test_network, R.drawable.ic_m3_speed, new Runnable() {
             @Override
             public void run() {
                 runNetworkTest();
             }
         }));
-        actions.add(new MenuAction(R.string.pcview_menu_delete_pc, R.drawable.ic_delete, new Runnable() {
+        actions.add(new MenuAction(R.string.pcview_menu_delete_pc, R.drawable.ic_m3_delete, new Runnable() {
             @Override
             public void run() {
                 if (ActivityManager.isUserAMonkey()) {
@@ -1201,7 +1201,7 @@ public class PcView extends BaseActivity {
                         null);
             }
         }));
-        actions.add(new MenuAction(R.string.pcview_menu_details, R.drawable.ic_app_about, new Runnable() {
+        actions.add(new MenuAction(R.string.pcview_menu_details, R.drawable.ic_m3_info, new Runnable() {
             @Override
             public void run() {
                 Dialog.displayDialog(

@@ -2,14 +2,14 @@
     android:shape="rectangle">
 
     <!-- 填充的颜色 -->
-    <corners android:radius="4dp" />
+    <corners android:radius="16dp" />
 
     <!-- 边框的颜色和粗细 -->
-    <solid android:color="#8C99E6" />
+    <solid android:color="@color/game_menu_material_primary_container" />
 
     <!-- android:radius 圆角的半径 -->
     <stroke
         android:width="0dp"
-        android:color="#B3ADADAD" />
+        android:color="@color/game_menu_material_outline_variant" />
 
 </shape>

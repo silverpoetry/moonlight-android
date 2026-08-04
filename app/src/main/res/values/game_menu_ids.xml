@@ -9,7 +9,7 @@
     <item name="btn_v_keyboard" type="id" />
     <item name="btn_keyboard" type="id" />
     <item name="btn_screen_move" type="id" />
-    <item name="btn_display_1" type="id" />
+    <item name="btn_windows_actions" type="id" />
     <item name="btn_mic" type="id" />
     <item name="btn_audio_mute" type="id" />
     <item name="btn_hdr" type="id" />
@@ -20,8 +20,6 @@
     <item name="bt_touch_sensitivity" type="id" />
     <item name="bt_quick_list" type="id" />
     <item name="bt_virtual_view" type="id" />
-    <item name="bt_device" type="id" />
-    <item name="bt_display" type="id" />
     <item name="btn_soft_function" type="id" />
     <item name="btn_soft_keyboard" type="id" />
     <item name="btn_desktop" type="id" />

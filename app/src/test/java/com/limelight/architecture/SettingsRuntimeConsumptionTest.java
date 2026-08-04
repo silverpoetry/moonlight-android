@@ -107,12 +107,32 @@ public final class SettingsRuntimeConsumptionTest {
 
     private static boolean isConsumedOutsideSettings(JavaMethod method) {
         for (JavaAccess<?> access : method.getAccessesToSelf()) {
-            String consumerPackage = access.getOriginOwner()
+            JavaClass consumer = access.getOriginOwner();
+            String consumerPackage = consumer
                     .getPackageName();
             if (!consumerPackage.startsWith("com.limelight.settings") ||
                     consumerPackage.startsWith(
                             "com.limelight.settings.android")) {
                 return true;
+            }
+            if (consumer.getSimpleName().endsWith("SettingsLoader") &&
+                    hasRuntimeConsumer(consumer)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasRuntimeConsumer(JavaClass projection) {
+        for (JavaMethod method : projection.getMethods()) {
+            for (JavaAccess<?> access : method.getAccessesToSelf()) {
+                String consumerPackage = access.getOriginOwner()
+                        .getPackageName();
+                if (!consumerPackage.startsWith("com.limelight.settings") ||
+                        consumerPackage.startsWith(
+                                "com.limelight.settings.android")) {
+                    return true;
+                }
             }
         }
         return false;

@@ -10,6 +10,7 @@ import android.net.NetworkCapabilities;
 import android.net.RouteInfo;
 import android.os.Build;
 import android.os.CancellationSignal;
+import android.util.Log;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -46,6 +47,7 @@ import com.limelight.nvstream.mic.MicrophoneUplinkState;
 
 public class NvConnection implements StreamSessionConnection,
         MicrophoneUplinkEndpoint {
+    private static final String CURSOR_LOG_TAG = "MoonlightCursor";
     public interface ClipboardFileDownloadListener {
         void onProgress(long transferredBytes, long totalBytes);
         void onComplete(int topLevelItemCount);
@@ -134,7 +136,15 @@ public class NvConnection implements StreamSessionConnection,
     }
 
     public void setMousePositionListener(MousePositionListener mousePositionListener) {
-        this.mousePositionListener = mousePositionListener;
+        synchronized (mousePositionLock) {
+            this.mousePositionListener = mousePositionListener;
+            traceCursor(
+                    "Mouse position listener bound; replay=" +
+                            mouseReferenceWidth + "x" +
+                            mouseReferenceHeight + " at " +
+                            normalizedMouseX + "," + normalizedMouseY);
+            notifyCurrentMousePositionLocked(mousePositionListener);
+        }
     }
 
     public void setAbsoluteMousePositionMode(boolean enabled) {
@@ -812,12 +822,45 @@ public class NvConnection implements StreamSessionConnection,
         short packetReferenceHeight = (short) referenceHeight;
 
         MousePositionListener listener = mousePositionListener;
-        if (listener != null) {
-            listener.onMousePosition(packetX, packetY,
-                    packetReferenceWidth, packetReferenceHeight);
-        }
+        notifyMousePosition(listener, packetX, packetY,
+                packetReferenceWidth, packetReferenceHeight);
         MoonBridge.sendMousePosition(packetX, packetY,
                 packetReferenceWidth, packetReferenceHeight);
+    }
+
+    private void notifyCurrentMousePositionLocked(
+            MousePositionListener listener) {
+        if (listener == null ||
+                !isValidMouseReference(
+                        mouseReferenceWidth, mouseReferenceHeight)) {
+            return;
+        }
+
+        notifyMousePosition(
+                listener,
+                (short) Math.round(
+                        normalizedMouseX * (mouseReferenceWidth - 1)),
+                (short) Math.round(
+                        normalizedMouseY * (mouseReferenceHeight - 1)),
+                (short) mouseReferenceWidth,
+                (short) mouseReferenceHeight);
+    }
+
+    private static void notifyMousePosition(
+            MousePositionListener listener,
+            short x,
+            short y,
+            short referenceWidth,
+            short referenceHeight) {
+        if (listener != null) {
+            listener.onMousePosition(x, y, referenceWidth, referenceHeight);
+        }
+    }
+
+    private static void traceCursor(String message) {
+        if (Log.isLoggable(CURSOR_LOG_TAG, Log.DEBUG)) {
+            Log.d(CURSOR_LOG_TAG, message);
+        }
     }
 
     private static boolean isValidMouseReference(int referenceWidth, int referenceHeight) {

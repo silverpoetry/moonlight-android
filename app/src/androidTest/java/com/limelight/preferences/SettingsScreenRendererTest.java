@@ -67,7 +67,6 @@ public final class SettingsScreenRendererTest {
                                 "Open"),
                         0,
                         "Test profile");
-                renderer.render();
 
                 Switch switchView = findFirst(root, Switch.class);
                 switchView.performClick();
@@ -156,6 +155,12 @@ public final class SettingsScreenRendererTest {
         public void onSwitchChanged(
                 String itemId,
                 boolean checked) {
+        }
+
+        @Override
+        public void onInlineChoiceChanged(
+                String itemId,
+                String value) {
         }
     }
 

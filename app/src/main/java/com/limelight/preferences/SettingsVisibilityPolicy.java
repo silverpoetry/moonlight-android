@@ -68,15 +68,6 @@ final class SettingsVisibilityPolicy {
                     ControllerSettingKeys
                             .FALLBACK_DEVICE_RUMBLE_STRENGTH_PERCENT
                             .getName());
-            hiddenItems.add(StreamAudioSettingKeys.AUDIO_HAPTICS.getName());
-            hiddenItems.add(
-                    StreamAudioSettingKeys
-                            .AUDIO_HAPTICS_STRENGTH_PERCENT
-                            .getName());
-            hiddenItems.add(
-                    StreamAudioSettingKeys
-                            .AUDIO_HAPTICS_VOICE_FILTER
-                            .getName());
             hiddenItems.add(
                     ControllerSettingKeys.ONSCREEN_RUMBLE.getName());
         }

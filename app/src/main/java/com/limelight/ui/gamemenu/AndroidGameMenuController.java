@@ -63,7 +63,12 @@ public final class AndroidGameMenuController
     @Override
     public void dismiss() {
         if (menu != null && menu.isVisible()) {
-            menu.dismiss();
+            if (activity.getSupportFragmentManager().isStateSaved()) {
+                menu.dismissAllowingStateLoss();
+            }
+            else {
+                menu.dismiss();
+            }
         }
     }
 

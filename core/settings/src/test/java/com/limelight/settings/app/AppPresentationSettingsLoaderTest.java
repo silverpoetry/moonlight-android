@@ -21,7 +21,7 @@ public final class AppPresentationSettingsLoaderTest {
 
         assertTrue(settings.usesSystemLanguage());
         assertFalse(settings.usesSmallAppIcons());
-        assertTrue(settings.usesLightTheme());
+        assertTrue(settings.followsSystemTheme());
     }
 
     @Test
@@ -34,15 +34,15 @@ public final class AppPresentationSettingsLoaderTest {
                 AppPresentationSettingKeys.SMALL_APP_ICONS,
                 true);
         repository.put(
-                AppPresentationSettingKeys.LIGHT_THEME,
-                false);
+                AppPresentationSettingKeys.THEME_MODE,
+                AppPresentationSettingKeys.THEME_MODE_DARK);
         AppPresentationSettings settings =
                 AppPresentationSettingsLoader.load(repository);
 
         assertEquals("zh-CN", settings.getLanguage());
         assertFalse(settings.usesSystemLanguage());
         assertTrue(settings.usesSmallAppIcons());
-        assertFalse(settings.usesLightTheme());
+        assertTrue(settings.usesDarkTheme());
     }
 
     @Test

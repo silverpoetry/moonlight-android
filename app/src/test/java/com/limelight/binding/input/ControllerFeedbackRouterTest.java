@@ -38,17 +38,6 @@ public final class ControllerFeedbackRouterTest {
     }
 
     @Test
-    public void deliberateSuppressionCountsAsHandled() {
-        FakeTarget target = target(
-                1,
-                ControllerFeedbackRouter.RumbleDelivery.SUPPRESSED);
-
-        assertEquals(
-                ControllerFeedbackRouter.RumbleRouteResult.HANDLED,
-                routeRumble((short) 1, target));
-    }
-
-    @Test
     public void everyMatchingTargetReceivesRumbleAndAnyHandlerWins() {
         FakeTarget unavailable = target(
                 1,
@@ -122,74 +111,6 @@ public final class ControllerFeedbackRouterTest {
     }
 
     @Test
-    public void standardAudioHapticsFansOutAndAggregatesDelivery() {
-        FakeTarget unavailable = target(
-                1,
-                ControllerFeedbackRouter.RumbleDelivery.DELIVERED);
-        unavailable.standardAudioDelivery = false;
-        FakeTarget delivered = target(
-                2,
-                ControllerFeedbackRouter.RumbleDelivery.DELIVERED);
-        delivered.standardAudioDelivery = true;
-
-        assertTrue(ControllerFeedbackRouter.routeStandardAudioHaptics(
-                targets(unavailable, delivered),
-                (short) 70,
-                (short) 80));
-        assertEquals(
-                Arrays.asList("audio:70:80"),
-                unavailable.events);
-        assertEquals(
-                Arrays.asList("audio:70:80"),
-                delivered.events);
-    }
-
-    @Test
-    public void advancedAudioFrameFansOutAndAggregatesDelivery() {
-        FakeTarget ignored = target(
-                1,
-                ControllerFeedbackRouter.RumbleDelivery.DELIVERED);
-        FakeTarget delivered = target(
-                2,
-                ControllerFeedbackRouter.RumbleDelivery.DELIVERED);
-        delivered.advancedAudioDelivery = true;
-        byte[] frame = {1, 2, 3};
-
-        assertTrue(ControllerFeedbackRouter
-                .routeAdvancedAudioHapticsFrame(
-                        targets(ignored, delivered),
-                        frame,
-                        1.5f));
-        assertEquals(
-                Arrays.asList("advanced:3:1.5"),
-                ignored.events);
-        assertEquals(
-                Arrays.asList("advanced:3:1.5"),
-                delivered.events);
-    }
-
-    @Test
-    public void advancedAudioEnablementReachesEveryTarget() {
-        FakeTarget first = target(
-                1,
-                ControllerFeedbackRouter.RumbleDelivery.DELIVERED);
-        FakeTarget second = target(
-                2,
-                ControllerFeedbackRouter.RumbleDelivery.DELIVERED);
-
-        ControllerFeedbackRouter.setAdvancedAudioHapticsEnabled(
-                targets(first, second),
-                true);
-
-        assertEquals(
-                Arrays.asList("advanced-enabled:true"),
-                first.events);
-        assertEquals(
-                Arrays.asList("advanced-enabled:true"),
-                second.events);
-    }
-
-    @Test
     public void adaptiveTriggerPolicyReachesEveryTarget() {
         FakeTarget first = target(
                 1,
@@ -254,8 +175,6 @@ public final class ControllerFeedbackRouterTest {
         private final short controllerNumber;
         private final ControllerFeedbackRouter.RumbleDelivery delivery;
         private final List<String> events = new ArrayList<>();
-        boolean standardAudioDelivery;
-        boolean advancedAudioDelivery;
 
         FakeTarget(
                 short controllerNumber,
@@ -295,32 +214,6 @@ public final class ControllerFeedbackRouterTest {
                 byte blue) {
             events.add(
                     "led:" + red + ":" + green + ":" + blue);
-        }
-
-        @Override
-        public boolean deliverStandardAudioHaptics(
-                short lowFrequencyMotor,
-                short highFrequencyMotor) {
-            events.add(
-                    "audio:" + lowFrequencyMotor + ":" +
-                            highFrequencyMotor);
-            return standardAudioDelivery;
-        }
-
-        @Override
-        public boolean submitAdvancedAudioHapticsFrame(
-                byte[] frame,
-                float intensityGain) {
-            events.add(
-                    "advanced:" + frame.length + ":" +
-                            intensityGain);
-            return advancedAudioDelivery;
-        }
-
-        @Override
-        public void setAdvancedAudioHapticsEnabled(
-                boolean enabled) {
-            events.add("advanced-enabled:" + enabled);
         }
 
         @Override

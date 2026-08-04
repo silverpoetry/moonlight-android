@@ -19,7 +19,15 @@ public final class AppPresentationSettingsLoader {
                         AppPresentationSettingKeys.LANGUAGE),
                 repository.get(
                         AppPresentationSettingKeys.SMALL_APP_ICONS),
-                repository.get(
-                        AppPresentationSettingKeys.LIGHT_THEME));
+                normalizeThemeMode(repository.get(
+                        AppPresentationSettingKeys.THEME_MODE)));
+    }
+
+    private static String normalizeThemeMode(String value) {
+        if (AppPresentationSettingKeys.THEME_MODE_LIGHT.equals(value) ||
+                AppPresentationSettingKeys.THEME_MODE_DARK.equals(value)) {
+            return value;
+        }
+        return AppPresentationSettingKeys.THEME_MODE_SYSTEM;
     }
 }

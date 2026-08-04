@@ -4,18 +4,15 @@ import android.app.Activity
 import android.graphics.Color
 import android.view.ViewGroup
 import android.view.Window
+import androidx.activity.ComponentDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,6 +22,7 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toDrawable
 import com.limelight.R
+import com.limelight.ui.compose.components.MoonlightDialogSurface
 import com.limelight.ui.compose.theme.MoonlightThemeFromSettings
 
 /** Material 3 generic message dialog with process-wide rundown support. */
@@ -38,7 +36,7 @@ class Dialog private constructor(
 
     override fun run() {
         if (activity.isFinishing) return
-        val platformDialog = android.app.Dialog(activity)
+        val platformDialog = ComponentDialog(activity)
         platformDialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         platformDialog.setCancelable(false)
         platformDialog.setCanceledOnTouchOutside(false)
@@ -48,16 +46,7 @@ class Dialog private constructor(
             )
             setContent {
                 MoonlightThemeFromSettings {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp)
-                            .widthIn(max = 560.dp),
-                        shape = RoundedCornerShape(28.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        ),
-                    ) {
+                    MoonlightDialogSurface(maxWidth = 520.dp) {
                         Column(
                             modifier = Modifier.padding(24.dp),
                             verticalArrangement = Arrangement.spacedBy(18.dp),

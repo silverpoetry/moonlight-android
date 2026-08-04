@@ -1,14 +1,10 @@
 package com.limelight.ui.gamemenu;
 
 import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode;
-import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.audio.StreamAudioSettingsUpdate;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.settings.runtime.StreamSettingsSession;
-import com.limelight.settings.stream.CustomResolutionRepository;
-import com.limelight.settings.stream.StreamVideoSettings;
-import com.limelight.settings.stream.StreamVideoSettingsUpdate;
 import com.limelight.settings.ui.GameMenuCardLayout;
 import com.limelight.settings.ui.GameMenuCardLayoutRepository;
 import com.limelight.settings.ui.StreamUiSettingsUpdate;
@@ -61,8 +57,6 @@ public final class StreamGameMenuHost implements GameMenuHost {
 
         void requestStreamDisconnect();
 
-        void requestStreamRestart();
-
         void requestStreamQuit();
 
         void requestSoftKeyboard();
@@ -91,13 +85,13 @@ public final class StreamGameMenuHost implements GameMenuHost {
 
         void switchMic();
 
+        boolean isLocalSystemCursorVisible();
+
         void switchMouseLocalCursor();
 
         boolean toggleAbsoluteMouseMode();
 
         void switchMouseModel(int mode);
-
-        void applyDualSenseTriggerSettings();
 
         void setVirtualGamepadEditMode(VirtualControlEditMode mode);
 
@@ -129,7 +123,6 @@ public final class StreamGameMenuHost implements GameMenuHost {
     }
 
     private final StreamSettingsSession settingsSession;
-    private final CustomResolutionRepository customResolutionRepository;
     private final GameMenuCardLayoutRepository cardLayoutRepository;
     private final GameMenuShortcutRepository shortcutRepository;
     private final MenuSession menuSession;
@@ -137,16 +130,12 @@ public final class StreamGameMenuHost implements GameMenuHost {
 
     public StreamGameMenuHost(
             StreamSettingsSession settingsSession,
-            CustomResolutionRepository customResolutionRepository,
             GameMenuCardLayoutRepository cardLayoutRepository,
             GameMenuShortcutRepository shortcutRepository,
             MenuSession menuSession,
             Actions actions) {
         this.settingsSession = Objects.requireNonNull(
                 settingsSession, "settingsSession");
-        this.customResolutionRepository = Objects.requireNonNull(
-                customResolutionRepository,
-                "customResolutionRepository");
         this.cardLayoutRepository = Objects.requireNonNull(
                 cardLayoutRepository, "cardLayoutRepository");
         this.shortcutRepository = Objects.requireNonNull(
@@ -184,11 +173,6 @@ public final class StreamGameMenuHost implements GameMenuHost {
     @Override
     public void requestStreamDisconnect() {
         actions.requestStreamDisconnect();
-    }
-
-    @Override
-    public void requestStreamRestart() {
-        actions.requestStreamRestart();
     }
 
     @Override
@@ -278,6 +262,11 @@ public final class StreamGameMenuHost implements GameMenuHost {
     }
 
     @Override
+    public boolean isLocalSystemCursorVisible() {
+        return actions.isLocalSystemCursorVisible();
+    }
+
+    @Override
     public boolean toggleAbsoluteMouseMode() {
         return actions.toggleAbsoluteMouseMode();
     }
@@ -302,11 +291,6 @@ public final class StreamGameMenuHost implements GameMenuHost {
     public void applyStreamUiSettingsUpdate(
             StreamUiSettingsUpdate update) {
         settingsSession.applyUi(update);
-    }
-
-    @Override
-    public void applyDualSenseTriggerSettings() {
-        actions.applyDualSenseTriggerSettings();
     }
 
     @Override
@@ -342,35 +326,8 @@ public final class StreamGameMenuHost implements GameMenuHost {
     }
 
     @Override
-    public StreamVideoSettings getStreamVideoSettings() {
-        return settingsSession.getVideoSettings();
-    }
-
-    @Override
-    public void applyStreamVideoSettingsUpdate(
-            StreamVideoSettingsUpdate update) {
-        settingsSession.applyVideo(update);
-    }
-
-    @Override
-    public CustomResolutionRepository getCustomResolutionRepository() {
-        return customResolutionRepository;
-    }
-
-    @Override
-    public StreamAudioSettings getStreamAudioSettings() {
-        return settingsSession.getAudioSettings();
-    }
-
-    @Override
     public void applyStreamAudioSettingsUpdate(
             StreamAudioSettingsUpdate update) {
         settingsSession.applyAudio(update);
-    }
-
-    @Override
-    public void onDisplayConfigurationApplied() {
-        menuSession.dismiss();
-        actions.requestStreamRestart();
     }
 }

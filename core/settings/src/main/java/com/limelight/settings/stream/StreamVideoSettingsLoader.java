@@ -56,8 +56,6 @@ public final class StreamVideoSettingsLoader {
                 .setLowLatencyExperimentEnabled(repository.get(
                         StreamVideoSettingKeys
                                 .LOW_LATENCY_EXPERIMENT))
-                .setFpsUnlocked(repository.get(
-                        StreamVideoSettingKeys.UNLOCK_FPS))
                 .setPortrait(repository.get(
                         StreamVideoSettingKeys.PORTRAIT))
                 .setExternalDisplay(repository.get(

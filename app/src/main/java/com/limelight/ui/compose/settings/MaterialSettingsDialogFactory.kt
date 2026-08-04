@@ -5,6 +5,7 @@ import android.app.Dialog
 import android.graphics.Color
 import android.view.ViewGroup
 import android.view.Window
+import androidx.activity.ComponentDialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,22 +13,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Slider
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,11 +38,14 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.limelight.R
+import com.limelight.ui.compose.components.MoonlightDialogSurface
+import com.limelight.ui.compose.components.MoonlightStepSlider
 import com.limelight.ui.compose.theme.MoonlightThemeFromSettings
 import kotlin.math.roundToInt
 
@@ -133,19 +135,98 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
                 text = formatter.format(value).toString(),
                 style = MaterialTheme.typography.headlineMedium,
             )
-            Slider(
+            MoonlightStepSlider(
                 value = value.toFloat(),
                 onValueChange = { candidate ->
-                    value = normalizer.normalize(candidate.roundToInt())
+                    normalizer.normalize(candidate.roundToInt()).toFloat()
                 },
                 valueRange = minimum.toFloat()..maximum.toFloat(),
-                steps = ((maximum - minimum) / step.coerceAtLeast(1) - 1)
-                    .coerceAtLeast(0),
+                steps = 0,
+                onEffectiveValueChanged = { value = it.roundToInt() },
             )
             ConfirmButtons(
                 onCancel = dialog::dismiss,
                 onConfirm = {
                     listener.onSelected(value)
+                    dialog.dismiss()
+                },
+            )
+        }
+    }
+
+    fun showDiscreteListSlider(
+        title: CharSequence,
+        entries: Array<CharSequence>,
+        values: Array<CharSequence>,
+        currentValue: String,
+        listener: ListSelectionListener,
+    ): Dialog = showDialog { dialog ->
+        val initialIndex = values.indexOfFirst { it.toString() == currentValue }
+            .coerceAtLeast(0)
+        var selectedIndex by remember(currentValue, values.size) {
+            mutableIntStateOf(initialIndex)
+        }
+        SettingsDialogCard(title = title) {
+            Text(
+                text = entries.getOrNull(selectedIndex)?.toString().orEmpty(),
+                style = MaterialTheme.typography.headlineMedium,
+            )
+            MoonlightStepSlider(
+                value = selectedIndex.toFloat(),
+                onValueChange = { it.roundToInt().coerceIn(entries.indices) .toFloat() },
+                valueRange = 0f..entries.lastIndex.toFloat(),
+                steps = (entries.size - 2).coerceAtLeast(0),
+                onEffectiveValueChanged = { selectedIndex = it.roundToInt() },
+            )
+            ConfirmButtons(
+                onCancel = dialog::dismiss,
+                onConfirm = {
+                    listener.onSelected(values[selectedIndex].toString())
+                    dialog.dismiss()
+                },
+            )
+        }
+    }
+
+    fun showSegmentedList(
+        title: CharSequence,
+        entries: Array<CharSequence>,
+        values: Array<CharSequence>,
+        currentValue: String,
+        listener: ListSelectionListener,
+    ): Dialog = showDialog { dialog ->
+        var selectedIndex by remember(currentValue, values.size) {
+            mutableIntStateOf(
+                values.indexOfFirst { it.toString() == currentValue }
+                    .coerceAtLeast(0),
+            )
+        }
+        val haptics = LocalHapticFeedback.current
+        SettingsDialogCard(title = title) {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                entries.forEachIndexed { index, entry ->
+                    SegmentedButton(
+                        selected = selectedIndex == index,
+                        onClick = {
+                            if (selectedIndex != index) {
+                                selectedIndex = index
+                                haptics.performHapticFeedback(
+                                    androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove,
+                                )
+                            }
+                        },
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = entries.size,
+                        ),
+                        label = { Text(entry.toString(), maxLines = 1) },
+                    )
+                }
+            }
+            ConfirmButtons(
+                onCancel = dialog::dismiss,
+                onConfirm = {
+                    listener.onSelected(values[selectedIndex].toString())
                     dialog.dismiss()
                 },
             )
@@ -209,7 +290,7 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
     }
 
     private fun showDialog(content: @Composable (Dialog) -> Unit): Dialog {
-        val dialog = Dialog(activity)
+        val dialog = ComponentDialog(activity)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         val composeView = ComposeView(activity).apply {
             setViewCompositionStrategy(
@@ -239,16 +320,7 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
         title: CharSequence,
         content: @Composable () -> Unit,
     ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp)
-                .widthIn(max = 560.dp),
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
-        ) {
+        MoonlightDialogSurface(maxWidth = 520.dp) {
             Column(
                 modifier = Modifier.padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -282,4 +354,5 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
             }
         }
     }
+
 }

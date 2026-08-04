@@ -19,6 +19,11 @@ public final class AndroidStreamLaunchIntentFactory {
         Objects.requireNonNull(context, "context");
         Objects.requireNonNull(request, "request");
         Intent intent = new Intent(context, Game.class);
+        // Connection progress is presented transparently over the real
+        // launcher. A window-manager transition would move the two windows
+        // independently and expose an intermediate frame, so the hand-off is
+        // intentionally atomic.
+        intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
         intent.putExtra(
                 AndroidStreamLaunchContract.EXTRA_HOST,
                 request.getHostAddress());

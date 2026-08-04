@@ -80,12 +80,7 @@ public final class SettingsKeyCatalog {
                 InputSettingKeys.EXTERNAL_TOUCHPAD_SENSITIVITY_X,
                 InputSettingKeys.EXTERNAL_TOUCHPAD_SENSITIVITY_Y,
                 InputSettingKeys.EXTERNAL_TOUCHPAD_SCROLL_AMOUNT,
-                InputSettingKeys.MOUSE_WHEEL_SCROLL_AMOUNT,
-                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_ENABLED,
-                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_X,
-                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_Y,
-                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_GLOBAL,
-                InputSettingKeys.DIRECT_TOUCH_RECENTER);
+                InputSettingKeys.MOUSE_WHEEL_SCROLL_AMOUNT);
 
         add(
                 keys,

@@ -115,7 +115,6 @@
     <string name="applist_menu_show_app">Show App</string>
     <string name="applist_menu_status_running">Streaming now</string>
     <string name="applist_menu_status_available">Ready to stream</string>
-    <string name="appview_menu_options">App options</string>
     <string name="applist_refresh_msg">Refreshing apps…</string>
     <string name="applist_quit_app">Quitting</string>
     <string name="applist_quit_success">Successfully quit</string>
@@ -131,7 +130,6 @@
     <string name="addpc_unknown_host">Unable to resolve PC address. Make sure you didn\'t make a typo in the address.</string>
     <string name="addpc_enter_ip">You must enter an IP address</string>
     <string name="addpc_wrong_sitelocal">That address doesn\'t look right. You must use your router\'s public IP address for streaming over the Internet.</string>
-    <string name="addpc_append_razer_port">Append the Razer PC Remote Play port</string>
     <string name="addpc_srv_not_found">No _limelightax._tcp SRV record was found</string>
 
     <!-- Preferences -->
@@ -242,23 +240,10 @@
     <string name="file_transfer_progress_bytes">%1$s / %2$s</string>
     <string name="file_transfer_progress_transferred">已传输 %1$s</string>
     <string name="game_menu_title">功能与操作</string>
-    <string name="game_menu_session_only">仅对本次串流生效</string>
     <string name="game_menu_customize">编辑控制中心</string>
-    <string name="game_menu_customize_title">编辑控制中心</string>
-    <string name="game_menu_customize_subtitle">操作和快捷键均可作为卡片；长按拖动排序，点击移入或移出</string>
-    <string name="game_menu_customize_visible">已显示</string>
     <string name="game_menu_customize_hidden">更多操作</string>
-    <string name="game_menu_customize_count">%1$d 项</string>
     <string name="game_menu_customize_visible_empty">尚未显示任何项目</string>
     <string name="game_menu_customize_hidden_empty">所有项目均已显示</string>
-    <string name="game_menu_customize_reset">恢复默认布局</string>
-    <string name="game_menu_customize_cancel">取消</string>
-    <string name="game_menu_customize_done">完成</string>
-    <string name="game_menu_customize_add">添加%1$s</string>
-    <string name="game_menu_customize_move_or_remove">点击移除%1$s，长按拖动排序</string>
-    <string name="game_menu_customize_badge_add">+</string>
-    <string name="game_menu_customize_badge_remove">−</string>
-    <string name="game_menu_customize_no_visible">点击编辑按钮添加操作或快捷键</string>
     <string name="game_menu_battery_percent">%1$d%%</string>
     <string name="game_menu_battery_unknown">--%</string>
     <string name="game_menu_action_disconnect">断开连接</string>
@@ -269,7 +254,7 @@
     <string name="game_menu_action_virtual_buttons">虚拟按键</string>
     <string name="game_menu_action_full_keyboard">全键盘</string>
     <string name="game_menu_action_screen_zoom">画面缩放</string>
-    <string name="game_menu_action_display">显示器</string>
+    <string name="game_menu_action_windows">Windows 操作</string>
     <string name="game_menu_action_microphone">麦克风</string>
     <string name="game_menu_action_audio_mute">音频静音</string>
     <string name="game_menu_action_hide_video">关闭画面</string>
@@ -277,23 +262,23 @@
     <string name="game_menu_action_hdr">HDR开关</string>
     <string name="game_menu_action_gamepad_mouse">手柄键鼠</string>
     <string name="game_menu_gamepad_buttons">手柄按键</string>
-    <string name="quick_action_description_format">%1$s\t【%2$s】</string>
-    <string name="game_menu_tab_actions">操作</string>
-    <string name="game_menu_tab_keyboard">键盘</string>
-    <string name="game_menu_tab_desktop">桌面</string>
-    <string name="game_menu_tab_windows">全部窗口</string>
     <string name="game_menu_quick_actions_title">快捷操作</string>
     <string name="game_menu_input_controls_title">输入与控制</string>
-    <string name="game_menu_stream_experience_title">画面与串流</string>
     <string name="game_menu_section_mouse_touch">鼠标与触控</string>
     <string name="game_menu_section_shortcuts">快捷键</string>
     <string name="game_menu_section_virtual_controls">虚拟手柄与按键</string>
-    <string name="game_menu_section_display">画面与显示</string>
-    <string name="game_menu_section_peripherals">手柄与外设</string>
     <string name="game_menu_section_touch_sensitivity">触控灵敏度</string>
-    <string name="game_menu_list_default_title">触控模式</string>
-    <string name="game_menu_add">新增</string>
-    <string name="game_menu_quick_actions">快捷操作</string>
+    <string name="game_menu_pointer_title">鼠标与触控</string>
+    <string name="game_menu_pointer_mode_section">输入模式</string>
+    <string name="game_menu_pointer_visibility_section">指针显示</string>
+    <string name="game_menu_pointer_direct_touch_summary">手指位置直接对应主机画面，适合触控应用。</string>
+    <string name="game_menu_pointer_mouse_summary">单指移动鼠标，双指和多指手势按触控板动作发送。</string>
+    <string name="game_menu_pointer_touchpad_summary">把屏幕当作触控板，单指相对移动并支持原生多指手势。</string>
+    <string name="game_menu_pointer_disabled_summary">暂停屏幕上的鼠标和触控输入。</string>
+    <string name="game_menu_android_cursor_title">Android 系统指针</string>
+    <string name="game_menu_android_cursor_summary">只控制已连接物理鼠标的 Android 指针；不影响 Moonlight 本地绘制的主机光标。</string>
+    <string name="game_menu_host_cursor_title">切换主机光标可见性</string>
+    <string name="game_menu_host_cursor_summary">向主机发送 Ctrl+Alt+Shift+N 快捷键。</string>
     <string name="game_menu_display_1">显示器 1</string>
     <string name="game_menu_display_2">显示器 2</string>
     <string name="game_menu_display_3">显示器 3</string>
@@ -309,172 +294,15 @@
     <string name="game_menu_this_pc">此电脑</string>
     <string name="game_menu_mobility_center">移动中心</string>
     <string name="game_menu_projection_mode">显示器模式</string>
-    <string name="game_menu_touch_title">触控灵敏度</string>
-    <string name="game_menu_restore_defaults">恢复默认</string>
-    <string name="game_menu_multitouch_sensitivity">多点触控灵敏度</string>
-    <string name="game_menu_settings_persist">设置会持久保存</string>
-    <string name="game_menu_sensitivity_enabled">启用灵敏度</string>
-    <string name="game_menu_auto_center">自动回中</string>
-    <string name="game_menu_apply_globally">全局生效</string>
-    <string name="game_menu_touchpad_mode_sensitivity">触控板模式灵敏度（始终启用）</string>
-    <string name="game_menu_touchpad_control_sensitivity">触控板控件灵敏度（始终启用）</string>
-    <string name="game_menu_gamepad_mouse_sensitivity">手柄键鼠模式鼠标指针灵敏度</string>
-    <string name="game_menu_virtual_scroll_distance">虚拟鼠标滚轮移动距离</string>
-    <string name="game_menu_external_touchpad_sensitivity">外接触控板灵敏度</string>
-    <string name="game_menu_axis_x_preview">X 轴：100%</string>
-    <string name="game_menu_axis_y_preview">Y 轴：100%</string>
-    <string name="game_menu_sensitivity_preview">灵敏度：100%</string>
-    <string name="game_menu_distance_preview">距离：5</string>
-    <string name="game_menu_scroll_speed_preview">滚轮速度：5</string>
-    <string name="game_menu_axis_x_format">X 轴：%1$d%%</string>
-    <string name="game_menu_axis_y_format">Y 轴：%1$d%%</string>
-    <string name="game_menu_sensitivity_format">灵敏度：%1$d%%</string>
-    <string name="game_menu_distance_format">距离：%1$d</string>
-    <string name="game_menu_scroll_speed_format">滚轮速度：%1$d</string>
-    <string name="game_menu_display_title">显示设置</string>
-    <string name="game_menu_confirm">确认</string>
-    <string name="game_menu_information">信息</string>
-    <string name="game_menu_resolution">分辨率</string>
-    <string name="game_menu_resolution_help">输入宽度和高度，确认后保存并使用</string>
-    <string name="game_menu_width">宽度</string>
-    <string name="game_menu_height">高度</string>
-    <string name="game_menu_common_resolutions">常用分辨率</string>
-    <string name="game_menu_native_resolution">本机</string>
-    <string name="game_menu_custom_resolutions">自定义分辨率（长按删除）</string>
-    <string name="game_menu_resolution_format" translatable="false">%1$dx%2$d</string>
-    <string name="game_menu_resolution_720p" translatable="false">1280x720</string>
-    <string name="game_menu_resolution_1080p" translatable="false">1920x1080</string>
-    <string name="game_menu_resolution_1440p" translatable="false">2560x1440</string>
-    <string name="game_menu_resolution_1600p" translatable="false">2560x1600</string>
-    <string name="game_menu_resolution_2160p" translatable="false">3840x2160</string>
-    <string name="game_menu_resolution_delete_title">删除分辨率</string>
-    <string name="game_menu_resolution_delete_message">确定删除分辨率 %1$s？</string>
-    <string name="game_menu_delete">删除</string>
-    <string name="game_menu_width_required">宽度不能为空</string>
-    <string name="game_menu_height_required">高度不能为空</string>
-    <string name="game_menu_resolution_invalid">宽度和高度必须是大于 0 的整数</string>
-    <string name="game_menu_fps">FPS</string>
-    <string name="game_menu_fps_help">请选择设备与主机均支持的帧率，否则可能黑屏。</string>
-    <string name="game_menu_common_frame_rates">常用帧率</string>
-    <string name="game_menu_fps_30" translatable="false">30 FPS</string>
-    <string name="game_menu_fps_60" translatable="false">60 FPS</string>
-    <string name="game_menu_fps_90" translatable="false">90 FPS</string>
-    <string name="game_menu_fps_120" translatable="false">120 FPS</string>
-    <string name="game_menu_fps_144" translatable="false">144 FPS</string>
-    <string name="game_menu_fps_preview_max" translatable="false">165 FPS</string>
-    <string name="game_menu_fps_format" translatable="false">%1$d FPS</string>
-    <string name="game_menu_fps_required">帧率不能为空</string>
-    <string name="game_menu_fps_invalid">帧率必须是 1–999 之间的整数</string>
-    <string name="game_menu_bitrate">码率</string>
-    <string name="game_menu_bitrate_help">输入码率，单位为 Mbps；有效范围为 1–99999。</string>
-    <string name="game_menu_common_bitrates">常用码率</string>
-    <string name="game_menu_bitrate_20" translatable="false">20 Mbps</string>
-    <string name="game_menu_bitrate_50" translatable="false">50 Mbps</string>
-    <string name="game_menu_bitrate_60" translatable="false">60 Mbps</string>
-    <string name="game_menu_bitrate_100" translatable="false">100 Mbps</string>
-    <string name="game_menu_bitrate_150" translatable="false">150 Mbps</string>
-    <string name="game_menu_bitrate_200" translatable="false">200 Mbps</string>
-    <string name="game_menu_bitrate_300" translatable="false">300 Mbps</string>
-    <string name="game_menu_bitrate_required">码率不能为空</string>
-    <string name="game_menu_bitrate_invalid">码率必须是 1–99999 之间的整数</string>
-    <string name="game_menu_apply_configuration">应用配置</string>
-    <string name="game_menu_video_information">视频信息</string>
-    <string name="game_menu_apply_restart_notice">应用后将自动重连当前串流。</string>
-    <string name="game_menu_options">选项</string>
-    <string name="game_menu_resolution_summary">分辨率：%1$d × %2$d</string>
-    <string name="game_menu_bitrate_summary">码率：%1$d Mbps</string>
-    <string name="game_menu_fps_summary">帧率：%1$d FPS</string>
-    <string name="game_menu_direction_summary">方向：%1$s</string>
-    <string name="game_menu_mode_summary">模式：%1$s</string>
-    <string name="game_menu_orientation_landscape">横屏</string>
-    <string name="game_menu_orientation_portrait">竖屏（旋转功能不可用，请在主机端设置竖屏）</string>
-    <string name="game_menu_display_mode_external">外接显示器</string>
-    <string name="game_menu_display_mode_normal">正常模式</string>
-    <string name="game_menu_switch_display_mode">模式切换</string>
-    <string name="game_menu_swap_dimensions">宽高交换</string>
-    <string name="game_menu_swap_orientation">方向交换</string>
-    <string name="game_menu_decoder">解码器</string>
-    <string name="game_menu_decoder_help">主机软件或显卡不支持所选编解码器时，此设置可能被忽略。</string>
-    <string name="game_menu_codec_auto">自动</string>
-    <string name="game_menu_codec_h264" translatable="false">H.264</string>
-    <string name="game_menu_codec_hevc" translatable="false">HEVC</string>
-    <string name="game_menu_codec_av1" translatable="false">AV1</string>
-    <string name="game_menu_hdr" translatable="false">HDR</string>
-    <string name="game_menu_restart_stream_notice">点击应用后将自动重连当前串流。</string>
-    <string name="game_menu_enabled">开启</string>
     <string name="game_menu_disabled">关闭</string>
-    <string name="game_menu_hdr_high_brightness">HDR 满亮度</string>
-    <string name="game_menu_hdr_high_brightness_help">在 HDR 模式下将串流窗口亮度提高到最大，默认关闭。</string>
-    <string name="game_menu_decoder_low_latency">解码低延迟模式（测试）</string>
-    <string name="game_menu_decoder_low_latency_help">仅在支持的高通和联发科设备上生效。</string>
-    <string name="game_menu_ignore_hdr_check">忽略 HDR 校验</string>
-    <string name="game_menu_virtual_display">虚拟显示器</string>
-    <string name="game_menu_virtual_display_help">适用于支持虚拟显示扩展的 Sunshine、Apollo 和雷蛇雷游。</string>
-    <string name="game_menu_virtual_display_extended">扩展模式</string>
-    <string name="game_menu_virtual_display_only">仅虚拟显示屏</string>
-    <string name="game_menu_enforce_display_mode">强制显示模式</string>
-    <string name="game_menu_enforce_display_mode_help">部分系统（如 ColorOS）需要开启此项才能正确设置刷新率和分辨率。</string>
-    <string name="game_menu_audio_output">播放声音</string>
-    <string name="game_menu_audio_device_only">仅本设备</string>
-    <string name="game_menu_audio_device_and_host">本设备和主机</string>
     <string name="game_menu_screen_on_reconnect">亮屏自动回连</string>
-    <string name="game_menu_screen_on_reconnect_help">立即生效；锁屏前请关闭游戏菜单。</string>
+    <string name="settings_summary_screen_on_reconnect">控制设备亮屏后是否自动恢复上一次串流。本次生效仅保留到应用退出。</string>
     <string name="game_menu_current_session">本次生效</string>
     <string name="game_menu_always">一直生效</string>
-    <string name="game_menu_invalid_display_configuration">请检查分辨率、码率和帧率配置</string>
-    <string name="game_menu_virtual_controls_title">虚拟手柄与虚拟按键</string>
-    <string name="game_menu_update_configuration">更新配置</string>
     <string name="game_menu_virtual_gamepad">虚拟手柄</string>
     <string name="game_menu_virtual_gamepad_mode_help">需先开启虚拟手柄才能切换模式。</string>
     <string name="game_menu_virtual_keys">虚拟按键</string>
     <string name="game_menu_virtual_key_mode_help">需先开启虚拟按键才能切换模式。</string>
-    <string name="game_menu_default_mode">默认</string>
-    <string name="game_menu_edit_mode">编辑模式</string>
-    <string name="game_menu_default_layout_scheme">默认布局方案</string>
-    <string name="game_menu_layout_scheme_1">方案 1</string>
-    <string name="game_menu_layout_scheme_2">方案 2</string>
-    <string name="game_menu_layout_scheme_3">方案 3</string>
-    <string name="game_menu_layout_scheme_4">方案 4</string>
-    <string name="game_menu_layout_scheme_5">方案 5</string>
-    <string name="game_menu_common">通用</string>
-    <string name="game_menu_virtual_controls_refresh_help">布局显示异常时，可点击右上角更新配置。</string>
-    <string name="game_menu_keyboard_vibration">按键震动</string>
-    <string name="game_menu_virtual_gamepad_vibration">虚拟手柄震动</string>
-    <string name="game_menu_control_default_color">控件默认颜色（手柄与按键通用）</string>
-    <string name="game_menu_color_black">黑色</string>
-    <string name="game_menu_color_white">白色</string>
-    <string name="game_menu_color_gray">灰色</string>
-    <string name="game_menu_control_opacity">控件透明度（手柄与按键通用）</string>
-    <string name="game_menu_keyboard_panel_opacity">全键盘面板透明度</string>
-    <string name="game_menu_keyboard_height">全键盘高度</string>
-    <string name="game_menu_virtual_gamepad_scale">虚拟手柄按键缩放</string>
-    <string name="game_menu_opacity_format">透明度：%1$d%%</string>
-    <string name="game_menu_height_format">高度：%1$d</string>
-    <string name="game_menu_scale_format">缩放：%1$d%%</string>
-    <string name="game_menu_edit_mode_entered">已进入编辑模式；关闭游戏菜单后即可调整控件。</string>
-    <string name="game_menu_devices_title">外设</string>
-    <string name="game_menu_controller">手柄</string>
-    <string name="game_menu_controller_reconnect_help">部分设置需要重新连接手柄后生效。</string>
-    <string name="game_menu_enable_usb_gamepad_driver">启用月光\nUSB 手柄驱动</string>
-    <string name="game_menu_flip_grip_rumble">反转握把\n震动方向</string>
-    <string name="game_menu_ignore_trigger_deadzone">忽略扳机\n默认死区</string>
-    <string name="game_menu_report_gamepad_battery">上报手柄\n电池状态</string>
-    <string name="game_menu_enable_usb_gyroscope">启用 USB 驱动\n手柄陀螺仪</string>
-    <string name="game_menu_link_trigger_rumble">握把震动联动\n扳机震动</string>
-    <string name="game_menu_stream_restart_required">点击应用后将自动重连，使以下设置生效。</string>
-    <string name="game_menu_force_device_rumble">强制使用\n机身震动</string>
-    <string name="game_menu_use_device_gyroscope">无手柄时使用\n设备陀螺仪</string>
-    <string name="game_menu_joycon_compatibility">兼容 NS\n手柄按键</string>
-    <string name="game_menu_dualsense_adaptive_trigger">DualSense 自适应扳机</string>
-    <string name="game_menu_dualsense_apply_help">每次连接后点击右上角“应用配置”。</string>
-    <string name="game_menu_trigger_damping">阻尼</string>
-    <string name="game_menu_trigger_weapon">扳机</string>
-    <string name="game_menu_trigger_rifle">自动步枪扳机</string>
-    <string name="game_menu_trigger_strength">震动强度</string>
-    <string name="game_menu_trigger_frequency">震动频率</string>
-    <string name="game_menu_trigger_start">起始位置</string>
-    <string name="game_menu_trigger_end">结束位置</string>
-    <string name="game_menu_integer_value" translatable="false">%1$d</string>
     <string name="game_menu_floating_ball">悬浮球</string>
     <string name="game_menu_game_menu">游戏菜单</string>
     <string name="game_menu_soft_keyboard">软键盘</string>
@@ -515,14 +343,6 @@
     <string name="settings_summary_remember_floating_position">下次串流时恢复悬浮按钮在当前屏幕方向中的位置。</string>
     <string name="settings_title_performance_overlay_scale">性能信息缩放</string>
     <string name="settings_summary_performance_overlay_scale">调整精简性能信息在串流画面上的显示大小。</string>
-    <string name="settings_title_direct_touch_sensitivity">启用多点触控灵敏度调整</string>
-    <string name="settings_summary_direct_touch_sensitivity">对直接触控坐标应用独立的水平和垂直灵敏度。</string>
-    <string name="settings_title_direct_touch_sensitivity_x">多点触控水平灵敏度</string>
-    <string name="settings_title_direct_touch_sensitivity_y">多点触控垂直灵敏度</string>
-    <string name="settings_title_direct_touch_global">对所有直接触控模式生效</string>
-    <string name="settings_summary_direct_touch_global">将多点触控灵敏度应用到所有直接触控输入模式。</string>
-    <string name="settings_title_direct_touch_recenter">旋转后自动重新居中</string>
-    <string name="settings_summary_direct_touch_recenter">屏幕方向变化后重新校准直接触控的坐标中心。</string>
     <string name="settings_title_touchpad_pointer_x">触控板水平指针灵敏度</string>
     <string name="settings_title_touchpad_pointer_y">触控板垂直指针灵敏度</string>
     <string name="settings_title_virtual_touchpad_x">虚拟触控板水平灵敏度</string>
@@ -568,7 +388,6 @@
     <string name="keyboard_clear">清空</string>
     <string name="keyboard_save">保存</string>
     <string name="keyboard_key_name">按键名称</string>
-    <string name="keyboard_chord_value">组合键值</string>
     <string name="keyboard_chord_value_hint">请选择 1–5 个按键</string>
     <string name="keyboard_mouse_and_wheel">鼠标与滚轮</string>
     <string name="keyboard_function_keys">功能按键</string>
@@ -619,17 +438,70 @@
     <string name="mic_uplink_permission_denied">Microphone permission was denied. Streaming will continue without microphone uplink.</string>
 
     <string name="settings_title">Settings</string>
+    <string name="settings_search_hint">Search settings</string>
+    <string name="settings_search_clear">Clear search</string>
+    <string name="settings_search_results">Search results</string>
+    <string name="settings_search_empty">No matching settings</string>
     <string name="settings_action_open">Open</string>
     <string name="settings_cancel">Cancel</string>
     <string name="settings_ok">OK</string>
     <string name="settings_no_items">No available settings</string>
     <string name="settings_current_profile">%1$s · %2$s · %3$s</string>
     <string name="settings_featured_settings">Common settings</string>
-    <string name="settings_more_settings">More settings</string>
-    <plurals name="settings_item_count">
-        <item quantity="one">%d option</item>
-        <item quantity="other">%d options</item>
-    </plurals>
+    <string name="settings_value_enabled">On</string>
+    <string name="settings_value_disabled">Off</string>
+    <string name="settings_group_general">General</string>
+    <string name="settings_group_stream_format">Resolution and frame rate</string>
+    <string name="settings_group_bitrate">Bitrate</string>
+    <string name="settings_group_decoder_latency">Decoder and latency</string>
+    <string name="settings_group_hdr_color">HDR and color</string>
+    <string name="settings_group_display_layout">Screen layout</string>
+    <string name="settings_group_audio_output">Audio output</string>
+    <string name="settings_group_input_mode">Input mode</string>
+    <string name="settings_group_press_click">Press and click</string>
+    <string name="settings_group_touchpad_pointer">Touchpad pointer</string>
+    <string name="settings_group_virtual_touchpad">Virtual touchpad</string>
+    <string name="settings_group_external_touchpad">External touchpad</string>
+    <string name="settings_group_input_advanced">Advanced input</string>
+    <string name="settings_group_controller_response">Buttons and response</string>
+    <string name="settings_group_controller_devices">Controller devices</string>
+    <string name="settings_group_controller_mouse">Mouse emulation</string>
+    <string name="settings_group_controller_motion">Motion controls</string>
+    <string name="settings_group_controller_rumble">Rumble</string>
+    <string name="settings_group_virtual_gamepad">Virtual gamepad</string>
+    <string name="settings_group_virtual_keyboard">Virtual keyboard</string>
+    <string name="settings_group_clipboard_files">Clipboard and files</string>
+    <string name="settings_group_stream_behavior">Stream behavior</string>
+    <string name="settings_group_stream_menu">Menus and controls</string>
+    <string name="settings_group_performance_overlay">Performance information</string>
+    <string name="settings_group_stream_notifications">Feedback and notifications</string>
+    <string name="settings_group_appearance">Appearance and language</string>
+    <string name="title_theme_mode">App theme</string>
+    <string name="summary_theme_mode">Follow the system theme or always use light or dark appearance.</string>
+    <string name="theme_mode_system">Follow system</string>
+    <string name="theme_mode_light">Light</string>
+    <string name="theme_mode_dark">Dark</string>
+    <string name="settings_group_accessibility">System integration</string>
+    <string name="settings_group_paired_hosts">Paired hosts</string>
+    <string name="settings_group_client_identity">Client identity</string>
+    <string name="settings_group_project">Project information</string>
+    <string name="settings_featured_stream">Stream quality</string>
+    <string name="settings_featured_input_sharing">Input and sharing</string>
+    <string name="settings_category_stream">Stream experience</string>
+    <string name="settings_category_input">Input and control</string>
+    <string name="settings_category_tools">Streaming tools</string>
+    <string name="settings_category_app_system">App and system</string>
+    <string name="settings_section_summary_video">Resolution, frame rate, decoder, HDR, and screen layout</string>
+    <string name="settings_section_summary_audio">Channel layout, effects, host playback, and mute</string>
+    <string name="settings_section_summary_touch">Pointer mode, touchpad gestures, clicking, and press behavior</string>
+    <string name="settings_section_summary_gamepad">Controllers, motion, and rumble</string>
+    <string name="settings_section_summary_virtual_controls">Virtual gamepad and keyboard layouts</string>
+    <string name="settings_section_summary_clipboard">Text, image, file, and folder transfer</string>
+    <string name="settings_section_summary_stream_interface">Menus, overlays, shortcuts, and notifications</string>
+    <string name="settings_section_summary_appearance">Theme and language</string>
+    <string name="settings_section_summary_accessibility">System integration and accessibility services</string>
+    <string name="settings_section_summary_backup">Paired hosts, certificates, and private keys</string>
+    <string name="settings_section_summary_about">Version, documentation, source code, and licenses</string>
     <string name="title_unlock_fps">Unlock all possible frame rates</string>
     <string name="summary_unlock_fps">Streaming at 90 or 120 FPS may reduce latency on high-end devices but can cause lag or instability on devices that can\'t support it</string>
     <string name="title_checkbox_reduce_refresh_rate">Allow refresh rate reduction</string>
@@ -668,10 +540,10 @@
     <string name="audioconf_51surround">5.1 Surround Sound</string>
     <string name="audioconf_71surround">7.1 Surround Sound</string>
 
-    <string name="videoformat_auto">Automatic (Recommended)</string>
-    <string name="videoformat_av1always">Prefer AV1 (Experimental)</string>
-    <string name="videoformat_hevcalways">Prefer HEVC</string>
-    <string name="videoformat_h264always">Prefer H.264</string>
+    <string name="videoformat_auto">Auto</string>
+    <string name="videoformat_av1always">AV1</string>
+    <string name="videoformat_hevcalways">HEVC</string>
+    <string name="videoformat_h264always">H.264</string>
 
     <string name="title_frame_pacing">Video frame pacing</string>
     <string name="summary_frame_pacing">Specify how to balance video latency and smoothness</string>
@@ -692,12 +564,6 @@
     <string name="analogscroll_left">Left analog stick</string>
 
 
-    <string name="manual_host_entry_help">温馨提示：\n1、PC端设备开启N卡GeForce Shield 服务或者安装Sunshine并启用串流服务\n
-        2、如果是默认端口[47989]，无需手动输入，自定义端口需要自行拼接\n
-        3、支持ipv4和ipv6地址 例如：\n
-        ipv4：192.168.1.123\n
-        ipv6：[fd00:6868:6868:0:fd6:e0ea:84d9:70ea]:47989
-    </string>
 
     <string name="about_tagline">随时随地，畅连你的电脑！</string>
     <string name="about_version_format">版本号：%1$s</string>
@@ -705,7 +571,6 @@
     <string name="about_documentation">使用文档</string>
     <string name="about_license">开源许可证</string>
 
-    <string name="accessibility_back">返回</string>
     <string name="accessibility_stream_controls">打开串流控制菜单</string>
     <string name="accessibility_virtual_controller">Virtual controller</string>
 

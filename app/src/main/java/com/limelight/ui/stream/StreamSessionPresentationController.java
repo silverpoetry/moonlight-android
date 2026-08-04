@@ -160,8 +160,8 @@ public final class StreamSessionPresentationController
         if (destroyed) {
             return;
         }
-        host.dismissConnectingIndicator();
         host.onSessionConnected();
+        host.dismissConnectingIndicator();
     }
 
     @MainThread

@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="title_theme_mode">应用主题</string>
+    <string name="summary_theme_mode">跟随系统深浅色，或固定使用浅色、深色外观。</string>
+    <string name="theme_mode_system">跟随系统</string>
+    <string name="theme_mode_light">浅色</string>
+    <string name="theme_mode_dark">深色</string>
     <!-- Shortcut strings -->
     <string name="scut_deleted_pc"> 电脑已删除 </string>
     <string name="scut_not_paired"> 电脑未配对 </string>
@@ -136,16 +141,65 @@
     <string name="title_checkbox_host_audio"> 在电脑上播放声音 </string>
     <string name="summary_checkbox_host_audio"> 在电脑和本设备同时输出声音 </string>
     <string name="settings_title">设置</string>
+    <string name="settings_search_hint">搜索设置</string>
+    <string name="settings_search_clear">清除搜索</string>
+    <string name="settings_search_results">搜索结果</string>
+    <string name="settings_search_empty">没有匹配的设置</string>
     <string name="settings_action_open">打开</string>
     <string name="settings_cancel">取消</string>
     <string name="settings_ok">确定</string>
     <string name="settings_no_items">没有可用设置</string>
     <string name="settings_current_profile">%1$s · %2$s · %3$s</string>
     <string name="settings_featured_settings">常用设置</string>
-    <string name="settings_more_settings">更多设置</string>
-    <plurals name="settings_item_count">
-        <item quantity="other">%d 项设置</item>
-    </plurals>
+    <string name="settings_value_enabled">已开启</string>
+    <string name="settings_value_disabled">已关闭</string>
+    <string name="settings_group_general">通用</string>
+    <string name="settings_group_stream_format">分辨率与帧率</string>
+    <string name="settings_group_bitrate">视频码率</string>
+    <string name="settings_group_decoder_latency">解码与延迟</string>
+    <string name="settings_group_hdr_color">HDR 与色彩</string>
+    <string name="settings_group_display_layout">画面布局</string>
+    <string name="settings_group_audio_output">音频输出</string>
+    <string name="settings_group_input_mode">输入模式</string>
+    <string name="settings_group_press_click">按压与点击</string>
+    <string name="settings_group_touchpad_pointer">触控板指针</string>
+    <string name="settings_group_virtual_touchpad">虚拟触控板</string>
+    <string name="settings_group_external_touchpad">外接触控板</string>
+    <string name="settings_group_input_advanced">高级输入</string>
+    <string name="settings_group_controller_response">按键与响应</string>
+    <string name="settings_group_controller_devices">手柄设备</string>
+    <string name="settings_group_controller_mouse">鼠标模拟</string>
+    <string name="settings_group_controller_motion">体感控制</string>
+    <string name="settings_group_controller_rumble">震动反馈</string>
+    <string name="settings_group_virtual_gamepad">虚拟手柄</string>
+    <string name="settings_group_virtual_keyboard">虚拟按键</string>
+    <string name="settings_group_clipboard_files">剪贴板与文件</string>
+    <string name="settings_group_stream_behavior">串流行为</string>
+    <string name="settings_group_stream_menu">菜单与控制</string>
+    <string name="settings_group_performance_overlay">性能信息</string>
+    <string name="settings_group_stream_notifications">反馈与提示</string>
+    <string name="settings_group_appearance">外观与语言</string>
+    <string name="settings_group_accessibility">系统集成</string>
+    <string name="settings_group_paired_hosts">已配对主机</string>
+    <string name="settings_group_client_identity">客户端身份</string>
+    <string name="settings_group_project">项目信息</string>
+    <string name="settings_featured_stream">串流质量</string>
+    <string name="settings_featured_input_sharing">输入与共享</string>
+    <string name="settings_category_stream">串流体验</string>
+    <string name="settings_category_input">输入与控制</string>
+    <string name="settings_category_tools">串流工具</string>
+    <string name="settings_category_app_system">应用与系统</string>
+    <string name="settings_section_summary_video">分辨率、帧率、解码、HDR 与画面布局</string>
+    <string name="settings_section_summary_audio">声道、音效、主机播放与静音</string>
+    <string name="settings_section_summary_touch">指针模式、触控板手势、点击与按压</string>
+    <string name="settings_section_summary_gamepad">手柄、体感与震动</string>
+    <string name="settings_section_summary_virtual_controls">虚拟手柄与虚拟按键布局</string>
+    <string name="settings_section_summary_clipboard">文本、图片、文件与文件夹传输</string>
+    <string name="settings_section_summary_stream_interface">菜单、浮层、快捷操作与通知</string>
+    <string name="settings_section_summary_appearance">主题与语言</string>
+    <string name="settings_section_summary_accessibility">系统集成与无障碍服务</string>
+    <string name="settings_section_summary_backup">已配对主机、证书与私钥</string>
+    <string name="settings_section_summary_about">版本、文档、源代码与许可证</string>
     <string name="title_video_format">更改编解码器设置</string>
     <string name="summary_video_format">如果您的设备支持较新的编解码器，则可以降低视频带宽要求。如果主机软件或显卡不支持编解码器选择，则可能会忽略编解码器选择。</string>
     <string name="title_enable_hdr">启用 HDR (实验性)</string>
@@ -201,8 +255,8 @@
     <string name="audioconf_stereo">立体声</string>
     <string name="audioconf_51surround">5.1环绕声</string>
     <string name="audioconf_71surround">7.1环绕声</string>
-    <string name="videoformat_auto">自动（推荐）</string>
-    <string name="videoformat_hevcalways">首选 HEVC</string>
+    <string name="videoformat_auto">自动</string>
+    <string name="videoformat_hevcalways">HEVC</string>
     <string name="title_frame_pacing">视频帧速调节</string>
     <string name="resolution_360p">360p</string>
     <string name="resolution_480p">480p</string>
@@ -259,8 +313,8 @@
     <string name="suffix_touchpad_long_press_duration">ms</string>
     <string name="title_checkbox_gamepad_motion_sensors">允许使用手柄的运动传感器</string>
     <string name="summary_checkbox_gamepad_motion_sensors">使支持的主机能够在模拟具有运动传感器的游戏手柄时请求运动传感器数据。如果在游戏中未使用运动传感器，禁用可能会略微降低电源和网络使用量。</string>
-    <string name="videoformat_av1always">首选 AV1（实验性）</string>
-    <string name="videoformat_h264always">首选 H.264</string>
+    <string name="videoformat_av1always">AV1</string>
+    <string name="videoformat_h264always">H.264</string>
     <string name="summary_checkbox_gamepad_motion_fallback">如果你连接的游戏手柄或 Android 版本不支持游戏手柄传感器，请使用设备的内置运动传感器。
 \n注意：启用此选项可能会导致您的游戏手柄在主机上被识别为 PlayStation 4控制器。</string>
     <string name="title_checkbox_gamepad_motion_fallback">模拟游戏手柄运动传感器支持</string>
@@ -276,8 +330,6 @@
 
     <string name="mic_uplink_not_supported">主机未启用麦克风上行，或未检测到兼容的虚拟麦克风设备。</string>
     <string name="mic_uplink_permission_denied">麦克风许可被拒绝了。</string>
-    <string name="appview_menu_options">应用选项</string>
-    <string name="addpc_append_razer_port">追加 Razer 雷游端口号</string>
     <string name="addpc_srv_not_found">未找到 _limelightax._tcp SRV 记录</string>
     <string name="accessibility_virtual_controller">虚拟手柄</string>
     <string name="category_video_display_settings">视频与显示</string>

@@ -1,6 +1,5 @@
 package com.limelight.binding.input.driver;
 
-import com.limelight.settings.audio.StreamAudioSettingsState;
 import com.limelight.settings.controller.ControllerSettingsState;
 
 import java.util.Objects;
@@ -12,7 +11,6 @@ public final class UsbDriverServiceEndpoint
         implements UsbDriverSessionController.Endpoint {
     private final UsbDriverService.UsbDriverBinder binder;
     private final ControllerSettingsState controllerSettingsState;
-    private final StreamAudioSettingsState audioSettingsState;
     private final UsbDriverListener listener;
     private final UsbDriverService.UsbDriverStateListener stateListener;
 
@@ -21,16 +19,12 @@ public final class UsbDriverServiceEndpoint
     public UsbDriverServiceEndpoint(
             UsbDriverService.UsbDriverBinder binder,
             ControllerSettingsState controllerSettingsState,
-            StreamAudioSettingsState audioSettingsState,
             UsbDriverListener listener,
             UsbDriverService.UsbDriverStateListener stateListener) {
         this.binder = Objects.requireNonNull(binder, "binder");
         this.controllerSettingsState = Objects.requireNonNull(
                 controllerSettingsState,
                 "controllerSettingsState");
-        this.audioSettingsState = Objects.requireNonNull(
-                audioSettingsState,
-                "audioSettingsState");
         this.listener = Objects.requireNonNull(listener, "listener");
         this.stateListener = Objects.requireNonNull(
                 stateListener,
@@ -44,7 +38,6 @@ public final class UsbDriverServiceEndpoint
         }
         leaseId = binder.attachSession(
                 controllerSettingsState,
-                audioSettingsState,
                 listener,
                 stateListener);
     }

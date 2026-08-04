@@ -34,8 +34,6 @@ import com.limelight.binding.input.protocol.NvConnectionKeyboardInputSink;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.nvstream.jni.MoonBridge;
-import com.limelight.settings.audio.StreamAudioSettings;
-import com.limelight.settings.audio.StreamAudioSettingsState;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.controller.ControllerSettingsState;
 import com.limelight.ui.GameGestures;
@@ -69,8 +67,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private final AndroidControllerInventory
             controllerInventory;
     private final ControllerVibrationRenderer vibrationRenderer;
-    private final RazerKishiHapticsController
-            razerKishiHapticsController;
     private final SensorManager deviceSensorManager;
     private final SceManager sceManager;
     private final AndroidControllerArrivalProbe
@@ -97,7 +93,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private boolean stopped = false;
 
     private final ControllerSettingsState settingsState;
-    private final StreamAudioSettingsState audioSettingsState;
     private final ControllerSlotAllocator slotAllocator;
     private final ControllerInputReportAggregator.Sources
             controllerInputSources;
@@ -106,37 +101,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
     private final UsbControllerLifecycleController<
             AbstractController,
             UsbDeviceContext> usbControllerLifecycleController;
-
-    private boolean shouldUseControllerAudioHaptics() {
-        return ControllerHapticsPolicy
-                .shouldUseAudioHaptics(
-                        audioSettingsState.get());
-    }
-
-    private boolean shouldSuppressControllerRumble() {
-        return ControllerHapticsPolicy
-                .shouldSuppressStandardRumble(
-                        audioSettingsState.get(),
-                        false,
-                        false);
-    }
-
-    private boolean shouldSuppressInputDeviceRumble(InputDeviceContext context) {
-        StreamAudioSettings settings = audioSettingsState.get();
-        boolean selectiveSuppression =
-                razerKishiHapticsController.isFeatureEnabled();
-        boolean deviceReceivesAudioHaptics =
-                selectiveSuppression &&
-                        razerKishiHapticsController.canUseDevice(
-                                context.vendorId,
-                                context.productId,
-                                context.name);
-        return ControllerHapticsPolicy
-                .shouldSuppressStandardRumble(
-                        settings,
-                        selectiveSuppression,
-                        deviceReceivesAudioHaptics);
-    }
 
     private boolean rumbleInputDeviceContext(InputDeviceContext deviceContext,
                                               short lowFreqMotor, short highFreqMotor) {
@@ -147,57 +111,11 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 highFreqMotor);
     }
 
-    public boolean handleStandardControllerAudioHaptics(
-            short lowFreqMotor,
-            short highFreqMotor) {
-        if (stopped || !shouldUseControllerAudioHaptics()) {
-            return false;
-        }
-        return ControllerFeedbackRouter.routeStandardAudioHaptics(
-                controllerFeedbackTargets,
-                lowFreqMotor,
-                highFreqMotor);
-    }
-
-    public boolean handleControllerAdvancedAudioHapticsFrame(
-            byte[] frame,
-            float intensityGain) {
-        if (stopped ||
-                !shouldUseControllerAudioHaptics() ||
-                frame == null ||
-                frame.length == 0) {
-            return false;
-        }
-        return ControllerFeedbackRouter.routeAdvancedAudioHapticsFrame(
-                controllerFeedbackTargets,
-                frame,
-                intensityGain);
-    }
-
-    public boolean handleRazerKishiAudioHapticsFrame(byte[] frame, float intensityGain) {
-        return !stopped &&
-                razerKishiHapticsController.submitFrame(
-                        frame,
-                        intensityGain);
-    }
-
-    public void refreshAudioHapticsState() {
-        if (stopped) {
-            return;
-        }
-
-        ControllerFeedbackRouter.setAdvancedAudioHapticsEnabled(
-                controllerFeedbackTargets,
-                shouldUseControllerAudioHaptics());
-        razerKishiHapticsController.refresh();
-    }
-
     public ControllerHandler(
             Activity activityContext,
             NvConnection conn,
             GameGestures gestures,
-            ControllerSettingsState settingsState,
-            StreamAudioSettingsState audioSettingsState) {
+            ControllerSettingsState settingsState) {
         this.activityContext = activityContext;
         this.conn = conn;
         this.keyboardInputSink =
@@ -260,15 +178,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         this.settingsState = Objects.requireNonNull(
                 settingsState,
                 "settingsState");
-        this.audioSettingsState = Objects.requireNonNull(
-                audioSettingsState,
-                "audioSettingsState");
         UsbManager usbManager = (UsbManager) activityContext
                 .getSystemService(Context.USB_SERVICE);
-        this.razerKishiHapticsController =
-                RazerKishiHapticsController.create(
-                        usbManager,
-                        this::shouldUseControllerAudioHaptics);
         Vibrator deviceVibrator = ContextCompat.getSystemService(
                 activityContext, Vibrator.class);
         this.activityDisplay = getActivityDisplay(activityContext);
@@ -604,11 +515,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                             @Override
                             public void preparePublishedDevice(
                                     AbstractController device) {
-                                if (shouldUseControllerAudioHaptics() &&
-                                        device
-                                                .hasAdvancedAudioHapticsSupport()) {
-                                    device.startAdvancedAudioHaptics();
-                                }
+                                // USB controllers need no post-publication setup.
                             }
 
                             @Override
@@ -616,7 +523,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                                     UsbDeviceContext context,
                                     UsbControllerLifecycleController
                                             .RemovalReason reason) {
-                                context.device.stopAdvancedAudioHaptics();
                                 if (reason !=
                                         UsbControllerLifecycleController
                                                 .RemovalReason.SHUTDOWN) {
@@ -688,7 +594,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
 
         usbControllerLifecycleController.destroy();
 
-        razerKishiHapticsController.destroy();
         vibrationRenderer.cancelDevice();
     }
 
@@ -1994,10 +1899,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 deliverRumble(
                         short lowFrequencyMotor,
                         short highFrequencyMotor) {
-            if (shouldSuppressInputDeviceRumble(this)) {
-                return ControllerFeedbackRouter.RumbleDelivery
-                        .SUPPRESSED;
-            }
             return rumbleInputDeviceContext(
                     this,
                     lowFrequencyMotor,
@@ -2010,12 +1911,10 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         public void deliverTriggerRumble(
                 short leftTriggerMotor,
                 short rightTriggerMotor) {
-            if (!shouldSuppressInputDeviceRumble(this)) {
-                vibrationRenderer.rumbleTriggers(
-                        vibrationTarget,
-                        leftTriggerMotor,
-                        rightTriggerMotor);
-            }
+            vibrationRenderer.rumbleTriggers(
+                    vibrationTarget,
+                    leftTriggerMotor,
+                    rightTriggerMotor);
         }
 
         @Override
@@ -2024,29 +1923,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 byte green,
                 byte blue) {
             ledSession.setColor(red, green, blue);
-        }
-
-        @Override
-        public boolean deliverStandardAudioHaptics(
-                short lowFrequencyMotor,
-                short highFrequencyMotor) {
-            return rumbleInputDeviceContext(
-                    this,
-                    lowFrequencyMotor,
-                    highFrequencyMotor);
-        }
-
-        @Override
-        public boolean submitAdvancedAudioHapticsFrame(
-                byte[] frame,
-                float intensityGain) {
-            return false;
-        }
-
-        @Override
-        public void setAdvancedAudioHapticsEnabled(
-                boolean enabled) {
-            // Android input-device vibration has no advanced stream mode.
         }
 
         @Override
@@ -2389,10 +2265,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 deliverRumble(
                         short lowFrequencyMotor,
                         short highFrequencyMotor) {
-            if (shouldSuppressControllerRumble()) {
-                return ControllerFeedbackRouter.RumbleDelivery
-                        .SUPPRESSED;
-            }
             device.rumble(
                     lowFrequencyMotor,
                     highFrequencyMotor);
@@ -2403,11 +2275,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
         public void deliverTriggerRumble(
                 short leftTriggerMotor,
                 short rightTriggerMotor) {
-            if (!shouldSuppressControllerRumble()) {
-                device.rumbleTriggers(
-                        leftTriggerMotor,
-                        rightTriggerMotor);
-            }
+            device.rumbleTriggers(
+                    leftTriggerMotor,
+                    rightTriggerMotor);
         }
 
         @Override
@@ -2416,43 +2286,6 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                 byte green,
                 byte blue) {
             // The current USB driver contract exposes no LED command.
-        }
-
-        @Override
-        public boolean deliverStandardAudioHaptics(
-                short lowFrequencyMotor,
-                short highFrequencyMotor) {
-            if (device.isAdvancedAudioHapticsActive()) {
-                return false;
-            }
-            device.rumble(
-                    lowFrequencyMotor,
-                    highFrequencyMotor);
-            return true;
-        }
-
-        @Override
-        public boolean submitAdvancedAudioHapticsFrame(
-                byte[] frame,
-                float intensityGain) {
-            return device.isAdvancedAudioHapticsActive() &&
-                    device.submitAdvancedAudioHapticsFrame(
-                            frame,
-                            intensityGain);
-        }
-
-        @Override
-        public void setAdvancedAudioHapticsEnabled(
-                boolean enabled) {
-            if (!device.hasAdvancedAudioHapticsSupport()) {
-                return;
-            }
-            if (enabled) {
-                device.startAdvancedAudioHaptics();
-            }
-            else {
-                device.stopAdvancedAudioHaptics();
-            }
         }
 
         @Override

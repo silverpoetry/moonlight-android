@@ -72,7 +72,7 @@ final class GameMenuCardCatalog {
                     compactShortcutLabel(
                             shortcut.shortcut.getName()),
                     shortcut.shortcut.getName(),
-                    R.drawable.ic_quick_actions,
+                    R.drawable.ic_m3_keyboard,
                     false,
                     null,
                     shortcut));

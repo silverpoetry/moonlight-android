@@ -2,11 +2,7 @@ package com.limelight.settings.audio;
 
 import com.limelight.settings.SettingKey;
 import com.limelight.settings.SettingsRepository;
-import com.limelight.settings.audio.StreamAudioSettings
-        .ChannelConfiguration;
-import com.limelight.settings.audio.StreamAudioSettings
-        .HapticsOutputTarget;
-import com.limelight.settings.audio.StreamAudioSettings.VoiceFilter;
+import com.limelight.settings.audio.StreamAudioSettings.ChannelConfiguration;
 
 import org.junit.Test;
 
@@ -21,8 +17,7 @@ public final class StreamAudioSettingsLoaderTest {
     @Test
     public void missingValuesUseCanonicalDefaults() {
         StreamAudioSettings settings =
-                StreamAudioSettingsLoader.load(
-                        new FakeRepository());
+                StreamAudioSettingsLoader.load(new FakeRepository());
 
         assertEquals(
                 ChannelConfiguration.STEREO,
@@ -30,13 +25,6 @@ public final class StreamAudioSettingsLoaderTest {
         assertFalse(settings.shouldPlayHostAudio());
         assertFalse(settings.areAudioEffectsEnabled());
         assertFalse(settings.isMuted());
-        assertFalse(settings.areAudioHapticsEnabled());
-        assertEquals(
-                HapticsOutputTarget.PHONE,
-                settings.getHapticsOutputTarget());
-        assertEquals(100, settings.getHapticsStrengthPercent());
-        assertEquals(VoiceFilter.OFF, settings.getVoiceFilter());
-        assertFalse(settings.shouldKeepControllerRumble());
     }
 
     @Test
@@ -45,32 +33,9 @@ public final class StreamAudioSettingsLoaderTest {
         repository.put(
                 StreamAudioSettingKeys.CHANNEL_CONFIGURATION,
                 "71");
-        repository.put(
-                StreamAudioSettingKeys.PLAY_HOST_AUDIO,
-                true);
-        repository.put(
-                StreamAudioSettingKeys.AUDIO_EFFECTS,
-                true);
+        repository.put(StreamAudioSettingKeys.PLAY_HOST_AUDIO, true);
+        repository.put(StreamAudioSettingKeys.AUDIO_EFFECTS, true);
         repository.put(StreamAudioSettingKeys.MUTED, true);
-        repository.put(
-                StreamAudioSettingKeys.AUDIO_HAPTICS,
-                true);
-        repository.put(
-                StreamAudioSettingKeys
-                        .AUDIO_HAPTICS_OUTPUT_TARGET,
-                "controller");
-        repository.put(
-                StreamAudioSettingKeys
-                        .AUDIO_HAPTICS_STRENGTH_PERCENT,
-                175);
-        repository.put(
-                StreamAudioSettingKeys
-                        .AUDIO_HAPTICS_VOICE_FILTER,
-                "high");
-        repository.put(
-                StreamAudioSettingKeys
-                        .KEEP_CONTROLLER_RUMBLE_WITH_AUDIO_HAPTICS,
-                true);
 
         StreamAudioSettings settings =
                 StreamAudioSettingsLoader.load(repository);
@@ -81,35 +46,13 @@ public final class StreamAudioSettingsLoaderTest {
         assertTrue(settings.shouldPlayHostAudio());
         assertTrue(settings.areAudioEffectsEnabled());
         assertTrue(settings.isMuted());
-        assertTrue(settings.areAudioHapticsEnabled());
-        assertTrue(settings.isControllerHapticsTarget());
-        assertEquals(175, settings.getHapticsStrengthPercent());
-        assertEquals(VoiceFilter.HIGH, settings.getVoiceFilter());
-        assertTrue(settings.shouldKeepControllerRumble());
     }
 
     @Test
     public void invalidValuesAreNormalizedAtSchemaBoundary() {
         FakeRepository repository = new FakeRepository();
         repository.values.put(
-                StreamAudioSettingKeys
-                        .CHANNEL_CONFIGURATION
-                        .getName(),
-                "broken");
-        repository.values.put(
-                StreamAudioSettingKeys
-                        .AUDIO_HAPTICS_OUTPUT_TARGET
-                        .getName(),
-                "broken");
-        repository.values.put(
-                StreamAudioSettingKeys
-                        .AUDIO_HAPTICS_STRENGTH_PERCENT
-                        .getName(),
-                5_000);
-        repository.values.put(
-                StreamAudioSettingKeys
-                        .AUDIO_HAPTICS_VOICE_FILTER
-                        .getName(),
+                StreamAudioSettingKeys.CHANNEL_CONFIGURATION.getName(),
                 "broken");
 
         StreamAudioSettings settings =
@@ -118,11 +61,6 @@ public final class StreamAudioSettingsLoaderTest {
         assertEquals(
                 ChannelConfiguration.STEREO,
                 settings.getChannelConfiguration());
-        assertEquals(
-                HapticsOutputTarget.PHONE,
-                settings.getHapticsOutputTarget());
-        assertEquals(200, settings.getHapticsStrengthPercent());
-        assertEquals(VoiceFilter.OFF, settings.getVoiceFilter());
     }
 
     @Test
@@ -132,12 +70,7 @@ public final class StreamAudioSettingsLoaderTest {
         StreamAudioSettings replacement =
                 StreamAudioSettings.builder()
                         .setMuted(true)
-                        .setAudioHaptics(
-                                true,
-                                HapticsOutputTarget.CONTROLLER,
-                                125,
-                                VoiceFilter.MEDIUM,
-                                true)
+                        .setPlayHostAudio(true)
                         .build();
         StreamAudioSettingsState state =
                 new StreamAudioSettingsState(original);
@@ -145,20 +78,12 @@ public final class StreamAudioSettingsLoaderTest {
         state.replace(replacement);
 
         assertTrue(state.get().isMuted());
-        assertTrue(state.get().isControllerHapticsTarget());
-        assertEquals(
-                125,
-                state.get().getHapticsStrengthPercent());
-        assertEquals(
-                VoiceFilter.MEDIUM,
-                state.get().getVoiceFilter());
-        assertTrue(state.get().shouldKeepControllerRumble());
+        assertTrue(state.get().shouldPlayHostAudio());
     }
 
     private static final class FakeRepository
             implements SettingsRepository {
-        private final Map<String, Object> values =
-                new HashMap<>();
+        private final Map<String, Object> values = new HashMap<>();
 
         private <T> void put(SettingKey<T> key, T value) {
             values.put(key.getName(), value);
@@ -171,8 +96,7 @@ public final class StreamAudioSettingsLoaderTest {
 
         @Override
         public <T> T get(SettingKey<T> key) {
-            return key.normalizeStoredValue(
-                    values.get(key.getName()));
+            return key.normalizeStoredValue(values.get(key.getName()));
         }
 
         @Override

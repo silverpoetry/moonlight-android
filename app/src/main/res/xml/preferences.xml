@@ -227,45 +227,6 @@
             android:title="@string/title_checkbox_disable_adaptive_input_throttling"
             android:summary="@string/summary_checkbox_disable_adaptive_input_throttling"
             android:defaultValue="true" />
-        <CheckBoxPreference
-            android:key="input.direct_touch.sensitivity_enabled"
-            android:title="@string/settings_title_direct_touch_sensitivity"
-            android:summary="@string/settings_summary_direct_touch_sensitivity"
-            android:defaultValue="false" />
-        <SeekBarPreference
-            android:key="input.direct_touch.sensitivity_x"
-            android:dependency="input.direct_touch.sensitivity_enabled"
-            android:title="@string/settings_title_direct_touch_sensitivity_x"
-            android:summary="@string/settings_summary_pointer_sensitivity"
-            android:dialogMessage="@string/settings_summary_pointer_sensitivity"
-            android:text="%"
-            android:defaultValue="100"
-            android:max="800"
-            seekbar:min="10"
-            seekbar:step="1" />
-        <SeekBarPreference
-            android:key="input.direct_touch.sensitivity_y"
-            android:dependency="input.direct_touch.sensitivity_enabled"
-            android:title="@string/settings_title_direct_touch_sensitivity_y"
-            android:summary="@string/settings_summary_pointer_sensitivity"
-            android:dialogMessage="@string/settings_summary_pointer_sensitivity"
-            android:text="%"
-            android:defaultValue="100"
-            android:max="800"
-            seekbar:min="10"
-            seekbar:step="1" />
-        <CheckBoxPreference
-            android:key="input.direct_touch.global_sensitivity"
-            android:dependency="input.direct_touch.sensitivity_enabled"
-            android:title="@string/settings_title_direct_touch_global"
-            android:summary="@string/settings_summary_direct_touch_global"
-            android:defaultValue="false" />
-        <CheckBoxPreference
-            android:key="input.direct_touch.recenter_after_rotation"
-            android:dependency="input.direct_touch.sensitivity_enabled"
-            android:title="@string/settings_title_direct_touch_recenter"
-            android:summary="@string/settings_summary_direct_touch_recenter"
-            android:defaultValue="true" />
         <SeekBarPreference
             android:key="input.touchpad.pointer_sensitivity_x"
             android:title="@string/settings_title_touchpad_pointer_x"
@@ -507,44 +468,6 @@
             android:title="@string/settings_title_stop_strong_vibration_pulse"
             android:summary="@string/settings_summary_stop_strong_vibration_pulse"
             android:defaultValue="false" />
-        <CheckBoxPreference
-            android:key="stream.haptics.audio.enabled"
-            android:title="启用音频震动"
-            android:summary="将串流音频中的低频、爆炸和撞击转换为震动反馈。"
-            android:defaultValue="false" />
-        <ListPreference
-            android:key="stream.haptics.audio.output_target"
-            android:dependency="stream.haptics.audio.enabled"
-            android:title="音频震动输出目标"
-            android:summary="选择输出到设备或已连接的手柄。"
-            android:entries="@array/audio_haptics_output_target_names"
-            android:entryValues="@array/audio_haptics_output_target_values"
-            android:defaultValue="phone" />
-        <SeekBarPreference
-            android:key="stream.haptics.audio.strength_percent"
-            android:dependency="stream.haptics.audio.enabled"
-            android:title="音频震动强度"
-            android:summary="调整设备或手柄的音频震动强度。"
-            android:text="%"
-            android:defaultValue="100"
-            android:max="200"
-            seekbar:min="25"
-            seekbar:step="5"
-            seekbar:keyStep="5" />
-        <ListPreference
-            android:key="stream.haptics.audio.voice_filter"
-            android:dependency="stream.haptics.audio.enabled"
-            android:title="语音过滤"
-            android:summary="降低人声、语音聊天和播报声对震动的触发。"
-            android:entries="@array/audio_haptics_voice_filter_names"
-            android:entryValues="@array/audio_haptics_voice_filter_values"
-            android:defaultValue="off" />
-        <CheckBoxPreference
-            android:key="stream.haptics.audio.keep_controller_rumble"
-            android:dependency="stream.haptics.audio.enabled"
-            android:title="保留普通手柄震动"
-            android:summary="音频震动输出到手柄时，继续叠加游戏原本的手柄震动。"
-            android:defaultValue="false" />
     </PreferenceCategory>
 
     <PreferenceCategory
@@ -694,6 +617,13 @@
             android:title="@string/title_checkbox_enable_pip"
             android:summary="@string/summary_checkbox_enable_pip"
             android:defaultValue="false" />
+        <IntegerListPreference
+            android:key="stream.display.device_screen_policy"
+            android:title="@string/game_menu_screen_on_reconnect"
+            android:summary="@string/settings_summary_screen_on_reconnect"
+            android:entries="@array/screen_on_policy_names"
+            android:entryValues="@array/screen_on_policy_values"
+            android:defaultValue="0" />
         <CheckBoxPreference
             android:key="stream.ui.performance_overlay.enabled"
             android:title="@string/title_enable_perf_overlay"
@@ -764,11 +694,13 @@
     <PreferenceCategory
         android:key="section_app_appearance"
         android:title="@string/category_app_appearance_settings">
-        <CheckBoxPreference
-            android:key="app.appearance.light_theme"
-            android:title="部分页面使用浅色主题"
-            android:summary="在 Android 10 及以上系统生效。"
-            android:defaultValue="true" />
+        <ListPreference
+            android:key="app.appearance.theme_mode"
+            android:title="@string/title_theme_mode"
+            android:summary="@string/summary_theme_mode"
+            android:entries="@array/theme_mode_names"
+            android:entryValues="@array/theme_mode_values"
+            android:defaultValue="system" />
         <LanguagePreference
             android:key="app.language"
             android:title="@string/title_language_list"

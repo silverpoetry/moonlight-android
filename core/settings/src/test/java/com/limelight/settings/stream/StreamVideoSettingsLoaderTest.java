@@ -38,7 +38,6 @@ public final class StreamVideoSettingsLoaderTest {
         assertFalse(settings.isHdrHighBrightnessEnabled());
         assertFalse(settings.shouldIgnoreHdrCapability());
         assertTrue(settings.isLowLatencyExperimentEnabled());
-        assertFalse(settings.isFpsUnlocked());
         assertFalse(settings.isPortrait());
         assertFalse(settings.isExternalDisplay());
         assertFalse(settings.isNativeResolution());
@@ -84,9 +83,6 @@ public final class StreamVideoSettingsLoaderTest {
         repository.put(
                 StreamVideoSettingKeys.LOW_LATENCY_EXPERIMENT,
                 false);
-        repository.put(
-                StreamVideoSettingKeys.UNLOCK_FPS,
-                true);
         repository.put(StreamVideoSettingKeys.PORTRAIT, true);
         repository.put(
                 StreamVideoSettingKeys.EXTERNAL_DISPLAY,
@@ -125,7 +121,6 @@ public final class StreamVideoSettingsLoaderTest {
         assertTrue(settings.isHdrHighBrightnessEnabled());
         assertTrue(settings.shouldIgnoreHdrCapability());
         assertFalse(settings.isLowLatencyExperimentEnabled());
-        assertTrue(settings.isFpsUnlocked());
         assertTrue(settings.isPortrait());
         assertTrue(settings.isExternalDisplay());
         assertFalse(settings.isNativeResolution());

@@ -1,5 +1,6 @@
 package com.limelight.settings;
 
+import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.audio.StreamAudioSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
@@ -42,6 +43,93 @@ public final class SettingsMigrationRunner {
                     "",
                     256)
                     .renamedFrom("change_screen_label_key");
+    private static final SettingKey<Boolean>
+            RETIRED_DIRECT_TOUCH_SCALING_ENABLED =
+            SettingKey.booleanKey(
+                    "input.direct_touch.sensitivity_enabled",
+                    false)
+                    .renamedFrom("checkbox_enable_touch_sensitivity");
+    private static final SettingKey<Integer>
+            RETIRED_DIRECT_TOUCH_SCALING_X =
+            SettingKey.integerKey(
+                    "input.direct_touch.sensitivity_x",
+                    100,
+                    10,
+                    800)
+                    .renamedFrom("seekbar_touch_sensitivity_opacity_x");
+    private static final SettingKey<Integer>
+            RETIRED_DIRECT_TOUCH_SCALING_Y =
+            SettingKey.integerKey(
+                    "input.direct_touch.sensitivity_y",
+                    100,
+                    10,
+                    800)
+                    .renamedFrom("seekbar_touch_sensitivity_opacity_y");
+    private static final SettingKey<Boolean>
+            RETIRED_DIRECT_TOUCH_GLOBAL_SCALING =
+            SettingKey.booleanKey(
+                    "input.direct_touch.global_sensitivity",
+                    false)
+                    .renamedFrom(
+                            "checkbox_enable_global_touch_sensitivity");
+    private static final SettingKey<Boolean>
+            RETIRED_DIRECT_TOUCH_RECENTER =
+            SettingKey.booleanKey(
+                    "input.direct_touch.recenter_after_rotation",
+                    true)
+                    .renamedFrom(
+                            "checkbox_enable_touch_sensitivity_rotation_auto");
+    private static final SettingKey<Boolean>
+            RETIRED_AUDIO_REACTIVE_VIBRATION_ENABLED =
+            SettingKey.booleanKey(
+                    "stream.haptics.audio.enabled",
+                    false)
+                    .renamedFrom("checkbox_enable_audio_haptics");
+    private static final SettingKey<String>
+            RETIRED_AUDIO_REACTIVE_VIBRATION_TARGET =
+            SettingKey.stringSetKey(
+                    "stream.haptics.audio.output_target",
+                    "phone",
+                    "phone",
+                    "controller")
+                    .renamedFrom("list_audio_haptics_output_target");
+    private static final SettingKey<Integer>
+            RETIRED_AUDIO_REACTIVE_VIBRATION_STRENGTH =
+            SettingKey.integerKey(
+                    "stream.haptics.audio.strength_percent",
+                    100,
+                    25,
+                    200)
+                    .renamedFrom("seekbar_audio_haptics_strength");
+    private static final SettingKey<String>
+            RETIRED_AUDIO_REACTIVE_VIBRATION_FILTER =
+            SettingKey.stringSetKey(
+                    "stream.haptics.audio.voice_filter",
+                    "off",
+                    "off",
+                    "low",
+                    "medium",
+                    "high")
+                    .renamedFrom("list_audio_haptics_voice_filter");
+    private static final SettingKey<Boolean>
+            RETIRED_AUDIO_REACTIVE_VIBRATION_RUMBLE_POLICY =
+            SettingKey.booleanKey(
+                    "stream.haptics.audio.keep_controller_rumble",
+                    false)
+                    .renamedFrom(
+                            "checkbox_audio_haptics_keep_controller_rumble");
+    private static final SettingKey<?>[] RETIRED_INPUT_AND_VIBRATION_KEYS = {
+            RETIRED_DIRECT_TOUCH_SCALING_ENABLED,
+            RETIRED_DIRECT_TOUCH_SCALING_X,
+            RETIRED_DIRECT_TOUCH_SCALING_Y,
+            RETIRED_DIRECT_TOUCH_GLOBAL_SCALING,
+            RETIRED_DIRECT_TOUCH_RECENTER,
+            RETIRED_AUDIO_REACTIVE_VIBRATION_ENABLED,
+            RETIRED_AUDIO_REACTIVE_VIBRATION_TARGET,
+            RETIRED_AUDIO_REACTIVE_VIBRATION_STRENGTH,
+            RETIRED_AUDIO_REACTIVE_VIBRATION_FILTER,
+            RETIRED_AUDIO_REACTIVE_VIBRATION_RUMBLE_POLICY
+    };
 
     private SettingsMigrationRunner() {
     }
@@ -56,10 +144,18 @@ public final class SettingsMigrationRunner {
                 containsRenamedValues(repository);
         boolean hasRemovedAppearanceValues =
                 containsRemovedAppearanceValues(repository);
+        boolean hasLegacyThemePreference =
+                containsCanonicalOrAlias(
+                        repository,
+                        AppPresentationSettingKeys.LEGACY_LIGHT_THEME);
+        boolean hasRetiredInputOrVibrationValues =
+                containsRetiredInputOrVibrationValues(repository);
         if (storedVersion >= SettingsSchema.CURRENT_VERSION &&
                 !hasLateLegacyValues &&
                 !hasRenamedValues &&
-                !hasRemovedAppearanceValues) {
+                !hasRemovedAppearanceValues &&
+                !hasLegacyThemePreference &&
+                !hasRetiredInputOrVibrationValues) {
             return;
         }
 
@@ -92,6 +188,15 @@ public final class SettingsMigrationRunner {
         if (storedVersion < 7 || hasRemovedAppearanceValues) {
             migrateToVersion7(editor);
         }
+        if (storedVersion < 8 || hasLegacyThemePreference) {
+            migrateToVersion8(
+                    repository,
+                    editor,
+                    hasLegacyThemePreference);
+        }
+        if (storedVersion < 9 || hasRetiredInputOrVibrationValues) {
+            migrateToVersion9(editor);
+        }
         if (storedVersion < SettingsSchema.CURRENT_VERSION) {
             editor.put(
                     SettingsSchema.VERSION,
@@ -109,12 +214,52 @@ public final class SettingsMigrationRunner {
         removeWithAliases(editor, REMOVED_HOST_LIST_LABEL);
     }
 
+    /** Replaces the old two-state theme toggle with system/light/dark policy. */
+    private static void migrateToVersion8(
+            SettingsRepository repository,
+            SettingsRepository.Editor editor,
+            boolean hasLegacyThemePreference) {
+        if (hasLegacyThemePreference &&
+                !repository.contains(
+                        AppPresentationSettingKeys.THEME_MODE)) {
+            boolean lightTheme = getCanonicalOrAlias(
+                    repository,
+                    AppPresentationSettingKeys.LEGACY_LIGHT_THEME);
+            editor.put(
+                    AppPresentationSettingKeys.THEME_MODE,
+                    lightTheme
+                            ? AppPresentationSettingKeys.THEME_MODE_LIGHT
+                            : AppPresentationSettingKeys.THEME_MODE_DARK);
+        }
+        removeWithAliases(
+                editor,
+                AppPresentationSettingKeys.LEGACY_LIGHT_THEME);
+    }
+
     private static boolean containsRemovedAppearanceValues(
             SettingsRepository repository) {
         return containsCanonicalOrAlias(repository, REMOVED_BACKGROUND_ENABLED) ||
                 containsCanonicalOrAlias(repository, REMOVED_BACKGROUND_BLUR) ||
                 containsCanonicalOrAlias(repository, REMOVED_BACKGROUND_FILE) ||
                 containsCanonicalOrAlias(repository, REMOVED_HOST_LIST_LABEL);
+    }
+
+    private static boolean containsRetiredInputOrVibrationValues(
+            SettingsRepository repository) {
+        for (SettingKey<?> key : RETIRED_INPUT_AND_VIBRATION_KEYS) {
+            if (containsCanonicalOrAlias(repository, key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Removes retired input scaling and audio-reactive vibration preferences. */
+    private static void migrateToVersion9(
+            SettingsRepository.Editor editor) {
+        for (SettingKey<?> key : RETIRED_INPUT_AND_VIBRATION_KEYS) {
+            removeWithAliases(editor, key);
+        }
     }
 
     private static <T> void removeWithAliases(
@@ -427,5 +572,20 @@ public final class SettingsMigrationRunner {
             }
         }
         return false;
+    }
+
+    private static <T> T getCanonicalOrAlias(
+            SettingsRepository repository,
+            SettingKey<T> key) {
+        if (repository.contains(key)) {
+            return repository.get(key);
+        }
+        for (String legacyName : key.getLegacyNames()) {
+            SettingKey<T> legacyKey = key.legacyAlias(legacyName);
+            if (repository.contains(legacyKey)) {
+                return repository.get(legacyKey);
+            }
+        }
+        return key.getDefaultValue();
     }
 }

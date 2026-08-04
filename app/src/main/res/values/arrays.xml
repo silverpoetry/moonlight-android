@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string-array name="theme_mode_names">
+        <item>@string/theme_mode_system</item>
+        <item>@string/theme_mode_light</item>
+        <item>@string/theme_mode_dark</item>
+    </string-array>
+    <string-array name="theme_mode_values" translatable="false">
+        <item>system</item>
+        <item>light</item>
+        <item>dark</item>
+    </string-array>
     <string-array name="resolution_names">
         <item>@string/resolution_360p</item>
         <item>@string/resolution_480p</item>
@@ -50,28 +60,6 @@
         <item>2</item>
         <item>51</item>
         <item>71</item>
-    </string-array>
-
-    <string-array name="audio_haptics_voice_filter_names">
-        <item>关闭</item>
-        <item>低</item>
-        <item>中</item>
-        <item>高</item>
-    </string-array>
-    <string-array name="audio_haptics_voice_filter_values" translatable="false">
-        <item>off</item>
-        <item>low</item>
-        <item>medium</item>
-        <item>high</item>
-    </string-array>
-
-    <string-array name="audio_haptics_output_target_names">
-        <item>手机</item>
-        <item>手柄</item>
-    </string-array>
-    <string-array name="audio_haptics_output_target_values" translatable="false">
-        <item>phone</item>
-        <item>controller</item>
     </string-array>
 
     <!-- Don't forget to update locales_config.xml when you modify this! -->
@@ -247,6 +235,17 @@
         <item>@string/settings_action_open_full_keyboard</item>
     </string-array>
     <string-array name="floating_control_action_values" translatable="false">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+
+    <string-array name="screen_on_policy_names">
+        <item>@string/game_menu_disabled</item>
+        <item>@string/game_menu_current_session</item>
+        <item>@string/game_menu_always</item>
+    </string-array>
+    <string-array name="screen_on_policy_values" translatable="false">
         <item>0</item>
         <item>1</item>
         <item>2</item>

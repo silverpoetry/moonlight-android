@@ -17,6 +17,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.drawable.DrawableCompat;
 
 import com.limelight.R;
 
@@ -51,8 +57,73 @@ public abstract class BaseGameMenuFragmentDialog extends DialogFragment {
         requireDialog().setCanceledOnTouchOutside(getCancelOutside());
 
         View v = inflater.inflate(getLayoutRes(), container, false);
+        if (usesLegacyViewChrome()) {
+            applyMaterialPanelChrome(v);
+            tintLegacyIcons(v);
+        }
         bindView(v);
         return v;
+    }
+
+    /** Shared Material shell for the remaining view-backed menu sections. */
+    private void applyMaterialPanelChrome(View root) {
+        root.setBackgroundResource(R.drawable.bg_game_menu_panel);
+        if (!(root instanceof LinearLayout)) {
+            return;
+        }
+        View handle = new View(requireContext());
+        int width = dpToPixels(32);
+        int height = dpToPixels(4);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(width, height);
+        params.gravity = Gravity.CENTER_HORIZONTAL;
+        params.topMargin = dpToPixels(4);
+        params.bottomMargin = dpToPixels(8);
+        handle.setLayoutParams(params);
+        android.graphics.drawable.GradientDrawable background =
+                new android.graphics.drawable.GradientDrawable();
+        background.setColor(ContextCompat.getColor(
+                requireContext(),
+                R.color.game_menu_material_outline));
+        background.setCornerRadius(dpToPixels(2));
+        handle.setBackground(background);
+        handle.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        ((LinearLayout) root).addView(handle, 0);
+    }
+
+    private int dpToPixels(int dp) {
+        return Math.round(dp * getResources().getDisplayMetrics().density);
+    }
+
+    /** Compose surfaces own their complete background and icon treatment. */
+    protected boolean usesLegacyViewChrome() {
+        return true;
+    }
+
+    /** Keeps fixed-white legacy vectors legible on the Material light surface. */
+    private void tintLegacyIcons(View view) {
+        int color = ContextCompat.getColor(
+                requireContext(),
+                R.color.game_menu_material_on_surface_variant);
+        if (view instanceof ImageView) {
+            ((ImageView) view).setColorFilter(color);
+        } else if (view instanceof TextView) {
+            TextView textView = (TextView) view;
+            android.graphics.drawable.Drawable[] drawables =
+                    textView.getCompoundDrawablesRelative();
+            for (android.graphics.drawable.Drawable drawable : drawables) {
+                if (drawable != null) {
+                    DrawableCompat.setTint(
+                            DrawableCompat.wrap(drawable.mutate()),
+                            color);
+                }
+            }
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                tintLegacyIcons(group.getChildAt(index));
+            }
+        }
     }
 
     @LayoutRes

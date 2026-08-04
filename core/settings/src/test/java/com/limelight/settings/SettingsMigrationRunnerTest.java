@@ -1,5 +1,6 @@
 package com.limelight.settings;
 
+import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.audio.StreamAudioSettingKeys;
 import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
@@ -378,6 +379,59 @@ public class SettingsMigrationRunnerTest {
         assertFalse(repository.values.containsKey("app.appearance.background.file"));
         assertFalse(repository.values.containsKey("app.appearance.host_list_label"));
         assertFalse(repository.values.containsKey("change_screen_label_key"));
+        assertEquals(
+                SettingsSchema.CURRENT_VERSION,
+                repository.values.get(SettingsSchema.VERSION.getName()));
+    }
+
+    @Test
+    public void versionEightMigratesLegacyThemeChoice() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put(SettingsSchema.VERSION.getName(), 7);
+        repository.values.put(
+                AppPresentationSettingKeys.LEGACY_LIGHT_THEME.getName(),
+                false);
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertEquals(
+                AppPresentationSettingKeys.THEME_MODE_DARK,
+                repository.values.get(
+                        AppPresentationSettingKeys.THEME_MODE.getName()));
+        assertFalse(repository.values.containsKey(
+                AppPresentationSettingKeys.LEGACY_LIGHT_THEME.getName()));
+        assertEquals(
+                SettingsSchema.CURRENT_VERSION,
+                repository.values.get(SettingsSchema.VERSION.getName()));
+    }
+
+    @Test
+    public void versionNineRemovesRetiredInputAndAudioVibrationValues() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put(SettingsSchema.VERSION.getName(), 8);
+        repository.values.put(
+                "input.direct_touch.sensitivity_enabled",
+                true);
+        repository.values.put(
+                "seekbar_touch_sensitivity_opacity_x",
+                175);
+        repository.values.put(
+                "stream.haptics.audio.enabled",
+                true);
+        repository.values.put(
+                "list_audio_haptics_voice_filter",
+                "high");
+
+        SettingsMigrationRunner.migrate(repository);
+
+        assertFalse(repository.values.containsKey(
+                "input.direct_touch.sensitivity_enabled"));
+        assertFalse(repository.values.containsKey(
+                "seekbar_touch_sensitivity_opacity_x"));
+        assertFalse(repository.values.containsKey(
+                "stream.haptics.audio.enabled"));
+        assertFalse(repository.values.containsKey(
+                "list_audio_haptics_voice_filter"));
         assertEquals(
                 SettingsSchema.CURRENT_VERSION,
                 repository.values.get(SettingsSchema.VERSION.getName()));

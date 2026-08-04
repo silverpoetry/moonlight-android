@@ -52,8 +52,7 @@ public final class ExternalPointerInputControllerTest {
         DirectContactInputController directContactInputController =
                 new DirectContactInputController(
                         streamView,
-                        inputSink,
-                        settingsState);
+                        inputSink);
         controller = new ExternalPointerInputController(
                 streamView,
                 inputSink,

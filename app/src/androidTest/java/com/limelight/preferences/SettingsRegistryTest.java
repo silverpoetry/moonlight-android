@@ -3,6 +3,7 @@ package com.limelight.preferences;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
@@ -103,6 +104,36 @@ public final class SettingsRegistryTest {
                                 item.key,
                         item.max,
                         item.round(item.max));
+            }
+        }
+    }
+
+    @Test
+    public void everyVisibleSettingHasExplicitPresentationTaxonomy() {
+        Context context = InstrumentationRegistry
+                .getInstrumentation()
+                .getTargetContext();
+
+        for (SettingsSection section : SettingsRegistry.load(context)) {
+            assertNotEquals(
+                    "Section falls back to the catch-all group: " +
+                            section.key,
+                    "general",
+                    SettingsPresentationCatalog
+                            .forSection(section.key)
+                            .getId());
+            assertTrue(
+                    "Section has no descriptive summary: " + section.key,
+                    SettingsPresentationCatalog
+                            .summaryForSection(section.key) != 0);
+            for (SettingsItem item : section.items) {
+                assertNotEquals(
+                        "Setting falls back to the catch-all group: " +
+                                item.key,
+                        "general",
+                        SettingsPresentationCatalog
+                                .forItem(section.key, item.key)
+                                .getId());
             }
         }
     }

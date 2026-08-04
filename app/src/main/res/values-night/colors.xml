@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="moonlight_window_background">#141217</color>
+    <color name="game_menu_material_surface">#141217</color>
+    <color name="game_menu_material_surface_high">#211F24</color>
+    <color name="game_menu_material_primary">#D0BCFF</color>
+    <color name="game_menu_material_primary_container">#4F378B</color>
+    <color name="game_menu_material_on_surface">#E6E1E5</color>
+    <color name="game_menu_material_on_surface_variant">#CAC4D0</color>
+    <color name="game_menu_material_outline">#938F99</color>
+    <color name="game_menu_material_outline_variant">#49454F</color>
 </resources>

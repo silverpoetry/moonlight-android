@@ -2,9 +2,6 @@ package com.limelight.settings.audio;
 
 import com.limelight.settings.SettingKey;
 import com.limelight.settings.SettingsRepository;
-import com.limelight.settings.audio.StreamAudioSettings
-        .HapticsOutputTarget;
-import com.limelight.settings.audio.StreamAudioSettings.VoiceFilter;
 
 import java.util.Objects;
 
@@ -45,80 +42,6 @@ public final class StreamAudioSettingsUpdate {
                 StreamAudioSettingKeys.PLAY_HOST_AUDIO,
                 enabled,
                 StreamAudioSettings.Builder::setPlayHostAudio);
-    }
-
-    public static StreamAudioSettingsUpdate hapticsEnabled(
-            boolean enabled) {
-        return single(
-                StreamAudioSettingKeys.AUDIO_HAPTICS,
-                enabled,
-                StreamAudioSettings.Builder
-                        ::setAudioHapticsEnabled);
-    }
-
-    public static StreamAudioSettingsUpdate hapticsOutputTarget(
-            HapticsOutputTarget target) {
-        HapticsOutputTarget normalized =
-                Objects.requireNonNull(target, "target");
-        String stored = StreamAudioSettingsCodec
-                .encodeHapticsOutputTarget(normalized);
-        stored = StreamAudioSettingKeys
-                .AUDIO_HAPTICS_OUTPUT_TARGET
-                .normalizeValue(stored);
-        HapticsOutputTarget applied =
-                StreamAudioSettingsCodec
-                        .decodeHapticsOutputTarget(stored);
-        String persisted = stored;
-        return new StreamAudioSettingsUpdate(
-                settings -> settings.toBuilder()
-                        .setHapticsOutputTarget(applied)
-                        .build(),
-                editor -> editor.put(
-                        StreamAudioSettingKeys
-                                .AUDIO_HAPTICS_OUTPUT_TARGET,
-                        persisted));
-    }
-
-    public static StreamAudioSettingsUpdate hapticsStrengthPercent(
-            int percent) {
-        return single(
-                StreamAudioSettingKeys
-                        .AUDIO_HAPTICS_STRENGTH_PERCENT,
-                percent,
-                StreamAudioSettings.Builder
-                        ::setHapticsStrengthPercent);
-    }
-
-    public static StreamAudioSettingsUpdate voiceFilter(
-            VoiceFilter filter) {
-        VoiceFilter normalized =
-                Objects.requireNonNull(filter, "filter");
-        String stored = StreamAudioSettingsCodec
-                .encodeVoiceFilter(normalized);
-        stored = StreamAudioSettingKeys
-                .AUDIO_HAPTICS_VOICE_FILTER
-                .normalizeValue(stored);
-        VoiceFilter applied =
-                StreamAudioSettingsCodec.decodeVoiceFilter(stored);
-        String persisted = stored;
-        return new StreamAudioSettingsUpdate(
-                settings -> settings.toBuilder()
-                        .setVoiceFilter(applied)
-                        .build(),
-                editor -> editor.put(
-                        StreamAudioSettingKeys
-                                .AUDIO_HAPTICS_VOICE_FILTER,
-                        persisted));
-    }
-
-    public static StreamAudioSettingsUpdate keepControllerRumble(
-            boolean keep) {
-        return single(
-                StreamAudioSettingKeys
-                        .KEEP_CONTROLLER_RUMBLE_WITH_AUDIO_HAPTICS,
-                keep,
-                StreamAudioSettings.Builder
-                        ::setKeepControllerRumble);
     }
 
     public StreamAudioSettings applyTo(

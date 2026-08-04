@@ -106,7 +106,7 @@ public final class StreamSettingsSessionTest {
     }
 
     @Test
-    public void runtimeEffectsObservePersistedPublishedSnapshots() {
+    public void audioStateAndUiEffectsObservePersistedSnapshots() {
         Fixture fixture = new Fixture();
         fixture.effects.fixture = fixture;
 
@@ -116,11 +116,8 @@ public final class StreamSettingsSessionTest {
                 StreamUiSettingsUpdate
                         .floatingControlEnabled(true));
 
-        assertTrue(fixture.effects.audioObservedPublishedState);
+        assertTrue(fixture.session.getAudioSettings().isMuted());
         assertTrue(fixture.effects.uiObservedPublishedState);
-        assertSame(
-                fixture.session.getAudioSettings(),
-                fixture.effects.lastAudio);
         assertSame(
                 fixture.session.getUiSettings(),
                 fixture.effects.lastUi);
@@ -177,9 +174,7 @@ public final class StreamSettingsSessionTest {
         private Fixture fixture;
         private int batteryChanges;
         private int forceGyroEnables;
-        private StreamAudioSettings lastAudio;
         private StreamUiSettings lastUi;
-        private boolean audioObservedPublishedState;
         private boolean uiObservedPublishedState;
         private InputSettings lastInput;
         private boolean inputObservedPublishedState;
@@ -208,12 +203,7 @@ public final class StreamSettingsSessionTest {
         }
 
         @Override
-        public void onAudioSettingsChanged(
-                StreamAudioSettings settings) {
-            lastAudio = settings;
-            audioObservedPublishedState =
-                    fixture.repository.applyCount == 1 &&
-                            fixture.session.getAudioSettings() == settings;
+        public void onAdaptiveTriggerSettingsChanged() {
         }
 
         @Override

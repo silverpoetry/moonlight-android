@@ -43,7 +43,6 @@ public class InputSettingsLoaderTest {
                 InputSettingKeys
                         .DEFAULT_TOUCHPAD_LONG_PRESS_DURATION_MS,
                 settings.getTouchpadLongPressDurationMs());
-        assertTrue(settings.isDirectTouchRecenterEnabled());
     }
 
     @Test
@@ -125,7 +124,6 @@ public class InputSettingsLoaderTest {
         InputSettings original = InputSettings.builder().build();
         InputSettings replacement = original.toBuilder()
                 .setAbsoluteMouseMode(true)
-                .setDirectTouchSensitivityEnabled(true)
                 .build();
         InputSettingsState state =
                 new InputSettingsState(original);
@@ -133,7 +131,6 @@ public class InputSettingsLoaderTest {
         state.replace(replacement);
 
         assertTrue(state.get().isAbsoluteMouseMode());
-        assertTrue(state.get().isDirectTouchSensitivityEnabled());
     }
 
     private static final class FakeRepository

@@ -1,7 +1,6 @@
 package com.limelight.binding.input.touch;
 
 import android.graphics.Matrix;
-import android.util.SparseArray;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
@@ -9,8 +8,6 @@ import android.view.View;
 import com.limelight.binding.input.PointerInputCompat;
 import com.limelight.binding.input.PointerInputSink;
 import com.limelight.nvstream.jni.MoonBridge;
-import com.limelight.settings.input.InputSettings;
-import com.limelight.settings.input.InputSettingsState;
 import com.limelight.utils.ViewCoordinateMapper;
 
 import java.util.Objects;
@@ -19,16 +16,12 @@ import java.util.Objects;
  * Translates Android touchscreen and stylus contacts into Moonlight's direct
  * touch and pen protocols.
  *
- * <p>This controller is confined to the Android input thread. It owns the
- * per-pointer sensitivity state and reuses its geometry scratch object to
- * avoid allocations on move events.</p>
+ * <p>This controller is confined to the Android input thread and reuses its
+ * geometry scratch object to avoid allocations on move events.</p>
  */
 public final class DirectContactInputController {
     private final View streamView;
     private final PointerInputSink inputSink;
-    private final InputSettingsState settingsState;
-    private final SparseArray<SensitivityState> sensitivityStates =
-            new SparseArray<>();
     private final ContactGeometry geometry = new ContactGeometry();
     private final float[] mappedPosition = new float[2];
     private final float[] contactBasis = new float[4];
@@ -36,19 +29,14 @@ public final class DirectContactInputController {
 
     public DirectContactInputController(
             View streamView,
-            PointerInputSink inputSink,
-            InputSettingsState settingsState) {
+            PointerInputSink inputSink) {
         this.streamView = Objects.requireNonNull(
                 streamView,
                 "streamView");
         this.inputSink = Objects.requireNonNull(inputSink, "inputSink");
-        this.settingsState = Objects.requireNonNull(
-                settingsState,
-                "settingsState");
     }
 
     public void cancel() {
-        sensitivityStates.clear();
     }
 
     public boolean trySendTouchEvent(
@@ -79,7 +67,6 @@ public final class DirectContactInputController {
                 return true;
 
             case MotionEvent.ACTION_CANCEL:
-                sensitivityStates.clear();
                 return inputSink.sendTouchEvent(
                         MoonBridge.LI_TOUCH_EVENT_CANCEL_ALL,
                         0,
@@ -271,112 +258,11 @@ public final class DirectContactInputController {
             y = mappedPosition[1];
         }
 
-        InputSettings settings = settingsState.get();
-        if (touchEvent &&
-                settings.isDirectTouchSensitivityEnabled() &&
-                (settings.getDirectTouchSensitivityX() != 100 ||
-                        settings.getDirectTouchSensitivityY() != 100)) {
-            updateSensitivityCoordinates(
-                    event,
-                    pointerIndex,
-                    x,
-                    y,
-                    settings);
-            x = geometry.x;
-            y = geometry.y;
-        }
-
         geometry.x = clamp(x, 0, streamView.getWidth()) /
                 streamView.getWidth();
         geometry.y = clamp(y, 0, streamView.getHeight()) /
                 streamView.getHeight();
         return true;
-    }
-
-    private void updateSensitivityCoordinates(
-            MotionEvent event,
-            int pointerIndex,
-            float rawX,
-            float rawY,
-            InputSettings settings) {
-        int pointerId = event.getPointerId(pointerIndex);
-        int action = event.getActionMasked();
-        if (action == MotionEvent.ACTION_DOWN ||
-                action == MotionEvent.ACTION_POINTER_DOWN) {
-            sensitivityStates.put(
-                    pointerId,
-                    new SensitivityState(rawX));
-        }
-        if (action == MotionEvent.ACTION_UP ||
-                action == MotionEvent.ACTION_POINTER_UP) {
-            sensitivityStates.remove(pointerId);
-        }
-
-        geometry.x = rawX;
-        geometry.y = rawY;
-        if (action != MotionEvent.ACTION_MOVE) {
-            return;
-        }
-
-        SensitivityState state = sensitivityStates.get(pointerId);
-        if (!settings.isDirectTouchSensitivityGlobal() &&
-                (state == null ||
-                        state.startDownX <
-                                streamView.getWidth() / 2f)) {
-            return;
-        }
-        if (state == null) {
-            return;
-        }
-
-        float deltaX = 0;
-        float deltaY = 0;
-        if (state.lastAbsoluteX != -1) {
-            deltaX = (rawX - state.lastAbsoluteX) *
-                    0.01f *
-                    settings.getDirectTouchSensitivityX();
-            deltaY = (rawY - state.lastAbsoluteY) *
-                    0.01f *
-                    settings.getDirectTouchSensitivityY();
-            geometry.x = state.lastRelativeX + deltaX;
-            geometry.y = state.lastRelativeY + deltaY;
-        }
-
-        if (settings.isDirectTouchRecenterEnabled() &&
-                (geometry.x > streamView.getWidth() ||
-                        geometry.x < 0 ||
-                        geometry.y > streamView.getHeight() ||
-                        geometry.y < 0)) {
-            geometry.x -= deltaX;
-            geometry.y -= deltaY;
-            inputSink.sendTouchEvent(
-                    MoonBridge.LI_TOUCH_EVENT_UP,
-                    pointerId,
-                    geometry.x / streamView.getWidth(),
-                    geometry.y / streamView.getHeight(),
-                    0.5f,
-                    0.5f,
-                    0.5f,
-                    (short) 0);
-            inputSink.sendTouchEvent(
-                    MoonBridge.LI_TOUCH_EVENT_DOWN,
-                    pointerId,
-                    0.5f,
-                    0.5f,
-                    0.5f,
-                    0.5f,
-                    0.5f,
-                    (short) 0);
-            geometry.x =
-                    streamView.getWidth() / 2f + deltaX;
-            geometry.y =
-                    streamView.getHeight() / 2f + deltaY;
-        }
-
-        state.lastAbsoluteX = rawX;
-        state.lastAbsoluteY = rawY;
-        state.lastRelativeX = geometry.x;
-        state.lastRelativeY = geometry.y;
     }
 
     private boolean updateNormalizedContactGeometry(
@@ -596,15 +482,4 @@ public final class DirectContactInputController {
         private short rotation;
     }
 
-    private static final class SensitivityState {
-        private final float startDownX;
-        private float lastAbsoluteX = -1;
-        private float lastAbsoluteY = -1;
-        private float lastRelativeX = -1;
-        private float lastRelativeY = -1;
-
-        private SensitivityState(float startDownX) {
-            this.startDownX = startDownX;
-        }
-    }
 }

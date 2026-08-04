@@ -289,8 +289,12 @@ public final class StreamSessionController implements NvConnectionListener {
                              int x, int y, int width, int height,
                              int hotspotX, int hotspotY, int shapeId,
                              int scaleX, int scaleY, byte[] imageData) {
+        // Sunshine sends the initial cursor shape while the transport is still
+        // starting. The presentation layer caches it until the stream surface
+        // becomes visible, so dropping it here leaves the cursor without a shape
+        // until the host later changes it.
         NvConnectionListener currentDelegate =
-                getStreamingDelegate();
+                getActiveDelegate();
         if (currentDelegate != null) {
             currentDelegate.nativeCursor(visible, shapeChanged, format,
                     x, y, width, height, hotspotX, hotspotY, shapeId,

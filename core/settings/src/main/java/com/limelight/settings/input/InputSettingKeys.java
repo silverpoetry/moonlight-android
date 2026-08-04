@@ -9,8 +9,6 @@ public final class InputSettingKeys {
     public static final int DEFAULT_SENSITIVITY_PERCENT = 100;
     public static final int MIN_SENSITIVITY_PERCENT = 10;
     public static final int MAX_SENSITIVITY_PERCENT = 300;
-    public static final int MAX_DIRECT_TOUCH_SENSITIVITY_PERCENT =
-            800;
     public static final int DEFAULT_SCROLL_AMOUNT = 5;
     public static final int MIN_SCROLL_AMOUNT = 1;
     public static final int MAX_SCROLL_AMOUNT = 30;
@@ -159,45 +157,6 @@ public final class InputSettingKeys {
                     MIN_SCROLL_AMOUNT,
                     MAX_SCROLL_AMOUNT)
                     .renamedFrom("mouse_sc_amount");
-    public static final SettingKey<Boolean>
-            DIRECT_TOUCH_SENSITIVITY_ENABLED =
-            SettingKey.booleanKey(
-                    "input.direct_touch.sensitivity_enabled",
-                    false)
-                    .renamedFrom("checkbox_enable_touch_sensitivity");
-    public static final SettingKey<Integer>
-            DIRECT_TOUCH_SENSITIVITY_X =
-            SettingKey.integerKey(
-                    "input.direct_touch.sensitivity_x",
-                    DEFAULT_SENSITIVITY_PERCENT,
-                    MIN_SENSITIVITY_PERCENT,
-                    MAX_DIRECT_TOUCH_SENSITIVITY_PERCENT)
-                    .renamedFrom(
-                            "seekbar_touch_sensitivity_opacity_x");
-    public static final SettingKey<Integer>
-            DIRECT_TOUCH_SENSITIVITY_Y =
-            SettingKey.integerKey(
-                    "input.direct_touch.sensitivity_y",
-                    DEFAULT_SENSITIVITY_PERCENT,
-                    MIN_SENSITIVITY_PERCENT,
-                    MAX_DIRECT_TOUCH_SENSITIVITY_PERCENT)
-                    .renamedFrom(
-                            "seekbar_touch_sensitivity_opacity_y");
-    public static final SettingKey<Boolean>
-            DIRECT_TOUCH_SENSITIVITY_GLOBAL =
-            SettingKey.booleanKey(
-                    "input.direct_touch.global_sensitivity",
-                    false)
-                    .renamedFrom(
-                            "checkbox_enable_global_touch_sensitivity");
-    public static final SettingKey<Boolean>
-            DIRECT_TOUCH_RECENTER =
-            SettingKey.booleanKey(
-                    "input.direct_touch.recenter_after_rotation",
-                    true)
-                    .renamedFrom(
-                            "checkbox_enable_touch_sensitivity_rotation_auto");
-
     private InputSettingKeys() {
     }
 

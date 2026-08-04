@@ -57,25 +57,20 @@ public final class SettingsScreenKeyCatalog {
                 StreamResolutionSettingKeys.ASPECT_RATIO,
                 StreamResolutionSettingKeys.FPS,
                 StreamVideoSettingKeys.BITRATE_KBPS,
+                StreamVideoSettingKeys.SCREEN_ON_POLICY,
                 StreamDecoderSettingKeys.FRAME_PACING,
                 StreamVideoSettingKeys.LOW_LATENCY_EXPERIMENT,
                 StreamDisplaySettingKeys.STRETCH_VIDEO,
                 StreamDisplaySettingKeys.DISPLAY_CUTOUT,
                 VirtualControlSettingKeys.AUTOMATIC_SCREEN_ORIENTATION,
                 StreamDisplaySettingKeys.GRAVITY,
-                AppPresentationSettingKeys.LIGHT_THEME);
+                AppPresentationSettingKeys.THEME_MODE);
 
         builder.add(
                 StreamAudioSettingKeys.CHANNEL_CONFIGURATION,
                 StreamAudioSettingKeys.AUDIO_EFFECTS,
                 StreamAudioSettingKeys.PLAY_HOST_AUDIO,
-                StreamAudioSettingKeys.MUTED,
-                StreamAudioSettingKeys.AUDIO_HAPTICS,
-                StreamAudioSettingKeys.AUDIO_HAPTICS_OUTPUT_TARGET,
-                StreamAudioSettingKeys.AUDIO_HAPTICS_STRENGTH_PERCENT,
-                StreamAudioSettingKeys.AUDIO_HAPTICS_VOICE_FILTER,
-                StreamAudioSettingKeys
-                        .KEEP_CONTROLLER_RUMBLE_WITH_AUDIO_HAPTICS);
+                StreamAudioSettingKeys.MUTED);
 
         builder.add(
                 ControllerSettingKeys.STICK_DEADZONE_PERCENT,
@@ -133,11 +128,6 @@ public final class SettingsScreenKeyCatalog {
                 InputSettingKeys.EXTERNAL_TOUCHPAD_SENSITIVITY_Y,
                 InputSettingKeys.EXTERNAL_TOUCHPAD_SCROLL_AMOUNT,
                 InputSettingKeys.MOUSE_WHEEL_SCROLL_AMOUNT,
-                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_ENABLED,
-                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_X,
-                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_Y,
-                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_GLOBAL,
-                InputSettingKeys.DIRECT_TOUCH_RECENTER,
                 InputSettingKeys.DISABLE_ADAPTIVE_INPUT_THROTTLING,
                 InputSettingKeys.ACCESSIBILITY_KEY_LOGGING);
 

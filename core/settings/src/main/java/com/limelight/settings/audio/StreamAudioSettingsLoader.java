@@ -25,22 +25,6 @@ public final class StreamAudioSettingsLoader {
                         StreamAudioSettingKeys.AUDIO_EFFECTS))
                 .setMuted(repository.get(
                         StreamAudioSettingKeys.MUTED))
-                .setAudioHaptics(
-                        repository.get(
-                                StreamAudioSettingKeys
-                                        .AUDIO_HAPTICS),
-                        parseOutputTarget(repository.get(
-                                StreamAudioSettingKeys
-                                        .AUDIO_HAPTICS_OUTPUT_TARGET)),
-                        repository.get(
-                                StreamAudioSettingKeys
-                                        .AUDIO_HAPTICS_STRENGTH_PERCENT),
-                        parseVoiceFilter(repository.get(
-                                StreamAudioSettingKeys
-                                        .AUDIO_HAPTICS_VOICE_FILTER)),
-                        repository.get(
-                                StreamAudioSettingKeys
-                                        .KEEP_CONTROLLER_RUMBLE_WITH_AUDIO_HAPTICS))
                 .build();
     }
 
@@ -50,14 +34,4 @@ public final class StreamAudioSettingsLoader {
                 .decodeChannelConfiguration(value);
     }
 
-    private static StreamAudioSettings.HapticsOutputTarget
-            parseOutputTarget(String value) {
-        return StreamAudioSettingsCodec
-                .decodeHapticsOutputTarget(value);
-    }
-
-    private static StreamAudioSettings.VoiceFilter
-            parseVoiceFilter(String value) {
-        return StreamAudioSettingsCodec.decodeVoiceFilter(value);
-    }
 }

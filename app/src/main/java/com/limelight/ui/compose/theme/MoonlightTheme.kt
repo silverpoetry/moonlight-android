@@ -15,6 +15,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.limelight.settings.android.AndroidAppPresentationSettingsLoader
+import com.limelight.settings.app.AppPresentationSettingKeys
 
 private val MoonlightLightColors = lightColorScheme(
     primary = Color(0xFF5C5FDE),
@@ -125,11 +126,17 @@ fun MoonlightTheme(
 @Composable
 fun MoonlightThemeFromSettings(content: @Composable () -> Unit) {
     val context = LocalContext.current
-    val usesLightTheme = remember(context) {
-        AndroidAppPresentationSettingsLoader.load(context).usesLightTheme()
+    val themeMode = remember(context) {
+        AndroidAppPresentationSettingsLoader.load(context).themeMode
+    }
+    val systemDarkTheme = isSystemInDarkTheme()
+    val darkTheme = when (themeMode) {
+        AppPresentationSettingKeys.THEME_MODE_LIGHT -> false
+        AppPresentationSettingKeys.THEME_MODE_DARK -> true
+        else -> systemDarkTheme
     }
     MoonlightTheme(
-        darkTheme = !usesLightTheme,
+        darkTheme = darkTheme,
         content = content,
     )
 }

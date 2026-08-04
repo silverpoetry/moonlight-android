@@ -69,12 +69,6 @@ public final class InputSettingsUpdateTest {
         InputSettings updated = reset.applyTo(original);
         reset.persist(repository);
 
-        assertFalse(updated.isDirectTouchSensitivityEnabled());
-        assertFalse(updated.isDirectTouchSensitivityGlobal());
-        assertTrue(updated.isDirectTouchRecenterEnabled());
-        assertEquals(
-                InputSettingKeys.DEFAULT_SENSITIVITY_PERCENT,
-                updated.getDirectTouchSensitivityX());
         assertEquals(
                 InputSettingKeys.DEFAULT_SENSITIVITY_PERCENT,
                 updated.getTouchpadPointerSensitivityY());
@@ -97,7 +91,7 @@ public final class InputSettingsUpdateTest {
         assertTrue(updated.isAbsoluteMouseMode());
         assertTrue(updated.isBarometerForcePressEnabled());
 
-        assertEquals(13, repository.values.size());
+        assertEquals(8, repository.values.size());
         assertEquals(1, repository.applyCount);
     }
 
@@ -162,10 +156,6 @@ public final class InputSettingsUpdateTest {
                 .setExternalTouchpadSensitivity(170, 180)
                 .setExternalTouchpadScrollAmount(19)
                 .setMouseWheelScrollAmount(20)
-                .setDirectTouchSensitivityEnabled(true)
-                .setDirectTouchSensitivity(210, 220)
-                .setDirectTouchSensitivityGlobal(true)
-                .setDirectTouchRecenterEnabled(false)
                 .build();
     }
 

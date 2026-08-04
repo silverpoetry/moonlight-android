@@ -5,9 +5,6 @@ import android.view.Surface;
 import com.limelight.nvstream.av.audio.AudioRenderer;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 import com.limelight.nvstream.jni.MoonBridge;
-import com.limelight.settings.audio.StreamAudioSettings;
-import com.limelight.settings.audio.StreamAudioSettings.HapticsOutputTarget;
-import com.limelight.settings.audio.StreamAudioSettings.VoiceFilter;
 
 import org.junit.Test;
 
@@ -90,35 +87,6 @@ public final class StreamMediaResourceOwnerTest {
         assertEquals(0, owner.getActiveVideoFormat());
     }
 
-    @Test
-    public void audioSettingsReachOnlyActiveAudioResource() {
-        FakeAudioResource audio = new FakeAudioResource();
-        StreamMediaResourceOwner owner =
-                new StreamMediaResourceOwner(
-                        new FakeVideoResource(),
-                        () -> audio);
-
-        owner.updateAudioSettings(audioSettings(101));
-        owner.prepareStart(() -> null);
-        owner.updateAudioSettings(audioSettings(102));
-        owner.releaseStartResources();
-        owner.updateAudioSettings(audioSettings(103));
-
-        assertEquals(1, audio.settingsUpdateCount);
-        assertEquals(102, audio.lastStrength);
-    }
-
-    private static StreamAudioSettings audioSettings(int strength) {
-        return StreamAudioSettings.builder()
-                .setAudioHaptics(
-                        true,
-                        HapticsOutputTarget.CONTROLLER,
-                        strength,
-                        VoiceFilter.OFF,
-                        false)
-                .build();
-    }
-
     private static final class FakeVideoResource
             implements StreamMediaResourceOwner.VideoResource {
         private final VideoDecoderRenderer renderer =
@@ -189,20 +157,12 @@ public final class StreamMediaResourceOwnerTest {
     private static final class FakeAudioResource
             implements StreamMediaResourceOwner.AudioResource {
         private final AudioRenderer renderer = new FakeAudioRenderer();
-        private int settingsUpdateCount;
-        private int lastStrength;
 
         @Override
         public AudioRenderer getTransportRenderer() {
             return renderer;
         }
 
-        @Override
-        public void updateAudioSettings(
-                StreamAudioSettings settings) {
-            settingsUpdateCount++;
-            lastStrength = settings.getHapticsStrengthPercent();
-        }
     }
 
     private static final class FakeAudioRenderer

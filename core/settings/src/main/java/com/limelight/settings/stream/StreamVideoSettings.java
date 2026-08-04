@@ -69,7 +69,6 @@ public final class StreamVideoSettings {
     private final boolean hdrHighBrightness;
     private final boolean ignoreHdrCapability;
     private final boolean lowLatencyExperimentEnabled;
-    private final boolean fpsUnlocked;
     private final boolean portrait;
     private final boolean externalDisplay;
     private final boolean nativeResolution;
@@ -104,7 +103,6 @@ public final class StreamVideoSettings {
         ignoreHdrCapability = builder.ignoreHdrCapability;
         lowLatencyExperimentEnabled =
                 builder.lowLatencyExperimentEnabled;
-        fpsUnlocked = builder.fpsUnlocked;
         portrait = builder.portrait;
         externalDisplay = builder.externalDisplay;
         nativeResolution = builder.nativeResolution;
@@ -163,10 +161,6 @@ public final class StreamVideoSettings {
         return lowLatencyExperimentEnabled;
     }
 
-    public boolean isFpsUnlocked() {
-        return fpsUnlocked;
-    }
-
     public boolean isPortrait() {
         return portrait;
     }
@@ -205,7 +199,6 @@ public final class StreamVideoSettings {
         private boolean hdrHighBrightness;
         private boolean ignoreHdrCapability;
         private boolean lowLatencyExperimentEnabled = true;
-        private boolean fpsUnlocked;
         private boolean portrait;
         private boolean externalDisplay;
         private boolean nativeResolution;
@@ -232,7 +225,6 @@ public final class StreamVideoSettings {
                     settings.ignoreHdrCapability;
             lowLatencyExperimentEnabled =
                     settings.lowLatencyExperimentEnabled;
-            fpsUnlocked = settings.fpsUnlocked;
             portrait = settings.portrait;
             externalDisplay = settings.externalDisplay;
             nativeResolution = settings.nativeResolution;
@@ -289,11 +281,6 @@ public final class StreamVideoSettings {
         public Builder setLowLatencyExperimentEnabled(
                 boolean enabled) {
             lowLatencyExperimentEnabled = enabled;
-            return this;
-        }
-
-        public Builder setFpsUnlocked(boolean unlocked) {
-            fpsUnlocked = unlocked;
             return this;
         }
 

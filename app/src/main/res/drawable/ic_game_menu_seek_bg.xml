@@ -5,7 +5,7 @@
         android:gravity="center_vertical|fill_horizontal">
         <shape android:shape="rectangle">
             <size android:height="10dp" />
-            <solid android:color="#35D5D5D5" />
+            <solid android:color="@color/game_menu_material_outline_variant" />
             <corners android:radius="10dp" />
         </shape>
     </item>
@@ -16,10 +16,7 @@
             <shape android:shape="rectangle">
                 <size android:height="12dp" />
                 <!--<solid android:color="#707d93" />-->
-                <gradient
-                    android:angle="0"
-                    android:endColor="#8C99E6"
-                    android:startColor="#888EB6" />
+                <solid android:color="@color/game_menu_material_primary" />
                 <corners android:radius="10dp" />
             </shape>
         </scale>

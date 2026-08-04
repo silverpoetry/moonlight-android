@@ -5,18 +5,16 @@ import android.content.Context
 import android.graphics.Color
 import android.view.ViewGroup
 import android.view.Window
+import androidx.activity.ComponentDialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -53,7 +51,7 @@ class ActionMenuPresenter(private val context: Context) {
         onDismiss: Runnable? = null,
     ) {
         dismiss()
-        val dialog = Dialog(context)
+        val dialog = ComponentDialog(context)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         val content = ComposeView(context).apply {
             setViewCompositionStrategy(
@@ -111,16 +109,7 @@ class ActionMenuPresenter(private val context: Context) {
         onAction: (Action) -> Unit,
         onDismiss: () -> Unit,
     ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp)
-                .widthIn(max = 560.dp),
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
-        ) {
+        MoonlightDialogSurface(maxWidth = 480.dp) {
             Column(
                 modifier = Modifier.padding(vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -152,6 +141,7 @@ class ActionMenuPresenter(private val context: Context) {
                                         painter = painterResource(action.iconRes),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp),
                                     )
                                 }
                             } else {

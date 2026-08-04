@@ -1,7 +1,6 @@
 package com.limelight.ui.performance;
 
 import com.limelight.binding.video.PerfOverlayStats;
-import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.stream.StreamDecoderSettings;
 import com.limelight.settings.stream.StreamDisplaySettings;
@@ -179,10 +178,6 @@ public final class PerformanceOverlayFormatter {
                         "开启" :
                         "关闭"));
         rows.add(new Row(
-                "音频震动",
-                formatAudioHaptics(
-                        configuration.getAudioSettings())));
-        rows.add(new Row(
                 "USB手柄",
                 formatUsbController(
                         configuration.getControllerSettings(),
@@ -225,38 +220,6 @@ public final class PerformanceOverlayFormatter {
         return runtime.usbServiceConnected ?
                 "待机" :
                 "未启动";
-    }
-
-    private String formatAudioHaptics(
-            StreamAudioSettings settings) {
-        if (!settings.areAudioHapticsEnabled()) {
-            return "关闭";
-        }
-        return "开 / " +
-                (settings.isControllerHapticsTarget() ?
-                        "手柄" :
-                        "手机") +
-                " / " +
-                audioHapticsFilterName(
-                        settings.getVoiceFilter()) +
-                " / " +
-                settings.getHapticsStrengthPercent() +
-                "%";
-    }
-
-    private String audioHapticsFilterName(
-            StreamAudioSettings.VoiceFilter filter) {
-        switch (filter) {
-            case LOW:
-                return "低";
-            case MEDIUM:
-                return "中";
-            case HIGH:
-                return "高";
-            case OFF:
-            default:
-                return "关";
-        }
     }
 
     private String formatSessionDuration(

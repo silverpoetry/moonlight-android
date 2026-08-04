@@ -52,17 +52,6 @@ public final class StreamGameMenuHostTest {
         assertEquals(1, fixture.actions.cancelBackCount);
     }
 
-    @Test
-    public void displayApplyDismissesMenuBeforeRestarting() {
-        Fixture fixture = new Fixture();
-        fixture.menuSession.actions = fixture.actions;
-
-        fixture.host.onDisplayConfigurationApplied();
-
-        assertTrue(fixture.menuSession.dismissedBeforeDisconnect);
-        assertEquals(1, fixture.actions.restartCount);
-    }
-
     private static final class Fixture {
         private final FakeRepository repository =
                 new FakeRepository();
@@ -73,7 +62,6 @@ public final class StreamGameMenuHostTest {
         private final StreamGameMenuHost host =
                 new StreamGameMenuHost(
                         createSettingsSession(repository),
-                        new NoOpCustomResolutionRepository(),
                         new NoOpCardLayoutRepository(),
                         new NoOpShortcutRepository(),
                         menuSession,
@@ -112,8 +100,7 @@ public final class StreamGameMenuHostTest {
                     }
 
                     @Override
-                    public void onAudioSettingsChanged(
-                            StreamAudioSettings settings) {
+                    public void onAdaptiveTriggerSettingsChanged() {
                     }
 
                     @Override
@@ -130,10 +117,8 @@ public final class StreamGameMenuHostTest {
 
     private static final class RecordingMenuSession
             implements StreamGameMenuHost.MenuSession {
-        private RecordingActions actions;
         private int toggleCount;
         private int dismissedCount;
-        private boolean dismissedBeforeDisconnect;
 
         @Override
         public boolean isMouseEmulationAvailable() {
@@ -152,16 +137,12 @@ public final class StreamGameMenuHostTest {
 
         @Override
         public void dismiss() {
-            dismissedBeforeDisconnect =
-                    actions == null || actions.disconnectCount == 0;
         }
     }
 
     private static final class RecordingActions
             implements StreamGameMenuHost.Actions {
         private int cancelBackCount;
-        private int disconnectCount;
-        private int restartCount;
 
         @Override
         public boolean isInputReady() {
@@ -219,12 +200,6 @@ public final class StreamGameMenuHostTest {
 
         @Override
         public void requestStreamDisconnect() {
-            disconnectCount++;
-        }
-
-        @Override
-        public void requestStreamRestart() {
-            restartCount++;
         }
 
         @Override
@@ -284,6 +259,11 @@ public final class StreamGameMenuHostTest {
         }
 
         @Override
+        public boolean isLocalSystemCursorVisible() {
+            return false;
+        }
+
+        @Override
         public void switchMouseLocalCursor() {
         }
 
@@ -294,10 +274,6 @@ public final class StreamGameMenuHostTest {
 
         @Override
         public void switchMouseModel(int mode) {
-        }
-
-        @Override
-        public void applyDualSenseTriggerSettings() {
         }
 
         @Override
@@ -312,26 +288,6 @@ public final class StreamGameMenuHostTest {
 
         @Override
         public void pullRemoteClipboardFiles() {
-        }
-    }
-
-    private static final class NoOpCustomResolutionRepository
-            implements com.limelight.settings.stream
-                    .CustomResolutionRepository {
-        @Override
-        public java.util.Set<com.limelight.settings.stream.CustomResolution>
-                load() {
-            return Collections.emptySet();
-        }
-
-        @Override
-        public void add(
-                com.limelight.settings.stream.CustomResolution resolution) {
-        }
-
-        @Override
-        public void remove(
-                com.limelight.settings.stream.CustomResolution resolution) {
         }
     }
 

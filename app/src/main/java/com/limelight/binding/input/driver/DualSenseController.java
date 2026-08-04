@@ -183,8 +183,7 @@ public class DualSenseController extends AbstractDualSenseController {
    //参考https://gist.github.com/stealth-alex/10a8e7cc6027b78fa18a7f48a0d3d1e4
    //https://github.com/flok/pydualsense/blob/master/pydualsense/pydualsense.py
 //   outputReport[1]  = 0xff; // flags determiing what changes this packet will perform
-//   // 0x01 set the main motors (also requires flag 0x02); setting this by itself will allow rumble to gracefully terminate and then re-enable audio haptics, whereas not setting it will kill the rumble instantly and re-enable audio haptics.
-//   // 0x02 set the main motors (also requires flag 0x01; without bit 0x01 motors are allowed to time out without re-enabling audio haptics)
+//   // 0x01 and 0x02 together update the main motors.
 //   // 0x04 set the right trigger motor
 //   // 0x08 set the left trigger motor
 //   // 0x10 modification of audio volume
@@ -247,14 +246,10 @@ public class DualSenseController extends AbstractDualSenseController {
       if (DebugLog.isEnabled()) {
          DebugLog.debug("DualController", "sendCommand");
       }
-      updateAdvancedAudioHapticsTriggerCache(data);
       int res = connection.bulkTransfer(outEndpt, data, data.length, 1000);
       if (res != data.length) {
          DebugLog.warning("DualController",
                  "Command transfer failed: result=" + res + " expected=" + data.length);
-      }
-      else if (data.length > 0 && data[0] == 0x02) {
-         invalidateAdvancedAudioHapticsPrime();
       }
    }
 

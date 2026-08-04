@@ -5,7 +5,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.limelight.settings.SettingsScreenIds;
-import com.limelight.settings.audio.StreamAudioSettingKeys;
 import com.limelight.settings.controller.ControllerSettingKeys;
 import com.limelight.settings.input.InputSettingKeys;
 import com.limelight.settings.ui.StreamUiSettingKeys;
@@ -38,7 +37,7 @@ public final class SettingsVisibilityPolicyTest {
                 SettingsScreenIds.SECTION_VIRTUAL_CONTROLS));
 
         Set<String> hidden = result.getHiddenItemIds();
-        assertEquals(15, hidden.size());
+        assertEquals(12, hidden.size());
         assertContains(hidden,
                 InputSettingKeys.ABSOLUTE_MOUSE_MODE.getName(),
                 InputSettingKeys.BAROMETER_FORCE_PRESS.getName(),
@@ -56,13 +55,6 @@ public final class SettingsVisibilityPolicyTest {
                 ControllerSettingKeys.FALLBACK_DEVICE_RUMBLE.getName(),
                 ControllerSettingKeys
                         .FALLBACK_DEVICE_RUMBLE_STRENGTH_PERCENT
-                        .getName(),
-                StreamAudioSettingKeys.AUDIO_HAPTICS.getName(),
-                StreamAudioSettingKeys
-                        .AUDIO_HAPTICS_STRENGTH_PERCENT
-                        .getName(),
-                StreamAudioSettingKeys
-                        .AUDIO_HAPTICS_VOICE_FILTER
                         .getName(),
                 ControllerSettingKeys.ONSCREEN_RUMBLE.getName());
     }

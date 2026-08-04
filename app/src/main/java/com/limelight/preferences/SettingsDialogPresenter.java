@@ -42,12 +42,33 @@ final class SettingsDialogPresenter {
         String current = item.type == SettingsItem.Type.INTEGER_LIST
                 ? Integer.toString(store.getInt(item))
                 : store.getString(item);
-        activeDialog = dialogFactory.showList(
-                item.title,
-                item.entries,
-                item.entryValues,
-                current,
-                value -> listener.onListValueSelected(item, value));
+        switch (SettingsEditorCatalog.forItem(item)) {
+            case DISCRETE_SLIDER:
+                activeDialog = dialogFactory.showDiscreteListSlider(
+                        item.title,
+                        item.entries,
+                        item.entryValues,
+                        current,
+                        value -> listener.onListValueSelected(item, value));
+                break;
+            case SEGMENTED:
+                activeDialog = dialogFactory.showSegmentedList(
+                        item.title,
+                        item.entries,
+                        item.entryValues,
+                        current,
+                        value -> listener.onListValueSelected(item, value));
+                break;
+            case LIST:
+            default:
+                activeDialog = dialogFactory.showList(
+                        item.title,
+                        item.entries,
+                        item.entryValues,
+                        current,
+                        value -> listener.onListValueSelected(item, value));
+                break;
+        }
         trackDismissal(activeDialog);
     }
 

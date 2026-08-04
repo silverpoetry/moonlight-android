@@ -21,14 +21,17 @@ class GameMenuComposeRendererTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun rendersAllPersistentNavigationActions() {
+    fun rendersStructuredControlSectionsWithoutLegacySideRail() {
         lateinit var renderer: GameMenuComposeRenderer
         composeRule.setContent {
             AndroidView(
                 factory = { context ->
                     ComposeView(context).also { composeView ->
                         renderer = GameMenuComposeRenderer(composeView, null)
-                        renderer.update(defaultState(), emptyList<Any>())
+                        renderer.update(
+                            defaultState(),
+                            GameMenuCardConfiguration.defaults(emptyList()),
+                        )
                     }
                 },
             )
@@ -37,10 +40,10 @@ class GameMenuComposeRendererTest {
         val context = androidx.test.platform.app.InstrumentationRegistry
             .getInstrumentation().targetContext
         listOf(
-            R.string.game_menu_tab_actions,
-            R.string.game_menu_tab_keyboard,
-            R.string.game_menu_tab_desktop,
-            R.string.game_menu_tab_windows,
+            R.string.game_menu_title,
+            R.string.game_menu_quick_actions_title,
+            R.string.game_menu_input_controls_title,
+            R.string.game_menu_section_mouse_touch,
         ).forEach { labelRes ->
             composeRule.onNodeWithText(context.getString(labelRes))
                 .assertExists()

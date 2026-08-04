@@ -43,8 +43,7 @@ public final class DirectContactInputControllerTest {
                 InputSettings.builder().build());
         controller = new DirectContactInputController(
                 streamView,
-                inputSink,
-                settingsState);
+                inputSink);
     }
 
     @Test
@@ -153,52 +152,6 @@ public final class DirectContactInputControllerTest {
                 0.05059644f,
                 inputSink.lastContactAreaMinor,
                 0.000001f);
-    }
-
-    @Test
-    public void sensitivityStateUsesMappedStreamCoordinates() {
-        Context context = streamView.getContext();
-        FrameLayout parent = new FrameLayout(context);
-        View containingView = new View(context);
-        parent.addView(containingView);
-        parent.addView(streamView);
-        containingView.layout(0, 0, 1_200, 700);
-        streamView.layout(-200, 0, 800, 500);
-        settingsState.replace(
-                settingsState.get()
-                        .toBuilder()
-                        .setDirectTouchSensitivityEnabled(true)
-                        .setDirectTouchSensitivityGlobal(false)
-                        .setDirectTouchSensitivity(200, 100)
-                        .build());
-
-        assertTrue(controller.trySendTouchEvent(
-                containingView,
-                event(
-                        MotionEvent.ACTION_DOWN,
-                        MotionEvent.TOOL_TYPE_FINGER,
-                        400,
-                        100,
-                        0)));
-        assertTrue(controller.trySendTouchEvent(
-                containingView,
-                event(
-                        MotionEvent.ACTION_MOVE,
-                        MotionEvent.TOOL_TYPE_FINGER,
-                        410,
-                        100,
-                        0)));
-        assertTrue(controller.trySendTouchEvent(
-                containingView,
-                event(
-                        MotionEvent.ACTION_MOVE,
-                        MotionEvent.TOOL_TYPE_FINGER,
-                        420,
-                        100,
-                        0)));
-
-        assertEquals(0.63f, inputSink.lastX, 0.0001f);
-        assertEquals(0.2f, inputSink.lastY, 0.0001f);
     }
 
     @Test

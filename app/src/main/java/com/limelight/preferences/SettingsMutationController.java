@@ -111,7 +111,7 @@ final class SettingsMutationController {
             SettingsItem item,
             boolean allowSwitchAnimation) {
         Objects.requireNonNull(item, "item");
-        if (AppPresentationSettingKeys.LIGHT_THEME
+        if (AppPresentationSettingKeys.THEME_MODE
                 .getName()
                 .equals(item.key) ||
                 AppPresentationSettingKeys.LANGUAGE

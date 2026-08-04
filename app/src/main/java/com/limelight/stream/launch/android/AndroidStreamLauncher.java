@@ -1,9 +1,9 @@
 package com.limelight.stream.launch.android;
 
 import android.app.Activity;
+import android.content.Intent;
 
 import com.limelight.LimeLog;
-import com.limelight.computers.model.HostConnectionState;
 import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.stream.launch.RecentStreamSession;
@@ -72,8 +72,6 @@ public final class AndroidStreamLauncher {
             NvApp app,
             String uniqueId) {
         if (host == null ||
-                host.getConnectionState().getReachability() ==
-                        HostConnectionState.Reachability.OFFLINE ||
                 host.getConnectionState().getActiveEndpoint() == null) {
             return result(Outcome.HOST_UNAVAILABLE);
         }
@@ -98,10 +96,13 @@ public final class AndroidStreamLauncher {
 
         StreamLaunchUseCase.Result result = useCase.launch(
                 request,
-                acceptedRequest -> activity.startActivity(
-                        AndroidStreamLaunchIntentFactory.create(
-                                activity,
-                                acceptedRequest)));
+                acceptedRequest -> {
+                    Intent intent =
+                            AndroidStreamLaunchIntentFactory.create(
+                                    activity,
+                                    acceptedRequest);
+                    activity.startActivity(intent);
+                });
         if (result.getPersistenceFailure() != null) {
             LimeLog.warning(
                     "Unable to remember recent stream: " +
@@ -109,7 +110,11 @@ public final class AndroidStreamLauncher {
                                     .getClass()
                                     .getSimpleName());
         }
-        return map(result);
+        Result mapped = map(result);
+        LimeLog.info(
+                "Stream launch admission: appId=" + app.getAppId() +
+                        ", outcome=" + mapped.getOutcome());
+        return mapped;
     }
 
     public RecentStreamSession findRecentSession(String hostId) {

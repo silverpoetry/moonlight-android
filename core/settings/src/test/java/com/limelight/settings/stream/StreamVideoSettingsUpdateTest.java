@@ -163,7 +163,6 @@ public final class StreamVideoSettingsUpdateTest {
                 .setHdrHighBrightness(true)
                 .setIgnoreHdrCapability(true)
                 .setLowLatencyExperimentEnabled(false)
-                .setFpsUnlocked(true)
                 .setPortrait(false)
                 .setExternalDisplay(false)
                 .setVirtualDisplayMode(

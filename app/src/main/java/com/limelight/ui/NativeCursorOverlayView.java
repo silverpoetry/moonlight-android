@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.view.View;
 
@@ -12,6 +13,9 @@ import com.limelight.utils.ViewCoordinateMapper;
 
 public class NativeCursorOverlayView extends View {
     public static final int CURSOR_FORMAT_BGRA = 1;
+    private static final int DEFAULT_CURSOR_SIZE = 32;
+    private static final int DEFAULT_CURSOR_HOTSPOT = 2;
+    private static final Bitmap DEFAULT_CURSOR_BITMAP = createDefaultCursorBitmap();
 
     private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
     private final float[] mappedPosition = new float[2];
@@ -21,6 +25,7 @@ public class NativeCursorOverlayView extends View {
     private Bitmap cursorBitmap;
     private Bitmap scaledCursorBitmap;
     private boolean visible;
+    private boolean hasNativeCursorState;
     private boolean hasPosition;
     private float x;
     private float y;
@@ -64,6 +69,7 @@ public class NativeCursorOverlayView extends View {
                              int width, int height,
                              int hotspotX, int hotspotY, int shapeId, byte[] imageData) {
         boolean oldVisible = this.visible;
+        hasNativeCursorState = true;
         this.visible = visible;
 
         if (shapeChanged && format == CURSOR_FORMAT_BGRA && width > 0 && height > 0 &&
@@ -76,8 +82,46 @@ public class NativeCursorOverlayView extends View {
             updateScaledCursorBitmap();
             invalidateCursorBounds();
         }
+        else if (visible && cursorBitmap == null) {
+            // Native cursor streaming separates visibility from the cursor image. Show a
+            // deterministic local arrow while the initial shape is unavailable, then replace
+            // it atomically as soon as the host provides a valid BGRA image.
+            invalidateCursorBounds();
+            hotspotX = DEFAULT_CURSOR_HOTSPOT;
+            hotspotY = DEFAULT_CURSOR_HOTSPOT;
+            cursorBitmap = DEFAULT_CURSOR_BITMAP;
+            updateScaledCursorBitmap();
+            invalidateCursorBounds();
+        }
 
         if (oldVisible != visible) {
+            invalidate();
+        }
+    }
+
+    /**
+     * Presents a local arrow only until the host has supplied an authoritative cursor state.
+     *
+     * <p>Windows' secure desktop can prevent Sunshine from probing any cursor state at all.
+     * That differs from a host {@code visible=false} update, which remains authoritative and
+     * must keep the overlay hidden.</p>
+     */
+    public void showFallbackCursorIfNativeStateUnavailable() {
+        if (hasNativeCursorState) {
+            return;
+        }
+
+        boolean oldVisible = visible;
+        if (cursorBitmap == null) {
+            invalidateCursorBounds();
+            hotspotX = DEFAULT_CURSOR_HOTSPOT;
+            hotspotY = DEFAULT_CURSOR_HOTSPOT;
+            cursorBitmap = DEFAULT_CURSOR_BITMAP;
+            updateScaledCursorBitmap();
+            invalidateCursorBounds();
+        }
+        visible = true;
+        if (!oldVisible) {
             invalidate();
         }
     }
@@ -162,6 +206,7 @@ public class NativeCursorOverlayView extends View {
 
     public void clearCursor() {
         visible = false;
+        hasNativeCursorState = false;
         hasPosition = false;
         cursorBitmap = null;
         scaledCursorBitmap = null;
@@ -257,6 +302,41 @@ public class NativeCursorOverlayView extends View {
         }
 
         return Bitmap.createBitmap(argb, width, height, Bitmap.Config.ARGB_8888);
+    }
+
+    private static Bitmap createDefaultCursorBitmap() {
+        Bitmap bitmap = Bitmap.createBitmap(
+                DEFAULT_CURSOR_SIZE,
+                DEFAULT_CURSOR_SIZE,
+                Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        Path path = new Path();
+
+        path.moveTo(2f, 1f);
+        path.lineTo(2f, 29f);
+        path.lineTo(9f, 22f);
+        path.lineTo(14f, 31f);
+        path.lineTo(20f, 27f);
+        path.lineTo(15f, 18f);
+        path.lineTo(28f, 18f);
+        path.close();
+        paint.setColor(0xFF101010);
+        canvas.drawPath(path, paint);
+
+        path.reset();
+        path.moveTo(5f, 5f);
+        path.lineTo(5f, 23f);
+        path.lineTo(10f, 18f);
+        path.lineTo(15f, 28f);
+        path.lineTo(17f, 27f);
+        path.lineTo(12f, 16f);
+        path.lineTo(23f, 16f);
+        path.close();
+        paint.setColor(0xFFF8F8F8);
+        canvas.drawPath(path, paint);
+
+        return bitmap;
     }
 
     private static Bitmap scaleCursorBitmapMaxAlpha(Bitmap source, int width, int height) {

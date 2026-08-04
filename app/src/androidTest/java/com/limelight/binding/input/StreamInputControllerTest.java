@@ -51,8 +51,7 @@ public final class StreamInputControllerTest {
         DirectContactInputController directContactInputController =
                 new DirectContactInputController(
                         streamView,
-                        inputSink,
-                        settingsState);
+                        inputSink);
         InputCaptureProvider inputCaptureProvider =
                 new InputCaptureProvider() {
                 };
@@ -190,16 +189,12 @@ public final class StreamInputControllerTest {
                 controller.getSettings()
                         .toBuilder()
                         .setAbsoluteMouseMode(true)
-                        .setDirectTouchSensitivityEnabled(true)
                         .setExternalTouchpadSensitivity(175, 125)
                         .build();
 
         controller.replaceLiveSettings(replacement);
 
         assertTrue(controller.getSettings().isAbsoluteMouseMode());
-        assertTrue(
-                controller.getSettings()
-                        .isDirectTouchSensitivityEnabled());
         assertEquals(
                 175,
                 controller.getSettings()

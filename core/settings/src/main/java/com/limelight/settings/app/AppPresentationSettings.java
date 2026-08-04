@@ -8,16 +8,18 @@ import java.util.Objects;
 public final class AppPresentationSettings {
     private final String language;
     private final boolean smallAppIcons;
-    private final boolean lightTheme;
+    private final String themeMode;
     AppPresentationSettings(
             String language,
             boolean smallAppIcons,
-            boolean lightTheme) {
+            String themeMode) {
         this.language = Objects.requireNonNull(
                 language,
                 "language");
         this.smallAppIcons = smallAppIcons;
-        this.lightTheme = lightTheme;
+        this.themeMode = Objects.requireNonNull(
+                themeMode,
+                "themeMode");
     }
 
     public String getLanguage() {
@@ -33,8 +35,23 @@ public final class AppPresentationSettings {
         return smallAppIcons;
     }
 
+    public String getThemeMode() {
+        return themeMode;
+    }
+
+    public boolean followsSystemTheme() {
+        return AppPresentationSettingKeys.THEME_MODE_SYSTEM.equals(
+                themeMode);
+    }
+
     public boolean usesLightTheme() {
-        return lightTheme;
+        return AppPresentationSettingKeys.THEME_MODE_LIGHT.equals(
+                themeMode);
+    }
+
+    public boolean usesDarkTheme() {
+        return AppPresentationSettingKeys.THEME_MODE_DARK.equals(
+                themeMode);
     }
 
     @Override
@@ -48,7 +65,7 @@ public final class AppPresentationSettings {
         AppPresentationSettings settings =
                 (AppPresentationSettings) other;
         return smallAppIcons == settings.smallAppIcons &&
-                lightTheme == settings.lightTheme &&
+                themeMode.equals(settings.themeMode) &&
                 language.equals(settings.language);
     }
 
@@ -57,6 +74,6 @@ public final class AppPresentationSettings {
         return Objects.hash(
                 language,
                 smallAppIcons,
-                lightTheme);
+                themeMode);
     }
 }

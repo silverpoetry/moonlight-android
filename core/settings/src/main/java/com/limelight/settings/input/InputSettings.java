@@ -22,11 +22,6 @@ public final class InputSettings {
     private final int externalTouchpadSensitivityY;
     private final int externalTouchpadScrollAmount;
     private final int mouseWheelScrollAmount;
-    private final boolean directTouchSensitivityEnabled;
-    private final int directTouchSensitivityX;
-    private final int directTouchSensitivityY;
-    private final boolean directTouchSensitivityGlobal;
-    private final boolean directTouchRecenterEnabled;
 
     private InputSettings(Builder builder) {
         touchModePreferenceValue =
@@ -79,22 +74,6 @@ public final class InputSettings {
                 builder.mouseWheelScrollAmount,
                 InputSettingKeys.MIN_SCROLL_AMOUNT,
                 InputSettingKeys.MAX_SCROLL_AMOUNT);
-        directTouchSensitivityEnabled =
-                builder.directTouchSensitivityEnabled;
-        directTouchSensitivityX = clamp(
-                builder.directTouchSensitivityX,
-                InputSettingKeys.MIN_SENSITIVITY_PERCENT,
-                InputSettingKeys
-                        .MAX_DIRECT_TOUCH_SENSITIVITY_PERCENT);
-        directTouchSensitivityY = clamp(
-                builder.directTouchSensitivityY,
-                InputSettingKeys.MIN_SENSITIVITY_PERCENT,
-                InputSettingKeys
-                        .MAX_DIRECT_TOUCH_SENSITIVITY_PERCENT);
-        directTouchSensitivityGlobal =
-                builder.directTouchSensitivityGlobal;
-        directTouchRecenterEnabled =
-                builder.directTouchRecenterEnabled;
     }
 
     public static Builder builder() {
@@ -181,26 +160,6 @@ public final class InputSettings {
         return mouseWheelScrollAmount;
     }
 
-    public boolean isDirectTouchSensitivityEnabled() {
-        return directTouchSensitivityEnabled;
-    }
-
-    public int getDirectTouchSensitivityX() {
-        return directTouchSensitivityX;
-    }
-
-    public int getDirectTouchSensitivityY() {
-        return directTouchSensitivityY;
-    }
-
-    public boolean isDirectTouchSensitivityGlobal() {
-        return directTouchSensitivityGlobal;
-    }
-
-    public boolean isDirectTouchRecenterEnabled() {
-        return directTouchRecenterEnabled;
-    }
-
     private static int normalizeTouchMode(int value) {
         return value >= 0 && value <= 6 ? value : 0;
     }
@@ -266,13 +225,6 @@ public final class InputSettings {
                 InputSettingKeys.DEFAULT_SCROLL_AMOUNT;
         private int mouseWheelScrollAmount =
                 InputSettingKeys.DEFAULT_SCROLL_AMOUNT;
-        private boolean directTouchSensitivityEnabled;
-        private int directTouchSensitivityX =
-                InputSettingKeys.DEFAULT_SENSITIVITY_PERCENT;
-        private int directTouchSensitivityY =
-                InputSettingKeys.DEFAULT_SENSITIVITY_PERCENT;
-        private boolean directTouchSensitivityGlobal;
-        private boolean directTouchRecenterEnabled = true;
 
         private Builder() {
         }
@@ -313,16 +265,6 @@ public final class InputSettings {
                     settings.externalTouchpadScrollAmount;
             mouseWheelScrollAmount =
                     settings.mouseWheelScrollAmount;
-            directTouchSensitivityEnabled =
-                    settings.directTouchSensitivityEnabled;
-            directTouchSensitivityX =
-                    settings.directTouchSensitivityX;
-            directTouchSensitivityY =
-                    settings.directTouchSensitivityY;
-            directTouchSensitivityGlobal =
-                    settings.directTouchSensitivityGlobal;
-            directTouchRecenterEnabled =
-                    settings.directTouchRecenterEnabled;
         }
 
         public Builder setTouchModePreferenceValue(int value) {
@@ -415,32 +357,6 @@ public final class InputSettings {
 
         public Builder setMouseWheelScrollAmount(int amount) {
             mouseWheelScrollAmount = amount;
-            return this;
-        }
-
-        public Builder setDirectTouchSensitivityEnabled(
-                boolean enabled) {
-            directTouchSensitivityEnabled = enabled;
-            return this;
-        }
-
-        public Builder setDirectTouchSensitivity(
-                int x,
-                int y) {
-            directTouchSensitivityX = x;
-            directTouchSensitivityY = y;
-            return this;
-        }
-
-        public Builder setDirectTouchSensitivityGlobal(
-                boolean global) {
-            directTouchSensitivityGlobal = global;
-            return this;
-        }
-
-        public Builder setDirectTouchRecenterEnabled(
-                boolean enabled) {
-            directTouchRecenterEnabled = enabled;
             return this;
         }
 

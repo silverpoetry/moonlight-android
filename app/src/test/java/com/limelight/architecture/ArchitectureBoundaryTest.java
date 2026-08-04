@@ -1735,7 +1735,13 @@ public final class ArchitectureBoundaryTest {
         noClasses()
                 .that()
                 .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameTouchFragment")
+                        "com.limelight.ui.gamemenu.GameMouseTouchFragment")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameTouchSensitivityFragment")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuVirtualViewFragment")
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage(
@@ -1751,44 +1757,19 @@ public final class ArchitectureBoundaryTest {
         noClasses()
                 .that()
                 .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameTouchFragment")
+                        "com.limelight.ui.gamemenu.GameMouseTouchFragment")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameTouchSensitivityFragment")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.ui.gamemenu.GameMenuVirtualViewFragment")
                 .should()
                 .dependOnClassesThat()
                 .haveFullyQualifiedName(
                         "android.content.SharedPreferences")
                 .because(
                         "touch settings UI cannot address persistence directly")
-                .check(productionClasses);
-    }
-
-    @Test
-    public void deviceSettingsUiUsesTypedControllerIntents() {
-        noClasses()
-                .that()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayDeviceFragment")
-                .should()
-                .dependOnClassesThat()
-                .resideInAnyPackage(
-                        "android.preference..",
-                        "com.limelight.preferences..")
-                .because(
-                        "device settings UI emits typed controller intents")
-                .check(productionClasses);
-    }
-
-    @Test
-    public void deviceSettingsUiDoesNotDependOnSharedPreferences() {
-        noClasses()
-                .that()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayDeviceFragment")
-                .should()
-                .dependOnClassesThat()
-                .haveFullyQualifiedName(
-                        "android.content.SharedPreferences")
-                .because(
-                        "device settings UI cannot address persistence directly")
                 .check(productionClasses);
     }
 
@@ -1955,94 +1936,6 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
-    public void displaySettingsUiUsesTypedSettingsIntents() {
-        noClasses()
-                .that()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayFragment")
-                .or()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayFpsFragment")
-                .or()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayResolutionFragment")
-                .should()
-                .dependOnClassesThat()
-                .resideInAnyPackage(
-                        "android.preference..",
-                        "com.limelight.preferences..",
-                        "com.limelight.settings.android..")
-                .because(
-                        "display settings UI consumes snapshots, emits typed intents, and depends on a storage port")
-                .check(productionClasses);
-    }
-
-    @Test
-    public void displaySettingsUiDoesNotUseSharedPreferences() {
-        noClasses()
-                .that()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayFragment")
-                .or()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayFpsFragment")
-                .or()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayResolutionFragment")
-                .should()
-                .dependOnClassesThat()
-                .haveFullyQualifiedName(
-                        "android.content.SharedPreferences")
-                .because(
-                        "display settings UI cannot address persistence directly")
-                .check(productionClasses);
-    }
-
-    @Test
-    public void displaySettingsUiDoesNotDependOnActivityImplementations() {
-        noClasses()
-                .that()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayFragment")
-                .or()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayFpsFragment")
-                .or()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayResolutionFragment")
-                .or()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayBitrateFragment")
-                .should()
-                .dependOnClassesThat()
-                .haveFullyQualifiedName(
-                        "com.limelight.Game")
-                .because(
-                        "recreated display dialogs resolve only their lifecycle-bound host contract")
-                .check(productionClasses);
-        noClasses()
-                .that()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayFragment")
-                .or()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayFpsFragment")
-                .or()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayResolutionFragment")
-                .or()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameDisplayBitrateFragment")
-                .should()
-                .dependOnClassesThat()
-                .haveFullyQualifiedName(
-                        "com.limelight.AppView")
-                .because(
-                        "recreated display dialogs resolve only their lifecycle-bound host contract")
-                .check(productionClasses);
-    }
-
-    @Test
     public void usbDriverServiceDoesNotReadPersistenceOrLegacySettings() {
         noClasses()
                 .that()
@@ -2136,9 +2029,6 @@ public final class ArchitectureBoundaryTest {
                         "com.limelight.ui.gamemenu.GameMenuHost")
                 .or()
                 .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameMenuCardEditor")
-                .or()
-                .haveFullyQualifiedName(
                         "com.limelight.ui.gamemenu.GameMenuCardConfiguration")
                 .should()
                 .dependOnClassesThat()
@@ -2157,9 +2047,6 @@ public final class ArchitectureBoundaryTest {
                 .or()
                 .haveFullyQualifiedName(
                         "com.limelight.ui.gamemenu.GameMenuHost")
-                .or()
-                .haveFullyQualifiedName(
-                        "com.limelight.ui.gamemenu.GameMenuCardEditor")
                 .or()
                 .haveFullyQualifiedName(
                         "com.limelight.ui.gamemenu.GameMenuCardConfiguration")

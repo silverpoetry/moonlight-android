@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -20,16 +22,23 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -40,15 +49,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.limelight.R
 import com.limelight.ui.compose.components.MoonlightScreen
+import com.limelight.ui.compose.components.MoonlightStepSlider
 import com.limelight.ui.compose.theme.MoonlightThemeFromSettings
+import kotlin.math.roundToInt
 
 /**
  * Lifecycle-bound Compose renderer for the settings surface.
@@ -66,6 +76,8 @@ class SettingsScreenRenderer(
         fun onSectionRequested(sectionIndex: Int)
         fun onItemRequested(itemId: String)
         fun onSwitchChanged(itemId: String, checked: Boolean)
+        fun onInlineChoiceChanged(itemId: String, value: String)
+        fun onInlineSliderChanged(itemId: String, value: Int)
     }
 
     private data class RenderState(
@@ -74,8 +86,15 @@ class SettingsScreenRenderer(
         val profileSummary: String,
     )
 
+    private data class SearchResult(
+        val sectionTitle: String,
+        val row: SettingsScreenState.Row,
+    )
+
     private var renderState: RenderState? by mutableStateOf(null)
-    private var restoreVersion by mutableIntStateOf(0)
+    private var searchQuery by mutableStateOf("")
+    private var contentRestoreVersion by mutableIntStateOf(0)
+    private var sectionRailRestoreVersion by mutableIntStateOf(0)
     private var pendingContentScroll = 0
     private var pendingSectionRailScroll = 0
     private var activeContentScroll: androidx.compose.foundation.ScrollState? = null
@@ -113,17 +132,10 @@ class SettingsScreenRenderer(
         )
     }
 
-    fun render() {
-        if (!destroyed) {
-            restoreVersion++
-        }
-    }
-
     fun renderWideSelection(): Boolean {
         if (destroyed || !willUseWideLayout() || renderState == null) {
             return false
         }
-        restoreVersion++
         return true
     }
 
@@ -143,12 +155,21 @@ class SettingsScreenRenderer(
 
     fun restoreScrollY(scrollY: Int?) {
         pendingContentScroll = scrollY?.coerceAtLeast(0) ?: return
-        restoreVersion++
+        contentRestoreVersion++
+    }
+
+    /** Selects the next page's scroll before Compose observes its page key. */
+    fun prepareContentScroll(scrollY: Int) {
+        pendingContentScroll = scrollY.coerceAtLeast(0)
     }
 
     fun restoreSectionListScrollY(scrollY: Int?) {
         pendingSectionRailScroll = scrollY?.coerceAtLeast(0) ?: return
-        restoreVersion++
+        sectionRailRestoreVersion++
+    }
+
+    fun prepareSectionListScroll(scrollY: Int) {
+        pendingSectionRailScroll = scrollY.coerceAtLeast(0)
     }
 
     fun updateState(
@@ -193,6 +214,7 @@ class SettingsScreenRenderer(
         MoonlightScreen(
             title = title,
             onBack = { listener?.onBackRequested() },
+            collapsible = true,
         ) { padding ->
             val pageKey = section?.id ?: ROOT_PAGE_KEY
             val scrollState = remember(pageKey) {
@@ -204,7 +226,12 @@ class SettingsScreenRenderer(
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(scrollState)
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .padding(
+                        start = 20.dp,
+                        top = 12.dp,
+                        end = 20.dp,
+                        bottom = 32.dp,
+                    ),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
@@ -232,7 +259,7 @@ class SettingsScreenRenderer(
             ) {
                 val railState = rememberScrollState(pendingSectionRailScroll)
                 SideEffect { sectionRailScroll = railState }
-                LaunchedEffect(restoreVersion) {
+                LaunchedEffect(sectionRailRestoreVersion) {
                     railState.scrollTo(pendingSectionRailScroll)
                 }
                 SettingsSectionRail(
@@ -254,12 +281,13 @@ class SettingsScreenRenderer(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .verticalScroll(contentState),
+                        .verticalScroll(contentState)
+                        .padding(bottom = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
                     if (section == null) {
-                        FeaturedSettingsContent(state)
+                        SettingsWideRootContent(state)
                     } else {
                         SettingsSectionContent(section)
                     }
@@ -274,7 +302,7 @@ class SettingsScreenRenderer(
         scrollState: androidx.compose.foundation.ScrollState,
     ) {
         SideEffect { activeContentScroll = scrollState }
-        LaunchedEffect(pageKey, restoreVersion) {
+        LaunchedEffect(pageKey, contentRestoreVersion) {
             scrollState.scrollTo(pendingContentScroll)
         }
     }
@@ -283,53 +311,197 @@ class SettingsScreenRenderer(
     private fun SettingsRootContent(state: RenderState) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
                 .widthIn(max = 760.dp)
+                .fillMaxWidth()
                 .testTag(ROOT_TEST_TAG),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Text(
-                text = state.profileSummary,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            FeaturedSettingsContent(state)
-            Text(
-                text = stringResource(R.string.settings_more_settings),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 8.dp),
+            ProfileSummary(state)
+            SettingsSearchField()
+            if (searchQuery.isNotBlank()) {
+                SettingsSearchResults(state)
+                return@Column
+            }
+            FeaturedSettingsContent(
+                state = state,
+                showProfileSummary = false,
             )
             SettingsSectionCards(state)
         }
     }
 
     @Composable
-    private fun FeaturedSettingsContent(state: RenderState) {
+    private fun SettingsWideRootContent(state: RenderState) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
                 .widthIn(max = 760.dp)
-                .testTag(FEATURED_TEST_TAG),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
+            ProfileSummary(state)
+            SettingsSearchField()
+            if (searchQuery.isNotBlank()) {
+                SettingsSearchResults(state)
+            } else {
+                FeaturedSettingsContent(state)
+            }
+        }
+    }
+
+    @Composable
+    private fun ProfileSummary(state: RenderState) {
+        if (state.profileSummary.isNotEmpty()) {
             Text(
-                text = stringResource(R.string.settings_featured_settings),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(horizontal = 8.dp),
+                text = state.profileSummary,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 12.dp),
             )
-            SettingsItemGroup(state.screen.featuredRows)
+        }
+    }
+
+    @Composable
+    private fun SettingsSearchField() {
+        TextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text(stringResource(R.string.settings_search_hint)) },
+            leadingIcon = {
+                Icon(
+                    painter = painterResource(R.drawable.ic_m3_search),
+                    contentDescription = null,
+                )
+            },
+            trailingIcon = if (searchQuery.isNotEmpty()) {
+                {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_m3_close),
+                            contentDescription = stringResource(R.string.settings_search_clear),
+                        )
+                    }
+                }
+            } else {
+                null
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(28.dp),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                disabledIndicatorColor = Color.Transparent,
+            ),
+        )
+    }
+
+    @Composable
+    private fun SettingsSearchResults(state: RenderState) {
+        val query = searchQuery.trim()
+        val results = remember(state.screen, query) {
+            state.screen.sections.flatMap { section ->
+                section.rows.map { row -> SearchResult(section.title.toString(), row) }
+            }.distinctBy { result -> result.row.id }
+                .filter { result ->
+                    result.sectionTitle.contains(query, ignoreCase = true) ||
+                        result.row.title.toString().contains(query, ignoreCase = true) ||
+                        result.row.summary?.toString()?.contains(query, ignoreCase = true) == true ||
+                        result.row.valueText?.toString()?.contains(query, ignoreCase = true) == true
+                }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = stringResource(R.string.settings_search_results),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 12.dp),
+            )
+            if (results.isEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
+                ) {
+                    Text(
+                        text = stringResource(R.string.settings_search_empty),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(24.dp),
+                    )
+                }
+            } else {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
+                ) {
+                    results.forEachIndexed { index, result ->
+                        SettingsRow(
+                            row = result.row,
+                            compact = false,
+                            showIcon = true,
+                            contextLabel = result.sectionTitle,
+                        )
+                        if (index != results.lastIndex) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 64.dp, end = 20.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun FeaturedSettingsContent(
+        state: RenderState,
+        showProfileSummary: Boolean = false,
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = 760.dp)
+                .fillMaxWidth()
+                .testTag(FEATURED_TEST_TAG),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            if (showProfileSummary && state.profileSummary.isNotEmpty()) {
+                Text(
+                    text = state.profileSummary,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                )
+            }
+            SettingsGroups(
+                groups = state.screen.featuredGroups,
+                compact = true,
+            )
         }
     }
 
     @Composable
     private fun SettingsSectionCards(state: RenderState) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            state.screen.sections.forEachIndexed { index, section ->
-                SectionCard(
-                    section = section,
-                    selected = false,
-                    onClick = { listener?.onSectionRequested(index) },
+        val indexedSections = state.screen.sections.withIndex().toList()
+        val clusters = indexedSections.groupBy { indexed ->
+            SettingsPresentationCatalog.forSection(indexed.value.id).id
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            clusters.values.forEach { entries ->
+                val group = SettingsPresentationCatalog.forSection(
+                    entries.first().value.id,
+                )
+                SectionNavigationGroup(
+                    titleRes = group.titleRes,
+                    entries = entries,
+                    selectedSectionIndex = FEATURED_SECTION_INDEX,
                 )
             }
         }
@@ -342,20 +514,34 @@ class SettingsScreenRenderer(
     ) {
         Column(
             modifier = modifier,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            SectionCard(
-                title = stringResource(R.string.settings_featured_settings),
-                itemCount = state.screen.featuredRows.size,
-                iconRes = R.drawable.ic_quick_actions,
-                selected = state.selectedSectionIndex == FEATURED_SECTION_INDEX,
-                onClick = { listener?.onSectionRequested(FEATURED_SECTION_INDEX) },
-            )
-            state.screen.sections.forEachIndexed { index, section ->
-                SectionCard(
-                    section = section,
-                    selected = index == state.selectedSectionIndex,
-                    onClick = { listener?.onSectionRequested(index) },
+            Card(
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
+            ) {
+                SectionNavigationRow(
+                    title = stringResource(R.string.settings_featured_settings),
+                    supportingText = state.profileSummary,
+                    iconRes = R.drawable.ic_m3_tune,
+                    selected = state.selectedSectionIndex == FEATURED_SECTION_INDEX,
+                    onClick = { listener?.onSectionRequested(FEATURED_SECTION_INDEX) },
+                )
+            }
+            val indexedSections = state.screen.sections.withIndex().toList()
+            val clusters = indexedSections.groupBy { indexed ->
+                SettingsPresentationCatalog.forSection(indexed.value.id).id
+            }
+            clusters.values.forEach { entries ->
+                val group = SettingsPresentationCatalog.forSection(
+                    entries.first().value.id,
+                )
+                SectionNavigationGroup(
+                    titleRes = group.titleRes,
+                    entries = entries,
+                    selectedSectionIndex = state.selectedSectionIndex,
                 )
             }
         }
@@ -365,27 +551,43 @@ class SettingsScreenRenderer(
     private fun SettingsSectionContent(section: SettingsScreenState.Section) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
                 .widthIn(max = 760.dp)
+                .fillMaxWidth()
                 .testTag(SECTION_TEST_TAG_PREFIX + section.id),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Text(
-                text = pluralStringResource(
-                    R.plurals.settings_item_count,
-                    section.rows.size,
-                    section.rows.size,
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp),
+            SettingsGroups(
+                groups = section.groups,
+                showIcons = false,
             )
-            SettingsItemGroup(section.rows)
         }
     }
 
     @Composable
-    private fun SettingsItemGroup(rows: List<SettingsScreenState.Row>) {
+    private fun SettingsGroups(
+        groups: List<SettingsScreenState.Group>,
+        compact: Boolean = false,
+        showIcons: Boolean = true,
+    ) {
+        groups.forEach { group ->
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(group.titleRes),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                )
+                SettingsItemGroup(group.rows, compact, showIcons)
+            }
+        }
+    }
+
+    @Composable
+    private fun SettingsItemGroup(
+        rows: List<SettingsScreenState.Row>,
+        compact: Boolean,
+        showIcons: Boolean,
+    ) {
         if (rows.isEmpty()) {
             Text(
                 text = stringResource(R.string.settings_no_items),
@@ -402,10 +604,13 @@ class SettingsScreenRenderer(
             ),
         ) {
             rows.forEachIndexed { index, row ->
-                SettingsRow(row)
+                SettingsRow(row, compact, showIcons)
                 if (index != rows.lastIndex) {
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 20.dp),
+                        modifier = Modifier.padding(
+                            start = if (showIcons) 64.dp else 20.dp,
+                            end = 20.dp,
+                        ),
                         color = MaterialTheme.colorScheme.outlineVariant,
                     )
                 }
@@ -414,33 +619,72 @@ class SettingsScreenRenderer(
     }
 
     @Composable
-    private fun SettingsRow(row: SettingsScreenState.Row) {
+    private fun SettingsRow(
+        row: SettingsScreenState.Row,
+        compact: Boolean,
+        showIcon: Boolean,
+        contextLabel: String? = null,
+    ) {
         val enabledModifier = if (row.isEnabled) Modifier else Modifier.alpha(0.45f)
+        val hasInlineEditor = row.hasInlineChoices() ||
+            (row.hasNumericSlider() && !compact)
+        if (hasInlineEditor) {
+            InlineSettingsRow(
+                row = row,
+                compact = compact,
+                showIcon = showIcon,
+                enabledModifier = enabledModifier,
+            )
+            return
+        }
+        val supportingText = when {
+            compact && row.hasSwitchControl() -> stringResource(
+                if (row.isChecked) {
+                    R.string.settings_value_enabled
+                } else {
+                    R.string.settings_value_disabled
+                },
+            )
+            compact -> row.valueText?.toString()
+            row.hasSwitchControl() -> row.summary?.toString()
+            row.hasValueControl() -> row.valueText?.toString()
+                ?: row.summary?.toString()
+            else -> row.summary?.toString()
+        }
+        val displayedSupportingText = listOfNotNull(contextLabel, supportingText)
+            .joinToString(" · ")
+            .takeIf { it.isNotEmpty() }
+        Column(modifier = Modifier.fillMaxWidth()) {
         ListItem(
             headlineContent = {
                 Text(
                     text = row.title.toString(),
+                    style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             },
-            supportingContent = row.summary?.let { summary ->
+            supportingContent = displayedSupportingText?.let { supporting ->
                 {
                     Text(
-                        text = summary.toString(),
-                        maxLines = 3,
+                        text = supporting,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = if (compact) 1 else 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
             },
-            leadingContent = {
-                if (row.iconRes != 0) {
+            leadingContent = if (showIcon && row.iconRes != 0) {
+                {
                     Icon(
                         painter = painterResource(row.iconRes),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp),
                     )
                 }
+            } else {
+                null
             },
             trailingContent = {
                 if (row.hasSwitchControl()) {
@@ -453,26 +697,12 @@ class SettingsScreenRenderer(
                         },
                     )
                 } else {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        row.valueText?.let { value ->
-                            Text(
-                                text = value.toString(),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 14.sp,
-                                modifier = Modifier.widthIn(max = 180.dp),
-                            )
-                        }
-                        Icon(
-                            painter = painterResource(R.drawable.ic_arrow),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    Icon(
+                        painter = painterResource(R.drawable.ic_m3_chevron_right),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
                 }
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -480,7 +710,9 @@ class SettingsScreenRenderer(
                 .fillMaxWidth()
                 .testTag(ROW_TEST_TAG_PREFIX + row.id)
                 .then(enabledModifier)
-                .clickable(enabled = row.isEnabled) {
+                .clickable(
+                    enabled = row.isEnabled,
+                ) {
                     if (row.hasSwitchControl()) {
                         listener?.onSwitchChanged(row.id, !row.isChecked)
                     } else {
@@ -489,72 +721,259 @@ class SettingsScreenRenderer(
                 }
                 .padding(horizontal = 4.dp, vertical = 2.dp),
         )
+        }
     }
 
     @Composable
-    private fun SectionCard(
-        section: SettingsScreenState.Section,
-        selected: Boolean,
-        onClick: () -> Unit,
-    ) = SectionCard(
-        title = section.title.toString(),
-        itemCount = section.rows.size,
-        iconRes = section.iconRes,
-        selected = selected,
-        testTag = SECTION_CARD_TEST_TAG_PREFIX + section.id,
-        onClick = onClick,
-    )
+    private fun InlineSettingsRow(
+        row: SettingsScreenState.Row,
+        compact: Boolean,
+        showIcon: Boolean,
+        enabledModifier: Modifier,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(ROW_TEST_TAG_PREFIX + row.id)
+                .then(enabledModifier)
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (showIcon && row.iconRes != 0) {
+                    Icon(
+                        painter = painterResource(row.iconRes),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                Text(
+                    text = row.title.toString(),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = if (showIcon && row.iconRes != 0) 20.dp else 0.dp),
+                )
+                if (row.hasNumericSlider() && !compact) {
+                    row.valueText?.let { value ->
+                        Text(
+                            text = value.toString(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 12.dp),
+                        )
+                    }
+                }
+            }
+            Column(
+                modifier = Modifier.padding(
+                    start = if (showIcon && row.iconRes != 0) 44.dp else 0.dp,
+                ),
+            ) {
+                when {
+                    row.hasDiscreteSlider() ->
+                        InlineDiscreteSlider(row)
+                    row.hasInlineChoices() -> InlineChoiceSegments(row)
+                    row.hasNumericSlider() && !compact ->
+                        InlineNumericSlider(row)
+                }
+            }
+        }
+    }
 
     @Composable
-    private fun SectionCard(
+    private fun InlineChoiceSegments(row: SettingsScreenState.Row) {
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            row.inlineChoices.forEachIndexed { index, choice ->
+                SegmentedButton(
+                    selected = choice.value == row.selectedChoiceValue,
+                    onClick = {
+                        listener?.onInlineChoiceChanged(row.id, choice.value)
+                    },
+                    enabled = row.isEnabled,
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = index,
+                        count = row.inlineChoices.size,
+                    ),
+                    label = {
+                        Text(
+                            text = choice.label.toString(),
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun InlineDiscreteSlider(row: SettingsScreenState.Row) {
+        val selectedIndex = row.inlineChoices.indexOfFirst {
+            it.value == row.selectedChoiceValue
+        }.coerceAtLeast(0)
+        var sliderPosition by remember(row.id, row.selectedChoiceValue) {
+            mutableFloatStateOf(selectedIndex.toFloat())
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            MoonlightStepSlider(
+                value = sliderPosition,
+                onValueChange = {
+                    it.roundToInt().coerceIn(0, row.inlineChoices.lastIndex).toFloat()
+                },
+                valueRange = 0f..row.inlineChoices.lastIndex.toFloat(),
+                steps = (row.inlineChoices.size - 2).coerceAtLeast(0),
+                modifier = Modifier.fillMaxWidth().height(40.dp),
+                onEffectiveValueChanged = { effective ->
+                    val index = effective.roundToInt()
+                        .coerceIn(0, row.inlineChoices.lastIndex)
+                    sliderPosition = index.toFloat()
+                    listener?.onInlineChoiceChanged(
+                        row.id,
+                        row.inlineChoices[index].value,
+                    )
+                },
+            )
+            Row(modifier = Modifier.fillMaxWidth()) {
+                row.inlineChoices.forEach { choice ->
+                    Text(
+                        text = choice.label.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (choice.value == row.selectedChoiceValue) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun InlineNumericSlider(row: SettingsScreenState.Row) {
+        var sliderValue by remember(row.id, row.sliderValue) {
+            mutableFloatStateOf(row.sliderValue.toFloat())
+        }
+        MoonlightStepSlider(
+            value = sliderValue,
+            onValueChange = { raw ->
+                val stepped = ((raw.roundToInt() - row.sliderMinimum) /
+                    row.sliderStep) * row.sliderStep + row.sliderMinimum
+                stepped.coerceIn(row.sliderMinimum, row.sliderMaximum).toFloat()
+            },
+            valueRange = row.sliderMinimum.toFloat()..row.sliderMaximum.toFloat(),
+            onEffectiveValueChanged = { effective ->
+                val value = effective.roundToInt()
+                    .coerceIn(row.sliderMinimum, row.sliderMaximum)
+                sliderValue = value.toFloat()
+                listener?.onInlineSliderChanged(row.id, value)
+            },
+            modifier = Modifier.fillMaxWidth().height(40.dp),
+        )
+    }
+
+    @Composable
+    private fun SectionNavigationGroup(
+        titleRes: Int,
+        entries: List<IndexedValue<SettingsScreenState.Section>>,
+        selectedSectionIndex: Int,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = stringResource(titleRes),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 12.dp),
+            )
+            Card(
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
+            ) {
+                entries.forEachIndexed { position, indexed ->
+                    SectionNavigationRow(
+                        title = indexed.value.title.toString(),
+                        supportingText = stringResource(
+                            SettingsPresentationCatalog.summaryForSection(
+                                indexed.value.id,
+                            ),
+                        ),
+                        iconRes = indexed.value.iconRes,
+                        selected = indexed.index == selectedSectionIndex,
+                        testTag = SECTION_CARD_TEST_TAG_PREFIX + indexed.value.id,
+                        onClick = { listener?.onSectionRequested(indexed.index) },
+                    )
+                    if (position != entries.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 64.dp, end = 20.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun SectionNavigationRow(
         title: String,
-        itemCount: Int,
+        supportingText: String,
         iconRes: Int,
         selected: Boolean,
         testTag: String? = null,
         onClick: () -> Unit,
     ) {
-        Card(
+        ListItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(if (testTag == null) Modifier else Modifier.testTag(testTag))
                 .clickable(onClick = onClick),
-            shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(
+            headlineContent = { Text(title) },
+            supportingContent = {
+                Text(
+                    text = supportingText,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            leadingContent = {
+                Icon(
+                    painter = painterResource(iconRes),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
+            },
+            trailingContent = {
+                Icon(
+                    painter = painterResource(R.drawable.ic_m3_chevron_right),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+            },
+            colors = ListItemDefaults.colors(
                 containerColor = if (selected) {
                     MaterialTheme.colorScheme.secondaryContainer
                 } else {
-                    MaterialTheme.colorScheme.surfaceContainer
+                    Color.Transparent
                 },
             ),
-        ) {
-            ListItem(
-                headlineContent = { Text(title) },
-                supportingContent = {
-                    Text(
-                        pluralStringResource(
-                            R.plurals.settings_item_count,
-                            itemCount,
-                            itemCount,
-                        ),
-                    )
-                },
-                leadingContent = {
-                    Icon(
-                        painter = painterResource(iconRes),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                },
-                trailingContent = {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_arrow),
-                        contentDescription = null,
-                    )
-                },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            )
-        }
+        )
     }
 
     companion object {

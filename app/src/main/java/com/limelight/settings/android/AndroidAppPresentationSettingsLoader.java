@@ -1,6 +1,7 @@
 package com.limelight.settings.android;
 
 import android.content.Context;
+import android.content.res.Configuration;
 
 import com.limelight.settings.SettingsMigrationRunner;
 import com.limelight.settings.SettingsRepository;
@@ -26,6 +27,22 @@ public final class AndroidAppPresentationSettingsLoader {
                 AndroidAppPresentationDefaults
                         .shouldUseSmallAppIcons(context));
         return AppPresentationSettingsLoader.load(repository);
+    }
+
+    public static boolean shouldUseDarkTheme(
+            Context context,
+            AppPresentationSettings settings) {
+        Objects.requireNonNull(context, "context");
+        Objects.requireNonNull(settings, "settings");
+        if (settings.usesDarkTheme()) {
+            return true;
+        }
+        if (settings.usesLightTheme()) {
+            return false;
+        }
+        return (context.getResources().getConfiguration().uiMode &
+                Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES;
     }
 
     static void prepare(

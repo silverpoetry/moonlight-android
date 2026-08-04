@@ -10,6 +10,9 @@ import com.limelight.settings.SettingKey;
  */
 public final class AppPresentationSettingKeys {
     public static final String SYSTEM_LANGUAGE = "default";
+    public static final String THEME_MODE_SYSTEM = "system";
+    public static final String THEME_MODE_LIGHT = "light";
+    public static final String THEME_MODE_DARK = "dark";
     public static final SettingKey<String> LANGUAGE =
             SettingKey.boundedStringKey(
                     "app.language",
@@ -21,7 +24,16 @@ public final class AppPresentationSettingKeys {
                     "app.appearance.small_icons",
                     false)
                     .renamedFrom("checkbox_small_icon_mode");
-    public static final SettingKey<Boolean> LIGHT_THEME =
+    public static final SettingKey<String> THEME_MODE =
+            SettingKey.stringSetKey(
+                    "app.appearance.theme_mode",
+                    THEME_MODE_SYSTEM,
+                    THEME_MODE_SYSTEM,
+                    THEME_MODE_LIGHT,
+                    THEME_MODE_DARK);
+
+    /** Retained only so the schema migration can consume older installs. */
+    public static final SettingKey<Boolean> LEGACY_LIGHT_THEME =
             SettingKey.booleanKey(
                     "app.appearance.light_theme",
                     true)

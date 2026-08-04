@@ -243,6 +243,29 @@ public final class StreamSessionControllerTest {
         assertEquals(1, listener.hdrModeCount);
     }
 
+    @Test
+    public void nativeCursorIsForwardedWhileStartingToPreserveItsInitialShape() {
+        FakeConnection connection = new FakeConnection();
+        RecordingListener listener = new RecordingListener();
+        StreamSessionController controller = new StreamSessionController(
+                connection, listener, Runnable::run);
+        controller.start(null, null);
+
+        connection.listener.nativeCursor(
+                true, true, 1, 2, 3, 4, 5,
+                0, 0, 1, 65536, 65536, new byte[] {1});
+
+        assertEquals(SessionState.STARTING, controller.getState());
+        assertEquals(1, listener.nativeCursorCount);
+
+        connection.listener.connectionStarted();
+        connection.listener.nativeCursor(
+                true, false, 1, 2, 3, 0, 0,
+                0, 0, 1, 65536, 65536, new byte[0]);
+
+        assertEquals(2, listener.nativeCursorCount);
+    }
+
     private static final class FakeConnection
             implements StreamSessionConnection {
         int startCount;

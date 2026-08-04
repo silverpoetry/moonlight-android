@@ -128,8 +128,9 @@ public class StreamSettings extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         previousPresentationSettings =
                 AndroidAppPresentationSettingsLoader.load(this);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                !previousPresentationSettings.usesLightTheme()) {
+        if (AndroidAppPresentationSettingsLoader.shouldUseDarkTheme(
+                this,
+                previousPresentationSettings)) {
             // Preserve the opaque settings launch background in dark mode.
             // Both root and detail instances still inherit the same platform
             // Activity motion from their presentation theme.
@@ -208,9 +209,11 @@ public class StreamSettings extends BaseActivity {
 
         setContentView(screenRenderer.createRootView());
         configureImmersiveSettingsWindow();
-        if (previousPresentationSettings.usesLightTheme()) {
-            UiHelper.setStatusBarLightMode(getWindow(), true);
-        }
+        UiHelper.setStatusBarLightMode(
+                getWindow(),
+                !AndroidAppPresentationSettingsLoader.shouldUseDarkTheme(
+                        this,
+                        previousPresentationSettings));
         registerBackCallback();
         // Build the first frame before Android starts the Activity window
         // transition. Waiting for attachment leaves the incoming window empty
@@ -278,6 +281,25 @@ public class StreamSettings extends BaseActivity {
                                         checked,
                                         true));
                     }
+
+                    @Override
+                    public void onInlineChoiceChanged(
+                            String itemId,
+                            String value) {
+                        handleListValueSelected(
+                                requireItem(itemId),
+                                value);
+                    }
+
+                    @Override
+                    public void onInlineSliderChanged(
+                            String itemId,
+                            int value) {
+                        applyChangeResult(
+                                mutationController.changeInteger(
+                                        requireItem(itemId),
+                                        value));
+                    }
                 });
     }
 
@@ -302,8 +324,8 @@ public class StreamSettings extends BaseActivity {
         super.onResume();
         AppPresentationSettings currentPresentationSettings =
                 AndroidAppPresentationSettingsLoader.load(this);
-        if (previousPresentationSettings.usesLightTheme() !=
-                        currentPresentationSettings.usesLightTheme() ||
+        if (!previousPresentationSettings.getThemeMode().equals(
+                        currentPresentationSettings.getThemeMode()) ||
                 !previousPresentationSettings.getLanguage().equals(
                         currentPresentationSettings.getLanguage())) {
             recreate();
@@ -327,6 +349,13 @@ public class StreamSettings extends BaseActivity {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        if (previousPresentationSettings.followsSystemTheme()) {
+            UiHelper.setStatusBarLightMode(
+                    getWindow(),
+                    !AndroidAppPresentationSettingsLoader.shouldUseDarkTheme(
+                            this,
+                            previousPresentationSettings));
+        }
         Display.Mode mode = AndroidDisplayCompat
                 .getActivityDisplay(this)
                 .getMode();
@@ -454,6 +483,8 @@ public class StreamSettings extends BaseActivity {
     }
 
     private void renderWideSelection() {
+        screenRenderer.prepareContentScroll(
+                navigationState.getContentScrollY());
         screenRenderer.setContent(
                 createScreenState(),
                 selectedSectionIndex,
@@ -462,8 +493,6 @@ public class StreamSettings extends BaseActivity {
             renderSettings();
             return;
         }
-        screenRenderer.restoreScrollY(
-                navigationState.getContentScrollY());
         // The wide shell and its section rail are retained in place. Reposting
         // the same rail position after every detail replacement can race the
         // touch-driven scroll state and produce a visible jump near the end of
@@ -482,15 +511,14 @@ public class StreamSettings extends BaseActivity {
 
     private void renderSettings() {
         normalizeCompactRootNavigation();
+        screenRenderer.prepareContentScroll(
+                navigationState.getContentScrollY());
+        screenRenderer.prepareSectionListScroll(
+                navigationState.getSectionRailScrollY());
         screenRenderer.setContent(
                 createScreenState(),
                 selectedSectionIndex,
                 getCurrentProfileSummary());
-        screenRenderer.render();
-        screenRenderer.restoreScrollY(
-                navigationState.getContentScrollY());
-        screenRenderer.restoreSectionListScrollY(
-                navigationState.getSectionRailScrollY());
     }
 
     private void normalizeCompactRootNavigation() {

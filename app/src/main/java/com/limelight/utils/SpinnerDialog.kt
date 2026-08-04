@@ -5,15 +5,12 @@ import android.content.DialogInterface
 import android.graphics.Color
 import android.view.ViewGroup
 import android.view.Window
+import android.view.WindowManager
+import androidx.activity.ComponentDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,6 +23,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toDrawable
+import com.limelight.ui.compose.components.MoonlightDialogSurface
 import com.limelight.ui.compose.theme.MoonlightThemeFromSettings
 
 /** Material 3 progress dialog retaining the existing cancellation contract. */
@@ -69,7 +67,7 @@ class SpinnerDialog private constructor(
             return
         }
 
-        val dialog = android.app.Dialog(activity)
+        val dialog = ComponentDialog(activity)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         dialog.setOnCancelListener(this)
         dialog.setCancelable(finish && finishOnCancelEnabled)
@@ -80,16 +78,7 @@ class SpinnerDialog private constructor(
             )
             setContent {
                 MoonlightThemeFromSettings {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp)
-                            .widthIn(max = 520.dp),
-                        shape = RoundedCornerShape(28.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        ),
-                    ) {
+                    MoonlightDialogSurface(maxWidth = 480.dp) {
                         Row(
                             modifier = Modifier.padding(24.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -114,6 +103,7 @@ class SpinnerDialog private constructor(
         dialog.show()
         dialog.window?.apply {
             setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
+            addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
             setDimAmount(0.35f)
             setLayout(
                 ViewGroup.LayoutParams.MATCH_PARENT,

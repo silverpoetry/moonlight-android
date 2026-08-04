@@ -3,6 +3,7 @@ package com.limelight.preferences
 import android.app.Service
 import android.content.ComponentName
 import android.content.Intent
+import android.content.res.Configuration
 import android.content.ServiceConnection
 import android.os.Bundle
 import android.os.Handler
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -36,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -109,7 +112,6 @@ class AddComputerManually : BaseActivity() {
                     errorMessage = errorMessage,
                     onHostTextChanged = { hostText = it },
                     onConfirm = ::submitHostAddition,
-                    onAppendRazerPort = { hostText += ":51337" },
                     onDismiss = ::finish,
                     onDismissError = { errorMessage = null },
                 )
@@ -308,10 +310,11 @@ private fun AddComputerDialog(
     errorMessage: String?,
     onHostTextChanged: (String) -> Unit,
     onConfirm: () -> Unit,
-    onAppendRazerPort: () -> Unit,
     onDismiss: () -> Unit,
     onDismissError: () -> Unit,
 ) {
+    val isLandscape = LocalConfiguration.current.orientation ==
+        Configuration.ORIENTATION_LANDSCAPE
     val focusRequester = androidx.compose.runtime.remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) {
@@ -323,7 +326,10 @@ private fun AddComputerDialog(
         contentAlignment = Alignment.Center,
     ) {
         Card(
-            modifier = Modifier.fillMaxWidth().widthIn(max = 560.dp),
+            modifier = Modifier
+                .widthIn(max = if (isLandscape) 520.dp else 560.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             ),
@@ -349,17 +355,6 @@ private fun AddComputerDialog(
                     ),
                     keyboardActions = KeyboardActions(onDone = { onConfirm() }),
                 )
-                Text(
-                    text = stringResource(R.string.manual_host_entry_help),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                TextButton(
-                    onClick = onAppendRazerPort,
-                    enabled = !operationInProgress,
-                ) {
-                    Text(stringResource(R.string.addpc_append_razer_port))
-                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,

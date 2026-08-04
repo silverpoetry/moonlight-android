@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -28,6 +29,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -58,7 +60,6 @@ class ApplicationScreenRenderer(
 ) {
     interface Listener {
         fun onBackRequested()
-        fun onDisplayOptionsRequested()
         fun onAppRequested(app: AppView.AppObject)
         fun onAppMenuRequested(app: AppView.AppObject, artwork: Bitmap?)
     }
@@ -119,14 +120,6 @@ class ApplicationScreenRenderer(
         MoonlightScreen(
             title = state.title,
             onBack = { listener?.onBackRequested() },
-            actions = {
-                IconButton(onClick = { listener?.onDisplayOptionsRequested() }) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_menu_grid),
-                        contentDescription = stringResource(R.string.appview_menu_options),
-                    )
-                }
-            },
         ) { padding ->
             when {
                 state.loading -> Box(
@@ -145,11 +138,11 @@ class ApplicationScreenRenderer(
                     )
                 }
                 else -> LazyVerticalGrid(
-                    columns = GridCells.Adaptive(190.dp),
+                    columns = GridCells.Adaptive(164.dp),
                     modifier = Modifier.fillMaxSize().padding(padding),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(
                         items = state.apps,
@@ -173,7 +166,7 @@ class ApplicationScreenRenderer(
                 .fillMaxWidth()
                 .alpha(if (app.isHidden) 0.5f else 1f)
                 .clickable { listener?.onAppRequested(app) },
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
             ),
@@ -182,7 +175,7 @@ class ApplicationScreenRenderer(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(16f / 10f),
+                        .aspectRatio(16f / 9f),
                     contentAlignment = Alignment.Center,
                 ) {
                     AndroidView(
@@ -223,23 +216,41 @@ class ApplicationScreenRenderer(
                         modifier = Modifier.fillMaxSize(),
                     )
                     if (app.isRunning) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_play),
-                            contentDescription = stringResource(R.string.applist_menu_status_running),
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(56.dp),
-                        )
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(10.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_m3_play_arrow),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                                Text(
+                                    text = stringResource(R.string.applist_menu_status_running),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                        }
                     }
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = app.app.appName,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,

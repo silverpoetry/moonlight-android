@@ -46,8 +46,7 @@ public final class TouchInputControllerTest {
         DirectContactInputController directContactInputController =
                 new DirectContactInputController(
                         streamView,
-                        inputSink,
-                        settingsState);
+                        inputSink);
         controller = new TouchInputController(
                 context,
                 streamView,

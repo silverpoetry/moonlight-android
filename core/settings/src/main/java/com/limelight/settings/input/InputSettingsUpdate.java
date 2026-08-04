@@ -33,16 +33,6 @@ public final class InputSettingsUpdate {
     }
 
     public static InputSettingsUpdate
-            directTouchSensitivityEnabled(boolean enabled) {
-        return single(
-                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_ENABLED,
-                enabled,
-                (settings, value) -> settings.toBuilder()
-                        .setDirectTouchSensitivityEnabled(value)
-                        .build());
-    }
-
-    public static InputSettingsUpdate
             softKeyboardGestureFingers(int fingerCount) {
         return single(
                 InputSettingKeys.SOFT_KEYBOARD_GESTURE_FINGERS,
@@ -91,52 +81,6 @@ public final class InputSettingsUpdate {
                 durationMs,
                 (settings, value) -> settings.toBuilder()
                         .setTouchpadLongPressDurationMs(value)
-                        .build());
-    }
-
-    public static InputSettingsUpdate
-            directTouchRecenterEnabled(boolean enabled) {
-        return single(
-                InputSettingKeys.DIRECT_TOUCH_RECENTER,
-                enabled,
-                (settings, value) -> settings.toBuilder()
-                        .setDirectTouchRecenterEnabled(value)
-                        .build());
-    }
-
-    public static InputSettingsUpdate
-            directTouchSensitivityGlobal(boolean enabled) {
-        return single(
-                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_GLOBAL,
-                enabled,
-                (settings, value) -> settings.toBuilder()
-                        .setDirectTouchSensitivityGlobal(value)
-                        .build());
-    }
-
-    public static InputSettingsUpdate
-            directTouchSensitivityX(int value) {
-        return single(
-                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_X,
-                value,
-                (settings, normalized) -> settings.toBuilder()
-                        .setDirectTouchSensitivity(
-                                normalized,
-                                settings
-                                        .getDirectTouchSensitivityY())
-                        .build());
-    }
-
-    public static InputSettingsUpdate
-            directTouchSensitivityY(int value) {
-        return single(
-                InputSettingKeys.DIRECT_TOUCH_SENSITIVITY_Y,
-                value,
-                (settings, normalized) -> settings.toBuilder()
-                        .setDirectTouchSensitivity(
-                                settings
-                                        .getDirectTouchSensitivityX(),
-                                normalized)
                         .build());
     }
 
@@ -244,12 +188,6 @@ public final class InputSettingsUpdate {
         int scroll = InputSettingKeys.DEFAULT_SCROLL_AMOUNT;
         return new InputSettingsUpdate(
                 settings -> settings.toBuilder()
-                        .setDirectTouchSensitivityEnabled(false)
-                        .setDirectTouchSensitivity(
-                                sensitivity,
-                                sensitivity)
-                        .setDirectTouchSensitivityGlobal(false)
-                        .setDirectTouchRecenterEnabled(true)
                         .setTouchpadPointerSensitivity(
                                 sensitivity,
                                 sensitivity)
@@ -263,25 +201,6 @@ public final class InputSettingsUpdate {
                         .setMouseWheelScrollAmount(scroll)
                         .build(),
                 editor -> editor
-                        .put(
-                                InputSettingKeys
-                                        .DIRECT_TOUCH_SENSITIVITY_ENABLED,
-                                false)
-                        .put(
-                                InputSettingKeys
-                                        .DIRECT_TOUCH_SENSITIVITY_X,
-                                sensitivity)
-                        .put(
-                                InputSettingKeys
-                                        .DIRECT_TOUCH_SENSITIVITY_Y,
-                                sensitivity)
-                        .put(
-                                InputSettingKeys
-                                        .DIRECT_TOUCH_SENSITIVITY_GLOBAL,
-                                false)
-                        .put(
-                                InputSettingKeys.DIRECT_TOUCH_RECENTER,
-                                true)
                         .put(
                                 InputSettingKeys
                                         .TOUCHPAD_POINTER_SENSITIVITY_X,

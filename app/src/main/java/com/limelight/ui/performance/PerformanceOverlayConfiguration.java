@@ -1,6 +1,5 @@
 package com.limelight.ui.performance;
 
-import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.stream.StreamDecoderSettings;
 import com.limelight.settings.stream.StreamDisplaySettings;
@@ -15,14 +14,12 @@ public final class PerformanceOverlayConfiguration {
     private final StreamUiSettings uiSettings;
     private final StreamDecoderSettings decoderSettings;
     private final StreamDisplaySettings displaySettings;
-    private final StreamAudioSettings audioSettings;
     private final ControllerSettings controllerSettings;
 
     public PerformanceOverlayConfiguration(
             StreamUiSettings uiSettings,
             StreamDecoderSettings decoderSettings,
             StreamDisplaySettings displaySettings,
-            StreamAudioSettings audioSettings,
             ControllerSettings controllerSettings) {
         this.uiSettings = Objects.requireNonNull(
                 uiSettings,
@@ -33,9 +30,6 @@ public final class PerformanceOverlayConfiguration {
         this.displaySettings = Objects.requireNonNull(
                 displaySettings,
                 "displaySettings");
-        this.audioSettings = Objects.requireNonNull(
-                audioSettings,
-                "audioSettings");
         this.controllerSettings = Objects.requireNonNull(
                 controllerSettings,
                 "controllerSettings");
@@ -51,10 +45,6 @@ public final class PerformanceOverlayConfiguration {
 
     public StreamDisplaySettings getDisplaySettings() {
         return displaySettings;
-    }
-
-    public StreamAudioSettings getAudioSettings() {
-        return audioSettings;
     }
 
     public ControllerSettings getControllerSettings() {

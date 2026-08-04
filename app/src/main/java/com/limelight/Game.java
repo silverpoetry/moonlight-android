@@ -53,7 +53,6 @@ import com.limelight.settings.SettingsKeyCatalog;
 import com.limelight.settings.SettingsRepositorySnapshot;
 import com.limelight.settings.android.AndroidDisplayAspectProvider;
 import com.limelight.settings.android.AndroidStreamSettingsBootstrap;
-import com.limelight.settings.android.SharedPreferencesCustomResolutionRepository;
 import com.limelight.settings.android.AndroidSettingsRepository;
 import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.audio.StreamAudioSettingsLoader;
@@ -65,7 +64,6 @@ import com.limelight.settings.input.InputSettings;
 import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.settings.input.InputSettingsState;
 import com.limelight.settings.runtime.StreamSettingsSession;
-import com.limelight.settings.stream.CustomResolutionRepository;
 import com.limelight.settings.stream.StreamDecoderSettings;
 import com.limelight.settings.stream.StreamDecoderSettingsLoader;
 import com.limelight.settings.stream.StreamDisplaySettings;
@@ -116,6 +114,7 @@ import com.limelight.ui.stream.AndroidStreamOverlayVisibilityHost;
 import com.limelight.ui.stream.AndroidStreamPictureInPictureController;
 import com.limelight.ui.stream.AndroidStreamSessionUiEffectsHost;
 import com.limelight.ui.stream.AndroidStreamSessionPresentationHost;
+import com.limelight.ui.stream.AndroidStreamSurfacePresentationController;
 import com.limelight.ui.stream.AndroidStreamSystemUiController;
 import com.limelight.ui.stream.StreamControllerFeedbackHost;
 import com.limelight.ui.stream.StreamDecoderCapabilities;
@@ -162,6 +161,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.net.ConnectivityManager;
@@ -226,8 +226,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
             effectiveFramePacing;
     private StreamVideoSettings streamVideoSettings;
     private StreamVideoSettingsState streamVideoSettingsState;
-    private CustomResolutionRepository
-            customResolutionRepository;
     private TransferSettings transferSettings;
     private SettingsRepository settingsRepository;
     private StreamSettingsSession streamSettingsSession;
@@ -288,6 +286,8 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                 0);
     };
     private AndroidStreamNativeCursorController nativeCursorController;
+    private AndroidStreamSurfacePresentationController
+            surfacePresentationController;
 
     private TextView notificationOverlayView;
     private View videoBlankingOverlay;
@@ -321,7 +321,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                         new UsbDriverServiceEndpoint(
                                 binder,
                                 controllerSettingsState,
-                                streamAudioSettingsState,
                                 controllerHandler,
                                 Game.this));
             }
@@ -358,7 +357,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         systemUiController = new AndroidStreamSystemUiController(
                 this,
                 this::isSessionConnected);
-        systemUiController.attachInitialLayout();
         addOnMultiWindowModeChangedListener(
                 info -> handleMultiWindowModeChanged(
                         info.isInMultiWindowMode()));
@@ -415,9 +413,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                         streamUiSettings);
         effectiveFramePacing =
                 streamDecoderSettings.getFramePacing();
-        customResolutionRepository =
-                new SharedPreferencesCustomResolutionRepository(
-                        this);
         transferSettings =
                 TransferSettingsLoader.load(settingsRepository);
         inputSettingsState =
@@ -437,7 +432,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         streamSettingsSession = createStreamSettingsSession();
         gameMenuHost = new StreamGameMenuHost(
                 streamSettingsSession,
-                customResolutionRepository,
                 gameMenuCardLayoutRepository,
                 gameMenuShortcutRepository,
                 gameMenuController,
@@ -446,10 +440,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                 new AndroidDecoderCrashStore(this));
         backNavigationRegistration =
                 BackNavigationRegistration.register(this, this::handleStreamBackPressed);
-
-        // Preserve compact-screen preferences while allowing adaptive windows
-        // to follow the user's current orientation.
-        setPreferredOrientationForCurrentDisplay();
 
         boolean useEntireDisplay =
                 StreamWindowPolicy.shouldUseEntireDisplay(
@@ -488,6 +478,13 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         videoBlankingOverlay.setOnTouchListener(this);
 
         rootView=streamView.getParent();
+        // Keep the real launcher Activity visible below this translucent
+        // window while retaining a valid decoder Surface for session setup.
+        surfacePresentationController =
+                new AndroidStreamSurfacePresentationController(
+                        streamView,
+                        getResources());
+        surfacePresentationController.parkForConnection();
         nativeCursorController =
                 new AndroidStreamNativeCursorController(
                         this,
@@ -626,7 +623,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                         performanceOverlayController,
                         () -> new AndroidAudioRenderer(
                                 Game.this,
-                                controllerHandler,
                                 streamAudioSettingsState));
         mediaResourceOwner = mediaRuntime.getResourceOwner();
         hdrModeController = new AndroidStreamHdrModeController(
@@ -717,8 +713,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         DirectContactInputController directContactInputController =
                 new DirectContactInputController(
                         streamView,
-                        pointerInputSink,
-                        inputSettingsState);
+                        pointerInputSink);
         ExternalPointerInputController externalPointerInputController =
                 new ExternalPointerInputController(
                         streamView,
@@ -731,7 +726,14 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                         this,
                         conn,
                         settingsRepository,
-                        clipboardDirectoryLauncher::launch);
+                        intent -> {
+                            // Launching the system document picker temporarily
+                            // stops Game. Remove any stale reconnect handoff so
+                            // the launcher cannot reopen Game over DocumentsUI.
+                            cancelPendingStreamBackExit();
+                            getPendingStreamReconnectStore().clear();
+                            clipboardDirectoryLauncher.launch(intent);
+                        });
         Handler mainHandler = new Handler(Looper.getMainLooper());
         microphoneController =
                 AndroidStreamMicrophoneControllerFactory.create(
@@ -764,17 +766,16 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                         directContactInputController,
                         inputSettingsState,
                         this::showKeyboard);
-        if (inputSettingsState.get().isAbsoluteMouseMode()) {
-            conn.setMousePositionListener(
-                    nativeCursorController
-                            ::updatePositionFromReference);
-        }
+        // Keep the locally rendered host cursor on the same coordinate path
+        // as every absolute position packet. The controller itself decides
+        // whether the overlay is currently enabled.
+        conn.setMousePositionListener(
+                nativeCursorController::updatePositionFromReference);
         controllerHandler = new ControllerHandler(
                 this,
                 conn,
                 this,
-                controllerSettingsState,
-                streamAudioSettingsState);
+                controllerSettingsState);
         keyboardInputController = new KeyboardInputController(
                 new KeyboardTranslator(),
                 controllerHandler,
@@ -908,9 +909,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
 
         floatingControlController =
                 createFloatingControlController();
-        floatingControlController.applyEnabled(
-                streamUiSettingsState.get()
-                        .isFloatingControlEnabled());
 
         if (!mediaResourceOwner.isAvcSupported()) {
             connectingIndicator.dismiss();
@@ -1012,9 +1010,8 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                     }
 
                     @Override
-                    public void onAudioSettingsChanged(
-                            StreamAudioSettings settings) {
-                        applyStreamAudioSettingsEffects(settings);
+                    public void onAdaptiveTriggerSettingsChanged() {
+                        controllerHandler.refreshAdaptiveTriggerState();
                     }
 
                     @Override
@@ -1125,8 +1122,11 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         super.onConfigurationChanged(newConfig);
 
 
-        // Set requested orientation for possible new screen size
-        setPreferredOrientationForCurrentDisplay();
+        // The connection phase intentionally keeps the launcher's
+        // orientation so its backdrop and progress UI remain upright.
+        if (isSessionConnected()) {
+            setPreferredOrientationForCurrentDisplay();
+        }
 
         if (virtualControlsController != null) {
             virtualControlsController.refreshCreatedLayouts();
@@ -1199,7 +1199,9 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
 
     private void handleMultiWindowModeChanged(
             boolean isInMultiWindowMode) {
-        setPreferredOrientationForCurrentDisplay();
+        if (isSessionConnected()) {
+            setPreferredOrientationForCurrentDisplay();
+        }
 
         // In multi-window, we don't want to use the full-screen layout
         // flag. It will cause us to collide with the system UI.
@@ -1473,7 +1475,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
 
             decoderCrashTracker.completeCleanly();
         }
-        if (streamRestartRequested || isChangingConfigurations()) {
+        if (isChangingConfigurations()) {
             return;
         }
         if (streamVideoSettingsState
@@ -1518,7 +1520,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     }
 
     private boolean isAutoLink=false;
-    private boolean streamRestartRequested;
 
     private PendingStreamReconnectStore
             getPendingStreamReconnectStore() {
@@ -1736,6 +1737,24 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
 
     private void onSessionConnected() {
         streamStartElapsedMs = SystemClock.elapsedRealtime();
+        // Make the stream window opaque in the same UI turn that dismisses
+        // the connection dialog. Window-only stream affordances must not be
+        // created while the launcher is still visible below us.
+        getWindow().setBackgroundDrawableResource(
+                android.R.color.black);
+        if (rootView instanceof View) {
+            ((View) rootView).setBackgroundColor(Color.BLACK);
+        }
+        surfacePresentationController.revealConnectedStream();
+        nativeCursorController.onStreamPresented();
+        systemUiController.attachInitialLayout();
+        floatingControlController.applyEnabled(
+                streamUiSettingsState.get()
+                        .isFloatingControlEnabled());
+        // Enter the stream's requested orientation only after the decoder is
+        // connected. This keeps connection progress anchored to the launcher
+        // instead of rotating a portrait snapshot inside a landscape window.
+        setPreferredOrientationForCurrentDisplay();
         if (pictureInPictureController != null) {
             pictureInPictureController.setSessionConnected(true);
         }
@@ -1968,12 +1987,24 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
 
     public void handleStreamBackPressed() {
         long now = SystemClock.elapsedRealtime();
-        if (now - lastBackPressedElapsedMs <= BACK_EXIT_INTERVAL_MS) {
+        boolean exitIsArmed = lastBackPressedElapsedMs != 0 &&
+                now - lastBackPressedElapsedMs <=
+                        BACK_EXIT_INTERVAL_MS;
+        if (exitIsArmed) {
             if (gameMenuController != null) {
                 gameMenuController.dismiss();
             }
             cancelPendingStreamBackExit();
             finish();
+            return;
+        }
+
+        // A menu Back after a timeout or any intervening interaction only
+        // closes the menu. It must not silently arm a new exit sequence.
+        if (gameMenuController != null &&
+                gameMenuController.isVisible()) {
+            gameMenuController.dismiss();
+            cancelPendingStreamBackExit();
             return;
         }
 
@@ -2007,6 +2038,12 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
 
     //本地鼠标光标切换
     @Override
+    public boolean isLocalSystemCursorVisible() {
+        return inputCaptureController != null &&
+                inputCaptureController.isLocalCursorVisible();
+    }
+
+    @Override
     public void switchMouseLocalCursor(){
         if (inputCaptureController != null) {
             inputCaptureController.toggleLocalCursorVisibility();
@@ -2030,17 +2067,10 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         if (conn != null) {
             conn.setAbsoluteMousePositionMode(enabled);
         }
+        if (nativeCursorController != null) {
+            nativeCursorController.setEnabled(enabled);
+        }
         return enabled;
-    }
-
-    private void applyStreamAudioSettingsEffects(
-            StreamAudioSettings updated) {
-        if (mediaResourceOwner != null) {
-            mediaResourceOwner.updateAudioSettings(updated);
-        }
-        if (controllerHandler != null) {
-            controllerHandler.refreshAudioHapticsState();
-        }
     }
 
     private boolean isGameModeIntegrationDisabled() {
@@ -2066,7 +2096,8 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         }
         if (previous.isFloatingControlEnabled() !=
                 updated.isFloatingControlEnabled()) {
-            if (floatingControlController != null) {
+            if (floatingControlController != null &&
+                    isSessionConnected()) {
                 floatingControlController.applyEnabled(
                         updated.isFloatingControlEnabled());
             }
@@ -2104,7 +2135,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                 streamUiSettingsState.get(),
                 streamDecoderSettings,
                 streamDisplaySettings,
-                streamAudioSettingsState.get(),
                 controllerSettingsState.get());
     }
 
@@ -2120,15 +2150,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         if (performanceOverlayController != null) {
             performanceOverlayController.toggleExpandedMode();
         }
-    }
-
-    //切换触控灵敏度开关
-    public void switchTouchSensitivity(){
-        boolean enabled = !streamInputController
-                .getSettings()
-                .isDirectTouchSensitivityEnabled();
-        streamInputController
-                .setDirectTouchSensitivityEnabled(enabled);
     }
 
     //切换虚拟手柄模式
@@ -2252,16 +2273,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     }
 
     @Override
-    public void requestStreamRestart() {
-        if (isFinishing() || streamRestartRequested) {
-            return;
-        }
-        streamRestartRequested = true;
-        getPendingStreamReconnectStore().clear();
-        recreate();
-    }
-
-    @Override
     public void requestStreamQuit() {
         if (hostQuitRequested) {
             UiToast.makeText(
@@ -2379,11 +2390,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         }, KEY_CHORD_UP_DELAY_MS);
     }
 
-    @Override
-    public void applyDualSenseTriggerSettings() {
-        refreshAdaptiveTriggerState();
-    }
-
     public boolean isSessionConnected() {
         return sessionController != null &&
                 sessionController.getState().isStreaming();
@@ -2456,10 +2462,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                     resultCode,
                     data);
         }
-    }
-
-    private void refreshAdaptiveTriggerState() {
-        controllerHandler.refreshAdaptiveTriggerState();
     }
 
     public void setMotionForceGyro(){

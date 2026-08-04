@@ -1,6 +1,7 @@
 package com.limelight.ui.gamemenu;
 
 import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode;
+import com.limelight.settings.audio.StreamAudioSettingsUpdate;
 import com.limelight.settings.controller.ControllerSettingsUpdate;
 import com.limelight.settings.input.InputSettingsUpdate;
 import com.limelight.settings.ui.GameMenuCardLayout;
@@ -14,7 +15,7 @@ import com.limelight.shortcuts.GameMenuShortcut;
  * <p>The menu obtains this contract from its attached Activity. It must not
  * retain the Activity after {@code onDetach()}.</p>
  */
-public interface GameMenuHost extends GameDisplayHost {
+public interface GameMenuHost {
     GameMenuState getState();
 
     void saveGameMenuCardLayout(GameMenuCardLayout layout);
@@ -28,8 +29,6 @@ public interface GameMenuHost extends GameDisplayHost {
     void cancelPendingStreamBackExit();
 
     void requestStreamDisconnect();
-
-    void requestStreamRestart();
 
     void requestStreamQuit();
 
@@ -61,7 +60,12 @@ public interface GameMenuHost extends GameDisplayHost {
 
     void switchMic();
 
+    void applyStreamAudioSettingsUpdate(
+            StreamAudioSettingsUpdate update);
+
     void toggleGamepadMouseEmulation();
+
+    boolean isLocalSystemCursorVisible();
 
     void switchMouseLocalCursor();
 
@@ -76,8 +80,6 @@ public interface GameMenuHost extends GameDisplayHost {
 
     void applyStreamUiSettingsUpdate(
             StreamUiSettingsUpdate update);
-
-    void applyDualSenseTriggerSettings();
 
     void updateVirtualView();
 

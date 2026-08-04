@@ -72,21 +72,6 @@ public final class InputSettingsLoader {
                 .setMouseWheelScrollAmount(repository.get(
                         InputSettingKeys
                                 .MOUSE_WHEEL_SCROLL_AMOUNT))
-                .setDirectTouchSensitivityEnabled(repository.get(
-                        InputSettingKeys
-                                .DIRECT_TOUCH_SENSITIVITY_ENABLED))
-                .setDirectTouchSensitivity(
-                        repository.get(
-                                InputSettingKeys
-                                        .DIRECT_TOUCH_SENSITIVITY_X),
-                        repository.get(
-                                InputSettingKeys
-                                        .DIRECT_TOUCH_SENSITIVITY_Y))
-                .setDirectTouchSensitivityGlobal(repository.get(
-                        InputSettingKeys
-                                .DIRECT_TOUCH_SENSITIVITY_GLOBAL))
-                .setDirectTouchRecenterEnabled(repository.get(
-                        InputSettingKeys.DIRECT_TOUCH_RECENTER))
                 .build();
     }
 

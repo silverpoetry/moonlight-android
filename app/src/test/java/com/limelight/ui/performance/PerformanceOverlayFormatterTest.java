@@ -1,7 +1,6 @@
 package com.limelight.ui.performance;
 
 import com.limelight.binding.video.PerfOverlayStats;
-import com.limelight.settings.audio.StreamAudioSettings;
 import com.limelight.settings.controller.ControllerSettings;
 import com.limelight.settings.stream.StreamDecoderSettings;
 import com.limelight.settings.stream.StreamDisplaySettings;
@@ -70,9 +69,6 @@ public final class PerformanceOverlayFormatterTest {
                 "1:02:03",
                 value(rows, "本地时长"));
         assertEquals(
-                "开 / 手柄 / 中 / 65%",
-                value(rows, "音频震动"));
-        assertEquals(
                 "已接管 / DualSense",
                 value(rows, "USB手柄"));
     }
@@ -124,17 +120,6 @@ public final class PerformanceOverlayFormatterTest {
                         false,
                         true,
                         StreamDisplaySettings.Gravity.DEFAULT);
-        StreamAudioSettings audioSettings =
-                StreamAudioSettings.builder()
-                        .setAudioHaptics(
-                                true,
-                                StreamAudioSettings
-                                        .HapticsOutputTarget
-                                        .CONTROLLER,
-                                65,
-                                StreamAudioSettings.VoiceFilter.MEDIUM,
-                                false)
-                        .build();
         ControllerSettings controllerSettings =
                 ControllerSettings.builder()
                         .setUsbDriverEnabled(true)
@@ -143,7 +128,6 @@ public final class PerformanceOverlayFormatterTest {
                 uiSettings,
                 decoderSettings,
                 displaySettings,
-                audioSettings,
                 controllerSettings);
     }
 

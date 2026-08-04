@@ -23,27 +23,11 @@ import com.limelight.binding.video.AndroidDecoderCrashStore;
 import com.limelight.grid.AppGridAdapter;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
-import com.limelight.settings.SettingsMigrationRunner;
-import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
-import com.limelight.settings.android.AndroidDisplayAspectProvider;
-import com.limelight.settings.android.SharedPreferencesCustomResolutionRepository;
-import com.limelight.settings.android.AndroidSettingsRepository;
-import com.limelight.settings.audio.StreamAudioSettings;
-import com.limelight.settings.audio.StreamAudioSettingsLoader;
-import com.limelight.settings.audio.StreamAudioSettingsState;
-import com.limelight.settings.audio.StreamAudioSettingsUpdate;
 import com.limelight.settings.app.AppPresentationSettings;
-import com.limelight.settings.stream.CustomResolutionRepository;
-import com.limelight.settings.stream.StreamVideoSettings;
-import com.limelight.settings.stream.StreamVideoSettingsLoader;
-import com.limelight.settings.stream.StreamVideoSettingsState;
-import com.limelight.settings.stream.StreamVideoSettingsUpdate;
 import com.limelight.stream.launch.android.AndroidStreamAutoReconnectController;
 import com.limelight.stream.launch.android.AndroidStreamLaunchFeedback;
 import com.limelight.stream.launch.android.AndroidStreamLauncher;
-import com.limelight.ui.gamemenu.GameDisplayFragment;
-import com.limelight.ui.gamemenu.GameDisplayHost;
 import com.limelight.ui.decoder.AndroidDecoderCrashNotificationController;
 import com.limelight.ui.hosts.HostQuitMessageResolver;
 import com.limelight.ui.hosts.HostServiceBindingController;
@@ -69,7 +53,7 @@ import com.limelight.utils.UiToast;
 
 import org.xmlpull.v1.XmlPullParserException;
 
-public class AppView extends BaseActivity implements GameDisplayHost {
+public class AppView extends BaseActivity {
     private AppGridAdapter appGridAdapter;
     private String uuidString;
     private HostId hostId;
@@ -344,9 +328,6 @@ public class AppView extends BaseActivity implements GameDisplayHost {
                     appPresentationSettings.usesSmallAppIcons());
             refreshApplicationScreen();
         }
-        if(dialogFragment!=null) {
-            dialogFragment.dismiss();
-        }
     }
 
     private void startComputerUpdates() {
@@ -541,14 +522,7 @@ public class AppView extends BaseActivity implements GameDisplayHost {
         }
     }
 
-    private GameDisplayFragment dialogFragment;
-
     private AppPresentationSettings appPresentationSettings;
-    private SettingsRepository settingsRepository;
-    private StreamVideoSettingsState streamVideoSettingsState;
-    private StreamAudioSettingsState streamAudioSettingsState;
-    private CustomResolutionRepository
-            customResolutionRepository;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -586,19 +560,6 @@ public class AppView extends BaseActivity implements GameDisplayHost {
                     }
 
                     @Override
-                    public void onDisplayOptionsRequested() {
-                        if (dialogFragment != null) {
-                            dialogFragment.dismiss();
-                            dialogFragment = null;
-                        }
-                        dialogFragment =
-                                GameDisplayFragment.newInstance(false);
-                        dialogFragment.setWidth(
-                                UiHelper.dpToPx(AppView.this, 364));
-                        dialogFragment.show(getSupportFragmentManager());
-                    }
-
-                    @Override
                     public void onAppRequested(AppObject app) {
                         launchStream(app.app);
                     }
@@ -632,66 +593,12 @@ public class AppView extends BaseActivity implements GameDisplayHost {
 
         appPresentationSettings =
                 AndroidAppPresentationSettingsLoader.load(this);
-        settingsRepository = AndroidSettingsRepository.create(this);
-        SettingsMigrationRunner.migrate(settingsRepository);
-        streamVideoSettingsState =
-                new StreamVideoSettingsState(
-                        StreamVideoSettingsLoader.load(
-                                settingsRepository,
-                                AndroidDisplayAspectProvider
-                                        .get(this)));
-        streamAudioSettingsState =
-                new StreamAudioSettingsState(
-                        StreamAudioSettingsLoader.load(
-                                settingsRepository));
-        customResolutionRepository =
-                new SharedPreferencesCustomResolutionRepository(
-                        this);
 
         // Bind to the computer manager service
         managerServiceBound = bindService(
                 new Intent(this, ComputerManagerService.class),
                 serviceConnection,
                 Service.BIND_AUTO_CREATE);
-    }
-
-    @Override
-    public StreamVideoSettings getStreamVideoSettings() {
-        return streamVideoSettingsState.get();
-    }
-
-    @Override
-    public void applyStreamVideoSettingsUpdate(
-            StreamVideoSettingsUpdate update) {
-        StreamVideoSettings updated =
-                update.applyTo(streamVideoSettingsState.get());
-        update.persist(settingsRepository);
-        streamVideoSettingsState.replace(updated);
-    }
-
-    @Override
-    public CustomResolutionRepository
-            getCustomResolutionRepository() {
-        return customResolutionRepository;
-    }
-
-    @Override
-    public StreamAudioSettings getStreamAudioSettings() {
-        return streamAudioSettingsState.get();
-    }
-
-    @Override
-    public void applyStreamAudioSettingsUpdate(
-            StreamAudioSettingsUpdate update) {
-        StreamAudioSettings updated =
-                update.applyTo(streamAudioSettingsState.get());
-        update.persist(settingsRepository);
-        streamAudioSettingsState.replace(updated);
-    }
-
-    @Override
-    public void onDisplayConfigurationApplied() {
-        // App-list changes apply to the next stream without navigation.
     }
 
     private void updateHiddenApps(boolean hideImmediately) {
@@ -768,9 +675,6 @@ public class AppView extends BaseActivity implements GameDisplayHost {
     }
 
     private boolean refreshSettingsAfterResume() {
-        if (settingsRepository == null) {
-            return false;
-        }
         AppPresentationSettings updatedPresentation =
                 AndroidAppPresentationSettingsLoader.load(this);
         boolean presentationChanged =
@@ -786,12 +690,6 @@ public class AppView extends BaseActivity implements GameDisplayHost {
         if (presentationChanged) {
             refreshApplicationScreen();
         }
-        streamVideoSettingsState.replace(
-                StreamVideoSettingsLoader.load(
-                        settingsRepository,
-                        AndroidDisplayAspectProvider.get(this)));
-        streamAudioSettingsState.replace(
-                StreamAudioSettingsLoader.load(settingsRepository));
         return false;
     }
 
@@ -800,8 +698,8 @@ public class AppView extends BaseActivity implements GameDisplayHost {
             AppPresentationSettings current) {
         return previous.usesSmallAppIcons() !=
                         current.usesSmallAppIcons() ||
-                previous.usesLightTheme() !=
-                        current.usesLightTheme() ||
+                !previous.getThemeMode().equals(
+                        current.getThemeMode()) ||
                 !previous.getLanguage().equals(
                         current.getLanguage());
     }
@@ -834,15 +732,30 @@ public class AppView extends BaseActivity implements GameDisplayHost {
             NvApp app) {
         ComputerManagerService.ComputerManagerBinder binder =
                 managerBinder;
-        HostRuntimeSnapshot targetHost = hostSnapshot;
-        if (binder == null || streamLauncher == null ||
-                targetHost == null) {
+        if (binder == null || streamLauncher == null) {
             UiToast.makeText(
                     this,
                     R.string.error_manager_not_running,
                     UiToast.LENGTH_LONG).show();
             return;
         }
+
+        // Resolve the host at the moment the user starts an application. The
+        // app browser remains open while polling continues, so its published
+        // snapshot may otherwise lag behind the service-owned endpoint and
+        // certificate state used by the host screen.
+        HostRuntimeSnapshot targetHost = binder.getHost(hostId);
+        if (targetHost == null) {
+            targetHost = hostSnapshot;
+        }
+        if (targetHost == null) {
+            UiToast.makeText(
+                    this,
+                    R.string.error_manager_not_running,
+                    UiToast.LENGTH_LONG).show();
+            return;
+        }
+        hostSnapshot = targetHost;
 
         AndroidStreamLauncher.Result result = streamLauncher.launch(
                 targetHost,
@@ -881,19 +794,19 @@ public class AppView extends BaseActivity implements GameDisplayHost {
 
         if (lastRunningAppId != 0) {
             if (lastRunningAppId == app.app.getAppId()) {
-                actions.add(new MenuAction(R.string.applist_menu_resume, R.drawable.ic_play, new Runnable() {
+                actions.add(new MenuAction(R.string.applist_menu_resume, R.drawable.ic_m3_play_arrow, new Runnable() {
                     @Override
                     public void run() {
                         launchStream(app.app);
                     }
                 }));
-                actions.add(new MenuAction(R.string.applist_menu_restart, R.drawable.ic_reboot, new Runnable() {
+                actions.add(new MenuAction(R.string.applist_menu_restart, R.drawable.ic_m3_restart, new Runnable() {
                     @Override
                     public void run() {
                         restartCurrentApp(app);
                     }
                 }));
-                actions.add(new MenuAction(R.string.applist_menu_quit, R.drawable.ic_exit, new Runnable() {
+                actions.add(new MenuAction(R.string.applist_menu_quit, R.drawable.ic_m3_logout, new Runnable() {
                     @Override
                     public void run() {
                         quitCurrentApp(app, null);
@@ -901,7 +814,7 @@ public class AppView extends BaseActivity implements GameDisplayHost {
                 }));
             }
             else {
-                actions.add(new MenuAction(R.string.applist_menu_quit_and_start, R.drawable.ic_reboot, new Runnable() {
+                actions.add(new MenuAction(R.string.applist_menu_quit_and_start, R.drawable.ic_m3_restart, new Runnable() {
                     @Override
                     public void run() {
                         launchStream(app.app);
@@ -912,7 +825,7 @@ public class AppView extends BaseActivity implements GameDisplayHost {
 
         if (lastRunningAppId != app.app.getAppId() || app.isHidden) {
             actions.add(new MenuAction(app.isHidden ? R.string.applist_menu_show_app : R.string.applist_menu_hide_app,
-                    app.isHidden ? R.drawable.ic_desktop : R.drawable.ic_unlink,
+                    app.isHidden ? R.drawable.ic_m3_visibility : R.drawable.ic_m3_visibility_off,
                     new Runnable() {
                         @Override
                         public void run() {
@@ -927,7 +840,7 @@ public class AppView extends BaseActivity implements GameDisplayHost {
                     }));
         }
 
-        actions.add(new MenuAction(R.string.applist_menu_details, R.drawable.ic_app_about, new Runnable() {
+        actions.add(new MenuAction(R.string.applist_menu_details, R.drawable.ic_m3_info, new Runnable() {
             @Override
             public void run() {
                 Dialog.displayDialog(AppView.this, getResources().getString(R.string.title_details),
@@ -936,7 +849,7 @@ public class AppView extends BaseActivity implements GameDisplayHost {
         }));
 
         if (canCreatePinnedShortcut(artwork)) {
-            actions.add(new MenuAction(R.string.applist_menu_scut, R.drawable.ic_app_add, new Runnable() {
+            actions.add(new MenuAction(R.string.applist_menu_scut, R.drawable.ic_m3_add, new Runnable() {
                 @Override
                 public void run() {
                     HostRuntimeSnapshot targetHost = hostSnapshot;

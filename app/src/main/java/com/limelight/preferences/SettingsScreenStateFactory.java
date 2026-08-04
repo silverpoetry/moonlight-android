@@ -6,6 +6,7 @@ import com.limelight.settings.stream.StreamVideoSettingKeys;
 import com.limelight.settings.transfer.TransferSettingKeys;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
@@ -60,7 +61,8 @@ final class SettingsScreenStateFactory {
                         sourceSection.key,
                         sourceSection.title,
                         sourceSection.iconRes,
-                        rows));
+                        rows,
+                        buildGroups(sourceSection.key, rows)));
             }
         }
 
@@ -75,7 +77,70 @@ final class SettingsScreenStateFactory {
         return new SettingsScreenState(
                 sections,
                 featuredRows,
+                buildFeaturedGroups(featuredRows),
                 rowsById);
+    }
+
+    private static List<SettingsScreenState.Group> buildGroups(
+            String sectionId,
+            List<SettingsScreenState.Row> rows) {
+        return buildGroups(rows, row ->
+                SettingsPresentationCatalog.forItem(
+                        sectionId,
+                        row.getId()));
+    }
+
+    private static List<SettingsScreenState.Group> buildFeaturedGroups(
+            List<SettingsScreenState.Row> rows) {
+        return buildGroups(rows, row ->
+                SettingsPresentationCatalog.forFeaturedItem(row.getId()));
+    }
+
+    private static List<SettingsScreenState.Group> buildGroups(
+            List<SettingsScreenState.Row> rows,
+            GroupResolver resolver) {
+        LinkedHashMap<String, MutableGroup> grouped =
+                new LinkedHashMap<>();
+        for (SettingsScreenState.Row row : rows) {
+            SettingsPresentationCatalog.Group spec =
+                    resolver.resolve(row);
+            MutableGroup group = grouped.get(spec.getId());
+            if (group == null) {
+                group = new MutableGroup(spec);
+                grouped.put(spec.getId(), group);
+            }
+            group.rows.add(row);
+        }
+        ArrayList<MutableGroup> ordered =
+                new ArrayList<>(grouped.values());
+        Collections.sort(ordered, (left, right) -> Integer.compare(
+                left.spec.getOrder(),
+                right.spec.getOrder()));
+        ArrayList<SettingsScreenState.Group> result =
+                new ArrayList<>(ordered.size());
+        for (MutableGroup group : ordered) {
+            result.add(new SettingsScreenState.Group(
+                    group.spec.getId(),
+                    group.spec.getTitleRes(),
+                    group.rows));
+        }
+        return result;
+    }
+
+    private interface GroupResolver {
+        SettingsPresentationCatalog.Group resolve(
+                SettingsScreenState.Row row);
+    }
+
+    private static final class MutableGroup {
+        private final SettingsPresentationCatalog.Group spec;
+        private final ArrayList<SettingsScreenState.Row> rows =
+                new ArrayList<>();
+
+        private MutableGroup(
+                SettingsPresentationCatalog.Group spec) {
+            this.spec = spec;
+        }
     }
 
     private static SettingsScreenState.Row createRow(
@@ -84,6 +149,26 @@ final class SettingsScreenStateFactory {
             CharSequence openActionLabel) {
         boolean switchControl =
                 item.type == SettingsItem.Type.SWITCH;
+        SettingsScreenState.Row.ControlType controlType;
+        if (switchControl) {
+            controlType = SettingsScreenState.Row.ControlType.SWITCH;
+        }
+        else if (item.type == SettingsItem.Type.ACTION ||
+                item.type == SettingsItem.Type.WEB) {
+            controlType = SettingsScreenState.Row.ControlType.ACTION;
+        }
+        else {
+            controlType = SettingsScreenState.Row.ControlType.VALUE;
+        }
+        SettingsEditorCatalog.Kind editorKind =
+                SettingsEditorCatalog.forItem(item);
+        boolean inlineChoices =
+                (item.type == SettingsItem.Type.LIST ||
+                        item.type == SettingsItem.Type.INTEGER_LIST) &&
+                (editorKind == SettingsEditorCatalog.Kind.SEGMENTED ||
+                        editorKind ==
+                                SettingsEditorCatalog.Kind.DISCRETE_SLIDER);
+        boolean numericSlider = item.type == SettingsItem.Type.SLIDER;
         return new SettingsScreenState.Row(
                 item.key,
                 item.title,
@@ -91,8 +176,42 @@ final class SettingsScreenStateFactory {
                 valueText(item, values, openActionLabel),
                 item.iconRes,
                 item.isEnabled(values),
-                switchControl,
-                switchControl && values.getBoolean(item));
+                controlType,
+                switchControl && values.getBoolean(item),
+                inlineChoices
+                        ? choices(item)
+                        : Collections.emptyList(),
+                inlineChoices
+                        ? selectedChoiceValue(item, values)
+                        : null,
+                editorKind == SettingsEditorCatalog.Kind.DISCRETE_SLIDER,
+                numericSlider ? values.getInt(item) : null,
+                numericSlider ? item.min : 0,
+                numericSlider ? item.max : 0,
+                numericSlider ? Math.max(1, item.step) : 1);
+    }
+
+    private static List<SettingsScreenState.Row.Choice> choices(
+            SettingsItem item) {
+        ArrayList<SettingsScreenState.Row.Choice> choices =
+                new ArrayList<>(item.entries.length);
+        int count = Math.min(
+                item.entries.length,
+                item.entryValues.length);
+        for (int index = 0; index < count; index++) {
+            choices.add(new SettingsScreenState.Row.Choice(
+                    item.entries[index],
+                    item.entryValues[index]));
+        }
+        return choices;
+    }
+
+    private static String selectedChoiceValue(
+            SettingsItem item,
+            SettingsValueReader values) {
+        return item.type == SettingsItem.Type.INTEGER_LIST
+                ? Integer.toString(values.getInt(item))
+                : values.getString(item);
     }
 
     private static CharSequence valueText(

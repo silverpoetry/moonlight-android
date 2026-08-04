@@ -1,8 +1,8 @@
 package com.limelight
 
+import android.widget.ImageView
 import android.os.Bundle
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -17,10 +18,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.limelight.ui.compose.components.MoonlightActionRow
 import com.limelight.ui.compose.components.MoonlightGroup
 import com.limelight.ui.compose.components.MoonlightScreen
@@ -76,10 +77,20 @@ private fun AboutScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top,
         ) {
-            Image(
-                painter = painterResource(R.mipmap.ic_app),
-                contentDescription = null,
-                modifier = Modifier.height(88.dp),
+            AndroidView(
+                factory = { viewContext ->
+                    ImageView(viewContext).apply {
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        setImageDrawable(
+                            viewContext.applicationInfo.loadIcon(
+                                viewContext.packageManager,
+                            ),
+                        )
+                        importantForAccessibility =
+                            android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    }
+                },
+                modifier = Modifier.size(88.dp),
             )
             Spacer(Modifier.height(16.dp))
             Text(

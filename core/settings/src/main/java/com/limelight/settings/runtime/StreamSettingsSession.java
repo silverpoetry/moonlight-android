@@ -45,7 +45,7 @@ public final class StreamSettingsSession {
 
         void onForceGyroEnabled();
 
-        void onAudioSettingsChanged(StreamAudioSettings settings);
+        void onAdaptiveTriggerSettingsChanged();
 
         void onUiSettingsChanged(
                 StreamUiSettings previous,
@@ -153,7 +153,6 @@ public final class StreamSettingsSession {
         StreamAudioSettings currentAudio =
                 StreamAudioSettingsLoader.load(repository);
         audioState.replace(currentAudio);
-        effects.onAudioSettingsChanged(currentAudio);
 
         StreamUiSettings previousUi = uiState.get();
         StreamUiSettings currentUi =
@@ -211,6 +210,9 @@ public final class StreamSettingsSession {
                 current.isForceGyroEnabled()) {
             effects.onForceGyroEnabled();
         }
+        if (adaptiveTriggerSettingsDiffer(previous, current)) {
+            effects.onAdaptiveTriggerSettingsChanged();
+        }
     }
 
     public void applyAudio(StreamAudioSettingsUpdate update) {
@@ -219,7 +221,6 @@ public final class StreamSettingsSession {
                 update.applyTo(audioState.get());
         update.persist(repository);
         audioState.replace(current);
-        effects.onAudioSettingsChanged(current);
     }
 
     public void applyVideo(StreamVideoSettingsUpdate update) {
@@ -271,5 +272,20 @@ public final class StreamSettingsSession {
                         second.getBarometerForcePressThresholdHpa()) != 0 ||
                 first.getBarometerForcePressMinimumDurationMs() !=
                         second.getBarometerForcePressMinimumDurationMs();
+    }
+
+    private static boolean adaptiveTriggerSettingsDiffer(
+            ControllerSettings first,
+            ControllerSettings second) {
+        return first.getAdaptiveTriggerMode() !=
+                        second.getAdaptiveTriggerMode() ||
+                first.getAdaptiveTriggerStrength() !=
+                        second.getAdaptiveTriggerStrength() ||
+                first.getAdaptiveTriggerFrequency() !=
+                        second.getAdaptiveTriggerFrequency() ||
+                first.getAdaptiveTriggerStartPosition() !=
+                        second.getAdaptiveTriggerStartPosition() ||
+                first.getAdaptiveTriggerEndPosition() !=
+                        second.getAdaptiveTriggerEndPosition();
     }
 }
