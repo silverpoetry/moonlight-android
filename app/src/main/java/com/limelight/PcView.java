@@ -2,8 +2,10 @@ package com.limelight;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.video.AndroidDecoderCrashStore;
@@ -1323,14 +1325,22 @@ public class PcView extends BaseActivity {
             return;
         }
         ArrayList<HostRuntimeSnapshot> hosts = new ArrayList<>();
+        Set<String> hostsWithRecentStreams = new HashSet<>();
         for (int index = 0; index < pcGridAdapter.getCount(); index++) {
             ComputerObject computer =
                     (ComputerObject) pcGridAdapter.getItem(index);
-            hosts.add(computer.getSnapshot());
+            HostRuntimeSnapshot snapshot = computer.getSnapshot();
+            hosts.add(snapshot);
+            String hostId = snapshot.getRecord().getIdentity().getId().getValue();
+            if (streamLauncher != null &&
+                    streamLauncher.findRecentSession(hostId) != null) {
+                hostsWithRecentStreams.add(hostId);
+            }
         }
         hostScreenRenderer.updateHosts(
                 hosts,
-                hostListReady && !managerHasKnownHosts && hosts.isEmpty());
+                hostListReady && !managerHasKnownHosts && hosts.isEmpty(),
+                hostsWithRecentStreams);
     }
 
     public static final class ComputerObject {

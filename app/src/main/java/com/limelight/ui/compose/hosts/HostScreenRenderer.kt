@@ -64,10 +64,16 @@ class HostScreenRenderer(
         val title: String,
         val hosts: List<HostRuntimeSnapshot>,
         val showSearching: Boolean,
+        val hostsWithRecentStreams: Set<String>,
     )
 
     private var state: State by mutableStateOf(
-        State(context.getString(R.string.app_label), emptyList(), false),
+        State(
+            context.getString(R.string.app_label),
+            emptyList(),
+            false,
+            emptySet(),
+        ),
     )
     private var composeView: ComposeView? = null
 
@@ -94,9 +100,18 @@ class HostScreenRenderer(
         hosts: List<HostRuntimeSnapshot>,
         showSearching: Boolean,
     ) {
+        updateHosts(hosts, showSearching, emptySet())
+    }
+
+    fun updateHosts(
+        hosts: List<HostRuntimeSnapshot>,
+        showSearching: Boolean,
+        hostsWithRecentStreams: Set<String>,
+    ) {
         state = state.copy(
             hosts = hosts.toList(),
             showSearching = showSearching,
+            hostsWithRecentStreams = hostsWithRecentStreams.toSet(),
         )
     }
 
@@ -148,7 +163,11 @@ class HostScreenRenderer(
                         items = state.hosts,
                         key = { it.record.identity.id.value },
                     ) { host ->
-                        HostCard(host)
+                        HostCard(
+                            host = host,
+                            hasRecentStream = host.record.identity.id.value in
+                                    state.hostsWithRecentStreams,
+                        )
                     }
                 }
             }
@@ -186,7 +205,10 @@ class HostScreenRenderer(
     }
 
     @Composable
-    private fun HostCard(host: HostRuntimeSnapshot) {
+    private fun HostCard(
+        host: HostRuntimeSnapshot,
+        hasRecentStream: Boolean,
+    ) {
         val connection = host.connectionState
         val connectionStatusColor = statusColor(connection)
         val hostName = host.record.identity.displayName
@@ -279,7 +301,9 @@ class HostScreenRenderer(
                             modifier = Modifier.size(18.dp),
                         )
                         Text(
-                            text = stringResource(primaryActionText(connection)),
+                            text = stringResource(
+                                primaryActionText(connection, hasRecentStream),
+                            ),
                             modifier = Modifier.padding(start = 8.dp),
                             maxLines = 1,
                         )
@@ -321,12 +345,17 @@ class HostScreenRenderer(
         HostConnectionState.Reachability.UNKNOWN -> R.string.pcview_menu_header_unknown
     }
 
-    private fun primaryActionText(connection: HostConnectionState): Int = when {
+    private fun primaryActionText(
+        connection: HostConnectionState,
+        hasRecentStream: Boolean,
+    ): Int = when {
         connection.reachability != HostConnectionState.Reachability.ONLINE ->
             R.string.pcview_menu_header_offline
         connection.pairingStatus != HostConnectionState.PairingStatus.PAIRED ->
             R.string.pcview_menu_pair_pc
         connection.runningAppId != 0 ->
+            R.string.applist_menu_resume
+        hasRecentStream ->
             R.string.applist_menu_resume
         else ->
             R.string.host_action_stream
