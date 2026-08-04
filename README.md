@@ -110,7 +110,7 @@ app/JNI ---> pinned moonlight-common-c ---> Sunshine
 - `Moonlight-Android-nonRoot-*.apk`：推荐版本，适用于普通 Android 设备。
 - `Moonlight-Android-root-*.apk`：仅用于确实需要 root 变体包名或相关能力的设备。
 
-正式包名为 `com.moonlight.android`（root 变体为 `com.moonlight.android.root`），应用名称为 **Moonlight**。Release 构建保持未混淆，便于诊断原生输入和设备兼容问题。
+正式包名为 `com.silverpoetry.moonlight`（root 变体为 `com.silverpoetry.moonlight.root`），应用名称为 **Moonlight**。Release 构建保持未混淆，便于诊断原生输入和设备兼容问题。
 
 旧版 `com.limelight.unofficialA` 与当前包名不同，不能直接覆盖安装。需要保留旧版主机、证书和密钥时，应按 Release 迁移说明先运行一次性迁移桥，再安装当前 APK；迁移完成后可卸载旧包和迁移桥。
 

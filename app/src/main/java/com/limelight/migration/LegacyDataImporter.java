@@ -20,7 +20,7 @@ import java.util.zip.ZipInputStream;
 
 /** Imports private state from the final legacy package before repositories open it. */
 public final class LegacyDataImporter {
-    private static final String TARGET_PACKAGE = "com.moonlight.android";
+    private static final String TARGET_PACKAGE = "com.silverpoetry.moonlight";
     private static final Uri LEGACY_EXPORT_URI = Uri.parse(
             "content://com.limelight.unofficialA.migration/export");
     private static final String MARKER = ".legacy-package-imported";

@@ -44,7 +44,7 @@ android {
                 }
             }
 
-            applicationId = "com.moonlight.android.root"
+            applicationId = "com.silverpoetry.moonlight.root"
             dimension = "root"
             buildConfigField "boolean", "ROOT_BUILD", "true"
         }
@@ -56,7 +56,7 @@ android {
                 }
             }
 
-            applicationId = "com.moonlight.android"
+            applicationId = "com.silverpoetry.moonlight"
             dimension = "root"
             buildConfigField "boolean", "ROOT_BUILD", "false"
         }
