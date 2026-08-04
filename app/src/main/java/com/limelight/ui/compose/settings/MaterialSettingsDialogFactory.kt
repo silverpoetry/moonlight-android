@@ -39,6 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.graphics.drawable.toDrawable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.ComposeView
@@ -223,6 +224,7 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedTextField(
                     value = widthInput,
@@ -246,6 +248,11 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
                         keyboardType = KeyboardType.Number,
                         imeAction = ImeAction.Next,
                     ),
+                )
+                Text(
+                    text = "×",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedTextField(
                     value = heightInput,
