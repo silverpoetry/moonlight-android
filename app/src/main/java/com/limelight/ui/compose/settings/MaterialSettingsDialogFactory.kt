@@ -148,9 +148,24 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
         var selectedValue by remember(currentValue) {
             mutableStateOf(currentValue)
         }
-        var input by remember { mutableStateOf("") }
+        var widthInput by remember { mutableStateOf("") }
+        var heightInput by remember { mutableStateOf("") }
         var validationError by remember {
             mutableStateOf<CharSequence?>(null)
+        }
+        val submitCustomResolution = {
+            addCustomResolution(
+                widthInput,
+                heightInput,
+                options,
+                addListener,
+                onError = { validationError = it },
+                onAdded = {
+                    selectedValue = it
+                    widthInput = ""
+                    heightInput = ""
+                },
+            )
         }
 
         SettingsDialogCard(title = title) {
@@ -205,57 +220,69 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
                 }
             }
             HorizontalDivider()
-            OutlinedTextField(
-                value = input,
-                onValueChange = {
-                    input = it
-                    validationError = null
-                },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                label = {
-                    Text(
-                        activity.getString(
-                            R.string.settings_custom_resolution_input_label,
-                        ),
-                    )
-                },
-                singleLine = true,
-                isError = validationError != null,
-                supportingText = validationError?.let { error ->
-                    { Text(error.toString()) }
-                },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Ascii,
-                    imeAction = ImeAction.Done,
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        addCustomResolution(
-                            input,
-                            options,
-                            addListener,
-                            onError = { validationError = it },
-                            onAdded = {
-                                selectedValue = it
-                                input = ""
-                            },
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedTextField(
+                    value = widthInput,
+                    onValueChange = { candidate ->
+                        if (candidate.length <= 5 && candidate.all(Char::isDigit)) {
+                            widthInput = candidate
+                            validationError = null
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = {
+                        Text(
+                            activity.getString(
+                                R.string.settings_custom_resolution_width,
+                            ),
                         )
                     },
-                ),
-            )
+                    singleLine = true,
+                    isError = validationError != null,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Next,
+                    ),
+                )
+                OutlinedTextField(
+                    value = heightInput,
+                    onValueChange = { candidate ->
+                        if (candidate.length <= 5 && candidate.all(Char::isDigit)) {
+                            heightInput = candidate
+                            validationError = null
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = {
+                        Text(
+                            activity.getString(
+                                R.string.settings_custom_resolution_height,
+                            ),
+                        )
+                    },
+                    singleLine = true,
+                    isError = validationError != null,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done,
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = { submitCustomResolution() },
+                    ),
+                )
+            }
+            validationError?.let { error ->
+                Text(
+                    text = error.toString(),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             Button(
-                onClick = {
-                    addCustomResolution(
-                        input,
-                        options,
-                        addListener,
-                        onError = { validationError = it },
-                        onAdded = {
-                            selectedValue = it
-                            input = ""
-                        },
-                    )
-                },
+                onClick = submitCustomResolution,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(
@@ -478,12 +505,14 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
     }
 
     private fun addCustomResolution(
-        input: String,
+        widthInput: String,
+        heightInput: String,
         options: MutableList<ResolutionDialogEntry>,
         listener: TextSubmissionListener,
         onError: (CharSequence?) -> Unit,
         onAdded: (String) -> Unit,
     ) {
+        val input = "${widthInput.trim()}x${heightInput.trim()}"
         val error = listener.onSubmitted(input)
         onError(error)
         if (error != null) {

@@ -449,8 +449,9 @@
     <string name="settings_add">Add</string>
     <string name="settings_custom_resolution_entry">Custom (%1$dx%2$d)</string>
     <string name="settings_custom_resolution_add">Add custom resolution</string>
-    <string name="settings_custom_resolution_input_label">Width x height</string>
-    <string name="settings_custom_resolution_invalid">Enter a resolution in width x height format, with each dimension between 1 and 99999.</string>
+    <string name="settings_custom_resolution_width">Width</string>
+    <string name="settings_custom_resolution_height">Height</string>
+    <string name="settings_custom_resolution_invalid">Enter a width and height between 1 and 99999.</string>
     <string name="settings_custom_resolution_duplicate">This resolution is already available.</string>
     <string name="settings_custom_resolution_limit">You can save up to 32 custom resolutions.</string>
     <string name="settings_custom_resolution_remove">Remove custom resolution</string>
