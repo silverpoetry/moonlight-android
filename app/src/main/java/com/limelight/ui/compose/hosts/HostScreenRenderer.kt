@@ -43,7 +43,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.limelight.R
 import com.limelight.computers.model.HostConnectionState
-import com.limelight.computers.model.HostEndpoint
 import com.limelight.computers.model.HostRuntimeSnapshot
 import com.limelight.ui.compose.components.MoonlightScreen
 import com.limelight.ui.compose.theme.MoonlightThemeFromSettings
@@ -189,7 +188,7 @@ class HostScreenRenderer(
     @Composable
     private fun HostCard(host: HostRuntimeSnapshot) {
         val connection = host.connectionState
-        val online = connection.reachability == HostConnectionState.Reachability.ONLINE
+        val connectionStatusColor = statusColor(connection)
         val hostName = host.record.identity.displayName
         Card(
             modifier = Modifier
@@ -212,11 +211,7 @@ class HostScreenRenderer(
                     Icon(
                         painter = painterResource(R.drawable.ic_m3_computer),
                         contentDescription = null,
-                        tint = if (online) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                        tint = connectionStatusColor,
                         modifier = Modifier.size(36.dp),
                     )
                     Column(modifier = Modifier.weight(1f)) {
@@ -234,11 +229,11 @@ class HostScreenRenderer(
                             Box(
                                 modifier = Modifier
                                     .size(8.dp)
-                                    .background(statusColor(connection), CircleShape),
+                                    .background(connectionStatusColor, CircleShape),
                             )
                             Text(
                                 text = stringResource(statusText(connection)),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = connectionStatusColor,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
@@ -304,9 +299,9 @@ class HostScreenRenderer(
     private fun statusColor(connection: HostConnectionState): Color = when (
         connection.reachability
     ) {
-        HostConnectionState.Reachability.ONLINE -> MaterialTheme.colorScheme.primary
-        HostConnectionState.Reachability.OFFLINE -> MaterialTheme.colorScheme.outline
-        HostConnectionState.Reachability.UNKNOWN -> MaterialTheme.colorScheme.tertiary
+        HostConnectionState.Reachability.ONLINE -> Color(0xFF43A047)
+        HostConnectionState.Reachability.OFFLINE -> Color(0xFF757575)
+        HostConnectionState.Reachability.UNKNOWN -> Color(0xFF9E9E9E)
     }
 
     private fun statusText(connection: HostConnectionState): Int = when (
@@ -318,12 +313,6 @@ class HostScreenRenderer(
     }
 
     private fun displayEndpoint(host: HostRuntimeSnapshot): String? {
-        val record = host.record
-        return sequenceOf(
-            HostEndpoint.Kind.LOCAL_IPV4,
-            HostEndpoint.Kind.LOCAL_IPV6,
-            HostEndpoint.Kind.REMOTE,
-            HostEndpoint.Kind.MANUAL,
-        ).mapNotNull(record::getEndpoint).firstOrNull()?.address
+        return host.connectionState.activeEndpoint?.address
     }
 }
