@@ -37,14 +37,14 @@ final class DecoderStatisticsTracker {
     void recordDecoderLatency(
             long latencyMs,
             boolean includeInEndToEndLatency) {
+        if (latencyMs < 0) {
+            return;
+        }
         activeWindow.decoderTimeMs += latencyMs;
+        activeWindow.decoderSampleCount++;
         if (includeInEndToEndLatency) {
             activeWindow.totalTimeMs += latencyMs;
         }
-    }
-
-    void recordFrameRenderLatency(long latencyMs) {
-        activeWindow.totalTimeMs += latencyMs;
     }
 
     void recordDecodeUnit(
@@ -102,34 +102,43 @@ final class DecoderStatisticsTracker {
     }
 
     int getAverageEndToEndLatencyMs() {
-        if (cumulative.totalFramesReceived == 0) {
+        VideoStats totals = cumulativeSnapshotIncludingActiveWindow();
+        if (totals.totalFramesReceived == 0) {
             return 0;
         }
-        return (int) (cumulative.totalTimeMs /
-                cumulative.totalFramesReceived);
+        return (int) (totals.totalTimeMs /
+                totals.totalFramesReceived);
     }
 
     int getAverageDecoderLatencyMs() {
-        if (cumulative.totalFramesReceived == 0) {
+        VideoStats totals = cumulativeSnapshotIncludingActiveWindow();
+        if (totals.decoderSampleCount == 0) {
             return 0;
         }
-        return (int) (cumulative.decoderTimeMs /
-                cumulative.totalFramesReceived);
+        return (int) (totals.decoderTimeMs /
+                totals.decoderSampleCount);
     }
 
     int getCumulativeFramesReceived() {
-        return cumulative.totalFramesReceived;
+        return cumulativeSnapshotIncludingActiveWindow().totalFramesReceived;
     }
 
     int getCumulativeFramesRendered() {
-        return cumulative.totalFramesRendered;
+        return cumulativeSnapshotIncludingActiveWindow().totalFramesRendered;
     }
 
     int getCumulativeFramesLost() {
-        return cumulative.framesLost;
+        return cumulativeSnapshotIncludingActiveWindow().framesLost;
     }
 
     int getCumulativeFrameLossEvents() {
-        return cumulative.frameLossEvents;
+        return cumulativeSnapshotIncludingActiveWindow().frameLossEvents;
+    }
+
+    private VideoStats cumulativeSnapshotIncludingActiveWindow() {
+        VideoStats totals = new VideoStats();
+        totals.add(cumulative);
+        totals.add(activeWindow);
+        return totals;
     }
 }

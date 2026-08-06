@@ -188,6 +188,9 @@ public final class StreamSessionPresentationControllerTest {
         assertEquals(
                 List.of("connected", "hdr:true", "cursor:true:2:3"),
                 host.events);
+        assertEquals(
+                List.of("dismiss", "connected"),
+                host.lifecycleEvents);
     }
 
     private static StreamSessionPresentationController create(
@@ -244,6 +247,7 @@ public final class StreamSessionPresentationControllerTest {
     private static final class RecordingHost
             implements StreamSessionPresentationController.Host {
         private final List<String> events = new ArrayList<>();
+        private final List<String> lifecycleEvents = new ArrayList<>();
         private boolean canPresent = true;
         private boolean surfaceValid;
         private boolean warningsDisabled;
@@ -263,6 +267,7 @@ public final class StreamSessionPresentationControllerTest {
         @Override
         public void dismissConnectingIndicator() {
             dismissCount++;
+            lifecycleEvents.add("dismiss");
         }
 
         @Override
@@ -315,6 +320,7 @@ public final class StreamSessionPresentationControllerTest {
         @Override
         public void onSessionConnected() {
             events.add("connected");
+            lifecycleEvents.add("connected");
         }
 
         @Override

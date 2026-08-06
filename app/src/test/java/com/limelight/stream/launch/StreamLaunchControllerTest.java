@@ -82,4 +82,18 @@ public final class StreamLaunchControllerTest {
                 StreamLaunchController.Status.ALREADY_STARTING,
                 controller.launch(() -> fail("must not launch")));
     }
+
+    @Test
+    public void asynchronousFailureReopensAdmissionBeforeActivityHandoff() {
+        StreamLaunchController controller =
+                new StreamLaunchController();
+        controller.launch(() -> { });
+
+        controller.onLaunchFailed();
+
+        assertFalse(controller.isStarting());
+        assertEquals(
+                StreamLaunchController.Status.STARTED,
+                controller.launch(() -> { }));
+    }
 }

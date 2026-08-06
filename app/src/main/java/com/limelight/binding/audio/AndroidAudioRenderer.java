@@ -28,7 +28,9 @@ public class AndroidAudioRenderer implements AudioRenderer {
     public AndroidAudioRenderer(
             Context context,
             StreamAudioSettingsState settingsState) {
-        this.context = context;
+        this.context = Objects.requireNonNull(
+                context,
+                "context").getApplicationContext();
         this.settingsState = Objects.requireNonNull(
                 settingsState,
                 "settingsState");

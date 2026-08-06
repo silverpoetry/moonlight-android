@@ -3,7 +3,24 @@
 The project has two verification levels. A successful APK build alone does not run the
 complete test suite.
 
-## Local verification
+## Daily build
+
+普通开发和日常安装只构建 non-root Release：
+
+```powershell
+.\gradlew.bat nonRootRelease
+```
+
+提交前的单变体质量门禁：
+
+```powershell
+.\gradlew.bat verifyNonRootRelease
+```
+
+两个命令都运行完整的 Release Lint 链，不允许通过 `-x` 跳过 Lint。仓库内置工作树锁，
+同一目录同时启动的第二个 Gradle 进程会等待前一个完成。
+
+## Full local verification
 
 ```powershell
 .\gradlew.bat verifyLocal

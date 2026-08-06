@@ -438,10 +438,12 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
     private String tips;
 
     private void initData(){
+        boolean layoutMissing = true;
         try {
             VirtualControlLayoutReadResult result =
                     layoutRepository.load(layoutKey);
             if (result.isFound()) {
+                layoutMissing = false;
                 try {
                     GameMenuQuickBean[] beans =
                             new Gson().fromJson(
@@ -451,7 +453,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
                         Collections.addAll(beanList, beans);
                         if (LegacyVirtualControlActionMigration
                                 .migrate(beanList)) {
-                            persistMigratedLayout();
+                            persistLayout("action-migrated");
                         }
                     }
                 }
@@ -469,7 +471,27 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
                     "Unable to read virtual-control layout " +
                             layoutKey +
                             ": " +
-                            error.getMessage());
+                    error.getMessage());
+        }
+        if (layoutMissing) {
+            int viewportWidth = frame_layout.getWidth();
+            int viewportHeight = frame_layout.getHeight();
+            if (viewportWidth <= 0 || viewportHeight <= 0) {
+                viewportWidth = context.getResources()
+                        .getDisplayMetrics().widthPixels;
+                viewportHeight = context.getResources()
+                        .getDisplayMetrics().heightPixels;
+            }
+            List<GameMenuQuickBean> defaults =
+                    VirtualControlDefaultLayoutFactory.create(
+                            layoutKey,
+                            viewportWidth,
+                            viewportHeight,
+                            buttonWidth,
+                            buttonHeight);
+            if (!defaults.isEmpty()) {
+                beanList.addAll(defaults);
+            }
         }
         if(getControllerMode()==VirtualControlEditMode.ACTIVE&& beanList.isEmpty()){
             if (layoutKey.getOrientation() ==
@@ -491,7 +513,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
         }
     }
 
-    private void persistMigratedLayout() {
+    private void persistLayout(String source) {
         try {
             layoutRepository.save(
                     layoutKey,
@@ -500,7 +522,8 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
         }
         catch (IOException | IllegalArgumentException error) {
             LimeLog.warning(
-                    "Unable to persist migrated virtual-control layout " +
+                    "Unable to persist " + source +
+                            " virtual-control layout " +
                             layoutKey +
                             ": " +
                             error.getMessage());
@@ -835,7 +858,7 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
             name = settings.getGamepadLayoutId();
         }
         VirtualControlLayoutOrientation orientation =
-                isLandscape(context)
+                resolveLayoutOrientation()
                         ? VirtualControlLayoutOrientation.LANDSCAPE
                         : VirtualControlLayoutOrientation.PORTRAIT;
         layoutKey =
@@ -982,6 +1005,15 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
 
     public boolean isLandscape(Context context) {
         return context.getResources().getDisplayMetrics().widthPixels>context.getResources().getDisplayMetrics().heightPixels;
+    }
+
+    private boolean resolveLayoutOrientation() {
+        int width = frame_layout.getWidth();
+        int height = frame_layout.getHeight();
+        if (width > 0 && height > 0 && width != height) {
+            return width > height;
+        }
+        return isLandscape(context);
     }
 
     public VirtualControlSettings getSettings() {

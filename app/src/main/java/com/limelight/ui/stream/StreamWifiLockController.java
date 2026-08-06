@@ -11,7 +11,7 @@ import com.limelight.LimeLog;
 import java.util.Objects;
 
 /**
- * Owns the Wi-Fi performance locks for one stream Activity.
+ * Owns the Wi-Fi performance locks for one stream session.
  */
 public final class StreamWifiLockController {
     interface LockHandle {

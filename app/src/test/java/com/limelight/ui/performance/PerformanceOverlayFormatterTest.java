@@ -89,7 +89,28 @@ public final class PerformanceOverlayFormatterTest {
                 formatter.formatCompact(
                         null,
                         configuration(),
-                        runtime()));
+                runtime()));
+    }
+
+    @Test
+    public void zeroValueSamplesRemainDistinctFromUnavailableMetrics() {
+        PerfOverlayStats stats = stats();
+        stats.networkLatencyAvailable = false;
+        stats.decoderLatencyAvailable = true;
+        stats.decodeTimeMs = 0f;
+
+        assertTrue(formatter.formatCompact(
+                stats,
+                configuration(),
+                runtime()).contains("延迟/解码：-- / 0.00 ms"));
+
+        List<PerformanceOverlayFormatter.Row> rows =
+                formatter.formatExpanded(
+                        stats,
+                        configuration(),
+                        runtime());
+        assertEquals("--", value(rows, "网络延迟"));
+        assertEquals("0.00 ms", value(rows, "解码延迟"));
     }
 
     private static PerformanceOverlayConfiguration
@@ -143,7 +164,9 @@ public final class PerformanceOverlayFormatterTest {
         stats.networkRateKbps = 800f;
         stats.networkLatencyMs = 6;
         stats.networkLatencyVarianceMs = 2;
+        stats.networkLatencyAvailable = true;
         stats.decodeTimeMs = 1.25f;
+        stats.decoderLatencyAvailable = true;
         stats.packetLossPercent = 0.5f;
         stats.videoRateKbps = 72000f;
         stats.audioRateKbps = 384f;

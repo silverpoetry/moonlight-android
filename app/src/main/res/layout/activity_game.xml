@@ -5,34 +5,39 @@
     android:layout_height="match_parent"
     tools:context=".Game" >
 
-    <View
-        android:id="@+id/backgroundTouchView"
+    <FrameLayout
+        android:id="@+id/streamContentRoot"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_gravity="center" />
+        android:layout_height="match_parent">
 
-    <com.limelight.ui.StreamView
-        android:id="@+id/surfaceView"
-        style="@style/StreamSurfacePlatformBehavior"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_gravity="center"
-        android:focusable="true"
-        android:focusableInTouchMode="true">
-        <requestFocus />
-    </com.limelight.ui.StreamView>
+        <View
+            android:id="@+id/backgroundTouchView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center" />
+
+        <com.limelight.ui.StreamView
+            android:id="@+id/surfaceView"
+            style="@style/StreamSurfacePlatformBehavior"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:focusable="true"
+            android:focusableInTouchMode="true">
+            <requestFocus />
+        </com.limelight.ui.StreamView>
 
     <!-- Keeps the input surface active while locally hiding video. -->
-    <View
-        android:id="@+id/videoBlankingOverlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_gravity="center"
-        android:background="@android:color/black"
-        android:clickable="false"
-        android:focusable="false"
-        android:importantForAccessibility="no"
-        android:visibility="gone" />
+        <View
+            android:id="@+id/videoBlankingOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:background="@android:color/black"
+            android:clickable="false"
+            android:focusable="false"
+            android:importantForAccessibility="no"
+            android:visibility="gone" />
 
 <!--    <com.limelight.ui.ApertureViewGroup-->
 <!--        android:layout_width="match_parent"-->
@@ -47,24 +52,24 @@
 <!--        app:aperture_middle_color="#6CD2F8">-->
 <!--    </com.limelight.ui.ApertureViewGroup>-->
 
-    <TextView
-        android:id="@+id/notificationOverlay"
-        style="@style/StreamOverlayPlatformBehavior"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="10dp"
-        android:layout_marginTop="10dp"
-        android:layout_gravity="end"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:gravity="end"
-        android:background="#80000000"
-        android:visibility="gone" />
+        <TextView
+            android:id="@+id/notificationOverlay"
+            style="@style/StreamOverlayPlatformBehavior"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="10dp"
+            android:layout_marginTop="10dp"
+            android:layout_gravity="end"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:gravity="end"
+            android:background="#80000000"
+            android:visibility="gone" />
 
-    <LinearLayout
-        android:id="@+id/performanceOverlay"
-        android:orientation="vertical"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        <LinearLayout
+            android:id="@+id/performanceOverlay"
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
 
         <LinearLayout
             android:id="@+id/performanceOverlayBig"
@@ -140,6 +145,17 @@
             android:background="@drawable/ic_hud_bg"
             android:visibility="gone" />
 
-    </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- Input controls use physical window coordinates and must not inherit
+         display-cutout padding from the video content layer. -->
+    <FrameLayout
+        android:id="@+id/virtualControlsRoot"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:importantForAccessibility="no" />
 
 </merge>

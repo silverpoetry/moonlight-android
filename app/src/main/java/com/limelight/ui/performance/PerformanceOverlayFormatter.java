@@ -64,9 +64,15 @@ public final class PerformanceOverlayFormatter {
             builder.append("  ");
         }
         builder.append("延迟/解码：");
-        builder.append(stats.networkLatencyMs)
-                .append(" ms / ");
-        builder.append(stats.decodeTimeMs > 0 ?
+        if (stats.networkLatencyAvailable) {
+            builder.append(stats.networkLatencyMs)
+                    .append(" ms");
+        }
+        else {
+            builder.append("--");
+        }
+        builder.append(" / ");
+        builder.append(stats.decoderLatencyAvailable ?
                 String.format(
                         Locale.US,
                         "%.2f ms",
@@ -144,7 +150,7 @@ public final class PerformanceOverlayFormatter {
                 formatSessionDuration(runtime)));
         rows.add(new Row(
                 "网络延迟",
-                stats.networkLatencyMs > 0 ?
+                stats.networkLatencyAvailable ?
                         stats.networkLatencyMs +
                                 " ms / 抖动 " +
                                 stats.networkLatencyVarianceMs +
@@ -158,7 +164,7 @@ public final class PerformanceOverlayFormatter {
                         stats.packetLossPercent)));
         rows.add(new Row(
                 "解码延迟",
-                stats.decodeTimeMs > 0 ?
+                stats.decoderLatencyAvailable ?
                         String.format(
                                 Locale.US,
                                 "%.2f ms",

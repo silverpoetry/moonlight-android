@@ -12,7 +12,7 @@ import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 import java.util.Objects;
 
 /**
- * Owns the Activity-scoped references used by one media session.
+ * Owns the renderers and render target used by one media session.
  *
  * <p>The transport remains responsible for invoking renderer cleanup after a
  * successful start. This owner controls when render targets and the active
@@ -28,6 +28,8 @@ public final class StreamMediaResourceOwner {
         VideoDecoderRenderer getTransportRenderer();
 
         void setRenderTarget(Surface renderTarget);
+
+        void setAppVsyncOffsetNanos(long appVsyncOffsetNanos);
 
         void prepareForStop();
 
@@ -154,6 +156,12 @@ public final class StreamMediaResourceOwner {
     }
 
     @MainThread
+    public void setAppVsyncOffsetNanos(long appVsyncOffsetNanos) {
+        checkActive();
+        videoResource.setAppVsyncOffsetNanos(appVsyncOffsetNanos);
+    }
+
+    @MainThread
     public void prepareVideoForStop() {
         if (!destroyed) {
             videoResource.prepareForStop();
@@ -238,6 +246,11 @@ public final class StreamMediaResourceOwner {
         @Override
         public void setRenderTarget(Surface renderTarget) {
             renderer.setRenderTarget(renderTarget);
+        }
+
+        @Override
+        public void setAppVsyncOffsetNanos(long appVsyncOffsetNanos) {
+            renderer.setAppVsyncOffsetNanos(appVsyncOffsetNanos);
         }
 
         @Override

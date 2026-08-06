@@ -55,6 +55,9 @@ app
 ## Verification ownership
 
 - Each core module runs its own unit tests through its `test` task.
+- Root `nonRootRelease` is the default daily build and assembles only the
+  ordinary non-root Release APK. `verifyNonRootRelease` is the corresponding
+  single-variant quality gate.
 - Root `verifyLocal` depends explicitly on every core test task in addition to
   every app JVM variant, all four app Lint variants, and root/non-root Release
   assembly.
@@ -79,6 +82,10 @@ app
 - Local build cache and configuration cache are enabled. A warm full
   `verifyLocal` gate completes in 12 seconds on the reference workstation after
   module extraction and build modernization.
+- A repository-owned build service holds an OS-level worktree lock for the
+  lifetime of each Gradle invocation. Independent invocations wait rather than
+  concurrently rewriting AGP intermediates; tasks within one invocation stay
+  parallel-capable.
 - The app compiles and targets API 37 with API 23 as its minimum. This explicit
   Android 6.0 baseline allows current Activity, Core, Compose, and Material 3
   releases instead of maintaining an obsolete UI dependency branch.

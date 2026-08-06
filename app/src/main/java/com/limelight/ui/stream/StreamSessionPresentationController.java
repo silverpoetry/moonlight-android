@@ -160,8 +160,12 @@ public final class StreamSessionPresentationController
         if (destroyed) {
             return;
         }
-        host.onSessionConnected();
+        // End the launch presentation before exposing stream-owned overlays.
+        // The original host/app Activity owns the connecting dialog; creating
+        // virtual controls before dismissing it makes them appear above a
+        // still-visible connection surface during the hand-off.
         host.dismissConnectingIndicator();
+        host.onSessionConnected();
     }
 
     @MainThread

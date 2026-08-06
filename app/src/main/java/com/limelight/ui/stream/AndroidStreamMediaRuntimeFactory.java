@@ -1,6 +1,6 @@
 package com.limelight.ui.stream;
 
-import android.app.Activity;
+import android.content.Context;
 
 import androidx.annotation.MainThread;
 
@@ -44,7 +44,8 @@ public final class AndroidStreamMediaRuntimeFactory {
 
     @MainThread
     public static Result create(
-            Activity activity,
+            Context context,
+            long appVsyncOffsetNanos,
             GlDeviceSnapshot glDeviceSnapshot,
             StreamDecoderSettings settings,
             DecoderCrashTracker crashTracker,
@@ -52,7 +53,9 @@ public final class AndroidStreamMediaRuntimeFactory {
             PerfOverlayListener performanceListener,
             StreamMediaResourceOwner.AudioRendererFactory
                     audioRendererFactory) {
-        Objects.requireNonNull(activity, "activity");
+        Context appContext = Objects.requireNonNull(
+                context,
+                "context").getApplicationContext();
         Objects.requireNonNull(
                 glDeviceSnapshot,
                 "glDeviceSnapshot");
@@ -66,11 +69,12 @@ public final class AndroidStreamMediaRuntimeFactory {
                 "audioRendererFactory");
 
         MediaCodecHelper.initialize(
-                activity,
+                appContext,
                 glDeviceSnapshot.getRenderer());
         MediaCodecDecoderRenderer decoder =
                 new MediaCodecDecoderRenderer(
-                        activity,
+                        appContext,
+                        appVsyncOffsetNanos,
                         settings,
                         crashTracker,
                         crashTracker.getInitialCrashCount(),

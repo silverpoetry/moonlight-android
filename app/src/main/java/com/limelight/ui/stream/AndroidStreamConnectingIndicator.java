@@ -2,52 +2,69 @@ package com.limelight.ui.stream;
 
 import android.app.Activity;
 
-import com.limelight.R;
-import com.limelight.utils.SpinnerDialog;
+import com.limelight.MoonlightApplication;
+import com.limelight.stream.launch.android.AndroidStreamLaunchContract;
+import com.limelight.stream.launch.android.AndroidStreamLaunchProgress;
 
 import java.util.Objects;
 
-/** Owns the nullable connecting dialog for one stream Activity. */
+/** Closes the launcher's token-bound progress surface after handoff. */
 public final class AndroidStreamConnectingIndicator {
     private final Activity activity;
-    private SpinnerDialog dialog;
+    private AndroidStreamLaunchProgress.Session launchSession;
     private boolean destroyed;
 
     public AndroidStreamConnectingIndicator(Activity activity) {
         this.activity = Objects.requireNonNull(activity, "activity");
-        dialog = SpinnerDialog.displayDialog(
-                activity,
-                activity.getString(R.string.conn_establishing_title),
-                activity.getString(R.string.conn_establishing_msg),
-                true);
+        AndroidStreamLaunchProgress progress =
+                ((MoonlightApplication) activity.getApplication())
+                        .getStreamLaunchProgress();
+        launchSession = progress.takeActive(
+                activity.getIntent().getStringExtra(
+                        AndroidStreamLaunchContract
+                                .EXTRA_SESSION_TOKEN));
     }
 
     public void updateMessage(String message) {
-        if (!destroyed && dialog != null) {
-            dialog.setMessage(message);
+        if (destroyed) {
+            return;
+        }
+        if (launchSession != null) {
+            launchSession.updateMessage(message);
         }
     }
 
     public void setFinishOnCancelEnabled(boolean enabled) {
-        if (!destroyed && dialog != null) {
-            dialog.setFinishOnCancelEnabled(enabled);
+        if (destroyed) {
+            return;
+        }
+        if (launchSession != null) {
+            launchSession.setFinishOnCancelEnabled(enabled);
         }
     }
 
+    public boolean isActive() {
+        return !destroyed &&
+                launchSession != null;
+    }
+
     public void dismiss() {
-        if (destroyed || dialog == null) {
+        if (destroyed) {
             return;
         }
-        dialog.dismiss();
-        dialog = null;
+        if (launchSession != null) {
+            ((MoonlightApplication) activity.getApplication())
+                    .getStreamLaunchProgress()
+                    .finish(launchSession);
+            launchSession = null;
+        }
     }
 
     public void destroy() {
         if (destroyed) {
             return;
         }
+        dismiss();
         destroyed = true;
-        dialog = null;
-        SpinnerDialog.closeDialogs(activity);
     }
 }

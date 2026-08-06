@@ -13,6 +13,37 @@ allprojects {
     version = '12.1-260803'
 }
 
+// The ordinary non-root Release is the only daily build target. The complete
+// root/non-root matrix remains available through verifyLocal for release gates.
+defaultTasks 'nonRootRelease'
+
+tasks.register('nonRootRelease') {
+    group = 'build'
+    description = 'Builds the ordinary non-root Release APK (the daily build target).'
+    dependsOn ':app:assembleNonRootRelease'
+}
+
+tasks.register('verifyNonRootRelease') {
+    group = 'verification'
+    description = 'Runs the daily non-root Release tests, Lint, and APK build.'
+    dependsOn verifyNoBidiControls,
+            verifyNoLegacyBranding,
+            verifyProductionLoggingPolicy,
+            verifyJavaSuppressionPolicy,
+            verifyAndroidSecurityPolicy,
+            verifyNoRepositorySecrets,
+            verifyNativeDependencies,
+            verifyVendoredDependencies,
+            ':core:hosts:test',
+            ':core:settings:test',
+            ':core:transfer:test',
+            ':core:virtual-controls:test',
+            ':core:shield-controller-extensions:lintRelease',
+            ':app:testNonRootReleaseUnitTest',
+            ':app:lintNonRootRelease',
+            ':app:assembleNonRootRelease'
+}
+
 project(':app') {
     tasks.named('cyclonedxDirectBom') {
         projectType = Component.Type.APPLICATION

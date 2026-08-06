@@ -633,7 +633,7 @@ class SettingsScreenRenderer(
                 row = row,
                 compact = compact,
                 showIcon = showIcon,
-                enabledModifier = enabledModifier,
+                modifier = enabledModifier,
             )
             return
         }
@@ -729,13 +729,13 @@ class SettingsScreenRenderer(
         row: SettingsScreenState.Row,
         compact: Boolean,
         showIcon: Boolean,
-        enabledModifier: Modifier,
+        modifier: Modifier,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(ROW_TEST_TAG_PREFIX + row.id)
-                .then(enabledModifier)
+                .then(modifier)
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {

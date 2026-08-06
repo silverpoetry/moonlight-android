@@ -60,11 +60,10 @@ public final class DecoderStatisticsTrackerTest {
                 5,
                 true);
         tracker.recordDecoderLatency(7, true);
-        tracker.recordFrameRenderLatency(3);
         tracker.rotateWindow(2_000);
 
         assertEquals(
-                15,
+                12,
                 tracker.getAverageEndToEndLatencyMs());
         assertEquals(
                 7,
@@ -76,6 +75,25 @@ public final class DecoderStatisticsTrackerTest {
                 400,
                 tracker
                         .getTotalVideoBytesIncludingActiveWindow());
+    }
+
+    @Test
+    public void decoderAverageUsesOnlyMatchedDecoderSamples() {
+        DecoderStatisticsTracker tracker =
+                new DecoderStatisticsTracker();
+        tracker.recordDecodeUnit(
+                100,
+                (char) 0,
+                0,
+                false);
+        tracker.recordDecodeUnit(
+                100,
+                (char) 0,
+                0,
+                false);
+        tracker.recordDecoderLatency(8, true);
+
+        assertEquals(8, tracker.getAverageDecoderLatencyMs());
     }
 
     @Test

@@ -1,10 +1,6 @@
 package com.limelight;
 
 
-import com.limelight.binding.PlatformBinding;
-import com.limelight.binding.audio.AndroidAudioRenderer;
-import com.limelight.binding.audio.mic.AndroidMicrophoneUplinkSessionFactory;
-import com.limelight.binding.input.AndroidControllerInventory;
 import com.limelight.binding.input.AndroidInputDeviceRegistration;
 import com.limelight.binding.input.AndroidKeyboardInputHost;
 import com.limelight.binding.input.ControllerHandler;
@@ -32,58 +28,40 @@ import com.limelight.binding.input.touch.TouchInputMode;
 import com.limelight.binding.input.virtual_controller.keyboard.AndroidVirtualControlsFactory;
 import com.limelight.binding.input.virtual_controller.keyboard.StreamVirtualControlsController;
 import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode;
-import com.limelight.binding.video.AndroidDecoderCrashStore;
-import com.limelight.binding.video.gl.android.SharedPreferencesGlDeviceSnapshotStore;
 import com.limelight.binding.video.DecoderCrashTracker;
 import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
 import com.limelight.computers.session.DeferredHostQuitController;
 import com.limelight.computers.session.HostQuitUseCase;
 import com.limelight.computers.session.NvHttpHostQuitBackend;
 import com.limelight.nvstream.NvConnection;
-import com.limelight.nvstream.StreamConfiguration;
 import com.limelight.nvstream.StreamSessionController;
 import com.limelight.computers.http.HostHttpTarget;
 import com.limelight.nvstream.http.NvApp;
-import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
-import com.limelight.nvstream.mic.MicrophoneUplinkConfig;
+import com.limelight.platform.AndroidDisplayCompat;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.SettingsKeyCatalog;
 import com.limelight.settings.SettingsRepositorySnapshot;
-import com.limelight.settings.android.AndroidDisplayAspectProvider;
-import com.limelight.settings.android.AndroidStreamSettingsBootstrap;
-import com.limelight.settings.android.AndroidSettingsRepository;
-import com.limelight.settings.audio.StreamAudioSettings;
-import com.limelight.settings.audio.StreamAudioSettingsLoader;
 import com.limelight.settings.audio.StreamAudioSettingsState;
-import com.limelight.settings.controller.ControllerSettings;
-import com.limelight.settings.controller.ControllerSettingsLoader;
 import com.limelight.settings.controller.ControllerSettingsState;
 import com.limelight.settings.input.InputSettings;
-import com.limelight.settings.input.InputSettingsLoader;
 import com.limelight.settings.input.InputSettingsState;
 import com.limelight.settings.runtime.StreamSettingsSession;
 import com.limelight.settings.stream.StreamDecoderSettings;
-import com.limelight.settings.stream.StreamDecoderSettingsLoader;
 import com.limelight.settings.stream.StreamDisplaySettings;
-import com.limelight.settings.stream.StreamDisplaySettingsLoader;
 import com.limelight.settings.stream.StreamVideoSettings;
-import com.limelight.settings.stream.StreamVideoSettingsLoader;
 import com.limelight.settings.stream.StreamVideoSettingsState;
 import com.limelight.settings.stream.StreamVideoSettingsUpdate;
 import com.limelight.settings.transfer.TransferSettings;
-import com.limelight.settings.transfer.TransferSettingsLoader;
 import com.limelight.settings.ui.GameMenuCardLayoutRepository;
 import com.limelight.settings.ui.SettingsGameMenuCardLayoutRepository;
 import com.limelight.shortcuts.GameMenuShortcutRepository;
 import com.limelight.shortcuts.android.SharedPreferencesGameMenuShortcutRepository;
 import com.limelight.settings.ui.StreamUiSettings;
-import com.limelight.settings.ui.StreamUiSettingsLoader;
 import com.limelight.settings.ui.StreamUiSettingsState;
 import com.limelight.settings.ui.StreamUiSettingsUpdate;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
-import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsState;
 import com.limelight.virtualcontrols.layout.VirtualControlLayoutRepository;
 import com.limelight.virtualcontrols.layout.android.AndroidVirtualControlLayoutRepository;
@@ -99,25 +77,22 @@ import com.limelight.ui.performance.PerformanceOverlayRuntimeState;
 import com.limelight.ui.performance.PerformanceOverlayConfiguration;
 import com.limelight.ui.performance.StreamPerformanceOverlayController;
 import com.limelight.ui.stream.AndroidStreamConnectionMessages;
+import com.limelight.ui.stream.AndroidPreparedStreamRenderHost;
 import com.limelight.ui.stream.AndroidStreamConnectingIndicator;
 import com.limelight.ui.stream.AndroidStreamConnectionWarningPresenter;
 import com.limelight.ui.stream.AndroidStreamDisplayController;
 import com.limelight.ui.stream.AndroidExternalDisplayController;
 import com.limelight.ui.stream.AndroidStreamFailureDiagnosticsFactory;
-import com.limelight.ui.stream.AndroidStreamHdrCapabilityProvider;
 import com.limelight.ui.stream.AndroidStreamHdrModeController;
 import com.limelight.ui.stream.AndroidStreamLaunchReporterFactory;
-import com.limelight.ui.stream.AndroidStreamMediaRuntimeFactory;
 import com.limelight.ui.stream.AndroidStreamMicrophoneControllerFactory;
 import com.limelight.ui.stream.AndroidStreamNativeCursorController;
 import com.limelight.ui.stream.AndroidStreamOverlayVisibilityHost;
 import com.limelight.ui.stream.AndroidStreamPictureInPictureController;
 import com.limelight.ui.stream.AndroidStreamSessionUiEffectsHost;
 import com.limelight.ui.stream.AndroidStreamSessionPresentationHost;
-import com.limelight.ui.stream.AndroidStreamSurfacePresentationController;
 import com.limelight.ui.stream.AndroidStreamSystemUiController;
 import com.limelight.ui.stream.StreamControllerFeedbackHost;
-import com.limelight.ui.stream.StreamDecoderCapabilities;
 import com.limelight.ui.stream.StreamDisplayRefreshPolicy;
 import com.limelight.ui.stream.StreamHdrRequestPolicy;
 import com.limelight.ui.stream.StreamLaunchReporter;
@@ -125,9 +100,7 @@ import com.limelight.ui.stream.StreamMediaResourceOwner;
 import com.limelight.ui.stream.StreamMicrophoneController;
 import com.limelight.ui.stream.StreamOverlayVisibilityController;
 import com.limelight.ui.stream.StreamRenderSurfaceController;
-import com.limelight.ui.stream.StreamRenderSessionHost;
 import com.limelight.ui.stream.StreamSessionCallbackRouter;
-import com.limelight.ui.stream.StreamSessionConfigurationAdapter;
 import com.limelight.ui.stream.StreamSessionConfigurationPlanner;
 import com.limelight.ui.stream.StreamSessionPresentationController;
 import com.limelight.ui.stream.StreamSessionUiEffects;
@@ -140,11 +113,13 @@ import com.limelight.ui.floatingview.StreamFloatingControlController;
 import com.limelight.ui.hosts.HostQuitMessageResolver;
 import com.limelight.stream.launch.PendingStreamReconnect;
 import com.limelight.stream.launch.PendingStreamReconnectStore;
+import com.limelight.stream.launch.StreamLaunchRequest;
 import com.limelight.stream.launch.android.AndroidPendingStreamReconnectMapper;
+import com.limelight.stream.launch.android.AndroidPreparedStreamSession;
 import com.limelight.stream.launch.android.AndroidStreamLaunchContract;
+import com.limelight.stream.launch.android.AndroidStreamSessionCoordinator;
 import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.Dialog;
-import com.limelight.utils.RazerUtils;
 import com.limelight.utils.StreamOrientationController;
 import com.limelight.utils.StreamOrientationRequest;
 import com.limelight.utils.UiHelper;
@@ -161,7 +136,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.res.Configuration;
-import android.graphics.Color;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.net.ConnectivityManager;
@@ -170,7 +144,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.os.PowerManager;
 import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.InputDevice;
@@ -180,7 +153,6 @@ import android.view.View;
 import android.view.View.OnGenericMotionListener;
 import android.view.View.OnTouchListener;
 import android.view.ViewGroup;
-import android.view.ViewParent;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
@@ -265,6 +237,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     private long streamStartElapsedMs;
     private NvApp app;
     private volatile boolean sessionDependenciesReady;
+    private boolean initialVirtualControlsPending;
 
     private AndroidStreamInputCaptureController
             inputCaptureController;
@@ -286,8 +259,8 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                 0);
     };
     private AndroidStreamNativeCursorController nativeCursorController;
-    private AndroidStreamSurfacePresentationController
-            surfacePresentationController;
+    private AndroidPreparedStreamSession preparedSession;
+    private AndroidStreamSessionCoordinator streamSessionCoordinator;
 
     private TextView notificationOverlayView;
     private View videoBlankingOverlay;
@@ -336,7 +309,35 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         }
     };
 
-    private ViewParent rootView;
+    private FrameLayout streamContentRoot;
+    private FrameLayout virtualControlsRoot;
+    private int virtualControlViewportWidth;
+    private int virtualControlViewportHeight;
+    private final View.OnLayoutChangeListener
+            virtualControlLayoutListener =
+            (view, left, top, right, bottom,
+             oldLeft, oldTop, oldRight, oldBottom) -> {
+                int width = right - left;
+                int height = bottom - top;
+                if (width <= 0 || height <= 0 ||
+                        (width == virtualControlViewportWidth &&
+                                height == virtualControlViewportHeight)) {
+                    return;
+                }
+                boolean orientationChanged =
+                        virtualControlViewportWidth > 0 &&
+                                virtualControlViewportHeight > 0 &&
+                                (virtualControlViewportWidth >
+                                        virtualControlViewportHeight) !=
+                                        (width > height);
+                virtualControlViewportWidth = width;
+                virtualControlViewportHeight = height;
+                if (orientationChanged &&
+                        virtualControlsController != null) {
+                    virtualControlsController.refreshCreatedLayouts();
+                }
+                showInitialVirtualControlsIfReady();
+            };
 
     private HostHttpTarget streamHttpTarget;
     private HostQuitUseCase.Backend pendingHostQuitBackend;
@@ -367,14 +368,26 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         // Inflate the content
         setContentView(R.layout.activity_game);
 
+        streamSessionCoordinator =
+                ((MoonlightApplication) getApplication())
+                        .getStreamSessionCoordinator();
+        preparedSession = streamSessionCoordinator.claim(
+                getIntent().getStringExtra(
+                        AndroidStreamLaunchContract
+                                .EXTRA_SESSION_TOKEN));
+        if (preparedSession == null) {
+            LimeLog.severe(
+                    "Stream Activity started without a prepared session");
+            finish();
+            return;
+        }
+
         connManager=(ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
 
         connectingIndicator =
                 new AndroidStreamConnectingIndicator(this);
 
-        settingsRepository = AndroidSettingsRepository.create(this);
-        AndroidStreamSettingsBootstrap.prepare(
-                settingsRepository);
+        settingsRepository = preparedSession.getSettingsRepository();
         gameMenuCardLayoutRepository =
                 new SettingsGameMenuCardLayoutRepository(
                         settingsRepository);
@@ -383,50 +396,22 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                         this);
         gameMenuController = new AndroidGameMenuController(this);
         deviceBatteryProvider = new AndroidDeviceBatteryProvider(this);
-        streamVideoSettings =
-                StreamVideoSettingsLoader.load(
-                        settingsRepository,
-                        AndroidDisplayAspectProvider.get(this));
+        streamVideoSettings = preparedSession.getVideoSettings();
         streamVideoSettingsState =
-                new StreamVideoSettingsState(
-                        streamVideoSettings);
-        StreamAudioSettings streamAudioSettings =
-                StreamAudioSettingsLoader.load(
-                        settingsRepository);
+                preparedSession.getVideoSettingsState();
         streamAudioSettingsState =
-                new StreamAudioSettingsState(
-                        streamAudioSettings);
-        StreamUiSettings streamUiSettings =
-                StreamUiSettingsLoader.load(
-                        settingsRepository);
-        streamUiSettingsState =
-                new StreamUiSettingsState(streamUiSettings);
-        streamDisplaySettings =
-                StreamDisplaySettingsLoader.load(
-                        settingsRepository,
-                        streamVideoSettings);
-        streamDecoderSettings =
-                StreamDecoderSettingsLoader.load(
-                        settingsRepository,
-                        streamVideoSettings,
-                        streamAudioSettings,
-                        streamUiSettings);
+                preparedSession.getAudioSettingsState();
+        streamUiSettingsState = preparedSession.getUiSettingsState();
+        streamDisplaySettings = preparedSession.getDisplaySettings();
+        streamDecoderSettings = preparedSession.getDecoderSettings();
         effectiveFramePacing =
-                streamDecoderSettings.getFramePacing();
-        transferSettings =
-                TransferSettingsLoader.load(settingsRepository);
-        inputSettingsState =
-                new InputSettingsState(
-                        InputSettingsLoader.load(
-                                settingsRepository));
+                preparedSession.getEffectiveFramePacing();
+        transferSettings = preparedSession.getTransferSettings();
+        inputSettingsState = preparedSession.getInputSettingsState();
         controllerSettingsState =
-                new ControllerSettingsState(
-                        ControllerSettingsLoader.load(
-                                settingsRepository));
+                preparedSession.getControllerSettingsState();
         virtualControlSettingsState =
-                new VirtualControlSettingsState(
-                        VirtualControlSettingsLoader.load(
-                                settingsRepository));
+                preparedSession.getVirtualControlSettingsState();
         virtualControlLayoutRepository =
                 new AndroidVirtualControlLayoutRepository(this);
         streamSettingsSession = createStreamSettingsSession();
@@ -436,8 +421,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                 gameMenuShortcutRepository,
                 gameMenuController,
                 this);
-        decoderCrashTracker = new DecoderCrashTracker(
-                new AndroidDecoderCrashStore(this));
+        decoderCrashTracker = preparedSession.getDecoderCrashTracker();
         backNavigationRegistration =
                 BackNavigationRegistration.register(this, this::handleStreamBackPressed);
 
@@ -454,7 +438,12 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                                                 .getStreamWidth(),
                                         streamDisplaySettings
                                                 .getStreamHeight()));
-        UiHelper.configureStreamWindowInsets(this, useEntireDisplay);
+        streamContentRoot = findViewById(R.id.streamContentRoot);
+        virtualControlsRoot = findViewById(R.id.virtualControlsRoot);
+        UiHelper.configureStreamWindowInsets(
+                this,
+                useEntireDisplay,
+                streamContentRoot);
         // Listen for non-touch events on the game surface
         streamView = findViewById(R.id.surfaceView);
         videoBlankingOverlay = findViewById(
@@ -477,19 +466,13 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         backgroundTouchView.setOnTouchListener(this);
         videoBlankingOverlay.setOnTouchListener(this);
 
-        rootView=streamView.getParent();
-        // Keep the real launcher Activity visible below this translucent
-        // window while retaining a valid decoder Surface for session setup.
-        surfacePresentationController =
-                new AndroidStreamSurfacePresentationController(
-                        streamView,
-                        getResources());
-        surfacePresentationController.parkForConnection();
+        virtualControlsRoot.addOnLayoutChangeListener(
+                virtualControlLayoutListener);
         nativeCursorController =
                 new AndroidStreamNativeCursorController(
                         this,
                         streamView,
-                        rootView,
+                        streamContentRoot,
                         inputSettingsState.get()
                                 .isAbsoluteMouseMode(),
                         streamDecoderSettings.getWidth(),
@@ -545,38 +528,27 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         }
 
         wifiLockController =
-                StreamWifiLockController.create(this);
-        wifiLockController.acquire();
+                preparedSession.getWifiLockController();
 
-        appName = Game.this.getIntent().getStringExtra(
-                AndroidStreamLaunchContract.EXTRA_APP_NAME);
-        pcName = Game.this.getIntent().getStringExtra(
-                AndroidStreamLaunchContract.EXTRA_HOST_NAME);
+        StreamLaunchRequest launchRequest =
+                preparedSession.getRequest();
+        appName = launchRequest.getAppName();
+        pcName = launchRequest.getHostName();
 
-        String host = Game.this.getIntent().getStringExtra(
-                AndroidStreamLaunchContract.EXTRA_HOST);
+        String host = launchRequest.getHostAddress();
         streamHost = host;
-        int port = Game.this.getIntent().getIntExtra(
-                AndroidStreamLaunchContract.EXTRA_PORT,
-                NvHTTP.DEFAULT_HTTP_PORT);
-        int httpsPort = Game.this.getIntent().getIntExtra(
-                AndroidStreamLaunchContract.EXTRA_HTTPS_PORT,
-                0); // 0 is treated as unknown
-        int appId = Game.this.getIntent().getIntExtra(
-                AndroidStreamLaunchContract.EXTRA_APP_ID,
-                StreamConfiguration.INVALID_APP_ID);
-        String uniqueId = Game.this.getIntent().getStringExtra(
-                AndroidStreamLaunchContract.EXTRA_UNIQUE_ID);
-        boolean appSupportsHdr = Game.this.getIntent().getBooleanExtra(
-                AndroidStreamLaunchContract.EXTRA_APP_HDR,
-                false);
-        byte[] derCertData = Game.this.getIntent().getByteArrayExtra(
-                AndroidStreamLaunchContract.EXTRA_SERVER_CERTIFICATE);
-
-        app = new NvApp(appName != null ? appName : "app", appId, appSupportsHdr);
+        int port = launchRequest.getHostPort();
+        int httpsPort = launchRequest.getHttpsPort();
+        String uniqueId = launchRequest.getClientId();
+        app = new NvApp(
+                appName,
+                launchRequest.getAppId(),
+                launchRequest.supportsHdr());
 
         X509Certificate serverCert = null;
         try {
+            byte[] derCertData =
+                    launchRequest.getServerCertificate();
             if (derCertData != null) {
                 serverCert = (X509Certificate) CertificateFactory.getInstance("X.509")
                         .generateCertificate(new ByteArrayInputStream(derCertData));
@@ -585,11 +557,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
             LimeLog.warning(
                     "Unable to parse the pinned host certificate",
                     e);
-        }
-
-        if (appId == StreamConfiguration.INVALID_APP_ID) {
-            finish();
-            return;
         }
 
         pictureInPictureController =
@@ -604,40 +571,13 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                         appName,
                         pcName);
 
-        StreamHdrRequestPolicy.Decision hdrDecision =
-                StreamHdrRequestPolicy.decide(
-                        streamDisplaySettings.isHdrEnabled(),
-                        streamVideoSettings.shouldIgnoreHdrCapability(),
-                        AndroidStreamHdrCapabilityProvider.sample(this));
-        showHdrRequestWarning(hdrDecision.getWarning());
-        boolean hdrRequested = hdrDecision.isHdrRequested();
-
-        AndroidStreamMediaRuntimeFactory.Result mediaRuntime =
-                AndroidStreamMediaRuntimeFactory.create(
-                        this,
-                        new SharedPreferencesGlDeviceSnapshotStore(
-                                this).read(),
-                        streamDecoderSettings,
-                        decoderCrashTracker,
-                        hdrRequested,
-                        performanceOverlayController,
-                        () -> new AndroidAudioRenderer(
-                                Game.this,
-                                streamAudioSettingsState));
-        mediaResourceOwner = mediaRuntime.getResourceOwner();
+        showHdrRequestWarning(preparedSession.getHdrWarning());
+        mediaResourceOwner =
+                preparedSession.getMediaResourceOwner();
         hdrModeController = new AndroidStreamHdrModeController(
                 this,
                 mediaResourceOwner,
                 this::isHdrHighBrightnessEnabled);
-        StreamDecoderCapabilities decoderCapabilities =
-                mediaRuntime.getDecoderCapabilities();
-
-        ControllerSettings controllerSettings =
-                controllerSettingsState.get();
-        int discoveredGamepadMask =
-                AndroidControllerInventory.from(this)
-                        .getInitialControllerMask(
-                                controllerSettings);
 
         AndroidStreamDisplayController displayController =
                 new AndroidStreamDisplayController(
@@ -648,47 +588,20 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                         streamVideoSettings);
         AndroidStreamDisplayController.Preparation
                 displayPreparation =
-                displayController.prepare(effectiveFramePacing);
+                displayController.prepare(
+                        streamDecoderSettings.getFramePacing());
         float displayRefreshRate = displayPreparation
                 .getEffectiveDisplayRefreshRate();
         LimeLog.info("Display refresh rate: "+displayRefreshRate);
-
-        StreamSessionConfigurationPlanner.Plan configurationPlan =
-                StreamSessionConfigurationPlanner.plan(
-                        new StreamSessionConfigurationPlanner
-                                .SettingsSnapshot(
-                                streamDecoderSettings,
-                                streamVideoSettings,
-                                streamAudioSettingsState.get(),
-                                controllerSettings,
-                                inputSettingsState.get(),
-                                transferSettings),
-                        new StreamSessionConfigurationPlanner.Environment(
-                                app,
-                                decoderCapabilities,
-                                discoveredGamepadMask,
-                                displayRefreshRate,
-                                RazerUtils.getPPI(this),
-                                hdrRequested));
-        effectiveFramePacing =
-                configurationPlan.getEffectiveFramePacing();
+        mediaResourceOwner.setAppVsyncOffsetNanos(
+                AndroidDisplayCompat.getActivityDisplay(this)
+                        .getAppVsyncOffsetNanos());
         showStreamConfigurationWarnings(
-                configurationPlan.getWarnings());
-        StreamConfiguration config =
-                StreamSessionConfigurationAdapter
-                        .toTransportConfiguration(
-                                configurationPlan
-                                        .getConfigurationDocument());
+                preparedSession.getWarnings());
         if (effectiveFramePacing !=
                 streamDecoderSettings.getFramePacing()) {
             LimeLog.info(
                     "Using balanced frame pacing for incompatible display refresh rate");
-        }
-        else if (config.getRefreshRate() !=
-                streamDecoderSettings.getFps()) {
-            LimeLog.info(
-                    "Adjusting FPS target for screen to " +
-                            config.getRefreshRate());
         }
 
         streamHttpTarget = new HostHttpTarget(
@@ -697,15 +610,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                 httpsPort,
                 uniqueId,
                 serverCert);
-        // Initialize the connection
-        conn = new NvConnection(getApplicationContext(),
-                host,
-                port,
-                httpsPort, uniqueId, config,
-                PlatformBinding.getCryptoProvider(this),
-                serverCert,
-                new AndroidMicrophoneUplinkSessionFactory(
-                        MicrophoneUplinkConfig.protocolV1()));
+        conn = preparedSession.getConnection();
         PointerInputSink pointerInputSink =
                 new NvConnectionPointerInputSink(conn);
         KeyboardInputSink keyboardInputSink =
@@ -810,7 +715,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                 new StreamVirtualControlsController(
                         new AndroidVirtualControlsFactory(
                                 controllerHandler,
-                                (FrameLayout) rootView,
+                                virtualControlsRoot,
                                 this,
                                 inputSettingsState,
                                 virtualControlSettingsState,
@@ -858,28 +763,12 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                         controllerSettingsState,
                         performanceOverlayController),
                 mainHandler);
-        sessionController = new StreamSessionController(
-                conn,
-                sessionCallbackRouter);
+        sessionController = preparedSession.getSessionController();
 
         //鼠标触控模式
         switchMouseModel(
                 inputSettingsState.get()
                         .getTouchModePreferenceValue());
-
-        if (controllerSettingsState
-                .get()
-                .isOnscreenControllerEnabled()) {
-            // create virtual onscreen controller
-            virtualControlsController.showVirtualGamepad();
-        }
-
-        //特殊按键屏幕布局
-        if (virtualControlSettingsState
-                .get()
-                .shouldShowVirtualKeysOnStart()) {
-            virtualControlsController.showVirtualKeys();
-        }
 
         if (controllerSettingsState
                 .get()
@@ -910,17 +799,8 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         floatingControlController =
                 createFloatingControlController();
 
-        if (!mediaResourceOwner.isAvcSupported()) {
-            connectingIndicator.dismiss();
-
-            // If we can't find an AVC decoder, we can't proceed
-            Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title),
-                    "This device or ROM doesn't support hardware accelerated H.264 playback.", true);
-            return;
-        }
-
-        // The connection starts only after both the session dependencies and
-        // the decoder render Surface are ready.
+        // The transport and decoder are already running on the staging
+        // Surface. The real Surface performs a one-time ownership handoff.
         renderSurfaceController =
                 new StreamRenderSurfaceController(
                         streamView.getHolder(),
@@ -936,9 +816,10 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                                                 .isRefreshRateReductionEnabled()),
                         displayPreparation
                                 .isSystemManagedRefreshRate(),
-                        new StreamRenderSessionHost(
-                                sessionController,
-                                mediaResourceOwner,
+                        new AndroidPreparedStreamRenderHost(
+                                preparedSession,
+                                sessionCallbackRouter,
+                                performanceOverlayController,
                                 sessionUiEffects,
                                 () -> sessionDependenciesReady,
                                 this::stopConnection));
@@ -950,7 +831,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                     new AndroidExternalDisplayController(
                             this,
                             streamView,
-                            (ViewGroup) rootView);
+                            streamContentRoot);
             externalDisplayController
                     .showOnFirstSecondaryDisplay();
         }
@@ -1128,9 +1009,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
             setPreferredOrientationForCurrentDisplay();
         }
 
-        if (virtualControlsController != null) {
-            virtualControlsController.refreshCreatedLayouts();
-        }
+        showInitialVirtualControlsIfReady();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
                 overlayVisibilityController != null) {
@@ -1222,8 +1101,19 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     @Override
     protected void onDestroy() {
         sessionDependenciesReady = false;
+        if (virtualControlsRoot != null) {
+            virtualControlsRoot.removeOnLayoutChangeListener(
+                    virtualControlLayoutListener);
+        }
         unregisterInputGateway();
         cancelPendingUiCallbacks();
+        if (preparedSession != null &&
+                sessionCallbackRouter != null &&
+                performanceOverlayController != null) {
+            preparedSession.detach(
+                    sessionCallbackRouter,
+                    performanceOverlayController);
+        }
         if (sessionController != null) {
             sessionController.destroy();
             sessionController = null;
@@ -1336,6 +1226,12 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
             inputCaptureController.destroy();
             inputCaptureController = null;
         }
+        if (preparedSession != null &&
+                streamSessionCoordinator != null) {
+            streamSessionCoordinator.release(preparedSession);
+            preparedSession = null;
+        }
+        streamSessionCoordinator = null;
         super.onDestroy();
     }
 
@@ -1478,30 +1374,47 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         if (isChangingConfigurations()) {
             return;
         }
-        if (streamVideoSettingsState
-                .get()
-                .getScreenOnPolicy() !=
-                StreamVideoSettings.ScreenOnPolicy.DISABLED &&
-                !isFinishing()) {
-            PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            if (powerManager != null && powerManager.isInteractive()) {
-                PendingStreamReconnect reconnect =
-                        AndroidPendingStreamReconnectMapper.fromIntent(
-                                getIntent());
-                if (reconnect != null) {
-                    getPendingStreamReconnectStore().save(reconnect);
-                }
+        if (shouldHandoffForAutoReconnect()) {
+            PendingStreamReconnect reconnect =
+                    AndroidPendingStreamReconnectMapper.fromIntent(
+                            getIntent());
+            if (reconnect != null) {
+                finishForAutoReconnect(reconnect);
             }
             else {
-                isAutoLink = true;
+                LimeLog.warning(
+                        "Unable to preserve stream for auto-reconnect: " +
+                                "launch identity is missing");
+                finish();
             }
             return;
         }
         finish();
     }
 
+    private boolean shouldHandoffForAutoReconnect() {
+        return !isFinishing() &&
+                streamVideoSettingsState != null &&
+                streamVideoSettingsState
+                        .get()
+                        .getScreenOnPolicy() !=
+                        StreamVideoSettings.ScreenOnPolicy.DISABLED;
+    }
+
+    private void finishForAutoReconnect(
+            PendingStreamReconnect reconnect) {
+        getPendingStreamReconnectStore().save(reconnect);
+        streamExitReason = StreamExitReason.AUTO_RECONNECT;
+        super.finish();
+    }
+
     @Override
     public void finish() {
+        if (streamExitReason == StreamExitReason.AUTO_RECONNECT) {
+            super.finish();
+            return;
+        }
+        streamExitReason = StreamExitReason.USER;
         getPendingStreamReconnectStore().clear();
         super.finish();
         if (streamVideoSettingsState != null &&
@@ -1519,7 +1432,13 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         }
     }
 
-    private boolean isAutoLink=false;
+    private enum StreamExitReason {
+        NONE,
+        USER,
+        AUTO_RECONNECT
+    }
+
+    private StreamExitReason streamExitReason = StreamExitReason.NONE;
 
     private PendingStreamReconnectStore
             getPendingStreamReconnectStore() {
@@ -1533,10 +1452,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         unregisterInputGateway();
         inputGatewayRegistration =
                 StreamInputGatewayRegistry.getInstance().register(this);
-        if (isAutoLink) {
-            isAutoLink = false;
-            recreate();
-        }
     }
 
     private final Runnable toggleGrab = new Runnable() {
@@ -1737,15 +1652,6 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
 
     private void onSessionConnected() {
         streamStartElapsedMs = SystemClock.elapsedRealtime();
-        // Make the stream window opaque in the same UI turn that dismisses
-        // the connection dialog. Window-only stream affordances must not be
-        // created while the launcher is still visible below us.
-        getWindow().setBackgroundDrawableResource(
-                android.R.color.black);
-        if (rootView instanceof View) {
-            ((View) rootView).setBackgroundColor(Color.BLACK);
-        }
-        surfacePresentationController.revealConnectedStream();
         nativeCursorController.onStreamPresented();
         systemUiController.attachInitialLayout();
         floatingControlController.applyEnabled(
@@ -1760,11 +1666,46 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         }
 
         sessionUiEffects.onConnected();
+        initialVirtualControlsPending = true;
+        showInitialVirtualControlsIfReady();
         if (launchReporter != null) {
             launchReporter.reportOnce();
         }
 
         systemUiController.scheduleImmersiveMode(1_000L);
+    }
+
+    private void showInitialVirtualControlsIfReady() {
+        if (!initialVirtualControlsPending ||
+                !isSessionConnected() ||
+                virtualControlsController == null ||
+                connectingIndicator == null ||
+                connectingIndicator.isActive()) {
+            return;
+        }
+        int viewportWidth = virtualControlsRoot.getWidth();
+        int viewportHeight = virtualControlsRoot.getHeight();
+        if (viewportWidth <= 0 || viewportHeight <= 0 ||
+                viewportWidth == viewportHeight) {
+            return;
+        }
+        boolean expectedPortrait =
+                streamVideoSettingsState.get().isPortrait() || isPortrait;
+        boolean actualPortrait = viewportHeight > viewportWidth;
+        if (expectedPortrait != actualPortrait) {
+            return;
+        }
+        initialVirtualControlsPending = false;
+        if (controllerSettingsState
+                .get()
+                .isOnscreenControllerEnabled()) {
+            virtualControlsController.showVirtualGamepad();
+        }
+        if (virtualControlSettingsState
+                .get()
+                .shouldShowVirtualKeysOnStart()) {
+            virtualControlsController.showVirtualKeys();
+        }
     }
 
     private void displayTransientMessage(String message) {

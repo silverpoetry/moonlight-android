@@ -19,6 +19,7 @@
     <string name="host_action_stream">Start stream</string>
     <string name="host_action_apps">Apps</string>
     <string name="host_active_endpoint">Active connection address</string>
+    <string name="host_active_endpoint_pending">Detecting connection</string>
     <string name="host_empty_state">No hosts yet. Add a PC to get started.</string>
     <string name="pcview_menu_pair_pc">Pair with PC</string>
     <string name="pcview_menu_send_wol">Send Wake-On-LAN request</string>
@@ -271,15 +272,10 @@
     <string name="game_menu_section_touch_sensitivity">触控灵敏度</string>
     <string name="game_menu_pointer_title">鼠标与触控</string>
     <string name="game_menu_pointer_mode_section">输入模式</string>
-    <string name="game_menu_pointer_visibility_section">指针显示</string>
     <string name="game_menu_pointer_direct_touch_summary">手指位置直接对应主机画面，适合触控应用。</string>
     <string name="game_menu_pointer_mouse_summary">单指移动鼠标，双指和多指手势按触控板动作发送。</string>
     <string name="game_menu_pointer_touchpad_summary">把屏幕当作触控板，单指相对移动并支持原生多指手势。</string>
     <string name="game_menu_pointer_disabled_summary">暂停屏幕上的鼠标和触控输入。</string>
-    <string name="game_menu_android_cursor_title">Android 系统指针</string>
-    <string name="game_menu_android_cursor_summary">只控制已连接物理鼠标的 Android 指针；不影响 Moonlight 本地绘制的主机光标。</string>
-    <string name="game_menu_host_cursor_title">切换主机光标可见性</string>
-    <string name="game_menu_host_cursor_summary">向主机发送 Ctrl+Alt+Shift+N 快捷键。</string>
     <string name="game_menu_display_1">显示器 1</string>
     <string name="game_menu_display_2">显示器 2</string>
     <string name="game_menu_display_3">显示器 3</string>
@@ -446,7 +442,6 @@
     <string name="settings_action_open">Open</string>
     <string name="settings_cancel">Cancel</string>
     <string name="settings_ok">OK</string>
-    <string name="settings_add">Add</string>
     <string name="settings_custom_resolution_entry">Custom (%1$dx%2$d)</string>
     <string name="settings_custom_resolution_add">Add custom resolution</string>
     <string name="settings_custom_resolution_width">Width</string>

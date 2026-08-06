@@ -35,11 +35,18 @@ workarounds for a malformed machine `PATH`.
 
 ## 2. Build and local verification
 
-Use the checked-in wrapper and force execution so stale task outputs cannot
+Use the checked-in wrapper. The normal candidate build is the non-root Release
+target:
+
+```powershell
+.\gradlew.bat nonRootRelease
+```
+
+For the complete release gate, force execution so stale task outputs cannot
 stand in for release evidence:
 
 ```powershell
-.\gradlew.bat verifyLocal --rerun-tasks --max-workers=1 --no-daemon
+.\gradlew.bat verifyLocal --rerun-tasks --no-parallel
 ```
 
 This gate includes all app and core JVM tests, architecture checks, four lint
@@ -59,7 +66,7 @@ session to choose the target implicitly:
 
 ```powershell
 $env:ANDROID_SERIAL = 'emulator-5554'
-.\gradlew.bat verifyConnected --rerun-tasks --max-workers=1 --no-daemon
+.\gradlew.bat verifyConnected --rerun-tasks --no-parallel
 ```
 
 Both root and non-root instrumentation suites must report zero failures,

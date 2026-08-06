@@ -21,7 +21,13 @@ import com.limelight.nvstream.wol.WakeOnLanSender;
 import com.limelight.stream.launch.StreamLaunchRequest;
 import com.limelight.stream.launch.android.AndroidStreamLaunchIntentFactory;
 import com.limelight.stream.launch.android.AndroidStreamLaunchContract;
+import com.limelight.stream.launch.android.AndroidStreamLaunchProgress;
 import com.limelight.stream.launch.android.AndroidStreamLaunchRequestFactory;
+import com.limelight.stream.launch.android.AndroidPreparedStreamSession;
+import com.limelight.stream.launch.android.AndroidStreamPreparationFailurePresenter;
+import com.limelight.stream.launch.android.AndroidStreamSessionCoordinator;
+import com.limelight.ui.stream.AndroidStreamConnectionMessages;
+import com.limelight.ui.stream.StreamConnectionMessages;
 import com.limelight.ui.hosts.HostServiceBindingController;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.Dialog;
@@ -47,6 +53,7 @@ public class ShortcutTrampoline extends Activity {
     private final AtomicInteger wakeHostTries = new AtomicInteger(10);
     private volatile WakeOnLanTarget wakeOnLanTarget;
     private SpinnerDialog blockingLoadSpinner;
+    private String preparingSessionToken;
 
     private volatile ComputerManagerService.ComputerManagerBinder managerBinder;
     private final Object serviceLifecycleLock = new Object();
@@ -286,50 +293,21 @@ public class ShortcutTrampoline extends Activity {
         if (app != null) {
             if (runningAppId == 0 ||
                     runningAppId == app.getAppId()) {
-                Intent streamIntent = createStreamIntent(
+                prepareAndLaunchStream(
                         snapshot,
                         app,
                         localBinder);
-                if (streamIntent == null) {
-                    return;
-                }
-                intentStack.add(streamIntent);
-                finish();
-                startActivities(intentStack.toArray(new Intent[0]));
                 return;
             }
 
-            Intent startIntent = createStreamIntent(
-                    snapshot,
-                    app,
-                    localBinder);
-            if (startIntent == null) {
-                return;
-            }
             UiHelper.displayQuitConfirmationDialog(
                     this,
-                    () -> {
-                        intentStack.add(startIntent);
-                        finish();
-                        startActivities(intentStack.toArray(
-                                new Intent[0]));
-                    },
+                    () -> prepareAndLaunchStream(
+                            snapshot,
+                            app,
+                            localBinder),
                     this::finish);
             return;
-        }
-
-        Intent runningStreamIntent = null;
-        if (runningAppId != 0) {
-            runningStreamIntent = createStreamIntent(
-                    snapshot,
-                    new NvApp(
-                            null,
-                            runningAppId,
-                            false),
-                    localBinder);
-            if (runningStreamIntent == null) {
-                return;
-            }
         }
 
         Intent pcIntent = new Intent(this, PcView.class);
@@ -346,26 +324,31 @@ public class ShortcutTrampoline extends Activity {
                                 .getId().getValue());
         appIntent.setClass(this, AppView.class);
         intentStack.add(appIntent);
-        if (runningStreamIntent != null) {
-            intentStack.add(runningStreamIntent);
+        if (runningAppId != 0) {
+            prepareAndLaunchStream(
+                    snapshot,
+                    new NvApp(
+                            null,
+                            runningAppId,
+                            false),
+                    localBinder);
+            return;
         }
-        finish();
         startActivities(intentStack.toArray(new Intent[0]));
+        finish();
     }
 
-    private Intent createStreamIntent(
+    private void prepareAndLaunchStream(
             HostRuntimeSnapshot snapshot,
             NvApp targetApp,
             ComputerManagerService.ComputerManagerBinder binder) {
+        final StreamLaunchRequest request;
         try {
-            StreamLaunchRequest request =
+            request =
                     AndroidStreamLaunchRequestFactory.create(
                             snapshot,
                             targetApp,
                             binder.getUniqueId());
-            return AndroidStreamLaunchIntentFactory.create(
-                    this,
-                    request);
         }
         catch (CertificateEncodingException |
                 IllegalArgumentException failure) {
@@ -373,8 +356,69 @@ public class ShortcutTrampoline extends Activity {
                     "Invalid shortcut stream launch: " +
                             failure.getClass().getSimpleName());
             showConnectionFailure();
-            return null;
+            return;
         }
+
+        MoonlightApplication application =
+                (MoonlightApplication) getApplication();
+        AndroidStreamSessionCoordinator coordinator =
+                application.getStreamSessionCoordinator();
+        AndroidStreamLaunchProgress progress =
+                application.getStreamLaunchProgress();
+        AndroidStreamLaunchProgress.Session progressSession =
+                progress.begin(this);
+        StreamConnectionMessages messages =
+                AndroidStreamConnectionMessages.create(this);
+        AndroidStreamSessionCoordinator.BeginResult begin =
+                coordinator.begin(
+                        this,
+                        request,
+                        new AndroidStreamSessionCoordinator.Listener() {
+                            @Override
+                            public void onProgress(String message) {
+                                progressSession.updateMessage(
+                                        messages.stageStarting(message));
+                            }
+
+                            @Override
+                            public void onReady(String sessionToken) {
+                                if (!sessionToken.equals(
+                                        preparingSessionToken)) {
+                                    coordinator.cancel(sessionToken);
+                                    return;
+                                }
+                                intentStack.add(
+                                        AndroidStreamLaunchIntentFactory
+                                                .create(
+                                                        ShortcutTrampoline.this,
+                                                        request,
+                                                        sessionToken));
+                                startActivities(intentStack.toArray(
+                                        new Intent[0]));
+                                preparingSessionToken = null;
+                                finish();
+                            }
+
+                            @Override
+                            public void onFailure(
+                                    AndroidPreparedStreamSession.Failure
+                                            failure) {
+                                preparingSessionToken = null;
+                                progress.finish(progressSession);
+                                AndroidStreamPreparationFailurePresenter
+                                        .present(
+                                                ShortcutTrampoline.this,
+                                                failure);
+                            }
+                        });
+        if (begin.getOutcome() !=
+                AndroidStreamSessionCoordinator.BeginOutcome.STARTED) {
+            progress.finish(progressSession);
+            showConnectionFailure();
+            return;
+        }
+        preparingSessionToken = begin.getSessionToken();
+        progressSession.bindSessionToken(preparingSessionToken);
     }
 
     private void showMissingComputer() {
@@ -553,6 +597,12 @@ public class ShortcutTrampoline extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (preparingSessionToken != null) {
+            ((MoonlightApplication) getApplication())
+                    .getStreamSessionCoordinator()
+                    .cancel(preparingSessionToken);
+            preparingSessionToken = null;
+        }
         releaseServiceConnection();
         super.onDestroy();
     }

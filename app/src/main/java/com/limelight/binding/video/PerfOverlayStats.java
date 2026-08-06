@@ -7,12 +7,15 @@ public class PerfOverlayStats {
     public int targetFps;
     public int networkLatencyMs;
     public int networkLatencyVarianceMs;
+    /** True when the control-stream ENet RTT has been established. */
+    public boolean networkLatencyAvailable;
 
     public float totalFps;
     public float receivedFps;
     public float renderedFps;
     public float packetLossPercent;
     public float decodeTimeMs;
+    public boolean decoderLatencyAvailable;
     public float hostProcessingLatencyMs;
     public float networkRateKbps;
     public float videoRateKbps;

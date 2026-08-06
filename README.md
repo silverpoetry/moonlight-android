@@ -116,12 +116,37 @@ app/JNI ---> pinned moonlight-common-c ---> Sunshine
 
 ## 构建与质量门禁
 
+日常开发和发布候选包只构建普通 non-root Release。仓库默认任务就是这个目标：
+
 ```powershell
-git submodule update --init --recursive
-.\gradlew.bat verifyLocal --rerun-tasks --max-workers=1 --no-daemon
+.\gradlew.bat
 ```
 
-`verifyLocal` 会执行模块测试、app JVM 测试、架构检查、四个变体的 Android Lint、依赖与安全策略校验、SBOM 生成，并构建未混淆的 root/non-root Release APK。设备验证方法见 [TESTING.md](TESTING.md)，发布流程见 [Release Runbook](docs/architecture/RELEASE_RUNBOOK.md)，依赖来源见 [DEPENDENCIES.md](DEPENDENCIES.md)。
+等价的显式命令为：
+
+```powershell
+.\gradlew.bat nonRootRelease
+```
+
+提交前的单变体质量门禁：
+
+```powershell
+.\gradlew.bat verifyNonRootRelease
+```
+
+构建系统会对同一工作树的独立 Gradle 进程加锁；第二个进程会等待第一个完成，不会同时
+改写 `app/build/intermediates`。单次构建内部仍可使用 Gradle 的任务并行。不要使用 `-x`
+跳过 Release Lint 任务；需要完整 root/non-root 矩阵时才运行 `verifyLocal`。
+
+```powershell
+git submodule update --init --recursive
+.\gradlew.bat nonRootRelease
+```
+
+`verifyNonRootRelease` 会执行 non-root Release 的模块测试、Lint、依赖与安全策略校验和 APK
+构建。`verifyLocal` 仍是完整发布门禁，会执行四个变体的 Android Lint、全部测试、SBOM
+以及 root/non-root Release 构建。设备验证方法见 [TESTING.md](TESTING.md)，发布流程见
+[Release Runbook](docs/architecture/RELEASE_RUNBOOK.md)，依赖来源见 [DEPENDENCIES.md](DEPENDENCIES.md)。
 
 ## 隐私与安全
 

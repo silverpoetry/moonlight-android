@@ -233,7 +233,7 @@ class HostScreenRenderer(
                     Icon(
                         painter = painterResource(R.drawable.ic_m3_computer),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(36.dp),
                     )
                     Column(modifier = Modifier.weight(1f)) {
@@ -255,7 +255,7 @@ class HostScreenRenderer(
                             )
                             Text(
                                 text = stringResource(statusText(connection)),
-                                color = connectionStatusColor,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
@@ -268,23 +268,22 @@ class HostScreenRenderer(
                     }
                 }
 
-                displayEndpoint(host)?.let { address ->
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.host_active_endpoint),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = address,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.host_active_endpoint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = displayEndpoint(host)
+                            ?: stringResource(R.string.host_active_endpoint_pending),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
 
                 Row(

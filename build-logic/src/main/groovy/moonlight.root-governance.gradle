@@ -6,6 +6,26 @@ import com.moonlight.buildlogic.VerifyNativeDependencies
 import com.moonlight.buildlogic.VerifyNoLegacyBranding
 import com.moonlight.buildlogic.VerifyProductionLoggingPolicy
 import com.moonlight.buildlogic.VerifyVendoredDependencies
+import com.moonlight.buildlogic.WorkspaceBuildLockService
+
+def workspaceBuildLock = gradle.sharedServices.registerIfAbsent(
+        'moonlightWorkspaceBuildLock',
+        WorkspaceBuildLockService) {
+    parameters.lockFile.set(
+            layout.projectDirectory.file('.gradle/workspace-build.lock'))
+    // The lock protects separate Gradle invocations. Tasks within one
+    // invocation may continue to run in parallel.
+    maxParallelUsages.set(Integer.MAX_VALUE)
+}
+
+allprojects {
+    tasks.configureEach {
+        usesService(workspaceBuildLock)
+        doFirst {
+            workspaceBuildLock.get().acquire()
+        }
+    }
+}
 
 tasks.register('verifyNoBidiControls', VerifyNoBidiControls) {
     group = 'verification'

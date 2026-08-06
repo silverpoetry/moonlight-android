@@ -136,6 +136,51 @@ public final class AndroidStreamDisplayController {
                 systemManagedRefreshRate);
     }
 
+    /**
+     * Resolves the display timing used by transport negotiation without
+     * mutating the current Activity window.
+     */
+    @MainThread
+    public static Preparation inspect(
+            Activity activity,
+            StreamDecoderSettings decoderSettings,
+            StreamDisplaySettings displaySettings,
+            StreamDecoderSettings.FramePacing framePacing) {
+        Objects.requireNonNull(activity, "activity");
+        Objects.requireNonNull(decoderSettings, "decoderSettings");
+        Objects.requireNonNull(displaySettings, "displaySettings");
+        Objects.requireNonNull(framePacing, "framePacing");
+
+        Display display = AndroidDisplayCompat.getActivityDisplay(activity);
+        boolean television = AndroidDeviceCategory.isTelevision(activity);
+        boolean systemManaged =
+                StreamDisplayRefreshPolicy
+                        .shouldLetSystemManageRefreshRate(
+                                television,
+                                Build.MANUFACTURER,
+                                Build.BRAND);
+        boolean mayReduceRefreshRate =
+                StreamDisplayRefreshPolicy.mayReduceRefreshRate(
+                        framePacing,
+                        decoderSettings
+                                .isRefreshRateReductionEnabled());
+        Display.Mode bestMode = selectDisplayMode(
+                display,
+                decoderSettings,
+                displaySettings,
+                mayReduceRefreshRate);
+        float selectedRefreshRate = bestMode.getRefreshRate();
+        float effectiveRefreshRate = television
+                ? selectedRefreshRate
+                : Math.min(
+                        display.getRefreshRate(),
+                        selectedRefreshRate);
+        return new Preparation(
+                effectiveRefreshRate,
+                selectedRefreshRate,
+                systemManaged);
+    }
+
     private float prepareDisplayMode(
             Display display,
             WindowManager.LayoutParams windowLayoutParams,
@@ -148,8 +193,6 @@ public final class AndroidStreamDisplayController {
                         currentMode.getRefreshRate());
 
         List<Display.Mode> platformModes = new ArrayList<>();
-        List<StreamDisplayModeSelector.Mode> selectorModes =
-                new ArrayList<>();
         for (Display.Mode candidate : display.getSupportedModes()) {
             LimeLog.info(
                     "Examining display mode: " +
@@ -157,22 +200,12 @@ public final class AndroidStreamDisplayController {
                             candidate.getPhysicalHeight() + "x" +
                             candidate.getRefreshRate());
             platformModes.add(candidate);
-            selectorModes.add(toSelectorMode(candidate));
         }
-
-        StreamDisplayModeSelector.Mode selectedMode =
-                StreamDisplayModeSelector.select(
-                        decoderSettings.getWidth(),
-                        decoderSettings.getHeight(),
-                        decoderSettings.getFps(),
-                        displaySettings.isNativeResolution(),
-                        mayReduceRefreshRate,
-                        toSelectorMode(currentMode),
-                        selectorModes);
-        Display.Mode bestMode = findPlatformMode(
-                currentMode,
-                platformModes,
-                selectedMode.id);
+        Display.Mode bestMode = selectDisplayMode(
+                display,
+                decoderSettings,
+                displaySettings,
+                mayReduceRefreshRate);
         LimeLog.info(
                 "Best display mode: " +
                         bestMode.getPhysicalWidth() + "x" +
@@ -210,6 +243,34 @@ public final class AndroidStreamDisplayController {
                             "display mode");
         }
         return bestMode.getRefreshRate();
+    }
+
+    private static Display.Mode selectDisplayMode(
+            Display display,
+            StreamDecoderSettings decoderSettings,
+            StreamDisplaySettings displaySettings,
+            boolean mayReduceRefreshRate) {
+        Display.Mode currentMode = display.getMode();
+        List<Display.Mode> platformModes = new ArrayList<>();
+        List<StreamDisplayModeSelector.Mode> selectorModes =
+                new ArrayList<>();
+        for (Display.Mode candidate : display.getSupportedModes()) {
+            platformModes.add(candidate);
+            selectorModes.add(toSelectorMode(candidate));
+        }
+        StreamDisplayModeSelector.Mode selectedMode =
+                StreamDisplayModeSelector.select(
+                        decoderSettings.getWidth(),
+                        decoderSettings.getHeight(),
+                        decoderSettings.getFps(),
+                        displaySettings.isNativeResolution(),
+                        mayReduceRefreshRate,
+                        toSelectorMode(currentMode),
+                        selectorModes);
+        return findPlatformMode(
+                currentMode,
+                platformModes,
+                selectedMode.id);
     }
 
     private void configureRenderSurface() {

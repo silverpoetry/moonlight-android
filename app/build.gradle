@@ -151,8 +151,16 @@ androidComponents {
                     variant.artifacts.get(
                             SingleArtifact.MERGED_MANIFEST.INSTANCE))
         }
-        rootProject.tasks.named('verifyAndroidSecurityPolicy').configure {
+        // Static security checks are shared by all variants. Merged-manifest
+        // checks belong to the gate for the specific Release variant so the
+        // daily non-root gate never materializes root Release intermediates.
+        rootProject.tasks.named('verifyLocal').configure {
             dependsOn(manifestPolicyTask)
+        }
+        if (variant.name == 'nonRootRelease') {
+            rootProject.tasks.named('verifyNonRootRelease').configure {
+                dependsOn(manifestPolicyTask)
+            }
         }
     }
 }

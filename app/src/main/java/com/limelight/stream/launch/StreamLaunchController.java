@@ -58,6 +58,13 @@ public final class StreamLaunchController {
         ownerPaused = false;
     }
 
+    /** Reopens admission when an asynchronous launch fails before handoff. */
+    public synchronized void onLaunchFailed() {
+        if (!destroyed && !ownerPaused) {
+            starting = false;
+        }
+    }
+
     /** Permanently closes admission when the Activity owner is destroyed. */
     public synchronized void onOwnerDestroyed() {
         destroyed = true;

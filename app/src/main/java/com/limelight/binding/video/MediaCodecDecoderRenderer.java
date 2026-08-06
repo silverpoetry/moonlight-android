@@ -16,18 +16,16 @@ import org.jcodec.codecs.h264.io.model.VUIParameters;
 
 import com.limelight.BuildConfig;
 import com.limelight.LimeLog;
-import com.limelight.platform.AndroidDisplayCompat;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.settings.stream.StreamDecoderSettings;
 
-import android.app.Activity;
-import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodec.CodecException;
+import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -39,9 +37,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 
 public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements Choreographer.FrameCallback {
-
-    private static final boolean USE_FRAME_RENDER_TIME = false;
-    private static final boolean FRAME_RENDER_TIME_ONLY = USE_FRAME_RENDER_TIME && false;
 
     private MediaCodecInfo avcDecoder;
     private MediaCodecInfo hevcDecoder;
@@ -56,9 +51,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private int nextInputBufferIndex = -1;
     private ByteBuffer nextInputBuffer;
 
-    private Context context;
-    private Activity activity;
-    private MediaCodec videoDecoder;
+    private volatile long appVsyncOffsetNanos;
+    private volatile MediaCodec videoDecoder;
     private Thread rendererThread;
     private boolean needsSpsBitstreamFixup, isExynos4;
     private boolean adaptivePlayback, fusedIdrFrame;
@@ -66,7 +60,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private boolean refFrameInvalidationActive;
     private int initialWidth, initialHeight;
     private int videoFormat;
-    private Surface renderTarget;
+    private volatile Surface renderTarget;
     private volatile boolean stopping;
     private CrashListener crashListener;
     private boolean reportedCrash;
@@ -95,6 +89,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private static final int EXCEPTION_REPORT_DELAY_MS = 3000;
 
     private final DecoderStatisticsTracker statisticsTracker;
+    private final DecoderFrameTimingTracker decoderFrameTimingTracker =
+            new DecoderFrameTimingTracker();
 
     private long lastTimestampUs;
     private int lastFrameNumber;
@@ -136,7 +132,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     }
 
     public MediaCodecDecoderRenderer(
-            Activity activity,
+            Context context,
+            long appVsyncOffsetNanos,
             StreamDecoderSettings settings,
             CrashListener crashListener,
             int consecutiveCrashCount,
@@ -145,8 +142,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             PerfOverlayListener perfListener) {
         //dumpDecoders();
 
-        this.context = activity;
-        this.activity = activity;
+        this.appVsyncOffsetNanos = Math.max(0L, appVsyncOffsetNanos);
         this.settings = Objects.requireNonNull(
                 settings,
                 "settings");
@@ -214,6 +210,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 Build.VERSION.SDK_INT,
                 hevcDecoder != null,
                 av1Decoder != null);
+    }
+
+    public void setAppVsyncOffsetNanos(long appVsyncOffsetNanos) {
+        this.appVsyncOffsetNanos = Math.max(0L, appVsyncOffsetNanos);
     }
 
     public int getPreferredColorRange() {
@@ -465,22 +465,6 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             }
         }
 
-        if (USE_FRAME_RENDER_TIME) {
-            videoDecoder.setOnFrameRenderedListener(new MediaCodec.OnFrameRenderedListener() {
-                @Override
-                public void onFrameRendered(MediaCodec mediaCodec, long presentationTimeUs, long renderTimeNanos) {
-                    long delta = (renderTimeNanos / 1000000L) - (presentationTimeUs / 1000);
-                    if (delta >= 0 && delta < 1000) {
-                        if (USE_FRAME_RENDER_TIME) {
-                            statisticsTracker
-                                    .recordFrameRenderLatency(
-                                            delta);
-                        }
-                    }
-                }
-            }, null);
-        }
-
         return 0;
     }
 
@@ -515,6 +499,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 nextInputBuffer = null;
                 nextInputBufferIndex = -1;
                 outputBufferQueue.clear();
+                decoderFrameTimingTracker.clear();
 
                 // If we just need a flush, do so now with all threads quiesced.
                 if (recoveryCoordinator.getRecoveryType() ==
@@ -780,9 +765,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             return;
         }
 
-        frameTimeNanos -= AndroidDisplayCompat
-                .getActivityDisplay(activity)
-                .getAppVsyncOffsetNanos();
+        frameTimeNanos -= appVsyncOffsetNanos;
 
         // Don't render unless a new frame is due. This prevents microstutter when streaming
         // at a frame rate that doesn't match the display (such as 60 FPS on 120 Hz).
@@ -861,6 +844,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                             int lastIndex = outIndex;
 
                             numFramesOut++;
+                            recordDecoderOutputLatency(presentationTimeUs);
 
                             // Render the latest frame now if frame pacing isn't in balanced mode
                             if (settings.getFramePacing() !=
@@ -871,6 +855,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                     videoDecoder.releaseOutputBuffer(lastIndex, false);
 
                                     numFramesOut++;
+                                    recordDecoderOutputLatency(info.presentationTimeUs);
 
                                     lastIndex = outIndex;
                                     presentationTimeUs = info.presentationTimeUs;
@@ -916,14 +901,6 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                 }
                             }
 
-                            // Add delta time to the totals (excluding probable outliers)
-                            long delta = SystemClock.uptimeMillis() - (presentationTimeUs / 1000);
-                            if (delta >= 0 && delta < 1000) {
-                                statisticsTracker
-                                        .recordDecoderLatency(
-                                                delta,
-                                                !USE_FRAME_RENDER_TIME);
-                            }
                         } else {
                             switch (outIndex) {
                                 case MediaCodec.INFO_TRY_AGAIN_LATER:
@@ -1029,6 +1006,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     public void prepareForStop() {
         // Let the decoding code know to ignore codec exceptions now
         stopping = true;
+        decoderFrameTimingTracker.clear();
 
         // Halt the rendering thread
         if (rendererThread != null) {
@@ -1094,6 +1072,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     @Override
     public void cleanup() {
+        decoderFrameTimingTracker.clear();
         videoDecoder.release();
     }
 
@@ -1128,6 +1107,13 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     private boolean queueNextInputBuffer(long timestampUs, int codecFlags) {
         boolean codecRecovered;
+        boolean trackDecoderTiming =
+                (codecFlags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0;
+        if (trackDecoderTiming) {
+            decoderFrameTimingTracker.recordInputSubmission(
+                    timestampUs,
+                    SystemClock.uptimeMillis());
+        }
 
         try {
             videoDecoder.queueInputBuffer(nextInputBufferIndex,
@@ -1138,6 +1124,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             nextInputBufferIndex = -1;
             nextInputBuffer = null;
         } catch (IllegalStateException e) {
+            if (trackDecoderTiming) {
+                decoderFrameTimingTracker.discardInputSubmission(timestampUs);
+            }
             if (handleDecoderException(e)) {
                 // We encountered a transient error. In this case, just hold onto the buffer
                 // (to avoid leaking it), clear it, and keep it for the next frame. We'll return
@@ -1169,6 +1158,15 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         // codec recovery happening in fetchNextInputBuffer(). If we don't, we'll
         // never get an IDR frame to complete the recovery process.
         return fetchNextInputBuffer();
+    }
+
+    private void recordDecoderOutputLatency(long presentationTimeUs) {
+        long latencyMs = decoderFrameTimingTracker.consumeDecodeLatencyMs(
+                presentationTimeUs,
+                SystemClock.uptimeMillis());
+        if (latencyMs != DecoderFrameTimingTracker.NO_SAMPLE) {
+            statisticsTracker.recordDecoderLatency(latencyMs, true);
+        }
     }
 
     private void doProfileSpecificSpsPatching(SeqParameterSet sps) {
@@ -1245,10 +1243,11 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                     video_format+="???";
                 }
 
-                float decodeTimeMs = lastTwo.totalFramesReceived > 0
-                        ? (float)lastTwo.decoderTimeMs / lastTwo.totalFramesReceived
+                float decodeTimeMs = lastTwo.decoderSampleCount > 0
+                        ? (float)lastTwo.decoderTimeMs / lastTwo.decoderSampleCount
                         : 0f;
-                long rttInfo = MoonBridge.getEstimatedRttInfo();
+                ControlStreamRtt networkRtt = ControlStreamRtt.fromPacked(
+                        MoonBridge.getEstimatedRttInfo());
                 float audioRateKbps = estimateAudioRateKbps();
                 if (firstPerfStatsTimestamp == 0) {
                     firstPerfStatsTimestamp = nowMs;
@@ -1266,9 +1265,16 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 stats.packetLossPercent = lastTwo.totalFrames > 0
                         ? (float)lastTwo.framesLost / lastTwo.totalFrames * 100
                         : 0f;
-                stats.networkLatencyMs = (int)(rttInfo >> 32);
-                stats.networkLatencyVarianceMs = (int)rttInfo;
+                stats.networkLatencyAvailable = networkRtt.isAvailable();
+                if (stats.networkLatencyAvailable) {
+                    stats.networkLatencyMs =
+                            networkRtt.getRoundTripTimeMs();
+                    stats.networkLatencyVarianceMs =
+                            networkRtt.getVarianceMs();
+                }
                 stats.decodeTimeMs = decodeTimeMs;
+                stats.decoderLatencyAvailable =
+                        lastTwo.decoderSampleCount > 0;
                 stats.hostProcessingLatencyMs = lastTwo.framesWithHostProcessingLatency > 0
                         ? (float)lastTwo.totalHostProcessingLatency / 10 / lastTwo.framesWithHostProcessingLatency
                         : 0f;
@@ -1516,7 +1522,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 decodeUnitLength,
                 frameHostProcessingLatency,
                 enqueueTimeMs - receiveTimeMs,
-                !FRAME_RENDER_TIME_ONLY);
+                true);
 
         if (!fetchNextInputBuffer()) {
             return MoonBridge.DR_NEED_IDR;

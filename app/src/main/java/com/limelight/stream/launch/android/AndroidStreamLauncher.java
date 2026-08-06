@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.content.Intent;
 
 import com.limelight.LimeLog;
+import com.limelight.MoonlightApplication;
+import com.limelight.R;
 import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.stream.launch.RecentStreamSession;
@@ -13,6 +15,10 @@ import com.limelight.stream.launch.StreamLaunchUseCase;
 
 import java.security.cert.CertificateEncodingException;
 import java.util.Objects;
+
+import com.limelight.ui.stream.AndroidStreamConnectionMessages;
+import com.limelight.ui.stream.StreamConnectionMessages;
+import com.limelight.utils.Dialog;
 
 /** Activity-scoped application boundary for admitting a stream launch. */
 public final class AndroidStreamLauncher {
@@ -49,6 +55,9 @@ public final class AndroidStreamLauncher {
 
     private final Activity activity;
     private final StreamLaunchUseCase useCase;
+    private final AndroidStreamLaunchProgress progress;
+    private final AndroidStreamSessionCoordinator coordinator;
+    private String activeSessionToken;
 
     public AndroidStreamLauncher(Activity activity) {
         this(
@@ -61,6 +70,10 @@ public final class AndroidStreamLauncher {
             Activity activity,
             RecentStreamSessionRepository recentSessions) {
         this.activity = Objects.requireNonNull(activity, "activity");
+        progress = ((MoonlightApplication) activity.getApplication())
+                .getStreamLaunchProgress();
+        coordinator = ((MoonlightApplication) activity.getApplication())
+                .getStreamSessionCoordinator();
         useCase = new StreamLaunchUseCase(
                 Objects.requireNonNull(
                         recentSessions,
@@ -97,11 +110,105 @@ public final class AndroidStreamLauncher {
         StreamLaunchUseCase.Result result = useCase.launch(
                 request,
                 acceptedRequest -> {
-                    Intent intent =
-                            AndroidStreamLaunchIntentFactory.create(
+                    AndroidStreamLaunchProgress.Session session =
+                            progress.begin(activity);
+                    StreamConnectionMessages messages =
+                            AndroidStreamConnectionMessages.create(
+                                    activity);
+                    AndroidStreamSessionCoordinator.BeginResult begin =
+                            coordinator.begin(
                                     activity,
-                                    acceptedRequest);
-                    activity.startActivity(intent);
+                                    acceptedRequest,
+                                    new AndroidStreamSessionCoordinator
+                                            .Listener() {
+                                        @Override
+                                        public void onProgress(
+                                                String message) {
+                                            session.updateMessage(
+                                                    messages.stageStarting(
+                                                            message));
+                                        }
+
+                                        @Override
+                                        public void onReady(
+                                                String sessionToken) {
+                                            if (!sessionToken.equals(
+                                                    activeSessionToken)) {
+                                                coordinator.cancel(
+                                                        sessionToken);
+                                                return;
+                                            }
+                                            if (activity.isFinishing() ||
+                                                    activity.isDestroyed()) {
+                                                coordinator.cancel(
+                                                        sessionToken);
+                                                progress.finish(session);
+                                                activeSessionToken = null;
+                                                useCase.onLaunchFailed();
+                                                return;
+                                            }
+                                            try {
+                                                activity.startActivity(
+                                                        AndroidStreamLaunchIntentFactory
+                                                                .create(
+                                                                        activity,
+                                                                        acceptedRequest,
+                                                                        sessionToken));
+                                                activeSessionToken = null;
+                                            }
+                                            catch (RuntimeException |
+                                                    Error failure) {
+                                                coordinator.cancel(
+                                                        sessionToken);
+                                                progress.finish(session);
+                                                activeSessionToken = null;
+                                                useCase.onLaunchFailed();
+                                                LimeLog.warning(
+                                                        "Unable to open stream Activity",
+                                                        failure);
+                                                if (!activity.isFinishing() &&
+                                                        !activity.isDestroyed()) {
+                                                    Dialog.displayDialog(
+                                                            activity,
+                                                            activity.getString(
+                                                                    R.string
+                                                                            .conn_error_title),
+                                                            activity.getString(
+                                                                    R.string
+                                                                            .conn_error_msg),
+                                                            false);
+                                                }
+                                            }
+                                        }
+
+                                        @Override
+                                        public void onFailure(
+                                                AndroidPreparedStreamSession
+                                                        .Failure failure) {
+                                            if (activeSessionToken != null) {
+                                                activeSessionToken = null;
+                                            }
+                                            progress.finish(session);
+                                            useCase.onLaunchFailed();
+                                            AndroidStreamPreparationFailurePresenter
+                                                    .present(
+                                                            activity,
+                                                            failure);
+                                        }
+                                    });
+                    if (begin.getOutcome() !=
+                            AndroidStreamSessionCoordinator.BeginOutcome
+                                    .STARTED) {
+                        progress.finish(session);
+                        RuntimeException failure = begin.getFailure();
+                        if (failure != null) {
+                            throw failure;
+                        }
+                        throw new IllegalStateException(
+                                "Another stream session is active");
+                    }
+                    activeSessionToken = begin.getSessionToken();
+                    session.bindSessionToken(activeSessionToken);
                 });
         if (result.getPersistenceFailure() != null) {
             LimeLog.warning(
@@ -130,6 +237,11 @@ public final class AndroidStreamLauncher {
     }
 
     public void onOwnerDestroyed() {
+        if (activeSessionToken != null) {
+            coordinator.cancel(activeSessionToken);
+            activeSessionToken = null;
+        }
+        progress.finishFor(activity);
         useCase.onOwnerDestroyed();
     }
 

@@ -1,8 +1,6 @@
 package com.limelight.ui.stream;
 
 import android.app.Activity;
-import android.os.Looper;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewParent;
 import android.widget.FrameLayout;
@@ -10,6 +8,7 @@ import android.widget.FrameLayout;
 import androidx.annotation.AnyThread;
 import androidx.annotation.MainThread;
 
+import com.limelight.DebugLog;
 import com.limelight.ui.NativeCursorOverlayView;
 import com.limelight.ui.StreamView;
 
@@ -85,12 +84,7 @@ public final class AndroidStreamNativeCursorController {
                 y,
                 referenceWidth,
                 referenceHeight);
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            applyCachedPosition();
-        }
-        else {
-            activity.runOnUiThread(this::applyCachedPosition);
-        }
+        activity.runOnUiThread(this::applyCachedPosition);
     }
 
     /** Makes cached local cursor coordinates eligible for visual presentation. */
@@ -248,8 +242,6 @@ public final class AndroidStreamNativeCursorController {
     }
 
     private static void trace(String message) {
-        if (Log.isLoggable(LOG_TAG, Log.DEBUG)) {
-            Log.d(LOG_TAG, message);
-        }
+        DebugLog.debug(LOG_TAG, message);
     }
 }

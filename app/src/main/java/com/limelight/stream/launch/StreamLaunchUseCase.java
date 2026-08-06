@@ -110,6 +110,10 @@ public final class StreamLaunchUseCase {
         controller.onOwnerDestroyed();
     }
 
+    public void onLaunchFailed() {
+        controller.onLaunchFailed();
+    }
+
     private Result rememberAfterLaunch(StreamLaunchRequest request) {
         if (request.getHostId() == null ||
                 request.getHostId().trim().isEmpty()) {

@@ -3,6 +3,7 @@ package com.limelight.binding.video;
 class VideoStats {
 
     long decoderTimeMs;
+    int decoderSampleCount;
     long totalTimeMs;
     int totalFrames;
     int totalFramesReceived;
@@ -18,6 +19,7 @@ class VideoStats {
 
     void add(VideoStats other) {
         this.decoderTimeMs += other.decoderTimeMs;
+        this.decoderSampleCount += other.decoderSampleCount;
         this.totalTimeMs += other.totalTimeMs;
         this.totalFrames += other.totalFrames;
         this.totalFramesReceived += other.totalFramesReceived;
@@ -44,6 +46,7 @@ class VideoStats {
 
     void copy(VideoStats other) {
         this.decoderTimeMs = other.decoderTimeMs;
+        this.decoderSampleCount = other.decoderSampleCount;
         this.totalTimeMs = other.totalTimeMs;
         this.totalFrames = other.totalFrames;
         this.totalFramesReceived = other.totalFramesReceived;
@@ -60,6 +63,7 @@ class VideoStats {
 
     void clear() {
         this.decoderTimeMs = 0;
+        this.decoderSampleCount = 0;
         this.totalTimeMs = 0;
         this.totalFrames = 0;
         this.totalFramesReceived = 0;

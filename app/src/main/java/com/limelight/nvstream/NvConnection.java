@@ -10,7 +10,6 @@ import android.net.NetworkCapabilities;
 import android.net.RouteInfo;
 import android.os.Build;
 import android.os.CancellationSignal;
-import android.util.Log;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -28,6 +27,7 @@ import javax.crypto.SecretKey;
 
 import org.xmlpull.v1.XmlPullParserException;
 
+import com.limelight.DebugLog;
 import com.limelight.LimeLog;
 import com.limelight.nvstream.av.audio.AudioRenderer;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
@@ -858,9 +858,7 @@ public class NvConnection implements StreamSessionConnection,
     }
 
     private static void traceCursor(String message) {
-        if (Log.isLoggable(CURSOR_LOG_TAG, Log.DEBUG)) {
-            Log.d(CURSOR_LOG_TAG, message);
-        }
+        DebugLog.debug(CURSOR_LOG_TAG, message);
     }
 
     private static boolean isValidMouseReference(int referenceWidth, int referenceHeight) {

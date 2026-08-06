@@ -274,13 +274,13 @@ public class UiHelper {
     /**
      * Configures the stream content rectangle for Android 15's enforced edge-to-edge mode.
      *
-     * The insets are applied to the activity content root rather than to individual
-     * overlays. This guarantees that the stream view, local cursor, and touch coordinate
-     * space stay aligned. Earlier Android versions retain their platform-managed inset
-     * behavior.
+     * Insets are applied only to the stream content coordinate space. The activity
+     * root remains edge-to-edge so full-window input overlays can use physical display
+     * coordinates independently of the stream's cutout policy.
      */
     public static void configureStreamWindowInsets(final Activity activity,
-                                                   final boolean allowDisplayCutout) {
+                                                   final boolean allowDisplayCutout,
+                                                   final View streamContentRoot) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && allowDisplayCutout) {
             WindowManager.LayoutParams layoutParams = activity.getWindow().getAttributes();
             layoutParams.layoutInDisplayCutoutMode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
@@ -297,6 +297,7 @@ public class UiHelper {
                 activity.getWindow(),
                 false);
         final View contentView = activity.findViewById(android.R.id.content);
+        contentView.setPadding(0, 0, 0, 0);
         ViewCompat.setOnApplyWindowInsetsListener(
                 contentView,
                 (view, windowInsets) -> {
@@ -312,7 +313,8 @@ public class UiHelper {
                                     allowDisplayCutout,
                                     systemBars,
                                     displayCutout);
-                    view.setPadding(contentInsets.left, contentInsets.top,
+                    streamContentRoot.setPadding(
+                            contentInsets.left, contentInsets.top,
                             contentInsets.right, contentInsets.bottom);
                     return windowInsets;
                 });

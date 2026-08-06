@@ -112,6 +112,10 @@ public final class StreamMediaResourceOwnerTest {
         }
 
         @Override
+        public void setAppVsyncOffsetNanos(long appVsyncOffsetNanos) {
+        }
+
+        @Override
         public void prepareForStop() {
             prepareForStopCount++;
         }
