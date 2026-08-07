@@ -7,7 +7,11 @@ import com.limelight.settings.stream.StreamResolutionCodec;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.ui.compose.settings.MaterialSettingsDialogFactory;
 
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Lifecycle-bound presenter for Material 3 settings value editors. */
 final class SettingsDialogPresenter {
@@ -27,20 +31,29 @@ final class SettingsDialogPresenter {
         void onCustomResolutionRemoved(String value);
     }
 
+    interface ConfigurationImportListener {
+        void onSelected(Set<ConfigurationArchiveComponent> components);
+
+        void onCancelled();
+    }
+
+    private final Activity activity;
     private final SettingsStore store;
     private final Listener listener;
     private final MaterialSettingsDialogFactory dialogFactory;
     private Dialog activeDialog;
+    private Runnable activeDialogDismissAction;
     private boolean destroyed;
 
     SettingsDialogPresenter(
             Activity activity,
             SettingsStore store,
             Listener listener) {
+        this.activity = Objects.requireNonNull(activity, "activity");
         this.store = Objects.requireNonNull(store, "store");
         this.listener = Objects.requireNonNull(listener, "listener");
         dialogFactory = new MaterialSettingsDialogFactory(
-                Objects.requireNonNull(activity, "activity"));
+                this.activity);
     }
 
     void showList(SettingsItem item) {
@@ -133,6 +146,65 @@ final class SettingsDialogPresenter {
         trackDismissal(activeDialog);
     }
 
+    void showConfigurationImport(
+            Set<ConfigurationArchiveComponent> available,
+            ConfigurationImportListener importListener) {
+        Objects.requireNonNull(available, "available");
+        Objects.requireNonNull(importListener, "importListener");
+        if (destroyed || available.isEmpty()) {
+            importListener.onCancelled();
+            return;
+        }
+        dismissActiveDialog();
+        ArrayList<ConfigurationArchiveComponent> components =
+                new ArrayList<>();
+        for (ConfigurationArchiveComponent component :
+                ConfigurationArchiveComponent.values()) {
+            if (available.contains(component)) {
+                components.add(component);
+            }
+        }
+        CharSequence[] entries = new CharSequence[components.size()];
+        CharSequence[] summaries = new CharSequence[components.size()];
+        String[] values = new String[components.size()];
+        for (int index = 0; index < components.size(); index++) {
+            ConfigurationArchiveComponent component = components.get(index);
+            entries[index] = activity.getText(component.getTitleRes());
+            summaries[index] = activity.getText(component.getSummaryRes());
+            values[index] = component.getId();
+        }
+        AtomicBoolean submitted = new AtomicBoolean();
+        activeDialog = dialogFactory.showMultiChoice(
+                activity.getText(
+                        com.limelight.R.string
+                                .settings_import_selection_title),
+                entries,
+                summaries,
+                values,
+                selectedIds -> {
+                    submitted.set(true);
+                    EnumSet<ConfigurationArchiveComponent> selected =
+                            EnumSet.noneOf(
+                                    ConfigurationArchiveComponent.class);
+                    for (String id : selectedIds) {
+                        ConfigurationArchiveComponent component =
+                                ConfigurationArchiveComponent.fromId(id);
+                        if (component != null &&
+                                available.contains(component)) {
+                            selected.add(component);
+                        }
+                    }
+                    importListener.onSelected(selected);
+                });
+        trackDismissal(
+                activeDialog,
+                () -> {
+                    if (!submitted.get()) {
+                        importListener.onCancelled();
+                    }
+                });
+    }
+
     void destroy() {
         destroyed = true;
         dismissActiveDialog();
@@ -143,18 +215,34 @@ final class SettingsDialogPresenter {
     }
 
     private void trackDismissal(Dialog dialog) {
+        trackDismissal(dialog, null);
+    }
+
+    private void trackDismissal(Dialog dialog, Runnable dismissAction) {
+        activeDialogDismissAction = dismissAction;
         dialog.setOnDismissListener(ignored -> {
             if (activeDialog == dialog) {
                 activeDialog = null;
+                Runnable action = activeDialogDismissAction;
+                activeDialogDismissAction = null;
+                if (action != null) {
+                    action.run();
+                }
             }
         });
     }
 
     private void dismissActiveDialog() {
         if (activeDialog != null) {
+            Runnable action = activeDialogDismissAction;
+            activeDialogDismissAction = null;
             activeDialog.setOnDismissListener(null);
             activeDialog.dismiss();
             activeDialog = null;
+            if (action != null) {
+                action.run();
+            }
         }
     }
+
 }

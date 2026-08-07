@@ -727,29 +727,13 @@
         android:key="section_backup_restore"
         android:title="@string/category_backup_restore_settings">
         <Preference
-            android:key="action_backup_hosts_export"
-            android:title="导出已配对主机"
-            android:summary="导出配对主机数据库。" />
+            android:key="action_configuration_export"
+            android:title="@string/settings_export_configuration"
+            android:summary="@string/settings_export_configuration_summary" />
         <Preference
-            android:key="action_backup_certificate_export"
-            android:title="导出客户端证书"
-            android:summary="导出用于主机认证的客户端证书。" />
-        <Preference
-            android:key="action_backup_private_key_export"
-            android:title="导出客户端私钥"
-            android:summary="导出用于主机认证的客户端私钥，请妥善保管。" />
-        <Preference
-            android:key="action_backup_hosts_import"
-            android:title="导入已配对主机"
-            android:summary="导入并替换当前配对主机数据库。" />
-        <Preference
-            android:key="action_backup_certificate_import"
-            android:title="导入客户端证书"
-            android:summary="导入用于主机认证的客户端证书。" />
-        <Preference
-            android:key="action_backup_private_key_import"
-            android:title="导入客户端私钥"
-            android:summary="导入与客户端证书匹配的私钥。" />
+            android:key="action_configuration_import"
+            android:title="@string/settings_import_configuration"
+            android:summary="@string/settings_import_configuration_summary" />
     </PreferenceCategory>
 
     <PreferenceCategory

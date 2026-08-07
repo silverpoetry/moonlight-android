@@ -169,9 +169,10 @@ public class StreamSettings extends BaseActivity {
                 this,
                 store.repository,
                 layoutRepository,
+                dialogPresenter,
                 documentLauncher::launch,
                 pendingDocumentRequest,
-                this::reloadSettings);
+                this::handleConfigurationImported);
         sectionActivity = getIntent().hasExtra(EXTRA_SECTION_ID);
         String requestedSectionId = sectionActivity
                 ? getIntent().getStringExtra(EXTRA_SECTION_ID)
@@ -669,6 +670,22 @@ public class StreamSettings extends BaseActivity {
         }
         applyChangeResult(result);
         return null;
+    }
+
+    private void handleConfigurationImported() {
+        if (isFinishing()) {
+            return;
+        }
+        AppPresentationSettings current =
+                AndroidAppPresentationSettingsLoader.load(this);
+        if (!previousPresentationSettings.getThemeMode().equals(
+                        current.getThemeMode()) ||
+                !previousPresentationSettings.getLanguage().equals(
+                        current.getLanguage())) {
+            recreate();
+            return;
+        }
+        reloadSettings();
     }
 
     private CharSequence customResolutionError(

@@ -46,11 +46,16 @@ public final class AndroidStreamLaunchAdaptersTest {
 
         Intent intent = AndroidStreamLaunchIntentFactory.create(
                 context,
-                request);
+                request,
+                "session-token");
 
         assertEquals(
                 Game.class.getName(),
                 intent.getComponent().getClassName());
+        assertEquals(
+                "session-token",
+                intent.getStringExtra(
+                        AndroidStreamLaunchContract.EXTRA_SESSION_TOKEN));
         assertEquals(
                 "host",
                 intent.getStringExtra(

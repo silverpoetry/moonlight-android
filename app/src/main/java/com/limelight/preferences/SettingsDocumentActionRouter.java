@@ -17,17 +17,9 @@ final class SettingsDocumentActionRouter {
                 .equals(key)) {
             return SettingsDocumentAction.IMPORT_VIRTUAL_GAMEPAD;
         }
-        if (SettingsScreenIds.ACTION_BACKUP_HOSTS_IMPORT
+        if (SettingsScreenIds.ACTION_CONFIGURATION_IMPORT
                 .equals(key)) {
-            return SettingsDocumentAction.IMPORT_HOSTS;
-        }
-        if (SettingsScreenIds.ACTION_BACKUP_CERTIFICATE_IMPORT
-                .equals(key)) {
-            return SettingsDocumentAction.IMPORT_CERTIFICATE;
-        }
-        if (SettingsScreenIds.ACTION_BACKUP_PRIVATE_KEY_IMPORT
-                .equals(key)) {
-            return SettingsDocumentAction.IMPORT_PRIVATE_KEY;
+            return SettingsDocumentAction.IMPORT_CONFIGURATION;
         }
         if (SettingsScreenIds.ACTION_ACCESSIBILITY_CONFIG_IMPORT
                 .equals(key)) {
@@ -47,17 +39,9 @@ final class SettingsDocumentActionRouter {
                 .equals(key)) {
             return SettingsDocumentAction.EXPORT_VIRTUAL_GAMEPAD;
         }
-        if (SettingsScreenIds.ACTION_BACKUP_HOSTS_EXPORT
+        if (SettingsScreenIds.ACTION_CONFIGURATION_EXPORT
                 .equals(key)) {
-            return SettingsDocumentAction.EXPORT_HOSTS;
-        }
-        if (SettingsScreenIds.ACTION_BACKUP_CERTIFICATE_EXPORT
-                .equals(key)) {
-            return SettingsDocumentAction.EXPORT_CERTIFICATE;
-        }
-        if (SettingsScreenIds.ACTION_BACKUP_PRIVATE_KEY_EXPORT
-                .equals(key)) {
-            return SettingsDocumentAction.EXPORT_PRIVATE_KEY;
+            return SettingsDocumentAction.EXPORT_CONFIGURATION;
         }
         return null;
     }

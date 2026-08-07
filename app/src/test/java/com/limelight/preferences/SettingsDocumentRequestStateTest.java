@@ -39,17 +39,17 @@ public final class SettingsDocumentRequestStateTest {
                 new SettingsDocumentController.RequestState(
                         SettingsDocumentController.NO_PENDING_REQUEST);
         state.begin(
-                SettingsDocumentController.REQUEST_CERTIFICATE_IMPORT);
+                SettingsDocumentController.REQUEST_CONFIGURATION_IMPORT);
 
         try {
             state.begin(
-                    SettingsDocumentController.REQUEST_PRIVATE_KEY_IMPORT);
+                    SettingsDocumentController.REQUEST_ACCESSIBILITY_IMPORT);
             fail("Expected overlapping request to be rejected");
         }
         catch (IllegalStateException expected) {
             assertEquals(
                     SettingsDocumentController
-                            .REQUEST_CERTIFICATE_IMPORT,
+                            .REQUEST_CONFIGURATION_IMPORT,
                     state.peek());
         }
     }
@@ -64,7 +64,7 @@ public final class SettingsDocumentRequestStateTest {
 
         try {
             state.launch(
-                    SettingsDocumentController.REQUEST_HOSTS_IMPORT,
+                    SettingsDocumentController.REQUEST_CONFIGURATION_IMPORT,
                     () -> {
                         throw launchFailure;
                     });

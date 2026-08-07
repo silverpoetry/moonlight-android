@@ -45,9 +45,14 @@ backup, and device-to-device transfer:
 - the generated `uniqueid`.
 
 Restoring a host database without the matching client identity would create a
-misleading, partially paired state. Users who intentionally move pairing data
-must use the bounded settings import/export actions for hosts, certificate,
-and private key. Cache and no-backup directories remain excluded by Android.
+misleading, partially paired state. Explicit transfer therefore uses one
+versioned configuration ZIP. Pairing data is a single selectable component
+containing the portable host database, client certificate, and matching
+private key; it cannot be partially selected. App settings are a separate
+selectable component and are serialized through the canonical typed schema.
+System document-tree URIs are excluded because their Android permission grants
+cannot be transferred. Cache and no-backup directories remain excluded by
+Android.
 
 ## Network trust
 
@@ -63,9 +68,13 @@ release policy.
 
 Client identity material is stored only in the app sandbox and excluded from
 automatic backup. Explicit export is a user action and stages a temporary,
-read-only cache copy. Local keystores, private-key formats, signing property
-files, and exported client credentials are ignored by Git; no signing secret
-is tracked in the repository.
+read-only ZIP copy. Its manifest fixes the format version, component membership,
+uncompressed sizes, and SHA-256 digests. Import bounds both the archive and
+every entry, rejects unexpected or nested paths, verifies every digest, checks
+that the certificate matches the private key, and validates every selected
+component before changing live state. Local keystores, private-key formats,
+signing property files, and exported client credentials are ignored by Git; no
+signing secret is tracked in the repository.
 
 Release uses full R8 optimization, shrinking, and obfuscation. Every published
 APK must retain its exact mapping file as release evidence so production stack

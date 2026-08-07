@@ -72,4 +72,51 @@ public final class AndroidAppLocale {
                         AppPresentationSettingKeys.SYSTEM_LANGUAGE)
                 .apply();
     }
+
+    /** Returns the effective user-selected language in portable schema form. */
+    public static String configuredLanguage(Context context) {
+        Objects.requireNonNull(context, "context");
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return AndroidSettingsRepository.create(context).get(
+                    AppPresentationSettingKeys.LANGUAGE);
+        }
+        LocaleManager localeManager =
+                context.getSystemService(LocaleManager.class);
+        if (localeManager == null ||
+                localeManager.getApplicationLocales().isEmpty()) {
+            return AppPresentationSettingKeys.SYSTEM_LANGUAGE;
+        }
+        return AppPresentationSettingKeys.LANGUAGE.normalizeValue(
+                localeManager.getApplicationLocales().toLanguageTags());
+    }
+
+    /** Applies a language restored from a portable configuration archive. */
+    public static void applyImportedLanguage(
+            Context context,
+            String language) {
+        Objects.requireNonNull(context, "context");
+        String normalized = AppPresentationSettingKeys.LANGUAGE
+                .normalizeValue(language);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return;
+        }
+        LocaleManager localeManager =
+                context.getSystemService(LocaleManager.class);
+        if (localeManager == null) {
+            return;
+        }
+        localeManager.setApplicationLocales(
+                AppPresentationSettingKeys.SYSTEM_LANGUAGE.equals(normalized)
+                        ? LocaleList.getEmptyLocaleList()
+                        : LocaleList.forLanguageTags(normalized));
+        // Android 13+ owns the effective language. Keep the legacy repository
+        // at its neutral value so a later migration cannot overwrite the
+        // platform selection.
+        AndroidSettingsRepository.create(context)
+                .edit()
+                .put(
+                        AppPresentationSettingKeys.LANGUAGE,
+                        AppPresentationSettingKeys.SYSTEM_LANGUAGE)
+                .apply();
+    }
 }

@@ -244,6 +244,13 @@ public class AndroidCryptoProvider implements LimelightCryptoProvider {
         cachedKeyFileState = null;
     }
 
+    /** Invalidates the process cache after an external identity restore. */
+    public static void invalidateCachedIdentity() {
+        synchronized (globalCryptoLock) {
+            clearCachedCertKeyPair();
+        }
+    }
+
     public X509Certificate getClientCertificate() {
         // Use a lock here to ensure only one guy will be generating or loading
         // the certificate and key at a time

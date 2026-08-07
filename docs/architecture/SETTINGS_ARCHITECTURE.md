@@ -71,6 +71,14 @@ category represents a fork, private build, implementation layer, or a single
 fine-tuning concept. External-display controls belong to video and display;
 shortcut and overlay controls belong to stream interface.
 
+Backup and restore exposes only two actions: export configuration and import
+configuration. Export produces one versioned ZIP containing the typed App
+settings and the atomic pairing-data component. Import validates the complete
+archive first and then presents the components available in that archive as a
+multi-selection; unselected components are left untouched. The client
+certificate, private key, and paired-host database are intentionally one item
+so the UI cannot create a partially paired state.
+
 Navigation state is independent of the rendered view tree. A stable section ID
 selects the current page, each page owns its own content scroll offset, and the
 wide-layout section rail owns a separate offset. Re-rendering, visiting a detail

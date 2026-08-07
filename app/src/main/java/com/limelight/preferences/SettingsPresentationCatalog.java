@@ -211,16 +211,10 @@ final class SettingsPresentationCatalog {
                 "action_accessibility_config_import",
                 "input.accessibility.key_logging");
 
-        group("section_backup_restore", "paired_hosts",
-                R.string.settings_group_paired_hosts, 10,
-                "action_backup_hosts_export",
-                "action_backup_hosts_import");
-        group("section_backup_restore", "client_identity",
-                R.string.settings_group_client_identity, 20,
-                "action_backup_certificate_export",
-                "action_backup_private_key_export",
-                "action_backup_certificate_import",
-                "action_backup_private_key_import");
+        group("section_backup_restore", "configuration_archive",
+                R.string.settings_group_configuration_archive, 10,
+                "action_configuration_export",
+                "action_configuration_import");
         group("section_about", "project",
                 R.string.settings_group_project, 10,
                 "action_about_app",

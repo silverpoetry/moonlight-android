@@ -274,12 +274,11 @@ final class SettingsIconCatalog {
         if (key.endsWith("keep_controller_rumble")) {
             return R.drawable.ic_m3_vibration;
         }
-        if (key.startsWith("action_backup_hosts_")) {
-            return R.drawable.ic_m3_backup;
-        }
-        if (key.startsWith("action_backup_certificate_") ||
-                key.startsWith("action_backup_private_key_")) {
-            return R.drawable.ic_m3_key;
+        if (SettingsScreenIds.ACTION_CONFIGURATION_EXPORT.equals(key) ||
+                SettingsScreenIds.ACTION_CONFIGURATION_IMPORT.equals(key)) {
+            return key.endsWith("_import")
+                    ? R.drawable.ic_m3_download
+                    : R.drawable.ic_m3_backup;
         }
         if (key.startsWith("action_") && key.endsWith("_import")) {
             return R.drawable.ic_m3_download;

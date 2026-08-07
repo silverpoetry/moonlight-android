@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -85,6 +86,10 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
         fun onRemoved(value: String)
     }
 
+    fun interface MultiSelectionListener {
+        fun onSelected(values: Array<String>)
+    }
+
     fun showList(
         title: CharSequence,
         entries: Array<CharSequence>,
@@ -124,6 +129,84 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
                                 dialog.dismiss()
                             },
                     )
+                }
+            }
+        }
+    }
+
+    fun showMultiChoice(
+        title: CharSequence,
+        entries: Array<CharSequence>,
+        summaries: Array<CharSequence>,
+        values: Array<String>,
+        listener: MultiSelectionListener,
+    ): Dialog {
+        require(entries.size == summaries.size && entries.size == values.size)
+        return showDialog { dialog ->
+            val haptics = LocalHapticFeedback.current
+            val selected = remember(values) {
+                mutableStateListOf<String>().apply { addAll(values) }
+            }
+            SettingsDialogCard(title = title) {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 520.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    entries.indices.forEach { index ->
+                        val value = values[index]
+                        ListItem(
+                            headlineContent = {
+                                Text(entries[index].toString())
+                            },
+                            supportingContent = {
+                                Text(summaries[index].toString())
+                            },
+                            leadingContent = {
+                                Checkbox(
+                                    checked = selected.contains(value),
+                                    onCheckedChange = null,
+                                )
+                            },
+                            colors = ListItemDefaults.colors(
+                                containerColor = ComposeColor.Transparent,
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (selected.contains(value)) {
+                                        selected.remove(value)
+                                    } else {
+                                        selected.add(value)
+                                    }
+                                    haptics.performHapticFeedback(
+                                        HapticFeedbackType.SegmentTick,
+                                    )
+                                },
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    OutlinedButton(onClick = dialog::dismiss) {
+                        Text(activity.getString(R.string.settings_cancel))
+                    }
+                    Button(
+                        onClick = {
+                            listener.onSelected(selected.toTypedArray())
+                            dialog.dismiss()
+                        },
+                        enabled = selected.isNotEmpty(),
+                        modifier = Modifier.padding(start = 12.dp),
+                    ) {
+                        Text(
+                            activity.getString(
+                                R.string.settings_import_action,
+                            ),
+                        )
+                    }
                 }
             }
         }

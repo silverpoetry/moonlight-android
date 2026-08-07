@@ -18,14 +18,8 @@ public final class SettingsDocumentActionRouterTest {
                 SettingsScreenIds.ACTION_VIRTUAL_GAMEPAD_IMPORT,
                 SettingsDocumentAction.IMPORT_VIRTUAL_GAMEPAD);
         assertRoute(
-                SettingsScreenIds.ACTION_BACKUP_HOSTS_IMPORT,
-                SettingsDocumentAction.IMPORT_HOSTS);
-        assertRoute(
-                SettingsScreenIds.ACTION_BACKUP_CERTIFICATE_IMPORT,
-                SettingsDocumentAction.IMPORT_CERTIFICATE);
-        assertRoute(
-                SettingsScreenIds.ACTION_BACKUP_PRIVATE_KEY_IMPORT,
-                SettingsDocumentAction.IMPORT_PRIVATE_KEY);
+                SettingsScreenIds.ACTION_CONFIGURATION_IMPORT,
+                SettingsDocumentAction.IMPORT_CONFIGURATION);
         assertRoute(
                 SettingsScreenIds.ACTION_ACCESSIBILITY_CONFIG_IMPORT,
                 SettingsDocumentAction
@@ -41,14 +35,8 @@ public final class SettingsDocumentActionRouterTest {
                 SettingsScreenIds.ACTION_VIRTUAL_GAMEPAD_EXPORT,
                 SettingsDocumentAction.EXPORT_VIRTUAL_GAMEPAD);
         assertRoute(
-                SettingsScreenIds.ACTION_BACKUP_HOSTS_EXPORT,
-                SettingsDocumentAction.EXPORT_HOSTS);
-        assertRoute(
-                SettingsScreenIds.ACTION_BACKUP_CERTIFICATE_EXPORT,
-                SettingsDocumentAction.EXPORT_CERTIFICATE);
-        assertRoute(
-                SettingsScreenIds.ACTION_BACKUP_PRIVATE_KEY_EXPORT,
-                SettingsDocumentAction.EXPORT_PRIVATE_KEY);
+                SettingsScreenIds.ACTION_CONFIGURATION_EXPORT,
+                SettingsDocumentAction.EXPORT_CONFIGURATION);
     }
 
     @Test

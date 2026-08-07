@@ -41,18 +41,10 @@ public final class SettingsScreenIds {
             "action_virtual_keyboard_export";
     public static final String ACTION_ACCESSIBILITY_CONFIG_IMPORT =
             "action_accessibility_config_import";
-    public static final String ACTION_BACKUP_HOSTS_EXPORT =
-            "action_backup_hosts_export";
-    public static final String ACTION_BACKUP_HOSTS_IMPORT =
-            "action_backup_hosts_import";
-    public static final String ACTION_BACKUP_CERTIFICATE_EXPORT =
-            "action_backup_certificate_export";
-    public static final String ACTION_BACKUP_CERTIFICATE_IMPORT =
-            "action_backup_certificate_import";
-    public static final String ACTION_BACKUP_PRIVATE_KEY_EXPORT =
-            "action_backup_private_key_export";
-    public static final String ACTION_BACKUP_PRIVATE_KEY_IMPORT =
-            "action_backup_private_key_import";
+    public static final String ACTION_CONFIGURATION_EXPORT =
+            "action_configuration_export";
+    public static final String ACTION_CONFIGURATION_IMPORT =
+            "action_configuration_import";
 
     private SettingsScreenIds() {
     }

@@ -9,10 +9,10 @@ import android.util.AtomicFile;
 
 import com.limelight.LimeLog;
 import com.limelight.R;
-import com.limelight.computers.ComputerDatabaseManager;
 import com.limelight.input.accessibility.KeyboardRemappingFileStore;
 import com.limelight.platform.files.AndroidPrivateFileShare;
 import com.limelight.settings.SettingsRepository;
+import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.settings.transfer.TransferSettingKeys;
 import com.limelight.settings.virtualcontrols.VirtualControlSettings;
 import com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader;
@@ -27,13 +27,15 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 
 /**
- * Lifecycle-bound Android adapter for settings document selection, import,
- * export, and persisted document-tree permission.
+ * Lifecycle-bound Android adapter for settings document selection and the
+ * versioned configuration archive workflow.
  */
 final class SettingsDocumentController {
     interface DocumentLauncher {
@@ -43,41 +45,34 @@ final class SettingsDocumentController {
     static final int NO_PENDING_REQUEST = 0;
     static final int REQUEST_VIRTUAL_KEYBOARD_IMPORT = 1001;
     static final int REQUEST_VIRTUAL_GAMEPAD_IMPORT = 1002;
-    static final int REQUEST_HOSTS_IMPORT = 1003;
-    static final int REQUEST_CERTIFICATE_IMPORT = 1004;
-    static final int REQUEST_PRIVATE_KEY_IMPORT = 1005;
+    static final int REQUEST_CONFIGURATION_IMPORT = 1003;
     static final int REQUEST_ACCESSIBILITY_IMPORT = 1007;
     static final int REQUEST_CLIPBOARD_DIRECTORY = 1009;
 
-    private static final String CERTIFICATE_FILE_NAME = "client.crt";
-    private static final String PRIVATE_KEY_FILE_NAME = "client.key";
-    private static final String HOST_SNAPSHOT_DIRECTORY =
-            "host-backups";
-    private static final String HOST_SNAPSHOT_FILE =
-            "moonlight-hosts.db";
-    private static final String HOST_DATABASE_MIME_TYPE =
-            "application/vnd.sqlite3";
-    private static final long MAX_DATA_IMPORT_BYTES = 4L * 1024L * 1024L;
-    private static final long MAX_HOST_DATABASE_BYTES =
-            64L * 1024L * 1024L;
+    private static final String CONFIGURATION_MIME_TYPE =
+            "application/zip";
 
     private final Activity activity;
     private final SettingsRepository repository;
     private final AndroidVirtualControlLayoutRepository
             virtualControlLayoutRepository;
+    private final SettingsDialogPresenter dialogPresenter;
+    private final ConfigurationArchiveManager archiveManager;
     private final DocumentLauncher documentLauncher;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService ioExecutor =
             new ExclusiveTaskExecutor("settings-document-io");
+    private final RequestState requestState;
     private volatile Runnable settingsChanged;
     private volatile boolean destroyed;
-    private final RequestState requestState;
+    private ConfigurationArchiveManager.PreparedImport preparedImport;
 
     SettingsDocumentController(
             Activity activity,
             SettingsRepository repository,
             AndroidVirtualControlLayoutRepository
                     virtualControlLayoutRepository,
+            SettingsDialogPresenter dialogPresenter,
             DocumentLauncher documentLauncher,
             int restoredPendingRequestCode,
             Runnable settingsChanged) {
@@ -88,6 +83,9 @@ final class SettingsDocumentController {
         this.virtualControlLayoutRepository = Objects.requireNonNull(
                 virtualControlLayoutRepository,
                 "virtualControlLayoutRepository");
+        this.dialogPresenter = Objects.requireNonNull(
+                dialogPresenter,
+                "dialogPresenter");
         this.documentLauncher = Objects.requireNonNull(
                 documentLauncher,
                 "documentLauncher");
@@ -95,6 +93,9 @@ final class SettingsDocumentController {
         this.settingsChanged = Objects.requireNonNull(
                 settingsChanged,
                 "settingsChanged");
+        archiveManager = new ConfigurationArchiveManager(
+                activity,
+                repository);
     }
 
     boolean perform(String key) {
@@ -118,14 +119,10 @@ final class SettingsDocumentController {
                         "text/plain",
                         REQUEST_VIRTUAL_GAMEPAD_IMPORT);
                 break;
-            case IMPORT_HOSTS:
-                openDocument("*/*", REQUEST_HOSTS_IMPORT);
-                break;
-            case IMPORT_CERTIFICATE:
-                openDocument("*/*", REQUEST_CERTIFICATE_IMPORT);
-                break;
-            case IMPORT_PRIVATE_KEY:
-                openDocument("*/*", REQUEST_PRIVATE_KEY_IMPORT);
+            case IMPORT_CONFIGURATION:
+                openDocument(
+                        CONFIGURATION_MIME_TYPE,
+                        REQUEST_CONFIGURATION_IMPORT);
                 break;
             case IMPORT_ACCESSIBILITY_CONFIGURATION:
                 openDocument(
@@ -141,22 +138,8 @@ final class SettingsDocumentController {
             case EXPORT_VIRTUAL_GAMEPAD:
                 runOnIo(() -> exportVirtualControlLayout(true));
                 break;
-            case EXPORT_HOSTS:
-                runOnIo(this::exportHosts);
-                break;
-            case EXPORT_CERTIFICATE:
-                runOnIo(() -> exportFile(
-                        new File(
-                                activity.getFilesDir(),
-                                CERTIFICATE_FILE_NAME),
-                        "*/*"));
-                break;
-            case EXPORT_PRIVATE_KEY:
-                runOnIo(() -> exportFile(
-                        new File(
-                                activity.getFilesDir(),
-                                PRIVATE_KEY_FILE_NAME),
-                        "*/*"));
+            case EXPORT_CONFIGURATION:
+                runOnIo(this::exportConfiguration);
                 break;
             default:
                 throw new AssertionError(
@@ -188,14 +171,8 @@ final class SettingsDocumentController {
             case REQUEST_VIRTUAL_GAMEPAD_IMPORT:
                 runOnIo(() -> importVirtualControlLayout(uri, true));
                 break;
-            case REQUEST_HOSTS_IMPORT:
-                runOnIo(() -> importHosts(uri));
-                break;
-            case REQUEST_CERTIFICATE_IMPORT:
-                runOnIo(() -> importFile(uri, CERTIFICATE_FILE_NAME));
-                break;
-            case REQUEST_PRIVATE_KEY_IMPORT:
-                runOnIo(() -> importFile(uri, PRIVATE_KEY_FILE_NAME));
+            case REQUEST_CONFIGURATION_IMPORT:
+                runOnIo(() -> prepareConfigurationImport(uri));
                 break;
             case REQUEST_ACCESSIBILITY_IMPORT:
                 runOnIo(() -> importAccessibilityConfiguration(uri));
@@ -214,6 +191,8 @@ final class SettingsDocumentController {
     void destroy() {
         destroyed = true;
         settingsChanged = null;
+        discardPreparedImport(preparedImport);
+        preparedImport = null;
         mainHandler.removeCallbacksAndMessages(null);
         ioExecutor.shutdownNow();
     }
@@ -222,6 +201,14 @@ final class SettingsDocumentController {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType(mimeType);
+        if (requestCode == REQUEST_CONFIGURATION_IMPORT) {
+            intent.putExtra(
+                    Intent.EXTRA_MIME_TYPES,
+                    new String[] {
+                            CONFIGURATION_MIME_TYPE,
+                            "application/x-zip-compressed"
+                    });
+        }
         launch(intent, requestCode);
     }
 
@@ -239,6 +226,122 @@ final class SettingsDocumentController {
         requestState.launch(
                 requestCode,
                 () -> documentLauncher.launch(intent));
+    }
+
+    private void exportConfiguration() {
+        File archive = null;
+        try {
+            archive = archiveManager.createExportArchive();
+            Uri uri = AndroidPrivateFileShare.stageReadOnly(
+                    activity,
+                    archive);
+            runOnMain(() -> shareReadOnly(
+                    uri,
+                    CONFIGURATION_MIME_TYPE,
+                    R.string.settings_export_configuration));
+        }
+        catch (Exception error) {
+            showExportError("configuration archive", error);
+        }
+        finally {
+            if (archive != null &&
+                    archive.exists() &&
+                    !archive.delete()) {
+                LimeLog.warning(
+                        "Unable to remove staged configuration archive");
+            }
+        }
+    }
+
+    private void prepareConfigurationImport(Uri uri) {
+        try {
+            ConfigurationArchiveManager.PreparedImport prepared =
+                    archiveManager.prepareImport(uri);
+            if (destroyed) {
+                prepared.close();
+                return;
+            }
+            mainHandler.post(() -> {
+                if (destroyed) {
+                    prepared.close();
+                }
+                else {
+                    showConfigurationImport(prepared);
+                }
+            });
+        }
+        catch (Exception error) {
+            showImportError("configuration archive", error);
+        }
+    }
+
+    private void showConfigurationImport(
+            ConfigurationArchiveManager.PreparedImport prepared) {
+        if (destroyed) {
+            prepared.close();
+            return;
+        }
+        discardPreparedImport(preparedImport);
+        preparedImport = prepared;
+        dialogPresenter.showConfigurationImport(
+                prepared.getComponents(),
+                new SettingsDialogPresenter.ConfigurationImportListener() {
+                    @Override
+                    public void onSelected(
+                            Set<ConfigurationArchiveComponent> components) {
+                        startConfigurationImport(prepared, components);
+                    }
+
+                    @Override
+                    public void onCancelled() {
+                        if (preparedImport == prepared) {
+                            preparedImport = null;
+                        }
+                        discardPreparedImport(prepared);
+                    }
+                });
+    }
+
+    private void startConfigurationImport(
+            ConfigurationArchiveManager.PreparedImport prepared,
+            Set<ConfigurationArchiveComponent> components) {
+        if (preparedImport != prepared) {
+            discardPreparedImport(prepared);
+            return;
+        }
+        preparedImport = null;
+        if (!runOnIo(() -> importConfiguration(prepared, components))) {
+            discardPreparedImport(prepared);
+        }
+    }
+
+    private void importConfiguration(
+            ConfigurationArchiveManager.PreparedImport prepared,
+            Set<ConfigurationArchiveComponent> components) {
+        try {
+            ConfigurationArchiveManager.ImportResult result =
+                    archiveManager.importSelected(prepared, components);
+            runOnMain(() -> completeConfigurationImport(result));
+        }
+        catch (Exception error) {
+            discardPreparedImport(prepared);
+            showImportError("configuration archive", error);
+        }
+    }
+
+    private void completeConfigurationImport(
+            ConfigurationArchiveManager.ImportResult result) {
+        notifySettingsChanged();
+        showToast(
+                R.string.settings_configuration_import_succeeded,
+                UiToast.LENGTH_SHORT);
+        if (result.getImported().contains(
+                ConfigurationArchiveComponent.APP_SETTINGS) &&
+                result.getImportedLanguage() != null) {
+            AndroidAppLocale.applyImportedLanguage(
+                    activity,
+                    result.getImportedLanguage());
+        }
     }
 
     private void exportVirtualControlLayout(boolean gamepad) {
@@ -261,8 +364,7 @@ final class SettingsDocumentController {
         }
     }
 
-    private VirtualControlLayoutKey selectedLayoutKey(
-            boolean gamepad) {
+    private VirtualControlLayoutKey selectedLayoutKey(boolean gamepad) {
         VirtualControlSettings settings =
                 VirtualControlSettingsLoader.load(repository);
         return gamepad
@@ -272,24 +374,6 @@ final class SettingsDocumentController {
                 : VirtualControlLayoutKey.keyboard(
                         settings.getKeyboardLayoutId(),
                         VirtualControlLayoutOrientation.LANDSCAPE);
-    }
-
-    private void exportFile(File file, String mimeType) {
-        if (!file.isFile()) {
-            return;
-        }
-        try {
-            Uri uri = AndroidPrivateFileShare.stageReadOnly(
-                    activity,
-                    file);
-            runOnMain(() -> shareReadOnly(
-                    uri,
-                    mimeType,
-                    R.string.settings_share_data));
-        }
-        catch (IOException | RuntimeException error) {
-            showExportError(file.getName(), error);
-        }
     }
 
     private void shareReadOnly(
@@ -306,10 +390,7 @@ final class SettingsDocumentController {
     }
 
     private void showExportError(String subject, Exception error) {
-        String detail = error.getMessage();
-        if (detail == null || detail.trim().isEmpty()) {
-            detail = error.getClass().getSimpleName();
-        }
+        String detail = errorDetail(error);
         LimeLog.warning(
                 "Unable to export " + subject + ": " + detail);
         showToast(
@@ -319,41 +400,7 @@ final class SettingsDocumentController {
                 UiToast.LENGTH_SHORT);
     }
 
-    private void exportHosts() {
-        File snapshot = new File(
-                new File(
-                        activity.getCacheDir(),
-                        HOST_SNAPSHOT_DIRECTORY),
-                HOST_SNAPSHOT_FILE);
-        ComputerDatabaseManager manager = null;
-        try {
-            manager = new ComputerDatabaseManager(activity);
-            manager.writePortableSnapshot(snapshot);
-            exportFile(
-                    snapshot,
-                    HOST_DATABASE_MIME_TYPE);
-        }
-        catch (Exception error) {
-            String detail = error.getMessage();
-            if (detail == null || detail.trim().isEmpty()) {
-                detail = error.getClass().getSimpleName();
-            }
-            LimeLog.warning(
-                    "Unable to export host database: " + detail);
-            showToast(
-                    activity.getString(
-                            R.string.settings_export_failed,
-                            detail),
-                    UiToast.LENGTH_SHORT);
-        }
-        finally {
-            closeDatabase(manager);
-        }
-    }
-
-    private void persistClipboardDirectory(
-            Intent data,
-            Uri directory) {
+    private void persistClipboardDirectory(Intent data, Uri directory) {
         try {
             if (!FileUriUtils.persistUriPermission(
                     activity,
@@ -380,9 +427,7 @@ final class SettingsDocumentController {
         }
     }
 
-    private void importVirtualControlLayout(
-            Uri uri,
-            boolean gamepad) {
+    private void importVirtualControlLayout(Uri uri, boolean gamepad) {
         try {
             virtualControlLayoutRepository.importFrom(
                     activity.getContentResolver(),
@@ -402,64 +447,9 @@ final class SettingsDocumentController {
         }
     }
 
-    private void importHosts(Uri uri) {
-        ComputerDatabaseManager importManager = null;
-        ComputerDatabaseManager destinationManager = null;
-        File databaseFile = null;
-        try {
-            databaseFile = File.createTempFile(
-                    "hosts-import-",
-                    ".db",
-                    activity.getCacheDir());
-            copyUriToFile(
-                    uri,
-                    databaseFile,
-                    MAX_HOST_DATABASE_BYTES);
-
-            importManager = new ComputerDatabaseManager(
-                    activity,
-                    databaseFile);
-            destinationManager =
-                    new ComputerDatabaseManager(activity);
-            destinationManager.restoreFrom(importManager);
-            showToast(
-                    R.string.settings_hosts_import_succeeded,
-                    UiToast.LENGTH_SHORT);
-        }
-        catch (Exception error) {
-            showImportError("host database", error);
-        }
-        finally {
-            closeDatabase(importManager);
-            closeDatabase(destinationManager);
-            if (databaseFile != null &&
-                    databaseFile.exists() &&
-                    !databaseFile.delete()) {
-                LimeLog.warning(
-                        "Unable to delete imported host database cache file");
-            }
-        }
-    }
-
-    private void importFile(Uri uri, String displayName) {
-        try {
-            replaceFileFromUri(
-                    uri,
-                    new File(activity.getFilesDir(), displayName),
-                    MAX_DATA_IMPORT_BYTES);
-            showToast(
-                    R.string.settings_import_succeeded,
-                    UiToast.LENGTH_SHORT);
-        }
-        catch (Exception error) {
-            showImportError(displayName, error);
-        }
-    }
-
     private void importAccessibilityConfiguration(Uri uri) {
         try {
-            File destination =
-                    KeyboardRemappingFileStore.resolve(activity);
+            File destination = KeyboardRemappingFileStore.resolve(activity);
             replaceFileFromUri(
                     uri,
                     destination,
@@ -474,18 +464,21 @@ final class SettingsDocumentController {
     }
 
     private void showImportError(String subject, Exception error) {
-        String detail = error.getMessage();
-        if (detail == null || detail.trim().isEmpty()) {
-            detail = error.getClass().getSimpleName();
-        }
+        String detail = errorDetail(error);
         LimeLog.warning(
-                "Unable to import " + subject + ": " +
-                        detail);
+                "Unable to import " + subject + ": " + detail);
         showToast(
                 activity.getString(
                         R.string.settings_import_failed,
                         detail),
                 UiToast.LENGTH_SHORT);
+    }
+
+    private static String errorDetail(Exception error) {
+        String detail = error.getMessage();
+        return detail == null || detail.trim().isEmpty()
+                ? error.getClass().getSimpleName()
+                : detail;
     }
 
     private void showToast(int messageRes, int duration) {
@@ -508,16 +501,18 @@ final class SettingsDocumentController {
         });
     }
 
-    private void runOnIo(Runnable action) {
+    private boolean runOnIo(Runnable action) {
         try {
             ioExecutor.execute(() -> {
                 if (!destroyed) {
                     action.run();
                 }
             });
+            return true;
         }
         catch (RejectedExecutionException ignored) {
             // The owner was destroyed or another document operation is active.
+            return false;
         }
     }
 
@@ -552,17 +547,6 @@ final class SettingsDocumentController {
         }
     }
 
-    private void copyUriToFile(
-            Uri uri,
-            File destination,
-            long maximumBytes)
-            throws IOException {
-        try (InputStream input = openInput(uri);
-             FileOutputStream output = new FileOutputStream(destination)) {
-            copy(input, output, maximumBytes);
-        }
-    }
-
     private InputStream openInput(Uri uri) throws IOException {
         InputStream input = activity
                 .getContentResolver()
@@ -576,7 +560,7 @@ final class SettingsDocumentController {
 
     private void copy(
             InputStream input,
-            FileOutputStream output,
+            OutputStream output,
             long maximumBytes)
             throws IOException {
         byte[] buffer = new byte[16 * 1024];
@@ -596,17 +580,10 @@ final class SettingsDocumentController {
         output.flush();
     }
 
-    private static void closeDatabase(
-            ComputerDatabaseManager manager) {
-        if (manager != null) {
-            try {
-                manager.close();
-            }
-            catch (RuntimeException error) {
-                LimeLog.warning(
-                        "Unable to close imported host database: " +
-                                error.getMessage());
-            }
+    private static void discardPreparedImport(
+            ConfigurationArchiveManager.PreparedImport prepared) {
+        if (prepared != null) {
+            prepared.close();
         }
     }
 
@@ -614,9 +591,7 @@ final class SettingsDocumentController {
         switch (requestCode) {
             case REQUEST_VIRTUAL_KEYBOARD_IMPORT:
             case REQUEST_VIRTUAL_GAMEPAD_IMPORT:
-            case REQUEST_HOSTS_IMPORT:
-            case REQUEST_CERTIFICATE_IMPORT:
-            case REQUEST_PRIVATE_KEY_IMPORT:
+            case REQUEST_CONFIGURATION_IMPORT:
             case REQUEST_ACCESSIBILITY_IMPORT:
             case REQUEST_CLIPBOARD_DIRECTORY:
                 return true;
