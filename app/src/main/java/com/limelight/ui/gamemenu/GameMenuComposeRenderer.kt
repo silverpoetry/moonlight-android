@@ -8,8 +8,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,18 +30,19 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.input.pointer.pointerInput
@@ -47,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.zIndex
 import com.limelight.R
 import com.limelight.settings.ui.GameMenuCardLayout
@@ -84,6 +90,16 @@ internal class GameMenuComposeRenderer(
         val menuState: GameMenuState,
         val cards: List<MenuCard>,
         val hiddenCards: List<MenuCard>,
+    )
+
+    private data class CardDragState(
+        val cardId: String,
+        val offset: Offset,
+    )
+
+    private data class GridReorder(
+        val targetIndex: Int,
+        val rebasedOffset: Offset,
     )
 
     private var state: RenderState? by mutableStateOf(null)
@@ -275,28 +291,93 @@ internal class GameMenuComposeRenderer(
             )
             return
         }
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            cards.chunked(ACTION_COLUMN_COUNT).forEachIndexed { rowIndex, rowCards ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    rowCards.forEachIndexed { columnIndex, card ->
-                        ActionTile(
-                            state = state,
-                            card = card,
-                            visible = visible,
-                            index = rowIndex * ACTION_COLUMN_COUNT + columnIndex,
-                            itemCount = cards.size,
-                            modifier = Modifier.weight(1f),
+        var dragState by remember(visible) {
+            mutableStateOf<CardDragState?>(null)
+        }
+        val haptics = LocalHapticFeedback.current
+        val density = LocalDensity.current
+        val rowCount = (cards.size + ACTION_COLUMN_COUNT - 1) /
+            ACTION_COLUMN_COUNT
+        val gridHeight = ACTION_TILE_HEIGHT * rowCount +
+            ACTION_GRID_VERTICAL_SPACING * (rowCount - 1)
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(ACTION_COLUMN_COUNT),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(gridHeight),
+            userScrollEnabled = false,
+            horizontalArrangement = Arrangement.spacedBy(
+                ACTION_GRID_HORIZONTAL_SPACING,
+            ),
+            verticalArrangement = Arrangement.spacedBy(
+                ACTION_GRID_VERTICAL_SPACING,
+            ),
+        ) {
+            itemsIndexed(
+                items = cards,
+                key = { _, card -> card.source.id },
+            ) { _, card ->
+                val activeDrag = dragState
+                ActionTile(
+                    state = state,
+                    card = card,
+                    visible = visible,
+                    isDragging = activeDrag?.cardId == card.source.id,
+                    dragOffset = if (activeDrag?.cardId == card.source.id) {
+                        activeDrag.offset
+                    } else {
+                        Offset.Zero
+                    },
+                    onDragStarted = { cardId ->
+                        dragState = CardDragState(cardId, Offset.Zero)
+                        haptics.performHapticFeedback(
+                            HapticFeedbackType.LongPress,
                         )
-                    }
-                    repeat(ACTION_COLUMN_COUNT - rowCards.size) {
-                        androidx.compose.foundation.layout.Spacer(
-                            modifier = Modifier.weight(1f),
+                    },
+                    onDragBy = { cardId, amount, itemSize ->
+                        val active = dragState
+                        if (active == null || active.cardId != cardId) {
+                            return@ActionTile
+                        }
+                        val nextOffset = active.offset + amount
+                        val currentCards = this@GameMenuComposeRenderer
+                            .state
+                            ?.cards
+                            ?: return@ActionTile
+                        val currentIndex = currentCards.indexOfFirst {
+                            it.source.id == cardId
+                        }
+                        val reorder = resolveGridReorder(
+                            currentIndex = currentIndex,
+                            itemCount = currentCards.size,
+                            dragOffset = nextOffset,
+                            itemSize = itemSize,
+                            density = density,
                         )
-                    }
-                }
+                        if (reorder == null) {
+                            dragState = active.copy(offset = nextOffset)
+                        } else {
+                            moveVisibleCard(currentIndex, reorder.targetIndex)
+                            dragState = active.copy(
+                                offset = reorder.rebasedOffset,
+                            )
+                            haptics.performHapticFeedback(
+                                HapticFeedbackType.TextHandleMove,
+                            )
+                        }
+                    },
+                    onDragFinished = { cardId ->
+                        if (dragState?.cardId == cardId) {
+                            dragState = null
+                        }
+                    },
+                    modifier = (if (activeDrag?.cardId == card.source.id) {
+                        Modifier
+                    } else {
+                        Modifier.animateItem()
+                    }).fillMaxWidth(),
+                )
             }
         }
     }
@@ -306,55 +387,32 @@ internal class GameMenuComposeRenderer(
         state: RenderState,
         card: MenuCard,
         visible: Boolean,
-        index: Int,
-        itemCount: Int,
+        isDragging: Boolean,
+        dragOffset: Offset,
+        onDragStarted: (String) -> Unit,
+        onDragBy: (String, Offset, IntSize) -> Unit,
+        onDragFinished: (String) -> Unit,
         modifier: Modifier,
     ) {
-        var dragX by remember(card.source.id) { mutableFloatStateOf(0f) }
-        var dragY by remember(card.source.id) { mutableFloatStateOf(0f) }
-        var dragTarget by remember(card.source.id) { mutableIntStateOf(index) }
+        val currentOnDragStarted by rememberUpdatedState(onDragStarted)
+        val currentOnDragBy by rememberUpdatedState(onDragBy)
+        val currentOnDragFinished by rememberUpdatedState(onDragFinished)
         val haptics = LocalHapticFeedback.current
         val editGesture = if (editing && visible) {
-            Modifier.pointerInput(card.source.id, index, itemCount) {
+            Modifier.pointerInput(card.source.id) {
                 detectDragGesturesAfterLongPress(
                     onDragStart = {
-                        haptics.performHapticFeedback(
-                            HapticFeedbackType.LongPress,
-                        )
+                        currentOnDragStarted(card.source.id)
                     },
                     onDragEnd = {
-                        if (dragTarget != index) {
-                            moveVisibleCard(index, dragTarget)
-                            haptics.performHapticFeedback(
-                                HapticFeedbackType.TextHandleMove,
-                            )
-                        }
-                        dragX = 0f
-                        dragY = 0f
-                        dragTarget = index
+                        currentOnDragFinished(card.source.id)
                     },
                     onDragCancel = {
-                        dragX = 0f
-                        dragY = 0f
-                        dragTarget = index
+                        currentOnDragFinished(card.source.id)
                     },
                     onDrag = { change, amount ->
                         change.consume()
-                        dragX += amount.x
-                        dragY += amount.y
-                        val columnDelta = (dragX / size.width.coerceAtLeast(1))
-                            .roundToInt()
-                        val rowDelta = (dragY / size.height.coerceAtLeast(1))
-                            .roundToInt()
-                        val target = (index + columnDelta +
-                            rowDelta * ACTION_COLUMN_COUNT)
-                            .coerceIn(0, itemCount - 1)
-                        if (target != dragTarget) {
-                            dragTarget = target
-                            haptics.performHapticFeedback(
-                                HapticFeedbackType.TextHandleMove,
-                            )
-                        }
+                        currentOnDragBy(card.source.id, amount, size)
                     },
                 )
             }
@@ -364,11 +422,12 @@ internal class GameMenuComposeRenderer(
         val active = isCardActive(state.menuState, card.viewId)
         Column(
             modifier = modifier
+                .height(ACTION_TILE_HEIGHT)
                 .padding(horizontal = 2.dp)
-                .zIndex(if (dragX != 0f || dragY != 0f) 1f else 0f)
+                .zIndex(if (isDragging) 1f else 0f)
                 .graphicsLayer {
-                    translationX = dragX
-                    translationY = dragY
+                    translationX = dragOffset.x
+                    translationY = dragOffset.y
                 }
                 .then(editGesture),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -472,6 +531,43 @@ internal class GameMenuComposeRenderer(
         state = current.copy(cards = reordered)
     }
 
+    private fun resolveGridReorder(
+        currentIndex: Int,
+        itemCount: Int,
+        dragOffset: Offset,
+        itemSize: IntSize,
+        density: androidx.compose.ui.unit.Density,
+    ): GridReorder? {
+        if (currentIndex !in 0 until itemCount) return null
+
+        val cellWidth = itemSize.width + with(density) {
+            ACTION_GRID_HORIZONTAL_SPACING.roundToPx()
+        }
+        val cellHeight = itemSize.height + with(density) {
+            ACTION_GRID_VERTICAL_SPACING.roundToPx()
+        }
+        val columnDelta = (dragOffset.x / cellWidth.coerceAtLeast(1))
+            .roundToInt()
+        val rowDelta = (dragOffset.y / cellHeight.coerceAtLeast(1))
+            .roundToInt()
+        val targetIndex = (currentIndex + columnDelta +
+            rowDelta * ACTION_COLUMN_COUNT)
+            .coerceIn(0, itemCount - 1)
+        if (targetIndex == currentIndex) return null
+
+        val fromColumn = currentIndex % ACTION_COLUMN_COUNT
+        val toColumn = targetIndex % ACTION_COLUMN_COUNT
+        val fromRow = currentIndex / ACTION_COLUMN_COUNT
+        val toRow = targetIndex / ACTION_COLUMN_COUNT
+        return GridReorder(
+            targetIndex = targetIndex,
+            rebasedOffset = dragOffset - Offset(
+                x = (toColumn - fromColumn) * cellWidth.toFloat(),
+                y = (toRow - fromRow) * cellHeight.toFloat(),
+            ),
+        )
+    }
+
     private data class NavigationEntry(
         val viewId: Int,
         val titleRes: Int,
@@ -534,5 +630,8 @@ internal class GameMenuComposeRenderer(
 
     private companion object {
         const val ACTION_COLUMN_COUNT = 4
+        val ACTION_TILE_HEIGHT = 82.dp
+        val ACTION_GRID_HORIZONTAL_SPACING = 6.dp
+        val ACTION_GRID_VERTICAL_SPACING = 10.dp
     }
 }
