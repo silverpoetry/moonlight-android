@@ -35,9 +35,6 @@
     <string name="applist_menu_hide_app">Skrýt aplikaci</string>
     <string name="title_add_pc">Přidat PC ručně</string>
     <string name="title_audio_config_list">Konfigurace prostorového zvuku</string>
-    <string name="searching_pc">Hledání PC, na kterých běží GameStream…
-\n
-\nUjistěte se, že je GameStream povolen v záložce SHIELD v nastavení GeForce Experience.</string>
     <string name="applist_menu_quit">Ukončit</string>
     <string name="applist_menu_quit_and_start">Ukončit současnou hru a spustit</string>
     <string name="applist_menu_resume">Pokračovat</string>

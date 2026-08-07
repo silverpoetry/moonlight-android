@@ -69,9 +69,6 @@
     <string name="conn_terminated_msg">La connexion a été interrompue.</string>
     <!-- General strings -->
     <string name="ip_hint">Adresse IP du PC hôte</string>
-    <string name="searching_pc">Recherche de PC hôtes sur votre réseau local…
-\n
-\n Assurez-vous que Sunshine est en cours d\'execution ou que GameStream est activé dans les paramètres GeForce Experience SHIELD.</string>
     <string name="yes">Oui</string>
     <string name="no">Non</string>
     <string name="lost_connection">Connexion perdue avec le PC</string>

@@ -37,7 +37,6 @@
     <string name="conn_terminated_msg">接続は終了しました</string>
     <!-- General strings -->
     <string name="ip_hint">コンピュータのIPアドレス</string>
-    <string name="searching_pc">コンピュータを検索中</string>
     <string name="yes">はい</string>
     <string name="no">いいえ</string>
     <string name="lost_connection">コンピュータとの接続が失われました</string>

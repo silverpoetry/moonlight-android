@@ -41,9 +41,6 @@
     <string name="conn_terminated_msg">De verbinding is beëindigd</string>
     <!-- General strings -->
     <string name="ip_hint">IP adres van GeForce PC</string>
-    <string name="searching_pc">Zoeken naar PCs met GeForce Experience actief…
-\n
-\n Controleer dat GameStream is ingeschakeld in de GeForce Experience SHIELD instellingen.</string>
     <string name="yes">Ja</string>
     <string name="no">Nee</string>
     <string name="lost_connection">Verbinding met PC verloren</string>

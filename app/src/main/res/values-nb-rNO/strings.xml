@@ -7,9 +7,6 @@
     <string name="applist_quit_confirmation">Er du sikker på at du vil avslutte det kjørende programmet\? All ulagret data vil gå tapt.</string>
     <string name="applist_refresh_msg">Gjenoppfrisker programmer …</string>
     <string name="lost_connection">Mistet tilknytning til PC</string>
-    <string name="searching_pc">Søker etter PC-er med GameStream kjørende …
-\n
-\nForsikre deg om at GameStream er påslått i GeForce Experience SHEILD-innstillingene.</string>
     <string name="conn_starting">Starter</string>
     <string name="conn_hardware_latency">Gjennomsnittlig latens for maskinvarerammedekoding:</string>
     <string name="conn_client_latency_hw">maskinvaredekoderlatens:</string>

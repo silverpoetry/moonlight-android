@@ -82,9 +82,6 @@
 \nHãy giảm tốc độ bit</string>
     <string name="delete_pc_msg">Bạn có chắc bạn muốn xoá PC này không\?</string>
     <string name="yes">Có</string>
-    <string name="searching_pc">Đang tìm các PC có GameStream đang chạy…
-\n
-\nHãy chắc chắn là GameStream được bật trong cài đặt GeForce Experience SHIELD.</string>
     <string name="ip_hint">Địa chỉ IP của PC GeForce</string>
     <string name="conn_terminated_msg">Kết nối đã bị chấm dứt</string>
     <string name="conn_terminated_title">Kết nối bị chấm dứt</string>

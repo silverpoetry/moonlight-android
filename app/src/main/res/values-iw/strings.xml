@@ -92,9 +92,6 @@
     <string name="delete_pc_msg">אתה בטוח שאתה רוצה להסיר מחשב זה\?</string>
     <string name="conn_client_latency_hw">מהירות פענוח חומרתי:</string>
     <string name="conn_error_msg">נכשל להפעיל</string>
-    <string name="searching_pc">מחפש מחשבים ברשת המקומית שלך…
-\n
-\nוודא שסאנשיין או GeForce Experience פועלים.</string>
     <string name="yes">כן</string>
     <string name="no">לא</string>
     <string name="help">עזרה</string>

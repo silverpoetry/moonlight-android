@@ -18,9 +18,6 @@
     <string name="addpc_fail">Não foi possível conectar ao computador especificado. Certifique-se de que as portas necessárias sejam permitidas pelo firewall.</string>
     <string name="conn_error_msg">Falha ao iniciar</string>
     <string name="ip_hint">Endereço de IP do PC GeForce</string>
-    <string name="searching_pc">Procurando por PCs rodando o GameStream…
-\n
-\nCertifique-se de que o GameStream esteja ativado nas configurações do SHIELD do GeForce Experience.</string>
     <string name="nettest_text_success">Sua rede não parece estar bloqueando o Moonlight. Se você ainda tiver problemas para se conectar, verifique as configurações de firewall do seu PC.
 \n
 \nSe você estiver tentando transmitir pela Internet, instale o Moonlight Internet Hosting Tool em seu PC e execute o Internet Streaming Tester para verificar a conexão com a Internet do seu PC.</string>

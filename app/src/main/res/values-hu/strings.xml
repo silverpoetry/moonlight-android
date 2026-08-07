@@ -88,9 +88,6 @@
     <string name="lost_connection">Megszakadt a kapcsolat a PC-vel</string>
     <string name="no">Nem</string>
     <string name="yes">Igen</string>
-    <string name="searching_pc">A helyi hálózaton lévő PC-k keresése…
-\n
-\nGyőződj meg róla, hogy a Sunshine fut a gazdaszámítógépen, vagy a GameStream engedélyezve van a GeForce Experience SHIELD beállításaiban.</string>
     <string name="ip_hint">A számítógép IP-címe</string>
     <string name="conn_terminated_msg">A kapcsolat megszakadt</string>
     <string name="conn_terminated_title">A kapcsolat megszűnt</string>

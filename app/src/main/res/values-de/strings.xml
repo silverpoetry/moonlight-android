@@ -73,9 +73,6 @@
     <string name="conn_terminated_msg">Die Verbindung wurde beendet</string>
     <!-- General strings -->
     <string name="ip_hint">IP-Adresse des GeForce Hosts</string>
-    <string name="searching_pc">Suche nach Hosts auf denen GeForce Experience aktiv ist…
-\n
-\nStelle sicher, dass GameStream in den GeForce Experience SHIELD-Einstellungen aktiviert ist.</string>
     <string name="yes">Ja</string>
     <string name="no">Nein</string>
     <string name="lost_connection">Verbindung zum Host verloren</string>

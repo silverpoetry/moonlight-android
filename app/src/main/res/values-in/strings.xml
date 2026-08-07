@@ -52,9 +52,6 @@
     <string name="conn_terminated_title">Koneksi dihentikan</string>
     <string name="conn_terminated_msg">Koneksi telah terhenti</string>
     <string name="ip_hint">Alamat IP komputer GeForce</string>
-    <string name="searching_pc">Mencari komputer yang menjalankan GameStream…
-\n
-\nPastikan GameStream diaktifkan pada pengaturan SHIELD GeForce Experience.</string>
     <string name="yes">Ya</string>
     <string name="no">Tidak</string>
     <string name="lost_connection">Koneksi dengan komputer hilang</string>

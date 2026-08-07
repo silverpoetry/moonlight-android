@@ -126,9 +126,6 @@
     <string name="message_decoding_error">Moonlight, bu cihazın video kod çözücüsü ile uyumsuzluk nedeniyle çöktü. GeForce Experience\'ın bilgisayarınızdaki en son sürüme güncellendiğinden emin olun. Çökmeler devam ederse akış ayarlarını değiştirmeyi deneyin.</string>
     <string name="conn_hardware_latency">Ortalama donanım kod çözme gecikmesi:</string>
     <string name="title_decoding_reset">Video Ayarlarını Sıfırla</string>
-    <string name="searching_pc">GameStream\'in çalıştığı bilgisayarlar aranıyor…
-\n
-\n GeForce Experience SHIELD ayarlarında GameStream\'in etkinleştirildiğinden emin olun.</string>
     <string name="applist_connect_msg">Bilgisayara bağlanıyor…</string>
     <string name="no">Hayır</string>
     <string name="addpc_wrong_sitelocal">Bu adres doğru görünmüyor. İnternet üzerinden akış için yönlendiricinizin genel IP adresini kullanmanız gerekir.</string>

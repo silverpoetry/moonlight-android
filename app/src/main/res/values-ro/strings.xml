@@ -57,8 +57,6 @@
     <string name="conn_terminated_msg">Conexiunea a fost terminată</string>
     <!-- General strings -->
     <string name="ip_hint">Adresa IP a PC-ului cu GFE</string>
-    <string name="searching_pc">Se caută PC-uri cu GameStream activat…\n\n
-        Asigură-te ca GameStream este activat în setările Geforce Experience SHIELD.</string>
     <string name="yes">Da</string>
     <string name="no">Nu</string>
     <string name="lost_connection">S-a pierdut conexiunea catre PC</string>

@@ -48,8 +48,6 @@
     <string name="conn_terminated_msg">Подключение было прервано</string>
     <!-- General strings -->
     <string name="ip_hint">IP-адрес компьютера с GeForce</string>
-    <string name="searching_pc">Поиск компьютеров с запущенным GameStream…\n\n
-        Убедитесь что GameStream включен в настройках GeForce Experience в разделе SHIELD.</string>
     <string name="yes">Да</string>
     <string name="no">Нет</string>
     <string name="lost_connection">Потеряно соединение с PC</string>

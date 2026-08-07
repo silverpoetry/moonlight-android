@@ -53,9 +53,6 @@
     <string name="conn_terminated_msg">La connessione è stata interrotta</string>
     <!-- General strings -->
     <string name="ip_hint">Indirizzo IP del PC</string>
-    <string name="searching_pc">Ricerca di PC nella rete locale…
-\n
-\n Assicurati che Sunshine sia avviato o che GameStream sia abilitato nelle impostazioni SHIELD di GeForce Experience.</string>
     <string name="yes">Sì</string>
     <string name="no">No</string>
     <string name="lost_connection">Connessione con il PC persa</string>

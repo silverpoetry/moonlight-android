@@ -53,9 +53,6 @@
     <string name="conn_terminated_title">Conexão Encerrada</string>
     <string name="conn_terminated_msg">A conexão foi encerrada</string>
     <string name="ip_hint">Endereço de IP do PC GeForce</string>
-    <string name="searching_pc">Procurando por PCs a executar o GameStream…
-\n
-\nCertifique-se de que o GameStream esteja ativado nas configurações do SHIELD do GeForce Experience.</string>
     <string name="applist_menu_scut">Criar Atalho</string>
     <string name="applist_refresh_msg">A recarregar apps…</string>
     <string name="applist_quit_app">Saindo</string>

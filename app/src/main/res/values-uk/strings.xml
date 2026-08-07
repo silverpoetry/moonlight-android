@@ -37,9 +37,6 @@
     <string name="conn_terminated_msg">З’єднання було розірване.</string>
     <!-- General strings -->
     <string name="ip_hint">IP-адреса головного ПК</string>
-    <string name="searching_pc">Пошук головного ПК у локальній мережі…
-\n
-\nПереконайтеся, що Sunshine запущено на вашому головному ПК або GameStream увімкнено в налаштуваннях GeForce Experience SHIELD.</string>
     <string name="yes">Так</string>
     <string name="no">Ні</string>
     <string name="lost_connection">З\'єднання з пристроєм втрачено</string>

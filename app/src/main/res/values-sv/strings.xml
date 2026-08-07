@@ -167,9 +167,6 @@
 \n
 \nFörsök att inaktivera HDR-läget, ändra streamingupplösningen eller ändra värddatorns skärmupplösning.</string>
     <string name="ip_hint">IP-adress för värddatorn</string>
-    <string name="searching_pc">Söker efter värddatorer i det lokala nätverket…
-\n
-\n Kontrollera att Sunshine körs på värddatorn eller att GameStream är aktiverat i inställningarna för GeForce Experience SHIELD.</string>
     <string name="applist_quit_fail">Misslyckades att avsluta</string>
     <string name="text_native_res_dialog">Inbyggd upplösning och/eller FPS kanske inte stöds av streamingservern. Du kommer förmodligen att behöva konfigurera ett matchande anpassat visningsläge för värddatorn manuellt.
 \n
