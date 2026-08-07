@@ -110,6 +110,17 @@ public class PcView extends BaseActivity {
         public void onServiceConnected(ComponentName className, IBinder binder) {
             ComputerManagerService.ComputerManagerBinder localBinder =
                     ((ComputerManagerService.ComputerManagerBinder)binder);
+
+            // The service loads its persisted host inventory before Android
+            // publishes this binder. Present the genuine empty state as soon
+            // as that inventory is known, without waiting for discovery or
+            // client-identity initialization. A non-zero count still keeps
+            // the host area empty until the initial snapshots arrive, so
+            // returning users never see a false "no hosts" state.
+            managerHasKnownHosts = localBinder.getHostCount() > 0;
+            hostListReady = true;
+            updateNoPcFoundVisibility();
+
             HostServiceBindingController controller =
                     hostBindingController;
             if (controller == null) {
