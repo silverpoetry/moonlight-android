@@ -10,7 +10,7 @@ plugins {
 
 allprojects {
     group = 'com.limelight'
-    version = '12.1-260803'
+    version = '12.1-260807'
 }
 
 // The ordinary non-root Release is the only daily build target. The complete
@@ -49,7 +49,7 @@ project(':app') {
         projectType = Component.Type.APPLICATION
         componentGroup = 'com.limelight'
         componentName = 'moonlight-android'
-        componentVersion = '12.1-260803'
+        componentVersion = '12.1-260807'
         includeConfigs.set([
                 'nonRootReleaseRuntimeClasspath',
                 'rootReleaseRuntimeClasspath'

@@ -1,0 +1,4 @@
+- Rebuilt the Android experience with a modern Material 3 interface for hosts, apps, settings, file actions, and in-stream controls
+- Added native multi-finger touchpad input, local cursor coordination, and improved streaming/window lifecycle handling
+- Unified clipboard sync for text, images, files, and folders with on-demand file transfers and host desktop sharing
+- Added microphone uplink, selective configuration ZIP import/export, full R8 Release optimization, and updated security and release checks

@@ -4,7 +4,7 @@
 Git 提交和 `fastlane/metadata` 中；公开 Release 的版本号、日期和下载产物以 GitHub
 Releases 为准。
 
-## [Unreleased]
+## [12.1-260807] - 2026-08-07
 
 ### 界面与交互
 
@@ -35,3 +35,5 @@ Releases 为准。
 - 最低系统调整为 Android 6.0（API 23），编译和目标 API 调整为 37。
 - Release 启用完整 R8 优化、混淆、代码/资源收缩，并建立安全 manifest、依赖摘要、
   第三方许可证、SBOM 和发布证据门禁。
+
+[12.1-260807]: https://github.com/silverpoetry/moonlight-android/releases/tag/v12.1-260807
