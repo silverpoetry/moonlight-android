@@ -160,8 +160,9 @@ class GameListQuickFragment : ComposeGameMenuDialogFragment() {
         )
 
     private fun showShortcutEditor() {
+        val editorWidthPx = UiHelper.dpToPx(requireContext(), 364f)
         val fragment = GameKeyboardUpdateFragment().apply {
-            setWidth(UiHelper.dpToPx(requireActivity(), 364f))
+            setWidth(editorWidthPx)
             setTitle(R.string.keyboard_shortcut_setup_title)
             setKeyFrom(1)
             setSelectionListener(::saveShortcut)
