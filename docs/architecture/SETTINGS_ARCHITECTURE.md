@@ -72,12 +72,20 @@ fine-tuning concept. External-display controls belong to video and display;
 shortcut and overlay controls belong to stream interface.
 
 Backup and restore exposes only two actions: export configuration and import
-configuration. Export produces one versioned ZIP containing the typed App
-settings and the atomic pairing-data component. Import validates the complete
-archive first and then presents the components available in that archive as a
-multi-selection; unselected components are left untouched. The client
-certificate, private key, and paired-host database are intentionally one item
-so the UI cannot create a partially paired state.
+configuration. Export produces one versioned ZIP containing typed App settings,
+host connection information, and the client identity. The Android save flow
+uses `ACTION_CREATE_DOCUMENT`, so the user chooses one concrete ZIP file and
+location; no directory grant is persisted.
+
+Import validates the complete archive first and then presents three selectable
+components. App settings are restored through the typed schema. Host connection
+information contains the portable host database and pinned host certificates;
+it may be imported without changing the current client identity, in which case
+the next host refresh determines whether this device is paired. Client identity
+contains the certificate and private key as one atomic component because the
+two files must pass a matching signature check. Unselected components remain
+untouched. Import transaction ordering is settings, identity, and finally the
+SQLite host merge; each component has a rollback path appropriate to its store.
 
 Navigation state is independent of the rendered view tree. A stable section ID
 selects the current page, each page owns its own content scroll offset, and the

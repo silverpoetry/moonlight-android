@@ -1,9 +1,9 @@
 # Large-Scale Refactoring Roadmap
 
-This document is the normative execution plan for separating this application
-from its Axixi-derived architecture. It complements `ARCHITECTURE.md`: that
-document defines the target rules, while this document defines the migration
-order, evidence, and completion gates.
+This document is the normative execution plan for completing the independent
+Moonlight Android architecture. It complements `ARCHITECTURE.md`: that document
+defines the current rules, while this document defines migration order,
+evidence, and completion gates.
 
 The objective is not to make classes smaller in isolation. The objective is to
 create a system with explicit ownership, one-way dependencies, deterministic
@@ -30,14 +30,17 @@ enough to make large changes without relying on manual intuition.
 6. **Structure and behavior are separate commits.** A move/rename does not also
    change an algorithm. A behavior change includes evidence that distinguishes
    the intended new result from the previous result.
-7. **Delete compatibility debt on schedule.** This fork does not retain unused
-   Axixi, GameSbs, or obsolete private-protocol compatibility. A temporary
-   adapter has an owning phase and cannot survive that phase's completion.
+7. **Delete compatibility debt on schedule.** Product-specific legacy features,
+   unused fork-only surfaces, and obsolete private-protocol compatibility are
+   removed when their owning phase closes. A temporary adapter has an owning
+   phase and cannot survive that phase's completion.
 8. **Package boundaries precede Gradle boundaries.** A dependency cycle is
    corrected in source before it can become a physical module relationship.
-9. **No architecture by framework.** Java and Android Views remain during the
-   core refactor. DI, Kotlin, Compose, reactive frameworks, and a database
-   replacement require a separate ADR and demonstrated benefit.
+9. **Use frameworks at the correct boundary.** Compose and Material 3 own
+   non-realtime presentation under ADR 0004. Java/native Views remain where
+   Surface, decoder, input, GL, audio, or hardware lifecycles require them.
+   DI frameworks, reactive frameworks, and a database replacement still require
+   a separate ADR and demonstrated benefit.
 10. **A green build is necessary, not sufficient.** Phase completion requires
     behavioral, lifecycle, thread, protocol, performance, upgrade, and hardware
     evidence appropriate to the changed domain.

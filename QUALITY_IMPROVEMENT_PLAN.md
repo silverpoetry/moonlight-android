@@ -1,168 +1,79 @@
-# Android Quality Improvement Plan
+# Android 质量与发布计划
 
-This plan is the release checklist for removing the project's reviewed Android Lint
-debt without mixing unrelated compatibility, dependency, UI, and resource changes.
-Each phase must be independently reviewable, testable, and revertible. A phase does
-not advance until its exit gate passes.
+这份计划描述当前独立分支如何保持可维护、可验证和可发布。质量门禁服务于产品行为：
+它应当及时发现架构边界、生命周期、协议互操作、隐私和发布产物问题，而不是只追求某个
+静态数字。
 
-## Completion status
+## 已完成的基础工作
 
-All six implementation phases and their automated gates were completed on 2026-07-30.
-The final `verifyConnected` gate passed on an API 36 phone, with additional direct
-AndroidJUnitRunner coverage on two more API 36 devices. The devices were locked during
-the final run, so the unlocked visual and live-stream checks listed in the regression
-matrix remain explicitly recorded as manual release checks rather than being claimed as
-automated passes.
+- 将主机、类型化设置、文件传输和虚拟控件布局提取为独立 `core` 模块；
+- 建立单向依赖、状态所有者、生命周期控制器和实时线程规则；
+- 使用 Compose + Material 3 统一主界面、设置、应用列表、关于和串流快捷菜单；
+- 完成设置 schema、迁移、搜索、分类和即时生效边界；
+- 建立统一剪贴板能力、按需文件传输、双向桌面文件工作流和协商式麦克风上行；
+- 建立原生触控板、多指仲裁、双指右键、长按/重按和本地光标规范化链路；
+- 清理 fork-only 的历史页面与未使用功能，保留当前产品实际使用的输入和串流能力；
+- Release 启用完整 R8、代码/资源收缩和安全 manifest 检查；Debug 作为可读诊断包；
+- 建立依赖校验、原生依赖摘要、第三方许可证和 CycloneDX SBOM 规则；
+- 建立配置 ZIP v2：App 设置、主机连接信息、客户端身份三组件及完整导入校验。
 
-## Invariants
+## 当前工作流
 
-- Preserve both `root` and `nonRoot` product flavors.
-- Preserve existing application IDs, signing, upgrade compatibility, and user data.
-- Keep Release builds unminified.
-- Keep `warningsAsErrors` enabled.
-- Do not regenerate `lint-baseline.xml` just to make Lint pass. Remove entries only
-  after the corresponding finding is fixed, or replace an intentional finding with
-  the narrowest documented suppression.
-- Do not combine target SDK migration, major dependency upgrades, and visual resource
-  changes in one commit.
-- Run the shared `moonlight-common-c` CTest suite if that submodule changes.
+### 每个提交
 
-## Baseline
+- 运行受影响模块的 JVM/Android 测试；
+- 编译 `nonRootRelease`，涉及共享模块时运行相应核心测试；
+- 执行 `git diff --check`、架构边界和安全策略检查；
+- 检查 Release 日志、权限、敏感数据和生成文件；
+- 在提交信息或关联文档中记录协议、迁移、用户数据或兼容性变化。
 
-The initial reviewed Lint baseline contains 67 findings:
+### 发布候选
 
-| Lint ID | Count | Disposition |
-| --- | ---: | --- |
-| `UnusedAttribute` | 31 | Review as intentional API-level compatibility; use versioned resources or narrow documentation where appropriate. |
-| `VectorPath` | 19 | Profile and simplify only paths with measurable rendering value. |
-| `GradleDependency` | 6 | Upgrade one dependency family at a time with feature-specific regression tests. |
-| `SourceLockedOrientationActivity` | 3 | Replace assumptions about fixed orientation with adaptive stream and settings layouts. |
-| `Overdraw` | 2 | Remove only backgrounds proven to be redundant. |
-| `VectorRaster` | 2 | Rasterize only assets whose large intrinsic vector size is actually inappropriate. |
-| `DiscouragedApi` | 1 | Resolve with the orientation work above. |
-| `IconLauncherShape` | 1 | Move the launcher branding to a proper adaptive icon. |
-| `IconMissingDensityFolder` | 1 | Confirm vector/`nodpi` use and document or restructure resources without duplicating assets. |
-| `OldTargetApi` | 1 | Migrate `compileSdk` and `targetSdk` to API 36 in isolated steps. |
+```powershell
+.\gradlew.bat verifyNonRootRelease --no-daemon
+```
 
-`MissingTranslation` remains a separately documented project policy for incomplete
-community translations and is not part of the 67-entry baseline.
+该命令覆盖核心模块测试、Release 单元测试、Lint、依赖与原生依赖校验、生产日志策略、
+安全 manifest、R8、四 ABI native 构建和普通 Release APK。完整本地矩阵：
 
-## Phase 1: Reproducible Baseline
+```powershell
+.\gradlew.bat verifyLocal --no-daemon
+```
 
-- Record the current commit, build toolchain, Lint inventory, Release APK hashes, and
-  local/connected test results.
-- Verify all JVM tests, every Lint variant, and both Release flavors.
-- Verify every instrumentation test on exactly one configured device.
-- Maintain a functional regression matrix covering:
-  - discovery, pairing, stored certificates, and reconnect;
-  - stream start/stop, picture-in-picture, rotation, and window changes;
-  - mouse, touchpad, and touchscreen input modes;
-  - two-finger right click, three-finger keyboard interception, long/force press,
-    local cursor position, keyboard, and controllers;
-  - microphone transport;
-  - bidirectional text, image, file, and directory clipboard transfer, including
-    lazy transfer of large directory trees without blocking input;
-  - return menu, shortcuts, and customizable first-page cards.
+涉及设备生命周期或系统窗口时，再执行 `verifyConnected` 或按设备选择运行定向
+instrumentation；完整流程见 [RELEASE_RUNBOOK.md](docs/architecture/RELEASE_RUNBOOK.md)。
 
-### Exit gate
+## 功能验收矩阵
 
-`verifyLocal` and `verifyConnected` pass, or any unavailable hardware-only checks are
-explicitly recorded without claiming they passed.
+每次涉及对应领域时更新证据：
 
-## Phase 2: API 36 Migration
+| 领域 | 验收重点 |
+| --- | --- |
+| 主机 | 发现、手动/远程地址、配对、证书、断线重连和主机应用列表 |
+| 串流 | 首次连接、停止/重连、Surface/解码器、方向、自由窗口、画中画、HDR和后台恢复 |
+| 输入 | 鼠标、绝对定位、触控板、多指、双指右键、三指键盘、长按/重按、本地光标和手柄 |
+| 传输 | 文本、PNG、文件、目录、Unicode、空文件、冲突、取消、重试、双向和大目录懒传输 |
+| 麦克风 | 单声道/双声道、协商格式、启停、静音、长时间采集和回调过载 |
+| 界面 | 手机/平板、横竖屏、分屏/自由窗口、深浅色、设置滚动位置、返回菜单编辑和启动页 |
+| 安全 | Release manifest、自动备份排除、SAF URI、证书/私钥保护、日志脱敏和许可证 |
 
-Use separate commits so target-gated behavior changes can be isolated:
+## 持续改进方向
 
-1. Upgrade the Android build toolchain and `compileSdk` to 36 while retaining
-   `targetSdk 34`.
-2. Set `targetSdk 35`, fix and verify Android 15 target behavior.
-3. Set `targetSdk 36`, fix and verify Android 16 target behavior.
+1. 完成实时输入、渲染和串流会话剩余平台适配的模块化收敛；
+2. 为方向、Surface、解码器、后台恢复和大屏窗口补充可重复的 instrumentation 场景；
+3. 将跨 Android、Moonlight Qt、Sunshine 和 common-c 的互操作矩阵纳入发布证据模板；
+4. 持续减少临时兼容适配器，删除条件已满足的历史路径；
+5. 维护文档、依赖摘要、许可证、SBOM、R8 mapping 和每版 APK 校验值；
+6. 对输入、音频、视频和文件传输保持 p99 延迟、分配、队列长度和日志量的可观测性。
 
-The migration must explicitly cover edge-to-edge layout, supported predictive-back
-callbacks, large-screen orientation/resizability behavior, local-network discovery and
-streaming, microphone/audio focus, share intents, and storage access. The stream video
-rectangle, local cursor coordinates, and touch mappings must be recalculated from the
-same window geometry after any inset or windowing change.
+## 质量原则
 
-### Exit gate
+- 行为变化先有基线和测试，再移动代码；
+- 一个状态只有一个生产所有者；
+- 失败、取消、重建和迟到回调属于正常路径并有明确测试；
+- 热路径使用有界内存和显式背压；
+- Release 产物可复现、可验签、可回溯；
+- 证据不足时记录限制，不把未验证的硬件或网络场景写成“已通过”。
 
-- API 23/28 compatibility smoke tests.
-- API 34 comparison tests.
-- API 35 and 36 lifecycle/layout tests.
-- Real-device stream, input, microphone, and clipboard regression.
-- `OldTargetApi` removed from the baseline.
-
-## Phase 3: Dependency Upgrades
-
-Upgrade and commit each dependency family separately in this order:
-
-1. JmDNS: discovery, duplicate hosts, interface changes, reconnect.
-2. Gson: settings and stored-host backward-compatible deserialization.
-3. Bouncy Castle: pairing, certificates, key persistence, and reconnect.
-4. OkHttp 4 to 5: requests, cancellation, timeouts, connection reuse, and threading.
-5. Glide 3 to 5: host artwork, cache, lifecycle, and failure placeholders.
-
-An available update is not sufficient justification for a major upgrade. If behavior
-cannot be preserved and verified, retain the current version and document the concrete
-blocker instead of suppressing the warning broadly.
-
-### Exit gate
-
-The dependency's feature-specific tests and the full Release gate pass after each
-upgrade. Remove only the matching `GradleDependency` entry.
-
-## Phase 4: Orientation, Large Screens, and Windowing
-
-- Make host, settings, help, and file-transfer screens adaptive.
-- Preserve the user's stream orientation intent without relying on the platform to
-  honor a fixed activity orientation.
-- Verify phones, tablets, foldables, split-screen, freeform windows, and
-  picture-in-picture.
-- Treat temporary platform compatibility properties as isolated, documented bridges
-  with a removal condition, not permanent architecture.
-
-### Exit gate
-
-The four orientation-related findings are resolved, and stream input coordinates remain
-aligned in every tested window configuration.
-
-## Phase 5: Rendering and Launcher Resources
-
-- Profile menu and overlay rendering before modifying complex vector paths.
-- Simplify redundant vector nodes and excessive path precision without visual drift.
-- Convert only unsuitable large vectors to density-aware raster assets.
-- Inspect `activity_game_display.xml` and `ax_floating_view.xml`; remove a background
-  only when it is proven redundant.
-- Provide adaptive launcher foreground/background resources and verify common vendor
-  masks.
-- Keep vector and `nodpi` resources where they are semantically correct instead of
-  manufacturing duplicate density folders.
-
-### Exit gate
-
-Visual comparison passes on phone, tablet, TV, and the in-stream overlay. The 25
-resource/rendering findings are fixed or precisely documented as intentional.
-
-## Phase 6: Intentional API Attributes and Baseline Closure
-
-- Review every `UnusedAttribute` against its platform API level and runtime purpose.
-- Prefer version-qualified resources when they make behavior clearer.
-- Otherwise use the narrowest supported annotation or Lint configuration with a
-  reason; never suppress the whole file or issue globally.
-- Audit all remaining baseline entries against current source locations.
-
-### Exit gate
-
-- Zero unexplained baseline findings.
-- Zero new Lint findings.
-- All retained exceptions have a narrow scope and an adjacent rationale.
-- `verifyLocal` and `verifyConnected` pass.
-- Both Release APKs are built, hashes recorded, install/upgrade behavior checked, and
-  release logging confirmed not to emit per-frame input, audio, or clipboard traffic.
-
-## Commit Policy
-
-Tests and documentation, each SDK target step, each dependency family, windowing work,
-rendering work, and final baseline cleanup are separate commits. Every commit must leave
-the repository buildable; release-gate commits must also leave the complete verification
-suite green.
+历史迁移证据保存在 [QUALITY_MIGRATION_LOG.md](QUALITY_MIGRATION_LOG.md)，当前数值基线
+见 [QUALITY_BASELINE.md](QUALITY_BASELINE.md)。

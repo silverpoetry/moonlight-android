@@ -1,72 +1,76 @@
 # Android Release Quality Baseline
 
-Captured on 2026-07-30 before the API 36 quality migration.
+本文件记录当前独立分支的发布基线。历史 SDK 迁移和旧版本产物保存在
+[QUALITY_MIGRATION_LOG.md](QUALITY_MIGRATION_LOG.md)，不与当前候选包混在同一张表中。
 
-> Historical baseline: the current application contract has since moved to
-> `compileSdk`/`targetSdk` 37 and `minSdk` 23 as part of the Compose Material 3
-> presentation migration. Values below describe the recorded pre-migration
-> release and are intentionally not rewritten.
+## 当前候选
 
-## Source and Toolchain
+- 记录日期：2026-08-07
+- 功能提交：`23aa54ae Refine configuration archive import and export`
+- 分支：`refactor/compose-material3`
+- 版本名：`12.1-260803`
+- 版本号：`315`
+- common-c：`ac7f2345879070a924b5f8cb339cd0fe25230012`
 
-- Source commit: `bb9dac548dc7c9864a9b076c836e33ab1c9a5f9d`
-- Branch: `ui-polished-dialogs`
-- Gradle: 8.7
-- Android Gradle Plugin: 8.5.1
-- Java: Eclipse Temurin 17.0.19
-- NDK: 27.0.12077973
-- `compileSdk`: 34
-- `targetSdk`: 34
-- `minSdk`: 21
-- `moonlight-common-c`: `7d1e37b8d81537926bea15b6fd817f301039352a`
+## 平台与工具链
 
-## Local Verification
+| 项目 | 当前值 |
+| --- | --- |
+| 最低 Android API | 23 |
+| `compileSdk` / `targetSdk` | 37 / 37 |
+| Android Gradle Plugin | 9.3.1 |
+| Gradle Wrapper | 9.6.1 |
+| 构建 JDK | Eclipse Temurin 21.0.12 |
+| Java 字节码目标 | 11 |
+| Android NDK | 27.0.12077973 |
+| Compose / Material 3 | 由 `gradle/libs.versions.toml` 集中管理 |
 
-Command:
+## Release 配置
+
+| 变体 | 包名 | 代码与资源处理 |
+| --- | --- | --- |
+| `nonRootRelease` | `com.silverpoetry.moonlight` | 完整 R8 优化、混淆、代码收缩、资源收缩 |
+| `rootRelease` | `com.silverpoetry.moonlight.root` | 完整 R8 优化、混淆、代码收缩、资源收缩；受产品最高 API 限制 |
+
+Debug 变体保持可读类名和资源，用于交互式诊断。Release 日志遵守生产日志策略，实时
+输入、音频、剪贴板和文件内容不会逐事件输出。
+
+## 当前 non-root 产物
+
+| 项目 | 值 |
+| --- | --- |
+| 文件 | `app/build/outputs/apk/nonRoot/release/app-nonRoot-release.apk` |
+| 大小 | 25,309,011 bytes |
+| SHA-256 | `5084550D27B12783B2812494BFA9C1896D159044CA8278772A6092969D0958AF` |
+| R8 mapping SHA-256 | `4D4243048913B30B65340C1F99D21A03E9B6DF63FDEFB44EC03A11C75947427D` |
+
+R8 mapping 位于 `app/build/outputs/mapping/nonRootRelease/mapping.txt`，发布归档必须将
+它与对应 APK、版本信息、签名摘要和校验值一起保存。
+
+## 已执行验证
+
+当前候选已执行：
+
+- `ConfigurationArchiveManifestTest`；
+- `SettingsDocumentRequestStateTest`；
+- `testNonRootReleaseUnitTest`；
+- `assembleNonRootRelease`；
+- `verifyNonRootRelease --no-daemon`；
+- Release Lint、R8、资源收缩、四 ABI native 构建、架构、安全和依赖策略检查。
+
+2026-08-07 的本次门禁通过，共 153 个任务（37 个执行、116 个复用已有结果）。后续源码、
+依赖、构建配置或发布产物发生变化后，应重新执行同一命令并更新本节摘要：
 
 ```powershell
-.\gradlew.bat verifyLocal --console=plain
+.\gradlew.bat verifyNonRootRelease --no-daemon
 ```
 
-Result: passed.
+设备覆盖安装验证过的实体设备为 `192.168.0.125:5555`、`192.168.3.79:5555` 和
+`192.168.3.3:41305`。设备安装验证只证明覆盖安装、包名、版本和数据保留；真实串流、
+输入、剪贴板、文件、麦克风和窗口矩阵按 [TESTING.md](TESTING.md) 单独记录。
 
-- JVM test report files: 20
-- JVM tests: 80
-- Failures: 0
-- Errors: 0
-- Skipped: 0
-- All four root/non-root debug/release Lint variants passed.
-- Both root and non-root Release APKs built successfully.
+## 基线使用方式
 
-## Release Artifacts
-
-| Flavor | Size | SHA-256 |
-| --- | ---: | --- |
-| `nonRootRelease` | 14,747,115 bytes | `46EC70E06CE162C37147E17B7188C652C27D23572EA140D6731B57A740F82EF8` |
-| `rootRelease` | 14,768,068 bytes | `E6BCA9DE072D95763A01EA1D916B5EA15544DB0CA39F461D7BD1FACF858921AF` |
-
-Release minification is disabled for both artifacts.
-
-## Lint Inventory
-
-The reviewed baseline contains 67 entries:
-
-| Lint ID | Count |
-| --- | ---: |
-| `UnusedAttribute` | 31 |
-| `VectorPath` | 19 |
-| `GradleDependency` | 6 |
-| `SourceLockedOrientationActivity` | 3 |
-| `Overdraw` | 2 |
-| `VectorRaster` | 2 |
-| `DiscouragedApi` | 1 |
-| `IconLauncherShape` | 1 |
-| `IconMissingDensityFolder` | 1 |
-| `OldTargetApi` | 1 |
-
-## Connected Verification
-
-The previously configured device `192.168.3.125:5555` was offline and refused an ADB
-connection during this capture. Connected tests are therefore explicitly **not
-recorded as passed** in this baseline. They remain a required release gate and must run
-when exactly one target device is online.
+质量比较应同时记录源码提交、common-c 修订、构建命令、APK 哈希、mapping 哈希、测试
+报告和设备限制。历史记录中的旧 SDK、旧包名、旧 R8 策略和旧 APK 哈希只用于解释迁移，
+不能作为当前 Release 的验收依据。

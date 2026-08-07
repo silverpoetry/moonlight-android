@@ -3,6 +3,28 @@
 This log records the evidence for each independently committed migration step. It does
 not replace the final release matrix in `QUALITY_IMPROVEMENT_PLAN.md`.
 
+## Independent branch release baseline: configuration archive and documentation pass
+
+- Date: 2026-08-07
+- Commit: `23aa54ae Refine configuration archive import and export`
+- Version: `12.1-260803` / version code `315`
+- Common-c: `ac7f2345879070a924b5f8cb339cd0fe25230012`
+- Product: `nonRootRelease`, application ID `com.silverpoetry.moonlight`
+- Configuration archive format: version 2
+- Export: Android `ACTION_CREATE_DOCUMENT`, concrete ZIP file URI selected by the user
+- Import components: typed App settings, host connection information, and atomic client identity
+- Client identity validation: certificate/private-key signature match before write
+- Host-only import: portable host metadata and pinned host certificates merge without replacing
+  the current client identity; host pairing is resolved by the next host refresh
+- Verification: targeted JVM tests, `assembleNonRootRelease`, and the complete
+  `verifyNonRootRelease --no-daemon` gate passed
+- APK size: 25,309,011 bytes
+- APK SHA-256: `5084550D27B12783B2812494BFA9C1896D159044CA8278772A6092969D0958AF`
+- R8 mapping SHA-256: `4D4243048913B30B65340C1F99D21A03E9B6DF63FDEFB44EC03A11C75947427D`
+
+This entry describes the current release baseline. Entries below preserve historical SDK,
+toolchain and artifact evidence from earlier migration commits.
+
 ## Compile SDK 36
 
 - Commit: `79dfa84e`

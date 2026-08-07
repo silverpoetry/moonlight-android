@@ -5,9 +5,9 @@
 
 ## Context
 
-The application is a single Android module containing inherited Moonlight code
-and substantial Axixi-specific input, UI, controller, clipboard, microphone,
-and rendering behavior. Several large classes cross these responsibilities.
+The application began as a single Android module containing inherited Moonlight
+code and several generations of input, UI, controller, clipboard, microphone,
+and rendering behavior. Several large classes crossed those responsibilities.
 
 Creating many Gradle modules immediately would make those existing dependency
 cycles build-time dependencies and would add migration boilerplate before the

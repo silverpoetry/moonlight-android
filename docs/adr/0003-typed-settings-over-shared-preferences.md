@@ -6,9 +6,9 @@
 ## Context
 
 The application stores a large established settings schema in Android default
-`SharedPreferences`. Runtime code, preference widgets, and Axixi-derived
-features currently read those values directly. Keys, types, defaults, parsing,
-validation, device policy, and legacy migration are mixed in
+`SharedPreferences`. Runtime code, preference widgets, and historical feature
+code read those values directly. Keys, types, defaults, parsing, validation,
+device policy, and legacy migration are mixed in
 `PreferenceConfiguration` and several UI/runtime classes.
 
 Replacing the persistence technology at the same time as correcting those

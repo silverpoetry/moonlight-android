@@ -10,7 +10,7 @@ Moonlight for Android 来自多个仓库和社区的长期工作。本文件把�
 | --- | --- | --- |
 | 官方上游 | [moonlight-stream/moonlight-android](https://github.com/moonlight-stream/moonlight-android) | 提供 Android 客户端基础和当前历史中的大部分代码。上游保留的主要作者包括 [Cameron Gutman](https://github.com/cgutman)、[Diego Waxemberg](https://github.com/dwaxemberg)、Aaron Neyer 和 [Andrew Hennessy](https://github.com/yetanothername)。完整名单见[上游贡献历史](https://github.com/moonlight-stream/moonlight-android/graphs/contributors)。 |
 | Axixi 分支 | [Axixi2233/moonlight-android](https://github.com/Axixi2233/moonlight-android) | [Axixi2233](https://github.com/Axixi2233) 及该分支贡献者开发了本分支继承的移动端 UI、输入、手柄、显示和配置能力。Axixi 的公开主页包括 [Bilibili](https://space.bilibili.com/16893379) 和 [YouTube](https://www.youtube.com/@AxixiTV)。 |
-| 当前分支 | [silverpoetry/moonlight-android](https://github.com/silverpoetry/moonlight-android) | [silverpoetry / 霜冷长河](https://github.com/silverpoetry) 维护独立重构、共享协议接入、原生触控板、剪贴板/文件传输、麦克风上行、设置架构、UI 整理和发布治理。 |
+| 当前分支 | [silverpoetry/moonlight-android](https://github.com/silverpoetry/moonlight-android) | [silverpoetry / 霜冷长河](https://github.com/silverpoetry) 维护独立重构、Compose/Material 3 界面、共享协议接入、原生触控板、剪贴板/文件传输、麦克风上行、设置架构和发布治理。 |
 
 GitHub 记录的本仓库源头是 Moonlight Android 官方仓库，直接父仓库是 Axixi 分支。修改包名、资源和架构不会抹去这段历史。
 
@@ -31,7 +31,8 @@ GitHub 记录的本仓库源头是 Moonlight Android 官方仓库，直接父仓
 
 ## 仓库贡献者
 
-当前分支的可达历史包含大量贡献者，不适合把动态统计结果全部复制成一份容易过期的手工名单。GitHub 当前将较多提交归属到以下账号：
+当前分支的可达历史包含大量贡献者，完整名单应以 Git 提交中的作者与共同作者字段为准。
+以下账号均是当前历史中可以确认的主要贡献者，作为便于查阅的索引：
 
 - [cgutman](https://github.com/cgutman)
 - [silverpoetry](https://github.com/silverpoetry)
@@ -53,7 +54,8 @@ GitHub 记录的本仓库源头是 Moonlight Android 官方仓库，直接父仓
 - [Moonlight 官方 Contributors 图表](https://github.com/moonlight-stream/moonlight-android/graphs/contributors)
 - 本地 Git 历史：`git shortlog -sne --all`
 
-GitHub 异步生成 Contributors 图表。统计接口返回 `202 Accepted` 时，页面可能暂时一个人都不显示；这只是 GitHub 缓存尚未生成，不会改变提交作者。当前仓库曾出现该状态，并已通过重新请求统计接口触发重建。
+GitHub 的 Contributors 图表由平台异步生成，偶尔会在仓库建立或历史变化后暂时为空。
+图表是浏览入口，不是署名依据；Git 提交、源码版权声明和本文件共同保存可审计的来源记录。
 
 ## 维护署名的方法
 

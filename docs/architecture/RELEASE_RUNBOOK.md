@@ -166,6 +166,12 @@ together. Record both success and cancellation cases:
   restart, long capture, and overload behavior;
 - input at the target refresh rate, cursor prediction, rotation/cutout/PiP,
   controller reconnect/rumble/sensors, and stream background/foreground.
+- configuration export through the Android `ACTION_CREATE_DOCUMENT` save flow;
+  configuration import with App settings, host connection information, and
+  client identity selected independently;
+- host-only configuration import keeps the current client certificate/private
+  key and refreshes pairing status from the host; client identity import checks
+  the certificate/private-key match before writing either file.
 
 Copying a file tree must remain metadata-only until the remote side explicitly
 pastes or pulls it. Normal Release logging must remain bounded and must not

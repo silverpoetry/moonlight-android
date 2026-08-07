@@ -1,164 +1,215 @@
 <div align="center">
   <img src="app/src/main/res/mipmap-xxxhdpi/ic_app.png" width="128" alt="Moonlight icon">
   <h1>Moonlight for Android</h1>
-  <p>面向远程桌面、原生触控板输入和跨设备协作的 Moonlight Android 独立分支</p>
+  <p>面向远程桌面、原生触控板输入和跨设备协作的 Moonlight 独立分支</p>
 
   [![Release](https://img.shields.io/github/v/release/silverpoetry/moonlight-android?style=flat-square)](https://github.com/silverpoetry/moonlight-android/releases)
   [![License](https://img.shields.io/github/license/silverpoetry/moonlight-android?style=flat-square)](LICENSE.txt)
   [![Android](https://img.shields.io/badge/Android-6.0%2B-3DDC84?logo=android&logoColor=white&style=flat-square)](https://developer.android.com/)
 </div>
 
-> [!IMPORTANT]
-> 这是社区维护的独立分支，不是 Moonlight 官方发行版。完整项目传承为
-> [Moonlight Android](https://github.com/moonlight-stream/moonlight-android) →
-> [Axixi 的 Android 分支](https://github.com/Axixi2233/moonlight-android) →
-> 当前重构分支。上游、Axixi 分支和外部代码来源的作者信息均保留在
-> [CONTRIBUTORS.md](CONTRIBUTORS.md) 与 Git 历史中。
+[特色功能](#特色功能) · [安装与迁移](#安装与迁移) · [构建与质量门禁](#构建与质量门禁) · [架构文档](ARCHITECTURE.md) · [变更记录](CHANGELOG.md)
 
-## 项目定位
+Moonlight for Android 是一个独立维护的 Moonlight Android 分支。项目保留
+GameStream/Sunshine 串流链路，并围绕 Android 手机、平板和大屏设备重新整理界面、输入、
+文件协作和运行时架构。当前产品名称为 **Moonlight**，普通 Release 包名为
+`com.silverpoetry.moonlight`。
 
-本项目继承 Moonlight Android 的串流基础和 Axixi 分支积累的移动端 UI、输入与手柄能力，并在此基础上进行独立的大规模重构。当前目标不是继续堆叠 Activity 内的功能分支，而是让主机、设置、输入、文件传输和串流生命周期各自拥有明确边界、单一状态所有者和可验证的契约。
+## 特色功能
 
-需要扩展协议的功能应与以下配套项目使用同一发布版本：
+### 现代 Android 界面
 
-| 组件 | 职责 | 仓库 |
-| --- | --- | --- |
-| Moonlight Android | Android 客户端、触控输入、剪贴板、麦克风与移动端 UI | 当前仓库 |
-| Sunshine | Windows 主机、原生触控板注入、剪贴板和麦克风接收 | [silverpoetry/Sunshine](https://github.com/silverpoetry/Sunshine) |
-| Moonlight Qt | Windows 客户端、桌面输入和对称文件剪贴板 | [silverpoetry/moonlight-qt](https://github.com/silverpoetry/moonlight-qt) |
-| moonlight-common-c | 三端共享的能力协商、输入与传输协议实现 | [固定修订 `ac7f234`](https://github.com/silverpoetry/moonlight-common-c/tree/ac7f2345879070a924b5f8cb339cd0fe25230012) |
+- 使用 Jetpack Compose 和 Material 3 设计语言，统一颜色、字体、形状、深浅色主题和
+  Android 12+ 动态取色。
+- 主界面、主机应用列表、系统设置、串流快捷菜单、关于和文件操作共享同一套组件和排版
+  规则。
+- 设置按任务组织为视频与显示、音频、输入、虚拟控制、剪贴板与文件、串流界面、应用
+  外观、系统与无障碍、备份与恢复等区域；短选项使用选择器，连续值使用滑块，复杂
+  编辑使用独立页面或对话框。
+- 串流返回菜单支持状态切换和一次性动作两种语义。麦克风、性能面板等状态控制会保留
+  菜单；截屏、快捷键和键盘等一次性动作完成后自动收起。
 
-触控板、麦克风和新版剪贴板能力均通过协议协商启用。未协商的扩展不会被伪装成旧协议；协议行为的事实来源是仓库固定的 [moonlight-common-c 子模块](app/src/main/jni/moonlight-core/moonlight-common-c)、协议结构和互操作测试，而不是另行编写、可能失效的非官方“协议文档”。
+### 输入与触控板
 
-## 核心能力
+- 触控板模式发送完整的多指帧，保留 pointer ID、归一化坐标、按下/移动/抬起和取消
+  生命周期，主机端按原生触控板语义处理。
+- 普通鼠标、绝对定位和触控板输入分别经过明确的控制器路径；本地光标预测和远端发送
+  使用同一份规范化位置，避免两套算法产生漂移。
+- 支持双指右键、双指滚动/缩放、多指手势、三指轻点呼出键盘、单双指长按和按住拖动。
+  三指键盘候选具有时间域仲裁，普通两指操作、长按和重按可以取消候选。
+- 支持气压计融合重按。压力阈值和最短触摸持续时间可配置，手指离开屏幕才结束重按；
+  没有气压计或未启用该模式时使用触控板长按。
+- 虚拟手柄和虚拟按键布局分别保存横屏、竖屏文档，支持自定义布局、震动、运动传感器、
+  USB/蓝牙手柄以及 NVIDIA SHIELD 扩展。
 
-### 输入与触控
+### 串流与窗口体验
 
-- **原生触控板帧**：双指及多指操作保留真实 pointer ID、归一化位置、按键状态和完整的按下/移动/抬起生命周期，由支持该能力的 Sunshine 注入为主机原生触控板事件。
-- **明确的鼠标语义**：普通鼠标、绝对鼠标和触控板模式使用各自的标准路径；单指移动不会因为多指手势结束而产生尾随跳动。
-- **低延迟本地光标**：绘制位置与实际发送的单指绝对位置或相对位移共享同一个规范化控制器，无需等待主机回传光标位置。
-- **重按与长按**：支持气压计融合重按、可配置压力和最短持续时间阈值、按住拖动及单双指按下；未启用气压计时使用可配置的触控板长按。
-- **多指仲裁**：三指呼出键盘只拦截满足轻点条件的候选手势；普通触控板手势、重按和长按可取消候选，关闭该功能时不引入额外输入延迟。
+- 串流会话采用显式的 `create -> start -> active -> stop -> destroy` 生命周期，连接、
+  Surface、解码器、音频、方向和输入捕获各有明确的资源所有者。
+- Compose 页面负责启动前的界面和状态，视频 Surface、解码器、实时输入和音频仍由低延迟
+  原生链路管理。连接准备完成后再切换到实际串流界面，避免用静态页面伪装加载状态。
+- 支持横竖屏、自由窗口、分屏、画中画、刘海/挖孔区域、外接显示器、HDR、帧率提示和
+  可选的视频隐藏。方向按钮只改变当前会话的方向覆盖，不与系统自动旋转策略反复争抢。
+- 设置变更按即时生效、下一次会话生效和重新创建资源三类明确处理，运行态不直接读取
+  SharedPreferences。
 
 ### 剪贴板、文件与麦克风
 
-- **统一剪贴板能力**：一个开关管理文本、PNG、文件和文件夹同步。
-- **按需文件传输**：复制文件时只交换轻量清单或占位信息；只有另一端明确粘贴、拉取或分享时才读取目录并传输内容，避免大目录阻塞输入通道。
-- **双向文件工作流**：串流菜单可拉取主机剪贴板文件；Android 分享菜单可将本地文件推送到主机桌面。
-- **麦克风上行**：复用协商后的音频 UDP 通道，支持串流中启停、静音以及单声道/双声道采集适配，不额外开放一套固定端口。
+- 一个剪贴板同步开关统一管理文本、图片、文件和文件夹。
+- 文件复制时只交换轻量清单或占位信息；只有另一端明确粘贴、拉取或分享时才读取目录
+  内容并启动传输，大型目录不会在复制动作发生时占用输入通道。
+- 串流菜单可拉取主机剪贴板中的文件/文件夹；Android 系统分享菜单可以把本地文件推送
+  到主机桌面。传输目标使用用户选择的目录或桌面语义，文件冲突和取消由传输控制器处理。
+- 麦克风复用协商后的音频 UDP 通道，支持串流中启停、静音、单声道/双声道采集和格式
+  转换，不额外增加固定监听端口。
 
-### 移动端体验
+### 配置迁移
 
-- 可视化整理串流返回菜单，将快捷操作、键盘指令、显示、输入和文件拉取按职责分组。
-- 快捷菜单遵循控制中心语义：截屏、发送快捷键等一次性动作会在执行前关闭菜单；麦克风、性能面板等状态切换会保留菜单，便于连续调整。
-- 旋转屏幕是当前串流会话的显式方向覆盖，优先于自适应方向策略，并在配置变化后保持用户选择；关闭自动旋转时不会引入额外的方向重试。
-- 支持虚拟手柄、自定义虚拟按键布局、DS4/DS5/Switch Pro USB 输入、震动与运动传感器适配。
-- 支持自定义分辨率、码率、帧率、竖屏、外接显示器、HDR、性能信息和本地视频隐藏等串流选项。
-- 类型化设置迁移保留旧版本有效配置；适合即时生效的选项直接更新运行态，需要新会话的选项明确在下一次连接生效。
+- “备份与恢复”只保留“导出配置”和“导入配置”两个入口。
+- 导出使用 Android 标准“另存为”界面，用户选择具体 ZIP 文件名和保存位置；应用不申请
+  整个目录的长期授权，也不经过分享面板。
+- 配置 ZIP v2 包含 App 设置、主机连接信息和客户端身份三类组件。导入时可分别选择：
+  - App 设置；
+  - 主机连接信息（主机名称、地址、端口、MAC 和固定的主机证书）；
+  - 客户端身份（匹配的客户端证书和私钥，作为不可拆分的原子项）。
+- 只导入主机连接信息会保留连接资料并使用当前设备身份重新确认配对状态；导入客户端
+  身份则用于迁移已有配对授权。导入前完成 ZIP 路径、大小、摘要、类型和证书密钥匹配
+  校验，写入过程按组件回滚。
 
-## 重构后的架构
+## 项目架构
 
-项目采用“平台无关核心 + Android 适配层 + 原生协议层”的结构。Gradle 在构建阶段执行依赖边界检查，核心模块不能反向依赖 `app` 或 Android UI。
+项目采用“平台无关核心 + Android 适配层 + 原生协议层”的分层结构。Compose 只负责
+非实时展示，输入、音频、视频和协议回调使用有界、可取消、可验证的实时路径。
 
 ```text
-app
- |---> core:hosts
- |---> core:settings ---> core:virtual-controls
- |---> core:transfer
- +---> core:virtual-controls
-
-app/JNI ---> pinned moonlight-common-c ---> Sunshine
+Android entry points and Compose UI
+             │
+             ▼
+feature controllers and immutable UI state
+             │
+             ▼
+core:hosts   core:settings   core:transfer   core:virtual-controls
+             │
+             ▼
+Android/protocol adapters and native stream pipeline
+             │
+             ▼
+moonlight-common-c / JNI  <──>  Sunshine
 ```
 
-| 模块 | 负责 | 不负责 |
+| 模块 | 职责 |
+| --- | --- |
+| `app` | Android Activity、Compose UI、生命周期组合、SAF/URI、数据库、mDNS、NvHTTP、JNI、串流和发布打包 |
+| `core:hosts` | 不可变主机模型、发现/配对/可达性契约、主机操作用例 |
+| `core:settings` | 类型化设置键、默认值、校验、迁移、快照和运行态设置模型 |
+| `core:transfer` | 文件清单协议、校验、编码和传输生命周期 |
+| `core:virtual-controls` | 虚拟手柄/按键布局值对象、文档编码和仓库契约 |
+| `core:shield-controller-extensions` | NVIDIA SHIELD 外设兼容库 |
+| `build-logic` | 依赖边界、质量门禁、发布安全策略和 SBOM 任务 |
+
+关键约束：每个可变状态只有一个所有者；UI 通过不可变状态和语义事件工作；实时路径
+不访问磁盘、不等待远端、不创建无界队列；文件清单、能力协商和真正的数据读取分开；
+销毁后的回调不能写入新的会话或页面。完整设计依据见 [ARCHITECTURE.md](ARCHITECTURE.md)。
+
+## 兼容性
+
+- 最低系统：Android 6.0（API 23）。
+- 编译和目标 API：37。
+- 推荐产品：`nonRootRelease`，包名 `com.silverpoetry.moonlight`。
+- Root 产品：`rootRelease`，包名 `com.silverpoetry.moonlight.root`，面向确实需要
+  root 变体能力的设备；该变体有单独的最高系统版本限制。
+- Android 设备需要与兼容的 Sunshine/Moonlight 主机端配套，触控板、麦克风和新版文件
+  传输能力以双方协商结果为准。
+
+Android 客户端、Moonlight Qt、Sunshine 和共享 `moonlight-common-c` 应尽量使用同一
+发布批次。当前仓库固定的 common-c 修订为
+[`ac7f234`](app/src/main/jni/moonlight-core/moonlight-common-c)。配套项目如下：
+
+| 项目 | 职责 | 仓库 |
 | --- | --- | --- |
-| `app` | Android UI、生命周期组合、数据库/mDNS/NvHTTP 适配器、SAF/URI、原生传输和打包 | 定义跨平台业务契约 |
-| `core:hosts` | 不可变主机模型、发现/配对/可达性契约、退出和取消配对用例 | Android 数据库或网络实现 |
-| `core:settings` | `SettingKey<T>`、默认值、校验、版本迁移、事务和不可变快照 | Preference 控件和 Activity 导航 |
-| `core:transfer` | 文件清单线协议、校验/编码和传输生命周期 | Android URI、进度 UI 或 NvHTTP 实现 |
-| `core:virtual-controls` | 虚拟控件布局值对象、文档和仓库契约 | 具体 View 绘制 |
-| `core:shield-controller-extensions` | NVIDIA Shield 外设兼容库 | 通用输入状态管理 |
-| `build-logic` | 构建约束、架构守卫、依赖和发布策略 | 产品运行逻辑 |
+| Moonlight Android | Android 客户端、移动端输入、剪贴板、文件、麦克风和 UI | 当前仓库 |
+| Sunshine | Windows 主机、原生触控板注入、剪贴板和麦克风接收 | [silverpoetry/Sunshine](https://github.com/silverpoetry/Sunshine) |
+| Moonlight Qt | Windows 客户端、桌面输入和对称文件剪贴板 | [silverpoetry/moonlight-qt](https://github.com/silverpoetry/moonlight-qt) |
 
-### 关键设计规则
+## 安装与迁移
 
-- 每个子系统只有一个可变状态所有者，对外发布不可变快照或显式命令。
-- Activity/Fragment 只负责把系统事件翻译为意图并渲染状态，不直接实现协议、文件遍历或业务状态转换。
-- 串流会话遵循 `create → start → active → stop → destroy`，清理必须幂等，停止后的迟到回调必须被拒绝。
-- 实时输入和音频路径不得阻塞、访问磁盘、创建无界队列或按事件刷 Release 日志。
-- 设置采用单向数据流：UI 意图 → 类型化 mutation → repository/migration → 不可变 snapshot → runtime consumer。
-- 输入事件由规范化控制器产生一次，再同时提供给本地预测光标和远端 sender，避免两套算法逐渐漂移。
-- 文件清单、能力协商和真正的数据读取分离，剪贴板通知不能占用鼠标键盘的实时处理线程。
+从 [GitHub Releases](https://github.com/silverpoetry/moonlight-android/releases) 下载
+对应设备的 APK 和校验文件。普通设备安装 `nonRootRelease`；诊断问题时使用带有
+`.debug` 后缀的 Debug 包，不把诊断日志带入正式包。
 
-### 当前重构状态
-
-[重构路线图](docs/architecture/REFACTORING_ROADMAP.md) 的第 1–9 阶段已经完成；第 10 阶段（剩余技术债、发布治理和持续质量收敛）仍在进行。项目不会把“页面看起来完成”当作架构重构全部结束。
-
-更详细的设计依据：
-
-- [总架构约束](ARCHITECTURE.md)
-- [Gradle 模块边界](docs/architecture/GRADLE_MODULE_BOUNDARIES.md)
-- [设置架构](docs/architecture/SETTINGS_ARCHITECTURE.md)
-- [串流会话生命周期](docs/architecture/STREAM_SESSION_LIFECYCLE.md)
-- [实时线程规则](docs/architecture/REALTIME_THREADING.md)
-- [输入行为基线](docs/architecture/INPUT_BEHAVIOR_BASELINE.md)
-- [视口与坐标系统](docs/architecture/STREAM_VIEWPORT_GEOMETRY.md)
-- [Android 安全边界](docs/architecture/ANDROID_SECURITY_BOUNDARIES.md)
-
-## 下载与迁移
-
-从 [GitHub Releases](https://github.com/silverpoetry/moonlight-android/releases) 下载：
-
-- `Moonlight-Android-nonRoot-*.apk`：推荐版本，适用于普通 Android 设备。
-- `Moonlight-Android-root-*.apk`：仅用于确实需要 root 变体包名或相关能力的设备。
-
-正式包名为 `com.silverpoetry.moonlight`（root 变体为 `com.silverpoetry.moonlight.root`），应用名称为 **Moonlight**。Release 构建启用完整 R8 代码优化、压缩、混淆和资源收缩；需要源码级诊断时使用 Debug 包。每个 Release 的 R8 mapping 文件必须与 APK 一同归档。
-
-旧版 `com.limelight.unofficialA` 与当前包名不同，不能直接覆盖安装。需要保留旧版主机、证书和密钥时，应按 Release 迁移说明先运行一次性迁移桥，再安装当前 APK；迁移完成后可卸载旧包和迁移桥。
+Release 使用完整 R8 代码优化、混淆和资源收缩。发布时应同时归档 APK、R8 mapping、
+SHA-256、版本信息和签名证书摘要。普通 Release 可以覆盖安装同包名的旧版本并保留
+设置、主机和客户端身份；包名不同的历史测试包需要先按迁移说明导出或迁移数据，再安装
+正式包。
 
 ## 构建与质量门禁
 
-日常开发和发布候选包只构建普通 non-root Release。仓库默认任务就是这个目标：
-
-```powershell
-.\gradlew.bat
-```
-
-等价的显式命令为：
-
-```powershell
-.\gradlew.bat nonRootRelease
-```
-
-提交前的单变体质量门禁：
-
-```powershell
-.\gradlew.bat verifyNonRootRelease
-```
-
-构建系统会对同一工作树的独立 Gradle 进程加锁；第二个进程会等待第一个完成，不会同时
-改写 `app/build/intermediates`。单次构建内部仍可使用 Gradle 的任务并行。不要使用 `-x`
-跳过 Release Lint 任务；需要完整 root/non-root 矩阵时才运行 `verifyLocal`。
+需要 JDK 21、Android SDK、Android NDK `27.0.12077973` 和 Git 子模块：
 
 ```powershell
 git submodule update --init --recursive
 .\gradlew.bat nonRootRelease
 ```
 
-`verifyNonRootRelease` 会执行 non-root Release 的模块测试、Lint、依赖与安全策略校验和 APK
-构建。`verifyLocal` 仍是完整发布门禁，会执行四个变体的 Android Lint、全部测试、SBOM
-以及 root/non-root Release 构建。设备验证方法见 [TESTING.md](TESTING.md)，发布流程见
-[Release Runbook](docs/architecture/RELEASE_RUNBOOK.md)，依赖来源见 [DEPENDENCIES.md](DEPENDENCIES.md)。
+日常开发只构建普通 non-root Release。提交前运行单变体门禁：
+
+```powershell
+.\gradlew.bat verifyNonRootRelease --no-daemon
+```
+
+该门禁包含核心模块测试、应用 Release 单元测试、Release Lint、架构与安全检查、依赖
+和原生依赖校验以及 APK 构建。完整本地门禁为：
+
+```powershell
+.\gradlew.bat verifyLocal --no-daemon
+```
+
+设备验证、升级覆盖安装、回滚演练、跨客户端剪贴板/麦克风矩阵和发布证据要求见
+[TESTING.md](TESTING.md) 与 [Release Runbook](docs/architecture/RELEASE_RUNBOOK.md)。
 
 ## 隐私与安全
 
-- 剪贴板和麦克风仅在串流会话中、经双方能力协商后启用。
-- 文件复制不会在按下复制键时扫描或上传整个目录；数据只在远端明确请求后读取。
-- Release 日志不得包含剪贴板正文、文件路径、证书、密钥或麦克风采样。
-- 配对凭据保存在 Android 应用私有存储中，迁移接口使用签名校验与一次性读取约束。
+- 剪贴板、文件和麦克风能力只在串流会话中、双方协商后启用。
+- 文件复制不会在用户按下复制键时读取或上传整个目录；真实内容只在远端明确请求后
+  进入传输队列。
+- 主机数据库、固定主机证书、客户端证书和私钥保存在应用私有目录，并排除 Android
+  自动备份。显式配置导出由用户主动发起，ZIP 内含私钥时应妥善保存。
+- Release 日志不记录剪贴板正文、文件路径、证书、私钥、麦克风采样或逐事件实时轨迹。
+- 依赖来源、许可证文本和 SBOM 规则见 [DEPENDENCIES.md](DEPENDENCIES.md) 和
+  `app/src/main/assets/third_party_licenses`。
 
-## 作者、贡献者与许可
+## 文档索引
 
-本项目的版权不是由当前维护者单独拥有。Moonlight 上游作者、Axixi 分支作者、当前维护者以及外部代码来源均列于 [CONTRIBUTORS.md](CONTRIBUTORS.md)；完整逐提交归属以 Git 历史为准。GitHub 的动态 [Contributors 图表](https://github.com/silverpoetry/moonlight-android/graphs/contributors) 仅是辅助视图，缓存重算期间可能暂时为空。
+- [架构总则](ARCHITECTURE.md)
+- [变更记录](CHANGELOG.md)
+- [参与贡献](CONTRIBUTING.md)
+- [贡献者、代码来源与许可证边界](CONTRIBUTORS.md)
+- [第三方声明](THIRD_PARTY_NOTICES.md)
+- [测试与发布前验证](TESTING.md)
+- [依赖和 SBOM 策略](DEPENDENCIES.md)
+- [隐私说明](PRIVACY.md)
+- [安全策略](SECURITY.md)
+- [设置架构与配置迁移](docs/architecture/SETTINGS_ARCHITECTURE.md)
+- [模块边界](docs/architecture/GRADLE_MODULE_BOUNDARIES.md)
+- [实时线程约束](docs/architecture/REALTIME_THREADING.md)
+- [串流会话生命周期](docs/architecture/STREAM_SESSION_LIFECYCLE.md)
+- [输入行为基线](docs/architecture/INPUT_BEHAVIOR_BASELINE.md)
+- [窗口、视口和坐标系统](docs/architecture/STREAM_VIEWPORT_GEOMETRY.md)
+- [Android 安全边界](docs/architecture/ANDROID_SECURITY_BOUNDARIES.md)
+- [重构路线图与完成记录](docs/architecture/REFACTORING_ROADMAP.md)
+- [发布 Runbook](docs/architecture/RELEASE_RUNBOOK.md)
+- [架构决策记录](docs/adr)
+- [质量基线](QUALITY_BASELINE.md) · [质量改进计划](QUALITY_IMPROVEMENT_PLAN.md) · [迁移日志](QUALITY_MIGRATION_LOG.md)
 
-项目整体许可见 [GPL-3.0 `LICENSE.txt`](LICENSE.txt)。依赖锁定和来源见 [DEPENDENCIES.md](DEPENDENCIES.md)，随包提供的第三方许可文本位于 [`app/src/main/assets/third_party_licenses`](app/src/main/assets/third_party_licenses)。任何来源署名都不表示原作者或 Moonlight 官方为本分支背书。
+## 贡献与许可
+
+提交问题或补丁时，请说明设备、Android 版本、产品变体、主机端版本和可复现步骤；涉及
+输入、传输、协议、权限或串流生命周期的变更应同时提供对应的契约测试或验证记录。
+开发规则见 [CONTRIBUTING.md](CONTRIBUTING.md)。请勿上传个人设备地址、证书、私钥、
+剪贴板内容、文件路径或麦克风录音。
+
+本项目是 Moonlight Android 的独立分支，相关上游作者、历史来源、外部移植和许可证
+记录见 [CONTRIBUTORS.md](CONTRIBUTORS.md) 和
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。项目整体许可为
+[GPL-3.0](LICENSE.txt)，第三方依赖的许可证随源码和安装包提供。Moonlight、Sunshine
+以及设备和厂商名称归各自权利人所有；项目与相关品牌不存在官方隶属或背书关系。
