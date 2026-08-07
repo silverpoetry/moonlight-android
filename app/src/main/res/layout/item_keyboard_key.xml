@@ -850,7 +850,7 @@
             android:background="@drawable/bg_keyboard_key"
             android:gravity="center"
             android:tag="62"
-            android:text="空格"
+            android:text="@string/keyboard_space"
             android:textColor="@android:color/white"
             android:textSize="12sp" />
 

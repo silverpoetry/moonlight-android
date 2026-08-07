@@ -52,7 +52,7 @@ class GameFunctionFragment : ComposeGameMenuDialogFragment() {
                 ),
             ) {
                 actionGroup(
-                    title = "窗口与工具",
+                    title = getString(R.string.game_menu_group_windows_tools),
                     actions = listOf(
                         Action(R.string.game_menu_task_manager, R.drawable.ic_m3_task_manager, 4),
                         Action(R.string.game_menu_open_clipboard, R.drawable.ic_m3_content_paste, 6),
@@ -64,7 +64,7 @@ class GameFunctionFragment : ComposeGameMenuDialogFragment() {
                     ),
                 )
                 actionGroup(
-                    title = "显示器",
+                    title = getString(R.string.game_menu_group_displays),
                     actions = listOf(
                         Action(R.string.game_menu_display_1, R.drawable.ic_m3_display, 11),
                         Action(R.string.game_menu_display_2, R.drawable.ic_m3_display, 12),
@@ -73,7 +73,7 @@ class GameFunctionFragment : ComposeGameMenuDialogFragment() {
                     ),
                 )
                 actionGroup(
-                    title = "电源",
+                    title = getString(R.string.game_menu_group_power),
                     actions = listOf(
                         Action(R.string.game_menu_logout, R.drawable.ic_m3_logout, 0),
                         Action(R.string.game_menu_sleep, R.drawable.ic_m3_bedtime, 2),

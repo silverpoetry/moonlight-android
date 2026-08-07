@@ -7,7 +7,17 @@ import java.util.Objects;
  * Android capture and native transport implementation.
  */
 public final class MicrophoneUplinkController {
+    public interface Messages {
+        String enabled();
+        String changing();
+        String previousCaptureStopping();
+        String hostUnsupported();
+        String unavailable(String reason);
+        String disabled();
+    }
+
     private final MicrophoneUplinkSessionFactory sessionFactory;
+    private final Messages messages;
 
     private MicrophoneUplinkSession activeSession;
     private MicrophoneUplinkState state;
@@ -15,6 +25,13 @@ public final class MicrophoneUplinkController {
 
     public MicrophoneUplinkController(
             MicrophoneUplinkSessionFactory sessionFactory) {
+        this(defaultMessages(), sessionFactory);
+    }
+
+    public MicrophoneUplinkController(
+            Messages messages,
+            MicrophoneUplinkSessionFactory sessionFactory) {
+        this.messages = Objects.requireNonNull(messages, "messages");
         this.sessionFactory = Objects.requireNonNull(
                 sessionFactory,
                 "sessionFactory");
@@ -45,21 +62,21 @@ public final class MicrophoneUplinkController {
         refreshState();
         if (state == MicrophoneUplinkState.ON &&
                 activeSession != null) {
-            lastMessage = "麦克风已开启";
+            lastMessage = messages.enabled();
             return true;
         }
         if (state == MicrophoneUplinkState.STARTING ||
                 state == MicrophoneUplinkState.STOPPING) {
-            lastMessage = "麦克风状态正在切换";
+            lastMessage = messages.changing();
             return false;
         }
         if (activeSession != null) {
-            lastMessage = "上一次麦克风采集仍在停止";
+            lastMessage = messages.previousCaptureStopping();
             return false;
         }
         if (!sessionFactory.isSupported()) {
             state = MicrophoneUplinkState.UNAVAILABLE;
-            lastMessage = "主机不支持麦克风上行";
+            lastMessage = messages.hostUnsupported();
             return false;
         }
 
@@ -79,11 +96,11 @@ public final class MicrophoneUplinkController {
             }
 
             state = MicrophoneUplinkState.ON;
-            lastMessage = "麦克风已开启";
+            lastMessage = messages.enabled();
             return true;
         }
         catch (RuntimeException error) {
-            lastMessage = "麦克风不可用：" + error.getMessage();
+            lastMessage = messages.unavailable(error.getMessage());
             stopFailedStartSession();
             state = MicrophoneUplinkState.ERROR;
             return false;
@@ -109,7 +126,7 @@ public final class MicrophoneUplinkController {
         state = sessionFactory.isSupported()
                 ? MicrophoneUplinkState.OFF
                 : MicrophoneUplinkState.UNAVAILABLE;
-        lastMessage = "麦克风已关闭";
+        lastMessage = messages.disabled();
         return true;
     }
 
@@ -148,5 +165,22 @@ public final class MicrophoneUplinkController {
         finally {
             activeSession = null;
         }
+    }
+
+    private static Messages defaultMessages() {
+        return new Messages() {
+            public String enabled() { return "Microphone enabled"; }
+            public String changing() { return "Microphone state is changing"; }
+            public String previousCaptureStopping() {
+                return "The previous microphone capture is still stopping";
+            }
+            public String hostUnsupported() {
+                return "The host does not support microphone uplink";
+            }
+            public String unavailable(String reason) {
+                return "Microphone unavailable: " + reason;
+            }
+            public String disabled() { return "Microphone disabled"; }
+        };
     }
 }

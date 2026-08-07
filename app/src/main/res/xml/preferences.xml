@@ -39,15 +39,15 @@
             seekbar:divisor="1000" />
         <EditTextPreference
             android:key="editor_video_bitrate_mbps"
-            android:title="强制设置视频码率（覆盖上方滑动码率）"
-            android:summary="如果滑动调节不够精确，可以手动输入 Mbps。超过滑块范围的值仍会在串流时生效。"
-            android:dialogTitle="输入视频码率（Mbps）"
-            android:dialogMessage="支持整数或一位小数。"
+            android:title="@string/settings_title_bitrate_override"
+            android:summary="@string/settings_summary_bitrate_override"
+            android:dialogTitle="@string/settings_dialog_bitrate_override_title"
+            android:dialogMessage="@string/settings_dialog_bitrate_override_message"
             android:singleLine="true" />
         <CheckBoxPreference
             android:key="stream.display.portrait"
-            android:title="竖屏显示模式"
-            android:summary="搭配竖屏自定义分辨率使用，并确保主机显示方向一致。"
+            android:title="@string/settings_title_portrait_display_mode"
+            android:summary="@string/settings_summary_portrait_display_mode"
             android:defaultValue="false" />
         <ListPreference
             android:key="stream.video.codec"
@@ -65,8 +65,8 @@
             android:defaultValue="latency" />
         <CheckBoxPreference
             android:key="stream.video.low_latency_decode"
-            android:title="优化解码低延迟模式（实验性）"
-            android:summary="在部分高通和联发科设备上启用更低延迟的解码路径。"
+            android:title="@string/settings_title_low_latency_decoder"
+            android:summary="@string/settings_summary_low_latency_decoder"
             android:defaultValue="true" />
         <CheckBoxPreference
             android:key="stream.video.hdr.enabled"
@@ -99,19 +99,19 @@
             android:defaultValue="false" />
         <CheckBoxPreference
             android:key="stream.display.automatic_orientation"
-            android:title="横竖屏自由切换"
+            android:title="@string/settings_title_free_rotation"
             android:defaultValue="false" />
         <ListPreference
             android:key="stream.display.gravity"
-            android:title="画面显示位置"
-            android:summary="用于折叠屏、平板或特殊画幅下调整画面对齐方式。"
+            android:title="@string/settings_title_screen_gravity"
+            android:summary="@string/settings_summary_screen_gravity"
             android:entries="@array/screen_gravity_list_names"
             android:entryValues="@array/screen_gravity_list_values"
             android:defaultValue="0" />
         <CheckBoxPreference
             android:key="stream.display.external_display"
-            android:title="外接显示器模式（实验性）"
-            android:summary="串流画面显示在外接显示器，控制和性能信息保留在设备屏幕。"
+            android:title="@string/settings_title_external_display_mode"
+            android:summary="@string/settings_summary_external_display_mode"
             android:defaultValue="false" />
     </PreferenceCategory>
 
@@ -147,8 +147,8 @@
         android:title="@string/category_touch_mouse_settings">
         <ListPreference
             android:key="input.pointer.mode"
-            android:title="触控与鼠标模式"
-            android:summary="选择触屏、触控板或鼠标输入的处理方式。多点触控板模式需要主机端支持。"
+            android:title="@string/settings_title_mouse_touch_mode"
+            android:summary="@string/settings_summary_mouse_touch_mode"
             android:entries="@array/mouse_mode_names"
             android:entryValues="@array/mouse_mode_values"
             android:defaultValue="0" />
@@ -161,8 +161,8 @@
             android:defaultValue="0" />
         <CheckBoxPreference
             android:key="input.pointer.local_system_cursor"
-            android:title="使用本地系统鼠标光标"
-            android:summary="显示 Android 系统光标；这与串流端回传并在本地绘制的远程光标不同。"
+            android:title="@string/settings_title_system_mouse_cursor"
+            android:summary="@string/settings_summary_system_mouse_cursor"
             android:defaultValue="false" />
         <CheckBoxPreference
             android:key="input.pointer.navigation_buttons"
@@ -313,8 +313,8 @@
             android:max="50" />
         <CheckBoxPreference
             android:key="input.controller.trigger_deadzone_disabled"
-            android:title="禁用默认手柄扳机死区"
-            android:summary="让 Moonlight 不再应用默认的 13% 扳机死区；部分设备驱动仍可能自行处理死区。"
+            android:title="@string/settings_title_disable_trigger_deadzone"
+            android:summary="@string/settings_summary_disable_trigger_deadzone"
             android:defaultValue="false" />
         <CheckBoxPreference
             android:key="input.controller.multiple_controllers"
@@ -415,18 +415,18 @@
             seekbar:keyStep="5" />
         <CheckBoxPreference
             android:key="input.controller.joycon_compatibility"
-            android:title="Switch Joy-Con 兼容模式"
-            android:summary="仅在 Joy-Con 无法使用或按键识别异常时开启。"
+            android:title="@string/settings_title_joycon_compatibility"
+            android:summary="@string/settings_summary_joycon_compatibility"
             android:defaultValue="false" />
         <CheckBoxPreference
             android:key="input.controller.battery_reporting"
-            android:title="启用手柄电池状态报告"
-            android:summary="在可用时汇报手柄电池状态；若其他输入偶发卡顿，可尝试关闭。"
+            android:title="@string/settings_title_controller_battery_status"
+            android:summary="@string/settings_summary_controller_battery_status"
             android:defaultValue="true" />
         <CheckBoxPreference
             android:key="input.virtual_gamepad.device_motion"
-            android:title="虚拟手柄使用设备陀螺仪"
-            android:summary="把手机或平板的运动传感器作为虚拟手柄运动数据。"
+            android:title="@string/settings_title_virtual_gamepad_gyro"
+            android:summary="@string/settings_summary_virtual_gamepad_gyro"
             android:defaultValue="false" />
         <CheckBoxPreference
             android:key="input.controller.rumble.fallback_to_device"
@@ -443,13 +443,13 @@
             android:max="200" />
         <CheckBoxPreference
             android:key="input.controller.rumble.flip_motors"
-            android:title="反转左右握把震动"
-            android:summary="仅在左右震动与扳机对应关系相反时开启。"
+            android:title="@string/settings_title_swap_rumble_motors"
+            android:summary="@string/settings_summary_swap_rumble_motors"
             android:defaultValue="false" />
         <CheckBoxPreference
             android:key="input.controller.rumble.use_device"
-            android:title="强制使用设备震动马达"
-            android:summary="忽略手柄自身震动并改用手机或平板的震动马达。"
+            android:title="@string/settings_title_force_device_vibration"
+            android:summary="@string/settings_summary_force_device_vibration"
             android:defaultValue="false" />
         <CheckBoxPreference
             android:key="input.controller.rumble.force_strong"
@@ -474,8 +474,8 @@
             android:defaultValue="false" />
         <ListPreference
             android:key="input.virtual_gamepad.layout_id"
-            android:title="虚拟手柄布局"
-            android:summary="横屏和竖屏分别保存所选布局。"
+            android:title="@string/settings_title_virtual_gamepad_layout"
+            android:summary="@string/settings_summary_orientation_specific_layout"
             android:entries="@array/gamepad_layout_names"
             android:entryValues="@array/gamepad_layout_values"
             android:defaultValue="gamePad" />
@@ -498,33 +498,33 @@
             seekbar:step="1" />
         <CheckBoxPreference
             android:key="input.virtual_gamepad.disable_stick_click"
-            android:title="禁用摇杆中心点击"
-            android:summary="禁止虚拟手柄摇杆中心区域触发 L3 和 R3。"
+            android:title="@string/settings_title_disable_stick_clicks"
+            android:summary="@string/settings_summary_disable_stick_clicks"
             android:defaultValue="false" />
         <Preference
             android:key="action_virtual_gamepad_import"
-            android:title="导入虚拟手柄布局"
-            android:summary="导入并覆盖当前选择的横屏布局。" />
+            android:title="@string/settings_title_import_virtual_gamepad_layout"
+            android:summary="@string/settings_summary_import_landscape_layout" />
         <Preference
             android:key="action_virtual_gamepad_export"
-            android:title="导出虚拟手柄布局"
-            android:summary="导出当前选择的横屏布局。" />
+            android:title="@string/settings_title_export_virtual_gamepad_layout"
+            android:summary="@string/settings_summary_export_landscape_layout" />
         <CheckBoxPreference
             android:key="input.virtual_keyboard.show_on_start"
-            android:title="显示虚拟按键"
-            android:summary="在触摸屏上显示可自定义的虚拟按键层。"
+            android:title="@string/settings_title_show_virtual_buttons"
+            android:summary="@string/settings_summary_show_virtual_buttons"
             android:defaultValue="false" />
         <ListPreference
             android:key="input.virtual_keyboard.layout_id"
-            android:title="虚拟按键布局"
-            android:summary="横屏和竖屏分别保存所选布局。"
+            android:title="@string/settings_title_virtual_button_layout"
+            android:summary="@string/settings_summary_orientation_specific_layout"
             android:entries="@array/keyboard_layout_names"
             android:entryValues="@array/keyboard_layout_values"
             android:defaultValue="OSC_Keyboard" />
         <SeekBarPreference
             android:key="input.virtual_keyboard.opacity_percent"
-            android:title="虚拟全键盘透明度"
-            android:summary="调整虚拟全键盘的透明度。"
+            android:title="@string/settings_title_virtual_keyboard_opacity"
+            android:summary="@string/settings_summary_virtual_keyboard_opacity"
             android:text="%"
             android:defaultValue="90"
             android:max="100"
@@ -532,8 +532,8 @@
             seekbar:step="1" />
         <SeekBarPreference
             android:key="input.virtual_keyboard.height_dp"
-            android:title="虚拟全键盘高度"
-            android:summary="调整虚拟全键盘的显示高度。"
+            android:title="@string/settings_title_virtual_keyboard_height"
+            android:summary="@string/settings_summary_virtual_keyboard_height"
             android:text="dp"
             android:defaultValue="200"
             android:max="400"
@@ -541,22 +541,22 @@
             seekbar:step="10" />
         <CheckBoxPreference
             android:key="input.virtual_keyboard.combination_mode"
-            android:title="全键盘组合键模式"
-            android:summary="打开全键盘时默认启用组合键选择。"
+            android:title="@string/settings_title_keyboard_chord_default"
+            android:summary="@string/settings_summary_keyboard_chord_default"
             android:defaultValue="false" />
         <CheckBoxPreference
             android:key="input.virtual_keyboard.haptics"
-            android:title="虚拟按键震动"
-            android:summary="点按虚拟按键时触发设备震动。"
+            android:title="@string/settings_title_virtual_button_vibration"
+            android:summary="@string/settings_summary_virtual_button_vibration"
             android:defaultValue="false" />
         <Preference
             android:key="action_virtual_keyboard_import"
-            android:title="导入虚拟按键布局"
-            android:summary="导入并覆盖当前选择的横屏布局。" />
+            android:title="@string/settings_title_import_virtual_button_layout"
+            android:summary="@string/settings_summary_import_landscape_layout" />
         <Preference
             android:key="action_virtual_keyboard_export"
-            android:title="导出虚拟按键布局"
-            android:summary="导出当前选择的横屏布局。" />
+            android:title="@string/settings_title_export_virtual_button_layout"
+            android:summary="@string/settings_summary_export_landscape_layout" />
     </PreferenceCategory>
 
     <PreferenceCategory
@@ -584,13 +584,13 @@
             android:defaultValue="true" />
         <CheckBoxPreference
             android:key="input.controller.mouse_emulation.opens_game_menu"
-            android:title="返回键打开串流菜单"
-            android:summary="串流中按返回键打开快捷操作与设置菜单。"
+            android:title="@string/settings_title_back_opens_stream_menu"
+            android:summary="@string/settings_summary_back_opens_stream_menu"
             android:defaultValue="true" />
         <CheckBoxPreference
             android:key="stream.ui.floating_control.enabled"
-            android:title="启用悬浮快捷按钮"
-            android:summary="在串流界面显示用于打开快捷菜单的悬浮按钮。"
+            android:title="@string/settings_title_enable_floating_stream_button"
+            android:summary="@string/settings_summary_enable_floating_stream_button"
             android:defaultValue="true" />
         <IntegerListPreference
             android:key="stream.ui.floating_control.action"
@@ -626,20 +626,20 @@
         <CheckBoxPreference
             android:key="stream.ui.performance_overlay.compact"
             android:dependency="stream.ui.performance_overlay.enabled"
-            android:title="使用精简性能信息"
-            android:summary="仅显示网速、延迟、解码、丢包率和帧率。"
+            android:title="@string/settings_title_compact_performance_overlay"
+            android:summary="@string/settings_summary_compact_performance_overlay"
             android:defaultValue="true" />
         <CheckBoxPreference
             android:key="stream.ui.performance_overlay.interactive"
             android:dependency="stream.ui.performance_overlay.compact"
-            android:title="点击性能信息打开快捷菜单"
-            android:summary="点击精简性能信息时打开串流快捷菜单。"
+            android:title="@string/settings_title_performance_overlay_menu"
+            android:summary="@string/settings_summary_performance_overlay_menu"
             android:defaultValue="true" />
         <CheckBoxPreference
             android:key="stream.ui.performance_overlay.details"
             android:dependency="stream.ui.performance_overlay.compact"
-            android:title="显示扩展性能参数"
-            android:summary="增加分辨率、HDR 和解码器等参数。"
+            android:title="@string/settings_title_extended_performance_overlay"
+            android:summary="@string/settings_summary_extended_performance_overlay"
             android:defaultValue="true" />
         <SeekBarPreference
             android:key="stream.ui.performance_overlay.scale_percent"
@@ -655,9 +655,9 @@
             seekbar:keyStep="5" />
         <SeekBarPreference
             android:key="stream.ui.performance_overlay.margin_top_dp"
-            android:title="性能信息顶部边距"
-            android:summary="调整精简性能信息距屏幕顶部的距离。"
-            android:dialogMessage="调整精简性能信息距屏幕顶部的距离。"
+            android:title="@string/settings_title_performance_overlay_top_margin"
+            android:summary="@string/settings_summary_performance_overlay_top_margin"
+            android:dialogMessage="@string/settings_summary_performance_overlay_top_margin"
             android:text="dp"
             android:defaultValue="4"
             android:max="100"
@@ -670,8 +670,8 @@
             android:defaultValue="false" />
         <CheckBoxPreference
             android:key="stream.ui.shortcuts.hide_built_in"
-            android:title="隐藏内置快捷键"
-            android:summary="仅使用自定义导入的快捷键配置。"
+            android:title="@string/settings_title_hide_builtin_shortcuts"
+            android:summary="@string/settings_summary_hide_builtin_shortcuts"
             android:defaultValue="false" />
         <CheckBoxPreference
             android:key="stream.ui.connection_warnings_disabled"
@@ -709,17 +709,17 @@
         android:title="@string/category_system_accessibility_settings">
         <CheckBoxPreference
             android:key="stream.ui.game_mode_integration_disabled"
-            android:title="禁用系统游戏模式集成"
-            android:summary="仅在系统游戏模式导致兼容问题时开启。"
+            android:title="@string/settings_title_disable_game_mode_integration"
+            android:summary="@string/settings_summary_disable_game_mode_integration"
             android:defaultValue="false" />
         <Preference
             android:key="action_accessibility_config_import"
-            android:title="导入无障碍按键配置"
-            android:summary="导入并覆盖当前无障碍按键映射。" />
+            android:title="@string/settings_title_import_accessibility_key_config"
+            android:summary="@string/settings_summary_import_accessibility_key_config" />
         <CheckBoxPreference
             android:key="input.accessibility.key_logging"
-            android:title="显示无障碍捕获键值"
-            android:summary="用于制作自定义按键配置；启用后会显示捕获到的键值。"
+            android:title="@string/settings_title_show_accessibility_key_codes"
+            android:summary="@string/settings_summary_show_accessibility_key_codes"
             android:defaultValue="false" />
     </PreferenceCategory>
 
@@ -741,13 +741,13 @@
         android:title="@string/category_about_settings">
         <WebLauncherPreference
             android:key="action_about_app"
-            android:title="关于 Moonlight"
-            android:summary="版本、许可证与项目贡献者"
+            android:title="@string/settings_title_about_moonlight"
+            android:summary="@string/settings_summary_about_moonlight"
             url="about" />
         <WebLauncherPreference
             android:key="action_about_help"
-            android:title="Moonlight 使用指南"
-            android:summary="查看官方使用文档"
+            android:title="@string/settings_title_moonlight_guide"
+            android:summary="@string/settings_summary_moonlight_guide"
             url="https://github.com/moonlight-stream/moonlight-docs/wiki/Setup-Guide" />
     </PreferenceCategory>
 

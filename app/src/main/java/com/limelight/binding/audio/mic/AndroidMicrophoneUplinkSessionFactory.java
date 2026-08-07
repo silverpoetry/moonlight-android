@@ -1,5 +1,7 @@
 package com.limelight.binding.audio.mic;
 
+import android.content.Context;
+
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.nvstream.mic.MicrophoneUplinkConfig;
 import com.limelight.nvstream.mic.MicrophoneUplinkSession;
@@ -13,9 +15,12 @@ import java.util.Objects;
 public final class AndroidMicrophoneUplinkSessionFactory
         implements MicrophoneUplinkSessionFactory {
     private final MicrophoneUplinkConfig config;
+    private final Context appContext;
 
     public AndroidMicrophoneUplinkSessionFactory(
+            Context context,
             MicrophoneUplinkConfig config) {
+        appContext = context.getApplicationContext();
         this.config = Objects.requireNonNull(config, "config");
     }
 
@@ -26,6 +31,6 @@ public final class AndroidMicrophoneUplinkSessionFactory
 
     @Override
     public MicrophoneUplinkSession create() {
-        return new AndroidMicrophoneUplinkSession(config);
+        return new AndroidMicrophoneUplinkSession(appContext, config);
     }
 }

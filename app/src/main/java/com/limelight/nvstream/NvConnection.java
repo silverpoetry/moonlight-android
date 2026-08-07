@@ -29,6 +29,7 @@ import org.xmlpull.v1.XmlPullParserException;
 
 import com.limelight.DebugLog;
 import com.limelight.LimeLog;
+import com.limelight.R;
 import com.limelight.nvstream.av.audio.AudioRenderer;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 import com.limelight.nvstream.clipboard.android.SharedPreferencesClipboardSyncCheckpointStore;
@@ -84,7 +85,8 @@ public class NvConnection implements StreamSessionConnection,
             ClipboardFileDownloadListener listener) {
         ClipboardSyncController controller = clipboardSyncController;
         if (controller == null) {
-            listener.onError("剪贴板同步尚未连接");
+            listener.onError(appContext.getString(
+                    R.string.clipboard_sync_not_connected));
             return;
         }
         controller.downloadRemoteFiles(
@@ -122,6 +124,44 @@ public class NvConnection implements StreamSessionConnection,
         this.useAbsoluteMousePosition = config.getNativeCursorEnabled();
         this.microphoneUplinkController =
                 new MicrophoneUplinkController(
+                        new MicrophoneUplinkController.Messages() {
+                            @Override
+                            public String enabled() {
+                                return appContext.getString(
+                                        R.string.mic_status_enabled);
+                            }
+
+                            @Override
+                            public String changing() {
+                                return appContext.getString(
+                                        R.string.mic_status_changing);
+                            }
+
+                            @Override
+                            public String previousCaptureStopping() {
+                                return appContext.getString(
+                                        R.string.mic_status_previous_capture_stopping);
+                            }
+
+                            @Override
+                            public String hostUnsupported() {
+                                return appContext.getString(
+                                        R.string.mic_status_host_unsupported);
+                            }
+
+                            @Override
+                            public String unavailable(String reason) {
+                                return appContext.getString(
+                                        R.string.mic_status_unavailable_with_reason,
+                                        reason);
+                            }
+
+                            @Override
+                            public String disabled() {
+                                return appContext.getString(
+                                        R.string.mic_status_disabled);
+                            }
+                        },
                         microphoneUplinkSessionFactory);
         if (isValidMouseReference(config.getWidth(), config.getHeight())) {
             this.mouseReferenceWidth = config.getWidth();

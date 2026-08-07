@@ -84,30 +84,30 @@ class GamePadAddFragment : ComposeGameMenuDialogFragment() {
 
     private fun createEntries(): List<GameMenuQuickBean> = buildList {
         add(button("ABXY", ControllerPacket.PADDLE2_FLAG, "Y-X-A-B", 5))
-        add(button("十字键", ControllerPacket.PADDLE1_FLAG, "▲-◀-▼-▶", 5))
-        add(button("L3", ControllerPacket.LS_CLK_FLAG, "左摇杆按下"))
-        add(button("R3", ControllerPacket.RS_CLK_FLAG, "右摇杆按下"))
-        add(button("L1", ControllerPacket.LB_FLAG, "左肩键"))
-        add(button("L2", ControllerPacket.PADDLE3_FLAG, "左扳机").setShapeType(1))
-        add(button("R1", ControllerPacket.RB_FLAG, "右肩键"))
-        add(button("R2", ControllerPacket.PADDLE4_FLAG, "右扳机").setShapeType(1))
-        add(button("MODE", ControllerPacket.SPECIAL_BUTTON_FLAG, "Xbox 键"))
-        add(button("SELECT", ControllerPacket.BACK_FLAG, "视图键"))
-        add(button("START", ControllerPacket.PLAY_FLAG, "菜单键"))
-        add(button("触控板", ControllerPacket.TOUCHPAD_FLAG, "触控板按键"))
+        add(button(getString(R.string.gamepad_dpad), ControllerPacket.PADDLE1_FLAG, "▲-◀-▼-▶", 5))
+        add(button("L3", ControllerPacket.LS_CLK_FLAG, getString(R.string.gamepad_left_stick_click)))
+        add(button("R3", ControllerPacket.RS_CLK_FLAG, getString(R.string.gamepad_right_stick_click)))
+        add(button("L1", ControllerPacket.LB_FLAG, getString(R.string.gamepad_left_bumper)))
+        add(button("L2", ControllerPacket.PADDLE3_FLAG, getString(R.string.gamepad_left_trigger)).setShapeType(1))
+        add(button("R1", ControllerPacket.RB_FLAG, getString(R.string.gamepad_right_bumper)))
+        add(button("R2", ControllerPacket.PADDLE4_FLAG, getString(R.string.gamepad_right_trigger)).setShapeType(1))
+        add(button("MODE", ControllerPacket.SPECIAL_BUTTON_FLAG, getString(R.string.gamepad_xbox_button)))
+        add(button("SELECT", ControllerPacket.BACK_FLAG, getString(R.string.gamepad_view_button)))
+        add(button("START", ControllerPacket.PLAY_FLAG, getString(R.string.gamepad_menu_button)))
+        add(button(getString(R.string.gamepad_touchpad), ControllerPacket.TOUCHPAD_FLAG, getString(R.string.gamepad_touchpad_button)))
 
-        addAll(stickEntries("左摇杆", ControllerPacket.PADDLE5_FLAG))
-        addAll(stickEntries("右摇杆", ControllerPacket.PADDLE6_FLAG))
+        addAll(stickEntries(getString(R.string.gamepad_left_stick), ControllerPacket.PADDLE5_FLAG))
+        addAll(stickEntries(getString(R.string.gamepad_right_stick), ControllerPacket.PADDLE6_FLAG))
 
-        add(button("A", ControllerPacket.A_FLAG, "A 键"))
-        add(button("B", ControllerPacket.B_FLAG, "B 键"))
-        add(button("X", ControllerPacket.X_FLAG, "X 键"))
-        add(button("Y", ControllerPacket.Y_FLAG, "Y 键"))
-        add(button("▲", ControllerPacket.UP_FLAG, "十字键·上"))
-        add(button("▼", ControllerPacket.DOWN_FLAG, "十字键·下"))
-        add(button("◀", ControllerPacket.LEFT_FLAG, "十字键·左"))
-        add(button("▶", ControllerPacket.RIGHT_FLAG, "十字键·右"))
-        add(button("Share", ControllerPacket.MISC_FLAG, "手柄分享键"))
+        add(button("A", ControllerPacket.A_FLAG, getString(R.string.gamepad_a_button)))
+        add(button("B", ControllerPacket.B_FLAG, getString(R.string.gamepad_b_button)))
+        add(button("X", ControllerPacket.X_FLAG, getString(R.string.gamepad_x_button)))
+        add(button("Y", ControllerPacket.Y_FLAG, getString(R.string.gamepad_y_button)))
+        add(button("▲", ControllerPacket.UP_FLAG, getString(R.string.gamepad_dpad_up)))
+        add(button("▼", ControllerPacket.DOWN_FLAG, getString(R.string.gamepad_dpad_down)))
+        add(button("◀", ControllerPacket.LEFT_FLAG, getString(R.string.gamepad_dpad_left)))
+        add(button("▶", ControllerPacket.RIGHT_FLAG, getString(R.string.gamepad_dpad_right)))
+        add(button("Share", ControllerPacket.MISC_FLAG, getString(R.string.gamepad_share_button)))
     }
 
     private fun button(
@@ -118,15 +118,15 @@ class GamePadAddFragment : ComposeGameMenuDialogFragment() {
     ) = GameMenuQuickBean(name, code, description, type, false).setGamePad(true)
 
     private fun stickEntries(name: String, code: Int): List<GameMenuQuickBean> = listOf(
-        button(name, code, "常规模式", 3).setFreeStick(false),
-        button(name, code, "常规·最大偏转", 3)
+        button(name, code, getString(R.string.gamepad_stick_standard), 3).setFreeStick(false),
+        button(name, code, getString(R.string.gamepad_stick_standard_full_range), 3)
             .setFreeStick(false).setFixedStrokeFreeStick(true),
-        button(name, code, "自由摇杆", 3).setFreeStick(true),
-        button(name, code, "自由摇杆·触发显示", 3)
+        button(name, code, getString(R.string.gamepad_stick_free), 3).setFreeStick(true),
+        button(name, code, getString(R.string.gamepad_stick_free_show_on_touch), 3)
             .setFreeStick(true).setFreeeStickDrawNormal(false),
-        button(name, code, "自由摇杆·最大偏转", 3)
+        button(name, code, getString(R.string.gamepad_stick_free_full_range), 3)
             .setFreeStick(true).setFixedStrokeFreeStick(true),
-        button(name, code, "自由·最大偏转·触发显示", 3)
+        button(name, code, getString(R.string.gamepad_stick_free_full_range_show_on_touch), 3)
             .setFreeStick(true)
             .setFixedStrokeFreeStick(true)
             .setFreeeStickDrawNormal(false),

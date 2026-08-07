@@ -64,11 +64,11 @@ class GameListQuickFragment : ComposeGameMenuDialogFragment() {
         var pendingDelete by remember { mutableStateOf<GameMenuShortcut?>(null) }
 
         GameMenuComposePage(
-            title = title ?: "快捷键",
+            title = title ?: stringResource(R.string.game_menu_shortcuts_title),
             onBack = ::dismiss,
             action = {
                 TextButton(onClick = ::showShortcutEditor) {
-                    Text("新增")
+                    Text(stringResource(R.string.game_menu_shortcuts_add))
                 }
             },
         ) {
@@ -82,7 +82,7 @@ class GameListQuickFragment : ComposeGameMenuDialogFragment() {
             ) {
                 item {
                     Text(
-                        text = "点击发送；自定义项目可直接删除",
+                        text = stringResource(R.string.game_menu_shortcuts_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -156,6 +156,7 @@ class GameListQuickFragment : ComposeGameMenuDialogFragment() {
         GameMenuShortcutCatalog.loadShortcuts(
             host.state.shortcuts,
             !hideBuiltInShortcuts,
+            requireContext(),
         )
 
     private fun showShortcutEditor() {

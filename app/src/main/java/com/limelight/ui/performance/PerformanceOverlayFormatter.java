@@ -19,6 +19,43 @@ public final class PerformanceOverlayFormatter {
         String format(long byteCount);
     }
 
+    /** Supplies presentation strings while keeping metric calculations Android-free. */
+    public interface TextProvider {
+        String get(Text text);
+    }
+
+    public enum Text {
+        BANDWIDTH,
+        LATENCY_DECODE,
+        PACKET_LOSS,
+        STATUS,
+        RESOLUTION,
+        CODEC,
+        TARGET_BITRATE,
+        TARGET_FPS,
+        ACTUAL_FPS,
+        VIDEO_BITRATE,
+        AUDIO_BITRATE,
+        VIDEO_DATA,
+        AUDIO_DATA,
+        RENDERER,
+        SYSTEM_RENDERER,
+        CONNECTION_ADDRESS,
+        LOCAL_DURATION,
+        NETWORK_LATENCY,
+        NETWORK_LATENCY_VALUE,
+        DECODE_LATENCY,
+        HOST_LATENCY,
+        MICROPHONE,
+        USB_CONTROLLER,
+        ENABLED,
+        DISABLED,
+        USB_CLAIMED,
+        USB_CLAIMED_WITH_TYPE,
+        USB_STANDBY,
+        USB_NOT_STARTED,
+    }
+
     public static final class Row {
         public final String label;
         public final String value;
@@ -30,12 +67,22 @@ public final class PerformanceOverlayFormatter {
     }
 
     private final ByteCountFormatter byteCountFormatter;
+    private final TextProvider textProvider;
 
     public PerformanceOverlayFormatter(
             ByteCountFormatter byteCountFormatter) {
+        this(byteCountFormatter, PerformanceOverlayFormatter::defaultText);
+    }
+
+    public PerformanceOverlayFormatter(
+            ByteCountFormatter byteCountFormatter,
+            TextProvider textProvider) {
         this.byteCountFormatter = Objects.requireNonNull(
                 byteCountFormatter,
                 "byteCountFormatter");
+        this.textProvider = Objects.requireNonNull(
+                textProvider,
+                "textProvider");
     }
 
     public String formatCompact(
@@ -48,7 +95,7 @@ public final class PerformanceOverlayFormatter {
 
         StringBuilder builder = new StringBuilder();
         if (stats.networkRateKbps > 0) {
-            builder.append("带宽：")
+            builder.append(text(Text.BANDWIDTH)).append(": ")
                     .append(formatThroughput(stats.networkRateKbps))
                     .append("  ");
         }
@@ -63,7 +110,7 @@ public final class PerformanceOverlayFormatter {
             builder.append(nonEmpty(stats.codecName, "--"));
             builder.append("  ");
         }
-        builder.append("延迟/解码：");
+        builder.append(text(Text.LATENCY_DECODE)).append(": ");
         if (stats.networkLatencyAvailable) {
             builder.append(stats.networkLatencyMs)
                     .append(" ms");
@@ -78,7 +125,7 @@ public final class PerformanceOverlayFormatter {
                         "%.2f ms",
                         stats.decodeTimeMs) :
                 "--");
-        builder.append("  丢包率：")
+        builder.append("  ").append(text(Text.PACKET_LOSS)).append(": ")
                 .append(String.format(
                         Locale.US,
                         "%.2f%%",
@@ -100,70 +147,71 @@ public final class PerformanceOverlayFormatter {
             PerformanceOverlayRuntimeState runtime) {
         if (stats == null) {
             return Collections.singletonList(
-                    new Row("状态", "--"));
+                    new Row(text(Text.STATUS), "--"));
         }
 
         List<Row> rows = new ArrayList<>();
         rows.add(new Row(
-                "分辨率",
+                text(Text.RESOLUTION),
                 resolution(stats, configuration, true)));
         rows.add(new Row(
-                "编码",
+                text(Text.CODEC),
                 nonEmpty(stats.codecName, "--")));
         rows.add(new Row(
-                "目标码率",
+                text(Text.TARGET_BITRATE),
                 formatMbps(stats.targetBitrateKbps > 0 ?
                         stats.targetBitrateKbps :
                         configuration
                                 .getDecoderSettings()
                                 .getBitrateKbps())));
         rows.add(new Row(
-                "目标帧率",
+                text(Text.TARGET_FPS),
                 (stats.targetFps > 0 ?
                         stats.targetFps :
                         configuration
                                 .getDecoderSettings()
                                 .getFps()) + " FPS"));
         rows.add(new Row(
-                "实时帧率",
+                text(Text.ACTUAL_FPS),
                 formatFps(stats.totalFps)));
         rows.add(new Row(
-                "视频码率",
+                text(Text.VIDEO_BITRATE),
                 formatRate(stats.videoRateKbps)));
         rows.add(new Row(
-                "音频码率",
+                text(Text.AUDIO_BITRATE),
                 formatRate(stats.audioRateKbps)));
         rows.add(new Row(
-                "累计视频流量",
+                text(Text.VIDEO_DATA),
                 formatBytes(stats.videoBytes)));
         rows.add(new Row(
-                "累计音频流量",
+                text(Text.AUDIO_DATA),
                 formatBytes(stats.audioBytes)));
         rows.add(new Row(
-                "渲染方式",
-                "系统渲染"));
+                text(Text.RENDERER),
+                text(Text.SYSTEM_RENDERER)));
         rows.add(new Row(
-                "连接地址",
+                text(Text.CONNECTION_ADDRESS),
                 nonEmpty(runtime.streamHost, "--")));
         rows.add(new Row(
-                "本地时长",
+                text(Text.LOCAL_DURATION),
                 formatSessionDuration(runtime)));
         rows.add(new Row(
-                "网络延迟",
+                text(Text.NETWORK_LATENCY),
                 stats.networkLatencyAvailable ?
-                        stats.networkLatencyMs +
-                                " ms / 抖动 " +
-                                stats.networkLatencyVarianceMs +
-                                " ms" :
+                        String.format(
+                                Locale.US,
+                                text(Text.NETWORK_LATENCY_VALUE),
+                                stats.networkLatencyMs,
+                                stats.networkLatencyVarianceMs) :
                         "--"));
         rows.add(new Row(
-                "丢包率",
+                text(Text.PACKET_LOSS),
                 String.format(
                         Locale.US,
                         "%.2f%%",
                         stats.packetLossPercent)));
         rows.add(new Row(
-                "解码延迟",
+                text(Text.DECODE_LATENCY),
                 stats.decoderLatencyAvailable ?
                         String.format(
                                 Locale.US,
@@ -171,7 +219,7 @@ public final class PerformanceOverlayFormatter {
                                 stats.decodeTimeMs) :
                         "--"));
         rows.add(new Row(
-                "主机延迟",
+                text(Text.HOST_LATENCY),
                 stats.hostProcessingLatencyMs > 0 ?
                         String.format(
                                 Locale.US,
@@ -179,12 +227,12 @@ public final class PerformanceOverlayFormatter {
                                 stats.hostProcessingLatencyMs) :
                         "--"));
         rows.add(new Row(
-                "麦克风",
+                text(Text.MICROPHONE),
                 runtime.micActive ?
-                        "开启" :
-                        "关闭"));
+                        text(Text.ENABLED) :
+                        text(Text.DISABLED)));
         rows.add(new Row(
-                "USB手柄",
+                text(Text.USB_CONTROLLER),
                 formatUsbController(
                         configuration.getControllerSettings(),
                         runtime)));
@@ -215,17 +263,20 @@ public final class PerformanceOverlayFormatter {
             ControllerSettings settings,
             PerformanceOverlayRuntimeState runtime) {
         if (!settings.isUsbDriverEnabled()) {
-            return "关闭";
+            return text(Text.DISABLED);
         }
         if (runtime.usbControllerActive) {
             String type = runtime.usbControllerTypeDisplayName;
             return type != null && !type.isEmpty() ?
-                    "已接管 / " + type :
-                    "已接管";
+                    String.format(
+                            Locale.US,
+                            text(Text.USB_CLAIMED_WITH_TYPE),
+                            type) :
+                    text(Text.USB_CLAIMED);
         }
         return runtime.usbServiceConnected ?
-                "待机" :
-                "未启动";
+                text(Text.USB_STANDBY) :
+                text(Text.USB_NOT_STARTED);
     }
 
     private String formatSessionDuration(
@@ -315,5 +366,44 @@ public final class PerformanceOverlayFormatter {
         return value == null || value.isEmpty() ?
                 fallback :
                 value;
+    }
+
+    private String text(Text text) {
+        return textProvider.get(text);
+    }
+
+    private static String defaultText(Text text) {
+        switch (text) {
+            case BANDWIDTH: return "Bandwidth";
+            case LATENCY_DECODE: return "Latency/Decode";
+            case PACKET_LOSS: return "Packet loss";
+            case STATUS: return "Status";
+            case RESOLUTION: return "Resolution";
+            case CODEC: return "Codec";
+            case TARGET_BITRATE: return "Target bitrate";
+            case TARGET_FPS: return "Target FPS";
+            case ACTUAL_FPS: return "Actual FPS";
+            case VIDEO_BITRATE: return "Video bitrate";
+            case AUDIO_BITRATE: return "Audio bitrate";
+            case VIDEO_DATA: return "Video data";
+            case AUDIO_DATA: return "Audio data";
+            case RENDERER: return "Renderer";
+            case SYSTEM_RENDERER: return "System renderer";
+            case CONNECTION_ADDRESS: return "Connection address";
+            case LOCAL_DURATION: return "Local duration";
+            case NETWORK_LATENCY: return "Network latency";
+            case NETWORK_LATENCY_VALUE: return "%1$d ms / jitter %2$d ms";
+            case DECODE_LATENCY: return "Decode latency";
+            case HOST_LATENCY: return "Host latency";
+            case MICROPHONE: return "Microphone";
+            case USB_CONTROLLER: return "USB controller";
+            case ENABLED: return "Enabled";
+            case DISABLED: return "Disabled";
+            case USB_CLAIMED: return "Claimed";
+            case USB_CLAIMED_WITH_TYPE: return "Claimed / %1$s";
+            case USB_STANDBY: return "Standby";
+            case USB_NOT_STARTED: return "Not started";
+            default: throw new IllegalArgumentException("Unknown performance text: " + text);
+        }
     }
 }

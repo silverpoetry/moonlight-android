@@ -292,7 +292,8 @@ public class GameMenuFragment extends BaseGameMenuDialog
         if(v.getId()==R.id.btn_soft_function || v.getId()==R.id.btn_windows_actions){
             GameFunctionFragment fragment=new GameFunctionFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle("操作");
+            fragment.setTitle(getString(
+                    R.string.game_menu_windows_actions_title));
             fragment.setActionSelectionListener(new GameFunctionFragment.ActionSelectionListener() {
                 @Override
                 public void onActionSelected(String title, int index) {
@@ -442,7 +443,8 @@ public class GameMenuFragment extends BaseGameMenuDialog
         if(v.getId()==R.id.bt_quick_list){
             GameListQuickFragment fragment=new GameListQuickFragment();
             fragment.setWidth(UiHelper.dpToPx(getActivity(),364));
-            fragment.setTitle("快捷键(字体倾斜项可长按删除)");
+            fragment.setTitle(getString(
+                    R.string.game_menu_shortcuts_title));
             fragment.setHideBuiltInShortcuts(
                     menuState.getUiSettings()
                             .shouldHideBuiltInShortcuts());

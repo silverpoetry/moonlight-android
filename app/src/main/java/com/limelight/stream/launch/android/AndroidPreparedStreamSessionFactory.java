@@ -196,6 +196,7 @@ public final class AndroidPreparedStreamSessionFactory {
                 PlatformBinding.getCryptoProvider(appContext),
                 parseCertificate(request.getServerCertificate()),
                 new AndroidMicrophoneUplinkSessionFactory(
+                        appContext,
                         MicrophoneUplinkConfig.protocolV1()));
         AndroidStreamStagingSurface stagingSurface =
                 new AndroidStreamStagingSurface(

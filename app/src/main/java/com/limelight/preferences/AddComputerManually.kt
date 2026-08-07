@@ -223,7 +223,7 @@ class AddComputerManually : BaseActivity() {
             return
         }
         val status = operationController?.request(
-            { SrvResolver.resolveSRVRecord(input) },
+            { SrvResolver.resolveSRVRecord(applicationContext, input) },
             ::onSrvResolutionCompleted,
         ) ?: HostUiOperationController.RequestStatus.UNAVAILABLE
         handleRequestStatus(status)

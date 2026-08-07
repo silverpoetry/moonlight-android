@@ -81,7 +81,8 @@ public final class StreamPerformanceOverlayController
         formatter = new PerformanceOverlayFormatter(
                 bytes -> Formatter.formatShortFileSize(
                         activity,
-                        bytes));
+                        bytes),
+                text -> activity.getString(performanceTextResource(text)));
 
         overlay = requireView(R.id.performanceOverlay);
         compactOverlay = requireView(
@@ -193,7 +194,7 @@ public final class StreamPerformanceOverlayController
             }
             rumbleOverlay.setText(String.format(
                     Locale.US,
-                    "手柄%d 震动信号 高%d 低%d",
+                    activity.getString(R.string.stream_rumble_format),
                     controllerNumber,
                     (short) ((highFrequencyMotor >> 8) & 0xFF),
                     (short) ((lowFrequencyMotor >> 8) & 0xFF)));
@@ -350,9 +351,6 @@ public final class StreamPerformanceOverlayController
 
         SpannableString spannable = new SpannableString(text);
         int micStart = text.indexOf("Mic");
-        if (micStart < 0) {
-            micStart = text.indexOf("麦克风");
-        }
         if (micStart >= 0) {
             applySpan(
                     spannable,
@@ -428,6 +426,42 @@ public final class StreamPerformanceOverlayController
                 null,
                 null,
                 null);
+    }
+
+    private static int performanceTextResource(
+            PerformanceOverlayFormatter.Text text) {
+        switch (text) {
+            case BANDWIDTH: return R.string.performance_compact_bandwidth;
+            case LATENCY_DECODE: return R.string.performance_compact_latency_decode;
+            case PACKET_LOSS: return R.string.performance_compact_packet_loss;
+            case STATUS: return R.string.performance_label_status;
+            case RESOLUTION: return R.string.performance_label_resolution;
+            case CODEC: return R.string.performance_label_codec;
+            case TARGET_BITRATE: return R.string.performance_label_target_bitrate;
+            case TARGET_FPS: return R.string.performance_label_target_fps;
+            case ACTUAL_FPS: return R.string.performance_label_actual_fps;
+            case VIDEO_BITRATE: return R.string.performance_label_video_bitrate;
+            case AUDIO_BITRATE: return R.string.performance_label_audio_bitrate;
+            case VIDEO_DATA: return R.string.performance_label_video_data;
+            case AUDIO_DATA: return R.string.performance_label_audio_data;
+            case RENDERER: return R.string.performance_label_renderer;
+            case SYSTEM_RENDERER: return R.string.performance_renderer_system;
+            case CONNECTION_ADDRESS: return R.string.performance_label_connection_address;
+            case LOCAL_DURATION: return R.string.performance_label_local_duration;
+            case NETWORK_LATENCY: return R.string.performance_label_network_latency;
+            case NETWORK_LATENCY_VALUE: return R.string.performance_network_latency_format;
+            case DECODE_LATENCY: return R.string.performance_label_decode_latency;
+            case HOST_LATENCY: return R.string.performance_label_host_latency;
+            case MICROPHONE: return R.string.performance_label_microphone;
+            case USB_CONTROLLER: return R.string.performance_label_usb_controller;
+            case ENABLED: return R.string.performance_enabled;
+            case DISABLED: return R.string.performance_disabled;
+            case USB_CLAIMED: return R.string.performance_usb_claimed;
+            case USB_CLAIMED_WITH_TYPE: return R.string.performance_usb_claimed_with_type;
+            case USB_STANDBY: return R.string.performance_usb_standby;
+            case USB_NOT_STARTED: return R.string.performance_usb_not_started;
+            default: throw new IllegalArgumentException("Unknown performance text: " + text);
+        }
     }
 
     private <ViewT extends View> ViewT requireView(int id) {

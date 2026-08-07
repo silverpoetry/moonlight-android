@@ -11,7 +11,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.limelight.R
 import com.limelight.settings.controller.ControllerSettings
 import com.limelight.settings.controller.ControllerSettingsUpdate
 import com.limelight.settings.input.InputSettings
@@ -35,13 +37,13 @@ class GameTouchSensitivityFragment : ComposeGameMenuDialogFragment() {
             host.applyControllerSettingsUpdate(update)
         }
         GameMenuComposePage(
-            title = "触控灵敏度",
+            title = stringResource(R.string.game_menu_touch_sensitivity_title),
             onBack = ::dismiss,
             action = {
                 TextButton(onClick = {
                     updateInput(InputSettingsUpdate.resetSensitivity())
                     updateController(ControllerSettingsUpdate.mouseSensitivityPercent(100))
-                }) { Text("重置") }
+                }) { Text(stringResource(R.string.game_menu_reset)) }
             },
         ) {
             LazyColumn(
@@ -54,44 +56,44 @@ class GameTouchSensitivityFragment : ComposeGameMenuDialogFragment() {
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 item {
-                    GameMenuControlGroup("触控板指针") {
-                        GameMenuSliderRow("水平", input.touchpadPointerSensitivityX, 10, 300) {
+                    GameMenuControlGroup(stringResource(R.string.game_menu_group_touchpad_pointer)) {
+                        GameMenuSliderRow(stringResource(R.string.game_menu_axis_horizontal), input.touchpadPointerSensitivityX, 10, 300) {
                             updateInput(InputSettingsUpdate.touchpadPointerSensitivityX(it))
                         }
-                        GameMenuSliderRow("垂直", input.touchpadPointerSensitivityY, 10, 300) {
+                        GameMenuSliderRow(stringResource(R.string.game_menu_axis_vertical), input.touchpadPointerSensitivityY, 10, 300) {
                             updateInput(InputSettingsUpdate.touchpadPointerSensitivityY(it))
                         }
                     }
                 }
                 item {
-                    GameMenuControlGroup("虚拟触控板") {
-                        GameMenuSliderRow("水平", input.virtualTouchpadSensitivityX, 10, 300) {
+                    GameMenuControlGroup(stringResource(R.string.game_menu_group_virtual_touchpad)) {
+                        GameMenuSliderRow(stringResource(R.string.game_menu_axis_horizontal), input.virtualTouchpadSensitivityX, 10, 300) {
                             updateInput(InputSettingsUpdate.virtualTouchpadSensitivityX(it))
                         }
-                        GameMenuSliderRow("垂直", input.virtualTouchpadSensitivityY, 10, 300) {
+                        GameMenuSliderRow(stringResource(R.string.game_menu_axis_vertical), input.virtualTouchpadSensitivityY, 10, 300) {
                             updateInput(InputSettingsUpdate.virtualTouchpadSensitivityY(it))
                         }
                     }
                 }
                 item {
-                    GameMenuControlGroup("外接触控板") {
-                        GameMenuSliderRow("水平", input.externalTouchpadSensitivityX, 10, 300) {
+                    GameMenuControlGroup(stringResource(R.string.game_menu_group_external_touchpad)) {
+                        GameMenuSliderRow(stringResource(R.string.game_menu_axis_horizontal), input.externalTouchpadSensitivityX, 10, 300) {
                             updateInput(InputSettingsUpdate.externalTouchpadSensitivityX(it))
                         }
-                        GameMenuSliderRow("垂直", input.externalTouchpadSensitivityY, 10, 300) {
+                        GameMenuSliderRow(stringResource(R.string.game_menu_axis_vertical), input.externalTouchpadSensitivityY, 10, 300) {
                             updateInput(InputSettingsUpdate.externalTouchpadSensitivityY(it))
                         }
-                        GameMenuSliderRow("滚动量", input.externalTouchpadScrollAmount, 1, 30) {
+                        GameMenuSliderRow(stringResource(R.string.game_menu_scroll_amount), input.externalTouchpadScrollAmount, 1, 30) {
                             updateInput(InputSettingsUpdate.externalTouchpadScrollAmount(it))
                         }
                     }
                 }
                 item {
-                    GameMenuControlGroup("鼠标") {
-                        GameMenuSliderRow("手柄鼠标", controller.mouseSensitivityPercent, 10, 300) {
+                    GameMenuControlGroup(stringResource(R.string.game_menu_group_mouse)) {
+                        GameMenuSliderRow(stringResource(R.string.game_menu_controller_mouse), controller.mouseSensitivityPercent, 10, 300) {
                             updateController(ControllerSettingsUpdate.mouseSensitivityPercent(it))
                         }
-                        GameMenuSliderRow("滚轮量", input.mouseWheelScrollAmount, 1, 30) {
+                        GameMenuSliderRow(stringResource(R.string.game_menu_scroll_amount), input.mouseWheelScrollAmount, 1, 30) {
                             updateInput(InputSettingsUpdate.mouseWheelScrollAmount(it))
                         }
                     }

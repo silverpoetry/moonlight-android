@@ -72,7 +72,8 @@ final class GameMenuCardCatalog {
         for (GameMenuShortcutCatalog.Entry shortcut :
                 GameMenuShortcutCatalog.load(
                         persistedShortcuts,
-                        includeBuiltInShortcuts)) {
+                        includeBuiltInShortcuts,
+                        context)) {
             cards.add(new Card(
                     shortcut.id,
                     compactShortcutLabel(

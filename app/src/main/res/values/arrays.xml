@@ -159,11 +159,11 @@
 
 
     <string-array name="keyboard_layout_names">
-        <item>方案1</item>
-        <item>方案2</item>
-        <item>方案3</item>
-        <item>方案4</item>
-        <item>方案5</item>
+        <item>@string/layout_option_1</item>
+        <item>@string/layout_option_2</item>
+        <item>@string/layout_option_3</item>
+        <item>@string/layout_option_4</item>
+        <item>@string/layout_option_5</item>
     </string-array>
     <string-array name="keyboard_layout_values" translatable="false">
         <item>OSC_Keyboard</item>
@@ -174,10 +174,10 @@
     </string-array>
 
     <string-array name="mouse_mode_names">
-        <item>多点触控模式</item>
-        <item>普通鼠标模式</item>
-        <item>触控板模式</item>
-        <item>禁用鼠标/触控</item>
+        <item>@string/mouse_mode_multitouch</item>
+        <item>@string/mouse_mode_mouse</item>
+        <item>@string/mouse_mode_touchpad</item>
+        <item>@string/mouse_mode_disabled</item>
     </string-array>
 
     <string-array name="mouse_mode_values" translatable="false">
@@ -189,13 +189,13 @@
 
 
     <string-array name="screen_gravity_list_names">
-        <item>默认居中</item>
-        <item>顶部居中</item>
-        <item>顶部居左</item>
-        <item>顶部居右</item>
-        <item>底部居中</item>
-        <item>底部居左</item>
-        <item>底部居右</item>
+        <item>@string/screen_gravity_center</item>
+        <item>@string/screen_gravity_top_center</item>
+        <item>@string/screen_gravity_top_start</item>
+        <item>@string/screen_gravity_top_end</item>
+        <item>@string/screen_gravity_bottom_center</item>
+        <item>@string/screen_gravity_bottom_start</item>
+        <item>@string/screen_gravity_bottom_end</item>
     </string-array>
 
     <string-array name="screen_gravity_list_values" translatable="false">
@@ -209,11 +209,11 @@
     </string-array>
 
     <string-array name="gamepad_layout_names">
-        <item>方案1</item>
-        <item>方案2</item>
-        <item>方案3</item>
-        <item>方案4</item>
-        <item>方案5</item>
+        <item>@string/layout_option_1</item>
+        <item>@string/layout_option_2</item>
+        <item>@string/layout_option_3</item>
+        <item>@string/layout_option_4</item>
+        <item>@string/layout_option_5</item>
     </string-array>
     <string-array name="gamepad_layout_values" translatable="false">
         <item>gamePad</item>

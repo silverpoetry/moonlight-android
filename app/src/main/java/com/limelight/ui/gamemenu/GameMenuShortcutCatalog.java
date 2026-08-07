@@ -1,5 +1,10 @@
 package com.limelight.ui.gamemenu;
 
+import android.content.Context;
+import android.content.res.Resources;
+
+import com.limelight.R;
+
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.shortcuts.GameMenuShortcut;
 import com.limelight.shortcuts.GameMenuShortcutIds;
@@ -31,10 +36,22 @@ final class GameMenuShortcutCatalog {
     static List<Entry> load(
             List<GameMenuShortcut> persistedShortcuts,
             boolean includeBuiltInShortcuts) {
+        return load(
+                persistedShortcuts,
+                includeBuiltInShortcuts,
+                null);
+    }
+
+    static List<Entry> load(
+            List<GameMenuShortcut> persistedShortcuts,
+            boolean includeBuiltInShortcuts,
+            Context context) {
+        android.content.res.Resources resources = context == null ?
+                null : context.getResources();
         LinkedHashMap<String, Entry> entries =
                 new LinkedHashMap<>();
         if (includeBuiltInShortcuts) {
-            addBuiltInShortcuts(entries);
+            addBuiltInShortcuts(entries, resources);
         }
         for (GameMenuShortcut shortcut :
                 persistedShortcuts) {
@@ -46,83 +63,116 @@ final class GameMenuShortcutCatalog {
     static List<GameMenuShortcut> loadShortcuts(
             List<GameMenuShortcut> persistedShortcuts,
             boolean includeBuiltInShortcuts) {
+        return loadShortcuts(
+                persistedShortcuts,
+                includeBuiltInShortcuts,
+                null);
+    }
+
+    static List<GameMenuShortcut> loadShortcuts(
+            List<GameMenuShortcut> persistedShortcuts,
+            boolean includeBuiltInShortcuts,
+            Context context) {
+        android.content.res.Resources resources = context == null ?
+                null : context.getResources();
         List<GameMenuShortcut> shortcuts =
                 new ArrayList<>();
         for (Entry entry : load(
                 persistedShortcuts,
-                includeBuiltInShortcuts)) {
+                includeBuiltInShortcuts,
+                context)) {
             shortcuts.add(entry.shortcut);
         }
         return shortcuts;
     }
 
     private static void addBuiltInShortcuts(
-            Map<String, Entry> destination) {
+            Map<String, Entry> destination,
+            Resources resources) {
         addBuiltIn(
                 destination,
                 "escape",
-                "ESC (退出/菜单)",
+                label(resources, R.string.shortcut_escape,
+                        "ESC (Exit/menu)"),
                 KeyboardTranslator.VK_ESCAPE);
         addBuiltIn(
                 destination,
                 "f11",
-                "F11 (网页全屏)",
+                label(resources, R.string.shortcut_f11,
+                        "F11 (Web fullscreen)"),
                 KeyboardTranslator.VK_F11);
         addBuiltIn(
                 destination,
                 "alt_f4",
-                "Alt + F4 (关闭应用)",
+                label(resources, R.string.shortcut_alt_f4,
+                        "Alt + F4 (Close app)"),
                 KeyboardTranslator.VK_LMENU,
                 KeyboardTranslator.VK_F4);
         addBuiltIn(
                 destination,
                 "alt_enter",
-                "Alt + Enter (窗口大小)",
+                label(resources, R.string.shortcut_alt_enter,
+                        "Alt + Enter (Window size)"),
                 KeyboardTranslator.VK_LMENU,
                 KeyboardTranslator.VK_RETURN);
         addBuiltIn(
                 destination,
                 "windows",
-                "Win (打开Windows开始菜单)",
+                label(resources, R.string.shortcut_windows,
+                        "Win (Open Start menu)"),
                 KeyboardTranslator.VK_LWIN);
         addBuiltIn(
                 destination,
                 "task_manager",
-                "Ctrl+Shift+ESC (任务管理器)",
+                label(resources, R.string.shortcut_task_manager,
+                        "Ctrl+Shift+ESC (Task Manager)"),
                 KeyboardTranslator.VK_LCONTROL,
                 KeyboardTranslator.VK_LSHIFT,
                 KeyboardTranslator.VK_ESCAPE);
         addBuiltIn(
                 destination,
                 "show_desktop",
-                "Win + D (返回桌面)",
+                label(resources, R.string.shortcut_show_desktop,
+                        "Win + D (Show desktop)"),
                 KeyboardTranslator.VK_LWIN,
                 KeyboardTranslator.VK_D);
         addBuiltIn(
                 destination,
                 "project",
-                "Win + P (显示器模式)",
+                label(resources, R.string.shortcut_project,
+                        "Win + P (Display mode)"),
                 KeyboardTranslator.VK_LWIN,
                 KeyboardTranslator.VK_P);
         addBuiltIn(
                 destination,
                 "game_bar",
-                "Win + G (打开Xbox Game Bar)",
+                label(resources, R.string.shortcut_game_bar,
+                        "Win + G (Open Xbox Game Bar)"),
                 KeyboardTranslator.VK_LWIN,
                 KeyboardTranslator.VK_G);
         addBuiltIn(
                 destination,
                 "steam_overlay",
-                "Shift + Tab (打开Steam Overlay)",
+                label(resources, R.string.shortcut_steam_overlay,
+                        "Shift + Tab (Open Steam Overlay)"),
                 KeyboardTranslator.VK_LSHIFT,
                 KeyboardTranslator.VK_TAB);
         addBuiltIn(
                 destination,
                 "move_window_left",
-                "Win + Shift + left (切换桌面)",
+                label(resources, R.string.shortcut_move_window_left,
+                        "Win + Shift + left (Switch desktop)"),
                 KeyboardTranslator.VK_LWIN,
                 KeyboardTranslator.VK_LSHIFT,
                 KeyboardTranslator.VK_LEFT);
+    }
+
+    private static String label(
+            Resources resources,
+            int resourceId,
+            String fallback) {
+        return resources == null ? fallback :
+                resources.getString(resourceId);
     }
 
     private static void addBuiltIn(

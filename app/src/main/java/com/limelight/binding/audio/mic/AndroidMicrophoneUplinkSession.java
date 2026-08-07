@@ -4,10 +4,12 @@ import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.AudioTimestamp;
 import android.media.MediaRecorder;
+import android.content.Context;
 import android.os.Build;
 import android.os.Process;
 
 import com.limelight.LimeLog;
+import com.limelight.R;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.nvstream.mic.MicrophoneUplinkConfig;
 import com.limelight.nvstream.mic.MicrophoneUplinkSession;
@@ -23,6 +25,7 @@ import java.util.Objects;
 public final class AndroidMicrophoneUplinkSession
         implements MicrophoneUplinkSession {
     private final MicrophoneUplinkConfig config;
+    private final Context appContext;
     private volatile boolean running;
     private volatile boolean stopRequested;
     private volatile String lastErrorMessage;
@@ -32,14 +35,17 @@ public final class AndroidMicrophoneUplinkSession
     private long capturedFramePosition;
 
     public AndroidMicrophoneUplinkSession(
+            Context context,
             MicrophoneUplinkConfig config) {
+        appContext = context.getApplicationContext();
         this.config = Objects.requireNonNull(config, "config");
     }
 
     @Override
     public boolean start() {
         if (!MoonBridge.isMicrophoneUplinkSupported()) {
-            lastErrorMessage = "主机不支持麦克风上行";
+            lastErrorMessage = appContext.getString(
+                    R.string.mic_status_host_unsupported);
             return false;
         }
 
@@ -55,7 +61,8 @@ public final class AndroidMicrophoneUplinkSession
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            lastErrorMessage = "启动麦克风时被中断";
+            lastErrorMessage = appContext.getString(
+                    R.string.mic_error_start_interrupted);
             stop();
             return false;
         }
@@ -84,13 +91,15 @@ public final class AndroidMicrophoneUplinkSession
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                lastErrorMessage = "停止麦克风时被中断";
+                lastErrorMessage = appContext.getString(
+                        R.string.mic_error_stop_interrupted);
                 return false;
             }
         }
 
         if (thread != null && thread.isAlive()) {
-            lastErrorMessage = "麦克风采集线程未能及时停止";
+            lastErrorMessage = appContext.getString(
+                    R.string.mic_error_capture_stop_timeout);
             return false;
         }
 
@@ -101,7 +110,8 @@ public final class AndroidMicrophoneUplinkSession
 
     @Override
     public String getLastErrorMessage() {
-        return lastErrorMessage != null ? lastErrorMessage : "麦克风上行失败";
+        return lastErrorMessage != null ? lastErrorMessage :
+                appContext.getString(R.string.mic_error_uplink_failed);
     }
 
     @Override
@@ -121,7 +131,8 @@ public final class AndroidMicrophoneUplinkSession
                     AudioFormat.CHANNEL_IN_MONO,
                     AudioFormat.ENCODING_PCM_16BIT);
             if (minBufferSize <= 0) {
-                throw new IllegalStateException("无法确定麦克风缓冲区大小");
+                throw new IllegalStateException(appContext.getString(
+                        R.string.mic_error_buffer_size));
             }
 
             audioRecord = createStartedAudioRecord(
@@ -137,13 +148,16 @@ public final class AndroidMicrophoneUplinkSession
                                 config.getCaptureBufferSizeBytes()));
             }
             if (audioRecord == null) {
-                throw new IllegalStateException("无法初始化麦克风采集");
+                throw new IllegalStateException(appContext.getString(
+                        R.string.mic_error_capture_initialize));
             }
 
             int result = MoonBridge.startMicrophoneUplink(
                     config.getOpusBitrateBps());
             if (result != 0) {
-                throw new IllegalStateException("协议启动失败 (" + result + ")");
+                throw new IllegalStateException(appContext.getString(
+                        R.string.mic_error_protocol_start,
+                        result));
             }
 
             LimeLog.info(
@@ -168,12 +182,16 @@ public final class AndroidMicrophoneUplinkSession
                 long captureTimeUs = getCaptureTimeUs();
                 result = MoonBridge.sendMicrophonePcm(pcmFrame, captureTimeUs);
                 if (result != 0) {
-                    throw new IllegalStateException("发送麦克风帧失败 (" + result + ")");
+                    throw new IllegalStateException(appContext.getString(
+                            R.string.mic_error_frame_send,
+                            result));
                 }
             }
         }
         catch (Exception e) {
-            lastErrorMessage = "麦克风不可用：" + e.getMessage();
+            lastErrorMessage = appContext.getString(
+                    R.string.mic_status_unavailable_with_reason,
+                    e.getMessage());
             LimeLog.warning(lastErrorMessage);
             stopRequested = true;
         }
@@ -241,7 +259,9 @@ public final class AndroidMicrophoneUplinkSession
             int samplesRead = audioRecord.read(frame, offset, frame.length - offset);
             if (samplesRead <= 0) {
                 if (!stopRequested) {
-                    lastErrorMessage = "麦克风采集失败 (" + samplesRead + ")";
+                    lastErrorMessage = appContext.getString(
+                            R.string.mic_error_capture_failed,
+                            samplesRead);
                 }
                 return false;
             }

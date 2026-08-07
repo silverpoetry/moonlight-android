@@ -1953,7 +1953,9 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         }
 
         lastBackPressedElapsedMs = now;
-        UiToast.makeText(this, "再按一次返回退出串流", UiToast.LENGTH_SHORT).show();
+        UiToast.makeText(this,
+                R.string.stream_back_exit_hint,
+                UiToast.LENGTH_SHORT).show();
 
         if (controllerSettingsState
                 .get()
@@ -1967,7 +1969,8 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     public void switchMouseModel(){
         String[] strings=getResources().getStringArray(R.array.mouse_mode_names);
         String[] items =Arrays.copyOf(strings,strings.length+1);
-        items[items.length-1]="切换本地鼠标(需外接物理鼠标)";
+        items[items.length-1]=getString(
+                R.string.mouse_mode_local_cursor);
         new AlertDialog.Builder(this).setItems(items, (dialog, which) -> {
             dialog.dismiss();
             //切换本地鼠标
@@ -1976,7 +1979,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                 return;
             }
             switchMouseModel(which);
-        }).setTitle("请选择鼠标模式").create().show();
+        }).setTitle(R.string.mouse_mode_select_title).create().show();
     }
 
     //本地鼠标光标切换

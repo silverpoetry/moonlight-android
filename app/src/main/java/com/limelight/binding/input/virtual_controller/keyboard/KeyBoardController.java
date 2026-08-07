@@ -213,7 +213,8 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
                 }else{
                     fragment.setWidth((context.getResources().getDisplayMetrics().heightPixels*2)/3);
                 }
-                fragment.setTitle("手柄按键");
+                fragment.setTitle(context.getString(
+                        R.string.game_menu_gamepad_buttons));
                 fragment.setElementSelectionListener(bean -> {
                     addItem(bean);
                 });
@@ -483,12 +484,13 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
                         .getDisplayMetrics().heightPixels;
             }
             List<GameMenuQuickBean> defaults =
-                    VirtualControlDefaultLayoutFactory.create(
-                            layoutKey,
-                            viewportWidth,
-                            viewportHeight,
-                            buttonWidth,
-                            buttonHeight);
+                            VirtualControlDefaultLayoutFactory.create(
+                                    layoutKey,
+                                    viewportWidth,
+                                    viewportHeight,
+                                    buttonWidth,
+                                    buttonHeight,
+                                    context.getResources());
             if (!defaults.isEmpty()) {
                 beanList.addAll(defaults);
             }
@@ -501,7 +503,8 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
                 return;
             }
             if(TextUtils.isEmpty(tips)){
-                tips="无按键可用，打开编辑模式新增按钮后使用！(菜单-虚拟手柄与按键-编辑模式)";
+                tips=context.getString(
+                        R.string.virtual_control_empty_hint);
                 UiToast.makeText(context,tips,UiToast.LENGTH_LONG).show();
             }
 //            switchMode(VirtualControlEditMode.MOVE_BUTTONS);
@@ -741,12 +744,14 @@ public class KeyBoardController implements EditableVirtualControlOverlay {
         String message="";
         switch (currentMode){
             case ACTIVE:
-                message="正常模式~";
+                message=context.getString(
+                        R.string.virtual_control_mode_active);
                 buttonConfigure.setVisibility(View.GONE);
                 lv_left_view.setVisibility(View.GONE);
                 break;
             case MOVE_BUTTONS:
-                message="位移模式~";
+                message=context.getString(
+                        R.string.virtual_control_mode_edit);
                 buttonConfigure.setVisibility(View.VISIBLE);
                 break;
         }

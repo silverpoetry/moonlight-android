@@ -30,10 +30,10 @@ public final class PerformanceOverlayFormatterTest {
                 configuration,
                 runtime);
 
-        assertTrue(text.contains("带宽：100.00K/s"));
+        assertTrue(text.contains("Bandwidth: 100.00K/s"));
         assertTrue(text.contains("2560x1440 HEVC"));
-        assertTrue(text.contains("延迟/解码：6 ms / 1.25 ms"));
-        assertTrue(text.contains("丢包率：0.50%"));
+        assertTrue(text.contains("Latency/Decode: 6 ms / 1.25 ms"));
+        assertTrue(text.contains("Packet loss: 0.50%"));
         assertTrue(text.contains("FPS：119.88"));
         assertTrue(text.endsWith(" Mic"));
     }
@@ -55,22 +55,22 @@ public final class PerformanceOverlayFormatterTest {
 
         assertEquals(
                 "2560x1440 HDR",
-                value(rows, "分辨率"));
+                value(rows, "Resolution"));
         assertEquals(
                 "80 Mbps",
-                value(rows, "目标码率"));
+                value(rows, "Target bitrate"));
         assertEquals(
                 "120 FPS",
-                value(rows, "目标帧率"));
+                value(rows, "Target FPS"));
         assertEquals(
-                "系统渲染",
-                value(rows, "渲染方式"));
+                "System renderer",
+                value(rows, "Renderer"));
         assertEquals(
                 "1:02:03",
-                value(rows, "本地时长"));
+                value(rows, "Local duration"));
         assertEquals(
-                "已接管 / DualSense",
-                value(rows, "USB手柄"));
+                "Claimed / DualSense",
+                value(rows, "USB controller"));
     }
 
     @Test
@@ -82,7 +82,7 @@ public final class PerformanceOverlayFormatterTest {
                         runtime());
 
         assertEquals(1, rows.size());
-        assertEquals("状态", rows.get(0).label);
+        assertEquals("Status", rows.get(0).label);
         assertEquals("--", rows.get(0).value);
         assertEquals(
                 "--",
@@ -102,15 +102,15 @@ public final class PerformanceOverlayFormatterTest {
         assertTrue(formatter.formatCompact(
                 stats,
                 configuration(),
-                runtime()).contains("延迟/解码：-- / 0.00 ms"));
+                runtime()).contains("Latency/Decode: -- / 0.00 ms"));
 
         List<PerformanceOverlayFormatter.Row> rows =
                 formatter.formatExpanded(
                         stats,
                         configuration(),
                         runtime());
-        assertEquals("--", value(rows, "网络延迟"));
-        assertEquals("0.00 ms", value(rows, "解码延迟"));
+        assertEquals("--", value(rows, "Network latency"));
+        assertEquals("0.00 ms", value(rows, "Decode latency"));
     }
 
     private static PerformanceOverlayConfiguration

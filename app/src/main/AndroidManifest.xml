@@ -131,7 +131,7 @@
             android:exported="false"
             android:theme="@style/SettingsActivityTheme"
             android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection"
-            android:label="Streaming Settings">
+            android:label="@string/activity_label_streaming_settings">
             <meta-data android:name="WindowManagerPreference:FreeformWindowSize" android:value="system-default" />
             <meta-data android:name="WindowManagerPreference:FreeformWindowOrientation" android:value="landscape" />
         </activity>
@@ -141,7 +141,7 @@
             android:theme="@style/MoonlightDialogActivityTheme"
             android:windowSoftInputMode="stateVisible"
             android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection"
-            android:label="Add Computer Manually">
+            android:label="@string/activity_label_add_computer_manually">
             <meta-data android:name="WindowManagerPreference:FreeformWindowSize" android:value="system-default" />
             <meta-data android:name="WindowManagerPreference:FreeformWindowOrientation" android:value="landscape" />
         </activity>
@@ -193,15 +193,15 @@
         <service
             android:name=".discovery.DiscoveryService"
             android:exported="false"
-            android:label="mDNS PC Auto-Discovery Service" />
+            android:label="@string/service_label_mdns_discovery" />
         <service
             android:name=".computers.ComputerManagerService"
             android:exported="false"
-            android:label="Computer Management Service" />
+            android:label="@string/service_label_computer_manager" />
         <service
             android:name=".binding.input.driver.UsbDriverService"
             android:exported="false"
-            android:label="Usb Driver Service" />
+            android:label="@string/service_label_usb_driver" />
 
         <activity
             android:name=".HelpActivity"

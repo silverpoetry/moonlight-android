@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.limelight.R
 import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode
@@ -49,11 +50,11 @@ class GameMenuVirtualViewFragment : ComposeGameMenuDialogFragment() {
         }
 
         GameMenuComposePage(
-            title = "虚拟控制",
+            title = stringResource(R.string.game_menu_virtual_controls_title),
             onBack = ::dismiss,
             action = {
                 TextButton(onClick = { host.updateVirtualView() }) {
-                    Text("刷新布局")
+                    Text(stringResource(R.string.game_menu_refresh_layout))
                 }
             },
         ) {
@@ -67,7 +68,7 @@ class GameMenuVirtualViewFragment : ComposeGameMenuDialogFragment() {
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 item {
-                    GameMenuControlGroup("虚拟手柄") {
+                    GameMenuControlGroup(stringResource(R.string.game_menu_virtual_gamepad)) {
                         ModeSelector(
                             selected = gamepadMode,
                             onSelected = {
@@ -83,20 +84,20 @@ class GameMenuVirtualViewFragment : ComposeGameMenuDialogFragment() {
                                 update(VirtualControlSettingsUpdate.gamepadLayoutId(it))
                             },
                         )
-                        GameMenuSwitchRow("按键振动", gamepadHaptics) {
+                        GameMenuSwitchRow(stringResource(R.string.game_menu_button_haptics), gamepadHaptics) {
                             gamepadHaptics = it
                             host.setOnscreenControllerRumbleEnabled(it)
                         }
-                        GameMenuSliderRow("整体透明度", settings.controlOpacityPercent, 0, 100, "%") {
+                        GameMenuSliderRow(stringResource(R.string.game_menu_control_opacity), settings.controlOpacityPercent, 0, 100, "%") {
                             update(VirtualControlSettingsUpdate.controlOpacityPercent(it))
                         }
-                        GameMenuSliderRow("整体缩放", settings.gamepadScalePercent, 20, 180, "%") {
+                        GameMenuSliderRow(stringResource(R.string.game_menu_control_scale), settings.gamepadScalePercent, 20, 180, "%") {
                             update(VirtualControlSettingsUpdate.gamepadScalePercent(it))
                         }
                     }
                 }
                 item {
-                    GameMenuControlGroup("虚拟按键") {
+                    GameMenuControlGroup(stringResource(R.string.game_menu_virtual_keys)) {
                         ModeSelector(
                             selected = keyMode,
                             onSelected = {
@@ -112,19 +113,19 @@ class GameMenuVirtualViewFragment : ComposeGameMenuDialogFragment() {
                                 update(VirtualControlSettingsUpdate.keyboardLayoutId(it))
                             },
                         )
-                        GameMenuSwitchRow("按键振动", settings.isKeyboardHapticsEnabled) {
+                        GameMenuSwitchRow(stringResource(R.string.game_menu_button_haptics), settings.isKeyboardHapticsEnabled) {
                             update(VirtualControlSettingsUpdate.keyboardHapticsEnabled(it))
                         }
-                        GameMenuSliderRow("键盘透明度", settings.keyboardOpacityPercent, 0, 100, "%") {
+                        GameMenuSliderRow(stringResource(R.string.game_menu_keyboard_opacity), settings.keyboardOpacityPercent, 0, 100, "%") {
                             update(VirtualControlSettingsUpdate.keyboardOpacityPercent(it))
                         }
-                        GameMenuSliderRow("键盘高度", settings.keyboardHeightDp, 100, 400, " dp") {
+                        GameMenuSliderRow(stringResource(R.string.game_menu_keyboard_height), settings.keyboardHeightDp, 100, 400, " dp") {
                             update(VirtualControlSettingsUpdate.keyboardHeightDp(it))
                         }
                     }
                 }
                 item {
-                    GameMenuControlGroup("按键颜色") {
+                    GameMenuControlGroup(stringResource(R.string.game_menu_button_color)) {
                         ColorSelector(settings) {
                             update(VirtualControlSettingsUpdate.normalColor(it))
                         }
@@ -141,8 +142,8 @@ class GameMenuVirtualViewFragment : ComposeGameMenuDialogFragment() {
     ) {
         val haptics = LocalHapticFeedback.current
         val options = listOf(
-            "默认" to VirtualControlEditMode.ACTIVE,
-            "编辑布局" to VirtualControlEditMode.MOVE_BUTTONS,
+            stringResource(R.string.game_menu_edit_mode_default) to VirtualControlEditMode.ACTIVE,
+            stringResource(R.string.game_menu_edit_mode_layout) to VirtualControlEditMode.MOVE_BUTTONS,
         )
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             options.forEachIndexed { index, (label, mode) ->
@@ -172,7 +173,7 @@ class GameMenuVirtualViewFragment : ComposeGameMenuDialogFragment() {
     ) {
         val haptics = LocalHapticFeedback.current
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("布局方案", style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.game_menu_layout_scheme), style = MaterialTheme.typography.labelMedium)
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -207,9 +208,9 @@ class GameMenuVirtualViewFragment : ComposeGameMenuDialogFragment() {
     ) {
         val haptics = LocalHapticFeedback.current
         val options = listOf(
-            "黑色" to 0xF0000000.toInt(),
-            "白色" to 0xF0FFFFFF.toInt(),
-            "灰色" to 0xFF888888.toInt(),
+            stringResource(R.string.game_menu_color_black) to 0xF0000000.toInt(),
+            stringResource(R.string.game_menu_color_white) to 0xF0FFFFFF.toInt(),
+            stringResource(R.string.game_menu_color_gray) to 0xFF888888.toInt(),
         )
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             options.forEachIndexed { index, (label, color) ->

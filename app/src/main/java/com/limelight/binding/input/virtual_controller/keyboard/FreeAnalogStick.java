@@ -6,6 +6,8 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.view.MotionEvent;
 
+import com.limelight.R;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,7 +42,7 @@ public class FreeAnalogStick extends KeyboardVirtualControllerElement {
     private float touchStartX;
     private float touchStartY;
 
-    protected String strStickSide = "摇杆";
+    protected String strStickSide;
     protected String[] textTipValues = {"▲", "◀", "▼", "▶"};
 
     private enum STICK_STATE { NO_MOVEMENT, MOVED_IN_DEAD_ZONE, MOVED_ACTIVE }
@@ -55,6 +57,7 @@ public class FreeAnalogStick extends KeyboardVirtualControllerElement {
 
     public FreeAnalogStick(KeyBoardController controller, Context context, String elementId) {
         super(controller, context, elementId);
+        strStickSide = context.getString(R.string.virtual_control_stick);
         paint.setSubpixelText(true);
     }
 

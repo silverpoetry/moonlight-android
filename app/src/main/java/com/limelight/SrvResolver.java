@@ -1,6 +1,9 @@
 package com.limelight;
 
+import android.content.Context;
 import android.text.TextUtils;
+
+import com.limelight.R;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -41,7 +44,9 @@ public class SrvResolver {
 
 
     // SRV 查询入口
-    public static ResultCode resolveSRVRecord(String domain) {
+    public static ResultCode resolveSRVRecord(
+            Context context,
+            String domain) {
         String normalizedDomain = domain == null ? "" : domain.trim();
         String srvQuery = SERVICE_PREFIX + normalizedDomain;
         ResultCode resultCode=new ResultCode();
@@ -76,19 +81,27 @@ public class SrvResolver {
                     }
                     else {
                         resultCode.setCode(1);
-                        resultCode.setResult("未找到 SRV 记录: " + srvQuery);
+                        resultCode.setResult(context.getString(
+                                R.string.srv_record_not_found,
+                                srvQuery));
                     }
                 } else {
                     resultCode.setCode(1);
-                    resultCode.setResult("未找到 SRV 记录: " + srvQuery);
+                    resultCode.setResult(context.getString(
+                            R.string.srv_record_not_found,
+                            srvQuery));
                 }
             } else {
                 resultCode.setCode(1);
-                resultCode.setResult("解析 SRV 记录失败，HTTP 状态码: " + responseCode);
+                resultCode.setResult(context.getString(
+                        R.string.srv_resolution_http_failed,
+                        responseCode));
             }
         } catch (Exception e) {
             resultCode.setCode(1);
-            resultCode.setResult("解析 SRV 记录失败: " + e.getMessage());
+            resultCode.setResult(context.getString(
+                    R.string.srv_resolution_failed,
+                    e.getMessage()));
         } finally {
             if (connection != null) {
                 connection.disconnect();

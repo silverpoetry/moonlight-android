@@ -1,7 +1,9 @@
 package com.limelight.binding.input.virtual_controller.keyboard;
 
 import android.view.KeyEvent;
+import android.content.res.Resources;
 
+import com.limelight.R;
 import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.ui.gamemenu.bean.GameMenuQuickBean;
 import com.limelight.virtualcontrols.layout.VirtualControlElementIds;
@@ -38,6 +40,22 @@ public final class VirtualControlDefaultLayoutFactory {
             int viewportHeight,
             int buttonWidth,
             int buttonHeight) {
+        return create(
+                key,
+                viewportWidth,
+                viewportHeight,
+                buttonWidth,
+                buttonHeight,
+                null);
+    }
+
+    public static List<GameMenuQuickBean> create(
+            VirtualControlLayoutKey key,
+            int viewportWidth,
+            int viewportHeight,
+            int buttonWidth,
+            int buttonHeight,
+            Resources resources) {
         if (key.getKind() == VirtualControlLayoutKind.GAMEPAD &&
                 VirtualControlLayoutProfiles.DEFAULT_GAMEPAD.equals(
                         key.getProfileId())) {
@@ -48,7 +66,8 @@ public final class VirtualControlDefaultLayoutFactory {
             return createGamepad(
                     key.getOrientation(),
                     viewportWidth,
-                    viewportHeight);
+                    viewportHeight,
+                    resources);
         }
         if (key.getKind() == VirtualControlLayoutKind.KEYBOARD &&
                 VirtualControlLayoutProfiles.DEFAULT_KEYBOARD.equals(
@@ -61,7 +80,8 @@ public final class VirtualControlDefaultLayoutFactory {
                     viewportWidth,
                     viewportHeight,
                     buttonWidth,
-                    buttonHeight);
+                    buttonHeight,
+                    resources);
         }
         return Collections.emptyList();
     }
@@ -69,7 +89,8 @@ public final class VirtualControlDefaultLayoutFactory {
     private static List<GameMenuQuickBean> createGamepad(
             VirtualControlLayoutOrientation orientation,
             int viewportWidth,
-            int viewportHeight) {
+            int viewportHeight,
+            Resources resources) {
         int width = Math.max(1, viewportWidth);
         int height = Math.max(1, viewportHeight);
         boolean landscape =
@@ -125,13 +146,13 @@ public final class VirtualControlDefaultLayoutFactory {
 
         List<GameMenuQuickBean> controls = new ArrayList<>();
         controls.add(gamepadStick(
-                "左摇杆", ControllerPacket.PADDLE5_FLAG,
+                label(resources, R.string.gamepad_left_stick, "Left stick"), ControllerPacket.PADDLE5_FLAG,
                 leftStick, bottom, padSize, padSize));
         controls.add(gamepadDpad(
-                "十字键", ControllerPacket.PADDLE1_FLAG,
+                label(resources, R.string.gamepad_dpad, "D-pad"), ControllerPacket.PADDLE1_FLAG,
                 leftDpad, padTop, padSize, padSize));
         controls.add(gamepadStick(
-                "右摇杆", ControllerPacket.PADDLE6_FLAG,
+                label(resources, R.string.gamepad_right_stick, "Right stick"), ControllerPacket.PADDLE6_FLAG,
                 rightStick, bottom, padSize, padSize));
         controls.add(gamepadDpad(
                 "ABXY", ControllerPacket.PADDLE2_FLAG,
@@ -182,7 +203,8 @@ public final class VirtualControlDefaultLayoutFactory {
             int viewportWidth,
             int viewportHeight,
             int buttonWidth,
-            int buttonHeight) {
+            int buttonHeight,
+            Resources resources) {
         int width = Math.max(1, viewportWidth);
         int height = Math.max(1, viewportHeight);
         int unit = responsiveUnit(viewportWidth, buttonWidth, buttonHeight);
@@ -217,26 +239,26 @@ public final class VirtualControlDefaultLayoutFactory {
                 thirdRow, keyWidth, keyHeight));
 
         x = margin;
-        controls.add(key("空格", KeyEvent.KEYCODE_SPACE, "Space", x, secondRow,
+        controls.add(key("Space", KeyEvent.KEYCODE_SPACE, "Space", x, secondRow,
                 keyWidth * 2 + gap, keyHeight));
         x += keyWidth * 2 + gap * 2;
         controls.add(key("Enter", KeyEvent.KEYCODE_ENTER, "Enter", x, secondRow,
                 keyWidth * 2 + gap, keyHeight));
         x += keyWidth * 2 + gap * 2;
-        controls.add(mouse("左键", 1, x, secondRow, keyWidth, keyHeight));
+        controls.add(mouse(label(resources, R.string.virtual_control_left_click, "Left click"), 1, x, secondRow, keyWidth, keyHeight));
         x += keyWidth + gap;
-        controls.add(mouse("右键", 3, x, secondRow, keyWidth, keyHeight));
+        controls.add(mouse(label(resources, R.string.virtual_control_right_click, "Right click"), 3, x, secondRow, keyWidth, keyHeight));
 
         int touchpadWidth = Math.max(keyWidth * 3, Math.min(width - margin * 2,
                 unit * 4));
         controls.add(touchpad(
-                "触控板",
+                label(resources, R.string.gamepad_touchpad, "Touchpad"),
                 margin,
                 row + (controlRowHeight - touchpadHeight) / 2,
                 touchpadWidth,
                 touchpadHeight));
         controls.add(dpad(
-                "方向键",
+                label(resources, R.string.virtual_control_arrow_keys, "Arrow keys"),
                 width - margin - dpadSize,
                 row + (controlRowHeight - dpadSize) / 2,
                 dpadSize,
@@ -321,6 +343,13 @@ public final class VirtualControlDefaultLayoutFactory {
                 top,
                 width,
                 height);
+    }
+
+    private static String label(
+            Resources resources,
+            int resourceId,
+            String fallback) {
+        return resources == null ? fallback : resources.getString(resourceId);
     }
 
     private static GameMenuQuickBean touchpad(

@@ -107,7 +107,7 @@ public final class RemoteClipboardFileTransferController {
         catch (RuntimeException error) {
             UiToast.makeText(
                     activity,
-                    "无法打开目录选择器",
+                    R.string.clipboard_open_directory_picker_failed,
                     UiToast.LENGTH_LONG).show();
         }
     }
@@ -138,7 +138,7 @@ public final class RemoteClipboardFileTransferController {
         catch (SecurityException error) {
             UiToast.makeText(
                     activity,
-                    "无法保留该目录的访问权限",
+                    R.string.settings_directory_permission_failed,
                     UiToast.LENGTH_LONG).show();
         }
     }
@@ -318,8 +318,9 @@ public final class RemoteClipboardFileTransferController {
         views.subtitle.setText(activity.getString(
                 R.string.clipboard_file_pull_complete_subtitle,
                 destinationName));
-        views.status.setText(activity.getString(
-                R.string.clipboard_file_pull_complete_count,
+        views.status.setText(activity.getResources().getQuantityString(
+                R.plurals.clipboard_file_pull_complete_count,
+                topLevelItemCount,
                 topLevelItemCount));
         views.progress.setIndeterminate(false);
         views.progress.setProgress(1000);

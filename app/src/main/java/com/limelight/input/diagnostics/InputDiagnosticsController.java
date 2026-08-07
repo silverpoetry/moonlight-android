@@ -1,6 +1,7 @@
 package com.limelight.input.diagnostics;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -18,6 +19,7 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
 import com.limelight.LimeLog;
+import com.limelight.R;
 import com.limelight.binding.input.AndroidInputDeviceRegistration;
 
 import java.util.List;
@@ -51,6 +53,7 @@ public final class InputDiagnosticsController
     private final SensorManager sensorManager;
     private final Vibrator deviceVibrator;
     private final Listener listener;
+    private final Resources resources;
 
     private AndroidInputDeviceRegistration inputRegistration;
     private int activeControllerId = -1;
@@ -79,6 +82,7 @@ public final class InputDiagnosticsController
                 inputManager,
                 sensorManager,
                 resolveDeviceVibrator(context),
+                context.getResources(),
                 listener);
     }
 
@@ -86,6 +90,7 @@ public final class InputDiagnosticsController
             InputManager inputManager,
             SensorManager sensorManager,
             Vibrator deviceVibrator,
+            Resources resources,
             Listener listener) {
         this.inputManager = Objects.requireNonNull(
                 inputManager,
@@ -96,6 +101,9 @@ public final class InputDiagnosticsController
         this.deviceVibrator = Objects.requireNonNull(
                 deviceVibrator,
                 "deviceVibrator");
+        this.resources = Objects.requireNonNull(
+                resources,
+                "resources");
         this.listener = Objects.requireNonNull(
                 listener,
                 "listener");
@@ -147,7 +155,8 @@ public final class InputDiagnosticsController
             visibleDeviceCount++;
         }
         if (visibleDeviceCount == 0) {
-            summary.append("未检测到外部输入设备");
+            summary.append(resources.getString(
+                    R.string.input_diagnostics_no_external_devices));
         }
         listener.onDeviceSummaryChanged(summary.toString());
         publishControllerVibrationAvailability();
@@ -159,18 +168,22 @@ public final class InputDiagnosticsController
         String action;
         switch (event.getAction()) {
             case KeyEvent.ACTION_DOWN:
-                action = "按下";
+                action = resources.getString(
+                        R.string.input_diagnostics_action_down);
                 break;
             case KeyEvent.ACTION_UP:
-                action = "松开";
+                action = resources.getString(
+                        R.string.input_diagnostics_action_up);
                 break;
             default:
-                action = "重复";
+                action = resources.getString(
+                        R.string.input_diagnostics_action_repeat);
                 break;
         }
         listener.onInputEventChanged(String.format(
                 Locale.ROOT,
-                "%s · %s\nkeyCode=%d (%s)\nscanCode=%d · repeat=%d\n设备：%s",
+                resources.getString(
+                        R.string.input_diagnostics_key_event_format),
                 action,
                 KeyEvent.keyCodeToString(event.getKeyCode()),
                 event.getKeyCode(),
@@ -188,8 +201,9 @@ public final class InputDiagnosticsController
         }
         rememberController(device.getId());
         StringBuilder summary = new StringBuilder();
-        summary.append("摇杆/轴事件 · ")
-                .append(device.getName());
+        summary.append(resources.getString(
+                R.string.input_diagnostics_motion_event_prefix,
+                device.getName()));
         int renderedAxes = 0;
         for (InputDevice.MotionRange range :
                 device.getMotionRanges()) {
@@ -208,7 +222,8 @@ public final class InputDiagnosticsController
             renderedAxes++;
         }
         if (renderedAxes == 0) {
-            summary.append("\n该事件未报告可用摇杆轴");
+            summary.append('\n').append(resources.getString(
+                    R.string.input_diagnostics_no_joystick_axes));
         }
         listener.onInputEventChanged(summary.toString());
     }
@@ -286,13 +301,19 @@ public final class InputDiagnosticsController
     private void renderSensors() {
         listener.onSensorSummaryChanged(String.format(
                 Locale.ROOT,
-                "加速度计：%s\nx=%.4f  y=%.4f  z=%.4f m/s²\n\n" +
-                        "陀螺仪：%s\nx=%.4f  y=%.4f  z=%.4f rad/s",
-                hasAccelerometer ? "可用" : "不可用",
+                resources.getString(
+                        R.string.input_diagnostics_sensors_format),
+                hasAccelerometer ? resources.getString(
+                        R.string.input_diagnostics_available) :
+                        resources.getString(
+                                R.string.input_diagnostics_unavailable),
                 accelerometer[0],
                 accelerometer[1],
                 accelerometer[2],
-                hasGyroscope ? "可用" : "不可用",
+                hasGyroscope ? resources.getString(
+                        R.string.input_diagnostics_available) :
+                        resources.getString(
+                                R.string.input_diagnostics_unavailable),
                 gyroscope[0],
                 gyroscope[1],
                 gyroscope[2]));
@@ -313,7 +334,9 @@ public final class InputDiagnosticsController
         Vibrator vibrator = resolveVibrator(device);
         listener.onControllerVibrationAvailabilityChanged(
                 vibrator != null && vibrator.hasVibrator(),
-                device == null ? "尚未操作手柄" : device.getName());
+                device == null ? resources.getString(
+                        R.string.input_diagnostics_no_controller_used) :
+                        device.getName());
     }
 
     @Nullable
@@ -387,7 +410,7 @@ public final class InputDiagnosticsController
         vibrator.vibrate(TEST_VIBRATION_DURATION_MS);
     }
 
-    private static void appendDevice(
+    private void appendDevice(
             StringBuilder output,
             InputDevice device) {
         output.append(device.getName())
@@ -397,8 +420,10 @@ public final class InputDiagnosticsController
                 .append(device.getVendorId())
                 .append(" · product=")
                 .append(device.getProductId())
-                .append("\n类型：")
-                .append(sourceLabel(device.getSources()));
+                .append('\n')
+                .append(resources.getString(
+                        R.string.input_diagnostics_device_type,
+                        sourceLabel(device.getSources())));
 
         List<InputDevice.MotionRange> ranges =
                 device.getMotionRanges();
@@ -408,26 +433,41 @@ public final class InputDiagnosticsController
                 axisCount++;
             }
         }
-        output.append(" · 轴=").append(axisCount)
-                .append(" · 键盘=")
-                .append(device.getKeyboardType() ==
-                        InputDevice.KEYBOARD_TYPE_NONE
-                        ? "否"
-                        : "是");
+        output.append(resources.getString(
+                        R.string.input_diagnostics_axis_count,
+                        axisCount))
+                .append(resources.getString(
+                        R.string.input_diagnostics_keyboard_capability,
+                        device.getKeyboardType() ==
+                                InputDevice.KEYBOARD_TYPE_NONE ?
+                                resources.getString(
+                                        R.string.input_diagnostics_no) :
+                                resources.getString(
+                                        R.string.input_diagnostics_yes)));
     }
 
-    private static String sourceLabel(int sources) {
+    private String sourceLabel(int sources) {
         StringBuilder result = new StringBuilder();
         appendSource(result, sources,
-                InputDevice.SOURCE_GAMEPAD, "手柄按键");
+                InputDevice.SOURCE_GAMEPAD,
+                resources.getString(
+                        R.string.input_diagnostics_source_gamepad));
         appendSource(result, sources,
-                InputDevice.SOURCE_JOYSTICK, "摇杆");
+                InputDevice.SOURCE_JOYSTICK,
+                resources.getString(
+                        R.string.input_diagnostics_source_joystick));
         appendSource(result, sources,
-                InputDevice.SOURCE_KEYBOARD, "键盘");
+                InputDevice.SOURCE_KEYBOARD,
+                resources.getString(
+                        R.string.input_diagnostics_source_keyboard));
         appendSource(result, sources,
-                InputDevice.SOURCE_MOUSE, "鼠标");
+                InputDevice.SOURCE_MOUSE,
+                resources.getString(
+                        R.string.input_diagnostics_source_mouse));
         appendSource(result, sources,
-                InputDevice.SOURCE_TOUCHPAD, "触控板");
+                InputDevice.SOURCE_TOUCHPAD,
+                resources.getString(
+                        R.string.input_diagnostics_source_touchpad));
         if (result.length() == 0) {
             result.append(String.format(
                     Locale.ROOT,
@@ -460,6 +500,8 @@ public final class InputDiagnosticsController
 
     private String deviceName(int deviceId) {
         InputDevice device = inputManager.getInputDevice(deviceId);
-        return device == null ? "未知设备" : device.getName();
+        return device == null ? resources.getString(
+                R.string.input_diagnostics_unknown_device) :
+                device.getName();
     }
 }

@@ -1818,8 +1818,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener,
                     mouseEmulationSession.toggle();
             UiToast.makeText(
                     activityContext,
-                    "手柄键鼠模式: " +
-                            (active ? "开启" : "关闭"),
+                    active ?
+                            R.string.controller_mouse_emulation_enabled :
+                            R.string.controller_mouse_emulation_disabled,
                     UiToast.LENGTH_SHORT).show();
         }
 

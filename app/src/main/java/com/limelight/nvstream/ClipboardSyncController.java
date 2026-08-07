@@ -14,6 +14,7 @@ import android.os.Looper;
 import android.os.OperationCanceledException;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
+import com.limelight.R;
 import com.limelight.LimeLog;
 import com.limelight.platform.files.AndroidPrivateFileShare;
 import com.limelight.nvstream.filetransfer.ClipboardFileDownloader;
@@ -230,7 +231,8 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                     ", destination=" + (destinationTree != null) +
                     ", http=" + (nvHttp != null));
             mainHandler.post(() -> listener.onError(
-                    "剪贴板同步尚未连接"));
+                    context.getString(
+                            R.string.clipboard_sync_not_connected)));
             return;
         }
 
@@ -270,12 +272,14 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             } catch (OperationCanceledException error) {
                 cancelled = true;
             } catch (FileNotFoundException error) {
-                errorMessage = "远端剪贴板中没有文件或文件夹";
+                errorMessage = context.getString(
+                        R.string.clipboard_remote_no_files);
             } catch (Throwable error) {
                 LimeLog.warning("Clipboard file download failed: " +
                         error.getMessage());
                 errorMessage = error.getMessage() == null ?
-                        "文件拉取失败" :
+                        context.getString(
+                                R.string.clipboard_download_failed) :
                         error.getMessage();
             } finally {
                 if (transferId != null && originId != 0) {
@@ -305,7 +309,8 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             }
             else {
                 String completedError = errorMessage == null ?
-                        "文件拉取失败" : errorMessage;
+                        context.getString(
+                                R.string.clipboard_download_failed) : errorMessage;
                 mainHandler.post(() ->
                         listener.onError(completedError));
             }
