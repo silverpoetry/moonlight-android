@@ -30,7 +30,8 @@ public final class StreamOrientationController {
                         request.getStreamWidth(),
                         request.getStreamHeight(),
                         request.isPortraitRequested(),
-                        request.isAutomaticOrientationEnabled());
+                        request.isAutomaticOrientationEnabled(),
+                        request.getManualOrientation());
         apply(activity, mode);
     }
 
@@ -72,6 +73,10 @@ public final class StreamOrientationController {
             case USER_PORTRAIT:
                 activity.setRequestedOrientation(
                         ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT);
+                break;
+            case SENSOR_LANDSCAPE:
+                activity.setRequestedOrientation(
+                        ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
                 break;
             case SENSOR_PORTRAIT:
                 activity.setRequestedOrientation(

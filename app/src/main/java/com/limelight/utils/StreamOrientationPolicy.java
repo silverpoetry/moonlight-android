@@ -9,6 +9,7 @@ public final class StreamOrientationPolicy {
         FOLLOW_USER_ALL_ROTATIONS,
         USER_LANDSCAPE,
         USER_PORTRAIT,
+        SENSOR_LANDSCAPE,
         SENSOR_PORTRAIT
     }
 
@@ -24,7 +25,17 @@ public final class StreamOrientationPolicy {
             int streamWidth,
             int streamHeight,
             boolean portraitRequested,
-            boolean automaticOrientationEnabled) {
+            boolean automaticOrientationEnabled,
+            StreamOrientationRequest.ManualOrientation manualOrientation) {
+        if (manualOrientation ==
+                StreamOrientationRequest.ManualOrientation.LANDSCAPE) {
+            return Mode.SENSOR_LANDSCAPE;
+        }
+        if (manualOrientation ==
+                StreamOrientationRequest.ManualOrientation.PORTRAIT) {
+            return Mode.SENSOR_PORTRAIT;
+        }
+
         if (adaptiveWindow) {
             return Mode.FOLLOW_USER_ALL_ROTATIONS;
         }

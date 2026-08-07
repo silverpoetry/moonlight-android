@@ -8,12 +8,19 @@ package com.limelight.utils;
  * policy is projected into this value by the composition root.</p>
  */
 public final class StreamOrientationRequest {
+    public enum ManualOrientation {
+        NONE,
+        LANDSCAPE,
+        PORTRAIT
+    }
+
     private final boolean onScreenControllerVisible;
     private final boolean nativeResolution;
     private final int streamWidth;
     private final int streamHeight;
     private final boolean portraitRequested;
     private final boolean automaticOrientationEnabled;
+    private final ManualOrientation manualOrientation;
 
     public StreamOrientationRequest(
             boolean onScreenControllerVisible,
@@ -22,9 +29,31 @@ public final class StreamOrientationRequest {
             int streamHeight,
             boolean portraitRequested,
             boolean automaticOrientationEnabled) {
+        this(
+                onScreenControllerVisible,
+                nativeResolution,
+                streamWidth,
+                streamHeight,
+                portraitRequested,
+                automaticOrientationEnabled,
+                ManualOrientation.NONE);
+    }
+
+    public StreamOrientationRequest(
+            boolean onScreenControllerVisible,
+            boolean nativeResolution,
+            int streamWidth,
+            int streamHeight,
+            boolean portraitRequested,
+            boolean automaticOrientationEnabled,
+            ManualOrientation manualOrientation) {
         if (streamWidth <= 0 || streamHeight <= 0) {
             throw new IllegalArgumentException(
                     "Stream dimensions must be positive");
+        }
+        if (manualOrientation == null) {
+            throw new IllegalArgumentException(
+                    "Manual orientation must not be null");
         }
         this.onScreenControllerVisible =
                 onScreenControllerVisible;
@@ -34,6 +63,7 @@ public final class StreamOrientationRequest {
         this.portraitRequested = portraitRequested;
         this.automaticOrientationEnabled =
                 automaticOrientationEnabled;
+        this.manualOrientation = manualOrientation;
     }
 
     public boolean isOnScreenControllerVisible() {
@@ -58,5 +88,9 @@ public final class StreamOrientationRequest {
 
     public boolean isAutomaticOrientationEnabled() {
         return automaticOrientationEnabled;
+    }
+
+    public ManualOrientation getManualOrientation() {
+        return manualOrientation;
     }
 }

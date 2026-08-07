@@ -121,6 +121,7 @@ import com.limelight.stream.launch.android.AndroidStreamSessionCoordinator;
 import com.limelight.utils.BackNavigationRegistration;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.StreamOrientationController;
+import com.limelight.utils.StreamOrientationRequest.ManualOrientation;
 import com.limelight.utils.StreamOrientationRequest;
 import com.limelight.utils.UiHelper;
 import android.annotation.SuppressLint;
@@ -983,9 +984,10 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
                         streamDisplaySettings.isNativeResolution(),
                         streamDisplaySettings.getStreamWidth(),
                         streamDisplaySettings.getStreamHeight(),
-                        videoSettings.isPortrait() || isPortrait,
+                        videoSettings.isPortrait(),
                         virtualControlSettings
-                                .isAutomaticScreenOrientationEnabled()));
+                                .isAutomaticScreenOrientationEnabled(),
+                        manualOrientation));
     }
 
     private boolean isVirtualControllerVisibleForOrientation() {
@@ -1690,7 +1692,8 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
             return;
         }
         boolean expectedPortrait =
-                streamVideoSettingsState.get().isPortrait() || isPortrait;
+                streamVideoSettingsState.get().isPortrait() ||
+                        manualOrientation == ManualOrientation.PORTRAIT;
         boolean actualPortrait = viewportHeight > viewportWidth;
         if (expectedPortrait != actualPortrait) {
             return;
@@ -2131,13 +2134,23 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     }
 
 
-    public boolean isPortrait;
+    private ManualOrientation manualOrientation = ManualOrientation.NONE;
 
     //横竖屏切换
     @Override
     public void switchLandscapePortraitScreen(){
-        isPortrait = getResources().getConfiguration().orientation ==
-                Configuration.ORIENTATION_LANDSCAPE;
+        if (manualOrientation == ManualOrientation.PORTRAIT) {
+            manualOrientation = ManualOrientation.LANDSCAPE;
+        }
+        else if (manualOrientation == ManualOrientation.LANDSCAPE) {
+            manualOrientation = ManualOrientation.PORTRAIT;
+        }
+        else {
+            manualOrientation = getResources().getConfiguration().orientation ==
+                    Configuration.ORIENTATION_LANDSCAPE
+                    ? ManualOrientation.PORTRAIT
+                    : ManualOrientation.LANDSCAPE;
+        }
         setPreferredOrientationForCurrentDisplay();
     }
 
