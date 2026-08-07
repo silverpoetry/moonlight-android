@@ -13,11 +13,15 @@ enum ConfigurationArchiveComponent {
             R.string.settings_import_component_app_settings,
             R.string.settings_import_component_app_settings_summary,
             "app-settings.json"),
-    PAIRING_DATA(
-            "pairing_data",
-            R.string.settings_import_component_pairing_data,
-            R.string.settings_import_component_pairing_data_summary,
-            "paired-hosts.db",
+    HOSTS(
+            "hosts",
+            R.string.settings_import_component_hosts,
+            R.string.settings_import_component_hosts_summary,
+            "paired-hosts.db"),
+    CLIENT_IDENTITY(
+            "client_identity",
+            R.string.settings_import_component_client_identity,
+            R.string.settings_import_component_client_identity_summary,
             "client.crt",
             "client.key");
 

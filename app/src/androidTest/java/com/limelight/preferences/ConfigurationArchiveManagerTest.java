@@ -79,7 +79,9 @@ public final class ConfigurationArchiveManagerTest {
         assertTrue(prepared.getComponents().contains(
                 ConfigurationArchiveComponent.APP_SETTINGS));
         assertTrue(prepared.getComponents().contains(
-                ConfigurationArchiveComponent.PAIRING_DATA));
+                ConfigurationArchiveComponent.HOSTS));
+        assertTrue(prepared.getComponents().contains(
+                ConfigurationArchiveComponent.CLIENT_IDENTITY));
         manager.importSelected(
                 prepared,
                 Collections.singleton(

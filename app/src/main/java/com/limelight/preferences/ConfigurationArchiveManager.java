@@ -63,9 +63,10 @@ import java.util.zip.ZipOutputStream;
  * Android storage adapter for the versioned Moonlight configuration archive.
  *
  * <p>All selected components are fully staged and validated before any live
- * state is changed. App settings commit through the typed schema, pairing data
- * restores through the portable host database, and the client identity is
- * validated as a matching certificate/private-key pair.</p>
+ * state is changed. App settings commit through the typed schema, host
+ * connection information restores through the portable host database, and
+ * the independently selectable client identity remains an atomic, validated
+ * certificate/private-key pair.</p>
  */
 final class ConfigurationArchiveManager {
     static final long MAXIMUM_ARCHIVE_BYTES = 96L * 1024L * 1024L;
@@ -134,13 +135,15 @@ final class ConfigurationArchiveManager {
             sources.put(
                     ConfigurationArchiveComponent.APP_SETTINGS,
                     singletonFiles(SETTINGS_ENTRY_NAME, settings));
-            LinkedHashMap<String, File> pairing = new LinkedHashMap<>();
-            pairing.put(HOSTS_ENTRY_NAME, hosts);
-            pairing.put(CERTIFICATE_FILE_NAME, certificate);
-            pairing.put(PRIVATE_KEY_FILE_NAME, privateKey);
             sources.put(
-                    ConfigurationArchiveComponent.PAIRING_DATA,
-                    pairing);
+                    ConfigurationArchiveComponent.HOSTS,
+                    singletonFiles(HOSTS_ENTRY_NAME, hosts));
+            LinkedHashMap<String, File> identity = new LinkedHashMap<>();
+            identity.put(CERTIFICATE_FILE_NAME, certificate);
+            identity.put(PRIVATE_KEY_FILE_NAME, privateKey);
+            sources.put(
+                    ConfigurationArchiveComponent.CLIENT_IDENTITY,
+                    identity);
 
             ConfigurationArchiveManifest manifest = createManifest(sources);
             output = uniqueArchiveFile();
@@ -159,6 +162,30 @@ final class ConfigurationArchiveManager {
         finally {
             closeDatabase(databaseManager);
             deleteRecursively(work);
+        }
+    }
+
+    static String suggestedExportFileName() {
+        return "Moonlight-configuration-" + new SimpleDateFormat(
+                "yyyyMMdd-HHmmss",
+                Locale.ROOT)
+                .format(new Date()) + ".zip";
+    }
+
+    void writeExportArchive(Uri destination) throws Exception {
+        Objects.requireNonNull(destination, "destination");
+        File archive = createExportArchive();
+        try (InputStream input = new BufferedInputStream(
+                new FileInputStream(archive));
+             OutputStream output = openTruncatingOutput(destination)) {
+            copy(input, output, MAXIMUM_ARCHIVE_BYTES);
+            output.flush();
+        }
+        finally {
+            if (archive.exists() && !archive.delete()) {
+                LimeLog.warning(
+                        "Unable to remove exported configuration archive");
+            }
         }
     }
 
@@ -230,51 +257,61 @@ final class ConfigurationArchiveManager {
                         AppPresentationSettingKeys.LANGUAGE);
             }
 
-            PairingImport pairingImport = null;
-            if (selection.contains(
-                    ConfigurationArchiveComponent.PAIRING_DATA)) {
-                pairingImport = validatePairingImport(work);
+            ComputerDatabaseManager importedHosts = null;
+            if (selection.contains(ConfigurationArchiveComponent.HOSTS)) {
+                importedHosts = validateHostImport(work);
             }
-
-            SettingsBackupCodec.Snapshot rollbackSettings = null;
-            if (importedSettings != null) {
-                rollbackSettings = captureCurrentSettings(work);
-            }
-            PairingRollback pairingRollback = pairingImport == null
-                    ? null
-                    : captureCurrentPairing(work);
-
-            boolean settingsApplied = false;
-            boolean pairingApplied = false;
             try {
-                if (pairingImport != null) {
-                    pairingApplied = true;
-                    applyPairingImport(pairingImport);
+                IdentityImport importedIdentity = null;
+                if (selection.contains(
+                        ConfigurationArchiveComponent.CLIENT_IDENTITY)) {
+                    importedIdentity = validateIdentityImport(work);
                 }
+
+                SettingsBackupCodec.Snapshot rollbackSettings = null;
                 if (importedSettings != null) {
-                    settingsApplied = true;
-                    if (!importedSettings.applyTo(repository)) {
-                        throw new IOException(
-                                "Unable to commit imported application settings");
+                    rollbackSettings = captureCurrentSettings(work);
+                }
+                IdentityRollback rollbackIdentity = importedIdentity == null
+                        ? null
+                        : captureCurrentIdentity();
+
+                boolean settingsApplied = false;
+                boolean identityApplied = false;
+                try {
+                    if (importedSettings != null) {
+                        settingsApplied = true;
+                        if (!importedSettings.applyTo(repository)) {
+                            throw new IOException(
+                                    "Unable to commit imported application settings");
+                        }
+                    }
+                    if (importedIdentity != null) {
+                        identityApplied = true;
+                        applyIdentityImport(importedIdentity);
+                    }
+                    // Host restore is an atomic SQLite merge and must remain
+                    // last. If it fails, its transaction rolls itself back and
+                    // the earlier components are restored below.
+                    if (importedHosts != null) {
+                        applyHostImport(importedHosts);
                     }
                 }
-            }
-            catch (Exception error) {
-                rollback(
-                        rollbackSettings,
-                        settingsApplied,
-                        pairingRollback,
-                        pairingApplied,
-                        error);
-                throw error;
+                catch (Exception error) {
+                    rollback(
+                            rollbackSettings,
+                            settingsApplied,
+                            rollbackIdentity,
+                            identityApplied,
+                            error);
+                    throw error;
+                }
+
+                return new ImportResult(selection, importedLanguage);
             }
             finally {
-                if (pairingImport != null) {
-                    pairingImport.close();
-                }
+                closeDatabase(importedHosts);
             }
-
-            return new ImportResult(selection, importedLanguage);
         }
         finally {
             deleteRecursively(work);
@@ -487,18 +524,18 @@ final class ConfigurationArchiveManager {
         }
     }
 
-    private PairingImport validatePairingImport(File work)
+    private ComputerDatabaseManager validateHostImport(File work) {
+        return new ComputerDatabaseManager(
+                context,
+                new File(work, HOSTS_ENTRY_NAME));
+    }
+
+    private IdentityImport validateIdentityImport(File work)
             throws Exception {
-        File hosts = new File(work, HOSTS_ENTRY_NAME);
         File certificate = new File(work, CERTIFICATE_FILE_NAME);
         File privateKey = new File(work, PRIVATE_KEY_FILE_NAME);
         validateIdentity(certificate, privateKey);
-        ComputerDatabaseManager importDatabase =
-                new ComputerDatabaseManager(context, hosts);
-        return new PairingImport(
-                importDatabase,
-                certificate,
-                privateKey);
+        return new IdentityImport(certificate, privateKey);
     }
 
     private SettingsBackupCodec.Snapshot captureCurrentSettings(File work)
@@ -519,75 +556,54 @@ final class ConfigurationArchiveManager {
         }
     }
 
-    private PairingRollback captureCurrentPairing(File work)
-            throws Exception {
-        File hosts = new File(work, "rollback-hosts.db");
-        ComputerDatabaseManager manager = null;
-        try {
-            manager = new ComputerDatabaseManager(context);
-            manager.writePortableSnapshot(hosts);
-        }
-        finally {
-            closeDatabase(manager);
-        }
-        return new PairingRollback(
-                hosts,
+    private IdentityRollback captureCurrentIdentity() throws IOException {
+        return new IdentityRollback(
                 readOwnedFileIfPresent(CERTIFICATE_FILE_NAME),
                 readOwnedFileIfPresent(PRIVATE_KEY_FILE_NAME));
     }
 
-    private void applyPairingImport(PairingImport pairingImport)
-            throws Exception {
+    private void applyHostImport(ComputerDatabaseManager importedHosts) {
         ComputerDatabaseManager destination = null;
         try {
             destination = new ComputerDatabaseManager(context);
-            destination.restoreFrom(pairingImport.database);
+            destination.restoreFrom(importedHosts);
         }
         finally {
             closeDatabase(destination);
         }
+    }
+
+    private void applyIdentityImport(IdentityImport importedIdentity)
+            throws IOException {
         replaceIdentity(
-                pairingImport.certificate,
-                pairingImport.privateKey);
+                importedIdentity.certificate,
+                importedIdentity.privateKey);
     }
 
     private void rollback(
             SettingsBackupCodec.Snapshot settings,
             boolean settingsApplied,
-            PairingRollback pairing,
-            boolean pairingApplied,
+            IdentityRollback identity,
+            boolean identityApplied,
             Exception original) {
+        if (identityApplied && identity != null) {
+            try {
+                restoreIdentity(identity);
+            }
+            catch (Exception rollbackError) {
+                original.addSuppressed(rollbackError);
+            }
+        }
         if (settingsApplied &&
                 settings != null &&
                 !settings.applyTo(repository)) {
             original.addSuppressed(new IOException(
                     "Unable to roll back application settings"));
         }
-        if (pairingApplied && pairing != null) {
-            try {
-                restorePairing(pairing);
-            }
-            catch (Exception rollbackError) {
-                original.addSuppressed(rollbackError);
-            }
-        }
     }
 
-    private void restorePairing(PairingRollback rollback)
-            throws Exception {
-        ComputerDatabaseManager source = null;
-        ComputerDatabaseManager destination = null;
-        try {
-            source = new ComputerDatabaseManager(
-                    context,
-                    rollback.hosts);
-            destination = new ComputerDatabaseManager(context);
-            destination.restoreFrom(source);
-        }
-        finally {
-            closeDatabase(source);
-            closeDatabase(destination);
-        }
+    private void restoreIdentity(IdentityRollback rollback)
+            throws IOException {
         restoreOptionalFile(
                 new File(context.getFilesDir(), CERTIFICATE_FILE_NAME),
                 rollback.certificate);
@@ -709,19 +725,17 @@ final class ConfigurationArchiveManager {
     }
 
     private File uniqueArchiveFile() throws IOException {
-        String timestamp = new SimpleDateFormat(
-                "yyyyMMdd-HHmmss",
-                Locale.ROOT)
-                .format(new Date());
+        String name = suggestedExportFileName();
         File file = new File(
                 requireWorkRoot(),
-                "Moonlight-configuration-" + timestamp + ".zip");
+                name);
         if (!file.exists()) {
             return file;
         }
+        String stem = name.substring(0, name.length() - ".zip".length());
         return new File(
                 requireWorkRoot(),
-                "Moonlight-configuration-" + timestamp + "-" +
+                stem + "-" +
                         UUID.randomUUID().toString().substring(0, 8) +
                         ".zip");
     }
@@ -753,6 +767,16 @@ final class ConfigurationArchiveManager {
                     "Document provider returned no readable stream");
         }
         return new BufferedInputStream(input);
+    }
+
+    private OutputStream openTruncatingOutput(Uri uri) throws IOException {
+        OutputStream output = context.getContentResolver()
+                .openOutputStream(uri, "wt");
+        if (output == null) {
+            throw new IOException(
+                    "Document provider returned no writable stream");
+        }
+        return new BufferedOutputStream(output);
     }
 
     private byte[] readOwnedFileIfPresent(String name) throws IOException {
@@ -996,36 +1020,25 @@ final class ConfigurationArchiveManager {
         }
     }
 
-    private static final class PairingImport implements AutoCloseable {
-        private final ComputerDatabaseManager database;
+    private static final class IdentityImport {
         private final File certificate;
         private final File privateKey;
 
-        private PairingImport(
-                ComputerDatabaseManager database,
+        private IdentityImport(
                 File certificate,
                 File privateKey) {
-            this.database = database;
             this.certificate = certificate;
             this.privateKey = privateKey;
         }
-
-        @Override
-        public void close() {
-            closeDatabase(database);
-        }
     }
 
-    private static final class PairingRollback {
-        private final File hosts;
+    private static final class IdentityRollback {
         private final byte[] certificate;
         private final byte[] privateKey;
 
-        private PairingRollback(
-                File hosts,
+        private IdentityRollback(
                 byte[] certificate,
                 byte[] privateKey) {
-            this.hosts = hosts;
             this.certificate = certificate;
             this.privateKey = privateKey;
         }

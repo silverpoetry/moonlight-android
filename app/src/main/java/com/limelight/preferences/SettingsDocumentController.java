@@ -10,7 +10,6 @@ import android.util.AtomicFile;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.input.accessibility.KeyboardRemappingFileStore;
-import com.limelight.platform.files.AndroidPrivateFileShare;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.android.AndroidAppLocale;
 import com.limelight.settings.transfer.TransferSettingKeys;
@@ -48,6 +47,7 @@ final class SettingsDocumentController {
     static final int REQUEST_CONFIGURATION_IMPORT = 1003;
     static final int REQUEST_ACCESSIBILITY_IMPORT = 1007;
     static final int REQUEST_CLIPBOARD_DIRECTORY = 1009;
+    static final int REQUEST_CONFIGURATION_EXPORT = 1010;
 
     private static final String CONFIGURATION_MIME_TYPE =
             "application/zip";
@@ -139,7 +139,7 @@ final class SettingsDocumentController {
                 runOnIo(() -> exportVirtualControlLayout(true));
                 break;
             case EXPORT_CONFIGURATION:
-                runOnIo(this::exportConfiguration);
+                createConfigurationDocument();
                 break;
             default:
                 throw new AssertionError(
@@ -173,6 +173,9 @@ final class SettingsDocumentController {
                 break;
             case REQUEST_CONFIGURATION_IMPORT:
                 runOnIo(() -> prepareConfigurationImport(uri));
+                break;
+            case REQUEST_CONFIGURATION_EXPORT:
+                runOnIo(() -> exportConfiguration(uri));
                 break;
             case REQUEST_ACCESSIBILITY_IMPORT:
                 runOnIo(() -> importAccessibilityConfiguration(uri));
@@ -222,34 +225,31 @@ final class SettingsDocumentController {
         launch(intent, REQUEST_CLIPBOARD_DIRECTORY);
     }
 
+    private void createConfigurationDocument() {
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType(CONFIGURATION_MIME_TYPE);
+        intent.putExtra(
+                Intent.EXTRA_TITLE,
+                ConfigurationArchiveManager.suggestedExportFileName());
+        launch(intent, REQUEST_CONFIGURATION_EXPORT);
+    }
+
     private void launch(Intent intent, int requestCode) {
         requestState.launch(
                 requestCode,
                 () -> documentLauncher.launch(intent));
     }
 
-    private void exportConfiguration() {
-        File archive = null;
+    private void exportConfiguration(Uri destination) {
         try {
-            archive = archiveManager.createExportArchive();
-            Uri uri = AndroidPrivateFileShare.stageReadOnly(
-                    activity,
-                    archive);
-            runOnMain(() -> shareReadOnly(
-                    uri,
-                    CONFIGURATION_MIME_TYPE,
-                    R.string.settings_export_configuration));
+            archiveManager.writeExportArchive(destination);
+            showToast(
+                    R.string.settings_configuration_export_succeeded,
+                    UiToast.LENGTH_SHORT);
         }
         catch (Exception error) {
             showExportError("configuration archive", error);
-        }
-        finally {
-            if (archive != null &&
-                    archive.exists() &&
-                    !archive.delete()) {
-                LimeLog.warning(
-                        "Unable to remove staged configuration archive");
-            }
         }
     }
 
@@ -592,6 +592,7 @@ final class SettingsDocumentController {
             case REQUEST_VIRTUAL_KEYBOARD_IMPORT:
             case REQUEST_VIRTUAL_GAMEPAD_IMPORT:
             case REQUEST_CONFIGURATION_IMPORT:
+            case REQUEST_CONFIGURATION_EXPORT:
             case REQUEST_ACCESSIBILITY_IMPORT:
             case REQUEST_CLIPBOARD_DIRECTORY:
                 return true;

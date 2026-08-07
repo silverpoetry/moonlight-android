@@ -25,7 +25,7 @@ final class ConfigurationArchiveManifest {
     static final String ENTRY_NAME = "manifest.json";
     static final String FORMAT =
             "com.silverpoetry.moonlight.configuration";
-    static final int FORMAT_VERSION = 1;
+    static final int FORMAT_VERSION = 2;
 
     private static final int MAXIMUM_COMPONENT_COUNT = 16;
     private static final int SHA_256_HEX_LENGTH = 64;

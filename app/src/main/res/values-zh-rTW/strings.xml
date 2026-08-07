@@ -242,15 +242,18 @@
     <string name="settings_group_configuration_archive">設定封存</string>
     <string name="settings_export_configuration">匯出設定</string>
     <string name="settings_section_summary_backup">匯入或匯出 App 設定與配對資訊</string>
-    <string name="settings_export_configuration_summary">匯出 App 設定、已配對主機、用戶端憑證和私密金鑰，並封裝為 ZIP；其中包含私密金鑰，請妥善保管。系統資料夾授權不會匯出。</string>
+    <string name="settings_export_configuration_summary">選擇儲存位置，將 App 設定、主機連線資訊和用戶端身分匯出為 ZIP；其中包含私密金鑰，請妥善保管。系統資料夾授權不會匯出。</string>
     <string name="settings_import_configuration">匯入設定</string>
     <string name="settings_import_configuration_summary">匯入 Moonlight 設定 ZIP。</string>
     <string name="settings_import_selection_title">選擇要匯入的內容</string>
     <string name="settings_import_component_app_settings">App 設定</string>
     <string name="settings_import_component_app_settings_summary">串流、輸入、外觀與快速操作設定</string>
-    <string name="settings_import_component_pairing_data">配對資訊</string>
-    <string name="settings_import_component_pairing_data_summary">已配對主機、用戶端憑證和私密金鑰</string>
+    <string name="settings_import_component_hosts">主機連線資訊</string>
+    <string name="settings_import_component_hosts_summary">主機名稱、位址、連接埠和固定的主機憑證</string>
+    <string name="settings_import_component_client_identity">用戶端身分</string>
+    <string name="settings_import_component_client_identity_summary">用於保留配對關係的相符用戶端憑證和私密金鑰</string>
     <string name="settings_import_action">匯入</string>
     <string name="settings_configuration_import_succeeded">設定匯入成功</string>
+    <string name="settings_configuration_export_succeeded">設定已儲存</string>
     <string name="category_about_settings">關於</string>
 </resources>

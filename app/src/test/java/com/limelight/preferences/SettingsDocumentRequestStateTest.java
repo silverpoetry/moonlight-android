@@ -24,6 +24,24 @@ public final class SettingsDocumentRequestStateTest {
     }
 
     @Test
+    public void configurationExportRequestSurvivesRecreationUntilConsumed() {
+        SettingsDocumentController.RequestState state =
+                new SettingsDocumentController.RequestState(
+                        SettingsDocumentController
+                                .REQUEST_CONFIGURATION_EXPORT);
+
+        assertEquals(
+                SettingsDocumentController.REQUEST_CONFIGURATION_EXPORT,
+                state.peek());
+        assertEquals(
+                SettingsDocumentController.REQUEST_CONFIGURATION_EXPORT,
+                state.consume());
+        assertEquals(
+                SettingsDocumentController.NO_PENDING_REQUEST,
+                state.peek());
+    }
+
+    @Test
     public void invalidRestoredRequestIsDiscarded() {
         SettingsDocumentController.RequestState state =
                 new SettingsDocumentController.RequestState(9999);

@@ -28,11 +28,13 @@ public final class ConfigurationArchiveManifestTest {
                 ConfigurationArchiveManifest.read(
                         new StringReader(writer.toString()));
 
-        assertEquals(2, restored.getComponents().size());
+        assertEquals(3, restored.getComponents().size());
         assertTrue(restored.getComponents().contains(
                 ConfigurationArchiveComponent.APP_SETTINGS));
         assertTrue(restored.getComponents().contains(
-                ConfigurationArchiveComponent.PAIRING_DATA));
+                ConfigurationArchiveComponent.HOSTS));
+        assertTrue(restored.getComponents().contains(
+                ConfigurationArchiveComponent.CLIENT_IDENTITY));
         assertEquals(
                 42,
                 restored.requireEntry(
@@ -43,11 +45,11 @@ public final class ConfigurationArchiveManifestTest {
     }
 
     @Test
-    public void missingAtomicPairingFileIsRejected() {
+    public void missingAtomicIdentityFileIsRejected() {
         EnumMap<ConfigurationArchiveComponent,
                 Map<String, ConfigurationArchiveManifest.Entry>> entries =
                 entries();
-        entries.get(ConfigurationArchiveComponent.PAIRING_DATA)
+        entries.get(ConfigurationArchiveComponent.CLIENT_IDENTITY)
                 .remove("client.key");
 
         assertThrows(
@@ -74,8 +76,8 @@ public final class ConfigurationArchiveManifestTest {
         StringWriter writer = new StringWriter();
         newManifest().write(writer);
         String future = writer.toString().replace(
-                "\"version\": 1",
-                "\"version\": 2");
+                "\"version\": 2",
+                "\"version\": 3");
 
         assertThrows(
                 java.io.IOException.class,
@@ -103,12 +105,16 @@ public final class ConfigurationArchiveManifestTest {
                 entry("app-settings.json", 42));
         result.put(ConfigurationArchiveComponent.APP_SETTINGS, settings);
 
-        LinkedHashMap<String, ConfigurationArchiveManifest.Entry> pairing =
+        LinkedHashMap<String, ConfigurationArchiveManifest.Entry> hosts =
                 new LinkedHashMap<>();
-        pairing.put("paired-hosts.db", entry("paired-hosts.db", 100));
-        pairing.put("client.crt", entry("client.crt", 200));
-        pairing.put("client.key", entry("client.key", 300));
-        result.put(ConfigurationArchiveComponent.PAIRING_DATA, pairing);
+        hosts.put("paired-hosts.db", entry("paired-hosts.db", 100));
+        result.put(ConfigurationArchiveComponent.HOSTS, hosts);
+
+        LinkedHashMap<String, ConfigurationArchiveManifest.Entry> identity =
+                new LinkedHashMap<>();
+        identity.put("client.crt", entry("client.crt", 200));
+        identity.put("client.key", entry("client.key", 300));
+        result.put(ConfigurationArchiveComponent.CLIENT_IDENTITY, identity);
         return result;
     }
 
