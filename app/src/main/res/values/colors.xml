@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- The platform starting window stays light to match the branded launch artwork. -->
+    <color name="launch_window_surface">#FFF7FB</color>
     <color name="moonlight_window_background">#FFF7FB</color>
     <color name="pc_app_item_stoke_color">#21C3C3C3</color>
     <color name="pc_app_item_bg_color">#6675698A</color>

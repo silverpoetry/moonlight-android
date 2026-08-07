@@ -5,7 +5,7 @@
 
   [![Release](https://img.shields.io/github/v/release/silverpoetry/moonlight-android?style=flat-square)](https://github.com/silverpoetry/moonlight-android/releases)
   [![License](https://img.shields.io/github/license/silverpoetry/moonlight-android?style=flat-square)](LICENSE.txt)
-  [![Android](https://img.shields.io/badge/Android-5.0%2B-3DDC84?logo=android&logoColor=white&style=flat-square)](https://developer.android.com/)
+  [![Android](https://img.shields.io/badge/Android-6.0%2B-3DDC84?logo=android&logoColor=white&style=flat-square)](https://developer.android.com/)
 </div>
 
 > [!IMPORTANT]
@@ -50,6 +50,8 @@
 ### 移动端体验
 
 - 可视化整理串流返回菜单，将快捷操作、键盘指令、显示、输入和文件拉取按职责分组。
+- 快捷菜单遵循控制中心语义：截屏、发送快捷键等一次性动作会在执行前关闭菜单；麦克风、性能面板等状态切换会保留菜单，便于连续调整。
+- 旋转屏幕是当前串流会话的显式方向覆盖，优先于自适应方向策略，并在配置变化后保持用户选择；关闭自动旋转时不会引入额外的方向重试。
 - 支持虚拟手柄、自定义虚拟按键布局、DS4/DS5/Switch Pro USB 输入、震动与运动传感器适配。
 - 支持自定义分辨率、码率、帧率、竖屏、外接显示器、HDR、性能信息和本地视频隐藏等串流选项。
 - 类型化设置迁移保留旧版本有效配置；适合即时生效的选项直接更新运行态，需要新会话的选项明确在下一次连接生效。

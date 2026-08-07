@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android's system splash screen owns the outer branding slot. Keep the
+    artwork in a fixed 200dp x 80dp layer, like the platform's own apps do,
+    so the system never rescales the logo and wordmark independently.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="200dp"
+        android:height="80dp"
+        android:drawable="@drawable/launch_branding_content"
+        android:gravity="bottom|center_horizontal" />
+</layer-list>

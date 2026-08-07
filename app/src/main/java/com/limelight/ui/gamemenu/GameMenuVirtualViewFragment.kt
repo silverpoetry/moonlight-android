@@ -21,6 +21,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.limelight.R
 import com.limelight.binding.input.virtual_controller.keyboard.VirtualControlEditMode
@@ -137,6 +139,7 @@ class GameMenuVirtualViewFragment : ComposeGameMenuDialogFragment() {
         selected: VirtualControlEditMode,
         onSelected: (VirtualControlEditMode) -> Unit,
     ) {
+        val haptics = LocalHapticFeedback.current
         val options = listOf(
             "默认" to VirtualControlEditMode.ACTIVE,
             "编辑布局" to VirtualControlEditMode.MOVE_BUTTONS,
@@ -145,7 +148,14 @@ class GameMenuVirtualViewFragment : ComposeGameMenuDialogFragment() {
             options.forEachIndexed { index, (label, mode) ->
                 SegmentedButton(
                     selected = selected == mode,
-                    onClick = { onSelected(mode) },
+                    onClick = {
+                        if (selected != mode) {
+                            haptics.performHapticFeedback(
+                                HapticFeedbackType.SegmentTick,
+                            )
+                            onSelected(mode)
+                        }
+                    },
                     shape = SegmentedButtonDefaults.itemShape(index, options.size),
                     label = { Text(label, style = MaterialTheme.typography.labelLarge) },
                 )
@@ -160,6 +170,7 @@ class GameMenuVirtualViewFragment : ComposeGameMenuDialogFragment() {
         selected: String,
         onSelected: (String) -> Unit,
     ) {
+        val haptics = LocalHapticFeedback.current
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("布局方案", style = MaterialTheme.typography.labelMedium)
             Row(
@@ -169,7 +180,14 @@ class GameMenuVirtualViewFragment : ComposeGameMenuDialogFragment() {
                 values.forEachIndexed { index, value ->
                     FilterChip(
                         selected = selected == value,
-                        onClick = { onSelected(value) },
+                        onClick = {
+                            if (selected != value) {
+                                haptics.performHapticFeedback(
+                                    HapticFeedbackType.SegmentTick,
+                                )
+                                onSelected(value)
+                            }
+                        },
                         label = {
                             Text(
                                 names.getOrElse(index) { value },
@@ -187,6 +205,7 @@ class GameMenuVirtualViewFragment : ComposeGameMenuDialogFragment() {
         settings: VirtualControlSettings,
         onSelected: (Int) -> Unit,
     ) {
+        val haptics = LocalHapticFeedback.current
         val options = listOf(
             "黑色" to 0xF0000000.toInt(),
             "白色" to 0xF0FFFFFF.toInt(),
@@ -196,7 +215,14 @@ class GameMenuVirtualViewFragment : ComposeGameMenuDialogFragment() {
             options.forEachIndexed { index, (label, color) ->
                 SegmentedButton(
                     selected = settings.normalColor == color,
-                    onClick = { onSelected(color) },
+                    onClick = {
+                        if (settings.normalColor != color) {
+                            haptics.performHapticFeedback(
+                                HapticFeedbackType.SegmentTick,
+                            )
+                            onSelected(color)
+                        }
+                    },
                     shape = SegmentedButtonDefaults.itemShape(index, options.size),
                     label = { Text(label, style = MaterialTheme.typography.labelLarge) },
                 )

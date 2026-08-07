@@ -29,7 +29,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -46,7 +45,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -57,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import com.limelight.R
 import com.limelight.ui.compose.components.MoonlightScreen
 import com.limelight.ui.compose.components.MoonlightStepSlider
+import com.limelight.ui.compose.components.MoonlightSwitch
+import com.limelight.ui.compose.components.performToggleHapticFeedback
 import com.limelight.ui.compose.theme.MoonlightThemeFromSettings
 import kotlin.math.roundToInt
 
@@ -625,6 +628,7 @@ class SettingsScreenRenderer(
         showIcon: Boolean,
         contextLabel: String? = null,
     ) {
+        val haptics = LocalHapticFeedback.current
         val enabledModifier = if (row.isEnabled) Modifier else Modifier.alpha(0.45f)
         val hasInlineEditor = row.hasInlineChoices() ||
             (row.hasNumericSlider() && !compact)
@@ -688,13 +692,12 @@ class SettingsScreenRenderer(
             },
             trailingContent = {
                 if (row.hasSwitchControl()) {
-                    Switch(
+                    MoonlightSwitch(
                         checked = row.isChecked,
-                        onCheckedChange = if (row.isEnabled) {
-                            { checked -> listener?.onSwitchChanged(row.id, checked) }
-                        } else {
-                            null
+                        onCheckedChange = { checked ->
+                            listener?.onSwitchChanged(row.id, checked)
                         },
+                        enabled = row.isEnabled,
                     )
                 } else {
                     Icon(
@@ -714,7 +717,9 @@ class SettingsScreenRenderer(
                     enabled = row.isEnabled,
                 ) {
                     if (row.hasSwitchControl()) {
-                        listener?.onSwitchChanged(row.id, !row.isChecked)
+                        val checked = !row.isChecked
+                        haptics.performToggleHapticFeedback(checked)
+                        listener?.onSwitchChanged(row.id, checked)
                     } else {
                         listener?.onItemRequested(row.id)
                     }
@@ -789,6 +794,7 @@ class SettingsScreenRenderer(
 
     @Composable
     private fun InlineChoiceSegments(row: SettingsScreenState.Row) {
+        val haptics = LocalHapticFeedback.current
         SingleChoiceSegmentedButtonRow(
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -796,7 +802,12 @@ class SettingsScreenRenderer(
                 SegmentedButton(
                     selected = choice.value == row.selectedChoiceValue,
                     onClick = {
-                        listener?.onInlineChoiceChanged(row.id, choice.value)
+                        if (choice.value != row.selectedChoiceValue) {
+                            haptics.performHapticFeedback(
+                                HapticFeedbackType.SegmentTick,
+                            )
+                            listener?.onInlineChoiceChanged(row.id, choice.value)
+                        }
                     },
                     enabled = row.isEnabled,
                     shape = SegmentedButtonDefaults.itemShape(

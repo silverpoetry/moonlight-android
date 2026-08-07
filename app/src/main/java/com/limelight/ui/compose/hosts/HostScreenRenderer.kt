@@ -63,7 +63,7 @@ class HostScreenRenderer(
     private data class State(
         val title: String,
         val hosts: List<HostRuntimeSnapshot>,
-        val showSearching: Boolean,
+        val showEmptyState: Boolean,
         val hostsWithRecentStreams: Set<String>,
     )
 
@@ -98,19 +98,12 @@ class HostScreenRenderer(
 
     fun updateHosts(
         hosts: List<HostRuntimeSnapshot>,
-        showSearching: Boolean,
-    ) {
-        updateHosts(hosts, showSearching, emptySet())
-    }
-
-    fun updateHosts(
-        hosts: List<HostRuntimeSnapshot>,
-        showSearching: Boolean,
+        showEmptyState: Boolean,
         hostsWithRecentStreams: Set<String>,
     ) {
         state = state.copy(
             hosts = hosts.toList(),
-            showSearching = showSearching,
+            showEmptyState = showEmptyState,
             hostsWithRecentStreams = hostsWithRecentStreams.toSet(),
         )
     }
@@ -146,37 +139,39 @@ class HostScreenRenderer(
                 )
             },
         ) { padding ->
-            if (state.hosts.isEmpty()) {
-                EmptyHostState(
-                    showSearching = state.showSearching,
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                )
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(300.dp),
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    items(
-                        items = state.hosts,
-                        key = { it.record.identity.id.value },
-                    ) { host ->
-                        HostCard(
-                            host = host,
-                            hasRecentStream = host.record.identity.id.value in
-                                    state.hostsWithRecentStreams,
-                        )
+            when {
+                state.hosts.isNotEmpty() -> {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(300.dp),
+                        modifier = Modifier.fillMaxSize().padding(padding),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        items(
+                            items = state.hosts,
+                            key = { it.record.identity.id.value },
+                        ) { host ->
+                            HostCard(
+                                host = host,
+                                hasRecentStream = host.record.identity.id.value in
+                                        state.hostsWithRecentStreams,
+                            )
+                        }
                     }
                 }
+                state.showEmptyState -> {
+                    EmptyHostState(
+                        modifier = Modifier.fillMaxSize().padding(padding),
+                    )
+                }
+                else -> Unit
             }
         }
     }
 
     @Composable
     private fun EmptyHostState(
-        showSearching: Boolean,
         modifier: Modifier,
     ) {
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
@@ -192,11 +187,7 @@ class HostScreenRenderer(
                     modifier = Modifier.size(64.dp),
                 )
                 Text(
-                    text = if (showSearching) {
-                        stringResource(R.string.searching_pc)
-                    } else {
-                        stringResource(R.string.host_empty_state)
-                    },
+                    text = stringResource(R.string.host_empty_state),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

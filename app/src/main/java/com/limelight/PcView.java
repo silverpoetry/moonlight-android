@@ -1337,9 +1337,14 @@ public class PcView extends BaseActivity {
                 hostsWithRecentStreams.add(hostId);
             }
         }
+        // The manager reports its persisted host count before it publishes
+        // the initial snapshots. Until those snapshots arrive, leave the
+        // host area empty rather than presenting an incorrect status.
+        boolean showEmptyState = hostListReady &&
+                !managerHasKnownHosts && hosts.isEmpty();
         hostScreenRenderer.updateHosts(
                 hosts,
-                hostListReady && !managerHasKnownHosts && hosts.isEmpty(),
+                showEmptyState,
                 hostsWithRecentStreams);
     }
 

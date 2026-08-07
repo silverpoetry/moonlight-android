@@ -40,6 +40,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
     private GameMenuState menuState;
     private BackNavigationRegistration backNavigationRegistration;
     private GameMenuComposeRenderer composeRenderer;
+    private Runnable pendingDismissedAction;
 
     public static GameMenuFragment newInstance(int widthPx) {
         GameMenuFragment fragment = new GameMenuFragment();
@@ -62,6 +63,7 @@ public class GameMenuFragment extends BaseGameMenuDialog
     @Override
     public void onDetach() {
         mainHandler.removeCallbacksAndMessages(null);
+        pendingDismissedAction = null;
         if (composeRenderer != null) {
             composeRenderer.destroy();
             composeRenderer = null;
@@ -133,6 +135,11 @@ public class GameMenuFragment extends BaseGameMenuDialog
             currentHost.onGameMenuDismissed(this);
         }
         super.onDismiss(dialog);
+        Runnable action = pendingDismissedAction;
+        pendingDismissedAction = null;
+        if (action != null) {
+            action.run();
+        }
     }
 
     @Override
@@ -156,12 +163,17 @@ public class GameMenuFragment extends BaseGameMenuDialog
                     @Override
                     public void onActionRequested(
                             int viewId,
-                            Object shortcutEntry) {
+                            Object shortcutEntry,
+                            boolean dismissMenuBeforeExecution) {
                         View actionView = new View(requireContext());
                         actionView.setId(viewId);
                         actionView.setTag(shortcutEntry);
-                        onClick(actionView);
-                        refreshComposeMenu();
+                        dispatchAction(
+                                actionView,
+                                dismissMenuBeforeExecution);
+                        if (!dismissMenuBeforeExecution) {
+                            refreshComposeMenu();
+                        }
                     }
 
                     @Override
@@ -229,6 +241,41 @@ public class GameMenuFragment extends BaseGameMenuDialog
 
     @Override
     public void onClick(View v) {
+        dispatchAction(v, resolvesMenuDismissal(v));
+    }
+
+    private boolean resolvesMenuDismissal(View v) {
+        if (v.getTag() instanceof GameMenuShortcutCatalog.Entry) {
+            return true;
+        }
+        GameMenuActionCatalog.Action action =
+                GameMenuActionCatalog.findByViewId(v.getId());
+        return action != null && action.dismissesMenuBeforeExecution();
+    }
+
+    private void dispatchAction(
+            View actionView,
+            boolean dismissMenuBeforeExecution) {
+        if (dismissMenuBeforeExecution) {
+            pendingDismissedAction = () -> executeAction(actionView);
+            Dialog dialog = getDialog();
+            if (dialog != null && dialog.isShowing()) {
+                dismiss();
+            }
+            else {
+                Runnable action = pendingDismissedAction;
+                pendingDismissedAction = null;
+                if (action != null) {
+                    action.run();
+                }
+            }
+        }
+        else {
+            executeAction(actionView);
+        }
+    }
+
+    private void executeAction(View v) {
         if (host == null) {
             return;
         }
@@ -312,18 +359,15 @@ public class GameMenuFragment extends BaseGameMenuDialog
 
         //断开链接
         if(v.getId()==R.id.btn_unlink){
-            dismiss();
             host.requestStreamDisconnect();
             return;
         }
         if(v.getId()==R.id.btn_exit){
-            dismiss();
             host.requestStreamQuit();
             return;
         }
 
         if(v.getId()==R.id.btn_swicth_screen){
-            dismiss();
             host.switchLandscapePortraitScreen();
             return;
         }
@@ -348,13 +392,11 @@ public class GameMenuFragment extends BaseGameMenuDialog
         }
 
         if(v.getId()==R.id.btn_soft_keyboard){
-            dismiss();
             host.requestSoftKeyboard();
             return;
         }
 
         if(v.getId()==R.id.btn_screen_move){
-            dismiss();
             host.screenMoveZoom();
             return;
         }
@@ -435,7 +477,6 @@ public class GameMenuFragment extends BaseGameMenuDialog
         }
 
         if (v.getId() == R.id.btn_pull_clipboard_files) {
-            dismiss();
             host.pullRemoteClipboardFiles();
         }
     }

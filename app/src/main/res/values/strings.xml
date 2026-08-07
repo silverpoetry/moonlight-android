@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="launch_brand_name" translatable="false">Moonlight</string>
+
     <!-- Shortcut strings -->
     <string name="scut_deleted_pc">PC deleted</string>
     <string name="scut_not_paired">PC not paired</string>
@@ -94,6 +96,7 @@
 
     <!-- General strings -->
     <string name="ip_hint">IP address of host PC</string>
+    <string name="addpc_address_placeholder" translatable="false">192.168.1.2:47989</string>
     <string name="searching_pc">Searching for host PCs on your local network…\n\n
         Ensure Sunshine is running on your host PC or GameStream is enabled in the GeForce Experience SHIELD settings.</string>
     <string name="yes">Yes</string>

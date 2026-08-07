@@ -42,6 +42,12 @@ final class GameMenuCardCatalog {
         boolean requiresGamepad() {
             return action != null && action.requiresGamepad;
         }
+
+        boolean dismissesMenuBeforeExecution() {
+            return shortcut != null ||
+                    (action != null &&
+                            action.dismissesMenuBeforeExecution());
+        }
     }
 
     private GameMenuCardCatalog() {

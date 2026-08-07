@@ -701,8 +701,11 @@ public class NvConnection implements StreamSessionConnection,
                 try {
                     MoonBridge.setupBridge(videoDecoderRenderer,
                             audioRenderer, connectionListener);
-                    if (context.streamConfig
-                            .getClipboardProtocolEnabled()) {
+                    boolean clipboardProtocolEnabled = context.streamConfig
+                            .getClipboardProtocolEnabled();
+                    int clipboardCapabilities = context.streamConfig
+                            .getClipboardCapabilities();
+                    if (clipboardProtocolEnabled) {
                         clipboardSyncController =
                                 new ClipboardSyncController(
                                         appContext,
@@ -735,10 +738,8 @@ public class NvConnection implements StreamSessionConnection,
                             context.streamConfig.getColorRange(),
                             context.streamConfig
                                     .getNativeCursorEnabled(),
-                            context.streamConfig
-                                    .getClipboardProtocolEnabled(),
-                            context.streamConfig
-                                    .getClipboardCapabilities(),
+                            clipboardProtocolEnabled,
+                            clipboardCapabilities,
                             context.streamConfig
                                     .getAdaptiveInputThrottlingDisabled());
                     bridgeStarted = result == 0;

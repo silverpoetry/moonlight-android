@@ -348,6 +348,9 @@ private fun AddComputerDialog(
                     modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
                     enabled = !operationInProgress,
                     label = { Text(stringResource(R.string.ip_hint)) },
+                    placeholder = {
+                        Text(stringResource(R.string.addpc_address_placeholder))
+                    },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Uri,

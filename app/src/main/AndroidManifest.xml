@@ -95,6 +95,7 @@
         <activity
             android:name=".PcView"
             android:exported="true"
+            android:theme="@style/LaunchTheme"
             android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection">
 
             <meta-data android:name="WindowManagerPreference:FreeformWindowSize" android:value="system-default" />

@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -30,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -192,5 +194,40 @@ fun MoonlightStepSlider(
         modifier = modifier,
         valueRange = valueRange,
         steps = steps,
+    )
+}
+
+/** Switch with one semantic haptic for each user-requested state change. */
+@Composable
+fun MoonlightSwitch(
+    checked: Boolean,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val haptics = LocalHapticFeedback.current
+    Switch(
+        checked = checked,
+        onCheckedChange = if (enabled && onCheckedChange != null) {
+            { newChecked ->
+                haptics.performToggleHapticFeedback(newChecked)
+                onCheckedChange(newChecked)
+            }
+        } else {
+            null
+        },
+        modifier = modifier,
+        enabled = enabled,
+    )
+}
+
+/** Shared toggle feedback used when a larger settings row changes a switch. */
+fun HapticFeedback.performToggleHapticFeedback(checked: Boolean) {
+    performHapticFeedback(
+        if (checked) {
+            HapticFeedbackType.ToggleOn
+        } else {
+            HapticFeedbackType.ToggleOff
+        },
     )
 }

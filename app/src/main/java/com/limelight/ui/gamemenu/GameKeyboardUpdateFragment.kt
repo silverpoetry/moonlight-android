@@ -31,6 +31,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,6 +73,7 @@ class GameKeyboardUpdateFragment : ComposeGameMenuDialogFragment() {
         var name by remember { mutableStateOf("") }
         var chordLabel by remember { mutableStateOf(chordSelection.displayName) }
         var selectedTab by remember { mutableIntStateOf(0) }
+        val haptics = LocalHapticFeedback.current
         val tabs = if (keyFrom == KEY_FROM_BUTTON_LIST) {
             listOf(
                 R.string.keyboard_full_pc,
@@ -130,7 +133,14 @@ class GameKeyboardUpdateFragment : ComposeGameMenuDialogFragment() {
                     tabs.forEachIndexed { index, labelRes ->
                         SegmentedButton(
                             selected = selectedTab == index,
-                            onClick = { selectedTab = index },
+                            onClick = {
+                                if (selectedTab != index) {
+                                    haptics.performHapticFeedback(
+                                        HapticFeedbackType.SegmentTick,
+                                    )
+                                    selectedTab = index
+                                }
+                            },
                             shape = SegmentedButtonDefaults.itemShape(index, tabs.size),
                         ) {
                             Text(

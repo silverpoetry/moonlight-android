@@ -42,6 +42,7 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -91,6 +92,7 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
         currentValue: String,
         listener: ListSelectionListener,
     ): Dialog = showDialog { dialog ->
+        val haptics = LocalHapticFeedback.current
         SettingsDialogCard(title = title) {
             Column(
                 modifier = Modifier
@@ -113,6 +115,11 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
+                                if (value != currentValue) {
+                                    haptics.performHapticFeedback(
+                                        HapticFeedbackType.SegmentTick,
+                                    )
+                                }
                                 listener.onSelected(value)
                                 dialog.dismiss()
                             },
@@ -133,6 +140,7 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
         addListener: TextSubmissionListener,
         removeListener: TextRemovalListener,
     ): Dialog = showDialog { dialog ->
+        val haptics = LocalHapticFeedback.current
         val options = remember(entries, values, customValues) {
             mutableStateListOf<ResolutionDialogEntry>().apply {
                 entries.indices.forEach { index ->
@@ -215,6 +223,11 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
+                                if (option.value != selectedValue) {
+                                    haptics.performHapticFeedback(
+                                        HapticFeedbackType.SegmentTick,
+                                    )
+                                }
                                 selectionListener.onSelected(option.value)
                                 dialog.dismiss()
                             },
@@ -409,7 +422,7 @@ class MaterialSettingsDialogFactory(private val activity: Activity) {
                             if (selectedIndex != index) {
                                 selectedIndex = index
                                 haptics.performHapticFeedback(
-                                    androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove,
+                                    HapticFeedbackType.SegmentTick,
                                 )
                             }
                         },

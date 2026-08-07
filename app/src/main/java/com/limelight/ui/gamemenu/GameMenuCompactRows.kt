@@ -15,15 +15,17 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.limelight.ui.compose.components.MoonlightStepSlider
+import com.limelight.ui.compose.components.MoonlightSwitch
 import kotlin.math.roundToInt
 
 /** Shared compact information hierarchy for in-stream secondary pages. */
@@ -44,11 +46,19 @@ internal fun GameMenuSelectableRow(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val haptics = LocalHapticFeedback.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 64.dp)
-            .clickable(onClick = onClick)
+            .clickable {
+                if (!selected) {
+                    haptics.performHapticFeedback(
+                        HapticFeedbackType.SegmentTick,
+                    )
+                }
+                onClick()
+            }
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -193,6 +203,9 @@ internal fun GameMenuSwitchRow(
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f),
         )
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        MoonlightSwitch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+        )
     }
 }

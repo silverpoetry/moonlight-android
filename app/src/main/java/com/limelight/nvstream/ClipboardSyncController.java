@@ -14,7 +14,6 @@ import android.os.Looper;
 import android.os.OperationCanceledException;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
-
 import com.limelight.LimeLog;
 import com.limelight.platform.files.AndroidPrivateFileShare;
 import com.limelight.nvstream.filetransfer.ClipboardFileDownloader;
@@ -48,6 +47,16 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     private static final long MAX_IMAGE_PIXELS = 32L * 1024L * 1024L;
     private static final long CACHE_RETENTION_MS = 24L * 60L * 60L * 1000L;
     private static final long REMOTE_WRITE_SUPPRESSION_MS = 1500;
+    /**
+     * Screenshot providers commonly publish a MediaStore URI before the
+     * backing row leaves IS_PENDING.  The URI is visible to the clipboard
+     * listener at that point, but non-owner reads are rejected until the
+     * provider finalizes the row.  Keep this retry window short and bounded;
+     * it covers the normal screenshot finalization latency without holding
+     * the clipboard worker indefinitely.
+     */
+    private static final int IMAGE_URI_READ_ATTEMPTS = 10;
+    private static final long IMAGE_URI_READ_RETRY_DELAY_MS = 100;
     private static final String SENSITIVE_EXTRA = "android.content.extra.IS_SENSITIVE";
 
     private final Context context;
@@ -168,25 +177,29 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             return;
         }
 
+
         if (mimeType == MoonBridge.LI_CLIPBOARD_MIME_TEXT_UTF8 &&
                 canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_TEXT) &&
-                isValidUtf8Text(data)) {
+            isValidUtf8Text(data)) {
             long generation = remoteGeneration.incrementAndGet();
             applyInboundText(data, generation);
+            return;
         }
         else if (mimeType == MoonBridge.LI_CLIPBOARD_MIME_PNG &&
                 canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_PNG) &&
-                isValidPngHeader(data, MAX_INLINE_PNG_BYTES)) {
+            isValidPngHeader(data, MAX_INLINE_PNG_BYTES)) {
             long generation = remoteGeneration.incrementAndGet();
             contentExecutor.execute(() ->
                     applyInboundPng(originId, itemId, data, generation));
+            return;
         }
         else if (mimeType == MoonBridge.LI_CLIPBOARD_MIME_FILE_OFFER &&
                 canReceiveFromHost(MoonBridge.LI_CLIPBOARD_CAP_FILES) &&
                 canReceiveFromHost(
                     MoonBridge.LI_CLIPBOARD_CAP_FILE_STREAMS) &&
                 decodeFileOfferId(data) != null) {
-            remoteGeneration.incrementAndGet();
+            long generation = remoteGeneration.incrementAndGet();
+            return;
         }
         else if (mimeType == MoonBridge.LI_CLIPBOARD_MIME_BLOB_REFERENCE) {
             BlobReference reference = decodeBlobReference(data);
@@ -201,8 +214,10 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 long generation = remoteGeneration.incrementAndGet();
                 contentExecutor.execute(() ->
                         applyInboundBlob(originId, itemId, reference, generation));
+                return;
             }
         }
+
     }
 
     void downloadRemoteFiles(
@@ -471,7 +486,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                     LimeLog.warning("Failed to announce clipboard PNG");
                 }
             } catch (Throwable error) {
-                LimeLog.warning("Clipboard image processing failed: " + error.getMessage());
+                LimeLog.warning("Clipboard image processing failed: " + error.getMessage(), error);
             } finally {
                 if (key.equals(pendingLocalKey)) {
                     pendingLocalKey = null;
@@ -682,59 +697,93 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
 
     private File materializePng(Uri uri) throws IOException {
         String type = context.getContentResolver().getType(uri);
-        if ("image/png".equalsIgnoreCase(type)) {
-            File copy = temporaryCacheFile("outbound-", ".png");
-            try (InputStream input = context.getContentResolver().openInputStream(uri);
-                 FileOutputStream output = new FileOutputStream(copy)) {
+
+        // Read the provider exactly once after it becomes accessible.  Apart
+        // from avoiding a race between bounds and decode reads, this is what
+        // makes a screenshot URI safe to consume while the screenshot app is
+        // still finalizing its MediaStore row.
+        File source = temporaryCacheFile("outbound-source-", ".bin");
+        try {
+            copyUriToFileWithRetry(uri, source);
+            if ("image/png".equalsIgnoreCase(type)) {
+                if (!isValidPngFile(source)) {
+                    throw new IOException("Invalid PNG clipboard image");
+                }
+                File png = temporaryCacheFile("outbound-", ".png");
+                copyFile(source, png, MAX_BLOB_BYTES);
+                return png;
+            }
+
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(source.getAbsolutePath(), bounds);
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0 ||
+                    (long)bounds.outWidth * bounds.outHeight > MAX_IMAGE_PIXELS) {
+                throw new IOException("Clipboard image dimensions exceed limit");
+            }
+
+            Bitmap bitmap = BitmapFactory.decodeFile(source.getAbsolutePath());
+            if (bitmap == null) {
+                throw new IOException("Unable to decode clipboard image");
+            }
+
+            File png = temporaryCacheFile("outbound-", ".png");
+            try (FileOutputStream output = new FileOutputStream(png)) {
+                if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                    throw new IOException("Unable to encode clipboard image as PNG");
+                }
+            } catch (IOException error) {
+                png.delete();
+                throw error;
+            } finally {
+                bitmap.recycle();
+            }
+            if (png.length() > MAX_BLOB_BYTES || !isValidPngFile(png)) {
+                png.delete();
+                throw new IOException("Encoded clipboard image exceeds limit");
+            }
+            return png;
+        } finally {
+            if (source.exists()) {
+                source.delete();
+            }
+        }
+    }
+
+    private void copyUriToFileWithRetry(Uri uri, File destination)
+            throws IOException {
+        Throwable lastFailure = null;
+        for (int attempt = 1; attempt <= IMAGE_URI_READ_ATTEMPTS; attempt++) {
+            try (InputStream input = context.getContentResolver()
+                    .openInputStream(uri);
+                 FileOutputStream output = new FileOutputStream(destination)) {
                 if (input == null) {
                     throw new IOException("Unable to open clipboard image");
                 }
                 copyStream(input, output, MAX_BLOB_BYTES);
-            } catch (IOException error) {
-                copy.delete();
-                throw error;
+                return;
             }
-            if (!isValidPngFile(copy)) {
-                copy.delete();
-                throw new IOException("Invalid PNG clipboard image");
+            catch (Throwable failure) {
+                lastFailure = failure;
+                destination.delete();
+                if (attempt == IMAGE_URI_READ_ATTEMPTS || !isRetryableUriReadFailure(failure)) {
+                    break;
+                }
+                SystemClock.sleep(IMAGE_URI_READ_RETRY_DELAY_MS);
             }
-            return copy;
         }
 
-        BitmapFactory.Options bounds = new BitmapFactory.Options();
-        bounds.inJustDecodeBounds = true;
-        try (InputStream input = context.getContentResolver().openInputStream(uri)) {
-            BitmapFactory.decodeStream(input, null, bounds);
+        if (lastFailure instanceof IOException) {
+            throw (IOException) lastFailure;
         }
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0 ||
-                (long)bounds.outWidth * bounds.outHeight > MAX_IMAGE_PIXELS) {
-            throw new IOException("Clipboard image dimensions exceed limit");
-        }
+        throw new IOException("Unable to read clipboard image URI", lastFailure);
+    }
 
-        Bitmap bitmap;
-        try (InputStream input = context.getContentResolver().openInputStream(uri)) {
-            bitmap = BitmapFactory.decodeStream(input);
-        }
-        if (bitmap == null) {
-            throw new IOException("Unable to decode clipboard image");
-        }
-
-        File png = temporaryCacheFile("outbound-", ".png");
-        try (FileOutputStream output = new FileOutputStream(png)) {
-            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
-                throw new IOException("Unable to encode clipboard image as PNG");
-            }
-        } catch (IOException error) {
-            png.delete();
-            throw error;
-        } finally {
-            bitmap.recycle();
-        }
-        if (png.length() > MAX_BLOB_BYTES || !isValidPngFile(png)) {
-            png.delete();
-            throw new IOException("Encoded clipboard image exceeds limit");
-        }
-        return png;
+    private boolean isRetryableUriReadFailure(Throwable failure) {
+        return failure instanceof IllegalStateException ||
+                failure instanceof SecurityException ||
+                failure instanceof FileNotFoundException ||
+                failure instanceof IOException;
     }
 
     private boolean isValidPngFile(File file) {
@@ -966,6 +1015,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             throw new AssertionError(error);
         }
     }
+
 
     private static final class BlobReference {
         final byte targetMime;

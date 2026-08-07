@@ -33,8 +33,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -57,7 +59,11 @@ internal class GameMenuComposeRenderer(
     private var listener: Listener?,
 ) {
     interface Listener {
-        fun onActionRequested(viewId: Int, shortcutEntry: Any?)
+        fun onActionRequested(
+            viewId: Int,
+            shortcutEntry: Any?,
+            dismissMenuBeforeExecution: Boolean,
+        )
         fun onActionLongPressed(viewId: Int)
         fun onCardLayoutChanged(layout: GameMenuCardLayout)
         fun onDismissRequested()
@@ -71,6 +77,7 @@ internal class GameMenuComposeRenderer(
         val shortcutEntry: Any?,
         val source: GameMenuCardCatalog.Card,
         val available: Boolean,
+        val dismissesMenuBeforeExecution: Boolean,
     )
 
     private data class RenderState(
@@ -123,6 +130,8 @@ internal class GameMenuComposeRenderer(
             source = card,
             available = !card.requiresGamepad() ||
                 menuState.isMouseEmulationAvailable,
+            dismissesMenuBeforeExecution =
+                card.dismissesMenuBeforeExecution(),
         )
     }
 
@@ -145,6 +154,7 @@ internal class GameMenuComposeRenderer(
 
     @Composable
     private fun MenuContent(state: RenderState, modifier: Modifier) {
+        val haptics = LocalHapticFeedback.current
         Column(
             modifier = modifier
                 .verticalScroll(rememberScrollState())
@@ -188,6 +198,9 @@ internal class GameMenuComposeRenderer(
                 )
                 IconButton(
                     onClick = {
+                        haptics.performHapticFeedback(
+                            HapticFeedbackType.VirtualKey,
+                        )
                         if (editing) {
                             listener?.onCardLayoutChanged(
                                 GameMenuCardConfiguration.toLayout(
@@ -306,14 +319,14 @@ internal class GameMenuComposeRenderer(
                 detectDragGesturesAfterLongPress(
                     onDragStart = {
                         haptics.performHapticFeedback(
-                            androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress,
+                            HapticFeedbackType.LongPress,
                         )
                     },
                     onDragEnd = {
                         if (dragTarget != index) {
                             moveVisibleCard(index, dragTarget)
                             haptics.performHapticFeedback(
-                                androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove,
+                                HapticFeedbackType.TextHandleMove,
                             )
                         }
                         dragX = 0f
@@ -339,7 +352,7 @@ internal class GameMenuComposeRenderer(
                         if (target != dragTarget) {
                             dragTarget = target
                             haptics.performHapticFeedback(
-                                androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove,
+                                HapticFeedbackType.TextHandleMove,
                             )
                         }
                     },
@@ -365,14 +378,22 @@ internal class GameMenuComposeRenderer(
                 Surface(
                     modifier = Modifier
                         .size(46.dp)
+                        .clip(CircleShape)
                         .combinedClickable(
                             onClick = {
                                 if (editing) {
+                                    haptics.performHapticFeedback(
+                                        HapticFeedbackType.SegmentTick,
+                                    )
                                     toggleCardVisibility(card, visible)
                                 } else {
+                                    haptics.performHapticFeedback(
+                                        HapticFeedbackType.VirtualKey,
+                                    )
                                     listener?.onActionRequested(
                                         card.viewId,
                                         card.shortcutEntry,
+                                        card.dismissesMenuBeforeExecution,
                                     )
                                 }
                             },
@@ -483,7 +504,11 @@ internal class GameMenuComposeRenderer(
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable {
-                        listener?.onActionRequested(entry.viewId, null)
+                        listener?.onActionRequested(
+                            entry.viewId,
+                            null,
+                            false,
+                        )
                     },
                 )
                 if (index != entries.lastIndex) {
