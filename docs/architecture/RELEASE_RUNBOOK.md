@@ -106,6 +106,9 @@ Get-FileHash $rootMapping -Algorithm SHA256
 & $apkSigner verify --print-certs $candidateApk
 ```
 
+The application SBOM produced by the current build is
+`build/reports/sbom/moonlight-android.cdx.json`.
+
 Reject an unexpected package name, version, certificate digest, verification
 failure, missing ABI, or missing native-license entry.
 

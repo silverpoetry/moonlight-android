@@ -6,7 +6,7 @@ not replace the final release matrix in `QUALITY_IMPROVEMENT_PLAN.md`.
 ## Independent branch release baseline: configuration archive and documentation pass
 
 - Date: 2026-08-07
-- Commit: `23aa54ae Refine configuration archive import and export`
+- Build candidate: `d7420a25 Prepare v12.1-260807 release`
 - Version: `12.1-260807` / version code `316`
 - Common-c: `ac7f2345879070a924b5f8cb339cd0fe25230012`
 - Product: `nonRootRelease`, application ID `com.silverpoetry.moonlight`
@@ -16,7 +16,8 @@ not replace the final release matrix in `QUALITY_IMPROVEMENT_PLAN.md`.
 - Client identity validation: certificate/private-key signature match before write
 - Host-only import: portable host metadata and pinned host certificates merge without replacing
   the current client identity; host pairing is resolved by the next host refresh
-- Verification: the complete Release gate and artifact identity are recorded in
+- Verification: `verifyLocal --rerun-tasks --no-parallel` passed with 351 tasks
+  re-executed; artifact identity, SBOM, signer and mapping evidence are recorded in
   `QUALITY_BASELINE.md` for the tagged candidate
 
 This entry describes the current release baseline. Entries below preserve historical SDK,
