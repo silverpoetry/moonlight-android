@@ -93,8 +93,10 @@ app
   reporting. The mandatory cacheable `verifyNoBidiControls` task replaces it
   with a source-wide scan; all other lint findings remain warnings-as-errors.
   Kotlin/UAST lint analysis is executed with JDK 21.
-- Android release variants remain unobfuscated by product policy. This build
-  governance work does not add R8 or ProGuard processing.
+- Android Release variants require full R8 optimization, shrinking,
+  obfuscation, and resource shrinking. The finalized Android DSL rejects a
+  Release configuration that disables either code or resource shrinking;
+  Debug remains unminified for source-level diagnostics.
 
 ## Next measured candidates
 

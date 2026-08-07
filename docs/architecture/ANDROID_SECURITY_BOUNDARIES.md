@@ -67,10 +67,13 @@ read-only cache copy. Local keystores, private-key formats, signing property
 files, and exported client credentials are ignored by Git; no signing secret
 is tracked in the repository.
 
-Release remains unobfuscated by product decision. Signing compatibility with
-installed builds is separate from code hardening: any future CI/release-key
-change must inject credentials outside source control and rehearse upgrades on
-both product flavors before replacing the current workspace signing identity.
+Release uses full R8 optimization, shrinking, and obfuscation. Every published
+APK must retain its exact mapping file as release evidence so production stack
+traces can be retraced. Debug remains unminified for interactive diagnostics.
+Signing compatibility with installed builds is separate from code hardening:
+any future CI/release-key change must inject credentials outside source control
+and rehearse upgrades on both product flavors before replacing the current
+workspace signing identity.
 
 ## Enforcement
 

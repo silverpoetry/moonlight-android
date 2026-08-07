@@ -1,11 +1,28 @@
-# Don't obfuscate code
--dontobfuscate
-
-# Our code
+# Root-only input capture is loaded by its stable binary name.
 -keep class com.limelight.binding.input.evdev.* {*;}
 
-# Moonlight common
+# Native entry points and callbacks use statically named JNI symbols.
 -keep class com.limelight.nvstream.jni.* {*;}
+
+# These persisted documents use Gson field reflection. Keep only their schema
+# members; the enclosing classes and ordinary methods remain optimizable and
+# obfuscatable.
+-keepclassmembers,allowoptimization class com.limelight.shortcuts.GameMenuShortcutDocumentCodec$Document {
+    <fields>;
+    <init>();
+}
+-keepclassmembers,allowoptimization class com.limelight.shortcuts.GameMenuShortcutDocumentCodec$Entry {
+    <fields>;
+    <init>();
+}
+-keepclassmembers,allowoptimization class com.limelight.shortcuts.LegacyGameMenuShortcutCodec$LegacyEntry {
+    <fields>;
+    <init>();
+}
+-keepclassmembers,allowoptimization class com.limelight.ui.gamemenu.bean.GameMenuQuickBean {
+    <fields>;
+    <init>();
+}
 
 # Okio
 -keep class sun.misc.Unsafe {*;}

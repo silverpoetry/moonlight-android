@@ -111,7 +111,13 @@ android {
             resValue "string", "app_label", "Moonlight"
             resValue "string", "app_label_root", "Moonlight (Root)"
 
-            minifyEnabled = false
+            // Production packages use the complete R8 pipeline. Debug remains
+            // unminified so diagnostic builds retain source-level identities.
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile(
+                    'proguard-android-optimize.txt'),
+                    'proguard-rules.pro'
         }
     }
 
@@ -129,6 +135,12 @@ androidComponents {
             throw new GradleException(
                     'Runtime locale switching requires language splits to ' +
                             'remain disabled')
+        }
+        def releaseBuildType = extension.buildTypes.getByName('release')
+        if (!releaseBuildType.minifyEnabled ||
+                !releaseBuildType.shrinkResources) {
+            throw new GradleException(
+                    'Release variants require R8 code and resource shrinking')
         }
     }
 

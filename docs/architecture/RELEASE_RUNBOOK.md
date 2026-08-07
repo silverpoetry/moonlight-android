@@ -52,7 +52,7 @@ stand in for release evidence:
 This gate includes all app and core JVM tests, architecture checks, four lint
 variants, four native ABIs, native and vendored dependency verification,
 secret/security-policy checks, the CycloneDX application SBOM, and both
-unobfuscated Release APKs.
+R8-optimized, resource-shrunk Release APKs.
 
 The networknt validator used by the current CycloneDX toolchain can report
 `meta:enum` and `deprecated` as unknown schema annotation keywords. These two
@@ -75,14 +75,19 @@ errors, and skips. Preserve their XML reports from
 
 ## 4. Artifact identity
 
-For each Release APK, record its SHA-256, application ID, version, and signing
-certificate. The expected tools are supplied by the configured Android SDK:
+For each Release APK, record its SHA-256, application ID, version, signing
+certificate, and the SHA-256 of its exact R8 mapping file. The expected tools
+are supplied by the configured Android SDK:
 
 ```powershell
 $candidateApk = Resolve-Path `
     app\build\outputs\apk\nonRoot\release\app-nonRoot-release.apk
 $rootApk = Resolve-Path `
     app\build\outputs\apk\root\release\app-root-release.apk
+$candidateMapping = Resolve-Path `
+    app\build\outputs\mapping\nonRootRelease\mapping.txt
+$rootMapping = Resolve-Path `
+    app\build\outputs\mapping\rootRelease\mapping.txt
 $apkAnalyzer = Join-Path $env:ANDROID_HOME `
     'cmdline-tools\latest\bin\apkanalyzer.bat'
 $apkSigner = Get-ChildItem `
@@ -93,6 +98,8 @@ $apkSigner = Get-ChildItem `
 
 Get-FileHash $candidateApk -Algorithm SHA256
 Get-FileHash $rootApk -Algorithm SHA256
+Get-FileHash $candidateMapping -Algorithm SHA256
+Get-FileHash $rootMapping -Algorithm SHA256
 & $apkAnalyzer manifest application-id $candidateApk
 & $apkAnalyzer manifest version-code $candidateApk
 & $apkAnalyzer manifest version-name $candidateApk
@@ -168,7 +175,8 @@ samples.
 ## 8. Release evidence and rejection
 
 Archive the four repository commit IDs, submodule revisions, Gradle summary,
-instrumentation XML, APK hashes and signer digests, SBOM, matrix results, and
-known environment limitations. A release is rejected for any ignored failure,
-unexplained warning, dirty generated output, hidden compatibility path, or
-missing matrix result.
+instrumentation XML, APK and R8 mapping hashes, the mapping files themselves,
+signer digests, SBOM, matrix results, and known environment limitations. A
+release is rejected for any ignored failure, unexplained warning, dirty
+generated output, hidden compatibility path, missing mapping file, or missing
+matrix result.

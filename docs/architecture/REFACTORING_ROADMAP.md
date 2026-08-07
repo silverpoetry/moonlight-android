@@ -1178,8 +1178,9 @@ agree across all participants.
   hooks, and stale logging.
 - Resolve deprecation, nullability, lifecycle, lint, resource, JNI, and Gradle
   warnings; each remaining suppression is narrow and justified.
-- Keep Android release unobfuscated unless a separately approved release policy
-  changes that product requirement.
+- Enforce full R8 optimization, shrinking, obfuscation, and resource shrinking
+  for Android Release variants; archive the exact mapping file with every APK
+  and use an unminified Debug package for interactive diagnostics.
 - Release logging is bounded and privacy-safe; diagnostic tracing is explicit,
   temporary, and excluded from normal hot paths.
 - Dependency/SBOM, license, secret, certificate, exported-component, path,
