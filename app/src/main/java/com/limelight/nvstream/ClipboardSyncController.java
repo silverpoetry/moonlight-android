@@ -4,6 +4,7 @@ import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -16,12 +17,14 @@ import android.os.PersistableBundle;
 import android.os.SystemClock;
 import com.limelight.R;
 import com.limelight.LimeLog;
+import com.limelight.binding.input.ImeContentCallback;
 import com.limelight.platform.files.AndroidPrivateFileShare;
 import com.limelight.nvstream.filetransfer.ClipboardFileDownloader;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.nvstream.clipboard.ClipboardSyncCheckpoint;
 import com.limelight.nvstream.clipboard.ClipboardSyncCheckpointStore;
+import com.limelight.nvstream.clipboard.android.DeferredClipboardContentClassifier;
 import com.limelight.utils.concurrent.LatestTaskExecutor;
 
 import java.io.ByteArrayOutputStream;
@@ -34,9 +37,19 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -58,17 +71,36 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
      */
     private static final int IMAGE_URI_READ_ATTEMPTS = 10;
     private static final long IMAGE_URI_READ_RETRY_DELAY_MS = 100;
+    private static final long IME_PASTE_ACK_TIMEOUT_MS = 15_000;
+    private static final int IME_PASTE_QUEUE_CAPACITY = 2;
     private static final String SENSITIVE_EXTRA = "android.content.extra.IS_SENSITIVE";
 
     private final Context context;
     private final ClipboardManager clipboardManager;
     private final ClipboardSyncCheckpointStore checkpointStore;
     private final NvHTTP nvHttp;
+    private final boolean suppressInitialLocalPublish;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final LatestTaskExecutor contentExecutor =
             new LatestTaskExecutor("ClipboardContent");
     private final LatestTaskExecutor fileTransferExecutor =
             new LatestTaskExecutor("ClipboardFileTransfer");
+    private final ThreadPoolExecutor imePasteExecutor =
+            new ThreadPoolExecutor(
+                    1,
+                    1,
+                    0,
+                    TimeUnit.MILLISECONDS,
+                    new ArrayBlockingQueue<>(IME_PASTE_QUEUE_CAPACITY),
+                    runnable -> {
+                        Thread thread = new Thread(runnable, "ImeClipboardPaste");
+                        thread.setDaemon(true);
+                        return thread;
+                    },
+                    new ThreadPoolExecutor.AbortPolicy());
+    private final Object pendingImePasteLock = new Object();
+    private final Map<Long, PendingImePaste> pendingImePastes = new HashMap<>();
+    private final List<Runnable> readyCallbacks = new ArrayList<>();
     private final AtomicLong localGeneration = new AtomicLong();
     private final AtomicLong remoteGeneration = new AtomicLong();
     private final AtomicLong clipboardChangeSequence = new AtomicLong();
@@ -77,6 +109,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
 
     private volatile boolean started;
     private volatile boolean ready;
+    private volatile boolean initialLocalBaselinePending;
     private volatile int hostCapabilities;
     private volatile boolean hasPersistentClipboardState;
     private volatile String lastObservedKey;
@@ -87,11 +120,14 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     ClipboardSyncController(
             Context context,
             NvHTTP nvHttp,
-            ClipboardSyncCheckpointStore checkpointStore) {
+            ClipboardSyncCheckpointStore checkpointStore,
+            boolean suppressInitialLocalPublish) {
         this.context = context.getApplicationContext();
         this.nvHttp = nvHttp;
         this.checkpointStore = Objects.requireNonNull(
                 checkpointStore, "checkpointStore");
+        this.suppressInitialLocalPublish = suppressInitialLocalPublish;
+        initialLocalBaselinePending = suppressInitialLocalPublish;
         clipboardManager = (ClipboardManager) this.context.getSystemService(Context.CLIPBOARD_SERVICE);
         ClipboardSyncCheckpoint checkpoint = checkpointStore.read();
         hasPersistentClipboardState = checkpoint.isInitialized();
@@ -133,13 +169,38 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         }
         contentExecutor.close();
         fileTransferExecutor.close();
+        List<Runnable> discardedImePastes = imePasteExecutor.shutdownNow();
+        cancelPendingImePastes();
+        for (Runnable discarded : discardedImePastes) {
+            if (discarded instanceof ImePasteTask) {
+                ((ImePasteTask) discarded).complete(false);
+            }
+        }
         pendingLocalKey = null;
         pendingRemoteKey = null;
         pendingRemoteKeyExpiresAt = 0;
+        readyCallbacks.clear();
     }
 
     void onFocusGained() {
         mainHandler.post(() -> inspectLocalClipboard(true));
+    }
+
+    synchronized boolean runWhenReady(Runnable callback) {
+        Objects.requireNonNull(callback, "callback");
+        if (!started) {
+            return false;
+        }
+        if (!ready) {
+            readyCallbacks.add(callback);
+            return true;
+        }
+        mainHandler.post(() -> {
+            if (started && ready) {
+                callback.run();
+            }
+        });
+        return true;
     }
 
     @Override
@@ -149,17 +210,29 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     }
 
     @Override
-    public void onClipboardReady(int capabilities) {
+    public synchronized void onClipboardReady(int capabilities) {
         boolean firstReady = !ready;
         hostCapabilities = capabilities;
         ready = true;
+        List<Runnable> callbacks = new ArrayList<>(readyCallbacks);
+        readyCallbacks.clear();
 
         // Publish on reconnect only when Android's clipboard changed while the
         // stream was disconnected. On the first run, establish a baseline so
         // stale local content cannot overwrite the host clipboard.
-        if (firstReady) {
-            mainHandler.post(() -> {
-                if (hasPersistentClipboardState) {
+        mainHandler.post(() -> {
+            if (!started || !ready) {
+                return;
+            }
+            if (firstReady) {
+                if (suppressInitialLocalPublish) {
+                    // This reconnect exists only to resume an inbound file
+                    // pull. Record the current Android clipboard as the new
+                    // baseline without publishing it to the host.
+                    inspectLocalClipboard(false);
+                    initialLocalBaselinePending = false;
+                }
+                else if (hasPersistentClipboardState) {
                     inspectLocalClipboard(true);
                 }
                 else {
@@ -168,8 +241,11 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                         rememberHandledKey("");
                     }
                 }
-            });
-        }
+            }
+            for (Runnable callback : callbacks) {
+                callback.run();
+            }
+        });
     }
 
     @Override
@@ -318,6 +394,8 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     }
 
     private void inspectLocalClipboard(boolean dispatchChanges) {
+        dispatchChanges = dispatchChanges &&
+                !initialLocalBaselinePending;
         if (!started || clipboardManager == null || !clipboardManager.hasPrimaryClip()) {
             if (dispatchChanges) {
                 localGeneration.incrementAndGet();
@@ -341,6 +419,16 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         }
 
         ClipData.Item item = clipData.getItemAt(0);
+        if (DeferredClipboardContentClassifier.isRemoteDeferred(
+                description,
+                item.getUri())) {
+            String key = "remote-deferred:" + item.getUri() + ':' +
+                    clipTimestamp(description);
+            localGeneration.incrementAndGet();
+            rememberHandledKey(key);
+            return;
+        }
+
         Uri imageUri = findImageUri(description, item);
         if (imageUri != null && canUse(MoonBridge.LI_CLIPBOARD_CAP_PNG)) {
             String key = "uri:" + imageUri + ':' + clipTimestamp(description);
@@ -447,53 +535,95 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         return hexSha256(key.getBytes(StandardCharsets.UTF_8));
     }
 
-    private void dispatchLocalImage(Uri uri, String key) {
+    @Override
+    public void onClipboardStatus(byte mimeType, boolean accepted,
+                                  boolean retryable, byte reason,
+                                  long originId, long itemId) {
+        PendingImePaste pending;
+        synchronized (pendingImePasteLock) {
+            pending = pendingImePastes.remove(itemId);
+        }
+        if (pending == null) {
+            return;
+        }
+
+        pending.complete(accepted);
+    }
+
+    boolean sendImageForImePaste(Uri uri, ImeContentCallback callback) {
+        if (uri == null || callback == null || !started ||
+                !canUse(MoonBridge.LI_CLIPBOARD_CAP_PNG)) {
+            return false;
+        }
+
+        try {
+            imePasteExecutor.execute(new ImePasteTask(uri, callback));
+            return true;
+        }
+        catch (RejectedExecutionException ignored) {
+            return false;
+        }
+    }
+
+    private void dispatchLocalImage(
+            Uri uri,
+            String key) {
         long generation = localGeneration.incrementAndGet();
-        pendingLocalKey = key;
+        if (key != null) {
+            pendingLocalKey = key;
+        }
         contentExecutor.execute(() -> {
             File pngFile = null;
             try {
-                pngFile = materializePng(uri);
-                if (pngFile == null || generation != localGeneration.get() || !started) {
-                    return;
-                }
-
-                int result;
-                if (pngFile.length() <= MAX_INLINE_PNG_BYTES) {
-                    byte[] png = readFileBounded(pngFile, MAX_INLINE_PNG_BYTES);
-                    result = MoonBridge.sendClipboardContent(MoonBridge.LI_CLIPBOARD_MIME_PNG, png);
-                }
-                else if ((hostCapabilities & MoonBridge.LI_CLIPBOARD_CAP_BLOB) != 0 &&
-                        nvHttp != null) {
-                    NvHTTP.ClipboardBlobUploadResult upload = nvHttp.uploadClipboardBlob(
-                            "image/png",
-                            pngFile,
-                            MoonBridge.getClipboardOriginId(),
-                            UUID.randomUUID().toString());
-                    if (generation != localGeneration.get() || !started) {
-                        return;
+                pngFile = materializePng(uri, false);
+                if (pngFile != null && generation == localGeneration.get() && started) {
+                    int result;
+                    if (pngFile.length() <= MAX_INLINE_PNG_BYTES) {
+                        byte[] png = readFileBounded(
+                                pngFile,
+                                MAX_INLINE_PNG_BYTES);
+                        result = MoonBridge.sendClipboardContent(
+                                MoonBridge.LI_CLIPBOARD_MIME_PNG,
+                                png);
                     }
-                    result = MoonBridge.sendClipboardBlobReference(
-                            MoonBridge.LI_CLIPBOARD_MIME_PNG,
-                            upload.id,
-                            (int)upload.size,
-                            upload.sha256);
-                }
-                else {
-                    LimeLog.warning("Clipboard PNG exceeds inline limit and blob transport is unavailable");
-                    return;
-                }
+                    else if ((hostCapabilities & MoonBridge.LI_CLIPBOARD_CAP_BLOB) != 0 &&
+                            nvHttp != null) {
+                        NvHTTP.ClipboardBlobUploadResult upload =
+                                nvHttp.uploadClipboardBlob(
+                                        "image/png",
+                                        pngFile,
+                                        MoonBridge.getClipboardOriginId(),
+                                        UUID.randomUUID().toString());
+                        if (generation == localGeneration.get() && started) {
+                            result = MoonBridge.sendClipboardBlobReference(
+                                    MoonBridge.LI_CLIPBOARD_MIME_PNG,
+                                    upload.id,
+                                    (int) upload.size,
+                                    upload.sha256);
+                        }
+                        else {
+                            result = -1;
+                        }
+                    }
+                    else {
+                        LimeLog.warning(
+                                "Clipboard PNG exceeds inline limit and blob transport is unavailable");
+                        result = -1;
+                    }
 
-                if (result == 0) {
-                    rememberHandledKey(key);
-                }
-                else {
-                    LimeLog.warning("Failed to announce clipboard PNG");
+                    if (result == 0) {
+                        if (key != null) {
+                            rememberHandledKey(key);
+                        }
+                    }
+                    else {
+                        LimeLog.warning("Failed to announce clipboard PNG");
+                    }
                 }
             } catch (Throwable error) {
                 LimeLog.warning("Clipboard image processing failed: " + error.getMessage(), error);
             } finally {
-                if (key.equals(pendingLocalKey)) {
+                if (key != null && key.equals(pendingLocalKey)) {
                     pendingLocalKey = null;
                 }
                 if (pngFile != null) {
@@ -501,10 +631,135 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 }
             }
         }, () -> {
-            if (key.equals(pendingLocalKey)) {
+            if (key != null && key.equals(pendingLocalKey)) {
                 pendingLocalKey = null;
             }
         });
+    }
+
+    private boolean processImePasteImage(Uri uri) {
+        File pngFile = null;
+        try {
+            pngFile = materializePng(uri, true);
+            if (!started || pngFile == null) {
+                return false;
+            }
+
+            PendingImePaste pending = new PendingImePaste();
+            long itemId;
+            if (pngFile.length() <= MAX_INLINE_PNG_BYTES) {
+                byte[] png = readFileBounded(pngFile, MAX_INLINE_PNG_BYTES);
+                synchronized (pendingImePasteLock) {
+                    if (!started) {
+                        return false;
+                    }
+                    itemId = MoonBridge.sendClipboardContentWithItemId(
+                            MoonBridge.LI_CLIPBOARD_MIME_PNG, png);
+                    if (started) {
+                        registerPendingImePaste(itemId, pending);
+                    }
+                    else {
+                        itemId = 0;
+                    }
+                }
+            }
+            else if ((hostCapabilities & MoonBridge.LI_CLIPBOARD_CAP_BLOB) != 0 &&
+                    nvHttp != null) {
+                NvHTTP.ClipboardBlobUploadResult upload =
+                        nvHttp.uploadClipboardBlob(
+                                "image/png",
+                                pngFile,
+                                MoonBridge.getClipboardOriginId(),
+                                UUID.randomUUID().toString());
+                synchronized (pendingImePasteLock) {
+                    if (!started) {
+                        return false;
+                    }
+                    itemId = MoonBridge.sendClipboardBlobReferenceWithItemId(
+                            MoonBridge.LI_CLIPBOARD_MIME_PNG,
+                            upload.id,
+                            (int) upload.size,
+                            upload.sha256);
+                    if (started) {
+                        registerPendingImePaste(itemId, pending);
+                    }
+                    else {
+                        itemId = 0;
+                    }
+                }
+            }
+            else {
+                itemId = 0;
+            }
+
+            if (itemId == 0) {
+                return false;
+            }
+
+            boolean completed = pending.await(IME_PASTE_ACK_TIMEOUT_MS);
+            synchronized (pendingImePasteLock) {
+                if (pendingImePastes.get(itemId) == pending) {
+                    pendingImePastes.remove(itemId);
+                }
+            }
+            if (!completed) {
+                return false;
+            }
+            return pending.accepted;
+        }
+        catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+        catch (Throwable error) {
+            LimeLog.warning("IME clipboard image processing failed: " +
+                    error.getMessage(), error);
+            return false;
+        }
+        finally {
+            if (pngFile != null) {
+                pngFile.delete();
+            }
+        }
+    }
+
+    private void cancelPendingImePastes() {
+        PendingImePaste[] pending;
+        synchronized (pendingImePasteLock) {
+            pending = pendingImePastes.values().toArray(new PendingImePaste[0]);
+            pendingImePastes.clear();
+        }
+        for (PendingImePaste paste : pending) {
+            paste.complete(false);
+        }
+    }
+
+    private void registerPendingImePaste(long itemId, PendingImePaste pending) {
+        if (itemId != 0) {
+            pendingImePastes.put(itemId, pending);
+        }
+    }
+
+    private final class ImePasteTask implements Runnable {
+        private final Uri uri;
+        private final ImeContentCallback callback;
+        private final AtomicBoolean completed = new AtomicBoolean();
+
+        ImePasteTask(Uri uri, ImeContentCallback callback) {
+            this.uri = uri;
+            this.callback = callback;
+        }
+
+        @Override
+        public void run() {
+            complete(processImePasteImage(uri));
+        }
+
+        void complete(boolean success) {
+            if (completed.compareAndSet(false, true)) {
+                mainHandler.post(() -> callback.onComplete(success));
+            }
+        }
     }
 
     private void applyInboundText(byte[] data, long generation) {
@@ -700,7 +955,9 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         return clipboardChangeSequence.get();
     }
 
-    private File materializePng(Uri uri) throws IOException {
+    private File materializePng(
+            Uri uri,
+            boolean allowDeferredMaterialization) throws IOException {
         String type = context.getContentResolver().getType(uri);
 
         // Read the provider exactly once after it becomes accessible.  Apart
@@ -709,7 +966,10 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         // still finalizing its MediaStore row.
         File source = temporaryCacheFile("outbound-source-", ".bin");
         try {
-            copyUriToFileWithRetry(uri, source);
+            copyUriToFileWithRetry(
+                    uri,
+                    source,
+                    allowDeferredMaterialization);
             if ("image/png".equalsIgnoreCase(type)) {
                 if (!isValidPngFile(source)) {
                     throw new IOException("Invalid PNG clipboard image");
@@ -755,12 +1015,16 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         }
     }
 
-    private void copyUriToFileWithRetry(Uri uri, File destination)
+    private void copyUriToFileWithRetry(
+            Uri uri,
+            File destination,
+            boolean allowDeferredMaterialization)
             throws IOException {
         Throwable lastFailure = null;
         for (int attempt = 1; attempt <= IMAGE_URI_READ_ATTEMPTS; attempt++) {
-            try (InputStream input = context.getContentResolver()
-                    .openInputStream(uri);
+            try (InputStream input = openClipboardImageStream(
+                    uri,
+                    allowDeferredMaterialization);
                  FileOutputStream output = new FileOutputStream(destination)) {
                 if (input == null) {
                     throw new IOException("Unable to open clipboard image");
@@ -782,6 +1046,19 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             throw (IOException) lastFailure;
         }
         throw new IOException("Unable to read clipboard image URI", lastFailure);
+    }
+
+    private InputStream openClipboardImageStream(
+            Uri uri,
+            boolean allowDeferredMaterialization) throws IOException {
+        if (allowDeferredMaterialization) {
+            AssetFileDescriptor descriptor = context.getContentResolver()
+                    .openTypedAssetFileDescriptor(uri, "image/*", null);
+            if (descriptor != null) {
+                return descriptor.createInputStream();
+            }
+        }
+        return context.getContentResolver().openInputStream(uri);
     }
 
     private boolean isRetryableUriReadFailure(Throwable failure) {
@@ -1021,6 +1298,20 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         }
     }
 
+
+    private static final class PendingImePaste {
+        final CountDownLatch completion = new CountDownLatch(1);
+        volatile boolean accepted;
+
+        void complete(boolean accepted) {
+            this.accepted = accepted;
+            completion.countDown();
+        }
+
+        boolean await(long timeoutMs) throws InterruptedException {
+            return completion.await(timeoutMs, TimeUnit.MILLISECONDS);
+        }
+    }
 
     private static final class BlobReference {
         final byte targetMime;

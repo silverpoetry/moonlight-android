@@ -13,6 +13,10 @@ import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 
+import androidx.core.view.inputmethod.EditorInfoCompat;
+import androidx.core.view.inputmethod.InputConnectionCompat;
+import androidx.core.view.inputmethod.InputContentInfoCompat;
+
 import com.limelight.binding.input.StreamInputGateway;
 
 public class StreamView extends SurfaceView {
@@ -95,6 +99,7 @@ public class StreamView extends SurfaceView {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
         if (!imeActive) {
             return null;
@@ -104,7 +109,53 @@ public class StreamView extends SurfaceView {
                 EditorInfo.TYPE_TEXT_FLAG_AUTO_CORRECT |
                 EditorInfo.TYPE_TEXT_FLAG_MULTI_LINE;
         outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN;
-        return new StreamImeInputConnection(this, inputGateway);
+        EditorInfoCompat.setContentMimeTypes(
+                outAttrs,
+                new String[]{"image/*"});
+        StreamImeInputConnection inputConnection =
+                new StreamImeInputConnection(this, inputGateway);
+        return InputConnectionCompat.createWrapper(
+                inputConnection,
+                outAttrs,
+                (contentInfo, flags, opts) ->
+                        handleImeContent(contentInfo, flags));
+    }
+
+    private boolean handleImeContent(
+            InputContentInfoCompat contentInfo,
+            int flags) {
+        if (inputGateway == null || contentInfo == null ||
+                !contentInfo.getDescription().hasMimeType("image/*")) {
+            return false;
+        }
+
+        boolean permissionGranted = false;
+        try {
+            if ((flags & InputConnectionCompat
+                    .INPUT_CONTENT_GRANT_READ_URI_PERMISSION) != 0) {
+                contentInfo.requestPermission();
+                permissionGranted = true;
+            }
+
+            boolean releasePermission = permissionGranted;
+            boolean accepted = inputGateway.sendImeContent(
+                    contentInfo.getContentUri(),
+                    success -> {
+                        if (releasePermission) {
+                            contentInfo.releasePermission();
+                        }
+                    });
+            if (!accepted && permissionGranted) {
+                contentInfo.releasePermission();
+            }
+            return accepted;
+        }
+        catch (Throwable error) {
+            if (permissionGranted) {
+                contentInfo.releasePermission();
+            }
+            return false;
+        }
     }
 
     @Override

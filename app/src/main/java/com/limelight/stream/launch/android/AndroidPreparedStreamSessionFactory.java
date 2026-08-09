@@ -8,6 +8,7 @@ import android.view.Display;
 
 import androidx.annotation.MainThread;
 
+import com.limelight.MoonlightApplication;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.audio.mic.AndroidMicrophoneUplinkSessionFactory;
@@ -197,7 +198,12 @@ public final class AndroidPreparedStreamSessionFactory {
                 parseCertificate(request.getServerCertificate()),
                 new AndroidMicrophoneUplinkSessionFactory(
                         appContext,
-                        MicrophoneUplinkConfig.protocolV1()));
+                        MicrophoneUplinkConfig.protocolV1()),
+                ((MoonlightApplication) activity.getApplication())
+                        .getPendingClipboardFilePullStore()
+                        .hasFor(
+                                request.getHostId(),
+                                request.getAppId()));
         AndroidStreamStagingSurface stagingSurface =
                 new AndroidStreamStagingSurface(
                         decoderSettings.getWidth(),

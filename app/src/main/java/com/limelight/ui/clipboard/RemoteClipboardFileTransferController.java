@@ -27,6 +27,7 @@ import com.limelight.utils.UiHelper;
 import com.limelight.utils.UiToast;
 
 import java.util.Objects;
+import java.util.function.BooleanSupplier;
 
 /**
  * Owns the Storage Access Framework and progress UI for remote clipboard file
@@ -112,12 +113,12 @@ public final class RemoteClipboardFileTransferController {
         }
     }
 
-    public void handleDirectoryResult(int resultCode, Intent data) {
+    public Uri handleDirectoryResult(int resultCode, Intent data) {
         session.endDirectorySelection();
         if (resultCode != Activity.RESULT_OK ||
                 data == null ||
                 data.getData() == null) {
-            return;
+            return null;
         }
 
         Uri directory = data.getData();
@@ -133,14 +134,31 @@ public final class RemoteClipboardFileTransferController {
                                     .CLIPBOARD_FILE_DIRECTORY_URI,
                             directory.toString())
                     .apply();
-            download(directory);
+            return directory;
         }
         catch (SecurityException error) {
             UiToast.makeText(
                     activity,
                     R.string.settings_directory_permission_failed,
                     UiToast.LENGTH_LONG).show();
+            return null;
         }
+    }
+
+    /**
+     * Waits for the replacement stream's clipboard transport, then consumes
+     * and starts one reconnect handoff.
+     */
+    public boolean resumeAfterReconnect(
+            Uri directory,
+            BooleanSupplier consumeHandoff) {
+        Objects.requireNonNull(directory, "directory");
+        Objects.requireNonNull(consumeHandoff, "consumeHandoff");
+        return connection.runWhenClipboardSyncReady(() -> {
+            if (consumeHandoff.getAsBoolean()) {
+                download(directory);
+            }
+        });
     }
 
     public boolean isSelectingDirectory() {

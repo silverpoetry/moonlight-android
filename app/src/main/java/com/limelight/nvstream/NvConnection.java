@@ -30,6 +30,7 @@ import org.xmlpull.v1.XmlPullParserException;
 import com.limelight.DebugLog;
 import com.limelight.LimeLog;
 import com.limelight.R;
+import com.limelight.binding.input.ImeContentCallback;
 import com.limelight.nvstream.av.audio.AudioRenderer;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 import com.limelight.nvstream.clipboard.android.SharedPreferencesClipboardSyncCheckpointStore;
@@ -78,6 +79,7 @@ public class NvConnection implements StreamSessionConnection,
             microphoneUplinkController;
     private volatile MousePositionListener mousePositionListener;
     private volatile ClipboardSyncController clipboardSyncController;
+    private final boolean suppressInitialClipboardPublish;
 
     public void downloadRemoteClipboardFiles(
             android.net.Uri destinationTree,
@@ -94,6 +96,22 @@ public class NvConnection implements StreamSessionConnection,
                 cancellationSignal,
                 listener);
     }
+
+    public boolean runWhenClipboardSyncReady(Runnable callback) {
+        ClipboardSyncController controller = clipboardSyncController;
+        return controller != null && controller.runWhenReady(callback);
+    }
+
+    public boolean sendClipboardImageForImePaste(
+            android.net.Uri contentUri,
+            ImeContentCallback callback) {
+        ClipboardSyncController controller = clipboardSyncController;
+        if (controller == null) {
+            return false;
+        }
+
+        return controller.sendImageForImePaste(contentUri, callback);
+    }
     private double normalizedMouseX = 0.5;
     private double normalizedMouseY = 0.5;
     private int mouseReferenceWidth;
@@ -109,11 +127,14 @@ public class NvConnection implements StreamSessionConnection,
             LimelightCryptoProvider cryptoProvider,
             X509Certificate serverCert,
             MicrophoneUplinkSessionFactory
-                    microphoneUplinkSessionFactory)
+                    microphoneUplinkSessionFactory,
+            boolean suppressInitialClipboardPublish)
     {
         this.appContext = appContext;
         this.cryptoProvider = cryptoProvider;
         this.uniqueId = uniqueId;
+        this.suppressInitialClipboardPublish =
+                suppressInitialClipboardPublish;
 
         this.context = new ConnectionContext();
         this.context.serverAddress =
@@ -751,7 +772,8 @@ public class NvConnection implements StreamSessionConnection,
                                         appContext,
                                         sessionHttp,
                                         new SharedPreferencesClipboardSyncCheckpointStore(
-                                                appContext));
+                                                appContext),
+                                        suppressInitialClipboardPublish);
                         clipboardSyncController.start();
                     }
                     int result = MoonBridge.startConnection(

@@ -42,6 +42,7 @@ static jmethodID BridgeClSetControllerLEDMethod;
 static jmethodID BridgeClNativeCursorMethod;
 static jmethodID BridgeClClipboardReadyMethod;
 static jmethodID BridgeClClipboardContentMethod;
+static jmethodID BridgeClClipboardStatusMethod;
 static jbyteArray DecodedFrameBuffer;
 static jshortArray DecodedAudioBuffer;
 
@@ -109,6 +110,7 @@ Java_com_limelight_nvstream_jni_MoonBridge_init(JNIEnv *env, jclass clazz) {
     BridgeClNativeCursorMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClNativeCursor", "(ZZIIIIIIIIII[B)V");
     BridgeClClipboardContentMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClClipboardContent", "(BJJ[B)V");
     BridgeClClipboardReadyMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClClipboardReady", "(I)V");
+    BridgeClClipboardStatusMethod = (*env)->GetStaticMethodID(env, clazz, "bridgeClClipboardStatus", "(BZZBJJ)V");
 }
 
 int BridgeDrSetup(int videoFormat, int width, int height, int redrawRate, void* context, int drFlags) {
@@ -465,6 +467,21 @@ void BridgeClClipboardReady(uint8_t capabilities) {
     }
 }
 
+void BridgeClClipboardStatus(PSS_CLIPBOARD_STATUS status) {
+    JNIEnv* env = GetThreadEnv();
+
+    (*env)->CallStaticVoidMethod(env, GlobalBridgeClass, BridgeClClipboardStatusMethod,
+                                 (jbyte)status->mimeType,
+                                 (jboolean)status->accepted,
+                                 (jboolean)status->retryable,
+                                 (jbyte)status->reason,
+                                 (jlong)status->originId,
+                                 (jlong)status->itemId);
+    if ((*env)->ExceptionCheck(env)) {
+        (*JVM)->DetachCurrentThread(JVM);
+    }
+}
+
 void BridgeClLogMessage(const char* format, ...) {
     va_list va;
     va_start(va, format);
@@ -506,6 +523,7 @@ static CONNECTION_LISTENER_CALLBACKS BridgeConnListenerCallbacks = {
         .nativeCursor = BridgeClNativeCursor,
         .clipboardContent = BridgeClClipboardContent,
         .clipboardReady = BridgeClClipboardReady,
+        .clipboardStatus = BridgeClClipboardStatus,
 };
 
 static bool

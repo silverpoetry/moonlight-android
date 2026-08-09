@@ -9,6 +9,7 @@ import com.limelight.binding.input.KeyboardInputController;
 import com.limelight.binding.input.KeyboardInputSink;
 import com.limelight.binding.input.PointerInputSink;
 import com.limelight.binding.input.KeyboardTranslator;
+import com.limelight.binding.input.ImeContentCallback;
 import com.limelight.binding.input.StreamInputGateway;
 import com.limelight.binding.input.StreamInputGatewayRegistry;
 import com.limelight.binding.input.StreamInputController;
@@ -113,6 +114,8 @@ import com.limelight.ui.floatingview.StreamFloatingControlController;
 import com.limelight.ui.hosts.HostQuitMessageResolver;
 import com.limelight.stream.launch.PendingStreamReconnect;
 import com.limelight.stream.launch.PendingStreamReconnectStore;
+import com.limelight.stream.launch.PendingClipboardFilePull;
+import com.limelight.stream.launch.PendingClipboardFilePullStore;
 import com.limelight.stream.launch.StreamLaunchRequest;
 import com.limelight.stream.launch.android.AndroidPendingStreamReconnectMapper;
 import com.limelight.stream.launch.android.AndroidPreparedStreamSession;
@@ -140,6 +143,7 @@ import android.content.res.Configuration;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.net.ConnectivityManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -1418,6 +1422,7 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
         }
         streamExitReason = StreamExitReason.USER;
         getPendingStreamReconnectStore().clear();
+        getPendingClipboardFilePullStore().clear();
         super.finish();
         if (streamVideoSettingsState != null &&
                 streamVideoSettingsState
@@ -1446,6 +1451,12 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
             getPendingStreamReconnectStore() {
         return ((MoonlightApplication) getApplication())
                 .getPendingStreamReconnectStore();
+    }
+
+    private PendingClipboardFilePullStore
+            getPendingClipboardFilePullStore() {
+        return ((MoonlightApplication) getApplication())
+                .getPendingClipboardFilePullStore();
     }
 
     @Override
@@ -1502,6 +1513,42 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     @Override
     public void sendImeForwardDelete(int count) {
         sendImeKey((short) 0x2e, count);
+    }
+
+    @Override
+    public boolean sendImeContent(
+            android.net.Uri contentUri,
+            ImeContentCallback callback) {
+        if (!isInputReady() ||
+                !inputCaptureController.isInputGrabbed() ||
+                conn == null || contentUri == null) {
+            return false;
+        }
+
+        boolean accepted = conn.sendClipboardImageForImePaste(
+                contentUri,
+                success -> {
+                    if (success) {
+                        sendImePasteShortcut();
+                    }
+                    callback.onComplete(success);
+                });
+        return accepted;
+    }
+
+    private void sendImePasteShortcut() {
+        sendKeyEvent(new KeyEvent(
+                KeyEvent.ACTION_DOWN,
+                KeyEvent.KEYCODE_CTRL_LEFT));
+        sendKeyEvent(new KeyEvent(
+                KeyEvent.ACTION_DOWN,
+                KeyEvent.KEYCODE_V));
+        sendKeyEvent(new KeyEvent(
+                KeyEvent.ACTION_UP,
+                KeyEvent.KEYCODE_V));
+        sendKeyEvent(new KeyEvent(
+                KeyEvent.ACTION_UP,
+                KeyEvent.KEYCODE_CTRL_LEFT));
     }
 
     private void sendImeKey(short keyCode, int count) {
@@ -1674,7 +1721,46 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
             launchReporter.reportOnce();
         }
 
+        resumePendingClipboardFilePull();
+
         systemUiController.scheduleImmersiveMode(1_000L);
+    }
+
+    private void resumePendingClipboardFilePull() {
+        if (clipboardFileTransferController == null || app == null) {
+            return;
+        }
+        String hostId = getIntent().getStringExtra(
+                AndroidStreamLaunchContract.EXTRA_HOST_ID);
+        PendingClipboardFilePull pending =
+                getPendingClipboardFilePullStore().getFor(
+                        hostId,
+                        app.getAppId());
+        if (pending == null) {
+            return;
+        }
+
+        final Uri destination;
+        try {
+            destination = Uri.parse(pending.getDestinationUri());
+        }
+        catch (RuntimeException invalidUri) {
+            getPendingClipboardFilePullStore().clearIfCurrent(pending);
+            return;
+        }
+
+        boolean accepted = clipboardFileTransferController
+                .resumeAfterReconnect(
+                        destination,
+                        () -> getPendingClipboardFilePullStore()
+                                .clearIfCurrent(pending));
+        if (!accepted && getPendingClipboardFilePullStore()
+                .clearIfCurrent(pending)) {
+            UiToast.makeText(
+                    this,
+                    R.string.clipboard_sync_not_connected,
+                    UiToast.LENGTH_LONG).show();
+        }
     }
 
     private void showInitialVirtualControlsIfReady() {
@@ -2413,11 +2499,34 @@ public class Game extends BaseActivity implements OnGenericMotionListener,
     }
 
     void handleClipboardDirectoryResult(int resultCode, Intent data) {
-        if (clipboardFileTransferController != null) {
-            clipboardFileTransferController.handleDirectoryResult(
-                    resultCode,
-                    data);
+        if (clipboardFileTransferController == null) {
+            return;
         }
+        Uri directory = clipboardFileTransferController
+                .handleDirectoryResult(resultCode, data);
+        if (directory == null) {
+            return;
+        }
+
+        PendingStreamReconnect reconnect =
+                AndroidPendingStreamReconnectMapper.fromIntent(
+                        getIntent());
+        if (reconnect == null || reconnect.getAppId() <= 0) {
+            LimeLog.warning(
+                    "Unable to reconnect after directory selection: " +
+                            "launch identity is missing");
+            UiToast.makeText(
+                    this,
+                    R.string.clipboard_sync_not_connected,
+                    UiToast.LENGTH_LONG).show();
+            return;
+        }
+        getPendingClipboardFilePullStore().save(
+                new PendingClipboardFilePull(
+                        reconnect.getHostId(),
+                        reconnect.getAppId(),
+                        directory.toString()));
+        finishForAutoReconnect(reconnect);
     }
 
     public void setMotionForceGyro(){

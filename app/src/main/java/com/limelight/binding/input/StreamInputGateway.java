@@ -1,5 +1,6 @@
 package com.limelight.binding.input;
 
+import android.net.Uri;
 import android.view.KeyEvent;
 
 /**
@@ -24,4 +25,6 @@ public interface StreamInputGateway {
     void sendImeBackspace(int count);
 
     void sendImeForwardDelete(int count);
+
+    boolean sendImeContent(Uri contentUri, ImeContentCallback callback);
 }

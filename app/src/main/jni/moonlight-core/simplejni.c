@@ -343,6 +343,27 @@ Java_com_limelight_nvstream_jni_MoonBridge_sendClipboardContent(JNIEnv *env, jcl
     return ret;
 }
 
+JNIEXPORT jlong JNICALL
+Java_com_limelight_nvstream_jni_MoonBridge_sendClipboardContentWithItemId(
+        JNIEnv *env, jclass clazz, jbyte mimeType, jbyteArray data) {
+    if (data == NULL) {
+        return 0;
+    }
+
+    jsize length = (*env)->GetArrayLength(env, data);
+    jbyte* dataBuf = (*env)->GetByteArrayElements(env, data, NULL);
+    if (dataBuf == NULL) {
+        return 0;
+    }
+    uint64_t itemId = 0;
+    int ret = LiSendClipboardContentEx((uint8_t)mimeType,
+                                       (const uint8_t*)dataBuf,
+                                       (uint32_t)length,
+                                       &itemId);
+    (*env)->ReleaseByteArrayElements(env, data, dataBuf, JNI_ABORT);
+    return ret == 0 ? (jlong)itemId : 0;
+}
+
 JNIEXPORT jint JNICALL
 Java_com_limelight_nvstream_jni_MoonBridge_sendClipboardBlobReference(
         JNIEnv *env, jclass clazz, jbyte targetMimeType, jstring id,
@@ -371,6 +392,38 @@ Java_com_limelight_nvstream_jni_MoonBridge_sendClipboardBlobReference(
     (*env)->ReleaseByteArrayElements(env, sha256, digest, JNI_ABORT);
     (*env)->ReleaseStringUTFChars(env, id, idChars);
     return ret;
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_limelight_nvstream_jni_MoonBridge_sendClipboardBlobReferenceWithItemId(
+        JNIEnv *env, jclass clazz, jbyte targetMimeType, jstring id,
+        jint size, jbyteArray sha256) {
+    if (id == NULL || sha256 == NULL || size <= 0 ||
+            (*env)->GetArrayLength(env, sha256) != LI_CLIPBOARD_SHA256_BYTES) {
+        return 0;
+    }
+
+    const char* idChars = (*env)->GetStringUTFChars(env, id, NULL);
+    jbyte* digest = (*env)->GetByteArrayElements(env, sha256, NULL);
+    if (idChars == NULL || digest == NULL) {
+        if (idChars != NULL) {
+            (*env)->ReleaseStringUTFChars(env, id, idChars);
+        }
+        if (digest != NULL) {
+            (*env)->ReleaseByteArrayElements(env, sha256, digest, JNI_ABORT);
+        }
+        return 0;
+    }
+
+    uint64_t itemId = 0;
+    int ret = LiSendClipboardBlobReferenceEx((uint8_t)targetMimeType,
+                                             idChars,
+                                             (uint32_t)size,
+                                             (const uint8_t*)digest,
+                                             &itemId);
+    (*env)->ReleaseByteArrayElements(env, sha256, digest, JNI_ABORT);
+    (*env)->ReleaseStringUTFChars(env, id, idChars);
+    return ret == 0 ? (jlong)itemId : 0;
 }
 
 JNIEXPORT jlong JNICALL

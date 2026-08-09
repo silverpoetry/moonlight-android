@@ -1,5 +1,10 @@
 package com.limelight.ui;
 
+import android.content.ClipData;
+import android.content.ClipDescription;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.net.Uri;
 import android.text.Editable;
 import android.text.Selection;
 import android.text.SpannableStringBuilder;
@@ -12,11 +17,13 @@ import com.limelight.binding.input.StreamInputGateway;
 
 public class StreamImeInputConnection extends BaseInputConnection {
     private final Editable editable = new SpannableStringBuilder();
+    private final Context context;
     private final StreamInputGateway inputGateway;
     private String composingText = "";
 
     public StreamImeInputConnection(View targetView, StreamInputGateway inputGateway) {
         super(targetView, true);
+        context = targetView.getContext().getApplicationContext();
         this.inputGateway = inputGateway;
         syncEditable();
     }
@@ -29,7 +36,6 @@ public class StreamImeInputConnection extends BaseInputConnection {
     @Override
     public boolean commitText(CharSequence text, int newCursorPosition) {
         String committedText = text != null ? text.toString() : "";
-
         if (!TextUtils.isEmpty(committedText)) {
             replaceRemoteText(composingText, committedText);
         }
@@ -37,6 +43,24 @@ public class StreamImeInputConnection extends BaseInputConnection {
         composingText = "";
         syncEditable();
         return true;
+    }
+
+    @Override
+    public boolean performContextMenuAction(int id) {
+        if (id == android.R.id.paste ||
+                id == android.R.id.pasteAsPlainText) {
+            ClipData clipData = getPrimaryClip();
+            if (id == android.R.id.paste && sendClipboardImage(clipData)) {
+                return true;
+            }
+
+            CharSequence text = getClipboardText(clipData);
+            if (!TextUtils.isEmpty(text)) {
+                return commitText(text, 1);
+            }
+        }
+
+        return super.performContextMenuAction(id);
     }
 
     @Override
@@ -86,6 +110,40 @@ public class StreamImeInputConnection extends BaseInputConnection {
 
         syncEditable();
         return true;
+    }
+
+    private ClipData getPrimaryClip() {
+        ClipboardManager clipboard = (ClipboardManager)
+                context.getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard == null || !clipboard.hasPrimaryClip()) {
+            return null;
+        }
+
+        return clipboard.getPrimaryClip();
+    }
+
+    private boolean sendClipboardImage(ClipData clipData) {
+        if (inputGateway == null || clipData == null ||
+                clipData.getItemCount() == 0) {
+            return false;
+        }
+
+        ClipDescription description = clipData.getDescription();
+        Uri imageUri = clipData.getItemAt(0).getUri();
+        if (description == null || imageUri == null ||
+                !description.hasMimeType("image/*")) {
+            return false;
+        }
+
+        return inputGateway.sendImeContent(imageUri, success -> { });
+    }
+
+    private CharSequence getClipboardText(ClipData clipData) {
+        if (clipData == null || clipData.getItemCount() == 0) {
+            return null;
+        }
+
+        return clipData.getItemAt(0).coerceToText(context);
     }
 
     private void replaceRemoteText(String oldText, String newText) {

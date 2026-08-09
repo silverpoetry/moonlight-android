@@ -3,12 +3,16 @@ package com.limelight;
 import android.app.Application;
 
 import com.limelight.migration.LegacyDataImporter;
+import com.limelight.stream.launch.PendingClipboardFilePullStore;
 import com.limelight.stream.launch.PendingStreamReconnectStore;
 import com.limelight.stream.launch.android.AndroidStreamLaunchProgress;
 import com.limelight.stream.launch.android.AndroidStreamSessionCoordinator;
 
 /** Narrow process composition root for cross-Activity stream handoff state. */
 public final class MoonlightApplication extends Application {
+    private final PendingClipboardFilePullStore
+            pendingClipboardFilePullStore =
+            new PendingClipboardFilePullStore();
     private final PendingStreamReconnectStore pendingStreamReconnectStore =
             new PendingStreamReconnectStore();
     private final AndroidStreamLaunchProgress streamLaunchProgress =
@@ -25,6 +29,11 @@ public final class MoonlightApplication extends Application {
 
     public PendingStreamReconnectStore getPendingStreamReconnectStore() {
         return pendingStreamReconnectStore;
+    }
+
+    public PendingClipboardFilePullStore
+            getPendingClipboardFilePullStore() {
+        return pendingClipboardFilePullStore;
     }
 
     public AndroidStreamLaunchProgress getStreamLaunchProgress() {

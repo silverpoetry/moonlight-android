@@ -1,5 +1,6 @@
 package com.limelight.binding.input;
 
+import android.net.Uri;
 import android.view.KeyEvent;
 
 import org.junit.Test;
@@ -78,6 +79,13 @@ public final class StreamInputGatewayRegistryTest {
 
         @Override
         public void sendImeForwardDelete(int count) {
+        }
+
+        @Override
+        public boolean sendImeContent(
+                Uri contentUri,
+                ImeContentCallback callback) {
+            return false;
         }
     }
 }

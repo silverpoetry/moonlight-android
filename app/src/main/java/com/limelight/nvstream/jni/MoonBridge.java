@@ -212,6 +212,8 @@ public class MoonBridge {
     public interface ClipboardListener {
         void onClipboardContent(byte mimeType, long originId, long itemId, byte[] data);
         void onClipboardReady(int capabilities);
+        void onClipboardStatus(byte mimeType, boolean accepted, boolean retryable,
+                               byte reason, long originId, long itemId);
     }
 
     public static int bridgeDrSetup(int videoFormat, int width, int height, int redrawRate) {
@@ -379,6 +381,15 @@ public class MoonBridge {
         }
     }
 
+    public static void bridgeClClipboardStatus(byte mimeType, boolean accepted,
+                                                boolean retryable, byte reason,
+                                                long originId, long itemId) {
+        if (clipboardListener != null) {
+            clipboardListener.onClipboardStatus(
+                    mimeType, accepted, retryable, reason, originId, itemId);
+        }
+    }
+
     public static void setupBridge(VideoDecoderRenderer videoRenderer, AudioRenderer audioRenderer, NvConnectionListener connectionListener) {
         MoonBridge.videoRenderer = videoRenderer;
         MoonBridge.audioRenderer = audioRenderer;
@@ -463,8 +474,13 @@ public class MoonBridge {
 
     public static native int sendClipboardContent(byte mimeType, byte[] data);
 
+    public static native long sendClipboardContentWithItemId(byte mimeType, byte[] data);
+
     public static native int sendClipboardBlobReference(byte targetMimeType, String id,
-                                                        int size, byte[] sha256);
+                                                          int size, byte[] sha256);
+
+    public static native long sendClipboardBlobReferenceWithItemId(
+            byte targetMimeType, String id, int size, byte[] sha256);
 
     public static native long getClipboardOriginId();
 

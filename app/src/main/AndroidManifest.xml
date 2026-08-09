@@ -73,6 +73,10 @@
         android:theme="@style/AppTheme"
         tools:ignore="UnusedAttribute">
 
+        <meta-data
+            android:name="is_support_miui_super_clipboard"
+            android:value="true" />
+
         <!-- Android TV launchers must be able to resolve poster-art URIs stored in TvContract.
              The provider exposes only validated, read-only PNG files under the box-art cache. -->
         <provider
@@ -150,7 +154,6 @@
             android:name=".Game"
             android:exported="false"
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection"
-            android:noHistory="true"
             android:supportsPictureInPicture="true"
             android:launchMode="singleTask"
             android:excludeFromRecents="true"
