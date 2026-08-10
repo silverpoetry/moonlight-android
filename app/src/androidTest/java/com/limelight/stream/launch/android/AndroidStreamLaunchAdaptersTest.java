@@ -13,8 +13,9 @@ import android.content.SharedPreferences;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
-import com.limelight.Game;
+import com.limelight.LandscapeGameActivity;
 import com.limelight.MoonlightApplication;
+import com.limelight.PortraitGameActivity;
 import com.limelight.ShortcutTrampoline;
 import com.limelight.computers.model.HostId;
 import com.limelight.computers.model.HostIdentity;
@@ -47,10 +48,11 @@ public final class AndroidStreamLaunchAdaptersTest {
         Intent intent = AndroidStreamLaunchIntentFactory.create(
                 context,
                 request,
-                "session-token");
+                "session-token",
+                StreamInitialOrientation.LANDSCAPE);
 
         assertEquals(
-                Game.class.getName(),
+                LandscapeGameActivity.class.getName(),
                 intent.getComponent().getClassName());
         assertEquals(
                 "session-token",
@@ -106,6 +108,31 @@ public final class AndroidStreamLaunchAdaptersTest {
         assertEquals("Desktop", reconnect.getAppName());
         assertEquals(7, reconnect.getAppId());
         assertTrue(reconnect.supportsHdr());
+    }
+
+    @Test
+    public void portraitSessionTargetsThePortraitStreamEntry() {
+        StreamLaunchRequest request = new StreamLaunchRequest(
+                "host",
+                47989,
+                0,
+                "Desktop",
+                7,
+                false,
+                "client",
+                "host-id",
+                "host-name",
+                null);
+
+        Intent intent = AndroidStreamLaunchIntentFactory.create(
+                targetContext(),
+                request,
+                "session-token",
+                StreamInitialOrientation.PORTRAIT);
+
+        assertEquals(
+                PortraitGameActivity.class.getName(),
+                intent.getComponent().getClassName());
     }
 
     @Test

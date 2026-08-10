@@ -26,6 +26,7 @@ import com.limelight.stream.launch.android.AndroidStreamLaunchRequestFactory;
 import com.limelight.stream.launch.android.AndroidPreparedStreamSession;
 import com.limelight.stream.launch.android.AndroidStreamPreparationFailurePresenter;
 import com.limelight.stream.launch.android.AndroidStreamSessionCoordinator;
+import com.limelight.stream.launch.android.StreamInitialOrientation;
 import com.limelight.ui.stream.AndroidStreamConnectionMessages;
 import com.limelight.ui.stream.StreamConnectionMessages;
 import com.limelight.ui.hosts.HostServiceBindingController;
@@ -381,7 +382,10 @@ public class ShortcutTrampoline extends Activity {
                             }
 
                             @Override
-                            public void onReady(String sessionToken) {
+                            public void onReady(
+                                    String sessionToken,
+                                    StreamInitialOrientation
+                                            initialOrientation) {
                                 if (!sessionToken.equals(
                                         preparingSessionToken)) {
                                     coordinator.cancel(sessionToken);
@@ -392,7 +396,8 @@ public class ShortcutTrampoline extends Activity {
                                                 .create(
                                                         ShortcutTrampoline.this,
                                                         request,
-                                                        sessionToken));
+                                                        sessionToken,
+                                                        initialOrientation));
                                 startActivities(intentStack.toArray(
                                         new Intent[0]));
                                 preparingSessionToken = null;

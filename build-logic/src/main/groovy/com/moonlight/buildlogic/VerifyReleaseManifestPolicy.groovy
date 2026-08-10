@@ -30,6 +30,10 @@ abstract class VerifyReleaseManifestPolicy extends DefaultTask {
             'com.limelight.FilePushActivity': '',
             (PROFILE_INSTALLER_RECEIVER): 'android.permission.DUMP'
     ] as Map<String, String>
+    private static final Map<String, String> STREAM_ACTIVITY_ORIENTATIONS = [
+            'com.limelight.LandscapeGameActivity': 'landscape',
+            'com.limelight.PortraitGameActivity': 'sensorPortrait'
+    ] as Map<String, String>
 
     @InputFile
     @PathSensitive(PathSensitivity.RELATIVE)
@@ -87,10 +91,25 @@ abstract class VerifyReleaseManifestPolicy extends DefaultTask {
         require(exported == EXPORTED_COMPONENTS,
                 "${variantName.get()} exported surface changed: ${exported}")
 
-        Element game = findComponent(application, 'activity',
-                'com.limelight.Game')
-        require(game != null && androidAttribute(game, 'exported') == 'false',
-                'Debug stream entry point leaked into Release')
+        require(findComponent(
+                application,
+                'activity',
+                'com.limelight.Game') == null,
+                'Abstract stream implementation entered the Release manifest')
+        for (Map.Entry<String, String> entry :
+                STREAM_ACTIVITY_ORIENTATIONS.entrySet()) {
+            Element streamActivity = findComponent(
+                    application,
+                    'activity',
+                    entry.key)
+            require(streamActivity != null,
+                    "Missing internal stream entry: ${entry.key}")
+            require(androidAttribute(streamActivity, 'exported') == 'false',
+                    "Stream entry became exported: ${entry.key}")
+            require(androidAttribute(streamActivity, 'screenOrientation') ==
+                    entry.value,
+                    "Stream entry orientation changed: ${entry.key}")
+        }
         require(findComponent(
                 application,
                 'provider',

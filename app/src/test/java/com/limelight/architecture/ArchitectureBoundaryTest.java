@@ -2182,7 +2182,7 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
-    public void onlyLaunchIntentAdapterTargetsGameActivity() {
+    public void onlyLaunchIntentAdapterTargetsStreamActivities() {
         noClasses()
                 .that()
                 .resideInAnyPackage(
@@ -2193,8 +2193,16 @@ public final class ArchitectureBoundaryTest {
                 .should()
                 .dependOnClassesThat()
                 .haveFullyQualifiedName("com.limelight.Game")
+                .orShould()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.LandscapeGameActivity")
+                .orShould()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.PortraitGameActivity")
                 .because(
-                        "the launch contract and platform adapters must not depend on the destination Activity")
+                        "only the Intent factory may select a concrete stream Activity")
                 .check(productionClasses);
     }
 

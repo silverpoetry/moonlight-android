@@ -24,7 +24,9 @@ public final class AndroidStreamSessionCoordinator {
     public interface Listener {
         void onProgress(String message);
 
-        void onReady(String sessionToken);
+        void onReady(
+                String sessionToken,
+                StreamInitialOrientation initialOrientation);
 
         void onFailure(AndroidPreparedStreamSession.Failure failure);
     }
@@ -186,7 +188,10 @@ public final class AndroidStreamSessionCoordinator {
         @Override
         public void onReady(AndroidPreparedStreamSession session) {
             if (activeSession == session && !claimed) {
-                externalListener.onReady(session.getToken());
+                externalListener.onReady(
+                        session.getToken(),
+                        StreamInitialOrientation.from(
+                                session.getVideoSettings()));
                 if (activeSession == session && !claimed) {
                     scheduleHandoffTimeout(
                             session,

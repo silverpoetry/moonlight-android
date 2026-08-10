@@ -15,10 +15,12 @@ explicitly. Only these production components are externally reachable:
 - `FilePushActivity`: Android `SEND`/`SEND_MULTIPLE` share target;
 - `PosterContentProvider`: validated, read-only Android TV poster cache.
 
-The stream activity, settings activities, host services, USB service,
-accessibility service, and `FileProvider` are internal. The debug manifest may
-export `Game` only as a test entry point; that override must never enter a
-Release manifest.
+The two concrete stream entries, settings activities, host services, USB
+service, accessibility service, and `FileProvider` are internal. `Game` is the
+shared abstract stream implementation and is never registered as an Android
+component. The landscape and portrait entries provide only the immutable
+initial window orientation; runtime rotation remains inside the shared stream
+session.
 
 ## Private files and sharing
 
@@ -92,8 +94,10 @@ manifest, both fully merged Release manifests, and security XML. It fails when:
 
 - a component omits an explicit exported state or the exported allowlist
   changes;
-- a Debug-only stream/provider entry point, debuggable/test-only flag, or
-  shell-profileable declaration enters either Release flavor;
+- the abstract stream implementation is registered, either concrete stream
+  entry becomes exported or loses its declared initial orientation, or a
+  Debug-only provider, debuggable/test-only flag, or shell-profileable
+  declaration enters either Release flavor;
 - a broad or unknown `FileProvider` path appears;
 - any backup mode can move settings, host databases, or client identity;
 - the network trust-anchor surface changes;

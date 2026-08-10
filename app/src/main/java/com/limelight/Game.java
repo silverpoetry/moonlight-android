@@ -174,7 +174,7 @@ import java.util.Arrays;
 import java.util.List;
 
 
-public class Game extends BaseActivity implements OnGenericMotionListener,
+public abstract class Game extends BaseActivity implements OnGenericMotionListener,
         OnTouchListener, EvdevListener,
         GameGestures, StreamInputGateway,
         StreamUiActions, GameMenuHostProvider,

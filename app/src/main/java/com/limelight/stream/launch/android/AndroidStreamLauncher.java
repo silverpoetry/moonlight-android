@@ -131,7 +131,9 @@ public final class AndroidStreamLauncher {
 
                                         @Override
                                         public void onReady(
-                                                String sessionToken) {
+                                                String sessionToken,
+                                                StreamInitialOrientation
+                                                        initialOrientation) {
                                             if (!sessionToken.equals(
                                                     activeSessionToken)) {
                                                 coordinator.cancel(
@@ -153,7 +155,8 @@ public final class AndroidStreamLauncher {
                                                                 .create(
                                                                         activity,
                                                                         acceptedRequest,
-                                                                        sessionToken));
+                                                                        sessionToken,
+                                                                        initialOrientation));
                                                 activeSessionToken = null;
                                             }
                                             catch (RuntimeException |

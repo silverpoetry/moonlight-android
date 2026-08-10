@@ -149,10 +149,15 @@
             <meta-data android:name="WindowManagerPreference:FreeformWindowSize" android:value="system-default" />
             <meta-data android:name="WindowManagerPreference:FreeformWindowOrientation" android:value="landscape" />
         </activity>
-        <!-- PiP and low-latency display mode are platform-gated stream capabilities. -->
+        <!--
+            The concrete entry fixes the initial freeform-task shape before
+            Game applies the session's runtime rotation policy. Both entries
+            share the same implementation and stay inside the current task.
+        -->
         <activity
-            android:name=".Game"
+            android:name=".LandscapeGameActivity"
             android:exported="false"
+            android:screenOrientation="landscape"
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection"
             android:supportsPictureInPicture="true"
             android:launchMode="singleTask"
@@ -163,6 +168,31 @@
 
             <meta-data android:name="WindowManagerPreference:FreeformWindowSize" android:value="system-default" />
             <meta-data android:name="WindowManagerPreference:FreeformWindowOrientation" android:value="landscape" />
+
+            <!-- Special metadata for NVIDIA Shield devices to prevent input buffering
+                 and most importantly, opt out of mouse acceleration while streaming -->
+            <meta-data
+                android:name="com.nvidia.immediateInput"
+                android:value="true" />
+            <meta-data
+                android:name="com.nvidia.rawCursorInput"
+                android:value="true" />
+        </activity>
+
+        <activity
+            android:name=".PortraitGameActivity"
+            android:exported="false"
+            android:screenOrientation="sensorPortrait"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection"
+            android:supportsPictureInPicture="true"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:theme="@style/StreamTheme"
+            android:preferMinimalPostProcessing="true"
+            tools:ignore="UnusedAttribute">
+
+            <meta-data android:name="WindowManagerPreference:FreeformWindowSize" android:value="system-default" />
+            <meta-data android:name="WindowManagerPreference:FreeformWindowOrientation" android:value="portrait" />
 
             <!-- Special metadata for NVIDIA Shield devices to prevent input buffering
                  and most importantly, opt out of mouse acceleration while streaming -->
