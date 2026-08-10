@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,9 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -94,14 +96,19 @@ class SettingsScreenRenderer(
         val row: SettingsScreenState.Row,
     )
 
+    private data class SectionCluster(
+        val group: SettingsPresentationCatalog.Group,
+        val entries: List<IndexedValue<SettingsScreenState.Section>>,
+    )
+
     private var renderState: RenderState? by mutableStateOf(null)
     private var searchQuery by mutableStateOf("")
     private var contentRestoreVersion by mutableIntStateOf(0)
     private var sectionRailRestoreVersion by mutableIntStateOf(0)
-    private var pendingContentScroll = 0
-    private var pendingSectionRailScroll = 0
-    private var activeContentScroll: androidx.compose.foundation.ScrollState? = null
-    private var sectionRailScroll: androidx.compose.foundation.ScrollState? = null
+    private var pendingContentScroll = SettingsScrollPosition.START
+    private var pendingSectionRailScroll = SettingsScrollPosition.START
+    private var activeContentScroll: LazyListState? = null
+    private var sectionRailScroll: LazyListState? = null
     private var composeView: ComposeView? = null
     private var destroyed = false
 
@@ -152,27 +159,29 @@ class SettingsScreenRenderer(
     fun getSelectedSectionIndex(): Int =
         renderState?.selectedSectionIndex ?: FEATURED_SECTION_INDEX
 
-    fun captureScrollY(): Int? = activeContentScroll?.value
+    fun captureScrollPosition(): SettingsScrollPosition? =
+        activeContentScroll?.toScrollPosition()
 
-    fun captureSectionListScrollY(): Int? = sectionRailScroll?.value
+    fun captureSectionListScrollPosition(): SettingsScrollPosition? =
+        sectionRailScroll?.toScrollPosition()
 
-    fun restoreScrollY(scrollY: Int?) {
-        pendingContentScroll = scrollY?.coerceAtLeast(0) ?: return
+    fun restoreScrollPosition(position: SettingsScrollPosition?) {
+        pendingContentScroll = position ?: return
         contentRestoreVersion++
     }
 
     /** Selects the next page's scroll before Compose observes its page key. */
-    fun prepareContentScroll(scrollY: Int) {
-        pendingContentScroll = scrollY.coerceAtLeast(0)
+    fun prepareContentScroll(position: SettingsScrollPosition) {
+        pendingContentScroll = position
     }
 
-    fun restoreSectionListScrollY(scrollY: Int?) {
-        pendingSectionRailScroll = scrollY?.coerceAtLeast(0) ?: return
+    fun restoreSectionListScrollPosition(position: SettingsScrollPosition?) {
+        pendingSectionRailScroll = position ?: return
         sectionRailRestoreVersion++
     }
 
-    fun prepareSectionListScroll(scrollY: Int) {
-        pendingSectionRailScroll = scrollY.coerceAtLeast(0)
+    fun prepareSectionListScroll(position: SettingsScrollPosition) {
+        pendingSectionRailScroll = position
     }
 
     fun updateState(
@@ -221,27 +230,37 @@ class SettingsScreenRenderer(
         ) { padding ->
             val pageKey = section?.id ?: ROOT_PAGE_KEY
             val scrollState = remember(pageKey) {
-                androidx.compose.foundation.ScrollState(pendingContentScroll)
+                LazyListState(
+                    pendingContentScroll.itemIndex,
+                    pendingContentScroll.itemOffset,
+                )
             }
             BindContentScroll(pageKey, scrollState)
-            Column(
+            LazyColumn(
+                state = scrollState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .verticalScroll(scrollState)
-                    .padding(
-                        start = 20.dp,
-                        top = 12.dp,
-                        end = 20.dp,
-                        bottom = 32.dp,
+                    .testTag(
+                        section?.let { SECTION_TEST_TAG_PREFIX + it.id }
+                            ?: ROOT_TEST_TAG,
                     ),
+                contentPadding = PaddingValues(
+                    start = 20.dp,
+                    top = 12.dp,
+                    end = 20.dp,
+                    bottom = 32.dp,
+                ),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 if (section == null) {
-                    SettingsRootContent(state)
+                    settingsRootItems(
+                        state = state,
+                        includeSectionCards = true,
+                    )
                 } else {
-                    SettingsSectionContent(section)
+                    settingsSectionItems(section)
                 }
             }
         }
@@ -260,39 +279,57 @@ class SettingsScreenRenderer(
                     .padding(horizontal = 24.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
             ) {
-                val railState = rememberScrollState(pendingSectionRailScroll)
+                val railState = remember {
+                    LazyListState(
+                        pendingSectionRailScroll.itemIndex,
+                        pendingSectionRailScroll.itemOffset,
+                    )
+                }
                 SideEffect { sectionRailScroll = railState }
                 LaunchedEffect(sectionRailRestoreVersion) {
-                    railState.scrollTo(pendingSectionRailScroll)
+                    railState.scrollToItem(
+                        pendingSectionRailScroll.itemIndex,
+                        pendingSectionRailScroll.itemOffset,
+                    )
                 }
                 SettingsSectionRail(
                     state = state,
+                    listState = railState,
                     modifier = Modifier
                         .width(320.dp)
-                        .fillMaxHeight()
-                        .verticalScroll(railState),
+                        .fillMaxHeight(),
                 )
 
                 val section = state.screen.sections
                     .getOrNull(state.selectedSectionIndex)
                 val pageKey = section?.id ?: ROOT_PAGE_KEY
                 val contentState = remember(pageKey) {
-                    androidx.compose.foundation.ScrollState(pendingContentScroll)
+                    LazyListState(
+                        pendingContentScroll.itemIndex,
+                        pendingContentScroll.itemOffset,
+                    )
                 }
                 BindContentScroll(pageKey, contentState)
-                Column(
+                LazyColumn(
+                    state = contentState,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .verticalScroll(contentState)
-                        .padding(bottom = 24.dp),
+                        .testTag(
+                            section?.let { SECTION_TEST_TAG_PREFIX + it.id }
+                                ?: ROOT_TEST_TAG,
+                        ),
+                    contentPadding = PaddingValues(bottom = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
                     if (section == null) {
-                        SettingsWideRootContent(state)
+                        settingsRootItems(
+                            state = state,
+                            includeSectionCards = false,
+                        )
                     } else {
-                        SettingsSectionContent(section)
+                        settingsSectionItems(section)
                     }
                 }
             }
@@ -302,54 +339,105 @@ class SettingsScreenRenderer(
     @Composable
     private fun BindContentScroll(
         pageKey: String,
-        scrollState: androidx.compose.foundation.ScrollState,
+        scrollState: LazyListState,
     ) {
         SideEffect { activeContentScroll = scrollState }
         LaunchedEffect(pageKey, contentRestoreVersion) {
-            scrollState.scrollTo(pendingContentScroll)
-        }
-    }
-
-    @Composable
-    private fun SettingsRootContent(state: RenderState) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 760.dp)
-                .fillMaxWidth()
-                .testTag(ROOT_TEST_TAG),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-        ) {
-            ProfileSummary(state)
-            SettingsSearchField()
-            if (searchQuery.isNotBlank()) {
-                SettingsSearchResults(state)
-                return@Column
-            }
-            FeaturedSettingsContent(
-                state = state,
-                showProfileSummary = false,
+            scrollState.scrollToItem(
+                pendingContentScroll.itemIndex,
+                pendingContentScroll.itemOffset,
             )
-            SettingsSectionCards(state)
+        }
+    }
+
+    private fun LazyListState.toScrollPosition(): SettingsScrollPosition =
+        SettingsScrollPosition.of(
+            firstVisibleItemIndex,
+            firstVisibleItemScrollOffset,
+        )
+
+    private fun LazyListScope.settingsRootItems(
+        state: RenderState,
+        includeSectionCards: Boolean,
+    ) {
+        if (state.profileSummary.isNotEmpty()) {
+            item(key = "root:profile") {
+                SettingsContentContainer {
+                    ProfileSummary(state)
+                }
+            }
+        }
+        item(key = "root:search") {
+            SettingsContentContainer {
+                SettingsSearchField()
+            }
+        }
+        if (searchQuery.isNotBlank()) {
+            item(key = "root:search-results") {
+                SettingsContentContainer {
+                    SettingsSearchResults(state)
+                }
+            }
+            return
+        }
+
+        state.screen.featuredGroups.forEachIndexed { index, group ->
+            item(key = "featured:${group.id}") {
+                SettingsGroup(
+                    group = group,
+                    compact = true,
+                    showIcons = true,
+                    modifier = settingsContentModifier(
+                        testTag = if (index == 0) FEATURED_TEST_TAG else null,
+                    ),
+                )
+            }
+        }
+
+        if (!includeSectionCards) {
+            return
+        }
+        sectionClusters(state).forEach { cluster ->
+            item(key = "sections:${cluster.group.id}") {
+                SectionNavigationGroup(
+                    titleRes = cluster.group.titleRes,
+                    entries = cluster.entries,
+                    selectedSectionIndex = FEATURED_SECTION_INDEX,
+                    modifier = settingsContentModifier(),
+                )
+            }
+        }
+    }
+
+    private fun LazyListScope.settingsSectionItems(
+        section: SettingsScreenState.Section,
+    ) {
+        section.groups.forEach { group ->
+            item(key = "section:${section.id}:${group.id}") {
+                SettingsGroup(
+                    group = group,
+                    compact = false,
+                    showIcons = false,
+                    modifier = settingsContentModifier(),
+                )
+            }
         }
     }
 
     @Composable
-    private fun SettingsWideRootContent(state: RenderState) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 760.dp)
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-        ) {
-            ProfileSummary(state)
-            SettingsSearchField()
-            if (searchQuery.isNotBlank()) {
-                SettingsSearchResults(state)
-            } else {
-                FeaturedSettingsContent(state)
-            }
+    private fun SettingsContentContainer(content: @Composable () -> Unit) {
+        Box(modifier = settingsContentModifier()) {
+            content()
         }
     }
+
+    private fun settingsContentModifier(testTag: String? = null): Modifier =
+        Modifier
+            .widthIn(max = 760.dp)
+            .fillMaxWidth()
+            .then(
+                if (testTag == null) Modifier else Modifier.testTag(testTag),
+            )
 
     @Composable
     private fun ProfileSummary(state: RenderState) {
@@ -463,125 +551,82 @@ class SettingsScreenRenderer(
         }
     }
 
-    @Composable
-    private fun FeaturedSettingsContent(
+    private fun sectionClusters(
         state: RenderState,
-        showProfileSummary: Boolean = false,
-    ) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 760.dp)
-                .fillMaxWidth()
-                .testTag(FEATURED_TEST_TAG),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            if (showProfileSummary && state.profileSummary.isNotEmpty()) {
-                Text(
-                    text = state.profileSummary,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                )
-            }
-            SettingsGroups(
-                groups = state.screen.featuredGroups,
-                compact = true,
-            )
-        }
-    }
-
-    @Composable
-    private fun SettingsSectionCards(state: RenderState) {
+    ): List<SectionCluster> {
         val indexedSections = state.screen.sections.withIndex().toList()
         val clusters = indexedSections.groupBy { indexed ->
             SettingsPresentationCatalog.forSection(indexed.value.id).id
         }
-        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            clusters.values.forEach { entries ->
-                val group = SettingsPresentationCatalog.forSection(
+        return clusters.values.map { entries ->
+            SectionCluster(
+                group = SettingsPresentationCatalog.forSection(
                     entries.first().value.id,
-                )
-                SectionNavigationGroup(
-                    titleRes = group.titleRes,
-                    entries = entries,
-                    selectedSectionIndex = FEATURED_SECTION_INDEX,
-                )
-            }
+                ),
+                entries = entries,
+            )
         }
     }
 
     @Composable
     private fun SettingsSectionRail(
         state: RenderState,
+        listState: LazyListState,
         modifier: Modifier,
     ) {
-        Column(
+        LazyColumn(
+            state = listState,
             modifier = modifier,
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Card(
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                ),
-            ) {
-                SectionNavigationRow(
-                    title = stringResource(R.string.settings_featured_settings),
-                    supportingText = state.profileSummary,
-                    iconRes = R.drawable.ic_m3_tune,
-                    selected = state.selectedSectionIndex == FEATURED_SECTION_INDEX,
-                    onClick = { listener?.onSectionRequested(FEATURED_SECTION_INDEX) },
-                )
+            item(key = "rail:featured") {
+                Card(
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
+                ) {
+                    SectionNavigationRow(
+                        title = stringResource(R.string.settings_featured_settings),
+                        supportingText = state.profileSummary,
+                        iconRes = R.drawable.ic_m3_tune,
+                        selected = state.selectedSectionIndex == FEATURED_SECTION_INDEX,
+                        onClick = {
+                            listener?.onSectionRequested(FEATURED_SECTION_INDEX)
+                        },
+                    )
+                }
             }
-            val indexedSections = state.screen.sections.withIndex().toList()
-            val clusters = indexedSections.groupBy { indexed ->
-                SettingsPresentationCatalog.forSection(indexed.value.id).id
-            }
-            clusters.values.forEach { entries ->
-                val group = SettingsPresentationCatalog.forSection(
-                    entries.first().value.id,
-                )
-                SectionNavigationGroup(
-                    titleRes = group.titleRes,
-                    entries = entries,
-                    selectedSectionIndex = state.selectedSectionIndex,
-                )
+            sectionClusters(state).forEach { cluster ->
+                item(key = "rail:${cluster.group.id}") {
+                    SectionNavigationGroup(
+                        titleRes = cluster.group.titleRes,
+                        entries = cluster.entries,
+                        selectedSectionIndex = state.selectedSectionIndex,
+                    )
+                }
             }
         }
     }
 
     @Composable
-    private fun SettingsSectionContent(section: SettingsScreenState.Section) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 760.dp)
-                .fillMaxWidth()
-                .testTag(SECTION_TEST_TAG_PREFIX + section.id),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-        ) {
-            SettingsGroups(
-                groups = section.groups,
-                showIcons = false,
-            )
-        }
-    }
-
-    @Composable
-    private fun SettingsGroups(
-        groups: List<SettingsScreenState.Group>,
-        compact: Boolean = false,
-        showIcons: Boolean = true,
+    private fun SettingsGroup(
+        group: SettingsScreenState.Group,
+        compact: Boolean,
+        showIcons: Boolean,
+        modifier: Modifier = Modifier,
     ) {
-        groups.forEach { group ->
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = stringResource(group.titleRes),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                )
-                SettingsItemGroup(group.rows, compact, showIcons)
-            }
+        Column(
+            modifier = modifier,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(group.titleRes),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 12.dp),
+            )
+            SettingsItemGroup(group.rows, compact, showIcons)
         }
     }
 
@@ -902,8 +947,12 @@ class SettingsScreenRenderer(
         titleRes: Int,
         entries: List<IndexedValue<SettingsScreenState.Section>>,
         selectedSectionIndex: Int,
+        modifier: Modifier = Modifier,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(
+            modifier = modifier,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             Text(
                 text = stringResource(titleRes),
                 style = MaterialTheme.typography.titleSmall,

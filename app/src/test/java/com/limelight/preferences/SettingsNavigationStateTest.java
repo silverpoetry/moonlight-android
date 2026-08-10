@@ -10,40 +10,57 @@ public final class SettingsNavigationStateTest {
     @Test
     public void returningFromDetailRestoresRootPosition() {
         SettingsNavigationState state = new SettingsNavigationState();
-        state.captureContentScroll(640);
+        state.captureContentScroll(SettingsScrollPosition.of(6, 40));
         state.selectSection("video");
-        state.captureContentScroll(180);
+        state.captureContentScroll(SettingsScrollPosition.of(1, 80));
 
         assertTrue(state.returnToRoot());
 
-        assertEquals(640, state.getContentScrollY());
+        assertEquals(
+                SettingsScrollPosition.of(6, 40),
+                state.getContentScrollPosition());
         state.selectSection("video");
-        assertEquals(180, state.getContentScrollY());
+        assertEquals(
+                SettingsScrollPosition.of(1, 80),
+                state.getContentScrollPosition());
     }
 
     @Test
     public void sectionsAndWideRailRetainIndependentPositions() {
         SettingsNavigationState state = new SettingsNavigationState();
         state.selectSection("video");
-        state.captureContentScroll(120);
-        state.captureSectionRailScroll(300);
+        state.captureContentScroll(SettingsScrollPosition.of(1, 20));
+        state.captureSectionRailScroll(SettingsScrollPosition.of(3, 0));
         state.selectSection("audio");
-        state.captureContentScroll(40);
+        state.captureContentScroll(SettingsScrollPosition.of(0, 40));
 
-        assertEquals(40, state.getContentScrollY());
-        assertEquals(300, state.getSectionRailScrollY());
+        assertEquals(
+                SettingsScrollPosition.of(0, 40),
+                state.getContentScrollPosition());
+        assertEquals(
+                SettingsScrollPosition.of(3, 0),
+                state.getSectionRailScrollPosition());
         state.selectSection("video");
-        assertEquals(120, state.getContentScrollY());
+        assertEquals(
+                SettingsScrollPosition.of(1, 20),
+                state.getContentScrollPosition());
     }
 
     @Test
     public void rootBackIsNotConsumedAndNegativeOffsetsAreClamped() {
         SettingsNavigationState state = new SettingsNavigationState();
-        state.setContentScroll(null, -1);
-        state.setSectionRailScrollY(-2);
+        state.setContentScroll(
+                null,
+                SettingsScrollPosition.of(-1, -1));
+        state.setSectionRailScroll(
+                SettingsScrollPosition.of(-2, -2));
 
         assertFalse(state.returnToRoot());
-        assertEquals(0, state.getContentScrollY());
-        assertEquals(0, state.getSectionRailScrollY());
+        assertEquals(
+                SettingsScrollPosition.START,
+                state.getContentScrollPosition());
+        assertEquals(
+                SettingsScrollPosition.START,
+                state.getSectionRailScrollPosition());
     }
 }

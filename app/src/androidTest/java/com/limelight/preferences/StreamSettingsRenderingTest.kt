@@ -9,6 +9,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.limelight.R
 import org.junit.Assert.assertEquals
@@ -77,7 +78,9 @@ class StreamSettingsRenderingTest {
         val sectionTag = SettingsScreenRenderer.SECTION_CARD_TEST_TAG_PREFIX + section.key
 
         if (composeRule.activity.resources.configuration.screenWidthDp >= 720) {
-            composeRule.onNodeWithTag(sectionTag).performClick()
+            composeRule.onNodeWithTag(sectionTag)
+                .performScrollTo()
+                .performClick()
             composeRule.onNodeWithTag(
                 SettingsScreenRenderer.SECTION_TEST_TAG_PREFIX + section.key,
             ).assertExists()
@@ -90,7 +93,9 @@ class StreamSettingsRenderingTest {
             null,
             false,
         )
-        composeRule.onNodeWithTag(sectionTag).performClick()
+        composeRule.onNodeWithTag(sectionTag)
+            .performScrollTo()
+            .performClick()
         val detail = instrumentation.waitForMonitorWithTimeout(monitor, 2_000)
             as StreamSettings?
         instrumentation.removeMonitor(monitor)

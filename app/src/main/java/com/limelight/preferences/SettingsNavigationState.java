@@ -14,10 +14,11 @@ import java.util.Objects;
 final class SettingsNavigationState {
     private static final String ROOT_PAGE_ID = "";
 
-    private final Map<String, Integer> contentScrollByPage =
+    private final Map<String, SettingsScrollPosition> contentScrollByPage =
             new HashMap<>();
     private String selectedSectionId;
-    private int sectionRailScrollY;
+    private SettingsScrollPosition sectionRailScroll =
+            SettingsScrollPosition.START;
 
     String getSelectedSectionId() {
         return selectedSectionId;
@@ -45,47 +46,49 @@ final class SettingsNavigationState {
         return true;
     }
 
-    void captureContentScroll(Integer scrollY) {
-        if (scrollY != null) {
-            setContentScroll(selectedSectionId, scrollY);
+    void captureContentScroll(SettingsScrollPosition position) {
+        if (position != null) {
+            setContentScroll(selectedSectionId, position);
         }
     }
 
-    int getContentScrollY() {
+    SettingsScrollPosition getContentScrollPosition() {
         return getContentScroll(selectedSectionId);
     }
 
-    int getContentScroll(String sectionId) {
-        Integer scrollY = contentScrollByPage.get(
+    SettingsScrollPosition getContentScroll(String sectionId) {
+        SettingsScrollPosition position = contentScrollByPage.get(
                 pageId(sectionId));
-        return scrollY == null ? 0 : scrollY;
+        return position == null
+                ? SettingsScrollPosition.START
+                : position;
     }
 
-    void setContentScroll(String sectionId, int scrollY) {
+    void setContentScroll(
+            String sectionId,
+            SettingsScrollPosition position) {
         contentScrollByPage.put(
                 pageId(sectionId),
-                nonNegative(scrollY));
+                Objects.requireNonNull(position, "position"));
     }
 
-    void captureSectionRailScroll(Integer scrollY) {
-        if (scrollY != null) {
-            sectionRailScrollY = nonNegative(scrollY);
+    void captureSectionRailScroll(SettingsScrollPosition position) {
+        if (position != null) {
+            sectionRailScroll = position;
         }
     }
 
-    int getSectionRailScrollY() {
-        return sectionRailScrollY;
+    SettingsScrollPosition getSectionRailScrollPosition() {
+        return sectionRailScroll;
     }
 
-    void setSectionRailScrollY(int scrollY) {
-        sectionRailScrollY = nonNegative(scrollY);
+    void setSectionRailScroll(SettingsScrollPosition position) {
+        sectionRailScroll = Objects.requireNonNull(
+                position,
+                "position");
     }
 
     private static String pageId(String sectionId) {
         return sectionId == null ? ROOT_PAGE_ID : sectionId;
-    }
-
-    private static int nonNegative(int value) {
-        return Math.max(0, value);
     }
 }

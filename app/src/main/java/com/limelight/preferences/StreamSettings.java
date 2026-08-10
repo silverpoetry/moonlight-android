@@ -43,12 +43,18 @@ public class StreamSettings extends BaseActivity {
             "com.limelight.preferences.StreamSettings.SECTION_ID";
     private static final String STATE_SECTION_KEY =
             "settings.selected_section_key";
-    private static final String STATE_ROOT_SCROLL_Y =
-            "settings.root_scroll_y";
-    private static final String STATE_SECTION_SCROLL_Y =
-            "settings.section_scroll_y";
-    private static final String STATE_SECTION_RAIL_SCROLL_Y =
-            "settings.section_rail_scroll_y";
+    private static final String STATE_ROOT_SCROLL_INDEX =
+            "settings.root_scroll_index";
+    private static final String STATE_ROOT_SCROLL_OFFSET =
+            "settings.root_scroll_offset";
+    private static final String STATE_SECTION_SCROLL_INDEX =
+            "settings.section_scroll_index";
+    private static final String STATE_SECTION_SCROLL_OFFSET =
+            "settings.section_scroll_offset";
+    private static final String STATE_SECTION_RAIL_SCROLL_INDEX =
+            "settings.section_rail_scroll_index";
+    private static final String STATE_SECTION_RAIL_SCROLL_OFFSET =
+            "settings.section_rail_scroll_offset";
     private static final String STATE_DOCUMENT_REQUEST_CODE =
             "settings.document_request_code";
 
@@ -185,20 +191,23 @@ public class StreamSettings extends BaseActivity {
             }
             navigationState.setContentScroll(
                     null,
-                    savedInstanceState.getInt(
-                            STATE_ROOT_SCROLL_Y,
-                            0));
+                    readScrollPosition(
+                            savedInstanceState,
+                            STATE_ROOT_SCROLL_INDEX,
+                            STATE_ROOT_SCROLL_OFFSET));
             if (sectionId != null) {
                 navigationState.setContentScroll(
                         sectionId,
-                        savedInstanceState.getInt(
-                                STATE_SECTION_SCROLL_Y,
-                                0));
+                        readScrollPosition(
+                                savedInstanceState,
+                                STATE_SECTION_SCROLL_INDEX,
+                                STATE_SECTION_SCROLL_OFFSET));
             }
-            navigationState.setSectionRailScrollY(
-                    savedInstanceState.getInt(
-                            STATE_SECTION_RAIL_SCROLL_Y,
-                            0));
+            navigationState.setSectionRailScroll(
+                    readScrollPosition(
+                            savedInstanceState,
+                            STATE_SECTION_RAIL_SCROLL_INDEX,
+                            STATE_SECTION_RAIL_SCROLL_OFFSET));
         }
         if (sectionActivity &&
                 !navigationState.hasSelectedSection() &&
@@ -401,22 +410,46 @@ public class StreamSettings extends BaseActivity {
         captureNavigationScroll();
         String sectionId = navigationState.getSelectedSectionId();
         outState.putString(STATE_SECTION_KEY, sectionId);
-        outState.putInt(
-                STATE_ROOT_SCROLL_Y,
+        writeScrollPosition(
+                outState,
+                STATE_ROOT_SCROLL_INDEX,
+                STATE_ROOT_SCROLL_OFFSET,
                 navigationState.getContentScroll(null));
         if (sectionId != null) {
-            outState.putInt(
-                    STATE_SECTION_SCROLL_Y,
+            writeScrollPosition(
+                    outState,
+                    STATE_SECTION_SCROLL_INDEX,
+                    STATE_SECTION_SCROLL_OFFSET,
                     navigationState.getContentScroll(sectionId));
         }
-        outState.putInt(
-                STATE_SECTION_RAIL_SCROLL_Y,
-                navigationState.getSectionRailScrollY());
+        writeScrollPosition(
+                outState,
+                STATE_SECTION_RAIL_SCROLL_INDEX,
+                STATE_SECTION_RAIL_SCROLL_OFFSET,
+                navigationState.getSectionRailScrollPosition());
         if (documentController != null) {
             outState.putInt(
                     STATE_DOCUMENT_REQUEST_CODE,
                     documentController.getPendingRequestCode());
         }
+    }
+
+    private static SettingsScrollPosition readScrollPosition(
+            Bundle state,
+            String indexKey,
+            String offsetKey) {
+        return SettingsScrollPosition.of(
+                state.getInt(indexKey, 0),
+                state.getInt(offsetKey, 0));
+    }
+
+    private static void writeScrollPosition(
+            Bundle state,
+            String indexKey,
+            String offsetKey,
+            SettingsScrollPosition position) {
+        state.putInt(indexKey, position.getItemIndex());
+        state.putInt(offsetKey, position.getItemOffset());
     }
 
     @Override
@@ -508,7 +541,7 @@ public class StreamSettings extends BaseActivity {
 
     private void renderWideSelection() {
         screenRenderer.prepareContentScroll(
-                navigationState.getContentScrollY());
+                navigationState.getContentScrollPosition());
         screenRenderer.setContent(
                 createScreenState(),
                 selectedSectionIndex,
@@ -528,17 +561,17 @@ public class StreamSettings extends BaseActivity {
             return;
         }
         navigationState.captureContentScroll(
-                screenRenderer.captureScrollY());
+                screenRenderer.captureScrollPosition());
         navigationState.captureSectionRailScroll(
-                screenRenderer.captureSectionListScrollY());
+                screenRenderer.captureSectionListScrollPosition());
     }
 
     private void renderSettings() {
         normalizeCompactRootNavigation();
         screenRenderer.prepareContentScroll(
-                navigationState.getContentScrollY());
+                navigationState.getContentScrollPosition());
         screenRenderer.prepareSectionListScroll(
-                navigationState.getSectionRailScrollY());
+                navigationState.getSectionRailScrollPosition());
         screenRenderer.setContent(
                 createScreenState(),
                 selectedSectionIndex,
