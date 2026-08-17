@@ -7,8 +7,10 @@ import android.net.Uri;
 import android.os.CancellationSignal;
 import android.text.format.Formatter;
 import android.view.View;
+import android.view.HapticFeedbackConstants;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -17,6 +19,7 @@ import androidx.documentfile.provider.DocumentFile;
 
 import com.limelight.R;
 import com.limelight.nvstream.NvConnection;
+import com.limelight.nvstream.filetransfer.ClipboardFileDownloadResult;
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.transfer.TransferSettingKeys;
 import com.limelight.settings.transfer.TransferSettings;
@@ -199,7 +202,8 @@ public final class RemoteClipboardFileTransferController {
                     }
 
                     @Override
-                    public void onComplete(int topLevelItemCount) {
+                    public void onComplete(
+                            ClipboardFileDownloadResult result) {
                         if (!isCurrentTransfer(generation, views.dialog) ||
                                 !session.finishTransfer(generation)) {
                             return;
@@ -208,7 +212,7 @@ public final class RemoteClipboardFileTransferController {
                         showComplete(
                                 views,
                                 destinationName,
-                                topLevelItemCount);
+                                result);
                     }
 
                     @Override
@@ -330,7 +334,7 @@ public final class RemoteClipboardFileTransferController {
 
     private void showComplete(TransferDialogViews views,
                               String destinationName,
-                              int topLevelItemCount) {
+                              ClipboardFileDownloadResult result) {
         views.title.setText(
                 R.string.clipboard_file_pull_complete_title);
         views.subtitle.setText(activity.getString(
@@ -338,19 +342,51 @@ public final class RemoteClipboardFileTransferController {
                 destinationName));
         views.status.setText(activity.getResources().getQuantityString(
                 R.plurals.clipboard_file_pull_complete_count,
-                topLevelItemCount,
-                topLevelItemCount));
+                result.getTopLevelItemCount(),
+                result.getTopLevelItemCount()));
         views.progress.setIndeterminate(false);
         views.progress.setProgress(1000);
         views.bytes.setText(activity.getString(
                 R.string.clipboard_file_pull_destination,
                 destinationName));
         views.actions.setVisibility(View.VISIBLE);
+        if (result.hasShareableFiles()) {
+            views.shareAction.setVisibility(View.VISIBLE);
+            views.shareAction.setOnClickListener(view -> {
+                view.performHapticFeedback(
+                        HapticFeedbackConstants.VIRTUAL_KEY);
+                shareCompletedFiles(result);
+            });
+        }
+        else {
+            views.shareAction.setVisibility(View.GONE);
+            views.shareAction.setOnClickListener(null);
+        }
         views.secondaryAction.setVisibility(View.GONE);
         views.primaryAction.setText(R.string.file_transfer_done);
         views.primaryAction.setOnClickListener(
                 view -> dismissTransferDialog(views.dialog));
         views.primaryAction.requestFocus();
+    }
+
+    private void shareCompletedFiles(
+            ClipboardFileDownloadResult result) {
+        try {
+            Intent shareIntent =
+                    ClipboardFileShareIntentFactory.create(result);
+            Intent chooser = Intent.createChooser(
+                    shareIntent,
+                    activity.getString(
+                            R.string.clipboard_file_pull_share));
+            chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            activity.startActivity(chooser);
+        }
+        catch (RuntimeException error) {
+            UiToast.makeText(
+                    activity,
+                    R.string.clipboard_file_pull_share_failed,
+                    UiToast.LENGTH_SHORT).show();
+        }
     }
 
     private void showError(TransferDialogViews views,
@@ -423,6 +459,7 @@ public final class RemoteClipboardFileTransferController {
         final ProgressBar progress;
         final TextView bytes;
         final LinearLayout actions;
+        final ImageButton shareAction;
         final TextView secondaryAction;
         final TextView primaryAction;
         AlertDialog dialog;
@@ -442,6 +479,8 @@ public final class RemoteClipboardFileTransferController {
                     R.id.clipboard_file_transfer_bytes);
             actions = dialogView.findViewById(
                     R.id.clipboard_file_transfer_actions);
+            shareAction = dialogView.findViewById(
+                    R.id.clipboard_file_transfer_share_action);
             secondaryAction = dialogView.findViewById(
                     R.id.clipboard_file_transfer_secondary_action);
             primaryAction = dialogView.findViewById(

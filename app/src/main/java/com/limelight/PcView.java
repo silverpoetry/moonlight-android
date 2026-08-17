@@ -16,6 +16,7 @@ import com.limelight.binding.video.gl.android.SharedPreferencesGlDeviceSnapshotS
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.computers.HostPollingClientLifecycle;
+import com.limelight.computers.network.AndroidLocalNetworkAccess;
 import com.limelight.computers.apps.HiddenAppRepository;
 import com.limelight.computers.apps.android.SharedPreferencesHiddenAppRepository;
 import com.limelight.computers.http.android.AndroidNvHttpClientFactory;
@@ -67,6 +68,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import com.limelight.utils.UiToast;
 
 import org.xmlpull.v1.XmlPullParserException;
@@ -85,6 +88,10 @@ public class PcView extends BaseActivity {
     private boolean hostListReady, managerHasKnownHosts;
     private boolean managerServiceBound;
     private volatile boolean activityDestroyed;
+    private ActivityResultLauncher<String> localNetworkPermissionLauncher;
+    private boolean localNetworkPermissionRequestInFlight;
+    private boolean automaticLocalNetworkPermissionRequested;
+    private Runnable pendingLocalNetworkPermissionAction;
     private final HostPairingUseCase hostPairingUseCase =
             new HostPairingUseCase();
     private HostPairingController hostPairingController;
@@ -217,9 +224,11 @@ public class PcView extends BaseActivity {
 
                     @Override
                     public void onAddComputerRequested() {
-                        startActivity(new Intent(
-                                PcView.this,
-                                AddComputerManually.class));
+                        runWithLocalNetworkAccess(
+                                true,
+                                () -> startActivity(new Intent(
+                                        PcView.this,
+                                        AddComputerManually.class)));
                     }
 
                     @Override
@@ -263,6 +272,10 @@ public class PcView extends BaseActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        localNetworkPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                this::onLocalNetworkPermissionResult);
 
         decoderCrashNotificationController =
                 new AndroidDecoderCrashNotificationController(
@@ -348,6 +361,12 @@ public class PcView extends BaseActivity {
     }
 
     private void startComputerUpdates() {
+        if (!runWithLocalNetworkAccess(
+                false,
+                this::startComputerUpdates)) {
+            return;
+        }
+
         ComputerManagerService.ComputerManagerBinder binder;
         synchronized (managerBindingLock) {
             if (managerBinder == null || !inForeground) {
@@ -440,6 +459,11 @@ public class PcView extends BaseActivity {
     @Override
     public void onDestroy() {
         activityDestroyed = true;
+        pendingLocalNetworkPermissionAction = null;
+        if (localNetworkPermissionLauncher != null) {
+            localNetworkPermissionLauncher.unregister();
+            localNetworkPermissionLauncher = null;
+        }
         if (glRendererProbe != null) {
             glRendererProbe.destroy();
             glRendererProbe = null;
@@ -477,6 +501,47 @@ public class PcView extends BaseActivity {
             managerBinder = null;
         }
         super.onDestroy();
+    }
+
+    private boolean runWithLocalNetworkAccess(
+            boolean userInitiated,
+            Runnable afterPermissionGranted) {
+        if (AndroidLocalNetworkAccess.isGranted(this)) {
+            return true;
+        }
+        if (activityDestroyed || localNetworkPermissionLauncher == null ||
+                localNetworkPermissionRequestInFlight) {
+            return false;
+        }
+        if (!userInitiated &&
+                (automaticLocalNetworkPermissionRequested ||
+                        shouldShowRequestPermissionRationale(
+                                AndroidLocalNetworkAccess.PERMISSION))) {
+            return false;
+        }
+
+        automaticLocalNetworkPermissionRequested = true;
+        localNetworkPermissionRequestInFlight = true;
+        pendingLocalNetworkPermissionAction = afterPermissionGranted;
+        localNetworkPermissionLauncher.launch(
+                AndroidLocalNetworkAccess.PERMISSION);
+        return false;
+    }
+
+    private void onLocalNetworkPermissionResult(boolean granted) {
+        localNetworkPermissionRequestInFlight = false;
+        Runnable pendingAction = pendingLocalNetworkPermissionAction;
+        pendingLocalNetworkPermissionAction = null;
+        if (granted) {
+            if (pendingAction != null && !activityDestroyed) {
+                pendingAction.run();
+            }
+            return;
+        }
+        UiToast.makeText(
+                this,
+                R.string.local_network_permission_denied,
+                UiToast.LENGTH_LONG).show();
     }
 
     @Override

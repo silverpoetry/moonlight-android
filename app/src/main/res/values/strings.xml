@@ -218,6 +218,8 @@
     <string name="clipboard_file_pull_keep_open">Transfer in progress; keep the stream connected</string>
     <string name="clipboard_file_pull_complete_title">Download complete</string>
     <string name="clipboard_file_pull_complete_subtitle">Remote clipboard files were saved to %1$s</string>
+    <string name="clipboard_file_pull_share">Share downloaded files</string>
+    <string name="clipboard_file_pull_share_failed">No app can share these files</string>
     <plurals name="clipboard_file_pull_complete_count">
         <item quantity="one">Saved %1$d item</item>
         <item quantity="other">Saved %1$d items</item>
@@ -444,6 +446,7 @@
     <string name="summary_checkbox_host_audio">Play audio from the computer and this device</string>
     <string name="mic_uplink_not_supported">The host has not enabled microphone uplink or has no compatible virtual microphone device. Streaming will continue without microphone input.</string>
     <string name="mic_uplink_permission_denied">Microphone permission was denied. Streaming will continue without microphone uplink.</string>
+    <string name="local_network_permission_denied">Local network access is required to discover and connect to computers.</string>
 
     <string name="settings_title">Settings</string>
     <string name="settings_search_hint">Search settings</string>

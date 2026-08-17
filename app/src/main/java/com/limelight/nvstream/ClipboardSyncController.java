@@ -20,6 +20,7 @@ import com.limelight.LimeLog;
 import com.limelight.binding.input.ImeContentCallback;
 import com.limelight.platform.files.AndroidPrivateFileShare;
 import com.limelight.nvstream.filetransfer.ClipboardFileDownloader;
+import com.limelight.nvstream.filetransfer.ClipboardFileDownloadResult;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.nvstream.clipboard.ClipboardSyncCheckpoint;
@@ -320,7 +321,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
         fileTransferExecutor.execute(() -> {
             long originId = 0;
             String transferId = null;
-            Integer topLevelCount = null;
+            ClipboardFileDownloadResult downloadResult = null;
             String errorMessage = null;
             boolean cancelled = false;
             try {
@@ -336,7 +337,7 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
                 transferId = pulled.id;
                 LimeLog.info("Remote clipboard file offer prepared: " +
                         pulled.id);
-                topLevelCount = ClipboardFileDownloader.download(
+                downloadResult = ClipboardFileDownloader.download(
                         context,
                         nvHttp,
                         destinationTree,
@@ -378,10 +379,11 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
             if (cancelled) {
                 mainHandler.post(listener::onCancelled);
             }
-            else if (topLevelCount != null) {
-                int completedCount = topLevelCount;
+            else if (downloadResult != null) {
+                ClipboardFileDownloadResult completedResult =
+                        downloadResult;
                 mainHandler.post(() ->
-                        listener.onComplete(completedCount));
+                        listener.onComplete(completedResult));
             }
             else {
                 String completedError = errorMessage == null ?

@@ -4,6 +4,7 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.CancellationSignal;
 import android.os.OperationCanceledException;
+import android.webkit.MimeTypeMap;
 import androidx.documentfile.provider.DocumentFile;
 
 import com.limelight.nvstream.http.NvHTTP;
@@ -14,6 +15,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -25,9 +27,13 @@ public final class ClipboardFileDownloader {
     private ClipboardFileDownloader() {
     }
 
-    public static int download(Context context, NvHTTP http, Uri destinationTree,
-                               String transferId, long originId,
-                               Listener listener) throws IOException {
+    public static ClipboardFileDownloadResult download(
+            Context context,
+            NvHTTP http,
+            Uri destinationTree,
+            String transferId,
+            long originId,
+            Listener listener) throws IOException {
         return download(
                 context,
                 http,
@@ -38,10 +44,14 @@ public final class ClipboardFileDownloader {
                 null);
     }
 
-    public static int download(Context context, NvHTTP http, Uri destinationTree,
-                               String transferId, long originId,
-                               Listener listener,
-                               CancellationSignal cancellationSignal)
+    public static ClipboardFileDownloadResult download(
+            Context context,
+            NvHTTP http,
+            Uri destinationTree,
+            String transferId,
+            long originId,
+            Listener listener,
+            CancellationSignal cancellationSignal)
             throws IOException {
         DocumentFile root = DocumentFile.fromTreeUri(context, destinationTree);
         if (root == null || !root.isDirectory() || !root.canWrite()) {
@@ -54,6 +64,7 @@ public final class ClipboardFileDownloader {
         FileManifest manifest = FileManifest.decode(encoded);
         Map<String, DocumentFile> documents = new HashMap<>();
         List<TopLevelItem> topLevelItems = new ArrayList<>();
+        List<DownloadedFile> downloadedFiles = new ArrayList<>();
         long transferred = 0;
 
         try {
@@ -98,6 +109,9 @@ public final class ClipboardFileDownloader {
                 if (entry.type != FileManifest.TYPE_REGULAR) {
                     continue;
                 }
+                downloadedFiles.add(new DownloadedFile(
+                        document,
+                        entry.path));
 
                 try (OutputStream output = context.getContentResolver()
                         .openOutputStream(document.getUri(), "w")) {
@@ -129,7 +143,7 @@ public final class ClipboardFileDownloader {
             }
 
             commitTopLevelItems(root, topLevelItems, cancellationSignal);
-            return topLevelItems.size();
+            return createResult(topLevelItems, downloadedFiles);
         } catch (Throwable error) {
             deleteTopLevelItems(topLevelItems);
             if (error instanceof OperationCanceledException) {
@@ -169,6 +183,47 @@ public final class ClipboardFileDownloader {
             catch (Throwable ignored) {
             }
         }
+    }
+
+    private static ClipboardFileDownloadResult createResult(
+            List<TopLevelItem> topLevelItems,
+            List<DownloadedFile> downloadedFiles) {
+        List<ClipboardFileDownloadResult.ShareableFile> shareableFiles =
+                new ArrayList<>(downloadedFiles.size());
+        for (DownloadedFile downloadedFile : downloadedFiles) {
+            String displayName = downloadedFile.document.getName();
+            if (displayName == null || displayName.trim().isEmpty()) {
+                displayName = leafName(downloadedFile.requestedPath);
+            }
+            shareableFiles.add(
+                    new ClipboardFileDownloadResult.ShareableFile(
+                            downloadedFile.document.getUri(),
+                            displayName,
+                            inferMimeType(displayName)));
+        }
+        return new ClipboardFileDownloadResult(
+                topLevelItems.size(),
+                shareableFiles);
+    }
+
+    private static String leafName(String path) {
+        int separator = path.lastIndexOf('/');
+        return separator >= 0 ? path.substring(separator + 1) : path;
+    }
+
+    private static String inferMimeType(String displayName) {
+        int separator = displayName.lastIndexOf('.');
+        if (separator >= 0 && separator < displayName.length() - 1) {
+            String extension = displayName
+                    .substring(separator + 1)
+                    .toLowerCase(Locale.ROOT);
+            String mimeType = MimeTypeMap.getSingleton()
+                    .getMimeTypeFromExtension(extension);
+            if (mimeType != null && !mimeType.isEmpty()) {
+                return mimeType;
+            }
+        }
+        return "application/octet-stream";
     }
 
     private static String uniqueStagingName(
@@ -218,6 +273,18 @@ public final class ClipboardFileDownloader {
             this.document = document;
             this.requestedName = requestedName;
             this.directory = directory;
+        }
+    }
+
+    private static final class DownloadedFile {
+        final DocumentFile document;
+        final String requestedPath;
+
+        DownloadedFile(
+                DocumentFile document,
+                String requestedPath) {
+            this.document = document;
+            this.requestedPath = requestedPath;
         }
     }
 }

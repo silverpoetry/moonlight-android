@@ -19,6 +19,8 @@
     <string name="clipboard_file_pull_keep_open">正在安全传输，请保持串流连接</string>
     <string name="clipboard_file_pull_complete_title">拉取完成</string>
     <string name="clipboard_file_pull_complete_subtitle">远端剪贴板文件已保存到 %1$s</string>
+    <string name="clipboard_file_pull_share">分享已拉取文件</string>
+    <string name="clipboard_file_pull_share_failed">没有可用于分享这些文件的应用</string>
     <plurals name="clipboard_file_pull_complete_count">
         <item quantity="other">已保存 %1$d 个项目</item>
     </plurals>
@@ -516,4 +518,5 @@
     <string name="srv_record_not_found">未找到 SRV 记录：%1$s</string>
     <string name="srv_resolution_http_failed">解析 SRV 记录失败，HTTP 状态码：%1$d</string>
     <string name="srv_resolution_failed">解析 SRV 记录失败：%1$s</string>
+    <string name="local_network_permission_denied">需要本地网络权限才能发现并连接电脑。</string>
 </resources>

@@ -42,6 +42,7 @@ import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
+import com.limelight.nvstream.filetransfer.ClipboardFileDownloadResult;
 import com.limelight.nvstream.mic.MicrophoneUplinkController;
 import com.limelight.nvstream.mic.MicrophoneUplinkEndpoint;
 import com.limelight.nvstream.mic.MicrophoneUplinkSessionFactory;
@@ -52,7 +53,7 @@ public class NvConnection implements StreamSessionConnection,
     private static final String CURSOR_LOG_TAG = "MoonlightCursor";
     public interface ClipboardFileDownloadListener {
         void onProgress(long transferredBytes, long totalBytes);
-        void onComplete(int topLevelItemCount);
+        void onComplete(ClipboardFileDownloadResult result);
         void onError(String message);
         void onCancelled();
     }

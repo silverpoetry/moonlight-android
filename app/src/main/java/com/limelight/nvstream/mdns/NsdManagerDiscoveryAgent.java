@@ -2,6 +2,7 @@ package com.limelight.nvstream.mdns;
 
 import androidx.annotation.RequiresApi;
 import android.content.Context;
+import android.net.nsd.DiscoveryRequest;
 import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
 import android.os.Build;
@@ -203,7 +204,25 @@ public class NsdManagerDiscoveryAgent extends MdnsDiscoveryAgent {
             if (pendingListener == null && activeListener == null) {
                 long generation = ++discoveryGeneration;
                 pendingListener = createDiscoveryListener(generation);
-                nsdManager.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, pendingListener);
+                if (Build.VERSION.SDK_INT >=
+                        Build.VERSION_CODES.CINNAMON_BUN) {
+                    DiscoveryRequest request =
+                            new DiscoveryRequest.Builder(SERVICE_TYPE)
+                                    .setFlags(
+                                            DiscoveryRequest
+                                                    .FLAG_NO_PICKER)
+                                    .build();
+                    nsdManager.discoverServices(
+                            request,
+                            callbackExecutor,
+                            pendingListener);
+                }
+                else {
+                    nsdManager.discoverServices(
+                            SERVICE_TYPE,
+                            NsdManager.PROTOCOL_DNS_SD,
+                            pendingListener);
+                }
             }
         }
     }

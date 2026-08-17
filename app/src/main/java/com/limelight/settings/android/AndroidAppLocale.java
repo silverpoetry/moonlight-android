@@ -10,7 +10,6 @@ import android.os.LocaleList;
 
 import com.limelight.settings.SettingsRepository;
 import com.limelight.settings.app.AppPresentationSettingKeys;
-import com.limelight.settings.app.AppPresentationSettings;
 
 import java.util.Locale;
 import java.util.Objects;
@@ -31,17 +30,20 @@ public final class AndroidAppLocale {
     @SuppressLint("AppBundleLocaleChanges")
     public static Context wrapBaseContext(Context context) {
         Objects.requireNonNull(context, "context");
-        AppPresentationSettings settings =
-                AndroidAppPresentationSettingsLoader.load(context);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ||
-                settings.usesSystemLanguage()) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return context;
+        }
+
+        String language =
+                AndroidAppLanguageSettingsLoader.load(context);
+        if (AppPresentationSettingKeys.SYSTEM_LANGUAGE.equals(language)) {
             return context;
         }
 
         Configuration configuration = new Configuration(
                 context.getResources().getConfiguration());
         configuration.setLocale(Locale.forLanguageTag(
-                settings.getLanguage()));
+                language));
         return context.createConfigurationContext(configuration);
     }
 
@@ -51,12 +53,11 @@ public final class AndroidAppLocale {
             return;
         }
 
-        AppPresentationSettings settings =
-                AndroidAppPresentationSettingsLoader.load(activity);
-        if (settings.usesSystemLanguage()) {
+        String language =
+                AndroidAppLanguageSettingsLoader.load(activity);
+        if (AppPresentationSettingKeys.SYSTEM_LANGUAGE.equals(language)) {
             return;
         }
-        String language = settings.getLanguage();
         LocaleManager localeManager =
                 activity.getSystemService(LocaleManager.class);
         if (localeManager == null) {
@@ -77,8 +78,7 @@ public final class AndroidAppLocale {
     public static String configuredLanguage(Context context) {
         Objects.requireNonNull(context, "context");
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            return AndroidSettingsRepository.create(context).get(
-                    AppPresentationSettingKeys.LANGUAGE);
+            return AndroidAppLanguageSettingsLoader.load(context);
         }
         LocaleManager localeManager =
                 context.getSystemService(LocaleManager.class);

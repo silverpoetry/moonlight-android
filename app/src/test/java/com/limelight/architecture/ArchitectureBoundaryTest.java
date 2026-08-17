@@ -80,6 +80,35 @@ public final class ArchitectureBoundaryTest {
     }
 
     @Test
+    public void baseContextLocaleLoadingDoesNotDependOnDisplayPresentation() {
+        noClasses()
+                .that()
+                .haveFullyQualifiedName(
+                        "com.limelight.settings.android.AndroidAppLocale")
+                .or()
+                .haveFullyQualifiedName(
+                        "com.limelight.settings.android.AndroidAppLanguageSettingsLoader")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.settings.android.AndroidAppPresentationSettingsLoader")
+                .orShould()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.settings.android.AndroidAppPresentationDefaults")
+                .orShould()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(
+                        "com.limelight.platform.AndroidDeviceCategory")
+                .orShould()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("android.app.UiModeManager")
+                .because(
+                        "base-context locale loading runs before an Activity has a display context")
+                .check(productionClasses);
+    }
+
+    @Test
     public void extractedStreamUiDoesNotDependOnGameActivity() {
         noClasses()
                 .that()

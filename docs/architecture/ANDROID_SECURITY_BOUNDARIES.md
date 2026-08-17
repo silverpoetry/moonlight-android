@@ -35,6 +35,13 @@ device root, external storage, entire cache directory, or entire files
 directory. Read-only URI grants are issued only with the matching share or
 clipboard item. Expired outbound sessions are removed on later shares.
 
+After a remote clipboard file pull commits successfully, its completion value
+contains only the regular document URIs created by that transaction. The
+system Sharesheet receives those exact files through a temporary read-only URI
+grant; the selected document tree and unrelated files in the destination
+directory are never shared. Nested regular files may be shared together, while
+empty directories produce no share action.
+
 ## Backup and device transfer
 
 Standard Android backup remains available for benign, user-authored files.
