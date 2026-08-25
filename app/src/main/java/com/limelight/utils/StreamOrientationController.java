@@ -15,6 +15,20 @@ public final class StreamOrientationController {
     private StreamOrientationController() {
     }
 
+    /**
+     * Applies the prepared session's initial orientation before stream views
+     * are inflated. This makes the first layout use the final stream-window
+     * geometry instead of relying on a later sensor/configuration event.
+     */
+    public static void applyInitialGameOrientation(
+            Activity activity,
+            boolean portraitRequested) {
+        apply(
+                activity,
+                StreamOrientationPolicy.resolveInitialMode(
+                        portraitRequested));
+    }
+
     public static void applyGameOrientation(
             Activity activity,
             StreamOrientationRequest request) {

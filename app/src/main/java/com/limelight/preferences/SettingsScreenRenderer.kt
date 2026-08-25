@@ -387,7 +387,7 @@ class SettingsScreenRenderer(
                     group = group,
                     compact = true,
                     showIcons = true,
-                    modifier = settingsContentModifier(
+                    modifier = Modifier.settingsContent(
                         testTag = if (index == 0) FEATURED_TEST_TAG else null,
                     ),
                 )
@@ -403,7 +403,7 @@ class SettingsScreenRenderer(
                     titleRes = cluster.group.titleRes,
                     entries = cluster.entries,
                     selectedSectionIndex = FEATURED_SECTION_INDEX,
-                    modifier = settingsContentModifier(),
+                    modifier = Modifier.settingsContent(),
                 )
             }
         }
@@ -418,7 +418,7 @@ class SettingsScreenRenderer(
                     group = group,
                     compact = false,
                     showIcons = false,
-                    modifier = settingsContentModifier(),
+                    modifier = Modifier.settingsContent(),
                 )
             }
         }
@@ -426,13 +426,13 @@ class SettingsScreenRenderer(
 
     @Composable
     private fun SettingsContentContainer(content: @Composable () -> Unit) {
-        Box(modifier = settingsContentModifier()) {
+        Box(modifier = Modifier.settingsContent()) {
             content()
         }
     }
 
-    private fun settingsContentModifier(testTag: String? = null): Modifier =
-        Modifier
+    private fun Modifier.settingsContent(testTag: String? = null): Modifier =
+        this
             .widthIn(max = 760.dp)
             .fillMaxWidth()
             .then(

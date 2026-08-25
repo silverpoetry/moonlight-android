@@ -9,6 +9,8 @@ import android.os.Vibrator;
 
 import androidx.core.content.ContextCompat;
 
+import com.limelight.integration.xiaomi.XiaomiRefreshRateOverrideController;
+
 /** Android adapter that converts platform details into semantic capabilities. */
 final class AndroidSettingsDeviceCapabilities {
     private static final String FEATURE_FIRE_OS =
@@ -66,6 +68,9 @@ final class AndroidSettingsDeviceCapabilities {
                                 Build.VERSION.SDK_INT >=
                                         Build.VERSION_CODES.O &&
                                 vibrator.hasAmplitudeControl())
+                .xiaomiRefreshRateOverrideAvailable(
+                        XiaomiRefreshRateOverrideController
+                                .isSupportedDevice())
                 .build();
     }
 }

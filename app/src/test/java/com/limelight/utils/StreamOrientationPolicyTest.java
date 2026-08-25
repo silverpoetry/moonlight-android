@@ -17,9 +17,29 @@ import static org.junit.Assert.assertTrue;
 
 public final class StreamOrientationPolicyTest {
     @Test
-    public void adaptiveWindowAlwaysFollowsUser() {
+    public void initialWindowUsesPreparedStreamOrientation() {
+        assertEquals(
+                SENSOR_LANDSCAPE,
+                StreamOrientationPolicy.resolveInitialMode(false));
+        assertEquals(
+                SENSOR_PORTRAIT,
+                StreamOrientationPolicy.resolveInitialMode(true));
+    }
+
+    @Test
+    public void adaptiveWindowFollowsUserWhenAutomaticRotationIsEnabled() {
         assertEquals(FOLLOW_USER_ALL_ROTATIONS, resolve(
                 true, 700, 900, true, true,
+                1080, 1920, true, true, NONE));
+    }
+
+    @Test
+    public void adaptiveWindowKeepsConfiguredAxisWhenAutomaticRotationIsDisabled() {
+        assertEquals(SENSOR_LANDSCAPE, resolve(
+                true, 700, 900, false, false,
+                1920, 1080, false, false, NONE));
+        assertEquals(SENSOR_PORTRAIT, resolve(
+                true, 700, 900, false, false,
                 1080, 1920, true, false, NONE));
     }
 

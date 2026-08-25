@@ -31,7 +31,7 @@ abstract class VerifyReleaseManifestPolicy extends DefaultTask {
             (PROFILE_INSTALLER_RECEIVER): 'android.permission.DUMP'
     ] as Map<String, String>
     private static final Map<String, String> STREAM_ACTIVITY_ORIENTATIONS = [
-            'com.limelight.LandscapeGameActivity': 'landscape',
+            'com.limelight.LandscapeGameActivity': 'sensorLandscape',
             'com.limelight.PortraitGameActivity': 'sensorPortrait'
     ] as Map<String, String>
 

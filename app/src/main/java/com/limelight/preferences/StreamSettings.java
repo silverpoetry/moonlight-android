@@ -25,9 +25,11 @@ import com.limelight.binding.video.gl.GlDeviceSnapshotStore;
 import com.limelight.binding.video.gl.android.SharedPreferencesGlDeviceSnapshotStore;
 import com.limelight.settings.android.AndroidAppPresentationSettingsLoader;
 import com.limelight.platform.AndroidDisplayCompat;
+import com.limelight.integration.xiaomi.XiaomiRefreshRateOverrideController;
 import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.app.AppPresentationSettings;
 import com.limelight.settings.input.InputSettingKeys;
+import com.limelight.settings.platform.PlatformIntegrationSettingKeys;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
 import com.limelight.settings.stream.StreamVideoSettingKeys;
 import com.limelight.utils.BackNavigationRegistration;
@@ -78,6 +80,7 @@ public class StreamSettings extends BaseActivity {
     private boolean sectionActivity;
     private boolean sectionLaunchPending;
     private boolean reloadAfterPause;
+    private boolean xiaomiRefreshRateChangePending;
     private final ActivityResultLauncher<Intent> documentLauncher =
             registerForActivityResult(
                     new ActivityResultContracts.StartActivityForResult(),
@@ -308,11 +311,9 @@ public class StreamSettings extends BaseActivity {
                     public void onSwitchChanged(
                             String itemId,
                             boolean checked) {
-                        applyChangeResult(
-                                mutationController.changeBoolean(
-                                        requireItem(itemId),
-                                        checked,
-                                        true));
+                        handleSwitchChanged(
+                                requireItem(itemId),
+                                checked);
                     }
 
                     @Override
@@ -629,11 +630,7 @@ public class StreamSettings extends BaseActivity {
         switch (item.type) {
             case SWITCH:
                 boolean checked = !store.getBoolean(item);
-                applyChangeResult(
-                        mutationController.changeBoolean(
-                                item,
-                                checked,
-                                true));
+                handleSwitchChanged(item, checked);
                 break;
             case LIST:
             case INTEGER_LIST:
@@ -666,6 +663,56 @@ public class StreamSettings extends BaseActivity {
                 }
                 break;
         }
+    }
+
+    private void handleSwitchChanged(
+            SettingsItem item,
+            boolean checked) {
+        if (!PlatformIntegrationSettingKeys
+                .XIAOMI_REFRESH_RATE_LIMIT_SUPPRESSION
+                .getName()
+                .equals(item.key)) {
+            applyChangeResult(
+                    mutationController.changeBoolean(
+                            item,
+                            checked,
+                            true));
+            return;
+        }
+        if (xiaomiRefreshRateChangePending) {
+            renderSettings();
+            return;
+        }
+
+        xiaomiRefreshRateChangePending = true;
+        XiaomiRefreshRateOverrideController.apply(
+                this,
+                checked,
+                result -> runOnUiThread(() -> {
+                    xiaomiRefreshRateChangePending = false;
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    if (result == XiaomiRefreshRateOverrideController
+                            .Result.APPLIED) {
+                        applyChangeResult(
+                                mutationController.changeBoolean(
+                                        item,
+                                        checked,
+                                        true));
+                        return;
+                    }
+                    renderSettings();
+                    Dialog.displayDialog(
+                            this,
+                            getString(
+                                    R.string
+                                            .settings_title_root_permission_required),
+                            getString(
+                                    R.string
+                                            .settings_message_xiaomi_refresh_rate_override_failed),
+                            false);
+                }));
     }
 
     private void handleListValueSelected(

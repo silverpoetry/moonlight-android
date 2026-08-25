@@ -365,4 +365,8 @@
     <string name="category_about_settings">关于</string>
     <string name="stream_warning_hdr_display_unsupported">显示设备不支持 HDR10</string>
     <string name="stream_warning_hdr_android_version_unsupported">HDR 需要 Android 7.0 或更高版本</string>
+    <string name="settings_title_xiaomi_refresh_rate_limit_suppression">抑制小米刷新率限制</string>
+    <string name="settings_summary_xiaomi_refresh_rate_limit_suppression">需要 Root 权限。保留游戏工具箱集成，仅移除系统施加的 60 Hz 限制，交由正常的自适应刷新率策略调度。</string>
+    <string name="settings_title_root_permission_required">需要 Root 权限</string>
+    <string name="settings_message_xiaomi_refresh_rate_override_failed">无法应用小米刷新率覆盖。请授予 Moonlight Root 权限后重试。</string>
 </resources>

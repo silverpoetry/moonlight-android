@@ -4,6 +4,7 @@ import com.limelight.settings.SettingsScreenIds;
 import com.limelight.settings.audio.StreamAudioSettingKeys;
 import com.limelight.settings.controller.ControllerSettingKeys;
 import com.limelight.settings.input.InputSettingKeys;
+import com.limelight.settings.platform.PlatformIntegrationSettingKeys;
 import com.limelight.settings.ui.StreamUiSettingKeys;
 
 import java.util.Collections;
@@ -76,6 +77,12 @@ final class SettingsVisibilityPolicy {
             hiddenItems.add(
                     ControllerSettingKeys
                             .FALLBACK_DEVICE_RUMBLE_STRENGTH_PERCENT
+                            .getName());
+        }
+        if (!capabilities.isXiaomiRefreshRateOverrideAvailable()) {
+            hiddenItems.add(
+                    PlatformIntegrationSettingKeys
+                            .XIAOMI_REFRESH_RATE_LIMIT_SUPPRESSION
                             .getName());
         }
 

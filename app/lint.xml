@@ -24,4 +24,10 @@
     <issue id="UnusedResources">
         <ignore regexp="app_label_root"/>
     </issue>
+    <!-- Dependency upgrades are reviewed and verified as dedicated changes. Network-based
+         version discovery is advisory and must not make otherwise reproducible release
+         verification fail when a repository publishes a new version. -->
+    <issue id="AndroidGradlePluginVersion" severity="informational"/>
+    <issue id="GradleDependency" severity="informational"/>
+    <issue id="NewerVersionAvailable" severity="informational"/>
 </lint>

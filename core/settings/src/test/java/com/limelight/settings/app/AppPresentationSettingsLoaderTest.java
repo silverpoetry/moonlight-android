@@ -19,7 +19,9 @@ public final class AppPresentationSettingsLoaderTest {
                 AppPresentationSettingsLoader.load(
                         new FakeRepository());
 
-        assertTrue(settings.usesSystemLanguage());
+        assertEquals(
+                AppPresentationSettingKeys.SYSTEM_LANGUAGE,
+                settings.getLanguage());
         assertFalse(settings.usesSmallAppIcons());
         assertTrue(settings.followsSystemTheme());
     }
@@ -40,7 +42,6 @@ public final class AppPresentationSettingsLoaderTest {
                 AppPresentationSettingsLoader.load(repository);
 
         assertEquals("zh-CN", settings.getLanguage());
-        assertFalse(settings.usesSystemLanguage());
         assertTrue(settings.usesSmallAppIcons());
         assertTrue(settings.usesDarkTheme());
     }
@@ -54,7 +55,9 @@ public final class AppPresentationSettingsLoaderTest {
         AppPresentationSettings settings =
                 AppPresentationSettingsLoader.load(repository);
 
-        assertTrue(settings.usesSystemLanguage());
+        assertEquals(
+                AppPresentationSettingKeys.SYSTEM_LANGUAGE,
+                settings.getLanguage());
     }
 
     private static String repeat(char value, int count) {

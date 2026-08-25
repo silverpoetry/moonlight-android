@@ -4,6 +4,7 @@ import com.limelight.settings.app.AppPresentationSettingKeys;
 import com.limelight.settings.audio.StreamAudioSettingKeys;
 import com.limelight.settings.controller.ControllerSettingKeys;
 import com.limelight.settings.input.InputSettingKeys;
+import com.limelight.settings.platform.PlatformIntegrationSettingKeys;
 import com.limelight.settings.stream.StreamDecoderSettingKeys;
 import com.limelight.settings.stream.StreamDisplaySettingKeys;
 import com.limelight.settings.stream.StreamResolutionSettingKeys;
@@ -174,7 +175,9 @@ public final class SettingsScreenKeyCatalog {
                 StreamUiSettingKeys
                         .COMPACT_PERFORMANCE_SCALE_PERCENT,
                 StreamUiSettingKeys.HIDE_BUILT_IN_SHORTCUTS,
-                StreamUiSettingKeys.GAME_MODE_INTEGRATION_DISABLED);
+                StreamUiSettingKeys.GAME_MODE_INTEGRATION_DISABLED,
+                PlatformIntegrationSettingKeys
+                        .XIAOMI_REFRESH_RATE_LIMIT_SUPPRESSION);
 
         return builder.build();
     }

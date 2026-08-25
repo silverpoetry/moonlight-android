@@ -30,13 +30,17 @@ import com.limelight.utils.UiHelper;
 import com.limelight.utils.UiToast;
 
 import java.util.Objects;
-import java.util.function.BooleanSupplier;
 
 /**
  * Owns the Storage Access Framework and progress UI for remote clipboard file
  * downloads during a streaming Activity.
  */
 public final class RemoteClipboardFileTransferController {
+    @FunctionalInterface
+    public interface ReconnectHandoff {
+        boolean consume();
+    }
+
     public interface DirectoryPickerLauncher {
         void launch(Intent intent);
     }
@@ -154,11 +158,11 @@ public final class RemoteClipboardFileTransferController {
      */
     public boolean resumeAfterReconnect(
             Uri directory,
-            BooleanSupplier consumeHandoff) {
+            ReconnectHandoff consumeHandoff) {
         Objects.requireNonNull(directory, "directory");
         Objects.requireNonNull(consumeHandoff, "consumeHandoff");
         return connection.runWhenClipboardSyncReady(() -> {
-            if (consumeHandoff.getAsBoolean()) {
+            if (consumeHandoff.consume()) {
                 download(directory);
             }
         });

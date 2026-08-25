@@ -732,6 +732,10 @@
     <string name="settings_summary_hide_builtin_shortcuts">Use only imported custom shortcut configurations.</string>
     <string name="settings_title_disable_game_mode_integration">Disable system game mode integration</string>
     <string name="settings_summary_disable_game_mode_integration">Enable only when the system game mode causes compatibility issues.</string>
+    <string name="settings_title_xiaomi_refresh_rate_limit_suppression">Suppress Xiaomi refresh-rate limit</string>
+    <string name="settings_summary_xiaomi_refresh_rate_limit_suppression">Requires root. Keeps Game Turbo integration while removing its 60 Hz display limit, allowing the normal adaptive refresh-rate policy to apply.</string>
+    <string name="settings_title_root_permission_required">Root permission required</string>
+    <string name="settings_message_xiaomi_refresh_rate_override_failed">Moonlight could not apply the Xiaomi refresh-rate override. Grant root access and try again.</string>
     <string name="settings_title_import_accessibility_key_config">Import accessibility key configuration</string>
     <string name="settings_summary_import_accessibility_key_config">Import and replace the current accessibility key mapping.</string>
     <string name="settings_title_show_accessibility_key_codes">Show captured accessibility key codes</string>

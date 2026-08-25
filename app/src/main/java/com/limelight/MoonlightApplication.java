@@ -2,7 +2,10 @@ package com.limelight;
 
 import android.app.Application;
 
+import com.limelight.integration.xiaomi.XiaomiRefreshRateOverrideController;
 import com.limelight.migration.LegacyDataImporter;
+import com.limelight.settings.android.AndroidSettingsRepository;
+import com.limelight.settings.platform.PlatformIntegrationSettingKeys;
 import com.limelight.stream.launch.PendingClipboardFilePullStore;
 import com.limelight.stream.launch.PendingStreamReconnectStore;
 import com.limelight.stream.launch.android.AndroidStreamLaunchProgress;
@@ -25,6 +28,15 @@ public final class MoonlightApplication extends Application {
     public void onCreate() {
         super.onCreate();
         LegacyDataImporter.importIfAvailable(this);
+        if (XiaomiRefreshRateOverrideController.isSupportedDevice() &&
+                AndroidSettingsRepository.create(this).get(
+                        PlatformIntegrationSettingKeys
+                                .XIAOMI_REFRESH_RATE_LIMIT_SUPPRESSION)) {
+            XiaomiRefreshRateOverrideController.apply(
+                    this,
+                    true,
+                    ignored -> { });
+        }
     }
 
     public PendingStreamReconnectStore getPendingStreamReconnectStore() {

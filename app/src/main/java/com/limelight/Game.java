@@ -370,9 +370,6 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
         // Change volume button behavior
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
 
-        // Inflate the content
-        setContentView(R.layout.activity_game);
-
         streamSessionCoordinator =
                 ((MoonlightApplication) getApplication())
                         .getStreamSessionCoordinator();
@@ -386,6 +383,19 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
             finish();
             return;
         }
+
+        // The prepared session already contains the definitive stream
+        // orientation. Apply it before inflating any stream-owned view so
+        // the first surface, cursor, and virtual-control layout are all
+        // created against the correct window geometry. Runtime rotation
+        // policy is applied after the session is presented.
+        streamVideoSettings = preparedSession.getVideoSettings();
+        StreamOrientationController.applyInitialGameOrientation(
+                this,
+                streamVideoSettings.isPortrait());
+
+        // Inflate the content only after the launch orientation is known.
+        setContentView(R.layout.activity_game);
 
         connManager=(ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
 
@@ -401,7 +411,6 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
                         this);
         gameMenuController = new AndroidGameMenuController(this);
         deviceBatteryProvider = new AndroidDeviceBatteryProvider(this);
-        streamVideoSettings = preparedSession.getVideoSettings();
         streamVideoSettingsState =
                 preparedSession.getVideoSettingsState();
         streamAudioSettingsState =

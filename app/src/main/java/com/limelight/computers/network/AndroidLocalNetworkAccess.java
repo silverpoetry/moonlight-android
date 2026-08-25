@@ -1,6 +1,5 @@
 package com.limelight.computers.network;
 
-import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -10,7 +9,7 @@ import java.util.Objects;
 /** Android 17 local-network capability boundary. */
 public final class AndroidLocalNetworkAccess {
     public static final String PERMISSION =
-            Manifest.permission.ACCESS_LOCAL_NETWORK;
+            "android.permission.ACCESS_LOCAL_NETWORK";
 
     private AndroidLocalNetworkAccess() {
     }

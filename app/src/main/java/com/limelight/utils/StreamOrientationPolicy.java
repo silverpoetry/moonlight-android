@@ -16,6 +16,17 @@ public final class StreamOrientationPolicy {
     private StreamOrientationPolicy() {
     }
 
+    /**
+     * Resolves the orientation contract used while the stream window is
+     * being created. Runtime rotation policy is applied separately after
+     * the initial view hierarchy has been created in the correct geometry.
+     */
+    public static Mode resolveInitialMode(boolean portraitRequested) {
+        return portraitRequested
+                ? Mode.SENSOR_PORTRAIT
+                : Mode.SENSOR_LANDSCAPE;
+    }
+
     public static Mode resolveGameMode(
             boolean adaptiveWindow,
             int windowWidthDp,
@@ -37,7 +48,12 @@ public final class StreamOrientationPolicy {
         }
 
         if (adaptiveWindow) {
-            return Mode.FOLLOW_USER_ALL_ROTATIONS;
+            if (automaticOrientationEnabled) {
+                return Mode.FOLLOW_USER_ALL_ROTATIONS;
+            }
+            return portraitRequested
+                    ? Mode.SENSOR_PORTRAIT
+                    : Mode.SENSOR_LANDSCAPE;
         }
 
         if (isSquarish(windowWidthDp, windowHeightDp)) {

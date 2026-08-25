@@ -4,6 +4,15 @@
 Git 提交和 `fastlane/metadata` 中；公开 Release 的版本号、日期和下载产物以 GitHub
 Releases 为准。
 
+## [12.1-260826] - 2026-08-26
+
+### 系统适配
+
+- 增加需要 Root 权限的小米刷新率限制抑制选项；保留游戏工具箱集成，仅移除
+  PowerKeeper 对 Moonlight 施加的固定帧率配置，使其回到系统自适应刷新率策略。
+- 修正平板和自由窗口开始串流时的方向初始化：首个串流布局直接使用当前传感器对应的
+  横屏侧，并在关闭自动旋转时持续保持用户选择的横屏或竖屏方向。
+
 ## [12.1-260807] - 2026-08-07
 
 ### 界面与交互
@@ -37,3 +46,4 @@ Releases 为准。
   第三方许可证、SBOM 和发布证据门禁。
 
 [12.1-260807]: https://github.com/silverpoetry/moonlight-android/releases/tag/v12.1-260807
+[12.1-260826]: https://github.com/silverpoetry/moonlight-android/releases/tag/v12.1-260826

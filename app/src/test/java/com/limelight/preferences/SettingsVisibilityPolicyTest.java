@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 import com.limelight.settings.SettingsScreenIds;
 import com.limelight.settings.controller.ControllerSettingKeys;
 import com.limelight.settings.input.InputSettingKeys;
+import com.limelight.settings.platform.PlatformIntegrationSettingKeys;
 import com.limelight.settings.ui.StreamUiSettingKeys;
 
 import org.junit.Test;
@@ -37,7 +38,7 @@ public final class SettingsVisibilityPolicyTest {
                 SettingsScreenIds.SECTION_VIRTUAL_CONTROLS));
 
         Set<String> hidden = result.getHiddenItemIds();
-        assertEquals(12, hidden.size());
+        assertEquals(13, hidden.size());
         assertContains(hidden,
                 InputSettingKeys.ABSOLUTE_MOUSE_MODE.getName(),
                 InputSettingKeys.BAROMETER_FORCE_PRESS.getName(),
@@ -57,6 +58,10 @@ public final class SettingsVisibilityPolicyTest {
                         .FALLBACK_DEVICE_RUMBLE_STRENGTH_PERCENT
                         .getName(),
                 ControllerSettingKeys.ONSCREEN_RUMBLE.getName());
+        assertTrue(hidden.contains(
+                PlatformIntegrationSettingKeys
+                        .XIAOMI_REFRESH_RATE_LIMIT_SUPPRESSION
+                        .getName()));
     }
 
     @Test
@@ -104,7 +109,9 @@ public final class SettingsVisibilityPolicyTest {
                 .usbHostAvailable(true)
                 .pictureInPictureAvailable(true)
                 .vibratorAvailable(true)
-                .vibrationAmplitudeControlAvailable(true);
+                .vibrationAmplitudeControlAvailable(true)
+                .xiaomiRefreshRateOverrideAvailable(true);
+
     }
 
     private static void assertContains(

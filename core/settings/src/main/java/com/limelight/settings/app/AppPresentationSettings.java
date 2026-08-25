@@ -26,11 +26,6 @@ public final class AppPresentationSettings {
         return language;
     }
 
-    public boolean usesSystemLanguage() {
-        return AppPresentationSettingKeys.SYSTEM_LANGUAGE.equals(
-                language);
-    }
-
     public boolean usesSmallAppIcons() {
         return smallAppIcons;
     }

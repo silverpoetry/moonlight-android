@@ -11,6 +11,7 @@ final class SettingsDeviceCapabilities {
     private final boolean pictureInPictureAvailable;
     private final boolean vibratorAvailable;
     private final boolean vibrationAmplitudeControlAvailable;
+    private final boolean xiaomiRefreshRateOverrideAvailable;
 
     private SettingsDeviceCapabilities(Builder builder) {
         touchscreenAvailable = builder.touchscreenAvailable;
@@ -26,6 +27,8 @@ final class SettingsDeviceCapabilities {
         vibratorAvailable = builder.vibratorAvailable;
         vibrationAmplitudeControlAvailable =
                 builder.vibrationAmplitudeControlAvailable;
+        xiaomiRefreshRateOverrideAvailable =
+                builder.xiaomiRefreshRateOverrideAvailable;
     }
 
     static Builder builder() {
@@ -68,6 +71,10 @@ final class SettingsDeviceCapabilities {
         return vibrationAmplitudeControlAvailable;
     }
 
+    boolean isXiaomiRefreshRateOverrideAvailable() {
+        return xiaomiRefreshRateOverrideAvailable;
+    }
+
     static final class Builder {
         private boolean touchscreenAvailable;
         private boolean absoluteMouseModeAvailable;
@@ -78,6 +85,7 @@ final class SettingsDeviceCapabilities {
         private boolean pictureInPictureAvailable;
         private boolean vibratorAvailable;
         private boolean vibrationAmplitudeControlAvailable;
+        private boolean xiaomiRefreshRateOverrideAvailable;
 
         Builder touchscreenAvailable(boolean value) {
             touchscreenAvailable = value;
@@ -121,6 +129,11 @@ final class SettingsDeviceCapabilities {
 
         Builder vibrationAmplitudeControlAvailable(boolean value) {
             vibrationAmplitudeControlAvailable = value;
+            return this;
+        }
+
+        Builder xiaomiRefreshRateOverrideAvailable(boolean value) {
+            xiaomiRefreshRateOverrideAvailable = value;
             return this;
         }
 

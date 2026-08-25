@@ -256,4 +256,8 @@
     <string name="settings_configuration_import_succeeded">設定匯入成功</string>
     <string name="settings_configuration_export_succeeded">設定已儲存</string>
     <string name="category_about_settings">關於</string>
+    <string name="settings_title_xiaomi_refresh_rate_limit_suppression">抑制小米更新率限制</string>
+    <string name="settings_summary_xiaomi_refresh_rate_limit_suppression">需要 Root 權限。保留遊戲工具箱整合，僅移除系統施加的 60 Hz 限制，交由正常的自適應更新率策略調度。</string>
+    <string name="settings_title_root_permission_required">需要 Root 權限</string>
+    <string name="settings_message_xiaomi_refresh_rate_override_failed">無法套用小米更新率覆寫。請授予 Moonlight Root 權限後重試。</string>
 </resources>

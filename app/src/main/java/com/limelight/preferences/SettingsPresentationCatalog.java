@@ -208,6 +208,7 @@ final class SettingsPresentationCatalog {
         group("section_system_accessibility", "accessibility",
                 R.string.settings_group_accessibility, 10,
                 "stream.ui.game_mode_integration_disabled",
+                "platform.xiaomi.refresh_rate_limit_suppression",
                 "action_accessibility_config_import",
                 "input.accessibility.key_logging");
 
