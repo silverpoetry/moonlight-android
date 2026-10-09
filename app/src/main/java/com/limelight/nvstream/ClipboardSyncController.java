@@ -926,9 +926,6 @@ class ClipboardSyncController implements ClipboardManager.OnPrimaryClipChangedLi
     }
 
     private boolean isSensitive(ClipDescription description) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            return false;
-        }
         PersistableBundle extras = description.getExtras();
         return extras != null && extras.getBoolean(SENSITIVE_EXTRA, false);
     }

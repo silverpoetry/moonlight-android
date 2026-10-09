@@ -202,22 +202,20 @@ public final class AndroidMicrophoneUplinkSession
     }
 
     private long getCaptureTimeUs() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            if (audioRecord.getTimestamp(captureTimestamp, AudioTimestamp.TIMEBASE_MONOTONIC) ==
-                    AudioRecord.SUCCESS) {
-                // Project the device's monotonic timestamp to the end of the
-                // frame just read. This preserves real capture gaps without
-                // turning Java thread scheduling stalls into artificial gaps.
-                long frameDelta = capturedFramePosition - captureTimestamp.framePosition;
-                int sampleRateHz = config.getSampleRateHz();
-                long deltaNanos =
-                        (frameDelta / sampleRateHz) *
-                                1_000_000_000L +
-                        (frameDelta % sampleRateHz) *
-                                1_000_000_000L /
-                                sampleRateHz;
-                return (captureTimestamp.nanoTime + deltaNanos) / 1000L;
-            }
+        if (audioRecord.getTimestamp(captureTimestamp, AudioTimestamp.TIMEBASE_MONOTONIC) ==
+                AudioRecord.SUCCESS) {
+            // Project the device's monotonic timestamp to the end of the
+            // frame just read. This preserves real capture gaps without
+            // turning Java thread scheduling stalls into artificial gaps.
+            long frameDelta = capturedFramePosition - captureTimestamp.framePosition;
+            int sampleRateHz = config.getSampleRateHz();
+            long deltaNanos =
+                    (frameDelta / sampleRateHz) *
+                            1_000_000_000L +
+                    (frameDelta % sampleRateHz) *
+                            1_000_000_000L /
+                            sampleRateHz;
+            return (captureTimestamp.nanoTime + deltaNanos) / 1000L;
         }
         return System.nanoTime() / 1000L;
     }

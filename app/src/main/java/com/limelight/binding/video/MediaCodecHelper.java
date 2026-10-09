@@ -406,7 +406,7 @@ public class MediaCodecHelper {
 
             // Older MediaTek SoCs have issues with HEVC rendering but the newer chips with
             // PowerVR GPUs have good HEVC support.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isPowerVR(glRenderer)) {
+            if (isPowerVR(glRenderer)) {
                 LimeLog.info("Added omx.mtk to HEVC decoders based on PowerVR GPU");
                 whitelistedHevcDecoders.add("omx.mtk");
 
@@ -523,8 +523,7 @@ public class MediaCodecHelper {
             }
         }
 
-        if (tryNumber < 2 &&
-                (!Build.MANUFACTURER.equalsIgnoreCase("xiaomi") || Build.VERSION.SDK_INT > Build.VERSION_CODES.M)) {
+        if (tryNumber < 2) {
             // MediaTek decoders don't use vendor-defined keys for low latency mode. Instead, they have a modified
             // version of AOSP's ACodec.cpp which supports the "vdec-lowlatency" option. This option is passed down
             // to the decoder as OMX.MTK.index.param.video.LowLatencyDecode.

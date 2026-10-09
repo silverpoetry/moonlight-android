@@ -25,15 +25,11 @@ public class InputCaptureManager {
             LimeLog.info("Using Evdev mouse capture");
             return EvdevCaptureProviderShim.createEvdevCaptureProvider(activity, rootListener);
         }
-        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        else {
             // Android N's native capture can't capture over system UI elements
             // so we want to only use it if there's no other option.
             LimeLog.info("Using Android N+ pointer hiding");
             return new AndroidPointerIconCaptureProvider(activity, activity.findViewById(R.id.surfaceView));
-        }
-        else {
-            LimeLog.info("Mouse capture not available");
-            return new NullCaptureProvider();
         }
     }
 }

@@ -1204,26 +1204,24 @@ public class ComputerManagerService extends Service {
         }
 
         // Monitor for network changes to invalidate our PC state
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            networkCallback = new ConnectivityManager.NetworkCallback() {
-                @Override
-                public void onAvailable(Network network) {
-                    LimeLog.info("Resetting PC state for new available network");
-                    updateAllHostStates(
-                            HostConnectionState.Reachability.UNKNOWN);
-                }
+        networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                LimeLog.info("Resetting PC state for new available network");
+                updateAllHostStates(
+                        HostConnectionState.Reachability.UNKNOWN);
+            }
 
-                @Override
-                public void onLost(Network network) {
-                    LimeLog.info("Offlining PCs due to network loss");
-                    updateAllHostStates(
-                            HostConnectionState.Reachability.OFFLINE);
-                }
-            };
+            @Override
+            public void onLost(Network network) {
+                LimeLog.info("Offlining PCs due to network loss");
+                updateAllHostStates(
+                        HostConnectionState.Reachability.OFFLINE);
+            }
+        };
 
-            ConnectivityManager connMgr = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-            connMgr.registerDefaultNetworkCallback(networkCallback);
-        }
+        ConnectivityManager connMgr = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        connMgr.registerDefaultNetworkCallback(networkCallback);
     }
 
     @Override
@@ -1233,8 +1231,7 @@ public class ComputerManagerService extends Service {
         try {
             stopAllPolling();
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
-                    networkCallback != null) {
+            if (networkCallback != null) {
                 ConnectivityManager connMgr =
                         (ConnectivityManager) getSystemService(
                                 Context.CONNECTIVITY_SERVICE);

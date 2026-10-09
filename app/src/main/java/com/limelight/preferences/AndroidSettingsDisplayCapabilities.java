@@ -177,9 +177,6 @@ final class AndroidSettingsDisplayCapabilities {
 
     private static SettingsDisplayCapabilities.HdrState hdrState(
             Display display) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            return SettingsDisplayCapabilities.HdrState.UNAVAILABLE;
-        }
         for (int hdrType :
                 AndroidDisplayCompat.getSupportedHdrTypes(display)) {
             if (hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10) {

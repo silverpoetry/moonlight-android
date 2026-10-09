@@ -55,8 +55,7 @@ public final class StreamOrientationController {
                 ADAPTIVE_SMALLEST_WIDTH_DP) {
             return true;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
-                activity.isInMultiWindowMode()) {
+        if (activity.isInMultiWindowMode()) {
             return true;
         }
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&

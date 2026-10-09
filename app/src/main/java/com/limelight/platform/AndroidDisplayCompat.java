@@ -58,7 +58,7 @@ public final class AndroidDisplayCompat {
      * Returns HDR types supported by the active mode. Android 14 moved this
      * capability from {@link Display.HdrCapabilities} to {@link Display.Mode}.
      */
-    @RequiresApi(Build.VERSION_CODES.N)
+
     public static int[] getSupportedHdrTypes(Display display) {
         Objects.requireNonNull(display, "display");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -103,7 +103,6 @@ public final class AndroidDisplayCompat {
         return size;
     }
 
-    @RequiresApi(Build.VERSION_CODES.N)
     @SuppressWarnings("deprecation")
     private static int[] getLegacySupportedHdrTypes(Display display) {
         Display.HdrCapabilities capabilities = display.getHdrCapabilities();

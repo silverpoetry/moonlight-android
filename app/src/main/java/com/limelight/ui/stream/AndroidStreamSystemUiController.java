@@ -89,9 +89,7 @@ public final class AndroidStreamSystemUiController {
         if (destroyed) {
             return;
         }
-        boolean multiWindow = Build.VERSION.SDK_INT >=
-                Build.VERSION_CODES.N &&
-                activity.isInMultiWindowMode();
+        boolean multiWindow = activity.isInMultiWindowMode();
         WindowCompat.setDecorFitsSystemWindows(
                 activity.getWindow(),
                 multiWindow);

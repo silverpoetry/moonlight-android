@@ -2,12 +2,9 @@ package com.limelight.binding.input.capture;
 
 import android.app.Activity;
 import android.content.Context;
-import android.os.Build;
-import androidx.annotation.RequiresApi;
 import android.view.PointerIcon;
 import android.view.View;
 
-@RequiresApi(api = Build.VERSION_CODES.N)
 public class AndroidPointerIconCaptureProvider extends InputCaptureProvider {
     private final View targetView;
     private final Context context;
