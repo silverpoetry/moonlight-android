@@ -973,7 +973,7 @@ public class ComputerManagerService extends Service {
         return leases == null ? null : leases.tryAcquire();
     }
 
-    private ComputerDetails tryPollIp(ComputerDetails details, ComputerDetails.AddressTuple address,
+    private ComputerDetails tryPollIp(EndpointProbeBatch details, ComputerDetails.AddressTuple address,
             EndpointProbeBatch batch) {
         try {
             // If the current address's port number matches the active address's port number, we can also assume
@@ -1050,12 +1050,20 @@ public class ComputerManagerService extends Service {
     }
 
     private final class EndpointProbeBatch implements HostReachabilityCoordinator.Probe<ComputerDetails> {
-        private final ComputerDetails details;
+        private final String uuid;
+        private final ComputerDetails.State state;
+        private final ComputerDetails.AddressTuple activeAddress;
+        private final int httpsPort;
+        private final X509Certificate serverCert;
         private final List<NvHTTP> requests = new ArrayList<>();
         private boolean canceled;
 
         private EndpointProbeBatch(ComputerDetails details) {
-            this.details = details;
+            uuid = details.uuid;
+            state = details.state;
+            activeAddress = details.activeAddress;
+            httpsPort = details.httpsPort;
+            serverCert = details.serverCert;
         }
 
         private synchronized boolean register(NvHTTP http) {
@@ -1069,7 +1077,13 @@ public class ComputerManagerService extends Service {
 
         @Override
         public ComputerDetails probe(HostEndpoint endpoint) {
-            return pollEndpoint(details, endpoint, this);
+            ComputerDetails.AddressTuple address = new ComputerDetails.AddressTuple(
+                    endpoint.getAddress(), endpoint.getPort());
+            ComputerDetails returnedDetails = tryPollIp(this, address, this);
+            if (returnedDetails != null) {
+                returnedDetails.activeAddress = address;
+            }
+            return returnedDetails;
         }
 
         @Override
@@ -1089,26 +1103,6 @@ public class ComputerManagerService extends Service {
         return result == null ? null : result.getValue();
     }
 
-    private ComputerDetails pollEndpoint(
-            ComputerDetails existingDetails,
-            HostEndpoint endpoint,
-            EndpointProbeBatch batch) {
-        ComputerDetails.AddressTuple address = getLegacyAddress(
-                existingDetails,
-                endpoint.getKind());
-        if (address == null) {
-            return null;
-        }
-        ComputerDetails returnedDetails = tryPollIp(
-                existingDetails,
-                address,
-                batch);
-        if (returnedDetails != null) {
-            returnedDetails.activeAddress = address;
-        }
-        return returnedDetails;
-    }
-
     private static HostEndpoint toHostEndpoint(
             HostEndpoint.Kind kind,
             ComputerDetails.AddressTuple address) {
@@ -1123,23 +1117,6 @@ public class ComputerManagerService extends Service {
         }
         catch (IllegalArgumentException error) {
             return null;
-        }
-    }
-
-    private static ComputerDetails.AddressTuple getLegacyAddress(
-            ComputerDetails details,
-            HostEndpoint.Kind kind) {
-        switch (kind) {
-            case LOCAL_IPV4:
-                return details.localAddress;
-            case LOCAL_IPV6:
-                return details.ipv6Address;
-            case REMOTE:
-                return details.remoteAddress;
-            case MANUAL:
-                return details.manualAddress;
-            default:
-                throw new AssertionError("Unhandled endpoint kind");
         }
     }
 
