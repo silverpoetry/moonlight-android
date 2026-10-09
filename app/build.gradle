@@ -14,7 +14,7 @@ android {
     namespace = 'com.limelight'
 
     defaultConfig {
-        minSdk = 23
+        minSdk = 24
         targetSdk = 37
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

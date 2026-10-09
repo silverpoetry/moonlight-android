@@ -83,7 +83,7 @@ moonlight-common-c / JNI  <──>  Sunshine
 
 ## 兼容性
 
-- 最低系统：Android 6.0（API 23）。
+- 最低系统：Android 7.0（API 24）。
 - 编译和目标 API：37。
 - 推荐产品：`nonRootRelease`，包名 `com.silverpoetry.moonlight`。
 - Root 产品：`rootRelease`，包名 `com.silverpoetry.moonlight.root`，面向确实需要

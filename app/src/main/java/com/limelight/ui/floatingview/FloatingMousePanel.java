@@ -1,5 +1,6 @@
 package com.limelight.ui.floatingview;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
@@ -16,6 +17,9 @@ import android.view.ViewTreeObserver;
 import com.limelight.binding.input.StreamInputGateway;
 
 /** Mouse-shaped input surface; its hotspot and video coordinates share one transform. */
+// This view is created only by the active stream controller, never inflated from XML.
+// A tools-only constructor would omit the required input and viewport dependencies.
+@SuppressLint("ViewConstructor")
 public final class FloatingMousePanel extends View {
     public interface PointerSink { void position(float x, float y, int width, int height); }
 
@@ -30,6 +34,17 @@ public final class FloatingMousePanel extends View {
     private final android.view.Choreographer.FrameCallback edgeFrame = this::panAtEdge;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
+    private final RectF bodyBounds = new RectF(8, 40, 140, 198);
+    private final RectF scrollBounds = new RectF(58, 54, 90, 102);
+    private final RectF middleBounds = new RectF(56, 105, 92, 139);
+    private static final int[] REGION_DESCRIPTIONS = {
+            com.limelight.R.string.floating_mouse_move,
+            com.limelight.R.string.floating_mouse_left,
+            com.limelight.R.string.floating_mouse_middle,
+            com.limelight.R.string.floating_mouse_right,
+            com.limelight.R.string.floating_mouse_scroll,
+            com.limelight.R.string.floating_mouse_minimize
+    };
     private final Matrix sourceMatrix = new Matrix();
     private final Matrix targetMatrix = new Matrix();
     private final Matrix inverseMatrix = new Matrix();
@@ -77,9 +92,8 @@ public final class FloatingMousePanel extends View {
         super.onDraw(canvas);
         canvas.save();
         canvas.scale(unit(), unit());
-        RectF body = new RectF(8, 40, 140, 198);
         path.reset();
-        path.addRoundRect(body, 54, 54, Path.Direction.CW);
+        path.addRoundRect(bodyBounds, 54, 54, Path.Direction.CW);
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(0xB3DCE9FF);
         canvas.drawPath(path, paint);
@@ -97,7 +111,7 @@ public final class FloatingMousePanel extends View {
         canvas.drawPath(path, paint);
         canvas.drawLine(8, 119, 140, 119, paint);
         canvas.drawLine(74, 40, 74, 119, paint);
-        drawControl(canvas, new RectF(58, 54, 90, 102), active == 4);
+        drawControl(canvas, scrollBounds, active == 4);
         paint.setStyle(Paint.Style.STROKE);
         paint.setColor(scrollDirection < 0 ? 0xFF246FC7 : 0xFF71859E);
         canvas.drawLine(69, 66, 74, 61, paint);
@@ -106,7 +120,7 @@ public final class FloatingMousePanel extends View {
         canvas.drawLine(69, 90, 74, 95, paint);
         canvas.drawLine(74, 95, 79, 90, paint);
         canvas.drawLine(74, 74 + scrollDirection * 3, 74, 82 + scrollDirection * 3, paint);
-        drawControl(canvas, new RectF(56, 105, 92, 139), active == 2);
+        drawControl(canvas, middleBounds, active == 2);
         paint.setStyle(Paint.Style.STROKE);
         paint.setColor(0xFF71859E);
         canvas.drawLine(66, 118, 82, 118, paint);
@@ -145,6 +159,7 @@ public final class FloatingMousePanel extends View {
                 moved = false;
                 scrollRemainder = 0;
                 region = hitRegion(event.getX() / unit(), event.getY() / unit());
+                setContentDescription(getContext().getString(REGION_DESCRIPTIONS[region]));
                 updatePointer();
                 if (region >= 1 && region <= 3)
                     postDelayed(longPress, ViewConfiguration.getLongPressTimeout());
