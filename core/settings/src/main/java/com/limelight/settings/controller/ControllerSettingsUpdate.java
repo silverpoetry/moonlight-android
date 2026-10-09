@@ -13,6 +13,10 @@ import java.util.Objects;
  * applied by UI code.</p>
  */
 public final class ControllerSettingsUpdate {
+    public static ControllerSettingsUpdate onscreenControllerEnabled(boolean enabled) {
+        return single(ControllerSettingKeys.ONSCREEN_CONTROLLER, enabled,
+                ControllerSettings.Builder::setOnscreenControllerEnabled);
+    }
     private interface Applier {
         ControllerSettings apply(ControllerSettings settings);
     }

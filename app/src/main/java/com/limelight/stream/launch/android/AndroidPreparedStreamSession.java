@@ -5,6 +5,8 @@ import android.view.Surface;
 
 import androidx.annotation.MainThread;
 
+import com.limelight.BuildConfig;
+import com.limelight.LimeLog;
 import com.limelight.binding.video.DecoderCrashTracker;
 import com.limelight.binding.video.PerfOverlayListener;
 import com.limelight.binding.video.PerfOverlayRelay;
@@ -399,13 +401,24 @@ public final class AndroidPreparedStreamSession implements AutoCloseable {
 
     private final class PreparationObserver
             implements NvConnectionListener {
+        private long stageStartedNanos;
+
         @Override
         public void stageStarting(String stage) {
+            if (BuildConfig.DEBUG) {
+                stageStartedNanos = System.nanoTime();
+                LimeLog.info("Stream preparation stage starting: " + stage);
+            }
             postProgress(stage);
         }
 
         @Override
         public void stageComplete(String stage) {
+            if (BuildConfig.DEBUG) {
+                LimeLog.info("Stream preparation stage complete: " + stage +
+                        ", elapsed=" +
+                        (System.nanoTime() - stageStartedNanos) / 1_000_000 + " ms");
+            }
         }
 
         @Override
@@ -418,12 +431,17 @@ public final class AndroidPreparedStreamSession implements AutoCloseable {
 
         @Override
         public void connectionStarted() {
+            final long queuedAt = BuildConfig.DEBUG ? System.nanoTime() : 0;
             mainHandler.post(() -> {
                 synchronized (lock) {
                     if (state != State.PREPARING) {
                         return;
                     }
                     state = State.READY;
+                }
+                if (BuildConfig.DEBUG) {
+                    LimeLog.info("Stream preparation ready: UI queue=" +
+                            (System.nanoTime() - queuedAt) / 1_000_000 + " ms");
                 }
                 listener.onReady(AndroidPreparedStreamSession.this);
             });
@@ -497,11 +515,17 @@ public final class AndroidPreparedStreamSession implements AutoCloseable {
     }
 
     private void postProgress(String stage) {
+        final long queuedAt = BuildConfig.DEBUG ? System.nanoTime() : 0;
         mainHandler.post(() -> {
             synchronized (lock) {
                 if (state != State.PREPARING) {
                     return;
                 }
+            }
+            if (BuildConfig.DEBUG) {
+                LimeLog.info("Stream preparation stage presented: " + stage +
+                        ", UI queue=" +
+                        (System.nanoTime() - queuedAt) / 1_000_000 + " ms");
             }
             listener.onProgress(stage);
         });

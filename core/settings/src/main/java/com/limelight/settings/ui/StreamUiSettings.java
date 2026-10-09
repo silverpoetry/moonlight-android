@@ -9,7 +9,8 @@ public final class StreamUiSettings {
     public enum FloatingAction {
         GAME_MENU(0),
         SOFT_KEYBOARD(1),
-        FULL_KEYBOARD(2);
+        FULL_KEYBOARD(2),
+        MOUSE_CONTROLS(3);
 
         private final int storageValue;
 
@@ -32,6 +33,10 @@ public final class StreamUiSettings {
     }
 
     private final boolean floatingControlEnabled;
+    private final boolean viewportZoomEnabled;
+    private final boolean videoHidden;
+    private final boolean microphoneEnabled;
+    private final boolean fullKeyboardVisible;
     private final FloatingAction floatingAction;
     private final boolean rememberFloatingPosition;
     private final float floatingPositionX;
@@ -52,6 +57,10 @@ public final class StreamUiSettings {
 
     private StreamUiSettings(Builder builder) {
         floatingControlEnabled = builder.floatingControlEnabled;
+        viewportZoomEnabled = builder.viewportZoomEnabled;
+        videoHidden = builder.videoHidden;
+        microphoneEnabled = builder.microphoneEnabled;
+        fullKeyboardVisible = builder.fullKeyboardVisible;
         floatingAction = Objects.requireNonNull(
                 builder.floatingAction,
                 "floatingAction");
@@ -107,6 +116,11 @@ public final class StreamUiSettings {
     public boolean isFloatingControlEnabled() {
         return floatingControlEnabled;
     }
+
+    public boolean isViewportZoomEnabled() { return viewportZoomEnabled; }
+    public boolean isVideoHidden() { return videoHidden; }
+    public boolean isMicrophoneEnabled() { return microphoneEnabled; }
+    public boolean isFullKeyboardVisible() { return fullKeyboardVisible; }
 
     public FloatingAction getFloatingAction() {
         return floatingAction;
@@ -183,6 +197,10 @@ public final class StreamUiSettings {
     }
 
     public static final class Builder {
+        private boolean viewportZoomEnabled;
+        private boolean videoHidden;
+        private boolean microphoneEnabled;
+        private boolean fullKeyboardVisible;
         private boolean floatingControlEnabled = true;
         private FloatingAction floatingAction =
                 FloatingAction.GAME_MENU;
@@ -207,6 +225,10 @@ public final class StreamUiSettings {
         }
 
         private Builder(StreamUiSettings settings) {
+            viewportZoomEnabled = settings.viewportZoomEnabled;
+            videoHidden = settings.videoHidden;
+            microphoneEnabled = settings.microphoneEnabled;
+            fullKeyboardVisible = settings.fullKeyboardVisible;
             floatingControlEnabled =
                     settings.floatingControlEnabled;
             floatingAction = settings.floatingAction;
@@ -244,6 +266,26 @@ public final class StreamUiSettings {
 
         public Builder setFloatingControlEnabled(boolean enabled) {
             floatingControlEnabled = enabled;
+            return this;
+        }
+
+        public Builder setViewportZoomEnabled(boolean enabled) {
+            viewportZoomEnabled = enabled;
+            return this;
+        }
+
+        public Builder setVideoHidden(boolean hidden) {
+            videoHidden = hidden;
+            return this;
+        }
+
+        public Builder setMicrophoneEnabled(boolean enabled) {
+            microphoneEnabled = enabled;
+            return this;
+        }
+
+        public Builder setFullKeyboardVisible(boolean visible) {
+            fullKeyboardVisible = visible;
             return this;
         }
 

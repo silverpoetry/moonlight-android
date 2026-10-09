@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="floating_mouse_controls">懸浮滑鼠</string>
+    <string name="floating_mouse_minimize">收起滑鼠控制項</string>
+    <string name="floating_mouse_move">移動游標</string>
+    <string name="floating_mouse_scroll">滾輪</string>
+    <string name="floating_mouse_left">左鍵</string>
+    <string name="floating_mouse_middle">中鍵</string>
+    <string name="floating_mouse_right">右鍵</string>
     <string name="title_theme_mode">應用程式主題</string>
     <string name="summary_theme_mode">跟隨系統深淺色，或固定使用淺色、深色外觀。</string>
     <string name="theme_mode_system">跟隨系統</string>

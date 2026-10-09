@@ -58,7 +58,62 @@ to that calculation, so layout and coordinate mapping cannot diverge by
 rounding or branch choice. View measurement preserves Android's historical
 pixel result.
 
+## Viewport pinch gestures
+
+`StreamPinchZoomController` recognizes local zoom before the existing touch-mode
+and keyboard-gesture routing. Recognition uses coordinates in the shared,
+unscaled content parent. Single-finger input passes through immediately. Only
+the ambiguous two-contact prefix is buffered, for at most the platform double-tap
+timeout from the second contact and a bounded number of events. Finger-relative
+motion must dominate common translation, and radial span change must exceed a
+physical movement threshold and account for a substantial part of that relative
+motion before zoom takes ownership. This separates pinching from scrolling and
+rotation without comparing translation against radial motion alone. The
+threshold does not grow with video scale or initial finger separation, and the
+same physical-distance comparisons apply when the path is reversed.
+Parallel scrolling, additional fingers, an existing drag/press, or the decision
+deadline hands the original events back in order. Released taps use the same
+timing-preserving dispatcher as keyboard-gesture arbitration.
+
+A recognized pinch cancels the remote contacts and owns its remaining contacts
+until all fingers lift. It scales and pans the video around the finger focus.
+Lifting one finger pauses the transform; replacing it rebases the focus and span
+without a jump, then continues the owned pinch. All contacts lifting or a cancel
+ends ownership, so the next gesture starts fresh. Single-finger dragging and
+double tapping retain their selected input
+mode's meanings. `StreamView` only presents video; it does not intercept touch
+events or suspend the input mode when zoom is enabled.
+
+Timed tap replay distinguishes its already classified prefix from queued new
+input. Only the prefix bypasses recognition. While a keyboard prefix is replaying,
+new events queue before viewport recognition, so replay cannot deliver a second
+`DOWN` to the pinch state machine or reset its pending decision. Each hardware
+event's history is mapped with one source transform before the viewport changes.
+
+`StreamZoomGeometry` computes focus-preserving transforms and viewport bounds.
+Normal absolute input continues through `ViewCoordinateMapper` exactly once;
+touchpad motion remains in the unchanged physical input surface. Each viewport
+change also reprojects the cached local cursor position and scale, without
+waiting for another host cursor packet or changing its predicted position.
+
 ## Performance
+
+While dragging the floating mouse near a screen edge, `FloatingMouseEdgePan`
+temporarily translates the stream into the hotspot's reachable rectangle.
+This applies at native scale as well as zoomed scale. The control remains on
+screen; the remote cursor continues through the same inverse View transform.
+Frame callbacks run only during active edge dragging and stop on release,
+cancellation, or reaching the content boundary. Closing the control restores
+the prior translation unless a separate zoom or layout change superseded it.
+Edge speed ramps with proximity to the boundary up to 900 dp/s. A continuous
+Choreographer frame clock owns integration; touch events update velocity without
+restarting that clock. Pointer reprojection occurs after each viewport update.
+Each axis requires an outward drag to arm edge panning. Reversing direction
+disarms that axis immediately, even within the edge zone; stationary contact
+only continues an already armed pan.
+The mouse opens centered on the floating ball, constrained to the screen.
+Minimizing applies only the actual drag displacement to the saved ball position
+and resumes its normal edge docking and idle-collapse lifecycle.
 
 Mouse-position callbacks reuse preallocated point, basis, and matrix scratch
 objects. No collection or geometry object is allocated per cursor movement.
@@ -85,6 +140,7 @@ consumer must be added here or be covered by an equivalent domain document.
 | --- | --- | --- |
 | Native cursor position, hotspot, and bitmap size | host reference -> encoded frame -> stream View -> overlay View | `NativeCursorOverlayView`, `StreamViewportGeometry`, `ViewCoordinateMapper` |
 | Touchscreen absolute mouse | event View -> stream View, then stream View reference dimensions | `TouchInputController` maps before `AbsoluteTouchContext` dispatch |
+| Floating mouse hotspot | panel -> common window root -> inverse stream View transform | `FloatingMousePanel` maps nested ancestors and zoom; `NvConnection` owns absolute position and cursor notification |
 | Android direct touch and pen | event View -> stream View -> normalized protocol position/contact axes | `DirectContactInputController`, `ViewCoordinateMapper` |
 | External pointer in View-absolute mode | event View -> stream View and stream View reference dimensions | `ExternalPointerInputController`, `ViewCoordinateMapper` |
 | Device-absolute pointer | device motion ranges and hardware-reported coordinates | `ExternalPointerInputController`; deliberately independent from View geometry |

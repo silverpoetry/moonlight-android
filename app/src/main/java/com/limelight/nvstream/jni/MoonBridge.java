@@ -5,6 +5,8 @@ import com.limelight.nvstream.av.audio.AudioRenderer;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 
 public class MoonBridge {
+    // Native connection stage identifiers from moonlight-common-c/Limelight.h.
+    public static final int STAGE_RTSP_HANDSHAKE = 4;
     /* See documentation in Limelight.h for information about these functions and constants */
 
     public static final AudioConfiguration AUDIO_CONFIGURATION_STEREO = new AudioConfiguration(2, 0x3);

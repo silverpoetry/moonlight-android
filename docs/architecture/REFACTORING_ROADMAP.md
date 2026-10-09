@@ -564,6 +564,27 @@ targets.
   `Game` no longer embeds microphone permission codes, Android-version gates,
   or toast policy.
 - `StreamFloatingControlController` is the sole lifecycle owner of the
+  floating button and its optional compact mouse-shaped control. Selecting
+  the mouse action opens left/middle/right buttons and a central wheel through
+  `StreamInputGateway`. The body's upper-left hotspot maps through the complete
+  View hierarchy into stream coordinates, then uses the connection's canonical
+  absolute-position path for both remote input and local cursor presentation.
+  Layout and video zoom changes reproject this anchor. Button drags hold the
+  corresponding button; press, wheel and movement feedback is drawn locally.
+  Panel removal, Activity pause, and teardown release held buttons. Collapsing
+  restores the standard floating ball and its edge docking behavior.
+- Quick-menu pointer mode, cursor mode, performance visibility/detail mode,
+  zoom enablement, video visibility, microphone, virtual controls, and full
+  keyboard visibility use canonical persisted settings. New sessions restore
+  those preferences; microphone permission/support still gate capture and
+  overlay creation still waits for the stream viewport. One-shot commands
+  retain their existing menu dismissal behavior.
+- Reachability batches cancel their remaining HTTP calls before releasing
+  probe workers. Pausing the host screen therefore releases old transport
+  requests, and foreground restoration starts probes without waiting for
+  canceled background requests to exhaust their network timeouts. A canceled
+  poll cannot publish an observation after its worker has been interrupted.
+- `StreamFloatingControlController` is the sole lifecycle owner of the
   in-stream floating control, including lazy attachment, visibility, current
   action dispatch, position events, and deterministic teardown. The View
   consumes an immutable initial snapshot and uses Android's standard click
@@ -920,12 +941,14 @@ targets.
   existing mixed-case host databases while keeping domain identity
   case-insensitive.
 - Replaced the hand-written four-thread endpoint race with an immutable,
-  physically deduplicated reachability plan, a pure priority-selection state
-  machine, and one lifecycle-owned bounded executor. The original local,
-  manual, remote, and IPv6 precedence plus the 200 ms upgrade window are
-  frozen by fixtures; interruption cancels outstanding probes, and an
-  unexpected endpoint exception completes as a failed candidate instead of
-  hanging refresh forever.
+  physically deduplicated reachability plan and one lifecycle-owned bounded
+  executor. Local, manual, remote, and IPv6 candidates race concurrently;
+  the first validated host response publishes the online state and active
+  address without waiting for another address or a priority grace window.
+  Building the plan performs no DNS resolution or subnet inspection. Failed
+  candidates leave the race open until one succeeds or all fail. Success and
+  interruption cancel outstanding probes; late completions cannot replace
+  the published result. Existing offline retry thresholds remain unchanged.
 - Corrected non-byte-aligned IPv4 subnet matching to compare the most
   significant prefix bits, and made reachability identity checks use canonical
   `HostId` equality with an exact-only fallback for malformed legacy records.

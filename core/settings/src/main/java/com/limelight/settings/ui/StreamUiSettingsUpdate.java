@@ -9,6 +9,33 @@ import java.util.Objects;
  * One type-safe in-stream UI settings intent.
  */
 public final class StreamUiSettingsUpdate {
+    public static StreamUiSettingsUpdate fullKeyboardVisible(boolean visible) {
+        return single(StreamUiSettingKeys.FULL_KEYBOARD_VISIBLE, visible,
+                StreamUiSettings.Builder::setFullKeyboardVisible);
+    }
+    public static StreamUiSettingsUpdate viewportZoomEnabled(boolean enabled) {
+        return single(StreamUiSettingKeys.VIEWPORT_ZOOM_ENABLED, enabled,
+                StreamUiSettings.Builder::setViewportZoomEnabled);
+    }
+
+    public static StreamUiSettingsUpdate videoHidden(boolean hidden) {
+        return single(StreamUiSettingKeys.VIDEO_HIDDEN, hidden,
+                StreamUiSettings.Builder::setVideoHidden);
+    }
+
+    public static StreamUiSettingsUpdate microphoneEnabled(boolean enabled) {
+        return single(StreamUiSettingKeys.MICROPHONE_ENABLED, enabled,
+                StreamUiSettings.Builder::setMicrophoneEnabled);
+    }
+    public static StreamUiSettingsUpdate performanceOverlayEnabled(boolean enabled) {
+        return single(StreamUiSettingKeys.PERFORMANCE_OVERLAY_ENABLED, enabled,
+                StreamUiSettings.Builder::setPerformanceOverlayEnabled);
+    }
+
+    public static StreamUiSettingsUpdate compactPerformanceOverlay(boolean enabled) {
+        return single(StreamUiSettingKeys.COMPACT_PERFORMANCE_OVERLAY, enabled,
+                StreamUiSettings.Builder::setCompactPerformanceOverlay);
+    }
     private interface Applier {
         StreamUiSettings apply(StreamUiSettings settings);
     }

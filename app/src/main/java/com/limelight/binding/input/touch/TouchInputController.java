@@ -20,7 +20,7 @@ import java.util.Objects;
  *
  * <p>Events are handled synchronously on the Android input thread. This class
  * does not queue protocol output; deferred events exist only for the bounded
- * multi-finger keyboard gesture decision.</p>
+ * multi-finger keyboard and viewport-pinch decisions.</p>
  */
 public final class TouchInputController {
     private static final int MAX_LEGACY_CONTACTS = 2;
@@ -33,6 +33,9 @@ public final class TouchInputController {
      */
     public interface Host {
         void showSoftKeyboard();
+
+        default void onViewportChanged() {
+        }
     }
 
     private final View streamView;
@@ -43,6 +46,7 @@ public final class TouchInputController {
     private final TouchContext[] touchContexts =
             new TouchContext[MAX_LEGACY_CONTACTS];
     private final SoftKeyboardGestureCoordinator keyboardGestureCoordinator;
+    private final StreamPinchZoomController viewportZoomController;
     private final BarometerForcePressController forcePressController;
     private final TouchscreenTouchpadHandler nativeTouchpadHandler;
     private final float[] mappedLegacyPosition = new float[2];
@@ -54,7 +58,6 @@ public final class TouchInputController {
     private boolean directContactInputEnabled;
     private boolean legacyTouchpadInputEnabled;
     private boolean disabled = true;
-    private boolean inputSuspended;
     private boolean destroyed;
 
     public TouchInputController(
@@ -106,6 +109,30 @@ public final class TouchInputController {
                     }
                 });
 
+        viewportZoomController = new StreamPinchZoomController(
+                streamView,
+                new StreamPinchZoomController.Listener() {
+                    @Override
+                    public void dispatchDeferredTouchEvent(View eventView, MotionEvent event) {
+                        handleMotionEvent(eventView, event);
+                    }
+
+                    @Override
+                    public void suspendPendingPressRecognition() {
+                        TouchInputController.this.suspendPendingPressRecognition();
+                    }
+
+                    @Override
+                    public void cancelRemoteTouchInput() {
+                        TouchInputController.this.cancelRemoteTouchInput();
+                    }
+
+                    @Override
+                    public void onViewportChanged() {
+                        host.onViewportChanged();
+                    }
+                });
+
         forcePressController = new BarometerForcePressController(
                 context,
                 new BarometerForcePressController.Listener() {
@@ -113,6 +140,10 @@ public final class TouchInputController {
                     public boolean onForcePressDown(
                             int pointerId,
                             int pointerCount) {
+                        if (viewportZoomController.isConsuming()) {
+                            return false;
+                        }
+                        viewportZoomController.resolveForCompetingGesture();
                         keyboardGestureCoordinator
                                 .resolveForCompetingGesture();
                         return nativeTouchpadHandler.beginForcePress(
@@ -139,6 +170,7 @@ public final class TouchInputController {
     }
 
     public void stop() {
+        cancelActiveInput();
         forcePressController.stop();
     }
 
@@ -149,13 +181,16 @@ public final class TouchInputController {
 
         destroyed = true;
         forcePressController.stop();
-        keyboardGestureCoordinator.cancel();
-        nativeTouchpadHandler.cancel();
-        directContactInputController.cancel();
-        cancelLegacyTouchContexts();
+        cancelActiveInput();
+        viewportZoomController.destroy();
     }
 
     public void cancelActiveInput() {
+        viewportZoomController.cancel();
+        cancelRemoteTouchInput();
+    }
+
+    private void cancelRemoteTouchInput() {
         keyboardGestureCoordinator.cancel();
         forcePressController.cancelTouchSession();
         nativeTouchpadHandler.cancel();
@@ -163,16 +198,13 @@ public final class TouchInputController {
         cancelLegacyTouchContexts();
     }
 
-    public void setInputSuspended(boolean inputSuspended) {
+    public void setViewportZoomEnabled(boolean enabled) {
         requireNotDestroyed();
-        if (this.inputSuspended == inputSuspended) {
-            return;
-        }
+        viewportZoomController.setEnabled(enabled);
+    }
 
-        this.inputSuspended = inputSuspended;
-        if (inputSuspended) {
-            cancelActiveInput();
-        }
+    public boolean isViewportZoomEnabled() {
+        return viewportZoomController.isEnabled();
     }
 
     public void setMode(TouchInputMode mode) {
@@ -259,12 +291,28 @@ public final class TouchInputController {
      * filtering.
      */
     public boolean handleMotionEvent(View eventView, MotionEvent event) {
-        if (destroyed || disabled || inputSuspended) {
+        if (destroyed) {
             return true;
         }
 
-        if (!keyboardGestureCoordinator.isDispatchingDeferredEvents()) {
+        if (!disabled && !keyboardGestureCoordinator.isDispatchingDeferredEvents() &&
+                !viewportZoomController.isDispatchingDeferredEvents() &&
+                !viewportZoomController.isConsuming()) {
             forcePressController.onTouchEvent(event);
+        }
+
+        // A released keyboard prefix can still be replaying a native tap.
+        // Queue new input before the pinch recognizer sees it; otherwise its
+        // DOWN is seen once now and again on replay, resetting a pending pinch.
+        if (keyboardGestureCoordinator.queueIfReplaying(eventView, event)) {
+            return true;
+        }
+        if (!keyboardGestureCoordinator.isReplayingBufferedEvents() &&
+                viewportZoomController.onTouchEvent(eventView, event)) {
+            return true;
+        }
+        if (disabled) {
+            return true;
         }
 
         if (keyboardGestureCoordinator.onTouchEvent(
@@ -527,6 +575,7 @@ public final class TouchInputController {
     }
 
     private void cancelLegacyTouchContextsForNativeGesture() {
+        viewportZoomController.resolveForCompetingGesture();
         cancelLegacyTouchContexts();
     }
 

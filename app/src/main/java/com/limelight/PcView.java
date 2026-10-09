@@ -224,11 +224,13 @@ public class PcView extends BaseActivity {
 
                     @Override
                     public void onAddComputerRequested() {
-                        runWithLocalNetworkAccess(
-                                true,
-                                () -> startActivity(new Intent(
-                                        PcView.this,
-                                        AddComputerManually.class)));
+                        if (!ensureLocalNetworkAccess(
+                                true, this::onAddComputerRequested)) {
+                            return;
+                        }
+                        startActivity(new Intent(
+                                PcView.this,
+                                AddComputerManually.class));
                     }
 
                     @Override
@@ -361,7 +363,7 @@ public class PcView extends BaseActivity {
     }
 
     private void startComputerUpdates() {
-        if (!runWithLocalNetworkAccess(
+        if (!ensureLocalNetworkAccess(
                 false,
                 this::startComputerUpdates)) {
             return;
@@ -503,7 +505,8 @@ public class PcView extends BaseActivity {
         super.onDestroy();
     }
 
-    private boolean runWithLocalNetworkAccess(
+    /** Returns true when access is available, or resumes the caller after approval. */
+    private boolean ensureLocalNetworkAccess(
             boolean userInitiated,
             Runnable afterPermissionGranted) {
         if (AndroidLocalNetworkAccess.isGranted(this)) {

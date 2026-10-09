@@ -8,6 +8,7 @@ import com.limelight.MoonlightApplication;
 import com.limelight.R;
 import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.nvstream.http.NvApp;
+import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.stream.launch.RecentStreamSession;
 import com.limelight.stream.launch.RecentStreamSessionRepository;
 import com.limelight.stream.launch.StreamLaunchRequest;
@@ -124,6 +125,18 @@ public final class AndroidStreamLauncher {
                                         @Override
                                         public void onProgress(
                                                 String message) {
+                                            if (acceptedRequest.getAppName().equals(message)) {
+                                                session.updateMessage(activity.getString(
+                                                        R.string.conn_preparing_host_session,
+                                                        acceptedRequest.getAppName()));
+                                                return;
+                                            }
+                                            if (MoonBridge.getStageName(
+                                                    MoonBridge.STAGE_RTSP_HANDSHAKE).equals(message)) {
+                                                session.updateMessage(activity.getString(
+                                                        R.string.conn_negotiating_stream));
+                                                return;
+                                            }
                                             session.updateMessage(
                                                     messages.stageStarting(
                                                             message));

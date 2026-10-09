@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="floating_mouse_controls">悬浮鼠标</string>
+    <string name="floating_mouse_minimize">收起鼠标控件</string>
+    <string name="floating_mouse_move">移动指针</string>
+    <string name="floating_mouse_scroll">滚轮</string>
+    <string name="floating_mouse_left">左键</string>
+    <string name="floating_mouse_middle">中键</string>
+    <string name="floating_mouse_right">右键</string>
     <string name="title_theme_mode">应用主题</string>
     <string name="summary_theme_mode">跟随系统深浅色，或固定使用浅色、深色外观。</string>
     <string name="theme_mode_system">跟随系统</string>
@@ -58,6 +65,8 @@
     <string name="conn_client_latency_hw"> 硬件解码器延迟：</string>
     <string name="conn_hardware_latency"> 硬件解码器平均延迟：</string>
     <string name="conn_starting">启动中</string>
+    <string name="conn_preparing_host_session">准备主机会话：%1$s</string>
+    <string name="conn_negotiating_stream">协商串流参数</string>
     <string name="conn_error_title"> 连接错误 </string>
     <string name="conn_error_msg"> 启动失败 </string>
     <string name="conn_terminated_title"> 连接终结 </string>

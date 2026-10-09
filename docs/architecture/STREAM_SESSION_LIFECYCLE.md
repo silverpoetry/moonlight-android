@@ -86,3 +86,50 @@ callbacks and requires a recreated Surface to become valid again.
 Activity teardown detaches session callbacks, cancels owned UI tasks, releases
 controllers, registrations, locks, and media resources, and only then invokes
 the framework `super.onDestroy()` callback.
+
+## Startup latency diagnostics
+
+Treat the displayed stage as presentation state, not a measurement. Debug
+builds record preparation-stage durations on the transport callback thread and
+the delay before the main thread presents each stage. HTTP diagnostics identify
+only the operation and measure response headers and complete body receipt.
+Native RTSP diagnostics separate TCP connection, first-byte, total transaction
+time, and retry count. Release builds remove these diagnostics.
+
+Encrypted RTSP responses end when their declared frame length has arrived;
+waiting for the peer's TCP close can add latency through an intermediary.
+Length validation rejects empty, oversized, downgraded, and excess frames;
+the existing AES-GCM authentication and message parser still validate the frame.
+Plaintext responses retain the legacy close-delimited behavior. Fragmented
+headers and payloads remain incomplete until the entire frame is received.
+
+The `rtsp-framing-test` CTest target covers fragmentation, completion without
+EOF, length limits, invalid encryption flags, and excess bytes. Compare startup
+on the same device and route, separating app launch/resume, RTSP, decoder setup,
+and Activity handoff. Device and host wall clocks may differ; compare durations
+within each clock and correlate protocol events before aligning timestamps.
+
+## Negotiated startup connection reuse
+
+For encrypted TCP RTSP, OPTIONS requests advertise
+`X-SS-Persistent-RTSP: 1`. Only an authenticated 200 OPTIONS response with the
+same version permits socket reuse. DESCRIBE, SETUP, ANNOUNCE and PLAY then share
+one connection. Handshake exit, a protocol error or a transport failure closes
+the socket. An unsupported host retains the original connection lifecycle;
+state-changing requests are never automatically replayed after a lost response.
+
+HTTP transports retain their TLS session context only after an authenticated
+serverinfo response advertises `TlsSessionResumption=1`. This capability requires
+the host's mutual-TLS session ID context to be initialized. Old hosts continue
+using a new context per request. Pin changes invalidate both the capability and
+cached sessions; trust, hostname validation and OkHttp's TLS protocol policy
+remain in force. The cache belongs to one NvHTTP instance, not a global client.
+
+The Android launch indicator describes the composite host phase as preparing
+the host session and the RTSP phase as negotiating stream parameters. Transport
+callbacks retain their original stage names for diagnostics and failure routing.
+
+`rtsp-connection-reuse-test` verifies the exact opt-in and legacy fallback.
+`NvHttpTlsStateTest` covers session context ownership, authenticated-capability
+gating, invalidation and protocol restrictions. Validate complete startup against
+both a supporting Sunshine and a legacy host before deploying the two endpoints.

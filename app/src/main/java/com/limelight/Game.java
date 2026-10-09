@@ -42,6 +42,9 @@ import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.platform.AndroidDisplayCompat;
 import com.limelight.settings.SettingsRepository;
+import com.limelight.settings.input.InputSettingsUpdate;
+import com.limelight.settings.controller.ControllerSettingsUpdate;
+import com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate;
 import com.limelight.settings.SettingsKeyCatalog;
 import com.limelight.settings.SettingsRepositorySnapshot;
 import com.limelight.settings.audio.StreamAudioSettingsState;
@@ -658,7 +661,11 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
                 AndroidStreamMicrophoneControllerFactory.create(
                         this,
                         conn,
-                        gameMenuController::refreshMicrophoneState,
+                        () -> {
+                            streamSettingsSession.applyUi(StreamUiSettingsUpdate.microphoneEnabled(
+                                    isMicUplinkActive()));
+                            gameMenuController.refreshMicrophoneState();
+                        },
                         mainHandler::post);
         StreamSessionPresentationController.Diagnostics
                 failureDiagnostics =
@@ -684,7 +691,17 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
                         pointerInputSink,
                         directContactInputController,
                         inputSettingsState,
-                        this::showKeyboard);
+                        new TouchInputController.Host() {
+                            @Override
+                            public void showSoftKeyboard() {
+                                showKeyboard();
+                            }
+
+                            @Override
+                            public void onViewportChanged() {
+                                nativeCursorController.refreshOverlayGeometry();
+                            }
+                        });
         // Keep the locally rendered host cursor on the same coordinate path
         // as every absolute position packet. The controller itself decides
         // whether the overlay is currently enabled.
@@ -778,11 +795,6 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
                         performanceOverlayController),
                 mainHandler);
         sessionController = preparedSession.getSessionController();
-
-        //鼠标触控模式
-        switchMouseModel(
-                inputSettingsState.get()
-                        .getTouchModePreferenceValue());
 
         if (controllerSettingsState
                 .get()
@@ -883,6 +895,20 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
                     public void onInputSettingsChanged(
                             InputSettings previous,
                             InputSettings current) {
+                        if (previous.isAbsoluteMouseMode() != current.isAbsoluteMouseMode()) {
+                            if (conn != null) {
+                                conn.setAbsoluteMousePositionMode(current.isAbsoluteMouseMode());
+                            }
+                            if (nativeCursorController != null) {
+                                nativeCursorController.setEnabled(current.isAbsoluteMouseMode() ||
+                                        floatingControlController != null &&
+                                        floatingControlController.isMouseControlsVisible());
+                            }
+                        }
+                        if (inputCaptureController != null &&
+                                inputCaptureController.isLocalCursorVisible() != current.isLocalSystemCursorEnabled()) {
+                            inputCaptureController.toggleLocalCursorVisibility();
+                        }
                         if (streamInputController != null) {
                             streamInputController
                                     .onInputSettingsChanged(
@@ -931,6 +957,9 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
     public void toggleVirtualKeys(){
         if (virtualControlsController != null) {
             virtualControlsController.toggleVirtualKeys();
+            streamSettingsSession.applyVirtualControls(
+                    VirtualControlSettingsUpdate.showVirtualKeysOnStart(
+                            virtualControlsController.isVirtualKeysVisible()));
         }
     }
 
@@ -938,6 +967,8 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
     public void toggleFullKeyboard(){
         if (virtualControlsController != null) {
             virtualControlsController.toggleFullKeyboard();
+            streamSettingsSession.applyUi(StreamUiSettingsUpdate.fullKeyboardVisible(
+                    virtualControlsController.isFullKeyboardVisible()));
         }
     }
 
@@ -946,6 +977,8 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
     public void toggleVirtualGamepad(){
         if (virtualControlsController != null) {
             virtualControlsController.toggleVirtualGamepad();
+            streamSettingsSession.applyController(ControllerSettingsUpdate.onscreenControllerEnabled(
+                    virtualControlsController.isVirtualGamepadVisible()));
         }
     }
 
@@ -973,7 +1006,8 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
                 break;
             case TOGGLE_FLOATING_BUTTON:
                 if (floatingControlController != null) {
-                    floatingControlController.toggleVisibility();
+                    streamSettingsSession.applyUi(StreamUiSettingsUpdate.floatingControlEnabled(
+                            !floatingControlController.isVisible()));
                 }
                 break;
             case TOGGLE_PERFORMANCE_OVERLAY:
@@ -1273,6 +1307,9 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
 
     @Override
     protected void onPause() {
+        if (floatingControlController != null) {
+            floatingControlController.cancelActiveInput();
+        }
         if (settingsRepository != null) {
             settingsAtPause = SettingsRepositorySnapshot.capture(
                     settingsRepository,
@@ -1688,6 +1725,9 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
     }
 
     private void stopConnection() {
+        if (floatingControlController != null) {
+            floatingControlController.cancelActiveInput();
+        }
         if (streamInputController != null) {
             streamInputController.cancelActiveInput();
         }
@@ -1710,6 +1750,10 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
 
     private void onSessionConnected() {
         streamStartElapsedMs = SystemClock.elapsedRealtime();
+        applyPersistentStreamControls();
+        if (streamUiSettingsState.get().isMicrophoneEnabled() && !isMicUplinkActive()) {
+            microphoneController.toggle();
+        }
         nativeCursorController.onStreamPresented();
         systemUiController.attachInitialLayout();
         floatingControlController.applyEnabled(
@@ -1794,6 +1838,9 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
             return;
         }
         initialVirtualControlsPending = false;
+        if (streamUiSettingsState.get().isFullKeyboardVisible()) {
+            virtualControlsController.showFullKeyboard();
+        }
         if (controllerSettingsState
                 .get()
                 .isOnscreenControllerEnabled()) {
@@ -2087,7 +2134,8 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
     @Override
     public void switchMouseLocalCursor(){
         if (inputCaptureController != null) {
-            inputCaptureController.toggleLocalCursorVisibility();
+            streamSettingsSession.applyInput(InputSettingsUpdate.localSystemCursor(
+                    !inputCaptureController.isLocalCursorVisible()));
         }
     }
 
@@ -2095,7 +2143,7 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
     public void switchMouseModel(int which){
         TouchInputMode mode = TouchInputMode.fromPreferenceValue(which);
         if (mode != null && streamInputController != null) {
-            streamInputController.setTouchMode(mode);
+            streamSettingsSession.applyInput(InputSettingsUpdate.touchMode(which));
         }
     }
 
@@ -2104,13 +2152,7 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
         boolean enabled = !streamInputController
                 .getSettings()
                 .isAbsoluteMouseMode();
-        streamInputController.setAbsoluteMouseMode(enabled);
-        if (conn != null) {
-            conn.setAbsoluteMousePositionMode(enabled);
-        }
-        if (nativeCursorController != null) {
-            nativeCursorController.setEnabled(enabled);
-        }
+        streamSettingsSession.applyInput(InputSettingsUpdate.absoluteMouseMode(enabled));
         return enabled;
     }
 
@@ -2129,6 +2171,7 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
     private void applyStreamUiSettingsEffects(
             StreamUiSettings previous,
             StreamUiSettings updated) {
+        applyPersistentStreamControls();
         if (previous.isPictureInPictureEnabled() !=
                 updated.isPictureInPictureEnabled() &&
                 pictureInPictureController != null) {
@@ -2182,14 +2225,16 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
     @Override
     public void showHUD(){
         if (performanceOverlayController != null) {
-            performanceOverlayController.toggleVisibility();
+            streamSettingsSession.applyUi(StreamUiSettingsUpdate.performanceOverlayEnabled(
+                    !streamUiSettingsState.get().isPerformanceOverlayEnabled()));
         }
     }
 
     @Override
     public void switchHUD(){
         if (performanceOverlayController != null) {
-            performanceOverlayController.toggleExpandedMode();
+            streamSettingsSession.applyUi(StreamUiSettingsUpdate.compactPerformanceOverlay(
+                    !streamUiSettingsState.get().isCompactPerformanceOverlay()));
         }
     }
 
@@ -2252,21 +2297,15 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
         setPreferredOrientationForCurrentDisplay();
     }
 
-    //画面平移缩放
     @Override
-    public void screenMoveZoom(){
-        if(!streamView.isEnableZoomAndPan()){
-            streamInputController.setTouchInputSuspended(true);
-            streamView.setEnableZoomAndPan(true);
-            return;
-        }
-        streamInputController.setTouchInputSuspended(false);
-        streamView.setEnableZoomAndPan(false);
+    public void screenMoveZoom() {
+        streamSettingsSession.applyUi(StreamUiSettingsUpdate.viewportZoomEnabled(
+                !streamInputController.isViewportZoomEnabled()));
     }
 
     @Override
-    public boolean getScreenMoveZoom(){
-        return streamView.isEnableZoomAndPan();
+    public boolean getScreenMoveZoom() {
+        return streamInputController.isViewportZoomEnabled();
     }
 
     @Override
@@ -2276,7 +2315,16 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
 
     @Override
     public void toggleVideoVisibility() {
-        videoHidden = !videoHidden;
+        streamSettingsSession.applyUi(StreamUiSettingsUpdate.videoHidden(!videoHidden));
+    }
+
+    private void applyPersistentStreamControls() {
+        StreamUiSettings settings = streamUiSettingsState.get();
+        if (streamInputController != null &&
+                streamInputController.isViewportZoomEnabled() != settings.isViewportZoomEnabled()) {
+            streamInputController.setViewportZoomEnabled(settings.isViewportZoomEnabled());
+        }
+        videoHidden = settings.isVideoHidden();
         if (videoBlankingOverlay != null) {
             videoBlankingOverlay.setVisibility(
                     videoHidden ? View.VISIBLE : View.GONE);
@@ -2482,6 +2530,21 @@ public abstract class Game extends BaseActivity implements OnGenericMotionListen
                             performStreamUiAction(
                                     VirtualControlAction
                                             .TOGGLE_FULL_KEYBOARD);
+                            break;
+                        case MOUSE_CONTROLS:
+                            nativeCursorController.setEnabled(true);
+                            floatingControlController.showMouseControls(this, streamView,
+                                    (x, y, width, height) -> {
+                                        if (isInputReady()) {
+                                            conn.sendMousePosition((short) Math.round(x), (short) Math.round(y),
+                                                    (short) width, (short) height);
+                                        }
+                                    }, nativeCursorController::refreshOverlayGeometry, () -> {
+                                        if (nativeCursorController != null) {
+                                            nativeCursorController.setEnabled(
+                                                    inputSettingsState.get().isAbsoluteMouseMode());
+                                        }
+                                    });
                             break;
                     }
                 });

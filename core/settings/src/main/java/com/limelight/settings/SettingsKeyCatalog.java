@@ -86,6 +86,10 @@ public final class SettingsKeyCatalog {
         add(
                 keys,
                 StreamUiSettingKeys.FLOATING_ACTION,
+                StreamUiSettingKeys.VIEWPORT_ZOOM_ENABLED,
+                StreamUiSettingKeys.VIDEO_HIDDEN,
+                StreamUiSettingKeys.MICROPHONE_ENABLED,
+                StreamUiSettingKeys.FULL_KEYBOARD_VISIBLE,
                 StreamUiSettingKeys.REMEMBER_FLOATING_POSITION,
                 StreamUiSettingKeys.FLOATING_POSITION_X,
                 StreamUiSettingKeys.FLOATING_POSITION_Y,

@@ -51,6 +51,8 @@ public final class StreamInputController
                 settingsState,
                 "settingsState");
         this.host = Objects.requireNonNull(host, "host");
+        this.touchInputController.setMode(TouchInputMode.fromPreferenceValue(
+                this.settingsState.get().getTouchModePreferenceValue()));
     }
 
     @Override
@@ -101,6 +103,9 @@ public final class StreamInputController
     public void onInputSettingsChanged(
             InputSettings previous,
             InputSettings current) {
+        if (previous.getTouchModePreferenceValue() != current.getTouchModePreferenceValue()) {
+            touchInputController.setMode(TouchInputMode.fromPreferenceValue(current.getTouchModePreferenceValue()));
+        }
         touchInputController.onInputSettingsChanged(
                 Objects.requireNonNull(previous, "previous"),
                 Objects.requireNonNull(current, "current"));
@@ -114,8 +119,12 @@ public final class StreamInputController
                         .build());
     }
 
-    public void setTouchInputSuspended(boolean suspended) {
-        touchInputController.setInputSuspended(suspended);
+    public void setViewportZoomEnabled(boolean enabled) {
+        touchInputController.setViewportZoomEnabled(enabled);
+    }
+
+    public boolean isViewportZoomEnabled() {
+        return touchInputController.isViewportZoomEnabled();
     }
 
     public boolean handleMotionEvent(

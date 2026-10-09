@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="floating_mouse_controls">Mouse controls</string>
+    <string name="floating_mouse_minimize">Minimize mouse controls</string>
+    <string name="floating_mouse_move">Move pointer</string>
+    <string name="floating_mouse_scroll">Scroll</string>
+    <string name="floating_mouse_left">Left</string>
+    <string name="floating_mouse_middle">Middle</string>
+    <string name="floating_mouse_right">Right</string>
     <string name="activity_label_streaming_settings">Streaming Settings</string>
     <string name="activity_label_add_computer_manually">Add Computer Manually</string>
     <string name="service_label_mdns_discovery">mDNS PC Auto-Discovery Service</string>
@@ -92,6 +99,8 @@
     <string name="conn_client_latency_hw">hardware decoder latency:</string>
     <string name="conn_hardware_latency">Average hardware decoding latency:</string>
     <string name="conn_starting">Starting</string>
+    <string name="conn_preparing_host_session">Preparing host session: %1$s</string>
+    <string name="conn_negotiating_stream">Negotiating stream parameters</string>
     <string name="conn_error_title">Connection Error</string>
     <string name="conn_error_msg">Failed to start</string>
     <string name="conn_terminated_title">Connection Terminated</string>

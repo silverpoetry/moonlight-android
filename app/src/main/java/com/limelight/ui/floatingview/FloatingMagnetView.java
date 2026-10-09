@@ -123,9 +123,29 @@ public class FloatingMagnetView extends FrameLayout {
         scheduleCollapse();
     }
 
+    /** Pause docking while an expanded control owns the interaction. */
+    public void suspendDocking() {
+        mainHandler.removeCallbacks(delayedCollapse);
+        animate().cancel();
+        moveAnimator.stop();
+    }
+
+    /** Rejoin the normal docking and idle-collapse lifecycle after minimizing. */
+    public void resumeDocking(float x, float y) {
+        suspendDocking();
+        updateParentBounds();
+        collapsed = false;
+        setAlpha(1f);
+        setX(clamp(x, 0, availableHorizontalTravel));
+        setY(clamp(y, 0, Math.max(0, parentHeight - getHeight())));
+        finishGesture();
+    }
+
     private boolean isClickEvent() {
         return android.os.SystemClock.uptimeMillis() -
-                lastTouchDownTime < CLICK_TIME_THRESHOLD_MS;
+                lastTouchDownTime < CLICK_TIME_THRESHOLD_MS &&
+                Math.hypot(getX() - originalX, getY() - originalY) <
+                        android.view.ViewConfiguration.get(getContext()).getScaledTouchSlop();
     }
 
     private void updateViewPosition(MotionEvent event) {

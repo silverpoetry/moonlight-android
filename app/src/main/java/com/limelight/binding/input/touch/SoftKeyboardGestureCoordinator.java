@@ -53,8 +53,11 @@ public final class SoftKeyboardGestureCoordinator {
             View eventView,
             MotionEvent event,
             int configuredFingerCount) {
-        if (eventDispatcher.queueIfReplaying(eventView, event)) {
+        if (queueIfReplaying(eventView, event)) {
             return true;
+        }
+        if (eventDispatcher.isReplayingBufferedEvents()) {
+            return false;
         }
 
         SoftKeyboardGestureDetector.Result result =
@@ -104,6 +107,15 @@ public final class SoftKeyboardGestureCoordinator {
 
     public boolean isDispatchingDeferredEvents() {
         return eventDispatcher.isInternalDispatch();
+    }
+
+    /** Keeps new input behind a released tap before upstream recognizers observe it. */
+    public boolean queueIfReplaying(View eventView, MotionEvent event) {
+        return eventDispatcher.queueIfReplaying(eventView, event);
+    }
+
+    public boolean isReplayingBufferedEvents() {
+        return eventDispatcher.isReplayingBufferedEvents();
     }
 
     public void cancel() {

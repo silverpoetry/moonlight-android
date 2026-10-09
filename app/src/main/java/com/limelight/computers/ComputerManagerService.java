@@ -3,14 +3,10 @@ package com.limelight.computers;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.StringReader;
-import java.net.InterfaceAddress;
-import java.net.Inet4Address;
 import java.net.InetAddress;
-import java.net.NetworkInterface;
 import java.net.UnknownHostException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -38,7 +34,6 @@ import com.limelight.computers.model.HostRuntimeSnapshot;
 import com.limelight.computers.model.PersistedHost;
 import com.limelight.computers.reachability.HostReachabilityCoordinator;
 import com.limelight.computers.reachability.HostReachabilityPlan;
-import com.limelight.computers.reachability.Ipv4SubnetMatcher;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
@@ -68,7 +63,6 @@ public class ComputerManagerService extends Service {
     private static final int INITIAL_POLL_TRIES = 2;
     private static final int EMPTY_LIST_THRESHOLD = 3;
     private static final int POLL_DATA_TTL_MS = 30000;
-    private static final int ADDRESS_UPGRADE_GRACE_MS = 200;
     private static final int ENDPOINT_PROBE_THREADS = 8;
     private static final int ENDPOINT_PROBE_QUEUE_CAPACITY = 32;
     private static final AtomicInteger endpointProbeThreadId =
@@ -130,6 +124,9 @@ public class ComputerManagerService extends Service {
             HostRuntimeObservation observation = pollRuntimeHost(
                     source,
                     false);
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException();
+            }
             if (observation == null &&
                     offlineCount < pollTriesBeforeOffline) {
                 // Preserve the last published state during the retry window.
@@ -976,7 +973,8 @@ public class ComputerManagerService extends Service {
         return leases == null ? null : leases.tryAcquire();
     }
 
-    private ComputerDetails tryPollIp(ComputerDetails details, ComputerDetails.AddressTuple address) {
+    private ComputerDetails tryPollIp(ComputerDetails details, ComputerDetails.AddressTuple address,
+            EndpointProbeBatch batch) {
         try {
             // If the current address's port number matches the active address's port number, we can also assume
             // the HTTPS port will also match. This assumption is currently safe because Sunshine sets all ports
@@ -986,6 +984,9 @@ public class ComputerManagerService extends Service {
 
             NvHTTP http = new NvHTTP(address, portMatchesActiveAddress ? details.httpsPort : 0, idManager.getUniqueId(), details.serverCert,
                     PlatformBinding.getCryptoProvider(ComputerManagerService.this));
+            if (!batch.register(http)) {
+                return null;
+            }
 
             // If this PC is currently online at this address, extend the timeouts to allow more time for the PC to respond.
             boolean isLikelyOnline = details.state == ComputerDetails.State.ONLINE && address.equals(details.activeAddress);
@@ -1016,41 +1017,6 @@ public class ComputerManagerService extends Service {
         }
     }
 
-    private boolean isWrongSubnetSiteLocalAddress(ComputerDetails.AddressTuple address) {
-        if (address == null) {
-            return false;
-        }
-
-        try {
-            InetAddress targetAddress = InetAddress.getByName(address.address);
-            if (!(targetAddress instanceof Inet4Address) || !targetAddress.isSiteLocalAddress()) {
-                return false;
-            }
-
-            for (NetworkInterface iface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                for (InterfaceAddress ifaceAddress : iface.getInterfaceAddresses()) {
-                    if (!(ifaceAddress.getAddress() instanceof Inet4Address) ||
-                            !ifaceAddress.getAddress().isSiteLocalAddress()) {
-                        continue;
-                    }
-
-                    if (Ipv4SubnetMatcher.isSameSubnet(
-                            targetAddress.getAddress(),
-                            ifaceAddress.getAddress().getAddress(),
-                            ifaceAddress.getNetworkPrefixLength())) {
-                        return false;
-                    }
-                }
-            }
-
-            return true;
-        } catch (Exception e) {
-            // Some Android builds throw unexpected exceptions while enumerating interfaces.
-            LimeLog.warning("Unable to evaluate local host subnet");
-            return false;
-        }
-    }
-
     private static boolean sameHostIdentity(
             String expected,
             String actual) {
@@ -1067,8 +1033,6 @@ public class ComputerManagerService extends Service {
     private HostReachabilityCoordinator.Result<ComputerDetails>
             parallelPollPcWithEndpoint(ComputerDetails details)
             throws InterruptedException {
-        boolean preferExternalAddress =
-                details.manualAddress != null && isWrongSubnetSiteLocalAddress(details.localAddress);
         HostReachabilityPlan plan = HostReachabilityPlan.create(
                 toHostEndpoint(
                         HostEndpoint.Kind.LOCAL_IPV4,
@@ -1081,11 +1045,41 @@ public class ComputerManagerService extends Service {
                         details.remoteAddress),
                 toHostEndpoint(
                         HostEndpoint.Kind.LOCAL_IPV6,
-                        details.ipv6Address),
-                preferExternalAddress);
-        return reachabilityCoordinator.probe(
-                plan,
-                endpoint -> pollEndpoint(details, endpoint));
+                        details.ipv6Address));
+        return reachabilityCoordinator.probe(plan, new EndpointProbeBatch(details));
+    }
+
+    private final class EndpointProbeBatch implements HostReachabilityCoordinator.Probe<ComputerDetails> {
+        private final ComputerDetails details;
+        private final List<NvHTTP> requests = new ArrayList<>();
+        private boolean canceled;
+
+        private EndpointProbeBatch(ComputerDetails details) {
+            this.details = details;
+        }
+
+        private synchronized boolean register(NvHTTP http) {
+            if (canceled) {
+                return false;
+            }
+            http.trackPendingRequests();
+            requests.add(http);
+            return true;
+        }
+
+        @Override
+        public ComputerDetails probe(HostEndpoint endpoint) {
+            return pollEndpoint(details, endpoint, this);
+        }
+
+        @Override
+        public synchronized void cancel() {
+            canceled = true;
+            for (NvHTTP http : requests) {
+                http.cancelPendingRequests();
+            }
+            requests.clear();
+        }
     }
 
     private ComputerDetails parallelPollPc(ComputerDetails details)
@@ -1097,7 +1091,8 @@ public class ComputerManagerService extends Service {
 
     private ComputerDetails pollEndpoint(
             ComputerDetails existingDetails,
-            HostEndpoint endpoint) {
+            HostEndpoint endpoint,
+            EndpointProbeBatch batch) {
         ComputerDetails.AddressTuple address = getLegacyAddress(
                 existingDetails,
                 endpoint.getKind());
@@ -1106,7 +1101,8 @@ public class ComputerManagerService extends Service {
         }
         ComputerDetails returnedDetails = tryPollIp(
                 existingDetails,
-                address);
+                address,
+                batch);
         if (returnedDetails != null) {
             returnedDetails.activeAddress = address;
         }
@@ -1170,9 +1166,7 @@ public class ComputerManagerService extends Service {
         super.onCreate();
         endpointProbeExecutor = createEndpointProbeExecutor();
         reachabilityCoordinator = new HostReachabilityCoordinator(
-                endpointProbeExecutor,
-                SystemClock::elapsedRealtime,
-                ADDRESS_UPGRADE_GRACE_MS);
+                endpointProbeExecutor);
         discoverySource = new AndroidMdnsDiscoverySource(
                 this,
                 new HostDiscoverySource.Listener() {

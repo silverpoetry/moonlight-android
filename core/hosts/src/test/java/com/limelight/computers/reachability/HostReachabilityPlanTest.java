@@ -28,13 +28,12 @@ public final class HostReachabilityPlanTest {
             47989);
 
     @Test
-    public void localNetworkOrderPreservesLegacyPriority() {
+    public void includesAllEndpointKindsWithoutNetworkInspection() {
         HostReachabilityPlan plan = HostReachabilityPlan.create(
                 local,
                 manual,
                 remote,
-                ipv6,
-                false);
+                ipv6);
 
         assertEquals(
                 Arrays.asList(local, manual, remote, ipv6),
@@ -42,16 +41,19 @@ public final class HostReachabilityPlanTest {
     }
 
     @Test
-    public void wrongSubnetOrderPrefersExternalCandidates() {
+    public void sameAddressWithDifferentPortsRemainsTwoCandidates() {
+        HostEndpoint differentPort = endpoint(
+                HostEndpoint.Kind.MANUAL,
+                local.getAddress(),
+                local.getPort() + 1);
         HostReachabilityPlan plan = HostReachabilityPlan.create(
                 local,
-                manual,
-                remote,
-                ipv6,
-                true);
+                differentPort,
+                null,
+                null);
 
         assertEquals(
-                Arrays.asList(manual, remote, ipv6, local),
+                Arrays.asList(local, differentPort),
                 plan.getEndpoints());
     }
 
@@ -66,8 +68,7 @@ public final class HostReachabilityPlanTest {
                 local,
                 duplicateManual,
                 null,
-                null,
-                false);
+                null);
 
         assertEquals(Arrays.asList(local), plan.getEndpoints());
     }
@@ -78,8 +79,7 @@ public final class HostReachabilityPlanTest {
                 local,
                 null,
                 null,
-                null,
-                false);
+                null);
 
         assertThrows(
                 UnsupportedOperationException.class,

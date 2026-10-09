@@ -19,6 +19,7 @@ import java.util.Objects;
  * that short replay window is queued and drained afterward in order.</p>
  */
 public final class BufferedTouchEventDispatcher {
+    private enum DispatchPhase { NONE, BUFFERED_PREFIX, QUEUED_INPUT }
     @FunctionalInterface
     public interface Dispatcher {
         void dispatch(View eventView, MotionEvent event);
@@ -35,7 +36,7 @@ public final class BufferedTouchEventDispatcher {
 
     private Dispatcher dispatcher;
     private boolean replaying;
-    private boolean internalDispatch;
+    private DispatchPhase dispatchPhase = DispatchPhase.NONE;
 
     /**
      * Queues an input event if a timed replay is active.
@@ -43,7 +44,7 @@ public final class BufferedTouchEventDispatcher {
      * @return {@code true} if ownership of a copy was taken and the caller must consume the event.
      */
     public boolean queueIfReplaying(View eventView, MotionEvent event) {
-        if (!replaying || internalDispatch) {
+        if (!replaying || isReplayingBufferedEvents()) {
             return false;
         }
 
@@ -57,7 +58,12 @@ public final class BufferedTouchEventDispatcher {
      * hardware event must skip the replay to avoid counting it twice.
      */
     public boolean isInternalDispatch() {
-        return internalDispatch;
+        return dispatchPhase != DispatchPhase.NONE;
+    }
+
+    /** Only the classified prefix bypasses recognition; queued new gestures must be classified. */
+    public boolean isReplayingBufferedEvents() {
+        return dispatchPhase == DispatchPhase.BUFFERED_PREFIX;
     }
 
     /**
@@ -125,7 +131,7 @@ public final class BufferedTouchEventDispatcher {
 
         dispatcher = null;
         replaying = false;
-        internalDispatch = false;
+        // Dispatch phase belongs to the call stack, including a reentrant cancellation.
     }
 
     private static boolean requiresTimedReplay(List<MotionEvent> events) {
@@ -136,7 +142,8 @@ public final class BufferedTouchEventDispatcher {
 
     private void dispatchImmediately(View eventView, List<MotionEvent> events,
                                      Dispatcher dispatcher) {
-        internalDispatch = true;
+        DispatchPhase previousPhase = dispatchPhase;
+        dispatchPhase = DispatchPhase.BUFFERED_PREFIX;
         try {
             for (MotionEvent event : events) {
                 try {
@@ -148,7 +155,7 @@ public final class BufferedTouchEventDispatcher {
             }
         }
         finally {
-            internalDispatch = false;
+            dispatchPhase = previousPhase;
         }
     }
 
@@ -157,13 +164,14 @@ public final class BufferedTouchEventDispatcher {
             return;
         }
 
-        internalDispatch = true;
+        DispatchPhase previousPhase = dispatchPhase;
+        dispatchPhase = DispatchPhase.BUFFERED_PREFIX;
         try {
             dispatcher.dispatch(replayEvent.eventView, replayEvent.event);
         }
         finally {
             replayEvent.recycle();
-            internalDispatch = false;
+            dispatchPhase = previousPhase;
         }
 
         if (replayEvents.isEmpty()) {
@@ -176,9 +184,14 @@ public final class BufferedTouchEventDispatcher {
         dispatcher = null;
         replaying = false;
 
-        internalDispatch = true;
+        // A queued gesture can start another replay or cancel this recognizer.
+        // Detach the drain batch so it cannot clear or mutate the active iteration.
+        List<QueuedInputEvent> queuedEvents = new ArrayList<>(queuedInputEvents);
+        queuedInputEvents.clear();
+        DispatchPhase previousPhase = dispatchPhase;
+        dispatchPhase = DispatchPhase.QUEUED_INPUT;
         try {
-            for (QueuedInputEvent queuedEvent : queuedInputEvents) {
+            for (QueuedInputEvent queuedEvent : queuedEvents) {
                 try {
                     completedDispatcher.dispatch(queuedEvent.eventView, queuedEvent.event);
                 }
@@ -188,8 +201,7 @@ public final class BufferedTouchEventDispatcher {
             }
         }
         finally {
-            queuedInputEvents.clear();
-            internalDispatch = false;
+            dispatchPhase = previousPhase;
         }
     }
 

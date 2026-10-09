@@ -13,6 +13,22 @@ import java.util.Objects;
  * persistence by string name.</p>
  */
 public final class InputSettingsUpdate {
+    public static InputSettingsUpdate touchMode(int mode) {
+        String value = InputSettingKeys.TOUCH_MODE.normalizeValue(String.valueOf(mode));
+        return new InputSettingsUpdate(
+                settings -> settings.toBuilder().setTouchModePreferenceValue(Integer.parseInt(value)).build(),
+                editor -> editor.put(InputSettingKeys.TOUCH_MODE, value));
+    }
+
+    public static InputSettingsUpdate absoluteMouseMode(boolean enabled) {
+        return single(InputSettingKeys.ABSOLUTE_MOUSE_MODE, enabled,
+                (settings, value) -> settings.toBuilder().setAbsoluteMouseMode(value).build());
+    }
+
+    public static InputSettingsUpdate localSystemCursor(boolean enabled) {
+        return single(InputSettingKeys.LOCAL_SYSTEM_CURSOR, enabled,
+                (settings, value) -> settings.toBuilder().setLocalSystemCursorEnabled(value).build());
+    }
     private interface Applier {
         InputSettings apply(InputSettings settings);
     }

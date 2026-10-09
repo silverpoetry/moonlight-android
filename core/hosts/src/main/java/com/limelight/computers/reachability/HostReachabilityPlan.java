@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-/** Immutable, physically deduplicated endpoint probe order. */
+/** Immutable, physically deduplicated candidates for a concurrent probe race. */
 public final class HostReachabilityPlan {
     private final List<HostEndpoint> endpoints;
 
@@ -21,25 +21,12 @@ public final class HostReachabilityPlan {
             HostEndpoint local,
             HostEndpoint manual,
             HostEndpoint remote,
-            HostEndpoint ipv6,
-            boolean preferExternalEndpoints) {
-        ArrayList<HostEndpoint> ordered = new ArrayList<>(4);
-        if (preferExternalEndpoints) {
-            ordered.add(manual);
-            ordered.add(remote);
-            ordered.add(ipv6);
-            ordered.add(local);
-        }
-        else {
-            ordered.add(local);
-            ordered.add(manual);
-            ordered.add(remote);
-            ordered.add(ipv6);
-        }
-
+            HostEndpoint ipv6) {
         ArrayList<HostEndpoint> unique = new ArrayList<>(4);
         Set<PhysicalEndpoint> seen = new HashSet<>();
-        for (HostEndpoint endpoint : ordered) {
+        // Stable provenance for duplicates; this order does not prioritize
+        // one response over another or require DNS/network inspection.
+        for (HostEndpoint endpoint : new HostEndpoint[] {local, manual, remote, ipv6}) {
             if (endpoint == null) {
                 continue;
             }

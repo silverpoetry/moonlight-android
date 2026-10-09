@@ -11,16 +11,18 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
-/** Runs one bounded, cancelable race across an immutable endpoint plan. */
+/**
+ * Races all distinct endpoints and returns the first validated response.
+ * A failed probe cannot declare the host offline while other probes are pending.
+ */
 public final class HostReachabilityCoordinator {
     public interface Probe<T> {
+        /** Returns a validated host response, or null if this endpoint failed. */
         T probe(HostEndpoint endpoint);
-    }
 
-    public interface Clock {
-        long elapsedRealtimeMillis();
+        /** Cancels the transport requests still owned by this probe batch. */
+        default void cancel() { }
     }
 
     public static final class Result<T> {
@@ -42,20 +44,9 @@ public final class HostReachabilityCoordinator {
     }
 
     private final ExecutorService executor;
-    private final Clock clock;
-    private final long upgradeGraceMillis;
 
-    public HostReachabilityCoordinator(
-            ExecutorService executor,
-            Clock clock,
-            long upgradeGraceMillis) {
+    public HostReachabilityCoordinator(ExecutorService executor) {
         this.executor = Objects.requireNonNull(executor, "executor");
-        this.clock = Objects.requireNonNull(clock, "clock");
-        if (upgradeGraceMillis < 0) {
-            throw new IllegalArgumentException(
-                    "Upgrade grace cannot be negative");
-        }
-        this.upgradeGraceMillis = upgradeGraceMillis;
     }
 
     public <T> Result<T> probe(
@@ -63,94 +54,54 @@ public final class HostReachabilityCoordinator {
             Probe<T> probe) throws InterruptedException {
         Objects.requireNonNull(plan, "plan");
         Objects.requireNonNull(probe, "probe");
+        if (Thread.interrupted()) {
+            throw new InterruptedException();
+        }
         List<HostEndpoint> endpoints = plan.getEndpoints();
         if (endpoints.isEmpty()) {
             return null;
         }
 
-        CompletionService<Completion<T>> completions =
+        CompletionService<Result<T>> completions =
                 new ExecutorCompletionService<>(executor);
-        ArrayList<Future<Completion<T>>> futures =
+        ArrayList<Future<Result<T>>> futures =
                 new ArrayList<>(endpoints.size());
         try {
-            for (int index = 0; index < endpoints.size(); index++) {
-                int candidateIndex = index;
-                HostEndpoint endpoint = endpoints.get(index);
+            for (HostEndpoint endpoint : endpoints) {
                 futures.add(completions.submit(() ->
-                        runProbe(candidateIndex, endpoint, probe)));
+                        runProbe(endpoint, probe)));
             }
 
-            HostReachabilitySelection<T> selection =
-                    new HostReachabilitySelection<>(
-                            endpoints.size(),
-                            upgradeGraceMillis);
-            while (true) {
-                HostReachabilitySelection.Decision<T> decision =
-                        selection.decide(
-                                clock.elapsedRealtimeMillis());
-                switch (decision.getStatus()) {
-                    case REACHABLE:
-                        return new Result<>(
-                                endpoints.get(
-                                        decision.getWinnerIndex()),
-                                decision.getValue());
-                    case UNREACHABLE:
-                        return null;
-                    case WAITING:
-                        break;
-                    default:
-                        throw new AssertionError(
-                                "Unhandled reachability decision");
+            for (int remaining = endpoints.size(); remaining > 0; remaining--) {
+                Result<T> result = getCompletion(completions.take());
+                if (result != null) {
+                    return result;
                 }
-
-                Future<Completion<T>> completedFuture =
-                        awaitCompletion(
-                                completions,
-                                decision.getWaitMillis());
-                if (completedFuture == null) {
-                    continue;
-                }
-                Completion<T> completion = getCompletion(
-                        completedFuture);
-                selection.recordCompletion(
-                        completion.index,
-                        completion.value,
-                        clock.elapsedRealtimeMillis());
             }
+            return null;
         }
         finally {
+            probe.cancel();
             for (Future<?> future : futures) {
                 future.cancel(true);
             }
         }
     }
 
-    private static <T> Completion<T> runProbe(
-            int index,
+    private static <T> Result<T> runProbe(
             HostEndpoint endpoint,
             Probe<T> probe) {
         try {
-            return new Completion<>(index, probe.probe(endpoint));
+            T value = probe.probe(endpoint);
+            return value == null ? null : new Result<>(endpoint, value);
         }
         catch (RuntimeException error) {
-            return new Completion<>(index, null);
+            return null;
         }
     }
 
-    private static <T> Future<Completion<T>> awaitCompletion(
-            CompletionService<Completion<T>> completions,
-            long waitMillis) throws InterruptedException {
-        if (waitMillis ==
-                HostReachabilitySelection.WAIT_INDEFINITELY) {
-            return completions.take();
-        }
-        return completions.poll(
-                Math.max(1L, waitMillis),
-                TimeUnit.MILLISECONDS);
-    }
-
-    private static <T> Completion<T> getCompletion(
-            Future<Completion<T>> future)
+    private static <T> Result<T> getCompletion(
+            Future<Result<T>> future)
             throws InterruptedException {
         try {
             return future.get();
@@ -159,16 +110,6 @@ public final class HostReachabilityCoordinator {
             throw new IllegalStateException(
                     "Endpoint probe did not publish a completion",
                     error);
-        }
-    }
-
-    private static final class Completion<T> {
-        private final int index;
-        private final T value;
-
-        Completion(int index, T value) {
-            this.index = index;
-            this.value = value;
         }
     }
 }

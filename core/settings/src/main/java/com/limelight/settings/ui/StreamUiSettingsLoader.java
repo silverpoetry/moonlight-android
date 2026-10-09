@@ -15,6 +15,10 @@ public final class StreamUiSettingsLoader {
             SettingsRepository repository) {
         Objects.requireNonNull(repository, "repository");
         return StreamUiSettings.builder()
+                .setViewportZoomEnabled(repository.get(StreamUiSettingKeys.VIEWPORT_ZOOM_ENABLED))
+                .setVideoHidden(repository.get(StreamUiSettingKeys.VIDEO_HIDDEN))
+                .setMicrophoneEnabled(repository.get(StreamUiSettingKeys.MICROPHONE_ENABLED))
+                .setFullKeyboardVisible(repository.get(StreamUiSettingKeys.FULL_KEYBOARD_VISIBLE))
                 .setFloatingControlEnabled(repository.get(
                         StreamUiSettingKeys
                                 .FLOATING_CONTROL_ENABLED))

@@ -7,6 +7,7 @@ import android.view.ViewGroup;
 import androidx.annotation.MainThread;
 
 import com.limelight.settings.ui.StreamUiSettings;
+import com.limelight.binding.input.StreamInputGateway;
 import com.limelight.settings.ui.StreamUiSettingsState;
 
 import java.util.Objects;
@@ -30,6 +31,10 @@ public final class StreamFloatingControlController {
     private final ActionSink actionSink;
 
     private FloatingControlView controlView;
+    private FloatingMousePanel mousePanel;
+    private Runnable mouseClosed;
+
+    public boolean isMouseControlsVisible() { return mousePanel != null; }
     private boolean destroyed;
 
     @MainThread
@@ -67,8 +72,7 @@ public final class StreamFloatingControlController {
         if (destroyed) {
             return;
         }
-        if (controlView != null &&
-                controlView.getVisibility() == View.VISIBLE) {
+        if (isVisible()) {
             hide();
         }
         else {
@@ -81,11 +85,16 @@ public final class StreamFloatingControlController {
         if (destroyed) {
             return;
         }
-        ensureControlView().setVisibility(View.VISIBLE);
+        if (mousePanel != null) {
+            return;
+        }
+        FloatingControlView view = ensureControlView();
+        view.setVisibility(View.VISIBLE);
     }
 
     @MainThread
     public void hide() {
+        closeMousePanel();
         if (controlView != null) {
             controlView.setVisibility(View.GONE);
         }
@@ -93,8 +102,67 @@ public final class StreamFloatingControlController {
 
     @MainThread
     public boolean isVisible() {
-        return controlView != null &&
+        return mousePanel != null || controlView != null &&
                 controlView.getVisibility() == View.VISIBLE;
+    }
+
+    @MainThread
+    public void showMouseControls(StreamInputGateway input, View streamView,
+            FloatingMousePanel.PointerSink pointerSink, Runnable onViewportChanged, Runnable onClosed) {
+        if (destroyed || mousePanel != null) {
+            return;
+        }
+        float density = context.getResources().getDisplayMetrics().density;
+        FloatingControlView ball = ensureControlView();
+        ball.suspendDocking();
+        final float ballX = ball.getX();
+        final float ballY = ball.getY();
+        int panelWidth = Math.min((int) (156 * density), Math.max(1, parent.getWidth() - (int) (16 * density)));
+        int panelHeight = Math.round(panelWidth * 208f / 156f);
+        final float panelX = Math.max(0, Math.min(parent.getWidth() - panelWidth,
+                ballX + ball.getWidth() / 2f - panelWidth / 2f));
+        final float panelY = Math.max(0, Math.min(parent.getHeight() - panelHeight,
+                ballY + ball.getHeight() / 2f - panelHeight / 2f));
+        FloatingMousePanel panel = new FloatingMousePanel(context, input, streamView, pointerSink, onViewportChanged, () -> {
+            float restoreX = ballX;
+            float restoreY = ballY;
+            if (controlView != null && mousePanel != null) {
+                restoreX += mousePanel.getX() - panelX;
+                restoreY += mousePanel.getY() - panelY;
+            }
+            closeMousePanel();
+            show();
+            ball.resumeDocking(restoreX, restoreY);
+        });
+        mouseClosed = onClosed;
+        android.widget.FrameLayout.LayoutParams parameters = new android.widget.FrameLayout.LayoutParams(
+                panelWidth,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        parent.addView(panel, parameters);
+        panel.setX(panelX);
+        panel.setY(panelY);
+        if (controlView != null) {
+            controlView.setVisibility(View.GONE);
+        }
+        mousePanel = panel;
+    }
+
+    private void closeMousePanel() {
+        if (mousePanel != null) {
+            mousePanel.release();
+            parent.removeView(mousePanel);
+            mousePanel = null;
+            if (mouseClosed != null) {
+                mouseClosed.run();
+                mouseClosed = null;
+            }
+        }
+    }
+
+    public void cancelActiveInput() {
+        if (mousePanel != null) {
+            mousePanel.releaseButtons();
+        }
     }
 
     @MainThread
@@ -103,6 +171,7 @@ public final class StreamFloatingControlController {
             return;
         }
         destroyed = true;
+        closeMousePanel();
         if (controlView == null) {
             return;
         }

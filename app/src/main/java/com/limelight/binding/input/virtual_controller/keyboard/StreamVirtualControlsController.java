@@ -87,6 +87,18 @@ public final class StreamVirtualControlsController {
         return virtualKeys != null && virtualKeys.isVisible();
     }
 
+    public boolean isFullKeyboardVisible() {
+        return fullKeyboard != null && fullKeyboard.isVisible();
+    }
+
+    public void showFullKeyboard() {
+        FullKeyboardOverlay overlay = ensureFullKeyboard();
+        if (overlay != null) {
+            overlay.refreshLayout();
+            overlay.show();
+        }
+    }
+
     public boolean isVirtualGamepadCreated() {
         return virtualGamepad != null;
     }

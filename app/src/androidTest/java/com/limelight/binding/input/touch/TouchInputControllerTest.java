@@ -1,6 +1,8 @@
 package com.limelight.binding.input.touch;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.view.InputDevice;
 import android.view.MotionEvent;
@@ -18,6 +20,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -113,6 +118,7 @@ public final class TouchInputControllerTest {
         streamView.setTranslationX(30);
         streamView.setTranslationY(20);
         controller.setMode(TouchInputMode.ABSOLUTE_MOUSE);
+        controller.setViewportZoomEnabled(true);
 
         assertTrue(controller.handleMotionEvent(
                 backgroundView,
@@ -162,22 +168,140 @@ public final class TouchInputControllerTest {
     }
 
     @Test
-    public void suspendedInputResumesWithoutChangingMode() {
+    public void enablingZoomKeepsOrdinaryClicksOnTheSelectedInputMode() {
+        FrameLayout parent = new FrameLayout(streamView.getContext());
+        parent.addView(streamView);
         controller.setMode(TouchInputMode.ABSOLUTE_MOUSE);
-        controller.setInputSuspended(true);
+        controller.setViewportZoomEnabled(true);
         controller.handleMotionEvent(
                 streamView,
                 event(0, MotionEvent.ACTION_DOWN, 0, 100, 100));
-        assertEquals(0, inputSink.packetCount);
-
-        controller.setInputSuspended(false);
         controller.handleMotionEvent(
                 streamView,
-                event(10, MotionEvent.ACTION_DOWN, 0, 120, 120));
-        controller.handleMotionEvent(
-                streamView,
-                event(20, MotionEvent.ACTION_UP, 0, 120, 120));
+                event(10, MotionEvent.ACTION_UP, 0, 100, 100));
         assertEquals(1, inputSink.mousePositionPacketCount);
+
+        controller.setViewportZoomEnabled(false);
+        controller.handleMotionEvent(
+                streamView,
+                event(300, MotionEvent.ACTION_DOWN, 0, 120, 120));
+        controller.handleMotionEvent(
+                streamView,
+                event(310, MotionEvent.ACTION_UP, 0, 120, 120));
+        assertEquals(2, inputSink.mousePositionPacketCount);
+    }
+
+    @Test
+    public void localPinchDoesNotClickAndNextClickUsesTheZoomedVideoCoordinates() {
+        View background = attachInputSurface();
+        controller.setMode(TouchInputMode.ABSOLUTE_MOUSE);
+        controller.setViewportZoomEnabled(true);
+        controller.handleMotionEvent(background,
+                event(0, MotionEvent.ACTION_DOWN, 0, 200, 250));
+        controller.handleMotionEvent(background,
+                event(10, MotionEvent.ACTION_POINTER_DOWN, 1, 200, 250, 400, 250));
+        controller.handleMotionEvent(background,
+                event(30, MotionEvent.ACTION_MOVE, 0, 150, 250, 450, 250));
+        assertEquals(1.5f, streamView.getScaleX(), 0.001f);
+        assertEquals(0, inputSink.touchpadFramePacketCount);
+        controller.handleMotionEvent(background,
+                event(40, MotionEvent.ACTION_POINTER_UP, 1, 150, 250, 450, 250));
+        controller.handleMotionEvent(background,
+                event(50, MotionEvent.ACTION_UP, 0, 150, 250));
+        assertEquals(0, inputSink.mousePositionPacketCount);
+
+        controller.handleMotionEvent(background,
+                event(400, MotionEvent.ACTION_DOWN, 0, 600, 250));
+        controller.handleMotionEvent(background,
+                event(410, MotionEvent.ACTION_UP, 0, 600, 250));
+        assertEquals(1, inputSink.mousePositionPacketCount);
+        assertEquals(500, inputSink.lastMouseX);
+        assertEquals(250, inputSink.lastMouseY);
+    }
+
+    @Test
+    public void parallelTwoFingerMovementStillReachesTheNativeTouchpad() {
+        View background = attachInputSurface();
+        controller.setMode(TouchInputMode.NATIVE_TOUCHPAD);
+        controller.setViewportZoomEnabled(true);
+        controller.handleMotionEvent(background,
+                event(0, MotionEvent.ACTION_DOWN, 0, 200, 250));
+        controller.handleMotionEvent(background,
+                event(10, MotionEvent.ACTION_POINTER_DOWN, 1, 200, 250, 400, 250));
+        controller.handleMotionEvent(background,
+                event(30, MotionEvent.ACTION_MOVE, 0, 200, 350, 400, 350));
+        assertTrue(inputSink.touchpadFramePacketCount > 0);
+        assertEquals(2, inputSink.lastTouchpadContactCount);
+        assertEquals(1f, streamView.getScaleX(), 0f);
+    }
+
+    @Test
+    public void thirdFingerReleasesPendingInputToTheDirectTouchMode() {
+        View background = attachInputSurface();
+        controller.setMode(TouchInputMode.MULTI_TOUCH);
+        controller.setViewportZoomEnabled(true);
+        controller.handleMotionEvent(background,
+                event(0, MotionEvent.ACTION_DOWN, 0, 200, 250));
+        controller.handleMotionEvent(background,
+                event(10, MotionEvent.ACTION_POINTER_DOWN, 1, 200, 250, 400, 250));
+        controller.handleMotionEvent(background,
+                event(20, MotionEvent.ACTION_POINTER_DOWN, 2, 200, 250, 400, 250, 600, 250));
+        assertTrue(inputSink.directTouchPacketCount >= 3);
+        assertEquals(1f, streamView.getScaleX(), 0f);
+    }
+
+    @Test
+    public void pinchStartingDuringKeyboardTapReplayIsRecognizedOnce() throws Exception {
+        CountDownLatch nextPinchMoved = new CountDownLatch(1);
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            View background = attachInputSurface();
+            settingsState.replace(settingsState.get().toBuilder()
+                    .setSoftKeyboardGestureFingers(3).build());
+            controller.setMode(TouchInputMode.ABSOLUTE_MOUSE);
+            controller.setViewportZoomEnabled(true);
+            Handler mainHandler = new Handler(Looper.getMainLooper());
+
+            // The first native frame marks the keyboard coordinator's timed
+            // replay. Start a new pinch before that replay's final UP arrives.
+            inputSink.onFirstMultiContactFrame = () -> mainHandler.post(() -> {
+                downTimeMs = SystemClock.uptimeMillis();
+                controller.handleMotionEvent(background,
+                        event(0, MotionEvent.ACTION_DOWN, 0, 200, 250));
+                controller.handleMotionEvent(background,
+                        event(1, MotionEvent.ACTION_POINTER_DOWN, 1, 200, 250, 400, 250));
+                mainHandler.postDelayed(() -> {
+                    controller.handleMotionEvent(background,
+                            event(SystemClock.uptimeMillis() - downTimeMs,
+                                    MotionEvent.ACTION_MOVE, 0, 150, 250, 450, 250));
+                    nextPinchMoved.countDown();
+                }, BufferedTouchEventDispatcher.MIN_NATIVE_TAP_HOLD_MS + 20);
+            });
+
+            downTimeMs = SystemClock.uptimeMillis();
+            controller.handleMotionEvent(background,
+                    event(0, MotionEvent.ACTION_DOWN, 0, 200, 250));
+            controller.handleMotionEvent(background,
+                    event(10, MotionEvent.ACTION_POINTER_DOWN, 1, 200, 250, 400, 250));
+            controller.handleMotionEvent(background,
+                    event(20, MotionEvent.ACTION_POINTER_UP, 1, 200, 250, 400, 250));
+            controller.handleMotionEvent(background,
+                    event(21, MotionEvent.ACTION_UP, 0, 200, 250));
+        });
+
+        assertTrue("Queued pinch was not dispatched", nextPinchMoved.await(2, TimeUnit.SECONDS));
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
+                assertEquals(1.5f, streamView.getScaleX(), 0.001f));
+    }
+
+    private View attachInputSurface() {
+        FrameLayout parent = new FrameLayout(streamView.getContext());
+        View background = new View(streamView.getContext());
+        parent.addView(background);
+        parent.addView(streamView);
+        parent.layout(0, 0, 1000, 500);
+        background.layout(0, 0, 1000, 500);
+        streamView.layout(0, 0, 1000, 500);
+        return background;
     }
 
     private MotionEvent event(
@@ -251,6 +375,7 @@ public final class TouchInputControllerTest {
         int lastMouseY;
         int lastMouseReferenceWidth;
         int lastMouseReferenceHeight;
+        Runnable onFirstMultiContactFrame;
 
         @Override
         public void sendMousePosition(
@@ -346,6 +471,11 @@ public final class TouchInputControllerTest {
             packetCount++;
             touchpadFramePacketCount++;
             lastTouchpadContactCount = contactCount;
+            if (contactCount == 2 && onFirstMultiContactFrame != null) {
+                Runnable callback = onFirstMultiContactFrame;
+                onFirstMultiContactFrame = null;
+                callback.run();
+            }
             return 0;
         }
 

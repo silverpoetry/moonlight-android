@@ -155,8 +155,9 @@ public final class AndroidStreamNativeCursorController {
         }
     }
 
+    /** Reprojects cached cursor state after video layout, zoom, or pan changes. */
     @MainThread
-    private void refreshOverlayGeometry() {
+    public void refreshOverlayGeometry() {
         refreshCursorScale();
         applyCachedPosition();
     }

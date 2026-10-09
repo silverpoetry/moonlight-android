@@ -20,14 +20,12 @@ import java.net.InetAddress;
 import java.net.Proxy;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.MessageDigest;
 import java.security.Principal;
 import java.security.PrivateKey;
-import java.security.SecureRandom;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -39,13 +37,9 @@ import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocket;
-import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509KeyManager;
@@ -101,9 +95,26 @@ public class NvHTTP {
     private X509TrustManager defaultTrustManager;
     private X509TrustManager trustManager;
     private X509KeyManager keyManager;
-    private X509Certificate serverCert;
+    private volatile X509Certificate serverCert;
+    private final NvHttpTlsState tlsState = new NvHttpTlsState();
 
     private String clientName;
+    private final java.util.Set<Call> pendingCalls =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private volatile boolean requestsCanceled;
+    private boolean trackPendingRequests;
+
+    public void trackPendingRequests() {
+        trackPendingRequests = true;
+    }
+
+    /** Cancels only requests created by this transport instance. */
+    public void cancelPendingRequests() {
+        requestsCanceled = true;
+        for (Call call : pendingCalls) {
+            call.cancel();
+        }
+    }
 
     public void setClientName(String clientName) {
         this.clientName = clientName;
@@ -111,6 +122,7 @@ public class NvHTTP {
 
     void setServerCert(X509Certificate serverCert) {
         this.serverCert = serverCert;
+        tlsState.invalidate();
     }
 
     private static X509TrustManager getDefaultTrustManager() {
@@ -377,10 +389,13 @@ public class NvHTTP {
                 // This will throw an exception if the request came back with a failure status.
                 // We want this because it will throw us into the HTTP case if the client is unpaired.
                 getServerVersion(resp);
+                tlsState.setSessionReuseEnabled(
+                        getXmlString(resp, "TlsSessionResumption", false));
             }
             catch (HostHttpResponseException e) {
                 if (e.getErrorCode() == 401) {
                     // Cert validation error - fall back to HTTP
+                    tlsState.invalidate();
                     return openHttpConnectionToString(client, baseUrlHttp, "serverinfo");
                 }
 
@@ -442,18 +457,8 @@ public class NvHTTP {
         return getComputerDetails(getServerInfo(likelyOnline));
     }
 
-    // This hack is Android-specific but we do it on all platforms
-    // because it doesn't really matter
-    private OkHttpClient performAndroidTlsHack(OkHttpClient client) {
-        // Doing this each time we create a socket is required
-        // to avoid the SSLv3 fallback that causes connection failures
-        try {
-            SSLContext sc = SSLContext.getInstance("TLS");
-            sc.init(new KeyManager[] { keyManager }, new TrustManager[] { trustManager }, new SecureRandom());
-            return client.newBuilder().sslSocketFactory(sc.getSocketFactory(), trustManager).build();
-        } catch (NoSuchAlgorithmException | KeyManagementException e) {
-            throw new RuntimeException(e);
-        }
+    private OkHttpClient withClientTls(OkHttpClient client) {
+        return tlsState.apply(client, keyManager, trustManager);
     }
 
     private HttpUrl getCompleteUrl(HttpUrl baseUrl, String path, String query) {
@@ -484,10 +489,21 @@ public class NvHTTP {
     // The initial pair query does require outside action (user entering a PIN) but subsequent pairing
     // queries do not.
     private ResponseBody openHttpConnection(OkHttpClient client, HttpUrl baseUrl, String path, String query) throws IOException {
+        final long requestStarted = BuildConfig.DEBUG ? System.nanoTime() : 0;
         HttpUrl completeUrl = getCompleteUrl(baseUrl, path, query);
         Request request = new Request.Builder().url(completeUrl).get().build();
-        Response response = OkHttpCalls.execute(
-                performAndroidTlsHack(client).newCall(request));
+        Call call = withClientTls(client).newCall(request);
+        if (trackPendingRequests) {
+            pendingCalls.add(call);
+        }
+        if (requestsCanceled || Thread.currentThread().isInterrupted()) {
+            call.cancel();
+        }
+        Response response = OkHttpCalls.execute(call);
+        if (BuildConfig.DEBUG) {
+            LimeLog.info("HTTP timing " + path + ": headers=" +
+                    (System.nanoTime() - requestStarted) / 1_000_000 + " ms");
+        }
 
         ResponseBody body = response.body();
         
@@ -513,10 +529,16 @@ public class NvHTTP {
     }
 
     private String openHttpConnectionToString(OkHttpClient client, HttpUrl baseUrl, String path, String query) throws IOException {
+        final long requestStarted = BuildConfig.DEBUG ? System.nanoTime() : 0;
         try {
             ResponseBody resp = openHttpConnection(client, baseUrl, path, query);
             String respString = resp.string();
             resp.close();
+            if (BuildConfig.DEBUG) {
+                // Query strings contain session keys; timing identifies only the operation.
+                LimeLog.info("HTTP timing " + path + ": complete=" +
+                        (System.nanoTime() - requestStarted) / 1_000_000 + " ms");
+            }
 
             if (verbose && !path.equals("serverinfo")) {
                 HttpUrl completeUrl = getCompleteUrl(
@@ -967,7 +989,7 @@ public class NvHTTP {
                 .writeTimeout(30, TimeUnit.SECONDS)
                 .build();
         try (Response response = OkHttpCalls.execute(
-                performAndroidTlsHack(client).newCall(request))) {
+                withClientTls(client).newCall(request))) {
             if (!response.isSuccessful()) {
                 throw new HostHttpResponseException(response.code(), response.message());
             }
@@ -1022,7 +1044,7 @@ public class NvHTTP {
                 .build();
 
         try (Response response = OkHttpCalls.execute(
-                performAndroidTlsHack(client).newCall(request))) {
+                withClientTls(client).newCall(request))) {
             if (!response.isSuccessful()) {
                 throw new HostHttpResponseException(response.code(), response.message());
             }
@@ -1288,7 +1310,7 @@ public class NvHTTP {
                 .build();
 
         try (Response response = OkHttpCalls.execute(
-                performAndroidTlsHack(
+                withClientTls(
                         httpClientShortConnectTimeout).newCall(request))) {
             if (!response.isSuccessful() && response.code() != 404) {
                 throw new HostHttpResponseException(
@@ -1301,7 +1323,7 @@ public class NvHTTP {
             OkHttpClient client,
             Request request,
             CancellationSignal cancellationSignal) throws IOException {
-        Call call = performAndroidTlsHack(client).newCall(request);
+        Call call = withClientTls(client).newCall(request);
         if (cancellationSignal == null) {
             return new ClipboardHttpResponse(
                     OkHttpCalls.execute(call),
@@ -1393,7 +1415,7 @@ public class NvHTTP {
                 .build();
 
         try (Response response = OkHttpCalls.execute(
-                performAndroidTlsHack(client).newCall(request))) {
+                withClientTls(client).newCall(request))) {
             if (!response.isSuccessful()) {
                 throw new HostHttpResponseException(response.code(), response.message());
             }
@@ -1443,7 +1465,7 @@ public class NvHTTP {
                 .writeTimeout(60, TimeUnit.SECONDS)
                 .build();
         try (Response response = OkHttpCalls.execute(
-                performAndroidTlsHack(client).newCall(request))) {
+                withClientTls(client).newCall(request))) {
             if (!response.isSuccessful()) {
                 throw new HostHttpResponseException(response.code(), response.message());
             }
@@ -1469,7 +1491,7 @@ public class NvHTTP {
                 .readTimeout(60, TimeUnit.SECONDS)
                 .build();
         try (Response response = OkHttpCalls.execute(
-                performAndroidTlsHack(client).newCall(request))) {
+                withClientTls(client).newCall(request))) {
             if (!response.isSuccessful()) {
                 throw new HostHttpResponseException(response.code(), response.message());
             }

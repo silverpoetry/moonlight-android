@@ -32,6 +32,37 @@ import java.util.Map;
 
 public final class StreamSettingsSessionTest {
     @Test
+    public void quickControlsSurviveReloadFromRepository() {
+        Fixture fixture = new Fixture();
+        fixture.effects.fixture = fixture;
+        fixture.session.applyInput(InputSettingsUpdate.touchMode(2));
+        fixture.session.applyInput(InputSettingsUpdate.absoluteMouseMode(true));
+        fixture.session.applyUi(StreamUiSettingsUpdate.performanceOverlayEnabled(true));
+        fixture.session.applyUi(StreamUiSettingsUpdate.compactPerformanceOverlay(true));
+        fixture.session.applyUi(StreamUiSettingsUpdate.viewportZoomEnabled(true));
+        fixture.session.applyUi(StreamUiSettingsUpdate.videoHidden(true));
+        fixture.session.applyUi(StreamUiSettingsUpdate.microphoneEnabled(true));
+        fixture.session.applyUi(StreamUiSettingsUpdate.fullKeyboardVisible(true));
+        fixture.session.applyController(ControllerSettingsUpdate.onscreenControllerEnabled(true));
+        fixture.session.applyVirtualControls(
+                com.limelight.settings.virtualcontrols.VirtualControlSettingsUpdate.showVirtualKeysOnStart(true));
+
+        InputSettings input = com.limelight.settings.input.InputSettingsLoader.load(fixture.repository);
+        StreamUiSettings ui = com.limelight.settings.ui.StreamUiSettingsLoader.load(fixture.repository);
+        assertEquals(2, input.getTouchModePreferenceValue());
+        assertTrue(input.isAbsoluteMouseMode());
+        assertTrue(ui.isPerformanceOverlayEnabled());
+        assertTrue(ui.isCompactPerformanceOverlay());
+        assertTrue(ui.isViewportZoomEnabled());
+        assertTrue(ui.isVideoHidden());
+        assertTrue(ui.isMicrophoneEnabled());
+        assertTrue(ui.isFullKeyboardVisible());
+        assertTrue(com.limelight.settings.controller.ControllerSettingsLoader.load(fixture.repository)
+                .isOnscreenControllerEnabled());
+        assertTrue(com.limelight.settings.virtualcontrols.VirtualControlSettingsLoader.load(fixture.repository)
+                .shouldShowVirtualKeysOnStart());
+    }
+    @Test
     public void controllerEffectsOnlyFollowSemanticTransitions() {
         Fixture fixture = new Fixture();
 

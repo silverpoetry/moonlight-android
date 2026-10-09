@@ -6,6 +6,14 @@ import com.limelight.settings.SettingKey;
  * Canonical persisted schema for in-stream UI policy.
  */
 public final class StreamUiSettingKeys {
+    public static final SettingKey<Boolean> VIEWPORT_ZOOM_ENABLED =
+            SettingKey.booleanKey("stream.ui.viewport_zoom.enabled", false);
+    public static final SettingKey<Boolean> VIDEO_HIDDEN =
+            SettingKey.booleanKey("stream.ui.video.hidden", false);
+    public static final SettingKey<Boolean> MICROPHONE_ENABLED =
+            SettingKey.booleanKey("stream.ui.microphone.enabled", false);
+    public static final SettingKey<Boolean> FULL_KEYBOARD_VISIBLE =
+            SettingKey.booleanKey("stream.ui.full_keyboard.visible", false);
     public static final SettingKey<Boolean>
             FLOATING_CONTROL_ENABLED =
             SettingKey.booleanKey(
@@ -18,7 +26,8 @@ public final class StreamUiSettingKeys {
                     0,
                     0,
                     1,
-                    2)
+                    2,
+                    3)
                     .renamedFrom("ax_floating_operate");
     public static final SettingKey<Boolean>
             REMEMBER_FLOATING_POSITION =
