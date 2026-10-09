@@ -1,7 +1,6 @@
 package com.limelight.binding.input.evdev;
 
 import android.app.Activity;
-import android.os.Build;
 import android.os.Looper;
 import android.widget.Toast;
 
@@ -9,7 +8,6 @@ import com.limelight.LimeLog;
 import com.limelight.binding.input.capture.InputCaptureProvider;
 
 import java.io.Closeable;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -56,44 +54,14 @@ public class EvdevCaptureProvider extends InputCaptureProvider {
 
             // On Nougat and later, we'll need to pass the command directly to SU.
             // Writing to SU's input stream after it has started doesn't seem to work anymore.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                // Launch evdev_reader directly via SU
-                try {
-                    su = new ProcessBuilder("su", "-c", evdevReaderCmd).start();
-                } catch (IOException e) {
-                    reportDeviceNotRooted();
-                    LimeLog.warning(
-                            "Unable to start the evdev reader through su",
-                            e);
-                    return;
-                }
-            }
-            else {
-                // Launch a SU shell on Marshmallow and earlier
-                ProcessBuilder builder = new ProcessBuilder("su");
-                builder.redirectErrorStream(true);
-
-                try {
-                    su = builder.start();
-                } catch (IOException e) {
-                    reportDeviceNotRooted();
-                    LimeLog.warning(
-                            "Unable to start the root shell for evdev",
-                            e);
-                    return;
-                }
-
-                // Start evdevreader
-                DataOutputStream suOut = new DataOutputStream(su.getOutputStream());
-                try {
-                    suOut.writeChars(evdevReaderCmd+"\n");
-                } catch (IOException e) {
-                    reportDeviceNotRooted();
-                    LimeLog.warning(
-                            "Unable to launch the evdev reader",
-                            e);
-                    return;
-                }
+            try {
+                su = new ProcessBuilder("su", "-c", evdevReaderCmd).start();
+            } catch (IOException e) {
+                reportDeviceNotRooted();
+                LimeLog.warning(
+                        "Unable to start the evdev reader through su",
+                        e);
+                return;
             }
 
             // Wait for evdevreader's connection
